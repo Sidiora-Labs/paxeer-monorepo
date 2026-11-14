@@ -8,7 +8,7 @@ export const metadata = metadataFor('/agents')
 export default function Agents() {
   return <DocsLayout>
     <div className="page-header"><h1 className="page-title">Agents on Paxeer X</h1><p className="page-description">Give autonomous software a verifiable identity, explicit authority, bounded spending, and an evidence trail for every network action.</p></div>
-    <p>Paxeer X agents submit signed EIP-1559 transactions to native precompiles on chain 125. The native kernel executes inside the BFT node. An agent reads state, prepares a transaction, reviews its effects, obtains a signature, and tracks the resulting evidence. The agent daemon supplies tenant isolation, session controls, policy, and runtime integration.</p>
+    <p>Paxeer X agents submit signed EIP-1559 transactions to native precompiles on chain 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. An agent reads state, prepares a transaction, reviews its effects, obtains a signature, and tracks the resulting evidence. The agent daemon supplies tenant isolation, session controls, policy, and runtime integration.</p>
     <h2>Choose an agent integration</h2>
     <table><thead><tr><th>Integration</th><th>Use it for</th><th>Authority path</th></tr></thead><tbody>
       <tr><td>Agent API</td><td>A custom service that needs preparation, signing, submission, reads, approvals, and event subscriptions.</td><td>Tenant-bound daemon session and explicit capability.</td></tr>

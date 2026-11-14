@@ -22,9 +22,9 @@ JSON message bindings. These local cases do not start HTTP, MCP or A2A services
 or qualify their deployed transport sessions. The role documents are committed
 first-party fixtures under `services/interop/specs/conformance/transport-*`.
 
-Paxeer mainnet-beta is one BFT network, EVM chain ID 125 (`eip155:125` in x402).
-The kernel is part of the network and proposes blocks; block commit establishes
-finality. Receipt signing and block commit are stages of that network. See the
+Paxeer mainnet-beta uses EVM chain ID 125 (`eip155:125` in x402). The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. Block commit establishes finality. Receipt signing and block commit are stages of that network. See the
 [portable verification guide](../../../../docs/interop/PORTABILITY.md) and
 [receipt format](../layerx-portable/FORMAT.md) for the limits of signature proofs.
 

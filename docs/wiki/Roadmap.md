@@ -5,9 +5,10 @@ module support and operational deployment. The labels 8.1–8.7 are page
 sections, not implementation task identifiers. Source availability does not
 establish a deployment address or activation on a particular network.
 
-Paxeer is one network with EVM chain id **125** (`0x7d`). The kernel is part
-of that network and proposes blocks; receipts are final when their blocks
-are committed. Guest functionality runs through Programs module `9`, so a
+Paxeer is one network with EVM chain id **125** (`0x7d`). The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. Receipts are final when validators commit their
+blocks. Guest functionality runs through Programs module `9`, so a
 feature can be implemented without acquiring a dedicated module ordinal.
 See [Programs workspace gates](ProgramsWorkspace.md) for the current
 workspace, ABI checks and guest packaging requirements.

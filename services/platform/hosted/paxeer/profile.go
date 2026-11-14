@@ -163,15 +163,21 @@ func (d *Deployment) WriteManifest(w io.Writer) error {
 		count++
 	}
 	if count == 0 || workloads != 1 || !services["paxeer-boundary"] || !services["paxeer-observer-boundary"] {
-		return errors.New("Paxeer manifest requires one boundary workload and both boundary services")
+		return manifestRequirementError{}
 	}
 	_, err = w.Write(raw)
 	return err
 }
 
+type manifestRequirementError struct{}
+
+func (manifestRequirementError) Error() string {
+	return "Paxeer manifest requires one boundary workload and both boundary services"
+}
+
 // RunDeployment exposes only rendering and inspection. In particular a legacy
 // phase is refused before any profile, key, journal or RPC endpoint is opened.
-func RunDeployment(arguments []string, output io.Writer) error {
+func RunDeployment(arguments []string, output io.Writer) (resultErr error) {
 	if len(arguments) != 2 || (arguments[0] != "manifest" && arguments[0] != "profile") {
 		return errors.New("usage: deployment manifest|profile PROFILE; historical deployment phases are retired")
 	}
@@ -179,7 +185,11 @@ func RunDeployment(arguments []string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer d.Close()
+	defer func() {
+		if closeErr := d.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	if arguments[0] == "manifest" {
 		return d.WriteManifest(output)
 	}

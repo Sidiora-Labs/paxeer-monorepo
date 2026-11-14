@@ -13,7 +13,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_565.kvx"
 
 
@@ -43,9 +45,12 @@ def section(heading, level=3):
 def test_f042_merged_network_embeds_kernel_and_block_proposal():
     overview = section("What is Paxeer X Network?", level=2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through", "modules/lxphost/",
         "There is no separate kernel daemon, sequencer service or checkpoint deployment",
     ):
@@ -60,7 +65,7 @@ def test_f042_merged_network_embeds_kernel_and_block_proposal():
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
     assert len(diagrams) == 2
     topology = diagrams[0]
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     assert "subgraph Node[paxd]" in topology
     assert "RPC --> Order --> Host --> Native" in topology
     assert "Validators -->|Commit| State" in topology
@@ -73,17 +78,19 @@ def test_f042_merged_network_embeds_kernel_and_block_proposal():
 
 def test_f042_chain_probe_and_numbered_hosts_use_root_json_rpc():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through" in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "there is no router and no separate LayerX interface" in README
-    assert "`node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix." in quickstart
+    assert "Use `api1` through `api14.mainnet-beta.paxeer.network` or" in RPC_REFERENCE
+    assert "`https://api14.mainnet-beta.paxeer.network`" in RPC_REFERENCE
+    assert "root path without a route suffix" in quickstart
+    assert "There is no separate LayerX interface, router, or sequencer service to deploy." in source(
+        "docs/wiki/PaxeerBoundary.md"
+    )
+    assert "`node.hyperpaxeer.com` is only the hpx library mirror" in RPC_REFERENCE
     allowed = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    urls = re.findall(r"https://api[^\s`\")]+", README)
+    urls = re.findall(r"https://api[^\s`\")]+", RPC_REFERENCE)
     assert urls
     for url in urls:
         parsed = urlsplit(url)
@@ -95,8 +102,8 @@ def test_f042_chain_probe_and_numbered_hosts_use_root_json_rpc():
     argv = shlex.split(blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " "))
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
@@ -221,21 +228,23 @@ def test_f042_build_examples_produce_and_start_paxd():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_f042_explorer_and_optional_hosted_gateway_entry_points():
     build = section("Build")
-    assert "Explorer operators use [`services/explorer`](services/explorer/)" in build
+    assert "Explorer operators use [`services/explorer`](../../services/explorer/)" in build
     docs = section("Documentation", level=2)
-    assert "[hosted quickstart](docs/wiki/Quickstart.md)" in docs
-    assert "[hosted gateway methods](docs/site/paxeer-docs/src/app/platform-api/page.tsx)" in docs
+    assert "[hosted quickstart](../../docs/wiki/Quickstart.md)" in docs
+    assert "[hosted gateway methods](../../docs/site/paxeer-docs/src/app/platform-api/page.tsx)" in docs
     quickstart = section("Quick start: connect to chain 125")
     assert "services/platform/hosted/gateway/openrpc.json" in quickstart
     assert "Obtain its deployment URL and credentials from the operator" in quickstart
     assert "gateway contract does not establish method availability at public node URLs" in quickstart
     assert "gateway is optional developer tooling" in README
-    assert "does not provide another execution or finality domain" in README
+    assert "The embedded kernel and Go node share consensus and committed-state authority." in source(
+        "docs/MONOREPO.md"
+    )
     methods = {
         method["name"]
         for method in json.loads(source("services/platform/hosted/gateway/openrpc.json"))["methods"]
@@ -243,7 +252,7 @@ def test_f042_explorer_and_optional_hosted_gateway_entry_points():
     assert {"px_getBalances", "px_getReceiptKeys"} <= methods
     for target in re.findall(r"\]\(([^)]+)\)", docs + build):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (NETWORK_PAGE.parent / target.split("#", 1)[0]).exists(), target
 
 
 def test_f042_record_maps_finding_to_proofs_and_evidence():

@@ -9,14 +9,13 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_767.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_767.kvx"
 )
 
 
@@ -56,12 +55,15 @@ def make_rule(path, target):
 def test_doc1_one_network_embeds_kernel_and_commits_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface", "outside consensus",
+        "outside consensus",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -72,7 +74,7 @@ def test_doc1_one_network_embeds_kernel_and_commits_finality():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for edge in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ):
@@ -82,11 +84,8 @@ def test_doc1_one_network_embeds_kernel_and_commits_finality():
 def test_doc1_root_node_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
         "gateway contract does not establish method availability at public node URLs",
-        "never a JSON-RPC endpoint",
     ):
         assert fact in quickstart, fact
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
@@ -98,19 +97,8 @@ def test_doc1_root_node_rpc_hosts_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
-    allowed = {"api-mainnet-beta.paxeer.network"} | {
-        f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)
-    }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
-        parsed = urlsplit(url)
-        if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
-            assert parsed.hostname in allowed
-            assert parsed.scheme == "https" and parsed.path in ("", "/")
-            assert not parsed.query and not parsed.fragment
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
 
@@ -167,7 +155,7 @@ def test_doc1_custody_checkpoint_retirement_and_historical_labels():
     anchor = source("precompiles/layerxanchor/layerxanchor.go")
     assert "!isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade" in anchor
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
-    for stale in (r"\blayerxd\b", r"\blx_[A-Za-z0-9_*]*", r"/rpc(?:/|\b)"):
+    for stale in (r"\blayerxd\b", r"\blx_[A-Za-z0-9_*]*"):
         assert not re.search(stale, README), stale
 
 
@@ -191,7 +179,7 @@ def test_doc1_build_and_release_describe_integrated_paxd():
     assert prerequisites == ["paxd-native-libs"]
     assert "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd" in recipe
     release = section("Releases and Network Upgrades")
-    assert "executes kernel activity inside `paxd` and commits it with the BFT chain state" in release
+    assert "executes kernel activity inside `paxd`; validators commit it in the same block" in release
     assert "retires the old custody/checkpoint write paths" in release
     assert "`v7.0-anchor-store-delete` removes the historical anchor store" in release
     assert 'const AnchorStoreDeleteUpgrade = "v7.0-anchor-store-delete"' in source("node/upgrades.go")

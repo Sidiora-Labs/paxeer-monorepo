@@ -15,7 +15,12 @@ from urllib.parse import unquote, urlsplit
 ROOT = Path(__file__).resolve().parents[2]
 DRIFT_FIXTURES = "tools/jev/tests/fixtures/"
 # Imported Hyperfide sources and documentation retain their upstream link policy.
-VENDORED_PROJECTS = ("tools/hyperfide/", "docs/hyperfide/")
+VENDORED_PROJECTS = (
+    "tools/hyperfide/",
+    "docs/hyperfide/",
+    "services/explorer/",
+    ".codify/",
+)
 MARKDOWN_SUFFIXES = {".md", ".markdown", ".mdown", ".mkd", ".mdx"}
 GO_IMPORTS = (
     "github.com/Sidiora-Labs/Paxeer-X-Network",

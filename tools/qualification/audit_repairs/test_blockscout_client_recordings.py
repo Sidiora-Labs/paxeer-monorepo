@@ -271,9 +271,8 @@ def test_repair_record_names_findings_tests_and_out_of_scope_wiring():
         "GET /api/health",
         "HealthApi::health_v1()",
         "Error::UnsupportedCapability",
-        "upstream-v1-2025-02-19",
-        "not a",
-        "fresh producer capture",
+        "The JSON files in this directory are static API fixtures.",
+        "is used for compatibility decoding; current health requests use `/api/health`.",
         LAST_ID,
     ):
         assert fact in documentation

@@ -78,9 +78,11 @@ Where the rest of the system fits:
 - **Oracle reads** use committed perps observations through the ABI-3 `oracle_read`
   host function ([`host/oracle.rs`](crates/layerx-programs-runtime/src/host/oracle.rs)).
   A guest state transition never dials out to fetch a price.
-- **Execution and finality** belong to one BFT network: `paxd`, EVM chain ID `125`
-  (`0x7d`). The kernel runs inside `paxd` and participates in block proposal and
-  execution. A receipt is final when its block is committed; a signed execution receipt
+- **Execution and finality** belong to Paxeer mainnet-beta, EVM chain ID `125`
+  (`0x7d`). The LayerX kernel runs inside every `paxd` node. It executes each
+  transaction when it arrives, assigns the next position in one global sequence,
+  returns a signed execution receipt and builds each block. Validators check that
+  block and commit it. A receipt is final when its block is committed; a signed execution receipt
   before commitment is execution evidence, not finality. Programs do not require
   periodic checkpoint settlement or a separate settlement deployment.
 - **Network access** uses public node JSON-RPC at the root URL; see the

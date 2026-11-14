@@ -33,11 +33,11 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Escrow and Conditional Payments](https://docs.paxeer.app/escrow/): Reserve funds, capture milestone payments, refund unused balances, and resolve disputes through native Paxeer X escrow.
 - [EVM Module](https://docs.paxeer.app/evm/): Native EVM execution, address association, receipts, pointers, and precompile integration on chain ID 125.
 - [Fees and payment costs](https://docs.paxeer.app/fees/): Understand EVM gas, canonical kernel fee schedules, program occupancy, merchant prices, and fee ceilings on Paxeer.
-- [Finality & Commitment](https://docs.paxeer.app/finality/): Follow a transaction from submission through verified execution to BFT block commitment.
+- [Finality & Commitment](https://docs.paxeer.app/finality/): Follow transactions executed and ordered by the LayerX kernel inside paxd, from signed execution receipts to blocks checked and committed by validators.
 - [Build with Foundry](https://docs.paxeer.app/foundry/): Compile and test the in-tree Solidity contracts with Forge, then inspect a Paxeer deployment with Cast.
 - [Funding and money movement](https://docs.paxeer.app/funding/): Quote and commit money movements, fund managed agents, and inspect receipt evidence on Paxeer.
 - [Governance](https://docs.paxeer.app/governance/): Authorized module proposals, scoped pauses, and constrained proxy upgrades on Paxeer.
-- [Validators and commitment](https://docs.paxeer.app/guarantors/): BFT block commitment, signed execution receipts, and independent evidence verification.
+- [Validators and commitment](https://docs.paxeer.app/guarantors/): The LayerX kernel executes and orders transactions and builds blocks; validators check and commit them. Verify execution receipts and commitment evidence.
 - [Build with Hardhat](https://docs.paxeer.app/hardhat/): Use the repository's Hardhat 2 project to compile contracts and interact with a development node.
 - [Human interface](https://docs.paxeer.app/human-interface/): Manage your Paxeer identity, balances, agents, approvals, and recovery through receipt-backed journeys.
 - [Identity, Ownership and Credentials](https://docs.paxeer.app/identity/): Connect human ownership, agent identities, hosted sessions and scoped signing authority across Paxeer X.
@@ -58,15 +58,15 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Paxeer X Modules](https://docs.paxeer.app/modules/): Native execution, markets, issuance, and data modules in modules/, including retired settlement-compatibility directories.
 - [Store Module](https://docs.paxeer.app/modules/store/): A single cached-context helper in modules/store/ — not a registered chain module.
 - [Token Factory Module](https://docs.paxeer.app/modules/tokenfactory/): Creation and admin management of native token denominations with creator-namespaced denoms.
-- [Network operations](https://docs.paxeer.app/network-operations/): Operate Paxeer mainnet-beta nodes and the optional hosted services, monitor readiness, and preserve durable state.
+- [Network operations](https://docs.paxeer.app/network-operations/): Operate paxd nodes with the LayerX kernel that executes and orders transactions and builds blocks for validators to check and commit.
 - [Network Parameters](https://docs.paxeer.app/network-parameters/): Chain identity, denominations, source defaults, and governance controls for Paxeer mainnet-beta.
 - [Troubleshoot a Node](https://docs.paxeer.app/node-troubleshooting/): Diagnose Paxeer X sync stalls, peer failures, RPC errors, database locks, and AppHash mismatches before changing node state.
-- [Operators Guide](https://docs.paxeer.app/operators/): Manage Paxeer X node services, validator accounts, monitoring, and recovery.
+- [Operators Guide](https://docs.paxeer.app/operators/): Manage paxd nodes, whose LayerX kernel executes and orders transactions and builds blocks, and the validators that check and commit them.
 - [Oracles & Market Risk](https://docs.paxeer.app/oracle-risk/): Understand how Paxeer X accepts signed price observations, rejects stale or anomalous inputs, and applies market-specific risk limits.
-- [Applications. Payments. Programs. Build on Paxeer.](https://docs.paxeer.app/): Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs.
+- [Applications. Payments. Programs. Build on Paxeer.](https://docs.paxeer.app/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [Paid APIs and x402](https://docs.paxeer.app/paid-apis/): Use x402 version 2 offers, EVM payments, and verified receipts to release paid HTTP resources on Paxeer mainnet-beta.
 - [Design for Parallel Execution](https://docs.paxeer.app/parallelization/): Reduce shared-state contention in Paxeer contracts, preserve on-chain invariants, and measure gas separately from throughput.
-- [Paxeer X and LayerX](https://docs.paxeer.app/paxeer-vs-layerx/): One BFT network combines EVM smart contracts, autonomous agent execution, and programmable finance, with finality at block commit.
+- [Paxeer X and LayerX](https://docs.paxeer.app/paxeer-vs-layerx/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [Your first payment](https://docs.paxeer.app/payments-quickstart/): Quote, commit, and verify a Paxeer X payment using the application SDK or a signed ledger transaction.
 - [Payments](https://docs.paxeer.app/payments/): Build transfers, paid APIs, merchant checkout, metered usage, and subscriptions on Paxeer X with explicit approval, bounded fees, and verifiable settlement.
 - [Perpetual Futures](https://docs.paxeer.app/perpetuals/): Trade long and short exposure through the native order book, USDL cross margin, governed market parameters and committed transaction receipts.
@@ -75,7 +75,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Programs Developer Workspace](https://docs.paxeer.app/program-workspace/): Build deterministic Paxeer X programs with runtime crates, language SDKs, fixtures, policies and reproducible development workflows.
 - [Deterministic Programs](https://docs.paxeer.app/programs/): Deploy and call deterministic Paxeer X programs with scoped capabilities, metered execution, governed upgrades and verifiable outputs.
 - [Receipts & Proofs](https://docs.paxeer.app/proofs/): Verify Paxeer outcomes independently with signed receipts, native state witnesses, custody proofs, and mirror archives.
-- [Public RPC endpoints](https://docs.paxeer.app/public-rpc/): Connect wallets and applications to Paxeer mainnet-beta, EVM chain ID 125, using node JSON-RPC at the endpoint root.
+- [Public RPC endpoints](https://docs.paxeer.app/public-rpc/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125.
 - [Python Quickstart](https://docs.paxeer.app/python/): Connect to Paxeer with web3.py, read PAX balances and ERC-20 state, and inspect transaction receipts without a signing key.
 - [Query the EVM](https://docs.paxeer.app/querying-evm/): Read Paxeer balances, contract state, receipts, and bounded event ranges with JSON-RPC, Cast, and viem.
 - [Receipts & Proofs](https://docs.paxeer.app/receipts/): Verify what the protocol executed, what it charged, and whether the covering block has committed.
@@ -86,10 +86,10 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Bounded Sandboxes](https://docs.paxeer.app/sandbox/): Lease isolated deterministic computation with explicit resource ceilings, receipt-backed lifecycle transitions, metered snapshots, and resumable execution.
 - [SDK quickstarts](https://docs.paxeer.app/sdk-quickstarts/): Register a principal, fund an account, submit a signed transaction, and verify execution evidence with the Paxeer X SDKs.
 - [Cosmos SDK Fork](https://docs.paxeer.app/sdk/): Paxeer X’s in-tree Cosmos SDK fork with Paxeer X-specific modifications and extensions.
-- [Security and trust boundaries](https://docs.paxeer.app/security/): How transaction signatures, receipt keys, committed blocks, and scoped service credentials establish trust in Paxeer X.
+- [Security and trust boundaries](https://docs.paxeer.app/security/): Verify signed execution receipts from the LayerX kernel inside paxd and the blocks it builds that validators check and commit.
 - [Sequencing & Finality](https://docs.paxeer.app/sequencing/): Follow a signed transaction through ordered execution, receipt verification, and BFT block commitment.
 - [Services and agreements](https://docs.paxeer.app/services/): Publish paid capabilities, agree on deliverables, attest execution, and resolve delivery through the Paxeer X service lifecycle.
-- [Settlement & committed evidence](https://docs.paxeer.app/settlement/): Verify signed execution, transaction inclusion, and committed block evidence on the Paxeer BFT chain.
+- [Settlement & committed evidence](https://docs.paxeer.app/settlement/): Verify signed execution, transaction inclusion, and committed block evidence on Paxeer X.
 - [Sidiora](https://docs.paxeer.app/sidiora/): The SID asset on Paxeer X: native balances, its stable ERC-20 address, bridge-controlled supply, and sponsored or native gas payments.
 - [Spot Exchange](https://docs.paxeer.app/spot-exchange/): Trade asset pairs on Paxeer X with deterministic order books, price-time matching, escrowed liquidity, and immediate two-leg settlement.
 - [Bounded Storage Scans](https://docs.paxeer.app/storage-scan/): Iterate Paxeer X program state with deterministic ordering, explicit page budgets, scope-bound continuation cursors, and metered canonical results.
@@ -97,7 +97,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Streaming Payments](https://docs.paxeer.app/streams/): Pay for elapsed time or verified usage with funded, capped streams, deterministic accrual, settlement, and cancellation.
 - [Event subscriptions](https://docs.paxeer.app/subscriptions/): Build durable agent consumers with scoped visibility, acknowledged cursors, explicit gap recovery, and verified receipt references.
 - [System map](https://docs.paxeer.app/system-map/): Explore every Paxeer 7.0.0 system by kind, release change, and name, with build commands, configuration, health checks, dependencies, and documentation.
-- [Unified Network Architecture](https://docs.paxeer.app/unified-network/): How Paxeer X combines EVM and Cosmos execution with LayerX activities, identity, programs, and receipts in one BFT network.
+- [Unified Network Architecture](https://docs.paxeer.app/unified-network/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [WASM Runtime](https://docs.paxeer.app/wasm-runtime/): Understand Paxeer’s in-tree CosmWasm virtual machine, Go and Rust boundary, native library builds, and gas accounting.
 - [WASM](https://docs.paxeer.app/wasm/): CosmWasm contract lifecycle, deployment permissions, and calls between Paxeer’s EVM and WebAssembly runtimes.
 - [WASM Bindings](https://docs.paxeer.app/wasmbinding/): Use Paxeer custom messages and queries from CosmWasm, including token creation, EVM calls, address association, and native module reads.
@@ -352,7 +352,7 @@ URL: https://docs.paxeer.app/activities/
 
 The signed, canonical unit of agent action across the Paxeer X execution system.
 
-The kernel represents native operations as activities with an actor, authority, payload, sequence, and receipt. Public clients submit signed EVM transactions to node JSON-RPC; native precompiles invoke the kernel within those transactions. The kernel is part of the Paxeer mainnet-beta BFT node and proposes blocks. Kernel state changes commit with the node's blocks, and a receipt is final when its block is committed.
+The kernel represents native operations as activities with an actor, authority, payload, sequence, and receipt. Public clients submit signed EVM transactions to node JSON-RPC; native precompiles invoke the kernel within those transactions. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Kernel state changes commit with the node's blocks, and a receipt is final when validators commit its block.
 
 ## The exact envelope
 
@@ -448,7 +448,7 @@ Runtime administration, the HPX node distribution, and operational controls for 
 
 ## Operating the unified network
 
-The HPX distribution installs and manages the Paxeer mainnet-beta BFT node, paxd. The node includes the EVM and native kernel on one network. EVM chain ID 125 identifies this network, and a receipt is final when its block is committed.
+The HPX distribution installs and manages the Paxeer mainnet-beta paxd node. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. The node includes the EVM and native kernel on one network. EVM chain ID 125 identifies this network, and a receipt is final when validators commit its block.
 
 Runtime logging administration is separate from economic and security administration. Chain governance controls native parameter and admin messages through `modules/layerxgov/`. Module configuration follows the authorization model implemented by that module.
 
@@ -933,7 +933,7 @@ The receipt route is served by the hosted agent boundary; the JSON-RPC methods a
 
 ## Evidence and write readiness
 
-Receipt trust keys are configured independently of incoming proof data. The hosted boundary verifies the receipt signature, its authorized key interval, transaction hash, and signing identity. The Agent API distinguishes execution evidence from committed-block evidence; a receipt is final when its block is committed by the BFT network.
+Receipt trust keys are configured independently of incoming proof data. The hosted boundary verifies the receipt signature, its authorized key interval, transaction hash, and signing identity. The Agent API distinguishes execution evidence from committed-block evidence; a receipt is final when validators commit its block.
 
 `tenant.readiness` reports `transport_ready`, `verified_reads_ready`, `writes_admitted`, and an optional recovery reason. Writes are admitted exactly when no recovery reason is present, which requires transport and a genuine state-proven account read for the authenticated tenant. Readiness is tenant-scoped; an HTTP connection alone does not establish recovered spending authority.
 
@@ -955,7 +955,7 @@ URL: https://docs.paxeer.app/agents/
 
 Give autonomous software a verifiable identity, explicit authority, bounded spending, and an evidence trail for every network action.
 
-Paxeer X agents submit signed EIP-1559 transactions to native precompiles on chain 125. The native kernel executes inside the BFT node. An agent reads state, prepares a transaction, reviews its effects, obtains a signature, and tracks the resulting evidence. The agent daemon supplies tenant isolation, session controls, policy, and runtime integration.
+Paxeer X agents submit signed EIP-1559 transactions to native precompiles on chain 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. An agent reads state, prepares a transaction, reviews its effects, obtains a signature, and tracks the resulting evidence. The agent daemon supplies tenant isolation, session controls, policy, and runtime integration.
 
 ## Choose an agent integration
 
@@ -1143,7 +1143,7 @@ Move assets between registered external chains and Paxeer with attestor signatur
 
 ## Choose the asset path
 
-External-chain bridging moves value between a foreign vault and a Paxeer bank denomination. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125; its kernel executes within the network. A successful Paxeer receipt is final when its block is committed. An external payout also requires the destination chain receipt.
+External-chain bridging moves value between a foreign vault and a Paxeer bank denomination. Paxeer mainnet-beta uses EVM chain ID 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A successful Paxeer receipt is final when validators commit its block. An external payout also requires the destination chain receipt.
 
 | Boundary | Asset backing | Acceptance evidence |
 | --- | --- | --- |
@@ -1450,7 +1450,7 @@ Block commitment, trusted state-sync checkpoints, and the disabled checkpoint an
 
 ## Block commitment
 
-Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel proposes blocks within the network. A receipt is final when its block is committed; a separate checkpoint submission is not part of application settlement.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when validators commit its block; a separate checkpoint submission is not part of application settlement.
 
 - `SubmitCheckpoint`, `SubmitAvailabilityAttestation`, and `SubmitEquivocation` in modules/layerxanchor/keeper/ unconditionally return a module-retired error.
 
@@ -1478,7 +1478,7 @@ Obtain commitments from verified block headers and validator commits. A root cop
 ## Transaction and block flow
 
 1. A signed transaction is submitted to the node and checked for mempool admission.
-2. The kernel proposes a block within the Paxeer consensus network.
+2. The kernel seals the block it has built.
 3. Validators evaluate the proposal under the configured consensus protocol.
 4. The application executes the ordered transactions and records their results.
 5. Consensus commits the block and the application commits its state.
@@ -1763,7 +1763,7 @@ The Express example uses exclusive file creation (`wx`) for fulfillment records.
 4. Store signed canonical receipts, transaction hashes, logs, receipt-key authorizations and merchant currency bindings for checkout completion and order reads.
 5. Connect fulfillment and webhook delivery to durable application records.
 
-Use [EVM applications](https://docs.paxeer.app/evm) for contract-facing experiences and [the SDK](https://docs.paxeer.app/sdk) for network integration. Commerce adapters preserve protocol-specific identities while submitting typed payment operations. Paxeer mainnet-beta is one BFT chain, and its receipts are final when their blocks are committed.
+Use [EVM applications](https://docs.paxeer.app/evm) for contract-facing experiences and [the SDK](https://docs.paxeer.app/sdk) for network integration. Commerce adapters preserve protocol-specific identities while submitting typed payment operations. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta receipts are final when validators commit their blocks.
 
 ---
 
@@ -1775,7 +1775,7 @@ The current paxd configuration files, node modes, RPC settings, and storage cont
 
 ## Configuration across the unified network
 
-The chain configuration below controls `paxd`. Hosted service configuration is maintained separately under `services/platform/hosted/` and the component workspaces. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel runs within the network. Configure hosted dependencies for that network and preserve their service-specific authorization settings.
+The chain configuration below controls `paxd`. Hosted service configuration is maintained separately under `services/platform/hosted/` and the component workspaces. Paxeer mainnet-beta uses EVM chain ID 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Configure hosted dependencies for that network and preserve their service-specific authorization settings.
 
 | Surface | Configure | Boundary |
 | --- | --- | --- |
@@ -1949,7 +1949,7 @@ Consensus service wiring, application execution, trusted headers, and validator 
 
 ## Overview
 
-Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel is part of the network and proposes blocks. A receipt is final when its block is committed. The tree includes a Tendermint-derived consensus stack and configurable Autobahn components; the application executes transactions and commits state. Network safety depends on the protocol's validator and trust assumptions, while observed block time and throughput depend on the deployed configuration.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when validators commit its block. The tree includes a Tendermint-derived consensus stack and configurable Autobahn components; the application executes transactions and commits state. Network safety depends on the protocol's validator and trust assumptions, while observed block time and throughput depend on the deployed configuration.
 
 ## Autobahn and Validator Committees
 
@@ -2033,7 +2033,7 @@ Build Solidity applications on Paxeer X and integrate wrapped PAX, token pointer
 
 ## Custody and settlement
 
-Paxeer mainnet-beta executes and settles transactions on one BFT chain. Funding uses native bank balances and derived sub-accounts. The `LayerXCustody.sol` ABI is in `precompiles/layerxcustody/LayerXCustody.sol`; `contracts/src/precompiles/ILayerXCustody.sol` is a Solidity interface. Custody calls at `0x1013` are disabled on the merged network. The checkpoint anchor at `0x1014` is also disabled once its store-delete upgrade is active.
+On Paxeer mainnet-beta, the LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it to settle transactions. Funding uses native bank balances and derived sub-accounts. The `LayerXCustody.sol` ABI is in `precompiles/layerxcustody/LayerXCustody.sol`; `contracts/src/precompiles/ILayerXCustody.sol` is a Solidity interface. Custody calls at `0x1013` are disabled on the merged network. The checkpoint anchor at `0x1014` is also disabled once its store-delete upgrade is active.
 
 Choose the interface for the native module your application uses and verify its authorization requirements. A deployed Solidity contract and a native precompile have distinct call targets and state. A receipt is final when its block is committed; see the [settlement guide](https://docs.paxeer.app/settlement) for related evidence.
 
@@ -2276,7 +2276,7 @@ cast receipt "$TX_HASH" --rpc-url "$PAXEER_RPC_URL" --json
 | Receipt status 0 | The transaction was included but execution reverted | Inspect the ABI, revert data, and execution trace |
 | Receipt status 1 | Execution succeeded | Compare emitted events and resulting application state with the intended action |
 
-A receipt is final when its block is committed on the BFT network. A timeout after submission does not prove the transaction failed. Search for the original hash first; a new transaction can repeat the application action.
+A receipt is final when validators commit its block. A timeout after submission does not prove the transaction failed. Search for the original hash first; a new transaction can repeat the application action.
 
 ## Check the sender and call
 
@@ -3253,7 +3253,7 @@ Native EVM execution, address association, receipts, pointers, and precompile in
 
 ## Overview
 
-The EVM module (`modules/evm/`) executes Ethereum-format transactions on Paxeer. It integrates with the [execution engine](https://docs.paxeer.app/engine) inside the BFT node, using EVM chain ID **125**.
+The EVM module (`modules/evm/`) executes Ethereum-format transactions on Paxeer. It integrates with the [execution engine](https://docs.paxeer.app/engine) inside the paxd node, using EVM chain ID **125**. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it.
 
 The module handles:
 
@@ -3582,11 +3582,11 @@ URL: https://docs.paxeer.app/finality/
 
 # Finality & Commitment
 
-Follow a transaction from submission through verified execution to BFT block commitment.
+Follow transactions executed and ordered by the LayerX kernel inside paxd, from signed execution receipts to blocks checked and committed by validators.
 
 ## Transaction progress on one network
 
-Paxeer is one BFT network. Its kernel participates in block production, and an execution receipt becomes final when its block is committed. EVM chain ID is `125`. The node implementation lives in `node/`; receipt progress is exposed by `rpc/sequencer_receipt.go`. See [Commitment evidence](https://docs.paxeer.app/checkpoints).
+The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. An execution receipt becomes final when its block is committed. EVM chain ID is `125`. The node implementation lives in `node/`; receipt progress is exposed by `rpc/sequencer_receipt.go`. See [Commitment evidence](https://docs.paxeer.app/checkpoints).
 
 | Stage | Name | Evidence and responsibility |
 | --- | --- | --- |
@@ -3906,9 +3906,9 @@ URL: https://docs.paxeer.app/guarantors/
 
 # Validators and commitment
 
-BFT block commitment, signed execution receipts, and independent evidence verification.
+The LayerX kernel executes and orders transactions and builds blocks; validators check and commit them. Verify execution receipts and commitment evidence.
 
-Paxeer validators commit blocks on one network. The kernel participates in block production. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.
+The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Paxeer validators commit blocks on one network. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.
 
 ## Verify the execution outcome
 
@@ -3939,7 +3939,7 @@ Verification checks the exact signed bytes and their bindings. Receipt output da
 
 ## Consensus membership
 
-Validator membership is part of the BFT network. The hosted gateway declares `px_getValidators` and `px_getCommit` in `services/platform/hosted/gateway/openrpc.json`; use their verified chain data when inspecting consensus evidence.
+Paxeer validators check and commit the blocks the kernel builds. The hosted gateway declares `px_getValidators` and `px_getCommit` in `services/platform/hosted/gateway/openrpc.json`; use their verified chain data when inspecting consensus evidence.
 
 The public EVM chain ID is `125`. Bind transaction signatures and receipt verification to the intended chain and obtain current consensus state from that network.
 
@@ -4328,7 +4328,7 @@ Build the Paxeer X node, deterministic LayerX kernel, hosted services, agent too
 
 ## Build the complete network stack
 
-The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces, SDKs, and program tooling. The network entry point is `paxd`, which embeds the kernel and proposes blocks. A receipt is final when its block commits.
+The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces, SDKs, and program tooling. The network entry point is `paxd`. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when validators commit its block.
 
 | Component | Build surface | Purpose |
 | --- | --- | --- |
@@ -5523,7 +5523,7 @@ Publish Paxeer X batch archives to external chains and verify committed receipt 
 
 The mirror system builds committed batch archives, publishes them to Ethereum or Solana, and retrieves them through independently configured chain sources. A consumer can then verify an archived receipt under its own sequencer key configuration without contacting the Paxeer X gateway.
 
-Mirror publication distributes evidence. Paxeer receipts are final once their blocks are committed by the BFT network. External-chain publication confirms archive availability under that chain's rules; it does not authorize a Paxeer transfer.
+Mirror publication distributes evidence. Paxeer receipts are final once validators commit their blocks. External-chain publication confirms archive availability under that chain's rules; it does not authorize a Paxeer transfer.
 
 ## Publisher and verifier roles
 
@@ -6442,9 +6442,9 @@ URL: https://docs.paxeer.app/network-operations/
 
 # Network operations
 
-Operate Paxeer mainnet-beta nodes and the optional hosted services, monitor readiness, and preserve durable state.
+Operate paxd nodes with the LayerX kernel that executes and orders transactions and builds blocks for validators to check and commit.
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID 125. The kernel runs inside `paxd` and participates in block proposal and execution. A receipt is final when its block is committed. Hosted identity, Human, gateway, registry, signing, and event-delivery services support applications around that network. The control routes below belong to `services/platform/hosted/testnet/`, the control service for an isolated hosted environment.
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when its block is committed. Hosted identity, Human, gateway, registry, signing, and event-delivery services support applications around that network. The control routes below belong to `services/platform/hosted/testnet/`, the control service for an isolated hosted environment.
 
 ## Service architecture
 
@@ -6657,7 +6657,7 @@ Use the RPC endpoint supplied by your node operator. The [HPX distribution and p
 
 ## Kernel Integration
 
-The node executes EVM transactions and kernel activities within one BFT network. `modules/lxphost/` connects kernel execution to the chain. See [Paxeer and LayerX](https://docs.paxeer.app/paxeer-vs-layerx) for the integrated architecture.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. `modules/lxphost/` connects kernel execution to the chain. See [Paxeer and LayerX](https://docs.paxeer.app/paxeer-vs-layerx) for the integrated architecture.
 
 ---
 
@@ -6768,13 +6768,13 @@ URL: https://docs.paxeer.app/operators/
 
 # Operators Guide
 
-Manage Paxeer X node services, validator accounts, monitoring, and recovery.
+Manage paxd nodes, whose LayerX kernel executes and orders transactions and builds blocks, and the validators that check and commit them.
 
 For stalled heights, peer failures, or state mismatches, start with [Troubleshoot a Node](https://docs.paxeer.app/node-troubleshooting). Record the binary revision and failing height before changing state.
 
 ## Operate the node and application services
 
-Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Kernel execution is embedded in `paxd` and participates in block proposal. A receipt is final when its block is committed. Hosted gateways and user services support applications around the chain. Assign each deployed service its own health checks, storage policy, and recovery procedure.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when its block is committed. Hosted gateways and user services support applications around the chain. Assign each deployed service its own health checks, storage policy, and recovery procedure.
 
 | Role | Responsibility | Operational evidence |
 | --- | --- | --- |
@@ -7011,13 +7011,15 @@ PAXEER X / NETWORK DOCUMENTATION
 
 # Applications. Payments. Programs. Build on Paxeer.
 
-Paxeer mainnet-beta runs EVM applications and the embedded LayerX kernel on one BFT network, with native payments, markets and deterministic programs.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 [Explore the network](https://docs.paxeer.app/unified-network)[Start with the XDK](https://docs.paxeer.app/xdk)
 
-One BFT networkEVM chain ID `125`Native token `PAX`
+LayerX kernelEVM chain ID `125`Native token `PAX`
 
-    Paxeer mainnet-beta: EVM applications and the LayerX kernel execute on one BFT network.EVM 125 · PAX
+    The LayerX kernel executes, orders and receipts every transaction; EVM applications run on the same sequence.EVM 125 · PAX
+
+On arrival, the kernel gives each transaction a position in one global sequence and returns a signed execution receipt. Validators check and commit each block it builds.
 
 NETWORK INTERFACES
 
@@ -7127,7 +7129,7 @@ Nodes, configuration, network services and settlement infrastructure.](https://d
 
 What is the difference between Paxeer X and LayerX?
 
-Paxeer mainnet-beta is one BFT network. LayerX is its embedded kernel for native activities and deterministic execution. EVM transactions call native precompiles, and receipt finality comes from the covering block commit. [Explore the network architecture](https://docs.paxeer.app/paxeer-vs-layerx)
+Paxeer X is the network and LayerX its kernel. LayerX executes each transaction on arrival, orders it, signs the receipt and builds the block that validators commit. EVM transactions run on the same sequence and call native precompiles. Receipt finality comes from the commit of the covering block. [Explore the network architecture](https://docs.paxeer.app/paxeer-vs-layerx)
 
  Which chain ID and token does the network use?
 
@@ -7139,7 +7141,7 @@ Through scoped, revocable delegation: primary and session keys, budget limits an
 
  How do I verify a payment actually settled?
 
-Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering BFT block is committed. [Receipts and proofs](https://docs.paxeer.app/receipts)
+Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering block is committed. [Receipts and proofs](https://docs.paxeer.app/receipts)
 
  Can I use my existing EVM tooling?
 
@@ -7147,7 +7149,7 @@ Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and
 
  How do I run a node or operate the network?
 
-Start with installation and configuration, then the operator guides for BFT nodes, validators, RPC endpoints and retained chain history. [Run a node](https://docs.paxeer.app/run-node)
+Start with installation and configuration, then the operator guides for paxd nodes, validators, RPC endpoints and retained chain history. [Run a node](https://docs.paxeer.app/run-node)
 
 ## Build an application. Connect to Paxeer.
 
@@ -7373,11 +7375,11 @@ URL: https://docs.paxeer.app/paxeer-vs-layerx/
 
 # Paxeer X and LayerX
 
-One BFT network combines EVM smart contracts, autonomous agent execution, and programmable finance, with finality at block commit.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 ## One Network, Kernel In-Process
 
-Paxeer X is one BFT network with EVM chain ID `125`. `paxd` supplies the Cosmos SDK chain and native EVM. The LayerX kernel is embedded in the node through `modules/lxphost` and participates in block proposal and deterministic execution. `node/sequencer` supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.
+Paxeer X uses EVM chain ID `125`. `paxd` supplies the Cosmos SDK chain and native EVM. The LayerX kernel runs inside the node through `modules/lxphost`, executes and orders each transaction and builds each block; validators check and commit it. Each transaction receives the next position in one global sequence and a signed execution receipt. EVM smart contracts, autonomous agent execution, and programmable finance share that sequence, with finality at block commit. `node/sequencer` supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.
 
 The kernel runs inside `paxd`. Native wallet payments submit signed EVM transactions to the ledger precompile; protocol activity authorization binds the payment terms. Kernel state changes commit with the rest of the node's transaction state. A receipt is final once its block is committed. There is no later checkpoint or settlement step.
 
@@ -7575,7 +7577,7 @@ Build transfers, paid APIs, merchant checkout, metered usage, and subscriptions 
 
 ## One payment lifecycle
 
-Paxeer X settles native Asset payments on one BFT chain. Applications quote a move, commit the accepted quote under a stable idempotency key, and track a journey whose outcome is backed by evidence. The native wallet prepares a ledger precompile call, discloses its terms, signs an EIP-1559 transaction, submits it to the node and verifies receipt progress.
+For native Asset payments on Paxeer X, the LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Applications quote a move, commit the accepted quote under a stable idempotency key, and track a journey whose outcome is backed by evidence. The native wallet prepares a ledger precompile call, discloses its terms, signs an EIP-1559 transaction, submits it to the node and verifies receipt progress.
 
 1. **Quote:** identify payer, recipient, Asset or currency, amount, mechanism, fee ceiling, expected arrival, and irreversible legs.
 2. **Approve and commit:** bind approval to those terms. An expired quote returns `quote-expired` rather than silently changing the payment.
@@ -8129,7 +8131,7 @@ Deploy and call deterministic Paxeer X programs with scoped capabilities, metere
 
 Programs extend the LayerX kernel domain of Paxeer X with application logic. A program executes a validated WebAssembly artifact under the identity, capability grants, access declarations, and resource ceilings of its invoking activity. Artifact validation rejects floating-point types and instructions and enforces structural limits before interpreter execution. The same admitted activity and state produce replayable results.
 
-Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated `402LXP` transfer sets applied by the kernel. The kernel executes within the Paxeer BFT node on EVM chain ID `125`. A receipt is final when its covering block is committed.
+Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated `402LXP` transfer sets applied by the kernel. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer uses EVM chain ID `125`. A receipt is final when validators commit its covering block.
 
 ## Application building blocks
 
@@ -8348,11 +8350,11 @@ URL: https://docs.paxeer.app/public-rpc/
 
 # Public RPC endpoints
 
-Connect wallets and applications to Paxeer mainnet-beta, EVM chain ID 125, using node JSON-RPC at the endpoint root.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125.
 
 ## Connect to the node
 
-Paxeer is one BFT network. The kernel runs inside `paxd`, and the proposer executes transactions and proposes their block. The node exposes Ethereum JSON-RPC for contracts, balances, logs and broadcasts. A receipt is final once its covering block commits.
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. The node exposes Ethereum JSON-RPC for contracts, balances, logs and broadcasts. A receipt is final once its covering block commits.
 
 | Interface | Endpoint | Purpose |
 | --- | --- | --- |
@@ -9718,7 +9720,7 @@ Chain maintainers work in `sdk/`, `modules/`, and `node/`. Application developer
 3. Track the transaction hash, execution receipt, and covering committed block.
 4. Verify receipt signatures and committed inclusion before treating a payment as final.
 
-The [network overview](https://docs.paxeer.app/unified-network) explains how these execution surfaces compose. The kernel executes within the BFT network; an execution receipt becomes final when its covering block is committed.
+The [network overview](https://docs.paxeer.app/unified-network) explains how these execution surfaces compose. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. An execution receipt becomes final when validators commit its covering block.
 
 ## Overview
 
@@ -9791,6 +9793,10 @@ Chain module source directories under `modules/`:
 - `launchpad`, `spot`, `perps`, `sequencer`, `store`, `xweb`, `lxphost`
 
 - `layerxagent`, `layerxanchor`, `layerxauth`, `layerxbridge`, `layerxchains`, `layerxcustody`, `layerxexchange`, `layerxgov`, `layerxledger`, `layerxpay`
+
+- Anchor — writes retire at the v7.0 upgrade height and bonds return to their owners; archive reads remain until the separate anchor-store deletion plan.
+
+- Custody — calls retire at the v7.0 upgrade height; remaining balances move to the custody authority and pending claims are cancelled.
 
 ## BaseApp
 
@@ -9922,9 +9928,9 @@ URL: https://docs.paxeer.app/security/
 
 # Security and trust boundaries
 
-How transaction signatures, receipt keys, committed blocks, and scoped service credentials establish trust in Paxeer X.
+Verify signed execution receipts from the LayerX kernel inside paxd and the blocks it builds that validators check and commit.
 
-Paxeer mainnet-beta is one BFT network. The kernel executes within the chain, and a transaction is final when its covering block is committed. A signed execution receipt establishes a narrower claim before commitment. Applications verify the evidence needed before releasing goods or updating balances.
+The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A transaction is final when its covering block is committed. A signed execution receipt establishes a narrower claim before commitment. Applications verify the evidence needed before releasing goods or updating balances.
 
 ## The trust boundaries
 
@@ -10003,7 +10009,7 @@ URL: https://docs.paxeer.app/sequencing/
 
 Follow a signed transaction through ordered execution, receipt verification, and BFT block commitment.
 
-Paxeer mainnet-beta is one BFT chain. Its kernel participates in block execution and proposal, and the committed chain records the resulting order. A signed receipt can be available before its covering block is committed.
+On Paxeer mainnet-beta, the LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it, and the committed chain records the resulting order. A signed receipt can be available before its covering block is committed.
 
 The proposer places `MsgSequenceBatch` at transaction index zero of each block at or above the sequencing activation height. Validators verify that batch and re-execute its transactions. See [block commitment](https://docs.paxeer.app/checkpoints) for the evidence boundary.
 
@@ -10181,11 +10187,11 @@ URL: https://docs.paxeer.app/settlement/
 
 # Settlement & committed evidence
 
-Verify signed execution, transaction inclusion, and committed block evidence on the Paxeer BFT chain.
+Verify signed execution, transaction inclusion, and committed block evidence on Paxeer X.
 
 ## Execution and settlement form one history
 
-Paxeer mainnet-beta has EVM chain ID `125`. Its kernel executes within the network, and receipts are final once their covering block is committed. Payments, program calls, transfers, and storage charges participate in the chain execution history.
+Paxeer mainnet-beta has EVM chain ID `125`. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Receipts are final once validators commit their covering block. Payments, program calls, transfers, and storage charges participate in the chain execution history.
 
 | Level | Evidence | Meaning |
 | --- | --- | --- |
@@ -11034,7 +11040,7 @@ Repository references: docs/system/chain-modules.md, docs/site/paxeer-docs/src/a
 ### LayerX anchor module
 
 Identifier: module-layerx-anchor
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: modules/layerxanchor
 
@@ -11142,7 +11148,7 @@ Repository references: docs/system/chain-modules.md, docs/site/paxeer-docs/src/a
 ### LayerX custody module
 
 Identifier: module-layerx-custody
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: modules/layerxcustody
 
@@ -11792,7 +11798,7 @@ Repository references: docs/system/precompiles.md, docs/site/paxeer-docs/src/app
 ### LayerX anchor precompile
 
 Identifier: precompile-layerx-anchor
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: precompiles/layerxanchor
 
@@ -11900,7 +11906,7 @@ Repository references: docs/system/precompiles.md, docs/site/paxeer-docs/src/app
 ### LayerX custody precompile
 
 Identifier: precompile-layerx-custody
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: precompiles/layerxcustody
 
@@ -12035,7 +12041,7 @@ Repository references: docs/system/precompiles.md, docs/site/paxeer-docs/src/app
 ### LayerX verify precompile
 
 Identifier: precompile-layerx-verify
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: precompiles/layerxverify
 
@@ -14207,11 +14213,11 @@ URL: https://docs.paxeer.app/unified-network/
 
 # Unified Network Architecture
 
-How Paxeer X combines EVM and Cosmos execution with LayerX activities, identity, programs, and receipts in one BFT network.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 ## The Network Model
 
-Paxeer X is one BFT network with EVM chain ID `125` (`0x7d`). The node binary `paxd` runs the Cosmos SDK application and native EVM. The LayerX kernel runs in-process inside `paxd` through `modules/lxphost`, and `node/sequencer` supplies execution ordering within the node.
+Paxeer X uses EVM chain ID `125` (`0x7d`). The node binary `paxd` runs the Cosmos SDK application and native EVM. The LayerX kernel runs in-process inside `paxd` through `modules/lxphost`, executes and orders each transaction, gives it the next position in one global sequence, and returns a signed execution receipt. `node/sequencer` supplies execution ordering within the node.
 
 Kernel state changes commit with the rest of the node's transaction state. A receipt is final once its block is committed. Applications establish finality from the committed block and the receipt's inclusion evidence.
 
@@ -14686,7 +14692,7 @@ XDK is the Paxeer X developer toolkit across native activities, payments, Progra
 | MCP | Tool calls from assistants through the same agent daemon gates. | [22 catalogue tools, plus 11 session tools in Full mode (33 total)](https://docs.paxeer.app/mcp) |
 | Offline verification | Independent signed-receipt and block-commitment evidence checks. | Language-specific local verifiers |
 
-The hosted gateway in `services/platform/hosted/gateway` serves `px_register` and `px_requestFunds`. Platform SDK receipt verifiers bind signed receipt bytes to the raw transaction and independently trusted receipt keys. That signature check reaches `receipted`; `committed` verification also requires authenticated block and inclusion evidence. Paxeer is one BFT network, and a receipt is final when its block is committed. Rust `layerx-sdk` also exposes `production::verify_receipt` with an independently supplied `AuthorizedBatch`.
+The hosted gateway in `services/platform/hosted/gateway` serves `px_register` and `px_requestFunds`. Platform SDK receipt verifiers bind signed receipt bytes to the raw transaction and independently trusted receipt keys. That signature check reaches `receipted`; `committed` verification also requires authenticated block and inclusion evidence. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when its block is committed. Rust `layerx-sdk` also exposes `production::verify_receipt` with an independently supplied `AuthorizedBatch`.
 
 ## Seven language SDKs
 

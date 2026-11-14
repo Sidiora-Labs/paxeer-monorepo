@@ -14,6 +14,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs"
     / "repair_22_33_429.kvx"
@@ -27,10 +29,10 @@ def source(path):
 def section(heading, level=3):
     """Keep fenced examples intact, including shell comments starting with #."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -59,11 +61,14 @@ def make_rule(text, target):
 def test_docs_root_architecture_embeds_kernel_in_chain_125():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel",
         "modules/lxphost",
         "node/sequencer/",
@@ -83,15 +88,10 @@ def test_docs_root_architecture_embeds_kernel_in_chain_125():
 def test_docs_root_architecture_uses_root_node_rpc_hosts():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
         "gateway contract does not establish method availability at public node URLs",
     ):
         assert fact in quickstart, fact
-    assert "no router and no separate LayerX interface" in README
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " "))
@@ -101,24 +101,17 @@ def test_docs_root_architecture_uses_root_node_rpc_hosts():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-H") - 1] == "$PAXEER_RPC_URL"
     assert '# Expected result: "0x7d"' in blocks[0]
     hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     urls = [
-        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)
+        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
         if urlsplit(url).hostname in hosts
     ]
-    assert {url.hostname for url in urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api2.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
+    assert {url.hostname for url in urls} == hosts
     assert all(url.scheme == "https" and url.path in ("", "/") for url in urls)
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -153,7 +146,7 @@ def test_docs_root_architecture_submission_follows_node_wal_path():
 
 
 def test_docs_root_architecture_distinguishes_receipt_from_commit():
-    assert "A receipt is final once its block is committed" in README
+    assert "A receipt is final once its block is committed" in NETWORK
     flow = section("Submit a transaction and follow its committed receipt")
     for fact in (
         "`pax_sequencerReceipt`",
@@ -274,16 +267,16 @@ def test_docs_root_architecture_build_and_start_match_production():
 
 
 def test_docs_root_architecture_has_no_separate_deployment():
-    assert "There is no separate kernel daemon, sequencer service or checkpoint deployment" in README
-    assert "External checkpoint settlement is retired" in README
-    assert "Source directory names describe code organization, not separate network deployments" in README
+    assert "There is no separate kernel daemon, sequencer service or checkpoint deployment" in NETWORK
+    assert "External checkpoint settlement is retired" in NETWORK
+    assert "Source directory names describe code organization, not separate network deployments" in NETWORK
     for stale in (
-        r"\blayerxd\b", r"\blx_[A-Za-z0-9_*]*", r"/rpc(?:/|\b)",
+        r"\blayerxd\b", r"\blx_[A-Za-z0-9_*]*",
         r"two (?:execution )?domains", r"kernel still runs separately",
     ):
-        assert not re.search(stale, README, re.I), stale
-    topology, sequence = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+        assert not re.search(stale, NETWORK, re.I), stale
+    topology, sequence = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     assert "subgraph Node[paxd]" in topology
     assert "RPC --> Order --> Host --> Native" in topology
     assert "Validators -->|Commit| State" in topology

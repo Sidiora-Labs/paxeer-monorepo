@@ -7,9 +7,10 @@ The frontend serves the Paxeer X explorer under `/explorer`, as configured in
 [Blockscout backend](../../services/explorer/backend), with API hosts configured
 in [configs/app/apis.ts](../../apps/explorer/configs/app/apis.ts).
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`) and
-native currency **PAX** (18 decimals). Its kernel is part of the network and
-proposes blocks; a receipt is final when its block is committed. Sub-chains are
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`) and native currency
+**PAX** (18 decimals). The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final when its block is committed. Sub-chains are
 tenant domains in the database, launchable without separate infrastructure.
 
 The node JSON-RPC URL uses HTTPS at the root path and is configured separately from the explorer backend API.

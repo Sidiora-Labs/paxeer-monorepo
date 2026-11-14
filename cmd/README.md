@@ -3,8 +3,9 @@
 `cmd` holds the C genesis and module-registry tools, the Rust `layerxctl` client,
 and Python checks for retired command components. The tools prepare kernel
 bootstrap artifacts and submit transactions or read state through JSON-RPC for
-the Paxeer network. The network node is `paxd`, which embeds the kernel and
-proposes blocks; a receipt is final when its block commits.
+the Paxeer network. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final when validators commit its block.
 
 ## Layout
 

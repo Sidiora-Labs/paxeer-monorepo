@@ -4,9 +4,9 @@
 The KMS creates sealed signing keys and signs through opaque handles. Event
 sources retain immutable observations for journeys, approvals, payments and
 programs. These are hosted application services around the merged Paxeer
-network; the kernel is part of that network and proposes blocks. A committed
-block provides finality. Event delivery does not add a settlement or consensus
-stage.
+network; the LayerX kernel inside `paxd` executes and orders each transaction
+and builds each block; validators check and commit it. A committed block
+provides finality. Event delivery does not add a settlement or consensus stage.
 
 Source paths below are relative to `services/platform/hosted/internal/` unless
 fully qualified. Human signing and owner handover use a separate custody

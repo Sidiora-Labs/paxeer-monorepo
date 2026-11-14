@@ -775124,7 +775124,7 @@ notes = "F11 error codes cover room, ask, bid, roster, batch, challenge, bond an
 [interface.22.inference-f11-availability]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
-line = 1084
+line = 1111
 signature = "pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]>"
 callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
 status = "served"
@@ -775144,7 +775144,7 @@ notes = "Room policy includes bond, canary, lap, challenge, payout, token, queue
 [interface.22.inference-manifest-v2]
 kind = "file_format"
 path = "programs/crates/layerx-programs-ai-market/src/workers.rs"
-line = 756
+line = 720
 signature = "pub struct ManifestV2<'a>"
 callers = ["programs/crates/layerx-programs-ai-market/tests/manifest_v2_capabilities.rs"]
 status = "served"
@@ -775154,7 +775154,7 @@ notes = "Manifest v2 carries the v1 bytes and inference capability fields under 
 [interface.22.inference-room-record]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/rooms.rs"
-line = 103
+line = 109
 signature = "pub struct RoomRecord"
 callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
 status = "served"
@@ -775164,7 +775164,7 @@ notes = "RoomRecord, AskRecord, BidRecord and DealRecord encode the room market;
 [interface.22.inference-lap-receipt]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/laps.rs"
-line = 25
+line = 29
 signature = "pub struct LapReceipt<'a>"
 callers = ["programs/crates/layerx-programs-ai-market/src/laps.rs", "programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs"]
 status = "served"
@@ -775174,7 +775174,7 @@ notes = "LapReceipt and ReceiptBatch carry countersigned lap evidence; apply_set
 [interface.22.inference-canary-commitment]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/canary.rs"
-line = 228
+line = 246
 signature = "pub struct CanaryCommitment"
 callers = ["programs/crates/layerx-programs-ai-market/src/commit_reveal.rs", "programs/crates/layerx-programs-ai-market/src/canary.rs"]
 status = "served"
@@ -775184,7 +775184,7 @@ notes = "CanaryCommitment binds commit-reveal evidence used by apply_challenge_l
 [interface.22.inference-payout-split]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/rewards.rs"
-line = 3646
+line = 3667
 signature = "pub fn apply_split_payout( ctx: &CallContext, envelope: &ValidatedEnvelope<'_>, current: &[u8], next: &mut [u8], scratch: &mut [u8], event: &mut [u8], ) -> CodecResult<crate::rooms::Outcome>"
 callers = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
 status = "served"
@@ -775194,7 +775194,7 @@ notes = "PayoutShares allocates settled rewards among peers, the host and the pr
 [interface.22.inference-bond-record]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/bonds.rs"
-line = 21
+line = 25
 signature = "pub struct BondRecord"
 callers = ["programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"]
 status = "served"
@@ -775204,7 +775204,7 @@ notes = "BondRecord supports apply_lock_bond, apply_slash_bond and apply_refund_
 [interface.22.inference-f11-views]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
-line = 67
+line = 70
 signature = "pub struct RoomView"
 callers = ["programs/crates/layerx-programs-ai-market/tests/f11_views.rs"]
 status = "served"
@@ -775214,7 +775214,7 @@ notes = "RoomView, DealView, PeerView and ReceiptBatchView decode the fixed-widt
 [interface.22.inference-placement-book]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/placement.rs"
-line = 74
+line = 81
 signature = "pub struct PlacementBook<'a>"
 callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs"]
 status = "served"

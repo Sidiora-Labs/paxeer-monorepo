@@ -84,7 +84,7 @@ curl -sS "\${CONSENSUS_HTTP_URL:?Set the consensus HTTP origin}/consensus_params
       <p>Track block interval using block timestamps, throughput using transactions per block, and RPC latency using request metrics. Record the node revision and workload when comparing measurements.</p>
       <p>Use the RPC endpoint supplied by your node operator. The <Link href="/admin-hpx">HPX distribution and peer registry</Link> supplies chain metadata and peer information for its configured network. The hosted gateway <code>px_</code> API is separate from public node JSON-RPC. Obtain its URL and credentials from the operator.</p>
       <h2>Kernel Integration</h2>
-      <p>The node executes EVM transactions and kernel activities within one BFT network. <code>modules/lxphost/</code> connects kernel execution to the chain. See <Link href="/paxeer-vs-layerx">Paxeer and LayerX</Link> for the integrated architecture.</p>
+      <p>The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. <code>modules/lxphost/</code> connects kernel execution to the chain. See <Link href="/paxeer-vs-layerx">Paxeer and LayerX</Link> for the integrated architecture.</p>
 
       <div className="prev-next">
         <Link href="/paxeer-vs-layerx"><div className="prev-next-label">Previous</div><div className="prev-next-title">Paxeer and LayerX</div></Link>

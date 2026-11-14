@@ -8,12 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/rand/v2"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/lib/pq"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -317,7 +320,7 @@ func (f *Follower) prefetch(ctx context.Context, from, to uint64) (take func(uin
 	slots := make(chan struct{}, f.opts.RPC.receiptConcurrency)
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		for i := range out {
+		for i, h := 0, from; i < len(out); i, h = i+1, h+1 {
 			select {
 			case slots <- struct{}{}:
 			case <-ctx.Done():
@@ -326,7 +329,7 @@ func (f *Follower) prefetch(ctx context.Context, from, to uint64) (take func(uin
 				}
 				return
 			}
-			wg.Go(func() { out[i] <- f.fetchHeight(ctx, from+uint64(i)) })
+			wg.Go(func() { out[i] <- f.fetchHeight(ctx, h) })
 		}
 	})
 	take = func(h uint64) fetched {
@@ -351,6 +354,9 @@ func (f *Follower) fetchHeight(ctx context.Context, h uint64) fetched {
 
 // consensus reads the consensus header and block results of height h.
 func (f *Follower) consensus(ctx context.Context, h uint64) (*CometHeader, *CometResults, error) {
+	if h > math.MaxInt64 {
+		return nil, nil, fmt.Errorf("source: consensus height %d exceeds database range", h)
+	}
 	header, err := f.opts.Comet.Header(ctx, int64(h))
 	if err != nil {
 		return nil, nil, err
@@ -405,6 +411,9 @@ func (f *Follower) next(ctx context.Context) (uint64, error) {
 	}
 	if err != nil {
 		return 0, err
+	}
+	if height < 0 {
+		return 0, fmt.Errorf("source: cursor height %d is negative", height)
 	}
 	return uint64(height) + 1, nil
 }
@@ -507,6 +516,9 @@ func (f *Follower) windowLogs(ctx context.Context, addresses []string, from, to 
 // transaction is kind tx with its sender; any other must be a synthetic
 // receipt of the table at tx index N+offset.
 func (f *Follower) checkSynthetic(height uint64, n int, body []EVMTx, logs []ethtypes.Log, blockTime time.Time) ([]decode.Log, error) {
+	if n < 0 {
+		return nil, errors.New("source: negative transaction count")
+	}
 	senders := make(map[common.Hash]common.Address, len(body))
 	for _, tx := range body {
 		senders[tx.Hash] = tx.From
@@ -537,6 +549,9 @@ func (f *Follower) checkSynthetic(height uint64, n int, body []EVMTx, logs []eth
 func (f *Follower) storedHash(ctx context.Context, q interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }, height uint64) (common.Hash, bool, error) {
+	if height > math.MaxInt64 {
+		return common.Hash{}, false, fmt.Errorf("source: stored height %d exceeds database range", height)
+	}
 	var hash []byte
 	err := q.QueryRowContext(ctx, "SELECT hash FROM perps.blocks WHERE number = $1", int64(height)).Scan(&hash)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -586,6 +601,10 @@ var ErrHashDisagreement = errors.New("source: nodes disagree on a stored block h
 // re-read of height agrees with the stored hash there is no fork: it rewinds
 // nothing and returns ErrHashDisagreement.
 func (f *Follower) rewind(ctx context.Context, height uint64) (uint64, error) {
+	if height >= math.MaxInt64 {
+		return 0, fmt.Errorf("source: height %d exceeds rewind range", height)
+	}
+
 	fork := height + 1
 	for h := height; ; h-- {
 		stored, ok, err := f.storedHash(ctx, f.opts.DB, h)
@@ -610,6 +629,9 @@ func (f *Follower) rewind(ctx context.Context, height uint64) (uint64, error) {
 	if fork > height {
 		return 0, fmt.Errorf("%w: height %d", ErrHashDisagreement, height)
 	}
+	if fork > math.MaxInt64 {
+		return 0, fmt.Errorf("source: fork height %d exceeds database range", fork)
+	}
 	tx, err := f.opts.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -629,7 +651,7 @@ func (f *Follower) rewind(ctx context.Context, height uint64) (uint64, error) {
 	}
 	affected.FromTime = forkTime
 	for _, table := range factTables {
-		if _, err := tx.ExecContext(ctx, "DELETE FROM perps."+table+" WHERE block >= $1", int64(fork)); err != nil {
+		if _, err := tx.ExecContext(ctx, strings.Join([]string{"DELETE FROM perps.", pq.QuoteIdentifier(table), " WHERE block >= $1"}, ""), int64(fork)); err != nil {
 			return 0, err
 		}
 	}
@@ -657,7 +679,7 @@ func (f *Follower) rewind(ctx context.Context, height uint64) (uint64, error) {
 		}
 	}
 	if found {
-		_, err = tx.ExecContext(ctx, "INSERT INTO perps.cursors(name, height, hash, updated_at) VALUES($1, $2, $3, now()) ON CONFLICT (name) DO UPDATE SET height = EXCLUDED.height, hash = EXCLUDED.hash, updated_at = now()", headCursor, int64(fork-1), below.Bytes())
+		_, err = tx.ExecContext(ctx, "INSERT INTO perps.cursors(name, height, hash, updated_at) VALUES($1, $2, $3, now()) ON CONFLICT (name) DO UPDATE SET height = EXCLUDED.height, hash = EXCLUDED.hash, updated_at = now()", headCursor, int64(fork)-1, below.Bytes())
 	} else {
 		_, err = tx.ExecContext(ctx, "DELETE FROM perps.cursors WHERE name = $1", headCursor)
 	}
@@ -674,7 +696,10 @@ func (f *Follower) rewind(ctx context.Context, height uint64) (uint64, error) {
 	return fork, nil
 }
 
-func collectAffected(ctx context.Context, tx *sql.Tx, fork uint64) (Affected, error) {
+func collectAffected(ctx context.Context, tx *sql.Tx, fork uint64) (result0 Affected, resultErr error) {
+	if fork > math.MaxInt64 {
+		return Affected{}, fmt.Errorf("source: fork height %d exceeds database range", fork)
+	}
 	a := Affected{From: fork}
 	parts := make([]string, 0, len(factTables)+1)
 	for _, t := range factTables {
@@ -688,7 +713,11 @@ func collectAffected(ctx context.Context, tx *sql.Tx, fork uint64) (Affected, er
 	for rows.Next() {
 		var b []byte
 		if err := rows.Scan(&b); err != nil {
-			rows.Close()
+			defer func() {
+				if closeErr := rows.Close(); resultErr == nil {
+					resultErr = closeErr
+				}
+			}()
 			return a, err
 		}
 		a.Accounts = append(a.Accounts, common.BytesToAddress(b))
@@ -698,13 +727,17 @@ func collectAffected(ctx context.Context, tx *sql.Tx, fork uint64) (Affected, er
 	}
 	parts = parts[:0]
 	for _, t := range marketFactTables {
-		parts = append(parts, "SELECT market_id FROM perps."+t+" WHERE block >= $1 AND market_id IS NOT NULL")
+		parts = append(parts, "SELECT market_id FROM perps."+pq.QuoteIdentifier(t)+" WHERE block >= $1 AND market_id IS NOT NULL")
 	}
-	rows, err = tx.QueryContext(ctx, "SELECT market_id::text FROM ("+strings.Join(parts, " UNION ")+") m ORDER BY market_id", int64(fork))
+	rows, err = tx.QueryContext(ctx, strings.Join([]string{"SELECT market_id::text FROM (", strings.Join(parts, " UNION "), ") m ORDER BY market_id"}, ""), int64(fork))
 	if err != nil {
 		return a, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var m string
 		if err := rows.Scan(&m); err != nil {
@@ -723,7 +756,11 @@ func (f *Follower) enqueueRewind(ctx context.Context, tx *sql.Tx, fork uint64, d
 	seed = append(seed, "perps-rewind"...)
 	seed = binary.BigEndian.AppendUint64(seed, fork)
 	seed = append(seed, discarded.Bytes()...)
-	seed = binary.BigEndian.AppendUint64(seed, uint64(emitted.UnixNano()))
+	timestamp := emitted.UnixNano()
+	if timestamp < 0 {
+		return errors.New("source: rewind emission time precedes the Unix epoch")
+	}
+	seed = binary.BigEndian.AppendUint64(seed, uint64(timestamp))
 	id, err := natsdriver.MsgID(fmt.Sprintf("%d:%d:%s:-1:0:0", f.opts.ChainID, fork, crypto.Keccak256Hash(seed).Hex()))
 	if err != nil {
 		return err
@@ -746,6 +783,10 @@ func (f *Follower) enqueueRewind(ctx context.Context, tx *sql.Tx, fork uint64, d
 
 // commit stores the block row, its facts and the head cursor in one transaction.
 func (f *Follower) commit(ctx context.Context, b *Block) error {
+	if b.Number > math.MaxInt64 {
+		return fmt.Errorf("source: height exceeds database range")
+	}
+
 	tx, err := f.opts.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err

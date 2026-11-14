@@ -21,7 +21,7 @@ export default function EVM() {
       <h2>Overview</h2>
 
       <p>
-        The EVM module (<code>modules/evm/</code>) executes Ethereum-format transactions on Paxeer. It integrates with the <Link href="/engine">execution engine</Link> inside the BFT node, using EVM chain ID <strong>125</strong>.
+        The EVM module (<code>modules/evm/</code>) executes Ethereum-format transactions on Paxeer. It integrates with the <Link href="/engine">execution engine</Link> inside the paxd node, using EVM chain ID <strong>125</strong>. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it.
       </p>
 
       <p>

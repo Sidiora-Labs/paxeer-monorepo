@@ -4,8 +4,10 @@ This directory holds the C17 execution kernel of the Paxeer network and Go
 helpers for account and history reads. The kernel validates activities, resolves
 authority, executes native modules, applies ledger transfers, and produces
 receipts and state commitments. It runs inside `paxd` through
-[`modules/lxphost/`](../modules/lxphost/); the kernel participates in block
-proposal, and receipts become final when their blocks commit.
+[`modules/lxphost/`](../modules/lxphost/); the LayerX kernel executes each
+transaction when it arrives, assigns the next position in one global sequence,
+returns a signed execution receipt and builds each block; validators check that
+block and commit it. A receipt is final when validators commit its block.
 
 ## Layout
 

@@ -13,9 +13,8 @@ the remaining response and event messages are defined in
 [`types.proto`](../../proto/tendermint/abci/types.proto). Do not infer the current
 API from an upstream ABCI version or from protobuf definitions alone.
 
-Paxeer is one BFT network run by `paxd`, with EVM chain ID **125** (`0x7d`).
-The merged kernel is part of the network and proposes blocks; execution and
-commitment belong to that network. A receipt is final once its block is committed.
+Paxeer uses EVM chain ID **125** (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final once its block is committed.
 ABCI is an internal application boundary. Public JSON-RPC requests go to a node's
 root URL, for example `https://api1.mainnet-beta.paxeer.network/`; the public node
 names are `api1` through `api14.mainnet-beta.paxeer.network` and

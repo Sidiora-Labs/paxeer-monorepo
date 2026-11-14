@@ -77,10 +77,12 @@ def assert_retired_payer_grant_symbols_absent(archive):
             raise AssertionError(f"Retired payer-grant definition in {archive}: {line}")
 
 
+@pytest.mark.native
 def test_payer_grant_archive_inspects_built_library():
     assert_retired_payer_grant_symbols_absent(PAYER_GRANT_ARCHIVE)
 
 
+@pytest.mark.native
 def test_payer_grant_archive_accepts_absent_definitions(tmp_path):
     assert_retired_payer_grant_symbols_absent(PAYER_GRANT_ARCHIVE)
     archive = tmp_path / "unchanged.a"
@@ -91,6 +93,7 @@ def test_payer_grant_archive_accepts_absent_definitions(tmp_path):
 
 @pytest.mark.parametrize("symbol", RETIRED_PAYER_GRANT_SYMBOLS)
 @pytest.mark.parametrize("binding", ("strong", "weak"))
+@pytest.mark.native
 def test_payer_grant_archive_rejects_unreferenced_definitions(tmp_path, symbol, binding):
     assert_retired_payer_grant_symbols_absent(PAYER_GRANT_ARCHIVE)
     original = PAYER_GRANT_ARCHIVE.read_bytes()
@@ -133,7 +136,15 @@ def test_payer_grant_archive_rejects_unreferenced_definitions(tmp_path, symbol, 
     assert PAYER_GRANT_ARCHIVE.read_bytes() == original
 
 
-@pytest.mark.parametrize("problem", ("missing", "unreadable", "invalid", "corrupt"))
+@pytest.mark.parametrize(
+    "problem",
+    (
+        "missing",
+        pytest.param("unreadable", marks=pytest.mark.native),
+        "invalid",
+        "corrupt",
+    ),
+)
 def test_payer_grant_archive_rejects_invalid_archives(tmp_path, problem):
     archive = tmp_path / "invalid.a"
     if problem == "unreadable":
@@ -147,6 +158,7 @@ def test_payer_grant_archive_rejects_invalid_archives(tmp_path, problem):
         assert_retired_payer_grant_symbols_absent(archive)
 
 
+@pytest.mark.native
 def test_payer_grant_archive_requires_symbol_tool(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", str(tmp_path))
     with pytest.raises(AssertionError, match="with nm"):

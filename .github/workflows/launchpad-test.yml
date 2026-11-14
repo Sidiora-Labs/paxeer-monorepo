@@ -401,7 +401,7 @@ jobs:
           pnpm compile
       - &launchpad_go_reward_schema
         name: Install reward schema fixture dependencies
-        working-directory: services/launchpad/pnl-tracker/internal/app/testdata/repair29
+        working-directory: services/launchpad/pnl-tracker/internal/app/testdata/reward_schema
         run: pnpm install --ignore-workspace --frozen-lockfile
       - &launchpad_go_protocol_proofs
         name: Build protocol proof dependencies

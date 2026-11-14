@@ -118,7 +118,7 @@ def prerequisites():
     for tool in ['openssl', 'socat', 'git']:
         if not shutil.which(tool):
             refuse('prerequisite missing: ' + tool)
-    if not (Path('/root/.foundry/bin/anvil').is_file() or shutil.which('anvil')):
+    if not shutil.which('anvil'):
         refuse('prerequisite missing: anvil')
     if not os.access('/usr/bin/setpriv', os.X_OK):
         refuse('prerequisite missing: /usr/bin/setpriv for the runtime clock supervisor')

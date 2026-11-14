@@ -2466,7 +2466,7 @@ agent-check-secrets:
 
 ci: public-audit test reproducible scan-consensus test-sanitizers
 
-.PHONY: paxeer-build paxeer-lint paxeer-test paxeer-ci developer-dashboard-install \
+.PHONY: paxeer-build paxeer-lint paxeer-go-lint paxeer-test paxeer-ci developer-dashboard-install \
 	developer-dashboard-build developer-dashboard-static-test specgen-build \
 	specgen-test specgen-lint core-test-all workspace-install workspace-build workspace-test \
 	workspace-lint workspace-inventory-check workspace-ci hpx-public-check monorepo-ci \
@@ -2552,6 +2552,9 @@ paxd-version-check:
 paxeer-lint: paxeer-tools-install
 	$(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) lint
 
+paxeer-go-lint: paxeer-tools-install paxd-native-libs
+	GOPROXY=off "$(PAXEER_GOLANGCI_LINT)" run
+
 paxeer-test:
 	GOPROXY=off $(PAXEER_MAKE) test
 
@@ -2587,7 +2590,7 @@ paxeer-npm-build: paxeer-hardhat-compilers-ready
 
 paxeer-npm-static-test: paxeer-npm-dependencies-ready
 	npm --prefix contracts exec -- tsc --noEmit --project contracts/tsconfig.json
-	find tests/integration/dapp_tests -type f -name '*.js' -exec node --check {} \;
+	find tests/integration/dapp_tests \( -path '*/node_modules' -o -path '*/artifacts' -o -path '*/cache' \) -prune -o -type f -name '*.js' -exec node --check {} \;
 	npm --prefix tests/integration/rpc_tests exec -- tsc --noEmit --project tests/integration/rpc_tests/tsconfig.json
 
 paxeer-tools-install:
@@ -2630,7 +2633,9 @@ paxeer-manifest-lint: workspace-inventory-check paxeer-npm-static-test
 	sh tools/benchmark/loadtest/contracts/evm/setup.sh
 	forge fmt --check --root tools/benchmark/loadtest/contracts/evm
 	@set -eu; for manifest in $(PAXEER_LOCKED_RUST_MANIFESTS); do cargo clippy --manifest-path "$$manifest" --locked --offline --all-targets -- -D warnings; done
-	@test -z "$$(find . \( -path ./.git -o -path ./services/platform -o -path ./spec -o -name node_modules \) -prune -o -type f -name '*.go' -print0 | xargs -0 gofmt -l)"
+	@set -eu; formatted=$$(mktemp); trap 'rm -f "$$formatted"' EXIT HUP INT TERM; \
+	find . \( -path ./.git -o -path ./services/platform -o -path ./spec -o -path ./core/deps -o -path ./build -o -path ./tools/hyperfide/tests/fixtures -o -name node_modules \) -prune -o -type f -name '*.go' -exec gofmt -l {} + > "$$formatted"; \
+	cat "$$formatted"; test ! -s "$$formatted"
 	$(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) lint
 	@set -eu; for directory in $(PAXEER_NESTED_GO_DIRS); do (cd "$$directory" && test -z "$$(gofmt -l .)" && GOPROXY=off go vet ./... && go mod verify); done
 

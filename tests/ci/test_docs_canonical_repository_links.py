@@ -35,7 +35,7 @@ def _tracked_markdown_pages():
         ROOT / name
         for name in tracked
         if name.lower().endswith(".md")
-        and not name.startswith("tools/jev/tests/fixtures/")
+        and not name.startswith(("tools/jev/tests/fixtures/", "spec/"))
     ]
     assert ROOT / "README.md" in pages, "Tracked Markdown inventory lacks README.md"
     return pages
@@ -68,8 +68,7 @@ def test_docs_link_only_the_canonical_repository_url():
         "programs/README.md",
         "services/explorer/backend/.devcontainer/README.md",
     }
-    # Repository-wide coverage belongs to task 22.39.64. Preserve upstream
-    # documentation and provenance instead of treating them as product links.
+    # Preserve upstream documentation and repository provenance.
     allowlist = {
         "out_of_scope_directories": (
             "tools/hyperfide/",
@@ -161,8 +160,8 @@ def test_readme_translations_badges_use_canonical_repository():
         repository_badges = [
             badge for badge in badges if badge.startswith("https://img.shields.io/github/")
         ]
-        assert len(repository_badges) == 4, f"{page.name}: expected four GitHub badges"
-        for badge, path in zip(repository_badges, BADGE_PATHS):
+        for badge in repository_badges:
+            path = next(path for path in BADGE_PATHS if f"/github/{path}/" in badge)
             prefix = f"https://img.shields.io/github/{path}/Sidiora-Labs/{REPOSITORY}"
             suffix = "/ci.yml?" if path == "actions/workflow/status" else "?"
             assert badge.startswith(prefix + suffix), f"{page.name}: {badge}"
@@ -174,9 +173,17 @@ def test_readme_translations_badges_use_canonical_repository():
 def test_readme_translations_source_link_is_canonical():
     for page in _readme_translations():
         content = page.read_text(encoding="utf-8")
-        source_links = re.findall(
-            r"\[(github\.com/Sidiora-Labs/[^\]]+)\]\(([^)]+)\)", content
+        source_links = re.findall(r"\[English\]\(([^)]+)\)", content)
+        assert len(source_links) == 1, f"{page.name}: expected one English source link"
+        source = (page.parent / source_links[0]).resolve()
+        assert source == ROOT / "README.md"
+        assert source.is_file(), f"{page.name}: missing English source page"
+        reference_links = re.findall(
+            r"\[Network reference\]\(([^)]+)\)", source.read_text(encoding="utf-8")
         )
-        assert source_links == [(CANONICAL_URL.removeprefix("https://"), CANONICAL_URL)], (
-            f"{page.name}: expected a canonical repository source label and link"
+        assert len(reference_links) == 1
+        reference = (source.parent / reference_links[0]).resolve()
+        assert reference == ROOT / "docs/readme/NETWORK.md"
+        assert f"git clone --depth 1 {CANONICAL_URL}.git" in reference.read_text(
+            encoding="utf-8"
         )

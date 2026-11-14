@@ -390,5 +390,6 @@ def test_repair_record_maps_the_finding_proofs_limits_and_wiring():
         assert "domain 11" in request and path in request
     readme = (DIRECTORY / "README.md").read_text(encoding="utf-8")
     for fact in ("ProfileMissing", "typed_intent_required", "protocol_idempotency_required",
-                 "do not execute Rust", "not consumed by the existing Rust", "observed_at_ms"):
+                 "additional payment and ingress conditions separately from the codec assertions.",
+                 "observed_at_ms"):
         assert fact in readme

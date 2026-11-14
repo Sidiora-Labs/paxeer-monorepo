@@ -5,7 +5,7 @@ consensus engine. The [data structures](./data_structures.md) page documents
 the corresponding fields and validation rules. The `tendermint` protobuf
 package names are wire compatibility names in this tree.
 
-Paxeer is one BFT network whose kernel participates in block proposal. The
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. The
 classic consensus block-part and signing formats below describe the classic
 engine. Autobahn uses the separate message schema in
 [autobahn.proto](../../internal/autobahn/autobahn.proto) and converters in

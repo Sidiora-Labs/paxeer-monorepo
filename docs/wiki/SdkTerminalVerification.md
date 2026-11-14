@@ -1,8 +1,8 @@
 # SDK terminal verification
 
-Paxeer is one BFT network. The kernel executes inside `paxd` and participates
-in block proposal. A transaction receipt becomes final when its block commits;
-there is no later settlement on a separate execution network.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A transaction receipt becomes final
+when its block commits; there is no later settlement on a separate execution network.
 
 Use JSON-RPC at the configured node's HTTPS root. EVM chain ID is 125 (`0x7d`).
 See [Public RPC](PublicRpc.md) for node access.

@@ -170,12 +170,11 @@ def test_readme_planning_limit_matches_real_endpoint_contract():
     assert "human.submitPlan" not in panel
     for fact in (
         "**Read availability and plan intent**",
-        "separate from sending a transaction",
+        "checks kernel availability before calling",
         "`HumanClient.planIntent()`",
         "`POST /v1/intents/plan`",
-        "does not submit or execute a plan",
+        "It does not submit or execute a plan.",
         "`hostedUrl`",
-        "EndpointClient: hostedUrl required for hosted px_ reads",
     ):
         assert fact in readme
 
