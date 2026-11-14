@@ -10,8 +10,8 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
 use layerx_agentd::prepare::{
-    prepare_activity, verify_call_binding, EvmPreparationDefaults, EvmPrepareRequest, EvmPrepared,
-    PrecompileCall, ProductionEvmPreparationBoundary,
+    prepare_bound, verify_call_binding, EvmPreparationDefaults, EvmPreparationState,
+    EvmPrepareRequest, EvmPrepared, PrecompileCall,
 };
 
 use layerx_human_service::audit::{AuditChain, AuditEvent, Decision};
@@ -133,12 +133,13 @@ fn prepared(public_key: [u8; 32], seed: [u8; 32], amount: u128) -> EvmPrepared {
         key.verifying_key().to_encoded_point(false).as_bytes(),
     )
     .unwrap_or_else(|error| panic!("EVM address: {error:?}"));
-    let node = layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
-        .unwrap_or_else(|error| panic!("node configuration: {error:?}"));
-    let boundary = ProductionEvmPreparationBoundary::new(&node.url, &[])
-        .unwrap_or_else(|error| panic!("preparation boundary: {error:?}"));
-    prepare_activity(
-        &boundary,
+    prepare_bound(
+        EvmPreparationState {
+            chain_id: u64::from(NETWORK_ID),
+            pending_nonce: 7,
+            base_fee_per_gas: 1,
+            head_height: 10,
+        },
         EvmPreparationDefaults {
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 12,
@@ -152,6 +153,7 @@ fn prepared(public_key: [u8; 32], seed: [u8; 32], amount: u128) -> EvmPrepared {
             max_fee_per_gas: Some(7),
             declared_payload_limit: 1_024,
         },
+        100_000,
     )
     .unwrap_or_else(|error| panic!("prepare: {error:?}"))
 }
