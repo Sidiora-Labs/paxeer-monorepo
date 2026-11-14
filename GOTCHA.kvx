@@ -21980,3 +21980,13 @@ fix = "Decision 3516. The build of such a task downloads the modules of the root
 title = "The check of the platform SDKs follows the text of the schema and generator directories"
 symptom = "The check target platform-sdk-check compares the digests of the schema directories, of the generator directories and of the generated files with sdk/platform/pipeline.kvx. A change of text in one of them, also of a description alone, changes its digest, and the check asks for a generation."
 fix = "Decision 3517. Task 22.39.536 runs the generation and commits the metadata."
+
+[gotcha.4432]
+title = "A test helper of the auth package of the perps data service shares its name with a type of the package"
+symptom = "The package under services/platform/perps-data/internal/auth declares the type challengeRequest in auth.go, and the test file challenge_lifecycle_test.go declares a helper function of the same name in the same package."
+fix = "Decision 3518. Task 22.39.537 gives the helper its own name."
+
+[gotcha.4433]
+title = "A test of the reference declarations of the launchpad tool names a constant the package does not declare"
+symptom = "One case of tools/launchpad/production/feature-acceptance/reference_declarations_test.go sets a reference to the constant RetiredSpecPath. The package declares the constant SpecPath in references.go and no constant of that name."
+fix = "Decision 3518. Task 22.39.538 brings the case and the package to one form."
