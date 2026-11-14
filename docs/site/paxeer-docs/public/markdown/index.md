@@ -142,7 +142,7 @@ Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and
 
  How do I run a node or operate the network?
 
-Start with installation and configuration, then the operator guides for BFT nodes, validators, RPC endpoints and retained chain history. [Run a node](https://docs.paxeer.app/run-node)
+Start with installation and configuration, then the operator guides for paxd nodes, validators, RPC endpoints and retained chain history. [Run a node](https://docs.paxeer.app/run-node)
 
 ## Build an application. Connect to Paxeer.
 

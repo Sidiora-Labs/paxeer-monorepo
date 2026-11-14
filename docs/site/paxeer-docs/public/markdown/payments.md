@@ -6,7 +6,7 @@ Build transfers, paid APIs, merchant checkout, metered usage, and subscriptions 
 
 ## One payment lifecycle
 
-Paxeer X settles native Asset payments on one BFT chain. Applications quote a move, commit the accepted quote under a stable idempotency key, and track a journey whose outcome is backed by evidence. The native wallet prepares a ledger precompile call, discloses its terms, signs an EIP-1559 transaction, submits it to the node and verifies receipt progress.
+For native Asset payments on Paxeer X, the LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Applications quote a move, commit the accepted quote under a stable idempotency key, and track a journey whose outcome is backed by evidence. The native wallet prepares a ledger precompile call, discloses its terms, signs an EIP-1559 transaction, submits it to the node and verifies receipt progress.
 
 1. **Quote:** identify payer, recipient, Asset or currency, amount, mechanism, fee ceiling, expected arrival, and irreversible legs.
 2. **Approve and commit:** bind approval to those terms. An expired quote returns `quote-expired` rather than silently changing the payment.

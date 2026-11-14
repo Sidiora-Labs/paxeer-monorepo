@@ -8,7 +8,7 @@ Native EVM execution, address association, receipts, pointers, and precompile in
 
 ## Overview
 
-The EVM module (`modules/evm/`) executes Ethereum-format transactions on Paxeer. It integrates with the [execution engine](https://docs.paxeer.app/engine) inside the BFT node, using EVM chain ID **125**.
+The EVM module (`modules/evm/`) executes Ethereum-format transactions on Paxeer. It integrates with the [execution engine](https://docs.paxeer.app/engine) inside the paxd node, using EVM chain ID **125**. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it.
 
 The module handles:
 

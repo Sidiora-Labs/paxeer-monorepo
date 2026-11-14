@@ -333,7 +333,7 @@
   },
   "/settlement": {
     "title": "Settlement & committed evidence",
-    "description": "Verify signed execution, transaction inclusion, and committed block evidence on the Paxeer BFT chain."
+    "description": "Verify signed execution, transaction inclusion, and committed block evidence on Paxeer X."
   },
   "/sidiora": {
     "title": "Sidiora",

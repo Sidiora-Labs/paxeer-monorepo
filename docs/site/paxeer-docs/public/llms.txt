@@ -89,7 +89,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Security and trust boundaries](https://docs.paxeer.app/security/): Verify signed execution receipts from the LayerX kernel inside paxd and the blocks it builds that validators check and commit.
 - [Sequencing & Finality](https://docs.paxeer.app/sequencing/): Follow a signed transaction through ordered execution, receipt verification, and BFT block commitment.
 - [Services and agreements](https://docs.paxeer.app/services/): Publish paid capabilities, agree on deliverables, attest execution, and resolve delivery through the Paxeer X service lifecycle.
-- [Settlement & committed evidence](https://docs.paxeer.app/settlement/): Verify signed execution, transaction inclusion, and committed block evidence on the Paxeer BFT chain.
+- [Settlement & committed evidence](https://docs.paxeer.app/settlement/): Verify signed execution, transaction inclusion, and committed block evidence on Paxeer X.
 - [Sidiora](https://docs.paxeer.app/sidiora/): The SID asset on Paxeer X: native balances, its stable ERC-20 address, bridge-controlled supply, and sponsored or native gas payments.
 - [Spot Exchange](https://docs.paxeer.app/spot-exchange/): Trade asset pairs on Paxeer X with deterministic order books, price-time matching, escrowed liquidity, and immediate two-leg settlement.
 - [Bounded Storage Scans](https://docs.paxeer.app/storage-scan/): Iterate Paxeer X program state with deterministic ordering, explicit page budgets, scope-bound continuation cursors, and metered canonical results.
