@@ -691,79 +691,9 @@ func TestWebhookFreshSource(t *testing.T) {
 }
 
 func TestSearchHostedAssetPayment(t *testing.T) {
-	assets := liveEvidenceFixture(t, "assets.json")
-	asset := liveEvidenceMap(t, assets)["assets"].([]any)[0].(map[string]any)["asset_id"].(string)
-	for _, broken := range []string{"", "price", "asset", "decimals", "paused", "backend", "receipt"} {
-		t.Run("case-"+broken, func(t *testing.T) {
-			reads, paid := 0, 0
-			grant := strings.Repeat("ab", 32)
-			payer := "0x" + strings.Repeat("12", 20)
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/gateway" {
-					var req struct {
-						Method string `json:"method"`
-					}
-					_ = json.NewDecoder(r.Body).Decode(&req)
-					if req.Method != "px_listAssets" {
-						t.Errorf("retired asset API %s", req.Method)
-					}
-					reads++
-					a := liveEvidenceMap(t, assets)
-					row := a["assets"].([]any)[0].(map[string]any)
-					if broken == "decimals" {
-						row["decimals"] = 6
-					}
-					if broken == "paused" {
-						row["paused"] = true
-					}
-					_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": 1, "result": a})
-					return
-				}
-				if r.URL.Path != "/search" || r.URL.Query().Get("q") != "repair" || r.Header.Get("LAYERX-PAYER-ADDRESS") != payer {
-					t.Error("current payer/route contract lost")
-				}
-				offer := map[string]any{"scheme": "metered", "network": "eip155:125", "amount": "74404761904762", "asset": asset, "payTo": strings.Repeat("34", 32), "extra": map[string]any{"layerx": map[string]any{"currency": "PAX"}}}
-				if broken == "price" {
-					offer["amount"] = "1"
-				}
-				if broken == "asset" {
-					offer["asset"] = strings.Repeat("00", 32)
-				}
-				w.Header().Set("X-Search-Node", "selected-node")
-				if r.Header.Get("PAYMENT-SIGNATURE") == "" {
-					w.Header().Set("PAYMENT-REQUIRED", base64.StdEncoding.EncodeToString(liveEvidenceJSON(t, map[string]any{"x402Version": 2, "accepts": []any{offer}})))
-					w.WriteHeader(402)
-					return
-				}
-				paid++
-				raw, e := base64.StdEncoding.DecodeString(r.Header.Get("PAYMENT-SIGNATURE"))
-				if e != nil {
-					t.Error(e)
-				}
-				p := liveEvidenceMap(t, raw)
-				payload := p["payload"].(map[string]any)
-				if len(payload) != 2 || payload["grantId"] != grant || len(payload["idempotencyKey"].(string)) != 64 || !equalJSON(liveEvidenceJSON(t, p["accepted"]), liveEvidenceJSON(t, offer)) {
-					t.Error("metered standing grant payment payload mismatch")
-				}
-				if broken == "backend" {
-					w.Header().Set("X-Search-Node", "other-node")
-				}
-				transaction := "0x" + strings.Repeat("55", 32)
-				if broken == "receipt" {
-					transaction = "legacy-digest"
-				}
-				w.Header().Set("PAYMENT-RESPONSE", base64.StdEncoding.EncodeToString(liveEvidenceJSON(t, map[string]any{"success": true, "transaction": transaction})))
-				_, _ = io.WriteString(w, `{"results":[]}`)
-			}))
-			defer server.Close()
-			var out bytes.Buffer
-			e := CheckSearchPayment(context.Background(), server.Client(), server.URL+"/search?q=repair", server.URL+"/gateway", payer, grant, "", &out)
-			if broken != "" {
-				liveEvidenceReject(t, e, &out)
-			} else if e != nil || reads != 1 || paid != 1 || !strings.Contains(out.String(), "payment-response=success") {
-				t.Fatalf("paid journey failed: %v reads=%d paid=%d %s", e, reads, paid, &out)
-			}
-		})
+	err, output, hash := searchExactJourney(t, searchExactOptions{serveReceipt: true})
+	if err != nil || hash == "" || !strings.Contains(output, "payment-response=success") {
+		t.Fatalf("exact paid journey failed: %v %s", err, output)
 	}
-	liveEvidenceSource(t, "check-live.sh", `search-payment`, `CHECK_LIVE_SEARCH_PAYER`, `CHECK_LIVE_SEARCH_GRANT_ID`, `CHECK_LIVE_GATEWAY_RPC`)
+	liveEvidenceSource(t, "check-live.sh", `search-payment`, `CHECK_LIVE_SEARCH_PAYER_KEY_FILE`, `CHECK_LIVE_SEARCH_NODE_RPC`, `CHECK_LIVE_GATEWAY_RPC`)
 }
