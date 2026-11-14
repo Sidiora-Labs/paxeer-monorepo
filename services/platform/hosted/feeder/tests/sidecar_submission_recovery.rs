@@ -180,7 +180,9 @@ fn finding_029_checktx_is_pending_and_restart_confirms_actual_height() -> TestRe
         ))
     );
     assert_eq!(dir.progress()["confirmed_height"], 840);
-    assert!(dir.progress()["pending"].is_null());
+    assert!(dir.progress()["pending"]
+        .as_array()
+        .is_some_and(Vec::is_empty));
     let confirmed_at = dir.progress()["confirmed_ms"]
         .as_u64()
         .unwrap_or_else(|| panic!("required protocol value is absent"));
@@ -219,7 +221,9 @@ fn recovery_after_failure(fate: Fate, expected_account: u8, label: &str) -> Test
     let mut sidecar = start(&config, &peer, &dir);
     assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
     assert_unconfirmed(&metrics);
-    assert!(dir.progress()["pending"].is_null());
+    assert!(dir.progress()["pending"]
+        .as_array()
+        .is_some_and(Vec::is_empty));
     let journal = Journal::load(&dir.0, 0)?;
     assert_eq!(journal.next_account_sequence, u64::from(expected_account));
     assert_eq!(journal.markets["BTC"].sequence, 0);
