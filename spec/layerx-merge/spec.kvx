@@ -14296,6 +14296,12 @@ value = "The Swift test step of the recipe platform-verify-sdks leaves the test 
 basis = "Gotcha 4445, decision 3418."
 affects = ["22.39.505"]
 
+[decision.3531]
+title = "A task on a library root takes the formatting of a declared module with it"
+value = "Task 22.39.545 takes services/platform/hosted/feeder/src/chainflow.rs into its paths. The formatting that the formatter gives that file with the library root is committed with the task; nothing else in that file changes."
+basis = "Gotcha 4446, decision 3529."
+affects = ["22.39.545"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -206445,7 +206451,7 @@ do_1 = "do_1 Gotcha 4444, decision 3529. Read http_agent in services/platform/ho
 do_2 = "do_2 Add services/platform/hosted/feeder/tests/feed_connection_reuse.rs with cases whose names begin with feed_connection_reuse_. A stand-in feed on a local listener counts the connections it accepts and keeps each connection open between requests. A client with the shared pool settings sends eighteen requests at once in each of five rounds, and the feed has accepted no more than eighteen connections at the end. A client with the defaults of the library over the same rounds makes more, which shows that the case measures the setting. Wait between the rounds until every answer is read."
 do_3 = "do_3 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/feeder/src/lib.rs"]
+touches = ["services/platform/hosted/feeder/src/lib.rs", "services/platform/hosted/feeder/src/chainflow.rs"]
 tests = []
 planned_paths = ["services/platform/hosted/feeder/tests/feed_connection_reuse.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
@@ -206461,6 +206467,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3531, gotcha 4446. Formatting services/platform/hosted/feeder/src/lib.rs also formats services/platform/hosted/feeder/src/chainflow.rs. Read the output of git status and of git diff for that file after formatting. Where the difference is formatting only, commit it with the task. Change nothing else in that file. Where the difference is more than formatting, restore the file and give its first changed lines in the final message."
 
 [task.22.39.544]
 title = "Bring the interop lock file in step with the manifests it resolves"

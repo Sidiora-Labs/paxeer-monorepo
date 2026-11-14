@@ -22050,3 +22050,8 @@ fix = "Decision 3529. Task 22.39.545 sets the counts."
 title = "The process case probe of the agent envelope runs under its harness"
 symptom = "The test testAgentOperationEnvelopeProcessCases of the Swift kit reads a case file that the envelope harness names for it and refuses a run without one. The recipe platform-verify-sdks in services/platform/Makefile.inc runs the test target of each kit outside that harness. Its dotnet step leaves the probe of that kit out; the Swift step names the whole test target."
 fix = "Decision 3530. Task 22.39.505 brings the Swift step to the form of the dotnet step."
+
+[gotcha.4446]
+title = "Formatting a library root also formats the modules it declares"
+symptom = "The formatter follows the module declarations of the file it is given. Formatting services/platform/hosted/feeder/src/lib.rs therefore also formats services/platform/hosted/feeder/src/chainflow.rs, which the library root declares. A task whose paths name only the library root then carries a formatting change in a file beside it."
+fix = "Decision 3531. Task 22.39.545 takes the module file into its paths for its formatting."
