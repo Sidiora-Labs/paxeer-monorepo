@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 
 use layerx_agent_api::identity::{AgentDid, AuthorityRef, ContractError};
 use layerx_intents::compile;
-use layerx_proof::receipt::{verify, VerificationFailure};
+use layerx_proof::receipt::{VerificationFailure, verify};
 use layerx_sdk::Client as AgentClient;
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
@@ -434,9 +434,30 @@ impl Reclaim {
                         .receipt()
                         .protocol()
                         .ok_or(ReclaimError::ReceiptMismatch)?;
+                    let disclosure = self.engine.verified_disclosure(0)?;
+                    let method = disclosure
+                        .construct_method()
+                        .map_err(|_| ReclaimError::ReceiptMismatch)?;
+                    use layerx_crypto::disclosure::call::ConstructMethod;
+                    if !matches!(
+                        (self.record.mechanism, method),
+                        (1, Some(ConstructMethod::PayBudgetDefund { .. }))
+                            | (2, Some(ConstructMethod::LedgerSend { .. }))
+                            | (3, Some(ConstructMethod::LedgerDraw { .. }))
+                    ) {
+                        return Err(ReclaimError::ReceiptMismatch);
+                    }
+                    let mut transfers = disclosure.amounts.iter().filter(|amount| {
+                        amount.role == layerx_crypto::disclosure::AmountRole::Transfer
+                    });
+                    let amount = transfers.next().ok_or(ReclaimError::ReceiptMismatch)?.value;
                     if protocol.activity_id() != evidence.activity_id
                         || protocol.asset() != self.record.asset
-                        || protocol.amount() != self.record.amount
+                        || protocol.module_id() != 12
+                        || protocol.operation() != 2
+                        || protocol.amount() != 0
+                        || transfers.next().is_some()
+                        || amount != self.record.amount
                         || protocol.fee_charged() > self.record.fee_limit
                     {
                         return Err(ReclaimError::ReceiptMismatch);
@@ -445,7 +466,7 @@ impl Reclaim {
                         activity_id: protocol.activity_id(),
                         receipt_digest: evidence.receipt_digest,
                         asset: protocol.asset(),
-                        amount: protocol.amount(),
+                        amount,
                         fee_charged: protocol.fee_charged(),
                     });
                     self.persist_at(scope, now)?;
@@ -485,7 +506,7 @@ impl Reclaim {
                 JourneyState::GettingReady => ReclaimStage::GettingReady,
                 JourneyState::Sending => ReclaimStage::Sending,
                 JourneyState::Closed => {
-                    return Err(ReclaimError::Corrupt("reclaim journey is closed"))
+                    return Err(ReclaimError::Corrupt("reclaim journey is closed"));
                 }
                 JourneyState::Processing | JourneyState::Done | JourneyState::Refused => {
                     ReclaimStage::Processing
