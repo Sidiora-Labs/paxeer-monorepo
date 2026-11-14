@@ -14410,6 +14410,24 @@ value = "tools/release/version.json holds version v7.0.1 and upgrade v7.0. tools
 basis = "Gotcha 4463."
 affects = []
 
+[decision.3550]
+title = "The live check of paid search pays with the exact scheme and a payer key file"
+value = "The check takes the single offer of the exact scheme in PAX, sends payExact at 0x000000000000000000000000000000000000101a from the account of the payer to the account of the offer, signed with the key of the file named by CHECK_LIVE_SEARCH_PAYER_KEY_FILE through the node endpoint named by CHECK_LIVE_SEARCH_NODE_RPC, reads the receipt through the gateway argument and presents transaction hash and receipt digest with the request. The key file is refused unless it is a regular file that only its owner can read, and neither the key nor the signed transaction is printed. The standing grant argument and CHECK_LIVE_SEARCH_GRANT_ID are removed."
+basis = "Gotcha 4464."
+affects = []
+
+[decision.3551]
+title = "The local network shows a paid search from the registration of the asset to the released result"
+value = "Tests whose names begin with TestLocalNodeV6120PaidSearch run against the local network with its full node kept. An issuer registers an asset at 0x000000000000000000000000000000000000101a, the receiver of the service and a buyer are bound, the buyer receives units, and the built binary of the web search service runs against the sequencing node. An unpaid search answers 402 with an exact offer, the buyer pays it with payExact, and the same request with the payment is answered with the result. After every transaction the full node shows the same block hash, application hash and receipt status as the sequencing node. The task follows 22.39.558, which adds the option and the comparison."
+basis = "Gotcha 4465."
+affects = []
+
+[decision.3552]
+title = "The web search service offers payment only in assets the ledger reports as registered and not paused"
+value = "The resolution reads getAsset at 0x000000000000000000000000000000000000101a for every accepted asset. An asset whose read is refused or whose record is paused is withheld: no offer names it and a payment in it is refused as not offered. The payment state is ready when the identity of the receiver is resolved and at least one asset is payable, and the readiness answer lists the payable and the withheld assets. The reads repeat at the resolution interval also while the state is ready, so a later registration, pause or release changes the offers without a restart. A transport error of a read withholds nothing: it leaves the state as it was."
+basis = "Gotcha 4466."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44070,6 +44088,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.562]
+title = "Offer payment in the web search service only for assets the ledger reports as registered"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch", "docs/release/variables/service-interop.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payable_assets --test payment_start --test payment --test server --test binary --test receiver_commands"
+do_1 = "do_1 Gotcha 4466, decision 3552. Read resolve_receiver, payment_ready, payment_resolution, offer and challenge in services/interop/crates/x-websearch/src/payment.rs, the readiness answer and the repeat of the resolution in services/interop/crates/x-websearch/src/main.rs, and getAsset in precompiles/layerxledger/abi.json."
+symbols = []
+
+[capability.22.39.561]
+title = "Show a paid search on the local network from the registration of the asset to the released result"
+reqs = ["22998.1"]
+touches = ["tools/qualification/localnode"]
+tests = []
+verification_contract = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-paid.env && set -a && . /tmp/lx-localnode-paid.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run '^TestLocalNodeV6120PaidSearch'"
+do_1 = "do_1 Gotcha 4465, decision 3551. Read in services/interop/crates/x-websearch/README.md the sections on paid requests, the receiver commands and the configuration keys, the checks of the exact scheme in services/interop/crates/x-websearch/src/payment.rs, the methods register, openAccount, mint and payExact in precompiles/layerxledger/abi.json, the comparison helper of tools/qualification/localnode/v6120_follower_test.go, and how TestLocalNodeV6120SequencerReceipt reads the receipt key of the local network."
+symbols = []
+
+[capability.22.39.560]
+title = "Pay the paid search of the live check with the exact scheme"
+reqs = ["22998.1"]
+touches = ["tools/bringup"]
+tests = []
+verification_contract = "go test -count=1 ./tools/bringup/..."
+do_1 = "do_1 Gotcha 4464, decision 3550. Read CheckSearchPayment and ValidateSearchPrice in tools/bringup/live_rpc.go, the search-payment case in tools/bringup/live_cli.go, check_search in tools/bringup/check-live.sh, the section on paid requests in services/interop/crates/x-websearch/README.md and the checks of the exact scheme in services/interop/crates/x-websearch/src/payment.rs, among them how the payment reference of a request is formed and which fields the payment payload carries."
+symbols = []
 
 [capability.22.39.559]
 title = "Set release 7.0.1 and make the release scripts follow version.json"
@@ -206706,6 +206751,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.562]
+title = "Offer payment in the web search service only for assets the ledger reports as registered"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.562"]
+interfaces = []
+do_1 = "do_1 Gotcha 4466, decision 3552. Read resolve_receiver, payment_ready, payment_resolution, offer and challenge in services/interop/crates/x-websearch/src/payment.rs, the readiness answer and the repeat of the resolution in services/interop/crates/x-websearch/src/main.rs, and getAsset in precompiles/layerxledger/abi.json."
+do_2 = "do_2 The resolution reads getAsset(bytes32) at 0x000000000000000000000000000000000000101a for every accepted asset beside the account read. An asset is payable when the read answers a record that is not paused. A refused read or a paused record withholds the asset: no offer names it, and a payment in it is refused as not offered without releasing content. A transport error of the read withholds nothing and leaves the state as it was."
+do_3 = "do_3 The payment state is ready when the identity of the receiver is resolved and at least one asset is payable. With none payable the state is unresolved, the reason names the assets by symbol and says that the ledger reports no usable record, and the paid routes answer 503 payment_unavailable as now. The readiness answer gains under payment the list of payable symbols and the list of withheld symbols with the reason for each; its present fields keep name and meaning. The command receiver-status reports the same two lists."
+do_4 = "do_4 The reads repeat at PAYMENT_RESOLUTION_INTERVAL also while the state is ready, so an asset that is registered, paused or released later changes the offers without a restart. The stored payment journals, the recovery and the checks of a presented payment do not change."
+do_5 = "do_5 Add services/interop/crates/x-websearch/tests/payable_assets.rs with cases whose names begin with payable_assets_, against a stand-in settlement endpoint: four payable assets give the four present offers; one refused read gives three offers and the readiness answer lists the fourth as withheld; four refused reads give 503 and the state unresolved with the reason; a paused asset is withheld; an asset whose record appears later is offered after the next repeat of the reads, which the case drives directly or waits for; a transport error leaves the state as it was; a payment that names a withheld asset is refused. Give the stand-in endpoints of the present tests an answer to getAsset where they lack one. Add one sentence on withheld assets to services/interop/crates/x-websearch/README.md and to docs/release/variables/service-interop.md. Run the tests of the crate once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch", "docs/release/variables/service-interop.md"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/payable_assets.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payable_assets --test payment_start --test payment --test server --test binary --test receiver_commands"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.561]
+title = "Show a paid search on the local network from the registration of the asset to the released result"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.558"]
+reqs = ["22998.1"]
+capabilities = ["22.39.561"]
+interfaces = []
+do_1 = "do_1 Gotcha 4465, decision 3551. Read in services/interop/crates/x-websearch/README.md the sections on paid requests, the receiver commands and the configuration keys, the checks of the exact scheme in services/interop/crates/x-websearch/src/payment.rs, the methods register, openAccount, mint and payExact in precompiles/layerxledger/abi.json, the comparison helper of tools/qualification/localnode/v6120_follower_test.go, and how TestLocalNodeV6120SequencerReceipt reads the receipt key of the local network."
+do_2 = "do_2 Add tools/qualification/localnode/v6120_paid_search_test.go with cases whose names begin with TestLocalNodeV6120PaidSearch. Each fails with a clear message when the names the option --follower writes are not set, or when the built binary is absent under services/interop/target/debug or under the directory CARGO_TARGET_DIR names. Setup on the local network: an issuer key bound to an identity registers one asset through register at 0x000000000000000000000000000000000000101a; the receiver of the service is bound with the product command bind-receiver; a buyer key is bound; accounts are opened where the ledger requires it; the issuer mints units to the account of the buyer."
+do_3 = "do_3 Start the binary with a configuration in a temporary directory: the asset with a price, the gateway endpoint and the EVM endpoint at the sequencing node, the receipt key of the local network with its height range, the chain id of the network, a free loopback port, and no crawl entry outside loopback. Wait until the readiness answer reports the payment state ready. Stop the process and remove the directory when a case ends."
+do_4 = "do_4 Cases: an unpaid search answers 402 with an exact offer for the asset whose account is the account of the receiver; the buyer sends payExact for the offer and the same request with the payment payload answers 200 with a successful payment response; the ledger balances of buyer and receiver moved by the price; the same payment presented for a different query is refused without content; a payment below the price is refused. After every transaction of setup and cases the comparison helper holds: the full node reaches the block, still answers, and shows the same block hash, application hash and receipt status as the sequencing node."
+do_5 = "do_5 If the local network cannot serve a step, do not change the node or the service: keep the case as written, mark nothing as expected to fail, and give step, call and first message in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/localnode"]
+tests = []
+planned_paths = ["tools/qualification/localnode/v6120_paid_search_test.go"]
+build_cmd = "make -f chain.mk install && cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --bin x-websearch"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-paid.env && set -a && . /tmp/lx-localnode-paid.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run '^TestLocalNodeV6120PaidSearch'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.557]
 title = "Remove a submission of the price sidecar that the node refused as ahead of the committed sequence"
 status = "pending"
@@ -241532,6 +241641,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.560]
+title = "Pay the paid search of the live check with the exact scheme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.560"]
+interfaces = []
+do_1 = "do_1 Gotcha 4464, decision 3550. Read CheckSearchPayment and ValidateSearchPrice in tools/bringup/live_rpc.go, the search-payment case in tools/bringup/live_cli.go, check_search in tools/bringup/check-live.sh, the section on paid requests in services/interop/crates/x-websearch/README.md and the checks of the exact scheme in services/interop/crates/x-websearch/src/payment.rs, among them how the payment reference of a request is formed and which fields the payment payload carries."
+do_2 = "do_2 CheckSearchPayment takes the single offer whose scheme is exact and whose currency is PAX, and ValidateSearchPrice accepts that scheme with its present price rule. It sends payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32) at 0x000000000000000000000000000000000000101a from the ledger account of the payer to the account of the offer, with the asset and the amount of the offer, an expiry inside the time the offer allows and the payment reference the service expects for this request. The transaction is an EIP-155 transaction for chain 125, signed with the key of the file named by CHECK_LIVE_SEARCH_PAYER_KEY_FILE and sent to the node endpoint named by CHECK_LIVE_SEARCH_NODE_RPC. The check reads the receipt of the transaction through the gateway argument within a bound, then repeats the request with the payload of the exact scheme and requires the present success conditions."
+do_3 = "do_3 The key file is refused when it is missing, is not a regular file, can be read by group or others, or does not hold 32 bytes in hexadecimal. Neither the key nor the signed transaction is printed or logged. The payer address derives from the key, and CHECK_LIVE_SEARCH_PAYER_ADDRESS, when set, must equal it. Remove the standing grant argument and CHECK_LIVE_SEARCH_GRANT_ID from the command, the script, its usage text and tools/bringup/README.md. The output line keeps its present form and adds the transaction hash."
+do_4 = "do_4 Add tools/bringup/live_search_exact_test.go with cases whose names begin with TestSearchExact, against a stand-in server: the full path with one exact PAX offer, an accepted transaction, a served receipt and a paid answer; the calldata of the sent transaction decoded and compared field by field with the offer; a challenge with only a metered offer refused; two exact PAX offers refused; a receipt that is not served within the bound refused; a paid answer other than 200 refused; a key file that group or others can read refused; a payer address that differs from the key refused. Change the present cases of tools/bringup/live_evidence_test.go that expect the grant form."
+do_5 = "do_5 Run the tests of the package and tools/bringup/check-live.test.sh once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/bringup"]
+tests = []
+planned_paths = ["tools/bringup/live_search_exact_test.go"]
+build_cmd = "go vet ./tools/bringup/... && bash -n tools/bringup/check-live.sh"
+verify_cmd = "go test -count=1 ./tools/bringup/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.558]
 title = "Keep the full node of the local node script on request and compare it with the sequencing node"

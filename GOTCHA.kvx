@@ -22140,3 +22140,18 @@ fix = "Decision 3548. Task 22.39.558 adds the option and the tests."
 title = "The release scripts name the release version as a literal"
 symptom = "tools/release/version.json holds the version and the upgrade plan, and the workflows read it. tools/release/preflight.sh and tools/release/postflight.sh compare the version of a node with the literals 7.0.0 and v7.0.0, and tools/release/tests/identity.test.sh holds the literal as well. A release that keeps the plan and raises the version needs each of these places changed by hand."
 fix = "Decision 3549. Task 22.39.559 makes the scripts follow the file and sets 7.0.1."
+
+[gotcha.4464]
+title = "The live check of paid search selects an offer the web search service does not publish"
+symptom = "CheckSearchPayment in tools/bringup/live_rpc.go takes the offer whose scheme is metered and sends a standing grant id, and check_search in tools/bringup/check-live.sh requires CHECK_LIVE_SEARCH_GRANT_ID. The web search service publishes only offers of the exact scheme, where the buyer sends payExact at 0x000000000000000000000000000000000000101a and presents the transaction, and the ledger has retired grants and metered draws. The check therefore ends with the message that the metered offer is absent."
+fix = "Decision 3550. Task 22.39.560 moves the check to the exact scheme."
+
+[gotcha.4465]
+title = "No test pays for a search against a running network"
+symptom = "The tests of services/interop/crates/x-websearch answer the ledger and the receipt reads with stand-in endpoints, and the tests of tools/qualification/localnode send no transaction to the ledger precompile. The chain of steps a buyer and a seller take on a network, from the registration of an asset to the released result, is shown by no test, and no test shows a node without sequencing applying the blocks of these steps."
+fix = "Decision 3551. Task 22.39.561 adds the cases on the local network."
+
+[gotcha.4466]
+title = "The web search service offers payment in assets without reading their records"
+symptom = "resolve_receiver in services/interop/crates/x-websearch/src/payment.rs reads the identity of the receiver and derives one account for each accepted asset through accountId. It does not read the record of an asset, and it reads once: after the first success the state stays ready. An asset that the ledger does not hold, or holds as paused, is therefore offered, and a buyer cannot pay such an offer."
+fix = "Decision 3552. Task 22.39.562 reads the records and withholds such assets."
