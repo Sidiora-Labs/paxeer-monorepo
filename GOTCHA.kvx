@@ -22120,3 +22120,23 @@ fix = "Decision 3544. Task 22.39.556 continues at the cursor and moves forward t
 title = "The start test of the daemon command names a standby address without replication TLS material"
 symptom = "TestNewAppPassesSequencerConfigToNode in daemon/paxd/cmd/new_app_test.go sets the standby address flag and none of the five replication flags of node/sequencer/config.go. ReplicationTLSConfig in node/sequencer/dial.go requires certificate, key, roots and peer identity wherever a standby is named, so the case needs that material to start the node."
 fix = "Decision 3545. Task 22.39.551 gives the case the material."
+
+[gotcha.4460]
+title = "Six cases of the spend composition test need directories that only its producer makes"
+symptom = "actual_guest in programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs reads the directory named by PAXEER_X_SPEND_GUESTS, and two cases read the directory named by PAXEER_X_SPEND_RESULTS. Only tools/qualification/paxeer-x/program_spend_composition.py makes these directories and sets the two names, and it runs each case alone by its exact name. The programs-test target of the Makefile runs the tests of the whole workspace without the two names, so the six cases whose names begin with actual_ find no input there."
+fix = "Decision 3546. Task 22.39.509 carries the change."
+
+[gotcha.4461]
+title = "The price sidecar keeps a submission that the node refused as ahead of the committed sequence"
+symptom = "attempt in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs puts a submission into the pending list before the broadcast, and record_broadcast raises the next account sequence of the journal. When the node answers the broadcast with account sequence mismatch because the sent sequence is ahead of the committed one, the entry stays in the list with its sequences and next_submission signs every later submission past it. With max_pending_submissions above one and a node that admits only the committed sequence, the later submissions get the same answer until the entry is decided as evicted, which takes pending_submission_block_limit blocks where the node does not serve the transaction lookup."
+fix = "Decision 3547. Task 22.39.557 removes such an entry at once."
+
+[gotcha.4462]
+title = "The local node script stops its full node before the first EVM call"
+symptom = "In sequencer mode tools/qualification/localnode/v6120-node.sh starts a full node under the role bootstrap-peer beside the sequencing node and stops it once the sequencing node has left block sync, before the mint, approve, deposit and feed key calls. No test of tools/qualification/localnode therefore shows a node without sequencing applying a block that the sequencing node built from EVM transactions."
+fix = "Decision 3548. Task 22.39.558 adds the option and the tests."
+
+[gotcha.4463]
+title = "The release scripts name the release version as a literal"
+symptom = "tools/release/version.json holds the version and the upgrade plan, and the workflows read it. tools/release/preflight.sh and tools/release/postflight.sh compare the version of a node with the literals 7.0.0 and v7.0.0, and tools/release/tests/identity.test.sh holds the literal as well. A release that keeps the plan and raises the version needs each of these places changed by hand."
+fix = "Decision 3549. Task 22.39.559 makes the scripts follow the file and sets 7.0.1."
