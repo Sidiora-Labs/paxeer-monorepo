@@ -205740,7 +205740,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.331]
 title = "Bring the two network texts of the schema of the human service to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374652,7 +374652,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.43.332]
 title = "Bring seven pages whose sentence runs over a line break to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
