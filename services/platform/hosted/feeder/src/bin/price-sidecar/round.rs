@@ -699,17 +699,26 @@ impl Sidecar {
         self.progress.pending.len()
     }
 
-    fn read_committed(&self, config: &Config, rpc: &Rpc) -> Result<(Account, Journal), String> {
+    fn read_account(&self, rpc: &Rpc) -> Result<Account, String> {
         let account = parse_account(&rpc.query_account(&self.feeder)?, &self.feeder)?;
         if account.height < self.progress.confirmed_height {
             return Err("account query is behind the confirmed transaction height".to_owned());
         }
+        Ok(account)
+    }
+
+    fn read_observations(
+        &self,
+        config: &Config,
+        rpc: &Rpc,
+        account: Account,
+    ) -> Result<Journal, String> {
         let validator = config.validator()?;
         let mut journal = self.journal.clone();
         journal.next_account_sequence = account.sequence;
         let height = format!("0x{:x}", account.height);
         let sequences: Vec<_> = thread::scope(|scope| {
-            config
+            let handles: Vec<_> = config
                 .markets
                 .iter()
                 .map(|market| {
@@ -721,6 +730,9 @@ impl Sidecar {
                         .and_then(|answer| observation_sequence(&answer))
                     })
                 })
+                .collect();
+            handles
+                .into_iter()
                 .map(|handle| {
                     handle
                         .join()
@@ -736,6 +748,12 @@ impl Sidecar {
             }
             record.sequence = sequence;
         }
+        Ok(journal)
+    }
+
+    fn read_committed(&self, config: &Config, rpc: &Rpc) -> Result<(Account, Journal), String> {
+        let account = self.read_account(rpc)?;
+        let journal = self.read_observations(config, rpc, account)?;
         Ok((account, journal))
     }
 
@@ -818,7 +836,14 @@ impl Sidecar {
                 }
                 TxLookup::NotServed => {
                     self.journal = Journal::load(dir, 0)?;
-                    let (account, committed) = self.read_committed(config, rpc)?;
+                    let account = self.read_account(rpc)?;
+                    if account.sequence < pending.journal.next_account_sequence
+                        && account.height.saturating_sub(pending.proposed_height)
+                            < config.pending_submission_block_limit
+                    {
+                        return Ok(false);
+                    }
+                    let committed = self.read_observations(config, rpc, account)?;
                     committed_read = true;
                     committed_journal = Some(committed.clone());
                     if account.sequence >= pending.journal.next_account_sequence {
@@ -844,10 +869,6 @@ impl Sidecar {
                         } else {
                             Outcome::Failed
                         }
-                    } else if account.height.saturating_sub(pending.proposed_height)
-                        < config.pending_submission_block_limit
-                    {
-                        return Ok(false);
                     } else {
                         Outcome::Evicted
                     }

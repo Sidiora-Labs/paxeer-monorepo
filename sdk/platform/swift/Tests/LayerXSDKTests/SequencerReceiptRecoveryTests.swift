@@ -92,7 +92,7 @@ final class SequencerReceiptRecoveryTests: XCTestCase {
     // Independently pinned execution block from the recorded local chain, never from bundle input.
     try CommittedTrust(
       chainID: "committed-fixture", height: 10,
-      blockHash: hex("0x066b3b86eb6f62437b659c1d075f28eb22246d233fe86b3d5cacbdb5e18216e9"))
+      blockHash: hex("0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108"))
   }
   private func export(_ vector: Record, view: Record) throws -> LayerXSDK.PortableReceipt {
     try LayerXSDK.PortableReceipt.export(
@@ -296,6 +296,31 @@ final class SequencerReceiptRecoveryTests: XCTestCase {
     }
   }
 
+  func testPortableReceiptRequiresSignaturesForBlockAndNilVotes() throws {
+    let (vector, _) = try recordedCommitted()
+    let original = try published("committed")
+    let commit = try object(original, "commit")
+    let signatures = try array(commit, "Signatures")
+    XCTAssertEqual(signatures.count, 2)
+    for index in signatures.indices {
+      let signature = try XCTUnwrap(signatures[index].objectValue)
+      XCTAssertEqual(signature["BlockIDFlag"], .integer(index == 0 ? 2 : 3))
+      for field in ["Signature", "ValidatorAddress"] {
+        var changed = signature
+        changed[field] = .null
+        var votes = signatures
+        votes[index] = .object(changed)
+        var changedCommit = commit
+        changedCommit["Signatures"] = .array(votes)
+        var bundle = original
+        bundle["commit"] = .object(changedCommit)
+        XCTAssertThrowsError(
+          try LayerXSDK.PortableReceipt.verify(
+            encode(bundle), keys: [pin(vector)], trust: checkpoint()), "\(index).\(field)")
+      }
+    }
+  }
+
   func testCommittedChainTrustRejectsSelfSignedChains() throws {
     let (vector, view) = try recordedCommitted()
     var bundle = try published("committed")
@@ -426,9 +451,16 @@ final class SequencerReceiptRecoveryTests: XCTestCase {
   private func commit(_ value: Record) throws -> CometCommit {
     let signatures = try array(value, "Signatures").map { item -> CometCommitSignature in
       let signature = try XCTUnwrap(item.objectValue)
+      let flag = try XCTUnwrap(
+        CometBlockIDFlag(rawValue: UInt8(integer(signature, "BlockIDFlag"))))
+      if flag == .absent {
+        XCTAssertEqual(signature["Signature"], .null)
+        XCTAssertEqual(try base64(signature, "ValidatorAddress"), Data())
+        XCTAssertEqual(try text(signature, "Timestamp"), "0001-01-01T00:00:00Z")
+        return CometCommitSignature(blockIDFlag: flag)
+      }
       return try CometCommitSignature(
-        blockIDFlag: XCTUnwrap(
-          CometBlockIDFlag(rawValue: UInt8(integer(signature, "BlockIDFlag")))),
+        blockIDFlag: flag,
         validatorAddress: base64(signature, "ValidatorAddress"),
         timestamp: time(text(signature, "Timestamp")),
         signature: base64(signature, "Signature"))

@@ -211,6 +211,6 @@ fn cadence_pending_one_reconcile_reads_each_market_once() -> TestResult {
     assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
     let state = peer.state.lock().unwrap();
     assert_eq!(state.account_reads.len(), 1);
-    assert_eq!(state.observation_reads.len(), config.markets.len());
+    assert!(state.observation_reads.is_empty());
     Ok(())
 }
