@@ -206560,7 +206560,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.549]
 title = "Start the web search sidecar while its receiver has no bound identity and open the paid route once it resolves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206592,7 +206592,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.548]
 title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.547"]
@@ -206940,7 +206940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.529]
 title = "Bring the tests of the member layerx-agentd of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
