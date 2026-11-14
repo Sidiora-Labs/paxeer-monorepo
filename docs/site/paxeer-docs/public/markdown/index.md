@@ -4,13 +4,15 @@ PAXEER X / NETWORK DOCUMENTATION
 
 # Applications. Payments. Programs. Build on Paxeer.
 
-The LayerX kernel inside every paxd node executes each transaction on arrival, orders it in one global sequence and returns a signed execution receipt; validators check and commit the blocks it builds.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 [Explore the network](https://docs.paxeer.app/unified-network)[Start with the XDK](https://docs.paxeer.app/xdk)
 
 LayerX kernelEVM chain ID `125`Native token `PAX`
 
     The LayerX kernel executes, orders and receipts every transaction; EVM applications run on the same sequence.EVM 125 · PAX
+
+On arrival, the kernel gives each transaction a position in one global sequence and returns a signed execution receipt. Validators check and commit each block it builds.
 
 NETWORK INTERFACES
 

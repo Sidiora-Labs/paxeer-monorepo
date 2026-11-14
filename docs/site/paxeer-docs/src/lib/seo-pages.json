@@ -229,7 +229,7 @@
   },
   "/": {
     "title": "Applications. Payments. Programs. Build on Paxeer.",
-    "description": "The LayerX kernel inside every paxd node executes each transaction on arrival, orders it in one global sequence and returns a signed execution receipt; validators check and commit the blocks it builds."
+    "description": "The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block."
   },
   "/paid-apis": {
     "title": "Paid APIs and x402",
@@ -241,7 +241,7 @@
   },
   "/paxeer-vs-layerx": {
     "title": "Paxeer X and LayerX",
-    "description": "The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. EVM smart contracts, autonomous agent execution, and programmable finance share the sequence, with finality at block commit."
+    "description": "The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block."
   },
   "/payments-quickstart": {
     "title": "Your first payment",
@@ -277,7 +277,7 @@
   },
   "/public-rpc": {
     "title": "Public RPC endpoints",
-    "description": "Connect to Paxeer mainnet-beta, EVM chain ID 125, through node JSON-RPC; the LayerX kernel executes and orders transactions and builds blocks that validators check and commit."
+    "description": "The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125."
   },
   "/python": {
     "title": "Python Quickstart",
@@ -365,7 +365,7 @@
   },
   "/unified-network": {
     "title": "Unified Network Architecture",
-    "description": "The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it."
+    "description": "The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block."
   },
   "/wasm-runtime": {
     "title": "WASM Runtime",
