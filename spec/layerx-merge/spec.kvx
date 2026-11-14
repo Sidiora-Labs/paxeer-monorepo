@@ -14332,6 +14332,18 @@ value = "The configuration of the price sidecar takes the optional key max_commi
 basis = "Gotcha 4451, decisions 3532 and 3533."
 affects = []
 
+[decision.3537]
+title = "The web search sidecar starts while its receiver has no bound identity and opens the paid route once it resolves"
+value = "The resolution of the receiver is the read of the identity bound to its address and of the ledger account of each accepted asset. A resolution that does not pass at start no longer ends the process. The sidecar starts with every other role. While the receiver is unresolved the paid route answers 503 payment_unavailable, publishes no offer and serves no search. The start report names the receiver address and the read that did not pass. The sidecar repeats the resolution every thirty seconds and opens the paid route when it passes, without a restart. The readiness answer carries a payment field of its own, and the value ready keeps its present rule over the present roles. A refused config, network id, key file, store, lock or adapter descriptor still ends the process. No rule of payment verification changes."
+basis = "Gotcha 4452."
+affects = []
+
+[decision.3538]
+title = "The web search sidecar gets a command that reports the receiver identity and a command that binds it"
+value = "One command word may follow the config path. receiver-status prints the receiver address, whether an identity is bound to it, the identity, the ledger accounts and the balance of the address. bind-receiver takes the file of an identity key, sends bindLayerX of the address precompile from the receiver address with the signature of the identity, waits for the receipt and confirms with getLayerXDid. It sends nothing when the address is already bound or cannot pay the cost. Neither command starts a listener or writes to the store, and neither prints a key or a signature. Without a command word the binary behaves as before."
+basis = "Gotcha 4452, decision 3537."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43992,6 +44004,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.550]
+title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test receiver_commands --test payment_start --test binary --test payment --test keys"
+do_1 = "do_1 Gotcha 4452, decision 3538. Read config_path and main in services/interop/crates/x-websearch/src/main.rs, read_receiver_did and the signing of ledger transactions in services/interop/crates/x-websearch/src/payment.rs, read_secret in services/interop/crates/x-websearch/src/keys.rs, the section on the addr precompile in docs/system/precompiles.md, precompiles/addr/README.md and precompiles/addr/addr.go for the exact message the identity signs in bindLayerX. Accept one command word after the config path: receiver-status and bind-receiver. Without a command word the binary behaves as it does now, and any other word is refused as now."
+symbols = []
+
+[capability.22.39.549]
+title = "Start the web search sidecar while its receiver has no bound identity and open the paid route once it resolves"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment_start --test binary --test payment --test server --test config --test keys"
+do_1 = "do_1 Gotcha 4452, decision 3537. Read assemble and the readiness answer in services/interop/crates/x-websearch/src/main.rs, PaymentGate::new_with_network_id, GateError and the uses of payment_unavailable in services/interop/crates/x-websearch/src/payment.rs and the routes in services/interop/crates/x-websearch/src/server.rs. Part the construction of the payment state: what needs no read of the chain stays at start with its present refusals, and the resolution of the receiver, that is read_receiver_did for the receiver address and the ledger account of each accepted asset, becomes a step that can be repeated."
+symbols = []
 
 [capability.22.39.548]
 title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
@@ -206492,6 +206522,70 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.550]
+title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.549"]
+reqs = ["22998.1"]
+capabilities = ["22.39.550"]
+interfaces = []
+do_1 = "do_1 Gotcha 4452, decision 3538. Read config_path and main in services/interop/crates/x-websearch/src/main.rs, read_receiver_did and the signing of ledger transactions in services/interop/crates/x-websearch/src/payment.rs, read_secret in services/interop/crates/x-websearch/src/keys.rs, the section on the addr precompile in docs/system/precompiles.md, precompiles/addr/README.md and precompiles/addr/addr.go for the exact message the identity signs in bindLayerX. Accept one command word after the config path: receiver-status and bind-receiver. Without a command word the binary behaves as it does now, and any other word is refused as now."
+do_2 = "do_2 receiver-status loads the config and the receiver key only. Through the settlement endpoint it reads the identity bound to the receiver address, the ledger account of each accepted asset and the balance of the address. It prints one line of JSON with the address, whether an identity is bound, the identity when bound, the ledger accounts when bound and the balance. The exit status is zero when the reads answered, bound or not. It starts no listener, takes no lock on the store and writes nothing."
+do_3 = "do_3 bind-receiver takes the option --identity-key-file followed by a path. The file holds 32 hexadecimal bytes of an Ed25519 key and is read by the rules of the other key files. The command signs the binding message with that key, sends bindLayerX to the address precompile from the receiver address, waits for the receipt and confirms with getLayerXDid. An address already bound to the same identity: it reports that and ends with status zero without a transaction. An address bound to another identity: it refuses and sends nothing. A balance below the cost of the transaction: it refuses with the address and the amount needed and sends nothing. A failed receipt is reported with the transaction hash and a status that is not zero. It prints the address, the identity and the transaction hash, and no key and no signature. It starts no listener and writes nothing to the store."
+do_4 = "do_4 Add services/interop/crates/x-websearch/tests/receiver_commands.rs with cases whose names begin with receiver_command_ and a stand-in endpoint. For fixed keys the message and the call data of bindLayerX equal what the address precompile accepts: take the expected bytes from the tests of the precompile under precompiles/addr or from the binding vectors of the client crate under services/agent, and say in the final message which. receiver-status on an unbound and on a bound address prints the fields of do_2. bind-receiver on an unbound address sends one transaction and reports the bound identity. The three refusals of do_3 send nothing. A run without a command word still starts the sidecar. Describe both commands in a section of the README of the crate."
+do_5 = "do_5 Run the tests of the package once by hand with --no-fail-fast. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/receiver_commands.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test receiver_commands --test payment_start --test binary --test payment --test keys"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.549]
+title = "Start the web search sidecar while its receiver has no bound identity and open the paid route once it resolves"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.549"]
+interfaces = []
+do_1 = "do_1 Gotcha 4452, decision 3537. Read assemble and the readiness answer in services/interop/crates/x-websearch/src/main.rs, PaymentGate::new_with_network_id, GateError and the uses of payment_unavailable in services/interop/crates/x-websearch/src/payment.rs and the routes in services/interop/crates/x-websearch/src/server.rs. Part the construction of the payment state: what needs no read of the chain stays at start with its present refusals, and the resolution of the receiver, that is read_receiver_did for the receiver address and the ledger account of each accepted asset, becomes a step that can be repeated."
+do_2 = "do_2 A resolution that does not pass at start, because no identity is bound to the address, an asset has no ledger account, the answer is malformed or the settlement endpoint does not answer, no longer ends the process. The sidecar starts with every other role. While the receiver is unresolved the paid route answers 503 payment_unavailable before any other work for the request, publishes no offer and serves no search. The start report prints one line with the receiver address as hexadecimal text and the read that did not pass. A refused config, network id, key file, store, lock or adapter descriptor still ends the process with its present text."
+do_3 = "do_3 The sidecar repeats the resolution every thirty seconds until it passes. From then on the paid route works as it does now, without a restart, and the resolution is not repeated. The interval is a constant of the crate and no configuration key. The readiness answer carries a field payment beside roles with the state and, while unresolved, the reason. The value ready keeps its present rule over the present roles. The health answer stays as it is. Change no rule of payment verification, no stored form and no present text that tests read, except the one of do_4."
+do_4 = "do_4 Add services/interop/crates/x-websearch/tests/payment_start.rs with cases whose names begin with payment_start_ and extend the stand-in endpoints of the tests where they lack a means. With no identity bound to the receiver address the sidecar starts, the paid route answers 503 payment_unavailable, the readiness answer shows the payment field unresolved with its reason and the value ready is what it is with a resolved receiver. After the stand-in binds the identity, one repeat of the resolution opens the paid route and it answers the offer. The case calls the repeat itself or sets a short interval through a means of the tests, and sleeps on no thirty seconds. A settlement endpoint that does not answer and a malformed answer give the same state with their own reasons. A refused adapter descriptor still ends the start. Adjust the case of services/interop/crates/x-websearch/tests/binary.rs that expects the text the 402LXP adapter cannot be registered for an unresolved receiver: it now expects a running process and the line of the start report. Bring the README of the crate in step with the new start."
+do_5 = "do_5 Run the tests of the package once by hand with --no-fail-fast. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/payment_start.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment_start --test binary --test payment --test server --test config --test keys"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
