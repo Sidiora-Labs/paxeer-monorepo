@@ -17,8 +17,18 @@ final class ProgramsContractTests: XCTestCase {
     let client = PlatformClient(transport: ProgramTransport(.emptyObject))
     XCTAssertThrowsError(
       try ProgramsClient(client: client, sequencerPublicKey: Data(repeating: 0, count: 32)))
+    XCTAssertThrowsError(
+      try ProgramsClient(client: client, sequencerPublicKey: Data(repeating: 1, count: 32))
+    ) {
+      XCTAssertEqual(($0 as? PlatformSDKError)?.code, .protocolIncompatibility)
+    }
+    let vector = try RecordedProgramEvidence.firstVector("vector-v1-receipted-positive")
+    let pin = try RecordedProgramEvidence.pin(vector)
     XCTAssertNoThrow(
-      try ProgramsClient(client: client, sequencerPublicKey: Data(repeating: 1, count: 32)))
+      try ProgramsClient(
+        rpcURL: XCTUnwrap(URL(string: "http://127.0.0.1:8080/rpc")),
+        sender: Data(repeating: 0x55, count: 20), receiptKeys: [pin],
+        maxFeePerGas: 100, maxPriorityFeePerGas: 2))
   }
 
   func testPendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity() async throws {

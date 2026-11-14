@@ -1,4 +1,4 @@
-import { deepStrictEqual, doesNotThrow, ok, strictEqual, throws } from "node:assert";
+import { deepStrictEqual, doesNotThrow, notDeepStrictEqual, strictEqual, throws } from "node:assert";
 import { describe, it } from "node:test";
 
 type ErrorConstructor = new (...args: never[]) => Error;
@@ -44,7 +44,7 @@ function expectation<T>(actual: T, negated: boolean) {
     },
     toEqual(expected: unknown): void {
       if (negated) {
-        ok(JSON.stringify(actual) !== JSON.stringify(expected));
+        notDeepStrictEqual(actual, expected);
       } else {
         deepStrictEqual(actual, expected);
       }

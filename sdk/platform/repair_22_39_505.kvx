@@ -1,0 +1,14 @@
+[sdk_conformance]
+rule = "SDK consumers follow the encodings, receipt versions and complete case sets emitted by their producers."
+fixtures = "Native lifecycle fixtures include the native encoder output and the EVM wrappers for each operation."
+account_sequence = "Human intent submission bindings use non-negative JSON integers decoded through the generated JVM request type; monetary values retain decimal-string encoding."
+agent_versions = "JVM conformance checks the complete version 2.0 and historical version 1.1 wire vectors, including framing, request identifiers, payload versions and node interface versions."
+receipts = "Swift checks all five success and both revert vectors with receipt protocol version 2."
+metadata = "SDK pipeline metadata binds the current JVM conformance entry point digest."
+agent_envelope = "The process probe runs the generation, credential and daemon identity checks with its harness case file."
+verification_recipe = "The Swift SDK verification step excludes the process case probe, which requires the case file supplied by the agent envelope harness."
+commitment = "Swift uses the published consensus checkpoint, transaction indices and absent-vote encoding, while requiring signatures for block and nil votes."
+transport = "Swift checks typed RPC transport failures, the retired constructor refusal and the current RPC constructor with an independent receipt key."
+files = ["sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py", "sdk/platform/conformance-runner/node-test.ts", "sdk/platform/pipeline.kvx", "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ConformanceEntryPointTest.java", "sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift", "sdk/platform/swift/Tests/LayerXSDKTests/AgentOperationEnvelopeTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/CommittedReceiptTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/RecordedProgramContractTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/SequencerReceiptRecoveryTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/SequencerReceiptTests.swift", "services/platform/Makefile.inc"]
+build_command = "make -s platform-build"
+verify_command = "test -s sdk/platform/repair_22_39_505.kvx && make -s platform-verify-sdks"

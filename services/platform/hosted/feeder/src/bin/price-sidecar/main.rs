@@ -24,6 +24,14 @@ fn default_cadence_ms() -> u64 {
     DEFAULT_CADENCE_MS
 }
 
+fn default_max_pending_submissions() -> usize {
+    8
+}
+
+fn default_pending_submission_block_limit() -> u64 {
+    round::PENDING_SUBMISSION_BLOCK_LIMIT
+}
+
 /// One pricefeed market: its on-chain id and its Chainflow request symbol.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -44,6 +52,10 @@ pub struct Config {
     pub gas_limit: u64,
     #[serde(default = "default_cadence_ms")]
     pub cadence_ms: u64,
+    #[serde(default = "default_max_pending_submissions")]
+    pub max_pending_submissions: usize,
+    #[serde(default = "default_pending_submission_block_limit")]
+    pub pending_submission_block_limit: u64,
     pub retry_backoff_ms: u64,
     pub retry_max_attempts: u32,
     pub chainflow: ChainflowConfig,
@@ -82,6 +94,14 @@ impl Config {
             ("cadence_ms", self.cadence_ms),
             ("retry_backoff_ms", self.retry_backoff_ms),
             ("retry_max_attempts", u64::from(self.retry_max_attempts)),
+            (
+                "max_pending_submissions",
+                self.max_pending_submissions as u64,
+            ),
+            (
+                "pending_submission_block_limit",
+                self.pending_submission_block_limit,
+            ),
             ("chainflow.timeout_ms", self.chainflow.timeout_ms),
             (
                 "chainflow.max_quote_age_ms",

@@ -342,8 +342,7 @@ pub fn parse_json_number_fixed(token: &str, decimals: u32) -> Result<String, Str
 mod tests {
     use super::{
         parse_json_number_fixed, status_error, ChainflowConfig, FetchError, Ticker, API_KEY_HEADER,
-        MAX_UPSTREAM_TEXT,
-        MAX_PRICE,
+        MAX_PRICE, MAX_UPSTREAM_TEXT,
     };
     use std::io::{Read, Write};
     use std::net::TcpListener;

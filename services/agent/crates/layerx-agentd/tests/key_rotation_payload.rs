@@ -81,7 +81,7 @@ fn compiled_key_rotation_binds_exact_payload_and_idempotency_key() {
     assert_eq!(payload.len(), 92);
     assert_eq!(&payload[..4], &[0x71, 2, 0, 4]);
 
-    // hf-done records the real compiler output and checks the keeper's pinned copy.
+    // The compiled payload matches the keeper's pinned bytes.
     let encoded = hex::encode(payload);
     require_ok(
         writeln!(
@@ -94,7 +94,7 @@ fn compiled_key_rotation_binds_exact_payload_and_idempotency_key() {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../modules/layerxauth/keeper/compiled_key_rotation_test.go"
     ));
-    assert!(keeper_test.contains(&format!("const repair2231496RotationHex = \"{encoded}\"")));
+    assert!(keeper_test.contains(&format!("const compiledKeyRotationHex = \"{encoded}\"")));
 
     for key in [[0; 32], [0x49; 32]] {
         let call = lifecycle_call(payload.to_vec(), key);
