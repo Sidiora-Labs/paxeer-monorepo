@@ -20,7 +20,7 @@ type addressFlags struct {
 }
 
 func (f *addressFlags) String() string {
-	var values []string
+	values := make([]string, 0, len(f.values))
 	for _, value := range f.values {
 		values = append(values, value.String())
 	}
@@ -42,7 +42,7 @@ func contractAddress(value string) bool {
 	}
 	nonzero := false
 	for _, c := range value[2:] {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 		nonzero = nonzero || c != '0'
@@ -69,12 +69,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer tcp.Close()
+	defer func() { _ = tcp.Close() }()
 	udp, err := net.ListenPacket("udp", tcp.Addr().String())
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer udp.Close()
+	defer func() { _ = udp.Close() }()
 	stopped := make(chan os.Signal, 1)
 	signal.Notify(stopped, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(stopped)
