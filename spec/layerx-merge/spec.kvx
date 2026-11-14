@@ -196135,7 +196135,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.499]
 title = "Bring the test target of the human services in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -207297,7 +207297,7 @@ do_3 = "do_3 Decision 3422, gotcha 4340. In scripts/interop/dependency-policy.sh
 
 [task.22.39.498]
 title = "Bring the test target of the agent workspace in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.513"]
