@@ -328727,7 +328727,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.39.511]
 title = "Bring the Go format, lint and module commands of the repository in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.506", "22.39.507", "22.39.510"]
@@ -374682,7 +374682,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.330]
 title = "Bring the remaining pages and source comments to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374743,7 +374743,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.328]
 title = "Bring the root, tool and test pages to the kernel sentence in every wording"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.295"]
