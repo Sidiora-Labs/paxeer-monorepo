@@ -54,7 +54,12 @@ fn committed_reads_decided_fate_reads_each_market_once_in_parallel() -> TestResu
         state.account_reads.clear();
         state.observation_reads.clear();
     }
-    peer.hold_observation_reads_until(config.markets.len());
+    peer.hold_observation_reads_until(
+        config
+            .markets
+            .len()
+            .min(config.max_committed_reads_in_flight),
+    );
 
     assert!(
         !sidecar
@@ -93,7 +98,12 @@ fn committed_reads_open_fate_skips_observations_until_commit() -> TestResult {
         state.account_reads.clear();
         state.observation_reads.clear();
     }
-    peer.hold_observation_reads_until(config.markets.len());
+    peer.hold_observation_reads_until(
+        config
+            .markets
+            .len()
+            .min(config.max_committed_reads_in_flight),
+    );
 
     assert!(
         sidecar
