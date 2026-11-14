@@ -451,7 +451,8 @@ no longer deploy that service. Retained explorer archive routes are listed in
 
 ### kernel
 
-The kernel is part of the network. The hosted gateway retains a small
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. The hosted gateway retains a small
 compatibility production parser in
 [lib.rs](../../services/platform/hosted/gateway/src/lib.rs):
 
