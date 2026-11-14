@@ -49,8 +49,8 @@ name = "limits-exactly-once"
 path = "../../tests/limits/exactly_once.rs"
 
 [[test]]
-name = "repair_22_33_1532"
-path = "tests/repair_22_33_1532.rs"
+name = "startup_health_prerequisites"
+path = "tests/startup_health_prerequisites.rs"
 
 [lints]
 workspace = true

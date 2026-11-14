@@ -104,7 +104,7 @@ def test_015_shell_syntax_and_guarded_root_transport():
         'print(json.load(open(sys.argv[1]))["endpoints"][sys.argv[2]])',
         "printf 'http://127.0.0.1:%s/' \"$endpoint_port\"",
         'run_checker "$(endpoint_base "$profile")" endpoint',
-        'CHECK_LIVE_ENDPOINT_BASE="$1" CHECK_LIVE_TIMEOUT=5 "$checker" "${@:2}" 2>&1',
+        'CHECK_LIVE_NODE_RPC_URL="$1" CHECK_LIVE_TIMEOUT=5 "$checker" "${@:2}" 2>&1',
         '[ "$status" -eq "$want_status" ] || ok=0',
         'grep -qF -- "$line" <<<"$output" || ok=0',
         'failures=$((failures + 1))',
@@ -125,7 +125,10 @@ def test_015_network_fixture_matches_retained_producer_and_consumer():
         "consensus": None, "reason": "consensus_unavailable",
     }
     assert profiles["network_consensus"]["px_getNetwork"]["result"]["consensus"] == {
-        "latest_height": "9", "catching_up": False,
+        "latest_height": "9",
+        "latest_block_hash": "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+        "latest_app_hash": "CDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCD",
+        "catching_up": False,
     }
     assert profiles["wrong_chain"]["eth_chainId"] == {"result": "0x1"}
     assert profiles["network_wrong_chain"]["px_getNetwork"]["result"]["paxeer"]["chain_id"] == "0x1"
@@ -148,7 +151,8 @@ def test_015_network_fixture_matches_retained_producer_and_consumer():
 
 
 @pytest.mark.parametrize("name", [
-    "check_live_passing_endpoint", "check_live_consensus_endpoint",
+    "check_live_passing_endpoint",
+    "check_live_consensus_endpoint",
     "check_live_network_malformed", "check_live_wrong_chain_id",
     "check_live_network_wrong_chain", "check_live_network_wrong_reason",
     "check_live_account_read_refused", "check_live_resolve_read_error",

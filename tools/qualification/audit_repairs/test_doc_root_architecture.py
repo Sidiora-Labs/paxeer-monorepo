@@ -10,10 +10,14 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
+NETWORK_README = "docs/readme/NETWORK.md"
+PUBLIC_RPC_README = "docs/readme/PUBLIC-RPC.md"
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1305.kvx"
 
 
 def source(path):
+    if path == "README.md":
+        path = NETWORK_README
     return (ROOT / path).read_text(encoding="utf-8")
 
 
@@ -41,15 +45,17 @@ def section(heading, level=3):
 def test_doc_root_architecture_merged_network_and_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "signed execution receipt can arrive before that commitment",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
         "outside consensus",
     ):
         assert fact in overview, fact
@@ -62,18 +68,18 @@ def test_doc_root_architecture_merged_network_and_finality():
 
 def test_doc_root_architecture_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
+    public_rpc = source(PUBLIC_RPC_README)
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
+        "node root URL",
+        "root path of its public node names",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network`",
         "node.hyperpaxeer.com` is only the hpx library mirror",
         "never a JSON-RPC endpoint",
         "gateway contract does not establish method availability at public node URLs",
         "native `px_` account/history and receipt-key methods",
     ):
-        assert fact in quickstart, fact
-    urls = re.findall(r"https?://[^\s`<>)]+", source("README.md"))
+        assert fact in quickstart + public_rpc, fact
+    urls = re.findall(r"https?://[^\s`<>)]+", quickstart + public_rpc)
     public = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
     assert public
     allowed_hosts = {
@@ -87,9 +93,8 @@ def test_doc_root_architecture_root_rpc_hosts_and_chain_probe():
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
     assert argv[0] == "curl"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert [arg for arg in argv if arg.startswith("https://")] == []
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []

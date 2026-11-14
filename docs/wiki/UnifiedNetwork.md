@@ -1,10 +1,11 @@
 # Unified Network Architecture
 
-Paxeer mainnet-beta is one BFT chain, run by `paxd`, with EVM chain ID `125`
-(`0x7d`). The kernel is part of the network and proposes blocks. EVM
-transactions, native modules and kernel-backed operations participate in the
-same chain's execution and commitment. A receipt is final once its block is
-committed. Start with the [Quickstart](Quickstart.md) for a transaction
+Paxeer mainnet-beta runs `paxd` with EVM chain ID `125` (`0x7d`). The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. EVM transactions, native modules and
+kernel-backed operations share the same chain's execution and commitment. A
+receipt is final once validators commit its block. Start with the
+[Quickstart](Quickstart.md) for a transaction
 walkthrough.
 
 ## Execution inside the network
@@ -16,10 +17,10 @@ transaction's chain state. Native precompiles under `precompiles/` expose
 module operations to EVM callers.
 
 `node/sequencer/` and `modules/sequencer/` implement ordered transaction
-execution, signed receipts and committed sequence tracking within the
-network. The proposer executes transactions and seals a `MsgSequenceBatch`
-for validation and commitment by the chain. Early execution receipts and
-committed blocks are stages of the same network's transaction lifecycle.
+execution, signed receipts and committed sequence tracking. The LayerX kernel
+inside `paxd` executes transactions and seals a `MsgSequenceBatch` for
+validators to check and commit. Early execution receipts and committed blocks
+are stages of the same chain's transaction lifecycle.
 
 Sub-chains are tenant domains: namespaces in the database, launchable without
 new infrastructure. A tenant identifier scopes data and authority; it does

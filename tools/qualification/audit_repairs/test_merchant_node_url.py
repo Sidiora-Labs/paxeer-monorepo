@@ -59,12 +59,12 @@ def test_merchant_node_url_emulator_adapter_is_explicit():
     assert emulator["receiptKeysEnvironment"] == "LAYERX_EMULATOR_RECEIPT_KEYS_JSON"
     readme = source(f"{APP}/README.md")
     for fact in (
-        document()["environments"]["beta"]["rpcUrl"], emulator["rpcUrl"],
-        "Do not append `/rpc`", "separate local emulator adapter",
-        "legacy adapter coordinate", "not a\npublic node route",
+        "beta JSON-RPC", "loopback endpoint on port 9402",
+        "Use the root path", "adapter must supply",
+        "emulator health alone does not establish that compatibility",
         "eth_getRawTransactionByHash", "pax_sequencerReceipt",
-        "independently pinned receipt keys", "submitted receipt remains pending",
-        "deployment review",
+        "independently pinned receipt keys", "A submitted receipt remains pending",
+        "separate HTTP settlement API", "settlement service",
     ):
         assert fact in readme, fact
 

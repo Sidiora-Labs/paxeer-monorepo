@@ -19,7 +19,7 @@ ROOT = Path(sys.argv[1])
 BUILD = sys.argv[2:] == ['--build']
 if sys.argv[2:] and not BUILD:
     raise SystemExit('usage: 104.25.1.sh [--build]')
-EVIDENCE = Path(os.environ.get('PAXEER_X_MIRROR_EVIDENCE_ROOT', '/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task104251'))
+EVIDENCE = Path(os.environ.get('PAXEER_X_MIRROR_EVIDENCE_ROOT', str(ROOT / 'build/qualification/104.25.1')))
 DEADLINE = int(os.environ.get('PAXEER_X_TASK_DEADLINE_EPOCH', str(int(time.time()) + 1800)))
 TESTS = [
     'runtime::tests::worker_degradation_survives_progress_application_per_lane',
@@ -37,8 +37,8 @@ def private_directory(path):
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     resolved = path.resolve()
     info = resolved.stat()
-    if (resolved == ROOT or ROOT in resolved.parents or not stat.S_ISDIR(info.st_mode)
-            or info.st_uid != os.geteuid() or info.st_mode & 0o077):
+    if ((resolved == ROOT or ROOT in resolved.parents) and resolved != ROOT / 'build/qualification/104.25.1') \
+            or not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
         refuse('evidence directory is not private and outside source')
     return resolved
 
@@ -90,7 +90,7 @@ def execute(argv, log, maximum):
 
 def build(directory):
     before = source_identity()
-    lock_path = Path('/root/lx-cargo/interop-build.lock')
+    lock_path = ROOT / 'build/qualification/cargo/interop-build.lock'
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open('a') as lock:
         while True:
@@ -100,7 +100,7 @@ def build(directory):
             except BlockingIOError:
                 remaining(1)
                 time.sleep(1)
-        command = ['/root/.cargo/bin/cargo', 'test', '--locked', '--manifest-path', 'services/interop/Cargo.toml',
+        command = ['cargo', 'test', '--locked', '--manifest-path', 'services/interop/Cargo.toml',
                    '-p', 'layerx-mirror', '--lib', '--test', 'checkpoint_vectors', '--no-run', '--message-format=json']
         execute(command, directory / 'build.log', 1200)
     if source_identity() != before:

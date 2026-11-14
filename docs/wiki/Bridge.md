@@ -1,7 +1,9 @@
 # Bridge module
 
-Paxeer is one BFT chain. Native bank and ledger transfers move value within that
-chain; they do not cross a LayerX-to-Paxeer custody boundary. A committed block
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. Native bank and ledger transfers
+move value within that chain; they do not cross a LayerX-to-Paxeer custody
+boundary. A committed block
 establishes finality for those transfers. See [Unified network](UnifiedNetwork.md)
 and [ledger payments](PaymentsQuickstart.md).
 

@@ -255,9 +255,9 @@ def test_f017_retained_native_interface_transport_preserves_positive_and_refusal
     retained = path.read_text()
     for name in expected:
         assert "fn " + name + "(" in retained
-    assert "repair_22_33_221::native_interface_transport();" in retained
-    support = (path.parent / "support/repair_22_33_221.rs").read_text()
-    for fact in ('include_str!("../../src/repair_22_31_256.hex")', "DeploymentProof::decode(&bytes)",
+    assert "chain_deployment_support::native_interface_transport();" in retained
+    support = (path.parent / "support/chain_deployment_support.rs").read_text()
+    for fact in ('include_str!("../../src/deployment_transcripts.hex")', "DeploymentProof::decode(&bytes)",
                  "verify_deployment(&decoded, input.now)", "VerifiedInterfaceRead::verify_at_head(",
                  'node_producer()["deploy"]', 'node_producer()["failed"]', "for field in 0..6"):
         # The producer selects deploy/upgrade through a named key.

@@ -1013,7 +1013,7 @@ fn a11_eviction_never_seen_by_this_projection_has_no_archive_locator() -> Checke
     Ok(())
 }
 
-#[path = "support/repair_22_33_1446.rs"]
+#[path = "support/ai_snapshot_fixture.rs"]
 pub mod repair_paths;
 
 #[test]

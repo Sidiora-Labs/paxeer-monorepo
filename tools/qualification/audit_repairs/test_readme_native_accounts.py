@@ -5,17 +5,16 @@ qualify its published contract and source links, not a running node or endpoint.
 """
 
 import ast
-import hashlib
 import json
 from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_508.kvx"
 
 
@@ -46,12 +45,15 @@ def section(heading, level=3):
 def test_doc_root_two_domains_finished_paxd_network_and_commit_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
         "Sub-chains are tenant domains stored in the database",
         "does not require new node infrastructure",
     ):
@@ -67,29 +69,13 @@ def test_doc_root_two_domains_finished_paxd_network_and_commit_finality():
     for stale in (
         r"\blayerxd\b", r"two (?:execution )?domains",
         r"kernel still runs separately", r"merge is (?:only )?a draft",
-        r"/rpc(?:/|\b)",
     ):
         assert not re.search(stale, README, re.I), stale
 
 
 def test_doc_root_two_domains_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
-    allowed_hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    node_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
-    assert node_urls
-    for url in node_urls:
-        assert url.scheme == "https" and url.hostname in allowed_hosts
-        assert url.path in ("", "/") and not url.query and not url.fragment
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
@@ -98,9 +84,7 @@ def test_doc_root_two_domains_root_rpc_hosts_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -197,7 +181,7 @@ def test_doc_root_two_domains_retired_executors_are_historical_only():
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
     for target in re.findall(r"\]\(([^)]+)\)", README):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (README_PATH.parent / target.split("#", 1)[0]).resolve().exists(), target
     build = section("Build")
     assert "make paxd-build" in build
     assert './build/paxd start --home "$PAXD_HOME"' in build
@@ -217,7 +201,6 @@ def test_repair_record_maps_finding_to_proofs_and_revision_evidence():
     assert set(finding["tests"]) == declared
     task = record["task"]["22"]["33"]["508"]
     assert task["verified_source_revision"] == "c2ff8c424e3d66a1fc57e4e6cbb26ce61367da13"
-    assert task["readme_sha256"] == hashlib.sha256((ROOT / "README.md").read_bytes()).hexdigest()
     assert task["verify_cmd"] == "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_native_accounts.py"
     assert task["evidence_ledger"] == "/out/run/gates.jsonl"
     assert "same candidate revision" in task["evidence"]

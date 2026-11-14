@@ -5,9 +5,9 @@ It includes price feeds, market summaries, TradingView data, explorer observatio
 and local CoinGecko/CMC-compatible adapters.
 
 The client defaults to `https://data.feed.chainflowtrading.com/` for the
-Chainflow REST data gateway. Paxeer mainnet-beta is one BFT network running
-`paxd`, with the kernel inside the network proposing blocks and EVM chain ID
-125 (`0x7d`). A transaction receipt is final when its block commits. Gateway
+Chainflow REST data gateway. Paxeer mainnet-beta runs `paxd` with EVM chain ID
+125 (`0x7d`). The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A transaction receipt is final when its block commits. Gateway
 explorer snapshots are observations, not a separate finality source.
 
 For chain JSON-RPC, use the root of a public node such as

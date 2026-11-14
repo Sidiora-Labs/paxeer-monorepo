@@ -2,9 +2,9 @@
 
 `services/human/` contains the Rust services for person-facing authentication,
 onboarding, custody, money movement, approvals and receipt-backed activity.
-Paxeer mainnet-beta is one BFT network, with EVM chain id **125** (`0x7d`).
-The kernel is part of that network and proposes blocks. A receipt is final when
-its block is committed. Tenant domains are database namespaces, so a sub-chain
+Paxeer mainnet-beta uses EVM chain id **125** (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt is final when its block is committed. Tenant domains are database namespaces, so a sub-chain
 does not require a new chain deployment.
 
 ## Layout

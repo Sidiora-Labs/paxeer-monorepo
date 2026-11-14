@@ -14,10 +14,11 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_763.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_763.kvx"
 )
 
 
@@ -51,9 +52,12 @@ def section(heading, level=3):
 def test_root_separate_daemon_is_replaced_by_one_integrated_paxd_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "Paxeer mainnet-beta is one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
@@ -69,17 +73,22 @@ def test_root_separate_daemon_is_replaced_by_one_integrated_paxd_network():
 
 def test_mainnet_beta_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
+    for fact in (
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
+        "Set `PAXEER_RPC_URL` to a node root URL"
     ) in quickstart
     allowed_hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
+    urls = re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
     endpoints = [
         urlsplit(url) for url in urls
         if urlsplit(url).hostname in allowed_hosts
@@ -104,12 +113,10 @@ def test_mainnet_beta_root_rpc_hosts_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "never a JSON-RPC endpoint" in quickstart
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
+    assert "never a JSON-RPC endpoint" in PUBLIC_RPC
+    assert "The hpx library mirror distributes\nbuild libraries and does not serve chain RPC" in source("docs/system/rpc.md")
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source(
         "rpc/rpcstack.go"
     )
@@ -166,10 +173,10 @@ def test_topology_deployment_and_recovery_stay_inside_paxd():
         "subgraph Network[One Paxeer BFT network / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State", "outside consensus",
-        "durable WAL for recovery", "restart and recovery belong to the node lifecycle",
-        "without an external settlement service",
+        "A configured standby follows the integrated node's durable WAL for recovery",
     ):
         assert fact in topology, fact
+    assert "There is no separate kernel daemon, sequencer service or checkpoint deployment" in section("What is Paxeer X Network?", 2)
     build = section("Build")
     for fact in (
         "make paxd-build", "build/liblayerx.a",
@@ -221,7 +228,7 @@ def test_custody_and_checkpoint_executors_are_explicitly_retired():
         "pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade"
     ) in anchor
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
-    for stale in (r"\blayerxd\b", r"\blx_[A-Za-z0-9_*]*", r"/rpc(?:/|\b)"):
+    for stale in (r"\blayerxd\b", r"\blx_[A-Za-z0-9_*]*", r"https?://[^\s`<>)]+/rpc(?:/|\b)"):
         assert re.search(stale, README, re.I) is None, stale
 
 

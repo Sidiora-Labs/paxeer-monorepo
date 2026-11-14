@@ -77,7 +77,7 @@ def test_relay_retirement_9_and_10_maintained_ownership_and_consumers():
         "compatibility-root": "services/platform/hosted/paxeer",
         "rehearsal-profiles": ["merged-v7.0"],
         "relay-deployment": False,
-        "relocation-record": "tools/qualification/audit_repairs/repair_22_33_1320.kvx",
+        "relocation-record": "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1320.kvx",
     }
     for name in ("gov-consensus-params.sh", "gov-upgrade.sh", "fork-rehearsal.sh", "gov-lib.sh"):
         assert "Maintained owner: domain 8 paxd operators" in source(name)
@@ -296,7 +296,7 @@ def test_relay_retirement_8_parser_rejects_generic_rpc_errors_and_success():
 def test_relay_retirement_8_committed_header_checks_recorded_bft_fields():
     parser = production("fork-rehearsal.sh", "rehearsal_json")
     # Recorded BFT reply; the EVM projection here is a parser unit vector only.
-    comet = json.loads((PAXEER / "tests/fixtures/repair_22_33_1324/commit.json").read_text())
+    comet = json.loads((PAXEER / "tests/fixtures/chain_evidence_tls/commit.json").read_text())
     signed = comet["result"]["signed_header"]
     height = int(signed["header"]["height"])
     eth = {

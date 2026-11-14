@@ -6,7 +6,10 @@ from retired_tests import (
     assert_symbols_unreferenced,
 )
 
+import pytest
 
+
+@pytest.mark.native
 def test_state_withdraw_web_retired():
     assert_paths_absent(["tests/state/lxp_test_state_diff.c"])
     assert_symbols_unreferenced(

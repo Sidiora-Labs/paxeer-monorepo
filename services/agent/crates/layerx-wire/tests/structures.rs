@@ -260,7 +260,7 @@ fn per_asset_account_uses_ledger_account_domain() {
     );
 }
 
-#[path = "repair_22_33_1523.rs"]
+#[path = "native_transaction_codecs.rs"]
 mod native_submission;
 
 // Every pre-existing replay receipt assertion remains an archive conformance case.

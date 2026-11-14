@@ -14,7 +14,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1281.kvx"
 
 
@@ -45,8 +47,11 @@ def section(heading, level=3):
 def test_readme_integrates_kernel_and_block_proposal_inside_paxd():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "C17 kernel", "runs inside `paxd`", "modules/lxphost",
         "Sub-chains are tenant domains stored in the database",
@@ -64,11 +69,14 @@ def test_readme_integrates_kernel_and_block_proposal_inside_paxd():
 def test_readme_public_rpc_uses_chain_125_and_numbered_root_hosts():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api-mainnet-beta.paxeer.network`",
-        "`https://api1.mainnet-beta.paxeer.network` through",
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
+    for fact in (
+        "Set `PAXEER_RPC_URL` to a node root URL",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
         "compare `eth_blockNumber`",
         "gateway contract does not establish method availability at public node URLs",
     ):
@@ -80,9 +88,7 @@ def test_readme_public_rpc_uses_chain_125_and_numbered_root_hosts():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
@@ -91,7 +97,7 @@ def test_readme_public_rpc_uses_chain_125_and_numbered_root_hosts():
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.scheme == "https"

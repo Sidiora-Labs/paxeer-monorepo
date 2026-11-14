@@ -384,14 +384,16 @@ def test_f35_missing_provenance_or_advertised_override_is_refused():
 
 def test_f42_documented_paths_identity_and_artifact_mirror():
     doc = (HPX / "README.md").read_text()
-    assert 'Artifact and library mirror: `https://node.hyperpaxeer.com`' in doc
+    assert '`HPX_MIRROR` selects the artifact and library mirror.' in doc
     assert 'tools/hpx/publish.sh' in doc and 'tools/hpx/registry' in doc
-    assert 'tools/hpx/hosting/fly.toml' in doc
+    assert '[hosting/](hosting/)' in doc
+    hosting = (HPX / 'hosting/fly.toml').read_text()
+    assert '[http_service]' in hosting
     assert 'does **not** read' not in doc
     assert 'tools/release/version.json' in doc and 'HPX_BUILD_PROVENANCE' in doc
-    assert 'before writing checksums or switching' in doc
+    assert 'Missing or inconsistent identity data aborts publication.' in doc
     for field in ('version', 'source_revision', 'paxd_sha256'):
-        assert f'"{field}"' in doc
+        assert f'`{field}`' in doc
     assert 'Explicit shell values override file values' in doc
     assert 'original' in doc and 'signed bytes' in doc
     assert not re.search(r'(?m)^\s*(?:sudo )?hpx/(?:publish|hosting|registry)', doc)

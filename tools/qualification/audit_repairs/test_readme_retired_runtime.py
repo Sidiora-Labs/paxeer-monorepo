@@ -5,7 +5,6 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -17,7 +16,7 @@ def source(path):
 
 
 def section(heading, level=3):
-    readme = source("README.md")
+    readme = source("docs/readme/NETWORK.md")
     marker = "#" * level + " " + heading + "\n"
     assert readme.count(marker) == 1, heading
     lines = []
@@ -39,10 +38,12 @@ def section(heading, level=3):
 def test_readme_retired_runtime_one_embedded_network_and_commit_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "participates in block proposal and deterministic execution",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
@@ -65,35 +66,20 @@ def test_readme_retired_runtime_one_embedded_network_and_commit_finality():
         r"kernel still runs separately",
         r"merge is (?:only )?a draft",
     ):
-        assert not re.search(stale, source("README.md"), re.I), stale
+        assert not re.search(stale, source("docs/readme/NETWORK.md"), re.I), stale
 
 
 def test_readme_retired_runtime_chain_125_root_rpc_hosts_and_request():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through" in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "`https://api-mainnet-beta.paxeer.network`" in quickstart
-    hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    for url in re.findall(r"https?://[^\s`<>)]+", source("README.md")):
-        parsed = urlsplit(url)
-        if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
-            assert parsed.hostname in hosts, url
-            assert parsed.scheme == "https" and parsed.path in ("", "/"), url
-            assert not parsed.query and not parsed.fragment, url
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }

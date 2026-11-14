@@ -8,7 +8,7 @@ Publish Paxeer X batch archives to external chains and verify committed receipt 
 
 The mirror system builds committed batch archives, publishes them to Ethereum or Solana, and retrieves them through independently configured chain sources. A consumer can then verify an archived receipt under its own sequencer key configuration without contacting the Paxeer X gateway.
 
-Mirror publication distributes evidence. Paxeer receipts are final once their blocks are committed by the BFT network. External-chain publication confirms archive availability under that chain's rules; it does not authorize a Paxeer transfer.
+Mirror publication distributes evidence. Paxeer receipts are final once validators commit their blocks. External-chain publication confirms archive availability under that chain's rules; it does not authorize a Paxeer transfer.
 
 ## Publisher and verifier roles
 

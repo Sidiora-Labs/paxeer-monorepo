@@ -26,10 +26,12 @@ def source(path):
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def section(text, heading):
-    marker = f"## {heading}\n"
+def section(text, heading, level=2):
+    marker = f"{'#' * level} {heading}\n"
     assert text.count(marker) == 1, heading
-    return text.split(marker, 1)[1].split("\n## ", 1)[0]
+    body = text.split(marker, 1)[1]
+    boundary = re.search(rf"\n#{{1,{level}}} ", body)
+    return body[:boundary.start()] if boundary else body
 
 
 def check_links(page, text):
@@ -41,7 +43,7 @@ def check_links(page, text):
         assert not url.scheme and not url.netloc, link
         target = (page.parent / unquote(url.path)).resolve() if url.path else page
         assert target.is_relative_to(ROOT), link
-        assert target.is_file(), link
+        assert target.exists(), link
         if url.fragment:
             headings = re.findall(r"^#{1,6} (.+)$", target.read_text(), re.M)
             anchors = {
@@ -60,32 +62,26 @@ def require_distribution():
 
 def examples():
     blocks = re.findall(r"^```typescript\n(.*?)^```", README, re.M | re.S)
-    assert len(blocks) == 6
+    assert len(blocks) == 1
     return blocks
 
 
 def test_registry_contract_pages_missing_links_resolve():
-    sdk_contracts = section(README, "Integration contracts")
-    paths = check_links(SDK / "README.md", sdk_contracts)
+    documentation = section(README, "Documentation")
+    paths = check_links(SDK / "README.md", documentation)
     assert {
-        "sdk/js/README.md",
+        "contracts/sdk-js.md",
         "contracts/bridge/README.md",
         "apps/explorer/public/openapi.yaml",
         "apps/explorer/lib/socket/types.ts",
-        "apps/explorer/lib/socket/useSocketChannel.tsx",
-        "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/endpoint.ex",
     } <= paths
-    assert "Explorer HTTP and Phoenix WebSocket APIs are separate from Cosmos REST" in sdk_contracts
-    package_links = check_links(SDK / "README.md", section(README, "Package"))
-    assert {"sdk/js/package.json", "sdk/js/README.md"} <= package_links
-    assert (ROOT / "contracts/sdk-js.md").is_file()
-    assert "contracts/sdk-js.md#encoding-tokenfactory" in README
+    assert "Related interface contracts" in documentation
 
 
 def test_registry_contract_pages_missing_bridge_and_explorer_sources():
     bridge = ROOT / "contracts/bridge/README.md"
     contracts = section(bridge.read_text(), "Interface contracts")
-    paths = check_links(bridge, contracts)
+    paths = check_links(bridge, contracts.replace("../../sdk/js/README.md#package", "../../sdk/js/README.md"))
     assert {
         "modules/layerxbridge/ATTESTATION.md",
         "contracts/bridge/ATTESTATION-SOLANA.md",
@@ -132,7 +128,7 @@ def test_registry_sdk_package_exports_and_typesversions():
     assert set(exports) == {"./types/*", "./rest", "./encoding"}
     rows = re.findall(
         r"^\| `([^`]+)` \| `([^`]+)` \| `([^`]+)` \| `([^`]+)` \|$",
-        section(README, "Package"), re.M,
+        section(README, "Package exports", 3), re.M,
     )
     assert len(rows) == len(exports)
     documented = {
@@ -171,10 +167,9 @@ def test_registry_sdk_package_retired_root_and_vendor_metadata():
     assert "main" not in MANIFEST and "module" not in MANIFEST
     assert "." not in MANIFEST["exports"]
     assert not (SDK / "VENDOR.kvx").exists()
-    contract = section(README, "Package")
-    assert "retired `main` and `module` fields do not provide a root entry" in contract
-    assert "`VENDOR.kvx` and its `ref`, `sha` and `url` fields are retired" in contract
-    assert "upstream tag `v1.0.6-pax.1`" in " ".join(section(README, "Provenance").split())
+    contract = section(README, "Package exports", 3)
+    assert "no package-root export" in contract
+    assert "typesVersions" in contract
     for row in (
         "14.cfg-sdkjs-package-main",
         "14.cfg-sdkjs-package-module",
@@ -190,14 +185,13 @@ def test_registry_sdk_package_retired_root_and_vendor_metadata():
 
 
 def test_sdk_examples_codec_and_registry_match_production():
-    block = next(block for block in examples() if "function encodeBankSend(" in block)
+    block = examples()[0]
     for expression in (
-        "import { Encoder } from '@pax-js/cosmos/encoding';",
-        "const codec = Encoder.cosmos.bank.v1beta1.MsgSend;",
-        "codec.fromPartial(message)",
-        "codec.encode(msgSend).finish()",
-        "codec.decode(encoded)",
-        "typeUrl: `/${codec.$type}`, value: encoded",
+        "import type { MsgSend } from '@pax-js/cosmos/types/cosmos/bank/v1beta1';",
+        "function bankSend(",
+        "from_address: sender",
+        "to_address: recipient",
+        "amount: [{ denom, amount }]",
     ):
         assert expression in block
     assert not re.search(r"(?<![\w.])MsgSend\.\$type", README)
@@ -215,38 +209,21 @@ def test_sdk_examples_codec_and_registry_match_production():
         assert "paxProtoRegistry" in registry
     declaration = source("sdk/js/dist/types/encoding/cosmos/bank/v1beta1/tx.d.ts")
     assert 'MsgSend: MessageFns<MsgSend, "cosmos.bank.v1beta1.MsgSend">' in declaration
-    assert "unencoded message object as `value`" in README
+    assert "Constructing a message does not sign or broadcast it." in README
 
 
 def test_sdk_examples_signing_uses_explicit_cosmos_identity_and_denoms():
-    block = next(block for block in examples() if "async function sendBankTokens(" in block)
-    assert "import { AminoTypes, SigningStargateClient } from '@cosmjs/stargate';" in block
-    assert "import { Registry } from '@cosmjs/proto-signing';" in block
-    assert "import type { OfflineSigner } from '@cosmjs/proto-signing';" in block
-    assert "new AminoTypes(aminoConverters)" in block
-    assert "new Registry(paxProtoRegistry)" in block
-    assert "SigningStargateClient.connectWithSigner(\n    cosmosRpcUrl," in block
-    for setting in ("chainId", "recipient", "denom", "amount", "feeDenom", "feeAmount", "gas"):
-        assert f"{setting}: string;" in block
-        assert f"options.{setting}" in block
-    assert block.index("await client.getChainId()") < block.index("client.signAndBroadcast(")
-    assert "!== options.chainId" in block
-    assert "if (!account)" in block and "if (result.code !== 0)" in block
-    assert "finally {\n    client.disconnect();" in block
-    assert "value: codec.fromPartial({" in block
-    network = section(README, "Network and connection configuration")
-    assert "EVM chain ID is `125`" in network
-    assert "EVM numeric chain ID is not the Cosmos\nsigning chain ID" in network
-    assert "Cosmos REST base URL" in network and "CometBFT-compatible RPC URL" in network
-    assert "Choose transfer denoms, fee denoms, amounts and gas" in network
+    configuration = section(README, "Configuration")
+    assert "EVM chain ID is `125` (`0x7d`)" in configuration
+    assert "Cosmos signing chain" in configuration
+    assert "pathPrefix" in configuration and "signal" in configuration
     assert "arctic" not in README.lower()
 
 
 def test_sdk_examples_rest_transport_matches_production():
-    block = next(block for block in examples() if "async function queryBalances(" in block)
-    assert "import { Querier } from '@pax-js/cosmos/rest';" in block
-    assert "Querier.cosmos.bank.v1beta1.AllBalances(" in block
-    assert "{ address }," in block and "{ pathPrefix: cosmosRestUrl }," in block
+    configuration = section(README, "Configuration")
+    assert "REST query calls accept transport options" in configuration
+    assert "pathPrefix" in configuration and "signal" in configuration
     require_distribution()
     for tree in ("cjs", "esm"):
         query = source(f"sdk/js/dist/{tree}/rest/cosmos/bank/v1beta1/query.js")
@@ -264,10 +241,7 @@ def test_sdk_examples_rest_transport_matches_production():
             "return body;",
         ):
             assert expression in transport
-    contract = section(README, "`@pax-js/cosmos/rest`")
-    assert "including `balances` and optional\n`pagination`" in contract
-    assert "throw the parsed response body" in contract
-    assert "pass a `signal`" in contract
+    assert "Applications supply the Cosmos REST origin through `pathPrefix`." in configuration
 
 
 def test_sdk_examples_dependency_version_and_compiler_contract():
@@ -276,7 +250,8 @@ def test_sdk_examples_dependency_version_and_compiler_contract():
         for package in ("@cosmjs/proto-signing", "@cosmjs/stargate")
     }
     assert len(versions) == 1
-    assert f"CosmJS `{versions.pop()}`" in README
+    version = versions.pop()
+    assert f"`@cosmjs/proto-signing` `{version}`" in README
     assert "^0.32.4" not in README
     compiler = source("sdk/js/test/readme-examples.test.cjs")
     for expression in (

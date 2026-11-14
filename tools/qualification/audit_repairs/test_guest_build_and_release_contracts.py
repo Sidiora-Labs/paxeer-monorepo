@@ -162,10 +162,11 @@ def test_finding_7_final_bytes_are_bounded_deployed_and_then_published():
         'FILE *artifact = fopen(path, "rb")',
         "wasm = malloc((size_t)length)",
         "fread(wasm, 1U, (size_t)length, artifact) != (size_t)length",
-        "deploy_bytes(f, wasm, (size_t)length)",
+        "deploy_bytes_as(f, wasm, (size_t)length, actor)",
+        "return deploy_as(f, path, 0U);",
         "lxp_hash_sha256(payload+104U, length, payload+68U)",
-        "execute(f, 0U, LX_PROGRAMS_DEPLOY, payload, length+104U)",
-        "execute(f, 0U, LX_PROGRAMS_UPGRADE, upgrade, length+106U)",
+        "execute(f, actor, LX_PROGRAMS_DEPLOY, payload, length+104U)",
+        "execute(f, actor, LX_PROGRAMS_UPGRADE, upgrade, length+106U)",
         "deploy(f, argv[1]) != 0", "native bring-up failed", "return 2;",
     ):
         assert fact in harness
@@ -184,7 +185,7 @@ def test_finding_6_retained_kernel_linkage_preserves_consumers(binary, source):
     ]
     assert commands[0] == "mkdir -p $(@D)"
     assert shlex.split(commands[1]) == [
-        "$(CC)", "$(CPPFLAGS)", "$(CFLAGS)", "$<", "$(LIBRARY)",
+        "$(CC)", "$(CPPFLAGS)", "$(CFLAGS)", "$(PROGRAMS_TEST_DEPFLAGS)", "$<", "$(LIBRARY)",
         "$(PROGRAMS_RUNTIME_LIB)", "$(EXTRA_LDFLAGS)", "$(PROGRAMS_NATIVE_LDLIBS)",
         "-lcrypto", "-lsqlite3", "-pthread", "-ldl", "-lm", "-o", "$@",
     ]
@@ -226,20 +227,28 @@ def test_finding_5_orphan_archive_build_surface_is_removed():
 
 
 def test_finding_23_readme_matches_embedded_network_and_precompile_producer():
-    readme = read("README.md")
+    page = ROOT / "docs/readme/NETWORK.md"
+    readme = page.read_text(encoding="utf-8")
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "LayerX kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "A receipt is final once its block is committed", "root path of these hosts",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
+        "A receipt is final once its block is committed", "root path without a route suffix",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "`submitted`, `receipted` and `committed`", "make paxd-build",
         './build/paxd start --home "$PAXD_HOME"',
-        "tools/release/build-paxd.sh", "[RELEASE.md](RELEASE.md)",
+        "tools/release/build-paxd.sh", "[RELEASE.md](../../RELEASE.md)",
         "programs/target/release/liblayerx_programs_sandbox.a",
         "retired refusal surfaces retained for compatibility",
         "Historical anchor reads before store deletion are archive-only",
     ):
         assert fact in readme
+    release_link = re.search(r"\[RELEASE\.md\]\(([^)]+)\)", readme)
+    assert release_link is not None
+    assert (page.parent / release_link[1]).resolve() == ROOT / "RELEASE.md"
     assert not re.search(r"\blayerxd\b|make\s+layerxd|merge remains a draft", readme, re.I)
     producer = read("precompiles/setup.go").split("var MergeAddressTable = []MergeAddress{", 1)[1].split("\n}", 1)[0]
     addresses = re.findall(r'HexToAddress\("0x0*([0-9A-Fa-f]+)"\), "([^"]+)"', producer)

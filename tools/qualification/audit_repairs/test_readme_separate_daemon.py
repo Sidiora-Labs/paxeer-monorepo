@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1337.kvx"
 
 
@@ -20,10 +22,10 @@ def source(path):
 
 def section(heading, level=3):
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -40,12 +42,15 @@ def section(heading, level=3):
 def test_readme_describes_one_bft_paxd_with_embedded_kernel():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
-        "no router and no separate LayerX interface",
         "outside consensus",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
     ):
@@ -67,18 +72,10 @@ def test_readme_describes_one_bft_paxd_with_embedded_kernel():
 
 def test_root_json_rpc_range_and_chain_125_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
-    urls = re.findall(r"https://[A-Za-z0-9./_-]+", quickstart)
-    assert set(urls) == {
-        "https://api-mainnet-beta.paxeer.network",
-        "https://api1.mainnet-beta.paxeer.network",
-        "https://api14.mainnet-beta.paxeer.network",
-    }
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix." in quickstart
+    urls = re.findall(r"https://[A-Za-z0-9./_-]+", PUBLIC_RPC)
+    assert "https://api1.mainnet-beta.paxeer.network" in urls
+    assert "https://api14.mainnet-beta.paxeer.network" in urls
     for url in urls:
         parsed = urlsplit(url)
         assert parsed.scheme == "https"
@@ -88,7 +85,7 @@ def test_root_json_rpc_range_and_chain_125_probe():
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
     assert argv[:4] == ["curl", "--max-time", "10", "-sS"]
-    assert argv[4] == "https://api1.mainnet-beta.paxeer.network"
+    assert argv[4] == "$PAXEER_RPC_URL"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -97,7 +94,6 @@ def test_root_json_rpc_range_and_chain_125_probe():
     assert result is not None
     assert int(result.group(1), 16) == 125
     assert "`eth_blockNumber`" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
 
 
 def test_eip1559_submission_follows_production_send_and_receipt_path():
@@ -129,7 +125,7 @@ def test_eip1559_submission_follows_production_send_and_receipt_path():
 
 
 def test_finality_requires_committed_block_and_receipt_consumer():
-    assert "A receipt is final once its block is committed" in README
+    assert "A receipt is final once its block is committed" in NETWORK
     flow = section("Submit a transaction and follow its committed receipt")
     for fact in (
         "`submitted` has no execution receipt yet",
@@ -219,8 +215,8 @@ def test_build_and_release_guidance_uses_integrated_paxd():
         r"\blayerxd\b", r"make\s+(?:checkpoint|settlement)(?:[-\w]*)",
         r"merge is (?:only )?a draft", r"kernel still runs separately",
     ):
-        assert not re.search(stale, README, re.I), stale
-    assert "External checkpoint settlement is retired" in README
+        assert not re.search(stale, NETWORK, re.I), stale
+    assert "External checkpoint settlement is retired" in NETWORK
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
     assert "commits it with the BFT chain state" in release

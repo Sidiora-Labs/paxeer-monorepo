@@ -7,11 +7,17 @@ The registry record comes from that producer's `indexer()` fixture. The empty
 holder envelope is the store's recorded empty-list result asserted by
 `px_list_holder_records_pages_the_indexer_holder_route_to_the_end`.
 
-Tests replay these documents over loopback HTTP. Native registry records and
-bindings are produced separately by the real node keepers and committed before
-RPC reads. Account creation emits no transfer, so those accounts replay the
-canonical empty history page. No executable, external endpoint or credential
-is needed to replay the records.
+The `TestPxNodeRoot_History_` cases in `rpc/px_node_root_history_test.go` replay
+these documents over loopback HTTP: `TransactionHashParity`,
+`TransportShapesAndRestart`, `PagingAndKind`, `CommittedNativeAccounts`,
+`MergePositionBoundaries`, `Metrics`, `InvalidIndexer` and `ExplorerImportedRows`.
+`TransactionHashParity` also reads `gateway-recording.json` to compare the
+gateway and RPC transaction hashes and finality fields.
+
+Native registry records and bindings are produced separately by the real node
+keepers and committed before RPC reads. Account creation emits no transfer, so
+those accounts replay the canonical empty history page. No executable, external
+endpoint or credential is needed to replay the records.
 
 The `/mixed/v1/history/` entries are a separate mixed-source recording for
 `TestPxNodeRoot_History_ExplorerImportedRows`. Producer revision:
@@ -22,11 +28,10 @@ serialized directly from the API; no successful response rows are assembled or
 rewritten. `/mixed` is only the replay selector and is not part of the producer
 request path.
 
-After integrating task 18.1633.1, these recordings were regenerated with
-canonical transaction hashes: the generator hashes its transaction labels
-with SHA-256 before committing or importing them. The consumer derives
-`tx_hash` from the recorded `tx_id` and retains the producer's `final_basis`
-for both indexed and imported rows.
+The recordings contain canonical transaction hashes: the generator hashes its
+transaction labels with SHA-256 before committing or importing them. The
+consumer derives `tx_hash` from the recorded `tx_id` and retains the producer's
+`final_basis` for both indexed and imported rows.
 
 The native account IDs are derived from the same deterministic binding and
 asset registration as `pxHistoryCommitNative`: Ed25519 seed `[0x45; 32]`,

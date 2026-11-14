@@ -14,7 +14,7 @@ import sys
 
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 UNIT = {
     'schedule::tests::partition_is_a_pure_canonical_function_of_batch_contents': 'partition is a pure canonical function of the batch contents',
     'schedule::tests::disjoint_batches_share_one_level_and_all_conflicting_batches_serialise': 'disjoint activities share a level and conflicting activities serialise',
@@ -81,7 +81,7 @@ try:
     count = production_path()
     target = os.environ.get('CARGO_TARGET_DIR', str(ROOT / 'programs/target'))
     env = dict(os.environ, CARGO_TARGET_DIR=target,
-               PATH=str(Path(CARGO).parent) + os.pathsep + os.environ.get('PATH', ''))
+               PATH=os.environ.get('PATH', ''))
     output = run([CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime',
                   '--features', 'host-ffi', '--lib', '--', 'schedule::'], 'scheduler unit suite', env)
     passed_names = set(re.findall(r'^test (\S+) \.\.\. ok$', output, re.M))

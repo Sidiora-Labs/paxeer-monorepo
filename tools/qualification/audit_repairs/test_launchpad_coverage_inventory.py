@@ -218,7 +218,7 @@ def test_shell_guards_measurement_with_complete_inventory():
     assert 'MONEY_MIN="${MONEY_MIN:-90.0}"' in source
     assert 'DEFAULT_MIN="${DEFAULT_MIN:-85.0}"' in source
     assert 'if is_money "$mod"; then min="$MONEY_MIN"; else min="$DEFAULT_MIN"; fi' in source
-    assert 'pct="$(go tool cover -func="$fprof"' in source
+    assert 'pct="$(cd "$mod" && go tool cover -func="$fprof_abs"' in source
     assert 'fprof="$(filter_generated "$prof" "$mod")"' in source
     assert "exit !(p+0 >= m+0)" in source
     assert 'if [ "$fail" -ne 0 ]; then' in source

@@ -4,8 +4,9 @@ This crate is the non-authoritative agent owner library. The `layerx-agentd`
 binary is declared by [`layerx-agentd-host`](../layerx-agentd-host/Cargo.toml)
 and built from this crate's [`src/main.rs`](src/main.rs). It provides local
 sessions, policy, approvals and verified network access; it does not run
-consensus or determine finality. Paxeer's kernel proposes blocks within the
-single network, and a committed block makes its receipts final.
+consensus or determine finality. The LayerX kernel inside paxd executes and
+orders each transaction and builds each block; validators check and commit it.
+A committed block makes its receipts final.
 
 See the [workspace README](../../README.md) for the node boundary and test
 prerequisites, the [compatibility matrix](../../../../docs/agent/COMPATIBILITY.md) for Agent API

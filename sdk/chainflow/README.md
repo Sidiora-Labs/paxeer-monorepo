@@ -1,6 +1,6 @@
 # Chainflow Data Gateway SDKs
 
-This directory holds Go, Python, Rust and TypeScript clients for the Chainflow Data Gateway. They provide REST access to price feeds, market summaries, TradingView data, explorer observations and CoinGecko/CoinMarketCap-compatible adapters, with WebSocket support where the language client provides it. Applications use these clients for data alongside Paxeer node access. Paxeer mainnet-beta is one BFT network running `paxd`, with its kernel participating in block proposal and EVM chain ID 125 (`0x7d`); receipts become final when their block is committed. Configure node JSON-RPC separately from the data gateway.
+This directory holds Go, Python, Rust and TypeScript clients for the Chainflow Data Gateway. They provide REST access to price feeds, market summaries, TradingView data, explorer observations and CoinGecko/CoinMarketCap-compatible adapters, with WebSocket support where the language client provides it. Applications use these clients for data alongside Paxeer node access. Paxeer mainnet-beta runs `paxd` with EVM chain ID 125 (`0x7d`); the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts become final when their block is committed. Configure node JSON-RPC separately from the data gateway.
 
 ## Layout
 

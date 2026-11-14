@@ -4,8 +4,9 @@ Publishes retrievable archives of committed Paxeer blocks to Ethereum and,
 optionally, Solana. An archive contains block coordinates and signed network
 receipts in the pure v4 archive format; it holds no custody and creates no
 separate settlement domain.
-Paxeer mainnet-beta is one BFT network (chain ID 125), with the kernel part of
-the network and participating in block proposal. Its block commit is finality;
+Paxeer mainnet-beta uses chain ID 125. The LayerX kernel inside `paxd` executes
+and orders each transaction and builds each block; validators check and commit
+it. Its block commit is finality;
 external publication records archive availability under each destination's
 confirmation policy.
 

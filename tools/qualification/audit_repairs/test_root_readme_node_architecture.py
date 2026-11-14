@@ -15,7 +15,9 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_211.kvx")
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 
 
 def source(path):
@@ -45,15 +47,19 @@ def section(heading, level=3):
 def test_readme_describes_one_merged_paxd_bft_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface", "outside consensus",
+        "outside consensus",
     ):
         assert fact in overview, fact
+    assert "There is no separate LayerX interface, router, or unified `/rpc` endpoint." in source("docs/wiki/Protocol.md")
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
@@ -71,38 +77,34 @@ def test_readme_describes_one_merged_paxd_bft_network():
 
 def test_root_rpc_hosts_and_chain_125_probe():
     quickstart = section("Quick start: connect to chain 125")
-    for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "gateway contract does not establish method availability at public node URLs",
-    ):
-        assert fact in quickstart, fact
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "gateway contract does not establish method availability at public node URLs" in quickstart
+    assert "Use `api1` through `api14.mainnet-beta.paxeer.network`" in PUBLIC_RPC
+    assert "`node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint" in PUBLIC_RPC
     hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    node_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
-    assert node_urls
-    for url in node_urls:
-        assert url.scheme == "https"
-        assert url.hostname in hosts
-        assert url.path in ("", "/")
-        assert not url.query and not url.fragment
+    urls = [
+        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
+        if "mainnet-beta.paxeer.network" in url
+    ]
+    assert {url.hostname for url in urls} == hosts
+    for url in urls:
+        assert url.scheme == "https" and url.hostname in hosts
+        assert url.path in ("", "/") and not url.query and not url.fragment
+        assert url.port is None and url.username is None and url.password is None
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
-    argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
+    argv = shlex.split(blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " "))
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
     assert '# Expected result: "0x7d"' in blocks[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 

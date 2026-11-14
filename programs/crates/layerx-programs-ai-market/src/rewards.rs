@@ -4238,7 +4238,7 @@ struct SplitPayoutParticipants {
     shares: PayoutShares,
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn split_payout_participants(
     state: &SharedState<'_>,
     book: &crate::rooms::RoomBook<'_>,
@@ -4337,7 +4337,7 @@ fn payout_faults(
     Ok((faults, laps))
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn credit_split_payout(
     rewards: &RewardState<'_>,
     draft: &mut Draft<'_>,

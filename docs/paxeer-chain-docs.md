@@ -4,9 +4,9 @@ These pages document the Paxeer node and chain modules in this monorepo. Node
 integration, chain modules, EVM JSON-RPC, and contracts live at the repository root
 in `node/`, `modules/`, `rpc/`, and `contracts/src/`.
 
-Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID `125`
-(`0x7d`). The merged kernel is part of the network and participates in block
-proposal and execution. A receipt is final when its block is committed. Native
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt is final when its block is committed. Native
 balances and kernel execution use chain state. Sub-chains are tenant domains in
 the database, launchable without new infrastructure.
 
