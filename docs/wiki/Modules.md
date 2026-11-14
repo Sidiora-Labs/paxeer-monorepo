@@ -1,9 +1,10 @@
 # Modules
 
 Protocol modules execute inside the Paxeer network's kernel. Paxeer mainnet-beta
-is one BFT chain, with EVM chain ID `125` (`0x7d`); the kernel is part of the
-network and proposes blocks. An execution receipt is final when its block is
-committed. Module execution does not wait for settlement on another network.
+has EVM chain ID `125` (`0x7d`). The LayerX kernel inside `paxd` executes and
+orders each transaction and builds each block; validators check and commit it.
+An execution receipt is final when validators commit its block. Module
+execution does not wait for settlement on another network.
 
 The C module interface is declared in `include/layerx/lxp_module.h`. Its live node
 host is `modules/lxphost/host.go`, which registers the interfaces, binds account

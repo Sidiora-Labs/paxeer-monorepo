@@ -382,7 +382,7 @@ The migrated result vocabulary is `rung`:
 | --- | --- |
 | `submitted` | Transaction submission; no verified execution receipt yet |
 | `receipted` | Receipt verified against a pinned receipt-key entry; committed-block finality has not yet been established by this result |
-| `committed` | Verified Comet commit at the receipt height; final on the BFT network |
+| `committed` | Verified Comet commit at the receipt height; final when validators commit its block |
 
 These meanings are shared in [the rung type](../../services/agent/crates/layerx-types/src/rung.rs).
 

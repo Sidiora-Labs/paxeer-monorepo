@@ -6,9 +6,10 @@ The adapter id is `ap2`; its descriptor declares version `1.0.0` and verifies
 the vendored specification against `AP2_SPEC_SHA256` at `AP2_SPEC_COMMIT`.
 See the [crate exports](../../services/interop/crates/layerx-ap2/src/lib.rs).
 
-Payments execute on the merged Paxeer network, EVM chain id `125`. The kernel
-is part of the network and proposes blocks. A payment receipt is final when
-its block is committed. A verified mandate authorizes payment; mandate
+Payments execute on the merged Paxeer network, EVM chain id `125`. The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A payment receipt is final when the validators
+commit its block. A verified mandate authorizes payment; mandate
 verification alone does not establish payment or block commitment.
 
 [Interop](Interop.md) indexes the service and its other adapters;

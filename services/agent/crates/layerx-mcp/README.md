@@ -3,8 +3,9 @@
 Tenant- and scope-bound Model Context Protocol tools for agents on Paxeer
 mainnet-beta. Each server uses one daemon-owned session and capability; model
 arguments cannot expand its authority. Tenant domains share the same network.
-The kernel proposes blocks within that network, and receipts become final
-when their blocks are committed.
+The LayerX kernel inside paxd executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when the
+validators commit its block.
 
 Both the `layerx-mcp` binary and `layerx mcp serve` use
 `Binding::open_daemon_client`. The transport retrieves `mcp.describe` and

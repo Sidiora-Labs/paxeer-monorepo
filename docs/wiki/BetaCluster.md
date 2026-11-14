@@ -1,8 +1,10 @@
 # Disposable beta cluster
 
-The Kubernetes harness starts a disposable Paxeer BFT chain with EVM chain ID
-`125` (`0x7d`) and Comet chain ID `hyperpax_125-1`. The kernel runs inside
-`paxd`; a transaction is final when its block is committed. This local chain
+The Kubernetes harness starts a disposable Paxeer chain with EVM chain ID
+`125` (`0x7d`) and Comet chain ID `hyperpax_125-1`. The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction is final when the validators commit its
+block. This local chain
 has its own genesis and trust material, even though its EVM chain ID matches
 mainnet-beta. Sub-chains are tenant domains within a chain.
 
