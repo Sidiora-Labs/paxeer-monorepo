@@ -395,7 +395,8 @@ fn metered_fuel_exhaustion_golden_replays_every_step_and_its_host_trap_exactly()
         .boundary_leaves
         .iter()
         .map(|leaf| {
-            PortableBoundary::decode_untrusted(leaf, 1_048_576).assert_success("test value")
+            PortableBoundary::decode_with_header(leaf, 1_048_576, execution.record.header())
+                .assert_success("test value")
         })
         .collect();
     assert!(boundaries.len() >= 2);

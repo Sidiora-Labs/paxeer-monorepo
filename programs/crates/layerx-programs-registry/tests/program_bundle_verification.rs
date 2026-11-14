@@ -49,7 +49,7 @@ fn chain_head(
     fixture: &ProtocolFixture,
     kind: ProgramHeadKind,
 ) -> VerifiedChainHead {
-    let state = &fixture.proof.state;
+    let state = &fixture.program_state();
     verifier
         .verify_current_chain_head(
             kind,
@@ -74,7 +74,7 @@ fn other_program() -> ProgramId {
 
 fn foreign_fixture() -> ProtocolFixture {
     let mut fixture = deployed(70, WASM_V1);
-    let state = &fixture.proof.state;
+    let state = &fixture.program_state();
     let commitment = &state.commitment;
     let mut chain = ChainFixture::new(
         "paxeer-other-chain",
@@ -237,7 +237,9 @@ fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
     );
     assert_eq!(
         chain.receipt_digest(),
-        <[u8; 32]>::from(Sha256::digest(&fixture.proof.state.transaction))
+        <[u8; 32]>::from(Sha256::digest(support::deployment::raw_transaction(
+            &fixture.proof
+        )))
     );
     assert_eq!(
         chain.freshness().observed_sequence,
@@ -480,7 +482,7 @@ fn altered_head_or_state_material_is_refused() {
 fn stale_chain_head_and_stale_bundle_are_refused() {
     let fixture = deployed(70, WASM_V1);
     let verifier = verifier(&fixture);
-    let state = &fixture.proof.state;
+    let state = &fixture.program_state();
     for now in [OBSERVED_AT - 1_001, OBSERVED_AT + STALENESS_MS + 1] {
         assert_eq!(
             verifier.verify_current_chain_head(
@@ -509,7 +511,7 @@ fn stale_chain_head_and_stale_bundle_are_refused() {
 fn native_maintenance_head_is_typed_tagged_and_equal_to_the_protocol_api() {
     let fixture = deployed(70, WASM_V1);
     let verifier = verifier(&fixture);
-    let state = &fixture.proof.state;
+    let state = &fixture.program_state();
     let module_prefix = programs_state_key(&[]);
     let kernel_key = state
         .commitment
@@ -564,7 +566,7 @@ fn native_maintenance_head_is_typed_tagged_and_equal_to_the_protocol_api() {
 fn maintenance_head_refuses_wrong_transaction_signature_and_staleness() {
     let fixture = deployed(70, WASM_V1);
     let verifier = verifier(&fixture);
-    let state = &fixture.proof.state;
+    let state = &fixture.program_state();
     let head = |commitment: &_, transaction: &[u8], transaction_proof: &_, now| {
         verifier.verify_current_chain_head(
             ProgramHeadKind::Maintenance,

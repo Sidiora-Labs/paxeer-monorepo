@@ -66,9 +66,12 @@ fn terminal_trap_replay_recomputes_the_claimed_trap_before_committing_the_trace(
         Some(ExecutionFault::UnreachableExecuted)
     );
     assert_eq!(execution.record.terminal_status(), 1);
-    let terminal =
-        PortableBoundary::decode_untrusted(execution.boundary_leaves.last().unwrap(), MAXIMUM)
-            .unwrap();
+    let terminal = PortableBoundary::decode_with_header(
+        execution.boundary_leaves.last().unwrap(),
+        MAXIMUM,
+        execution.record.header(),
+    )
+    .unwrap();
     let mut forged = terminal.clone();
     assert!(!forged.trap.as_ref().unwrap().host_trap);
     forged.trap.as_mut().unwrap().host_trap = true;

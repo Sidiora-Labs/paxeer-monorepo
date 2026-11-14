@@ -28,9 +28,9 @@ use layerx_programs_ai_market::{
     commit_reveal::{self as cr, commitment, Outcome as F04},
     dispatch::{self, Operation},
     epoch::{
-        self, Frozen, HistoryOutcome, Outcome as Opening, ADVANCE_SCRATCH_BYTES,
-        AGGREGATE_SCRATCH_BYTES, CARRY_SCRATCH_BYTES, HISTORY_PAYLOAD_BYTES, HISTORY_SCRATCH_BYTES,
-        OPEN_SCRATCH_BYTES, RESET_SUFFIX_BYTES, STATUS_SUFFIX_BYTES,
+        self, Frozen, HistoryOutcome, ADVANCE_SCRATCH_BYTES, AGGREGATE_SCRATCH_BYTES,
+        CARRY_SCRATCH_BYTES, HISTORY_PAYLOAD_BYTES, HISTORY_SCRATCH_BYTES, RESET_SUFFIX_BYTES,
+        STATUS_SUFFIX_BYTES,
     },
     errors::{
         ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_NONCANONICAL_VECTOR,
@@ -736,33 +736,7 @@ impl World {
                 replacement_key(n)
             }
         })?;
-        let mut next = vec![0; MAX_STATE_BYTES];
-        let mut scratch = vec![0; OPEN_SCRATCH_BYTES];
-        let preview = epoch::preview_open(&candidate.bytes, at, &mut next, &mut scratch)?;
-        let call = Req {
-            epoch: preview.epoch,
-            config: preview.config.get(),
-            roster: Presence::Present(preview.roster),
-            request: tag(0x60, 0, preview.epoch),
-            ..req(dispatch::OPEN_EPOCH, principal(KEEPER)?, Vec::new())
-        };
-        let encoded = call.encode()?;
-        let mut event = vec![0; MAX_EVENT_BYTES];
-        let Opening::Opened {
-            frozen, state_len, ..
-        } = epoch::open_epoch(
-            &call.context(at)?,
-            &decode_envelope(&encoded)?,
-            &candidate.bytes,
-            &mut next,
-            &mut scratch,
-            &mut event,
-        )?
-        else {
-            return Err(NON_CANONICAL);
-        };
-        next.truncate(state_len);
-        candidate.bytes = next;
+        let frozen = repair::open_refreshed(&mut candidate.bytes, at)?;
         *self = candidate;
         Ok(frozen)
     }
@@ -1397,7 +1371,7 @@ fn check_applied(
         assert_eq!(seal.epoch, progress.epoch);
     } else if e.operation == dispatch::ProcessAggregation {
         assert_eq!(new, old);
-    } else {
+    } else if progress.phase == AggregationPhase::Terminal {
         assert_eq!(new.seal, Presence::Absent);
         assert_eq!(
             new.state.latest_completed(),
@@ -1407,6 +1381,8 @@ fn check_applied(
             completed(&new.state, progress.epoch)?.result,
             root_of(&progress)?
         );
+    } else {
+        assert_eq!(new, old);
     }
     Ok(())
 }
@@ -1533,13 +1509,28 @@ impl Market {
     fn finalize(&mut self, at: u64) -> CodecResult<Progress> {
         let input = input_of(&self.progress()?)?;
         let call = self.finalize_call(input)?;
-        let progress = Market::applied(self.aggregate(&call, at)?)?;
-        assert_eq!(progress.phase, AggregationPhase::Terminal);
-        assert_eq!(
-            self.reward_row(self.frozen.epoch)?.status,
-            EpochStatus::Terminal
-        );
-        Ok(progress)
+        let mut cursor = 0;
+        loop {
+            let outcome = self.aggregate(&call, at)?;
+            let Agg::Applied {
+                progress, response, ..
+            } = outcome
+            else {
+                return Err(NON_CANONICAL);
+            };
+            cursor = repair::finalization_cursor(response.as_bytes(), cursor, &progress)?;
+            if progress.phase == AggregationPhase::Terminal {
+                assert_eq!(
+                    self.reward_row(self.frozen.epoch)?.status,
+                    EpochStatus::Terminal
+                );
+                return Ok(progress);
+            }
+            assert_eq!(
+                self.reward_row(self.frozen.epoch)?.status,
+                EpochStatus::Reserved
+            );
+        }
     }
     /// Every remaining Process chunk, then Finalize.
     fn complete(&mut self, at: u64) -> CodecResult<Progress> {
@@ -1556,7 +1547,7 @@ impl Market {
     }
     fn reward_row(&self, epoch: u64) -> CodecResult<RewardEpoch> {
         let state = decode_shared_state(&self.world.bytes)?;
-        let section = state.feature_sections[Section::SettlementClaims.index()];
+        let section = state.room_market()?.0;
         decode_reward_state(section.get(..REWARD_STATE_BYTES).ok_or(NOT_FOUND)?)?.row(epoch)
     }
     fn region(&self) -> CodecResult<Region> {
@@ -2399,13 +2390,41 @@ fn f07_a12_atomic_terminal_and_sealed_history_allowed() -> TestResult {
     let input = input_of(&progress)?;
     let call = m.finalize_call(input)?;
     let before = m.world.bytes.clone();
+    let (outcome, expected, _) = m.compose(&call, SETTLE_AT, FULL)?;
+    let Agg::Applied {
+        state_len,
+        progress,
+        ..
+    } = outcome?
+    else {
+        return Err(NON_CANONICAL);
+    };
+    assert_eq!(progress.phase, AggregationPhase::Terminal);
+    let (exact, actual, _) = m.compose(
+        &call,
+        SETTLE_AT,
+        [state_len, AGGREGATE_SCRATCH_BYTES, MAX_EVENT_BYTES],
+    )?;
+    let Agg::Applied {
+        state_len: exact_len,
+        ..
+    } = exact?
+    else {
+        return Err(NON_CANONICAL);
+    };
+    assert_eq!(exact_len, state_len);
+    assert_eq!(&actual[..exact_len], &expected[..state_len]);
     for sizes in [
-        [before.len(), AGGREGATE_SCRATCH_BYTES, MAX_EVENT_BYTES],
-        [MAX_STATE_BYTES, agg::SCRATCH_BYTES, MAX_EVENT_BYTES],
+        [state_len - 1, AGGREGATE_SCRATCH_BYTES, MAX_EVENT_BYTES],
+        [
+            MAX_STATE_BYTES,
+            Section::PolicyLifecycle.payload_cap() + Section::SettlementClaims.payload_cap() - 1,
+            MAX_EVENT_BYTES,
+        ],
         [MAX_STATE_BYTES, AGGREGATE_SCRATCH_BYTES, 64],
     ] {
         let (outcome, _, _) = m.compose(&call, SETTLE_AT, sizes)?;
-        assert_eq!(outcome.err(), Some(CAPACITY));
+        assert_eq!(outcome.err(), Some(CAPACITY), "buffers {sizes:?}");
     }
     assert_eq!(m.world.bytes, before);
     m.finalize(SETTLE_AT)?;
