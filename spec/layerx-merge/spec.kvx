@@ -328460,7 +328460,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.538]
 title = "Bring the reference declaration test of the launchpad tool and its package to one spec path form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
