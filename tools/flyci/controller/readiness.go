@@ -42,7 +42,7 @@ type readinessConfig struct {
 	MaxAgeSeconds         uint32   `json:"max_age_seconds"`
 }
 
-func readinessFile(path string) ([]byte, error) {
+func readinessFile(path string) (data []byte, err error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path || strings.HasPrefix(filepath.Base(path), ".env") {
 		return nil, errors.New("readiness material path refused")
 	}
@@ -50,16 +50,20 @@ func readinessFile(path string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.New("readiness material unavailable")
 	}
-	defer file.Close()
+	defer func() { err = qCloseError(file, err) }()
 	info, err := file.Stat()
 	if err != nil {
 		return nil, errors.New("readiness material metadata unavailable")
 	}
+	uid := os.Geteuid()
+	if uid < 0 || uint64(uid) > uint64(^uint32(0)) {
+		return nil, errors.New("readiness material owner unavailable")
+	}
 	st, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || st.Nlink != 1 || (st.Uid != 0 && st.Uid != uint32(os.Geteuid())) || info.Size() <= 0 || info.Size() > 65536 {
+	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || st.Nlink != 1 || (st.Uid != 0 && uint64(st.Uid) != uint64(uid)) || info.Size() <= 0 || info.Size() > 65536 {
 		return nil, errors.New("readiness material must be protected regular owner file")
 	}
-	data, err := io.ReadAll(io.LimitReader(file, 65537))
+	data, err = io.ReadAll(io.LimitReader(file, 65537))
 	if err != nil || len(data) > 65536 {
 		return nil, errors.New("readiness material read refused")
 	}
@@ -136,7 +140,7 @@ func validateReadinessConfig(out readinessConfig, cfg config, sourceRevision str
 	host, port, err := net.SplitHostPort(out.Listen)
 	ip := net.ParseIP(host)
 	number, portErr := strconv.ParseUint(port, 10, 16)
-	if err != nil || portErr != nil || number == 0 || ip == nil || ip.IsUnspecified() || !(ip.IsLoopback() || ip.IsPrivate()) {
+	if err != nil || portErr != nil || number == 0 || ip == nil || ip.IsUnspecified() || (!ip.IsLoopback() && !ip.IsPrivate()) {
 		return errors.New("readiness listener must use an explicit private address and port")
 	}
 	if out.ChainID == 0 || strings.TrimSpace(out.NetworkID) != out.NetworkID || out.NetworkID == "" || len(out.NetworkID) > 128 || strings.TrimSpace(out.WireVersion) != out.WireVersion || out.WireVersion == "" || len(out.WireVersion) > 64 {
@@ -213,7 +217,7 @@ func (state *readinessState) begin() *readinessPass {
 	defer state.mu.Unlock()
 	generation := state.snapshot.generation + 1
 	now := time.Now()
-	state.snapshot = readinessSnapshot{generation: generation, started: now, reason: "in_progress"}
+	state.snapshot = readinessSnapshot{generation: generation, started: now, reason: statusProgress}
 	return &readinessPass{state: state, generation: generation, started: now, operations: map[string]bool{
 		"github_runs_queued": false, "github_runs_in_progress": false, "fly_machines": false, "qualification": false, "qualification_storage": false, "qualification_inventory": false, "qualification_state": false, "job_index": false,
 	}}
@@ -251,12 +255,12 @@ func (pass *readinessPass) condition(operation string, success bool) {
 	pass.operations[operation] = true
 }
 
-func readinessQualificationSnapshot(registry *qualificationRegistry) ([]qualificationRecord, error) {
+func readinessQualificationSnapshot(registry *qualificationRegistry) (records []qualificationRecord, err error) {
 	lock, err := registry.lock()
 	if err != nil {
 		return nil, err
 	}
-	defer lock.Close()
+	defer func() { err = qCloseError(lock, err) }()
 	return registry.list()
 }
 
@@ -267,11 +271,11 @@ func (pass *readinessPass) qualificationRecords(records []qualificationRecord) {
 	valid := true
 	for _, record := range records {
 		switch record.State {
-		case "run_bound", "running", "completed_validated":
+		case qStateRunBound, qStateRunning, qStateCompletedValidated:
 			if record.RunID <= 0 || record.Attempt <= 0 {
 				valid = false
 			}
-		case "terminal_failed":
+		case qStateTerminalFailed:
 			if record.RunID <= 0 || record.Attempt <= 0 {
 				valid = false
 			}
@@ -430,7 +434,7 @@ func (state *readinessState) ServeHTTP(w http.ResponseWriter, request *http.Requ
 		return
 	}
 	reply := state.reply()
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeHeader, jsonMediaType)
 	if !reply.Ready {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}

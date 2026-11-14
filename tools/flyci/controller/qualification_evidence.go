@@ -16,6 +16,10 @@ import (
 	"time"
 )
 
+const (
+	qEvidenceDeadlineExceeded = "evidence deadline exceeded"
+)
+
 type qualificationEnvelope struct {
 	Schema     string `json:"schema"`
 	Key        []byte `json:"key"`
@@ -162,7 +166,7 @@ func qValidateResult(req qualificationRequest, result qualificationResult, run, 
 	if result.RunID != run || result.Attempt != attempt || run <= 0 || attempt <= 0 || result.ExitCode != 0 || result.Tests <= 0 || result.Skipped != 0 {
 		return errors.New("incomplete or failed result")
 	}
-	if job.RunID != run || job.ID <= 0 || job.Status != "completed" || job.Conclusion != "success" || job.RunnerID <= 0 || job.RunnerName == "" {
+	if job.RunID != run || job.ID <= 0 || job.Status != statusDone || job.Conclusion != conclusionSuccess || job.RunnerID <= 0 || job.RunnerName == "" {
 		return errors.New("job has no trusted completion")
 	}
 	duration := result.CompletedAt.Sub(result.StartedAt)
@@ -200,7 +204,7 @@ func qValidateResult(req qualificationRequest, result qualificationResult, run, 
 }
 func qValidateCompleted(c qualificationCompleted, pub ed25519.PublicKey, domain string, deadline time.Time) error {
 	if time.Now().After(deadline) {
-		return errors.New("evidence deadline exceeded")
+		return errors.New(qEvidenceDeadlineExceeded)
 	}
 	if e := c.Request.validate(); e != nil {
 		return e
@@ -214,7 +218,7 @@ func qValidateCompleted(c qualificationCompleted, pub ed25519.PublicKey, domain 
 	if len(pub) != ed25519.PublicKeySize || !ed25519.Verify(pub, b, sig) {
 		return errors.New("untrusted completed record")
 	}
-	if c.Schema != "paxeer-x.completed-qualification.v1" || c.Domain != domain || domain == "" || c.Workflow != ".github/workflows/paxeer-x-qualification.yml" || c.Status != "completed" || c.Conclusion != "success" || c.Repository == "" || c.ObservedAt.IsZero() || c.ObservedAt.After(time.Now().Add(time.Minute)) {
+	if c.Schema != "paxeer-x.completed-qualification.v1" || c.Domain != domain || domain == "" || c.Workflow != qualificationWorkflowPath || c.Status != statusDone || c.Conclusion != conclusionSuccess || c.Repository == "" || c.ObservedAt.IsZero() || c.ObservedAt.After(time.Now().Add(time.Minute)) {
 		return errors.New("completed record provenance invalid")
 	}
 	if len(c.Results) != len(c.Request.Manifest.Cells) || len(c.Jobs) != len(c.Results) || len(c.ArchiveDigests) != len(c.Results) {
@@ -224,7 +228,7 @@ func qValidateCompleted(c qualificationCompleted, pub ed25519.PublicKey, domain 
 	jobs := map[int64]bool{}
 	for i, result := range c.Results {
 		if time.Now().After(deadline) {
-			return errors.New("evidence deadline exceeded")
+			return errors.New(qEvidenceDeadlineExceeded)
 		}
 		if seen[result.CellID] || jobs[c.Jobs[i].ID] {
 			return errors.New("duplicate case or job")
@@ -280,7 +284,7 @@ func qVerifyFile(path, trust string, deadline time.Time) error {
 	if e != nil {
 		return e
 	}
-	return qValidateCompleted(completed, ed25519.PublicKey(key), "github-actions", deadline)
+	return qValidateCompleted(completed, ed25519.PublicKey(key), qualificationDomain, deadline)
 }
 func qMounted(root string) bool {
 	b, e := os.ReadFile("/proc/self/mountinfo")

@@ -23,31 +23,31 @@ use layerx_client::px::{PxEndpoint, Uint256};
 use layerx_client::rpc::{
     commit::{acquire_committed_header, verify_commit_material},
     history, payments,
-    receipt::{lookup_authenticated_with_commit, Lookup, LookupContext},
+    receipt::{Lookup, LookupContext, lookup_authenticated_with_commit},
     receipt_commit::{ReceiptCommitEvidence, SequenceBatch},
 };
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
 use layerx_crypto::evm_transaction::{self, Eip1559Call};
 use layerx_programs_registry::chain_proof::{
+    ChainProofVerifier, Commit, VerifiedChainHead,
     decode::ProofOp,
     header::{ChainHeader, HeaderBlockId, HeaderTime, HeaderVersion},
-    merkle::{hash_from_byte_slices, SimpleProof},
+    merkle::{SimpleProof, hash_from_byte_slices},
     validators::{TrustedValidator, ValidatorSet},
-    vote::{vote_sign_bytes, BlockId, BlockIdFlag, CommitSig, PartSetHeader, Timestamp},
-    ChainProofVerifier, Commit, VerifiedChainHead,
+    vote::{BlockId, BlockIdFlag, CommitSig, PartSetHeader, Timestamp, vote_sign_bytes},
 };
 use layerx_wire::{
     encode::Encoder,
     hash::receipt_digest,
     limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION},
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
     Arc,
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 use std::time::Duration;
 
@@ -140,7 +140,11 @@ impl Server {
                 answer["jsonrpc"] = json!("2.0");
                 let body = answer.to_string();
                 let mut stream = reader.into_inner();
-                must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()));
+                must(write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                ));
                 must(stream.flush());
                 count += 1;
             }
@@ -287,7 +291,7 @@ fn gateway_uint256_boundaries() {
 
 #[test]
 fn budget_ledger_balance_keeps_asset_height_and_protocol_width() {
-    use layerx_client::rpc::account::{balance, ReadContext, ReadError, Requested, Rung};
+    use layerx_client::rpc::account::{ReadContext, ReadError, Requested, Rung, balance};
     let mut data = evm_transaction::transaction_hash(b"balanceOf(bytes32,bytes32)")[..4].to_vec();
     data.extend_from_slice(&OWNER);
     data.extend_from_slice(&ASSET);
@@ -962,6 +966,7 @@ fn assert_second_journal_finalizes(
         [0x55; 32],
         10_000,
     ));
+    must(second_journal.record_signed(&second));
     must(second_journal.submit(&mut second, endpoint));
     assert_eq!(
         must(second_journal.resolve_with_commit(
@@ -1016,17 +1021,17 @@ fn assert_legacy_record_refuses_finality(
 
 fn market_state(rubric: u8) -> Vec<u8> {
     use layerx_programs_ai_market::{
-        codec::{decode_envelope, derive_market, encode_envelope, Envelope},
+        MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES,
+        codec::{Envelope, decode_envelope, derive_market, encode_envelope},
         dispatch,
-        policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
-        registry::{derive_rewards_account, F01_SECTION_CAP},
+        policy::{PolicyCommitments, TASK_POLICY_BYTES, TaskPolicyV1},
+        registry::{F01_SECTION_CAP, derive_rewards_account},
         registry_ops::{self, Outcome},
         state::{self, Section},
         types::{
             AssetId, Authentication, ChainDomain, Digest32, Presence, PrincipalId, ProgramId,
             RequestId, RubricDigest,
         },
-        MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES,
     };
     let chain = must(ChainDomain::new(
         layerx_programs_ai_market::MERGED_CHAIN_DOMAIN,
@@ -1163,7 +1168,7 @@ fn namespace_proof(state: &[u8]) -> NamespaceProof {
 }
 fn capture_market(state: &[u8], root: [u8; 32], block: [u8; 32], height: u64) -> ObservedSnapshot {
     use layerx_programs_ai_market::{
-        queries::{read_state_chunk, ReadProof},
+        queries::{ReadProof, read_state_chunk},
         types::{ChainDomain, Digest32, ProgramId},
     };
     let proof = ReadProof {

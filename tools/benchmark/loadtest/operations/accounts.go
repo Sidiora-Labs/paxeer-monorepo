@@ -36,18 +36,20 @@ func privateDirectory(path string) (*os.File, error) {
 	file := os.NewFile(uintptr(fd), path)
 	info, err := file.Stat()
 	if err != nil {
-		file.Close()
-		return nil, err
+		return nil, closeWithError(file, err)
 	}
 	stat := info.Sys().(*syscall.Stat_t)
-	if stat.Uid != uint32(os.Geteuid()) || info.Mode().Perm() != 0700 {
-		file.Close()
-		return nil, errors.New("account directory must be owned by the current user with mode 0700")
+	uid, err := effectiveUID()
+	if err != nil {
+		return nil, closeWithError(file, err)
+	}
+	if uint64(stat.Uid) != uid || info.Mode().Perm() != 0700 {
+		return nil, closeWithError(file, errors.New("account directory must be owned by the current user with mode 0700"))
 	}
 	return file, nil
 }
 
-func SaveAccount(directory, name string, account Account) error {
+func SaveAccount(directory, name string, account Account) (err error) {
 	if name == "" || filepath.Base(name) != name || name == "." || name == ".." {
 		return errors.New("invalid account filename")
 	}
@@ -55,7 +57,7 @@ func SaveAccount(directory, name string, account Account) error {
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
+	defer func() { err = closeWithError(dir, err) }()
 	return saveAccountAt(dir, name, account)
 }
 
@@ -65,7 +67,11 @@ func saveAccountAt(dir *os.File, name string, account Account) (err error) {
 		return err
 	}
 	file := os.NewFile(uintptr(fd), name)
-	defer file.Close()
+	defer func() {
+		if file != nil {
+			err = closeWithError(file, err)
+		}
+	}()
 	if err = file.Chmod(0600); err != nil {
 		return err
 	}
@@ -75,13 +81,15 @@ func saveAccountAt(dir *os.File, name string, account Account) (err error) {
 	if err = file.Sync(); err != nil {
 		return err
 	}
-	if err = file.Close(); err != nil {
+	err = file.Close()
+	file = nil
+	if err != nil {
 		return err
 	}
 	return dir.Sync()
 }
 
-func GenerateGenesis(ctx context.Context, runner Commands, options GenesisOptions) error {
+func GenerateGenesis(ctx context.Context, runner Commands, options GenesisOptions) (err error) {
 	if options.Count < 0 {
 		return errors.New("account count must be nonnegative")
 	}
@@ -89,9 +97,14 @@ func GenerateGenesis(ctx context.Context, runner Commands, options GenesisOption
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
+	defer func() { err = closeWithError(dir, err) }()
 	path := filepath.Join(options.Home, "config", "genesis.json")
-	original, err := os.ReadFile(path)
+	home, err := os.OpenRoot(options.Home)
+	if err != nil {
+		return err
+	}
+	defer func() { err = closeWithError(home, err) }()
+	original, err := home.ReadFile("config/genesis.json")
 	if err != nil {
 		return err
 	}
@@ -115,7 +128,7 @@ func GenerateGenesis(ctx context.Context, runner Commands, options GenesisOption
 			defer workers.Done()
 			for index := start; index < end; index++ {
 				name := "ta" + strconv.Itoa(index)
-				args := []string{options.Paxd, "keys", "add", name, "--home", options.Home, "--output", "json"}
+				args := []string{options.Paxd, "keys", "add", name, "--home", options.Home, outputFlag, jsonOutput}
 				if options.Local {
 					args = append(args, "--keyring-backend", "test")
 				}
@@ -156,7 +169,7 @@ func GenerateGenesis(ctx context.Context, runner Commands, options GenesisOption
 			return fmt.Errorf("noncontiguous or duplicate account inventory at %d", index)
 		}
 		seen[account.Address] = true
-		balances = append(balances, map[string]any{"address": account.Address, "coins": []any{map[string]string{"denom": "uhpx", "amount": "1000000000000000000000000"}}})
+		balances = append(balances, map[string]any{"address": account.Address, "coins": []any{map[string]string{"denom": nativeDenom, "amount": "1000000000000000000000000"}}})
 		auth = append(auth, map[string]any{"@type": "/cosmos.auth.v1beta1.BaseAccount", "address": account.Address, "pub_key": nil, "account_number": strconv.Itoa(index), "sequence": "0"})
 	}
 	app, ok := genesis["app_state"].(map[string]any)
@@ -189,7 +202,7 @@ func GenerateGenesis(ctx context.Context, runner Commands, options GenesisOption
 	bank["balances"] = append(oldBalances, balances...)
 	accountsState["accounts"] = append(oldAccounts, auth...)
 	// Do not overwrite an operator's concurrent genesis edit.
-	current, err := os.ReadFile(path)
+	current, err := home.ReadFile("config/genesis.json")
 	if err != nil {
 		return err
 	}

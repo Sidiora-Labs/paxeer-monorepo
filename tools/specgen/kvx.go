@@ -33,12 +33,16 @@ func newDoc() *Doc {
 }
 
 // ParseFile reads and parses a .kvx file. A missing file is an error.
-func ParseFile(path string) (*Doc, error) {
+func ParseFile(path string) (doc *Doc, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); err == nil {
+			err = closeErr
+		}
+	}()
 	return parse(f, path)
 }
 

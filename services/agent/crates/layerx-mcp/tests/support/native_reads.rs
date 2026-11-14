@@ -622,7 +622,6 @@ pub(crate) mod disposable_node {
                 .args(["--sequencer", "--env-out"])
                 .arg(&environment)
                 .env("TMPDIR", "/tmp")
-                .env_remove("PAXD")
                 .stdout(Stdio::from(must(log.try_clone())))
                 .stderr(Stdio::from(log))
                 .status()

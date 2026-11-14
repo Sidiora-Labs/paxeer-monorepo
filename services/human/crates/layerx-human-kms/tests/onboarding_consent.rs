@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 pub use layerx_human_kms::attestor;
+pub use layerx_human_kms::verify_native_pointer;
 #[allow(dead_code)]
 #[path = "../src/config.rs"]
 mod config;
