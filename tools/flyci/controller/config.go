@@ -10,6 +10,11 @@ import (
 )
 
 const (
+	httpsScheme         = "https"
+	githubRepositoryEnv = "GITHUB_REPOSITORY"
+)
+
+const (
 	defaultGitHubAPIURL = "https://api.github.com"
 	defaultFlyAPIURL    = "https://api.machines.dev"
 )
@@ -79,7 +84,7 @@ func loadConfig(getenv func(string) string) (config, error) {
 	apiURL := func(name, fallback string) string {
 		raw := strings.TrimRight(value(name, fallback), "/")
 		parsed, err := url.Parse(raw)
-		if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
+		if err != nil || (parsed.Scheme != httpsScheme && parsed.Scheme != "http") || parsed.Host == "" {
 			errs = append(errs, fmt.Errorf("%s must be an absolute http or https URL, got %q", name, raw))
 		}
 		return raw
@@ -101,7 +106,7 @@ func loadConfig(getenv func(string) string) (config, error) {
 		FlyAPIURL:             apiURL("FLY_API_URL", defaultFlyAPIURL),
 	}
 
-	if repository := required("GITHUB_REPOSITORY"); repository != "" {
+	if repository := required(githubRepositoryEnv); repository != "" {
 		owner, repo, ok := strings.Cut(repository, "/")
 		if !ok || owner == "" || repo == "" || strings.Contains(repo, "/") {
 			errs = append(errs, fmt.Errorf("GITHUB_REPOSITORY must be owner/repo, got %q", repository))

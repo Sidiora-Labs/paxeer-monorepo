@@ -37,7 +37,7 @@ func GenerateBindings(ctx context.Context, runner Commands, root, generator stri
 	return nil
 }
 
-func generateBinding(ctx context.Context, runner Commands, dir, pkg, generator string) error {
+func generateBinding(ctx context.Context, runner Commands, dir, pkg, generator string) (err error) {
 	abiPath := filepath.Join(dir, "abi.json")
 	before, err := os.ReadFile(abiPath)
 	if err != nil {
@@ -52,7 +52,12 @@ func generateBinding(ctx context.Context, runner Commands, dir, pkg, generator s
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(stage)
+	defer func() {
+		removeErr := os.RemoveAll(stage)
+		if err == nil {
+			err = removeErr
+		}
+	}()
 	output := filepath.Join(stage, pkg+".go")
 	_, err = runner.Run(ctx, Command{Args: []string{generator, "--abi=" + abiPath, "--pkg=" + pkg, "--out=" + output}})
 	if err != nil {
@@ -65,7 +70,12 @@ func generateBinding(ctx context.Context, runner Commands, dir, pkg, generator s
 	if !info.Mode().IsRegular() || info.Size() == 0 {
 		return errors.New("abigen output is missing, empty or not a regular file")
 	}
-	data, err := os.ReadFile(output)
+	directory, err := os.OpenRoot(stage)
+	if err != nil {
+		return err
+	}
+	defer func() { err = closeWithError(directory, err) }()
+	data, err := directory.ReadFile(pkg + ".go")
 	if err != nil {
 		return err
 	}

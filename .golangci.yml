@@ -53,64 +53,6 @@ linters:
       - path: "^services/bridge/deploy/proposals/manifest\\.go$"
         linters: [gosec]
         text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/config\\.go$"
-        linters: [goconst]
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/github\\.go$"
-        linters: [bodyclose]
-        text: "^(?:response\\ body\\ must\\ be\\ closed)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/github\\.go$"
-        linters: [errcheck]
-        text: "^(?:Error\\ return\\ value\\ of\\ `resp\\.Body\\.Close`\\ is\\ not\\ checked)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/github\\.go$"
-        linters: [gosec]
-        text: "^(?:G104:\\ Errors\\ unhandled)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/qualification_control\\.go$"
-        linters: [errcheck]
-        text: "^(?:Error\\ return\\ value\\ of\\ `conn\\.Close`\\ is\\ not\\ checked|Error\\ return\\ value\\ of\\ `leader\\.Close`\\ is\\ not\\ checked|Error\\ return\\ value\\ of\\ `listener\\.Close`\\ is\\ not\\ checked)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/qualification_control\\.go$"
-        linters: [goconst]
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/qualification_control\\.go$"
-        linters: [gosec]
-        text: "^(?:G104:\\ Errors\\ unhandled)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/qualification_evidence\\.go$"
-        linters: [goconst]
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/qualification_registry\\.go$"
-        linters: [errcheck]
-        text: "^(?:Error\\ return\\ value\\ of\\ `f\\.Close`\\ is\\ not\\ checked|Error\\ return\\ value\\ of\\ `lock\\.Close`\\ is\\ not\\ checked|Error\\ return\\ value\\ of\\ `os\\.Remove`\\ is\\ not\\ checked)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/qualification_registry\\.go$"
-        linters: [goconst]
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/qualification_registry\\.go$"
-        linters: [gosec]
-        text: "^(?:G104:\\ Errors\\ unhandled|G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/readiness\\.go$"
-        linters: [errcheck]
-        text: "^(?:Error\\ return\\ value\\ of\\ `file\\.Close`\\ is\\ not\\ checked|Error\\ return\\ value\\ of\\ `lock\\.Close`\\ is\\ not\\ checked)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/readiness\\.go$"
-        linters: [goconst]
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/readiness\\.go$"
-        linters: [gosec]
-        text: "^(?:G115:\\ integer\\ overflow\\ conversion\\ int\\ \\->\\ uint32)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/readiness\\.go$"
-        linters: [staticcheck]
-        text: "^(?:QF1001:\\ could\\ apply\\ De\\ Morgan's\\ law)$"
-      # Scoped wiring request: see repair_22_39_4.kvx.
-      - path: "^tools/flyci/controller/reconcile\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^consensus/autobahn/types/block\\.go$"
@@ -1568,101 +1510,44 @@ linters:
       - path: "^tests/protocol/internal/qualification/clock\\.go$"
         linters: [prealloc]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/home\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/home\\.go$"
-        linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/evm\\.go$"
-        linters: [goimports]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/main\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/benchmark/loadtest/main\\.go$"
         linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/main\\.go$"
-        linters: [staticcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/accounts\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/accounts\\.go$"
-        linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/bindings\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/benchmark/loadtest/operations/bindings\\.go$"
         linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/command\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/benchmark/loadtest/operations/command\\.go$"
         linters: [gosec]
+        text: "^(?:G204:\\ Subprocess\\ launched\\ with\\ a\\ potential\\ tainted\\ input\\ or\\ cmd\\ arguments)$"
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/deployment\\.go$"
-        linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/exchange\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/benchmark/loadtest/operations/exchange\\.go$"
         linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/exchange\\.go$"
-        linters: [prealloc]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/faults\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/faults\\.go$"
-        linters: [goconst]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/faults\\.go$"
-        linters: [prealloc]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/metrics\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/benchmark/loadtest/operations/metrics\\.go$"
         linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/metrics\\.go$"
-        linters: [staticcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/private\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/benchmark/loadtest/operations/private\\.go$"
-        linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/bringup/archive_state\\.go$"
@@ -2092,9 +1977,6 @@ linters:
       - path: "^wasm/x/wasm/keeper/keeper\\.go$"
         linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/flyci/controller/github\\.go$"
-        linters: [goconst]
 
       - path: "^services/platform/hosted/paxeer/profile\\.go$"
         linters: [gosec]

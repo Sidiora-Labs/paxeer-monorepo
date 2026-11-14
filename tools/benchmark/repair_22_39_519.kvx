@@ -1,0 +1,249 @@
+[meta]
+name = "Benchmark and pipeline controller lint configuration"
+
+[rule.1]
+file = "tools/flyci/controller/config.go"
+linter = "goconst"
+status = "removed"
+reason = "Repeated protocol values and command arguments use package constants."
+
+[rule.2]
+file = "tools/flyci/controller/github.go"
+linter = "bodyclose"
+status = "removed"
+reason = "HTTP response bodies are closed before control returns."
+
+[rule.3]
+file = "tools/flyci/controller/github.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.4]
+file = "tools/flyci/controller/github.go"
+linter = "gosec"
+status = "removed"
+reason = "Ownership comparisons avoid narrowing, rate conversions are bounded, and file access is confined to open directories."
+
+[rule.5]
+file = "tools/flyci/controller/qualification_control.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.6]
+file = "tools/flyci/controller/qualification_control.go"
+linter = "goconst"
+status = "removed"
+reason = "Repeated protocol values and command arguments use package constants."
+
+[rule.7]
+file = "tools/flyci/controller/qualification_control.go"
+linter = "gosec"
+status = "removed"
+reason = "Ownership comparisons avoid narrowing, rate conversions are bounded, and file access is confined to open directories."
+
+[rule.8]
+file = "tools/flyci/controller/qualification_evidence.go"
+linter = "goconst"
+status = "removed"
+reason = "Repeated protocol values and command arguments use package constants."
+
+[rule.9]
+file = "tools/flyci/controller/qualification_registry.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.10]
+file = "tools/flyci/controller/qualification_registry.go"
+linter = "goconst"
+status = "removed"
+reason = "Repeated protocol values and command arguments use package constants."
+
+[rule.11]
+file = "tools/flyci/controller/qualification_registry.go"
+linter = "gosec"
+status = "removed"
+reason = "Ownership comparisons avoid narrowing, rate conversions are bounded, and file access is confined to open directories."
+
+[rule.12]
+file = "tools/flyci/controller/readiness.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.13]
+file = "tools/flyci/controller/readiness.go"
+linter = "goconst"
+status = "removed"
+reason = "Repeated protocol values and command arguments use package constants."
+
+[rule.14]
+file = "tools/flyci/controller/readiness.go"
+linter = "gosec"
+status = "removed"
+reason = "Ownership comparisons avoid narrowing, rate conversions are bounded, and file access is confined to open directories."
+
+[rule.15]
+file = "tools/flyci/controller/readiness.go"
+linter = "staticcheck"
+status = "removed"
+reason = "Declarations and boolean conditions use direct forms; structured block diagnostics retain the metric response text."
+
+[rule.16]
+file = "tools/flyci/controller/reconcile.go"
+linter = "goconst"
+status = "removed"
+reason = "Repeated protocol values and command arguments use package constants."
+
+[rule.17]
+file = "tools/benchmark/home.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.18]
+file = "tools/benchmark/home.go"
+linter = "gosec"
+status = "removed"
+reason = "Ownership comparisons avoid narrowing, rate conversions are bounded, and file access is confined to open directories."
+
+[rule.19]
+file = "tools/benchmark/loadtest/evm.go"
+linter = "goimports"
+status = "removed"
+reason = "Standard library and external imports use separate groups."
+
+[rule.20]
+file = "tools/benchmark/loadtest/main.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.21]
+file = "tools/benchmark/loadtest/main.go"
+linter = "gosec"
+status = "narrowed"
+reason = "The configuration file is selected by the operator."
+
+[rule.22]
+file = "tools/benchmark/loadtest/main.go"
+linter = "staticcheck"
+status = "removed"
+reason = "Declarations and boolean conditions use direct forms; structured block diagnostics retain the metric response text."
+
+[rule.23]
+file = "tools/benchmark/loadtest/operations/accounts.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.24]
+file = "tools/benchmark/loadtest/operations/accounts.go"
+linter = "gosec"
+status = "removed"
+reason = "Ownership comparisons avoid narrowing, rate conversions are bounded, and file access is confined to open directories."
+
+[rule.25]
+file = "tools/benchmark/loadtest/operations/bindings.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.26]
+file = "tools/benchmark/loadtest/operations/bindings.go"
+linter = "gosec"
+status = "narrowed"
+reason = "ABI files are read from the binding directory selected by the operator."
+
+[rule.27]
+file = "tools/benchmark/loadtest/operations/command.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.28]
+file = "tools/benchmark/loadtest/operations/command.go"
+linter = "gosec"
+status = "narrowed"
+reason = "Administrative operations execute the binary and arguments selected by the operator."
+
+[rule.29]
+file = "tools/benchmark/loadtest/operations/deployment.go"
+linter = "gosec"
+status = "removed"
+reason = "Ownership comparisons avoid narrowing, rate conversions are bounded, and file access is confined to open directories."
+
+[rule.30]
+file = "tools/benchmark/loadtest/operations/exchange.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.31]
+file = "tools/benchmark/loadtest/operations/exchange.go"
+linter = "gosec"
+status = "narrowed"
+reason = "Exchange setup reads and updates the configuration file selected by the operator."
+
+[rule.32]
+file = "tools/benchmark/loadtest/operations/exchange.go"
+linter = "prealloc"
+status = "removed"
+reason = "Slices reserve capacity for the known inventory size."
+
+[rule.33]
+file = "tools/benchmark/loadtest/operations/faults.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.34]
+file = "tools/benchmark/loadtest/operations/faults.go"
+linter = "goconst"
+status = "removed"
+reason = "Repeated protocol values and command arguments use package constants."
+
+[rule.35]
+file = "tools/benchmark/loadtest/operations/faults.go"
+linter = "prealloc"
+status = "removed"
+reason = "Slices reserve capacity for the known inventory size."
+
+[rule.36]
+file = "tools/benchmark/loadtest/operations/metrics.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.37]
+file = "tools/benchmark/loadtest/operations/metrics.go"
+linter = "gosec"
+status = "narrowed"
+reason = "Metrics read transaction hashes from the file selected by the operator."
+
+[rule.38]
+file = "tools/benchmark/loadtest/operations/metrics.go"
+linter = "staticcheck"
+status = "removed"
+reason = "Declarations and boolean conditions use direct forms; structured block diagnostics retain the metric response text."
+
+[rule.39]
+file = "tools/benchmark/loadtest/operations/private.go"
+linter = "errcheck"
+status = "removed"
+reason = "Cleanup errors are checked and preserve the first operation error."
+
+[rule.40]
+file = "tools/benchmark/loadtest/operations/private.go"
+linter = "gosec"
+status = "removed"
+reason = "Ownership comparisons avoid narrowing, rate conversions are bounded, and file access is confined to open directories."
+
+[rule.41]
+file = "tools/flyci/controller/github.go"
+linter = "goconst"
+status = "removed"
+reason = "Repeated protocol values and command arguments use package constants."
+

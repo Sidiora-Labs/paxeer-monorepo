@@ -43,9 +43,10 @@ func positiveInteger(value string) bool {
 }
 
 func (s ExchangeSetup) committed(ctx context.Context, options ExchangeOptions, args []string) error {
-	argv := []string{options.Paxd, "tx", "evm"}
+	argv := make([]string, 0, 3+len(args)+10)
+	argv = append(argv, options.Paxd, "tx", "evm")
 	argv = append(argv, args...)
-	argv = append(argv, "--from", options.From, "--chain-id", options.ChainID, "--evm-rpc", options.RPC, "--value", "0", "-y")
+	argv = append(argv, fromFlag, options.From, chainIDFlag, options.ChainID, "--evm-rpc", options.RPC, "--value", "0", "-y")
 	raw, err := s.Commands.Run(ctx, Command{Args: argv})
 	if err != nil {
 		return err
@@ -90,10 +91,13 @@ func (s ExchangeSetup) committed(ctx context.Context, options ExchangeOptions, a
 			} `json:"result"`
 		}
 		err = json.NewDecoder(response.Body).Decode(&envelope)
-		response.Body.Close()
+		closeErr := response.Body.Close()
 		cancelRequest()
 		if err != nil {
 			return err
+		}
+		if closeErr != nil {
+			return closeErr
 		}
 		if response.StatusCode != http.StatusOK || envelope.Version != "2.0" || envelope.ID != 1 || (len(envelope.Error) > 0 && string(envelope.Error) != "null") {
 			return errors.New("receipt RPC failed")
