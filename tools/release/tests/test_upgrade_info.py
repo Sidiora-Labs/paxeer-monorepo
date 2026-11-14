@@ -12,6 +12,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 TOOL = ROOT / "tools/release/upgrade_info.py"
 WORKFLOW = ROOT / ".github/workflows/paxeer-release-check.yml"
+RELEASE_IDENTITY = json.loads((TOOL.with_name("version.json")).read_text())
+RELEASE_VERSION = RELEASE_IDENTITY["version"]
 SPEC = importlib.util.spec_from_file_location("upgrade_info", TOOL)
 upgrade_info = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(upgrade_info)
@@ -43,14 +45,14 @@ def test_plan_name_table_matches_node_declarations():
         assert f"SetUpgradeHandler({symbol}," in node
 
 
-def test_version_json_carries_v700_and_merge_plan():
+def test_version_json_carries_release_and_merge_plan():
     identity = json.loads(TOOL.with_name("version.json").read_text())
-    assert identity == {"version": "v7.0.0", "upgrade": "v7.0"}
+    assert identity == RELEASE_IDENTITY
     assert upgrade_info.release_identity() == identity
 
 
 def test_release_accepts_merge_plan_and_uses_monorepo_asset(tmp_path):
-    binary = tmp_path / "paxd-v7.0.0-linux-amd64"
+    binary = tmp_path / f"paxd-{RELEASE_VERSION}-linux-amd64"
     shutil.copy2(sys.executable, binary)
     checksums = subprocess.run(
         ["sha256sum", binary.name],
@@ -63,7 +65,7 @@ def test_release_accepts_merge_plan_and_uses_monorepo_asset(tmp_path):
     sums.write_text(checksums)
     output = tmp_path / "release.json"
     for arguments in ((), ("--name", "v7.0")):
-        result = run_release(TOOL, sums, "--tag", "paxeer-network/v7.0.0", *arguments)
+        result = run_release(TOOL, sums, "--tag", f"paxeer-network/{RELEASE_VERSION}", *arguments)
         assert result.returncode == 0, result.stderr
         document = json.loads(result.stdout)
         assert document["name"] == "v7.0"
@@ -71,7 +73,7 @@ def test_release_accepts_merge_plan_and_uses_monorepo_asset(tmp_path):
             "binaries": {
                 "linux/amd64": (
                     "https://github.com/Sidiora-Labs/paxeer-monorepo/releases/"
-                    "download/paxeer-network/v7.0.0/paxd-v7.0.0-linux-amd64"
+                    f"download/paxeer-network/{RELEASE_VERSION}/paxd-{RELEASE_VERSION}-linux-amd64"
                     f"?checksum=sha256:{checksums.split()[0]}"
                 )
             }
@@ -146,7 +148,7 @@ def test_release_accepts_merge_plan_and_uses_monorepo_asset(tmp_path):
 
 def test_release_refuses_v7_without_writing_output(tmp_path):
     sums = tmp_path / "SHA256SUMS"
-    sums.write_text("a" * 64 + "  paxd-v7.0.0-linux-amd64\n")
+    sums.write_text(f"{'a' * 64}  paxd-{RELEASE_VERSION}-linux-amd64\n")
     output = tmp_path / "release.json"
     result = run_release(TOOL, sums, "--name", "v7", "--out", str(output))
     assert result.returncode == 1
@@ -156,16 +158,16 @@ def test_release_refuses_v7_without_writing_output(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "name", ["v6.12.0", "v7.0.0", *upgrade_info.REGISTERED_PLAN_NAMES.values()]
+    "name", ["v6.12.0", RELEASE_VERSION, *upgrade_info.REGISTERED_PLAN_NAMES.values()]
 )
 def test_release_identity_accepts_semver_and_registered_plans(tmp_path, name):
     tool = tmp_path / TOOL.name
     shutil.copy2(TOOL, tool)
     tool.with_name("version.json").write_text(
-        json.dumps({"version": "v7.0.0", "upgrade": name})
+        json.dumps({"version": RELEASE_VERSION, "upgrade": name})
     )
     sums = tmp_path / "SHA256SUMS"
-    sums.write_text("a" * 64 + "  paxd-v7.0.0-linux-amd64\n")
+    sums.write_text(f"{'a' * 64}  paxd-{RELEASE_VERSION}-linux-amd64\n")
     result = run_release(tool, sums, "--name", name)
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["name"] == name
@@ -185,11 +187,11 @@ def test_release_identity_accepts_semver_and_registered_plans(tmp_path, name):
 def test_release_identity_refuses_unregistered_names(tmp_path, field, value):
     tool = tmp_path / TOOL.name
     shutil.copy2(TOOL, tool)
-    identity = {"version": "v7.0.0", "upgrade": "v7.0"}
+    identity = {"version": RELEASE_VERSION, "upgrade": "v7.0"}
     identity[field] = value
     tool.with_name("version.json").write_text(json.dumps(identity))
     sums = tmp_path / "SHA256SUMS"
-    sums.write_text("a" * 64 + "  paxd-v7.0.0-linux-amd64\n")
+    sums.write_text(f"{'a' * 64}  paxd-{RELEASE_VERSION}-linux-amd64\n")
     result = run_release(tool, sums)
     assert result.returncode == 1
     assert f"invalid release {field}" in result.stderr

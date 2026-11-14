@@ -25,6 +25,9 @@ import fleet_check as fleet
 import upgrade_info
 from rehearsal import pool_parity
 
+RELEASE_VERSION = upgrade_info.release_identity()["version"]
+RELEASE_TAG = f"paxeer-network/{RELEASE_VERSION}"
+
 programme_spec = importlib.util.spec_from_file_location(
     "release_programme_tests", RELEASE / "tests/test_programme.py"
 )
@@ -32,8 +35,8 @@ programme_tests = importlib.util.module_from_spec(programme_spec)
 programme_spec.loader.exec_module(programme_tests)
 
 ASSETS = (
-    "paxd-v7.0.0-linux-amd64",
-    "price-sidecar-v7.0.0-linux-amd64",
+    f"paxd-{RELEASE_VERSION}-linux-amd64",
+    f"price-sidecar-{RELEASE_VERSION}-linux-amd64",
     "libwasmvm.x86_64.so",
     "libwasmvm152.x86_64.so",
     "libwasmvm155.x86_64.so",
@@ -89,7 +92,7 @@ def release_fixture(root):
     upgrade_info.release(
         argparse.Namespace(
             name=None,
-            tag="paxeer-network/v7.0.0",
+            tag=RELEASE_TAG,
             sums=out / "SHA256SUMS",
             out=out / "upgrade-info.json",
         ),
@@ -126,7 +129,7 @@ def test_build_distribution(tmp_path):
         )
     )
     script = (
-        """out=$1; want_version=v7.0.0; want_tag=paxeer-network/v7.0.0
+        f"""out=$1; want_version={RELEASE_VERSION}; want_tag={RELEASE_TAG}
 paxd_name=paxd-$want_version-linux-amd64
 sidecar_name=price-sidecar-$want_version-linux-amd64
 wasm_libs=(libwasmvm.x86_64.so libwasmvm152.x86_64.so libwasmvm155.x86_64.so)
@@ -138,7 +141,7 @@ build_status=0
         + "\nrelease_directory_contents"
     )
     run_shell(script, out, cwd=tmp_path)
-    (out / "layerxd-v7.0.0-linux-amd64").write_bytes(b"retired artifact")
+    (out / f"layerxd-{RELEASE_VERSION}-linux-amd64").write_bytes(b"retired artifact")
     write_sums(out)
     refusal = run_shell(script, out, cwd=tmp_path, success=False)
     assert "release directory holds:" in refusal.stderr
@@ -199,7 +202,7 @@ def binding_functions():
 @contextlib.contextmanager
 def recorded_rpc():
     requests = []
-    state = {"version": "v7.0.0", "applied": 21}
+    state = {"version": RELEASE_VERSION, "applied": 21}
     pool = "0x" + "11" * 20
     token = "0x" + "22" * 20
 
@@ -330,7 +333,7 @@ def emit_environment(work, url, candidate_sha):
     )
     script = r"""
 work=$1; url=$2; new_sha=$3
-nodes=4; release_id=rehearsal; plan=v7.0; release_version=v7.0.0; sidecar_sha=$new_sha
+nodes=4; release_id=rehearsal; plan=v7.0; release_version=RELEASE_VERSION_PLACEHOLDER; sidecar_sha=$new_sha
 halt_height=20; chain_id=rehearsal_hyperpax_125-1; keyring_backend=test
 source_genesis=$work/source-genesis.json; bin_dir=$work/bin
 snapshots=$work/snapshots; credentials=$work/credentials; receipts=$work/receipts
@@ -339,7 +342,7 @@ homes=(); units=(); ordered_keys=(a b c d)
 for ((i=0; i<4; i++)); do homes+=("$work/node$i"); units+=("node$i.service"); done
 rpc_url() { printf '%s/%s\n' "$url" "$1"; }
 evm_url() { printf '%s/%s\n' "$url" "$1"; }
-""" + inventory + "\n" + source[start:end]
+""".replace("RELEASE_VERSION_PLACEHOLDER", RELEASE_VERSION) + inventory + "\n" + source[start:end]
     run_shell(script, work, url, candidate_sha)
     return work / "rehearsal.env"
 
@@ -347,10 +350,10 @@ evm_url() { printf '%s/%s\n' "$url" "$1"; }
 def publish_receipt(work, env, result="pass", checksum=None):
     script = r"""
 source "$1/rehearsal/receipt.sh"
-receipt=$2/receipts/rehearsal.json; plan=v7.0; release_version=v7.0.0; nodes=4; precompiles_served=8
+receipt=$2/receipts/rehearsal.json; plan=v7.0; release_version=RELEASE_VERSION_PLACEHOLDER; nodes=4; precompiles_served=8
 pools=1; markets=18; oracle_fresh=18; feed_keys=4; new_sha=$3
 write_receipt "$4"
-"""
+""".replace("RELEASE_VERSION_PLACEHOLDER", RELEASE_VERSION)
     run_shell(script, RELEASE, work, checksum or env["RELEASE_SHA256"], result)
 
 
@@ -506,8 +509,8 @@ def test_rehearsal_evidence_binding(tmp_path):
     start = source.index("{\n\tprintf 'upgrade=")
     end = source.index("\npassed=1", start)
     run_shell(
-        "work=$1; plan=v7.0; release_version=v7.0.0; halt_height=20; export_height=10; final_height=32; "
-        "old_sha=$2; new_sha=$3; pools=1; markets=18; oracle_fresh=18; feed_keys=4; precompiles_served=8\n"
+        "work=$1; plan=v7.0; release_version=RELEASE_VERSION_PLACEHOLDER; halt_height=20; export_height=10; final_height=32; ".replace("RELEASE_VERSION_PLACEHOLDER", RELEASE_VERSION)
+        + "old_sha=$2; new_sha=$3; pools=1; markets=18; oracle_fresh=18; feed_keys=4; precompiles_served=8\n"
         + source[start:end],
         work,
         digest(work / "old-paxd"),
@@ -636,7 +639,7 @@ def test_rollback_forward_recovery(tmp_path):
         home / ".forward-recovery-r1/priv_validator_state.json"
     ).read_bytes() == before["data/priv_validator_state.json"]
     assert digest(binaries / "paxd") == digest(recovery)
-    assert not (home / "data.v7.0.0-r1").exists()
+    assert not (home / f"data.{RELEASE_VERSION}-r1").exists()
     for changed in ({**signing, "height": "20"}, {**signing, "signbytes": "0821"}):
         dump(signer, changed)
         refused = run_shell(command, RELEASE, env_file, success=False)
@@ -662,7 +665,7 @@ def test_programme_driver_consumes_rpc_evidence(tmp_path):
         )
         assert result.returncode == 0, result.stdout + result.stderr
         log = tmp_path / "programme-check_plan_and_version.log"
-        assert "applied at 21 on four nodes reporting v7.0.0" in log.read_text()
+        assert f"applied at 21 on four nodes reporting {RELEASE_VERSION}" in log.read_text()
         assert "PASS check_plan_and_version" in result.stdout
         assert [request["method"] for request in requests] == [
             "abci_query",
