@@ -14266,6 +14266,24 @@ value = "The pool configuration gains a method that tells whether both time limi
 basis = "Gotcha 4440."
 affects = []
 
+[decision.3526]
+title = "The paths of a task that changes a manifest take the lock file of its workspace"
+value = "A task whose paths name a member manifest of a workspace with a committed lock file also names that lock file. It commits the lock change that the resolution of its manifest change writes and nothing else in that file. Task 22.39.540 changes the manifest of the intents member of the human workspace, so its paths take services/human/Cargo.lock."
+basis = "Gotcha 4441."
+affects = ["22.39.540"]
+
+[decision.3527]
+title = "The price sidecar submits at its cadence with a bounded number of submissions awaiting their fate"
+value = "The sidecar collects and submits one round per cadence while earlier submissions are pending, up to a bound read from the optional configuration key max_pending_submissions, whose default is eight. At the bound it submits nothing until a fate is decided. Pending submissions carry consecutive account sequences and rising observation sequences and are stored durably in their order. Their fates are decided from the oldest on by the rules of decision 3524, from one committed read per reconcile whose market reads run together. A submission evicted with its account sequence unused ends every pending one behind it, since none of them can pass. A failed execution ends itself, and the ones behind it stay pending where the sequence rule of the price module still lets them pass. After a failed or evicted submission the sidecar synchronises from committed state before it submits again. The count of blocks after which an unused account sequence means evicted is read from the optional key pending_submission_block_limit, whose default is the present constant. A configuration without the two keys stays valid, and the readiness rule stays as it is."
+basis = "Gotcha 4442, decision 3524."
+affects = []
+
+[decision.3528]
+title = "The interop lock file follows the manifests it resolves"
+value = "Task 22.39.544 brings services/interop/Cargo.lock in step with the manifests the interop workspace resolves, with the smallest change that makes a locked resolution pass: the packages whose manifest requirement the lock file no longer meets and the edges that follow from them. A task that changes a version requirement in a manifest of the platform workspace that a path dependency of an interop member reaches carries the interop lock file in its paths, as decision 3526 says for the workspace of the manifest itself."
+basis = "Gotcha 4443, decisions 3422 and 3526."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43926,6 +43944,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.544]
+title = "Bring the interop lock file in step with the manifests it resolves"
+reqs = ["22998.1"]
+touches = ["services/interop/Cargo.lock"]
+tests = []
+verification_contract = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch && sh scripts/interop/dependency-policy.sh"
+do_1 = "do_1 Gotcha 4443, decision 3528. Run cargo metadata with the locked flag over services/interop/Cargo.toml and read which requirement the lock file does not meet. Bring the named package to the version its manifest asks for with a precise update of that one package, and repeat until the locked resolution passes. Run no general update."
+symbols = []
+
+[capability.22.39.543]
+title = "Keep the price sidecar submitting at its cadence while earlier submissions await their fate"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4442, decision 3527. Read run_round, reconcile, read_committed, sync_committed, submit and the durable progress type in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs, the configuration type in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs and the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs. Make read_committed read the observation sequences of all markets together at the one committed height, the way run_round fetches the tickers. Make one reconcile use one committed read: the read that decides a fate also supplies the journal that is stored."
+symbols = []
 
 [capability.22.39.542]
 title = "Report at construction a pool configuration without an entry time limit"
@@ -196040,7 +196076,7 @@ do_1 = "do_1 Gotcha 4438, decision 3523. Read the path attribute at the head of 
 do_2 = "do_2 Run the test targets intent_chain_domain and proof_human_intents of the intents member by hand; they compile and pass. Then compile the tests of the whole human workspace once by hand with the no-run option. A target that does not compile for a cause outside the paths: change nothing there and give target, file and first message in the final message."
 do_3 = "do_3 Record in services/human/crates/layerx-intents/repair_22_39_540.kvx the dependency line and the two targets. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/crates/layerx-intents/Cargo.toml"]
+touches = ["services/human/crates/layerx-intents/Cargo.toml", "services/human/Cargo.lock"]
 tests = []
 planned_paths = ["services/human/crates/layerx-intents/repair_22_39_540.kvx"]
 build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
@@ -206371,6 +206407,69 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.544]
+title = "Bring the interop lock file in step with the manifests it resolves"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.544"]
+interfaces = []
+do_1 = "do_1 Gotcha 4443, decision 3528. Run cargo metadata with the locked flag over services/interop/Cargo.toml and read which requirement the lock file does not meet. Bring the named package to the version its manifest asks for with a precise update of that one package, and repeat until the locked resolution passes. Run no general update."
+do_2 = "do_2 Read the difference of services/interop/Cargo.lock. It holds only the packages whose requirement changed and the edges that follow from them. Take back a change of any other package. Change no manifest."
+do_3 = "do_3 Run make -s interop-build and make -s interop-lint once by hand. A step that does not pass for a cause outside the paths: change nothing there and give command and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/interop/Cargo.toml > /dev/null && make -s interop-build"
+verify_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch && sh scripts/interop/dependency-policy.sh"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.543]
+title = "Keep the price sidecar submitting at its cadence while earlier submissions await their fate"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.543"]
+interfaces = []
+do_1 = "do_1 Gotcha 4442, decision 3527. Read run_round, reconcile, read_committed, sync_committed, submit and the durable progress type in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs, the configuration type in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs and the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs. Make read_committed read the observation sequences of all markets together at the one committed height, the way run_round fetches the tickers. Make one reconcile use one committed read: the read that decides a fate also supplies the journal that is stored."
+do_2 = "do_2 Replace the single pending submission of the durable progress by an ordered list. Read its bound from the optional configuration key max_pending_submissions with the default eight and refuse zero. A progress file of the present form, with one pending submission or none, loads as a list of one or none. A round reconciles first, then collects and submits when the list is below the bound. Each submission takes the account sequence after the one of the last pending submission and observation sequences after its observation sequences."
+do_3 = "do_3 Decide the fates from the oldest on by the rules of decision 3524 and as decision 3527 says for the ones behind a failed or an evicted submission. Read the sequence rule for observations in the keeper of modules/pricefeed before you decide which pending submissions can still pass. Read the count of blocks for the evicted fate from the optional key pending_submission_block_limit with the present constant as default and refuse zero. No account sequence and no observation sequence is spent by two committed submissions."
+do_4 = "do_4 Keep the names of the present metrics and the log lines that tests read. The pending metric shows the oldest pending submission, and a new gauge shows the count of pending ones. Keep the readiness rule. Change no present configuration key. Leave the documents and templates outside the package as they are and name in the final message the ones that list the configuration keys."
+do_5 = "do_5 Add services/platform/hosted/feeder/tests/sidecar_cadence_pending.rs with cases whose names begin with cadence_pending_ and that drive the sidecar against the stand-in peer, which you extend in services/platform/hosted/feeder/tests/support/submission_peer.rs where it lacks a means. With a peer that commits each submission one second after the broadcast and answers each call after twenty milliseconds, a cadence of one hundred milliseconds and eighteen markets, the committed observation sequence of every market advances at least twenty times in five seconds. One reconcile makes at most one observation read per market. With a peer that commits nothing the sidecar stops at the bound. An evicted oldest submission ends the ones behind it and the next round starts from committed state. A failed execution in the middle keeps the order of the rest. A restart with several pending submissions decides each of them. A progress file of the present form loads. Give each timed case a margin that holds on a loaded machine."
+do_6 = "do_6 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_cadence_pending.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
