@@ -21880,3 +21880,8 @@ fix = "Decision 3497. The Makefile gets a target for the lint program alone; the
 title = "The test target of the agent workspace takes no member selection"
 symptom = "The target agent-test of the Makefile runs the tests of every member of the agent workspace in one cargo line. A task that brings one member in line cannot be counted on that member."
 fix = "Decision 3498. The cargo line of the target reads its member selection from a variable whose default is the whole workspace."
+
+[gotcha.4412]
+title = "Pages outside the documentation site name the network by its commit step"
+symptom = "Seventy-nine pages and one page template under docs/wiki, contracts, services, the software kits, modules, precompiles, programs, tools, tests and the root call Paxeer mainnet-beta a BFT network or a BFT chain, or say the kernel is part of the network, proposes blocks within it or takes part in proposal."
+fix = "Decisions 3496 and 3499. Tasks 22.43.324 to 22.43.328 bring the pages to the kernel sentence, one task per area."
