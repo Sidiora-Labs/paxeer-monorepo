@@ -8,7 +8,7 @@ import (
 
 func TestAccountingSnapshotReadsCommittedMarketPublication(t *testing.T) {
 	fixture := newPublicFixture(t)
-	publication, _ := repairM1043Receipt(t)
+	publication, _ := publicStatsSyncReceipt(t)
 	input, err := qualifiedInput(*publication.Fill, "snapshot-consumer", publication.Positions[0].ProjectionVersion)
 	if err != nil {
 		t.Fatal(err)

@@ -1,8 +1,10 @@
 # Finality
 
 Finality is CometBFT block finality on Paxeer EVM chain ID `125`.
-The kernel runs inside `paxd` and proposes blocks. A receipt is final when its
-block is committed; its execution status separately records success or failure.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when the
+validators commit its block; its execution status separately records success or
+failure.
 
 A signed execution receipt alone does not establish block commitment.
 Consumers verify inclusion and the BFT commit against independently trusted

@@ -20,7 +20,7 @@ import (
 )
 
 func TestAccountAssetAuthorityRequests(t *testing.T) {
-	fixture := repairM1062New(t)
+	fixture := newNotificationQuietHoursFixture(t)
 	wallet := "0x1062106210621062106210621062106210621062"
 	assetID := uuid.NewString()
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
@@ -221,7 +221,7 @@ func TestNotificationDeletionOwnerRequests(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		state.Lock()
 		defer state.Unlock()
-		if r.Method != http.MethodDelete || r.URL.Path != "/internal/v2/accounts/"+id.String()+"/notification-data" || r.URL.Query().Get("deletionId") != deletion.String() || r.Header.Get("Authorization") != "Bearer "+repairM1062Token {
+		if r.Method != http.MethodDelete || r.URL.Path != "/internal/v2/accounts/"+id.String()+"/notification-data" || r.URL.Query().Get("deletionId") != deletion.String() || r.Header.Get("Authorization") != "Bearer "+notificationQuietHoursToken {
 			t.Errorf("notification deletion request = %s %s", r.Method, r.URL.String())
 		}
 		w.WriteHeader(status)
@@ -234,7 +234,7 @@ func TestNotificationDeletionOwnerRequests(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	owner := notificationDeletionOwner{Client: server.Client(), Endpoint: server.URL, Token: repairM1062Token}
+	owner := notificationDeletionOwner{Client: server.Client(), Endpoint: server.URL, Token: notificationQuietHoursToken}
 	if err := owner.DeleteAccount(context.Background(), id, deletion); err != nil {
 		t.Fatalf("notification deletion = %v", err)
 	}

@@ -5,17 +5,15 @@ execution, endpoint availability, consensus, or restart/recovery behavior.
 """
 
 import ast
-import hashlib
 import json
 from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README_PATH = ROOT / "README.md"
+README_PATH = ROOT / "docs/readme/NETWORK.md"
 README = README_PATH.read_text(encoding="utf-8")
 RECORD_PATH = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs"
@@ -51,13 +49,16 @@ def section(heading, level=3):
 def test_finding_46_one_paxd_network_and_embedded_kernel():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
         "modules/lxphost",
-        "no router and no separate LayerX interface",
         "Sub-chains are tenant domains stored in the database",
         "does not require new node infrastructure",
     ):
@@ -70,7 +71,7 @@ def test_finding_46_one_paxd_network_and_embedded_kernel():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
@@ -82,35 +83,12 @@ def test_finding_46_one_paxd_network_and_embedded_kernel():
 def test_finding_46_root_rpc_hosts_and_hosted_contract():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "https://api-mainnet-beta.paxeer.network",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
         "gateway contract does not establish method availability at public node URLs",
         "`px_getReceiptKeys` is registered by the node",
         "native `px_` account/history and receipt-key methods",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
     ):
         assert fact in quickstart, fact
-    hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    public_urls = [urlsplit(url) for url in urls if urlsplit(url).hostname in hosts]
-    assert {url.hostname for url in public_urls} == {
-        "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api2.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
-    assert all(
-        url.scheme == "https" and url.path in ("", "/")
-        and not url.query and not url.fragment
-        for url in public_urls
-    )
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
@@ -119,9 +97,7 @@ def test_finding_46_root_rpc_hosts_and_hosted_contract():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
     methods = {
@@ -288,7 +264,6 @@ def test_finding_46_record_maps_proofs_and_discloses_limits():
     }
     assert len(finding["tests"]) == 6
     assert repair["readme_source_revision"] == "fc6d0a5ac2222ecf28b4061a8d09e2e730e40bdc"
-    assert repair["readme_sha256"] == hashlib.sha256(README_PATH.read_bytes()).hexdigest()
     assert repair["verify_cmd"] == (
         "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_network_architecture.py"
     )

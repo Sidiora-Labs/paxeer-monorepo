@@ -75,11 +75,12 @@ final class SequencerReceiptTests: XCTestCase {
   }
   func testSequencerReceiptV1CasesVerifyReceipted() throws {
     let cases = try vectors("V1")
-    XCTAssertEqual(cases.count, 4)
+    XCTAssertEqual(cases.count, 5)
     for v in cases {
       let result = try verifySequencerReceipt(v, standby: true)
       XCTAssertEqual(result.level, v.expected.rung, v.id)
       XCTAssertEqual(result.status, 1, v.id)
+      XCTAssertEqual(result.receipt.protocolVersion, 2, v.id)
       XCTAssertEqual(
         v.receiptJson["status"], .string("0x" + String(result.status, radix: 16)), v.id)
       XCTAssertNil(result.revert, v.id)
@@ -91,18 +92,25 @@ final class SequencerReceiptTests: XCTestCase {
   }
   func testSequencerReceiptV2RevertDecodesReason() throws {
     let cases = try vectors("V2")
-    XCTAssertEqual(cases.count, 1)
+    XCTAssertEqual(cases.count, 2)
+    let reasons = ["V2-layerxledger-revert": "LXP_INSUFFICIENT_BALANCE: insufficient balance"]
+    XCTAssertEqual(
+      Set(cases.map(\.id)), ["V2-layerxledger-revert", "V2-pax-transfer-insufficient-funds"])
     for v in cases {
       let result = try verifySequencerReceipt(v)
       XCTAssertEqual(result.level, v.expected.rung)
       XCTAssertEqual(result.status, 0)
+      XCTAssertEqual(result.receipt.protocolVersion, 2, v.id)
       XCTAssertEqual(
         v.receiptJson["status"], .string("0x" + String(result.status, radix: 16)), v.id)
       XCTAssertEqual(result.receipt.resultCode, 1)
       XCTAssertEqual(result.receiptDigest, try hex(v.receiptDigest))
-      XCTAssertEqual(
-        try XCTUnwrap(result.revert).reason,
-        "LXP_INSUFFICIENT_BALANCE: insufficient balance")
+      if let reason = reasons[v.id] {
+        XCTAssertEqual(try XCTUnwrap(result.revert).reason, reason, v.id)
+      } else {
+        XCTAssertNil(result.revert, v.id)
+        XCTAssertEqual(v.receiptJson["returnData"], .string("0x"), v.id)
+      }
     }
   }
   func testSequencerReceiptV3RefusalsNameTheirCheck() throws {

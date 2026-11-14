@@ -18,7 +18,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 NODE = ROOT / 'services/platform/hosted/node'
-FIXTURE = NODE / 'tests/fixtures/repair_22_31_355'
+FIXTURE = NODE / 'tests/fixtures/native_lifecycle'
 
 
 def runtime_module():

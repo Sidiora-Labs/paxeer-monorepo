@@ -12,6 +12,7 @@ import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -71,7 +72,13 @@ public final class ConformanceMain {
         if (route.idempotency() && (!headers.isObject() || headers.path("Idempotency-Key").asText().isEmpty())) {
             throw new IllegalStateException(operation + " request omits Idempotency-Key");
         }
-        rejectNumericMoney(request.path("body"), "body");
+        JsonNode requestBody = request.path("body");
+        if (operation.equals("intent.submit")) {
+            var submission = JSON.treeToValue(requestBody, GeneratedSchema.HumanOperations.INTENT_SUBMIT.requestType());
+            require(requestBody.required("bindings").equals(JSON.readTree(JSON.writeValueAsBytes(submission.bindings()))),
+                "intent bindings changed during SDK decoding");
+        }
+        rejectNumericMoney(requestBody, "body", operation.equals("intent.submit") ? "intent.submit" : "");
         verifySuccess(operation, read(prefix.resolveSibling(prefix.getFileName() + ".response.json")));
         verifyFailure(operation, read(prefix.resolveSibling(prefix.getFileName() + ".failure.json")));
     }
@@ -119,10 +126,7 @@ public final class ConformanceMain {
                     byte[] bytes = HexFormat.of().parseHex(encoded);
                     if (bytes.length == 0) throw new IllegalStateException(path + " " + section + " is empty");
                     if (bytes[0] != '{') {
-                        boolean versionVector = section.contains(".version")
-                            && (bytes.length == 19 || bytes.length == 23)
-                            && bytes[0] == 0 && bytes[1] == 1;
-                        if (!versionVector) throw new IllegalStateException(path + " " + section + " is not canonical Agent wire data");
+                        verifyAgentVersionVector(section, bytes);
                         verified++;
                         continue;
                     }
@@ -137,6 +141,28 @@ public final class ConformanceMain {
         }
         if (verified == 0) throw new IllegalStateException("agent golden corpus is empty");
         return verified;
+    }
+
+    private static void verifyAgentVersionVector(String section, byte[] bytes) {
+        boolean response;
+        int major, minor;
+        switch (section) {
+            case "[golden.request.version]" -> { response = false; major = 2; minor = 0; }
+            case "[golden.response.version]" -> { response = true; major = 2; minor = 0; }
+            case "[golden.request.version_1_1]" -> { response = false; major = 1; minor = 1; }
+            case "[golden.response.version_1_1]" -> { response = true; major = 1; minor = 1; }
+            default -> throw new IllegalStateException("unknown Agent version vector " + section);
+        }
+        require(bytes.length == (response ? 23 : 19), "Agent version vector length");
+        var wire = ByteBuffer.wrap(bytes);
+        require(wire.getShort() == major && wire.getShort() == minor, "Agent version vector header");
+        require(wire.getLong() == 7, "Agent version vector request ID");
+        for (int index = 0; index < (response ? 5 : 3); index++) {
+            require(wire.get() == 0, "Agent version vector framing");
+        }
+        require(wire.getShort() == major && wire.getShort() == minor, "Agent version vector payload");
+        if (response) require(wire.getShort() == 1, "Agent node interface major");
+        require(!wire.hasRemaining(), "Agent version vector trailing bytes");
     }
 
     private static void verifySchemaParity() {
@@ -415,8 +441,16 @@ public final class ConformanceMain {
     }
 
     private static void rejectNumericMoney(JsonNode node, String name) {
-        if (node.isObject()) node.fields().forEachRemaining(field -> rejectNumericMoney(field.getValue(), field.getKey()));
-        else if (node.isArray()) node.forEach(child -> rejectNumericMoney(child, name));
+        rejectNumericMoney(node, name, "");
+    }
+
+    private static void rejectNumericMoney(JsonNode node, String name, String path) {
+        if (path.equals("intent.submit.bindings[].account_sequence")) {
+            require(node.isIntegralNumber() && node.canConvertToLong() && node.longValue() >= 0,
+                "intent account sequence must be a non-negative integer");
+        } else if (node.isObject()) node.fields().forEachRemaining(field ->
+            rejectNumericMoney(field.getValue(), field.getKey(), path + "." + field.getKey()));
+        else if (node.isArray()) node.forEach(child -> rejectNumericMoney(child, name, path + "[]"));
         else if ((name.equals("amount") || name.equals("amounts") || name.endsWith("_amount")
                 || name.endsWith("_balance") || name.endsWith("_sequence")) && node.isNumber()) {
             throw new IllegalStateException(name + " is encoded as a JSON number");

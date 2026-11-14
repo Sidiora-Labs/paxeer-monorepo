@@ -69,10 +69,7 @@ def test_debug_image_build_entrypoints_refuse():
 
 def test_debug_image_build_documentation_discloses_withdrawal():
     readme = (IMAGE / "README.md").read_text(encoding="utf-8")
-    assert "`simd` Delve image is withdrawn" in readme
-    assert "Its `Dockerfile`\nhas been removed" in readme
-    assert "[`sdk/contrib/images/Makefile`](../Makefile)" in readme
-    assert "retirement diagnostic and a nonzero exit" in readme
-    assert "`make -f chain.mk build` from the repository root" in readme
-    assert "does not provide a supported paxd debug image" in readme
-    assert "inherited tooling, without an image build recipe" in readme
+    assert "this directory provides the launch script only." in readme
+    assert "The Paxeer node is `paxd`, built with `make -f chain.mk build` from the" in readme
+    assert "repository root." in readme
+    assert "The wrapper runs binaries supplied under `/simd`;" in readme

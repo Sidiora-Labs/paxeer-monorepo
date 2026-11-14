@@ -14,6 +14,7 @@ pub enum KeyRole {
     Attestor,
     Submitter,
     Receiver,
+    Identity,
 }
 
 impl KeyRole {
@@ -23,6 +24,7 @@ impl KeyRole {
             Self::Attestor => ATTESTOR_KEY_FILE,
             Self::Submitter => SUBMITTER_KEY_FILE,
             Self::Receiver => RECEIVER_KEY_FILE,
+            Self::Identity => "--identity-key-file",
         }
     }
 }
@@ -104,6 +106,22 @@ fn named(
 }
 
 impl KeyFiles {
+    /// Loads only the receiver key named by the environment.
+    ///
+    /// # Errors
+    /// Applies the receiver key file and secp256k1 scalar checks.
+    pub fn load_receiver_from_env() -> Result<SecpKey, KeyError> {
+        let path = named(&|name| std::env::var_os(name), KeyRole::Receiver)?.ok_or(KeyError {
+            role: KeyRole::Receiver,
+            refusal: KeyRefusal::Unset,
+        })?;
+        let secret = read_secret(&path, KeyRole::Receiver)?;
+        SecpKey::from_slice(secret.as_slice()).map_err(|_| KeyError {
+            role: KeyRole::Receiver,
+            refusal: KeyRefusal::InvalidKey,
+        })
+    }
+
     /// # Errors
     /// Refuses an unset receiver variable or any variable set to an empty value.
     pub fn from_env() -> Result<Self, KeyError> {
@@ -178,6 +196,15 @@ impl KeyFiles {
             receiver,
         })
     }
+}
+
+/// Loads an Ed25519 identity seed using the role key file rules.
+///
+/// # Errors
+/// Refuses unreadable, loosely permissioned, oversized or malformed files.
+pub fn load_identity(path: &Path) -> Result<ed25519_dalek::SigningKey, KeyError> {
+    let seed = read_secret(path, KeyRole::Identity)?;
+    Ok(ed25519_dalek::SigningKey::from_bytes(&seed))
 }
 
 fn read_secret(path: &Path, role: KeyRole) -> Result<Zeroizing<[u8; 32]>, KeyError> {

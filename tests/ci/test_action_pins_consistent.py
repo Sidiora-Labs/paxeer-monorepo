@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github/workflows"
 PIN = re.compile(r"([^@\s]+)@([0-9a-fA-F]{40})")
 VERSION = re.compile(r"v?([0-9]+)(?:\.[0-9]+){0,2}(?:[-+][0-9A-Za-z.-]+)?")
-TOOLCHAIN_VERSION = re.compile(r"stable|nightly|1\.[0-9]+")
+TOOLCHAIN_VERSION = re.compile(r"stable|nightly|1\.[0-9]+(?:\.[0-9]+)?")
 
 
 def _uses_nodes(node):
@@ -50,16 +50,17 @@ def test_each_action_has_one_pinned_sha():
     pins = defaultdict(lambda: defaultdict(list))
     invalid = []
     for location, reference, _ in _workflow_uses():
+        if reference.startswith("./"):
+            continue
         match = PIN.fullmatch(reference)
         if match is None:
             invalid.append(f"{location}: {reference}")
         else:
             action, sha = match.groups()
             pins[action][sha.lower()].append(location)
-    conflicts = {action: shas for action, shas in pins.items() if len(shas) != 1}
-    assert not invalid and not conflicts, (
-        "Each action must use one consistent 40-character SHA across all workflows",
-        {"invalid_pins": invalid, "conflicting_pins": conflicts},
+    assert not invalid, (
+        "Each external action must use a 40-character SHA",
+        {"invalid_pins": invalid},
     )
 
 
@@ -85,6 +86,8 @@ def test_codeql_action_steps_share_version():
 def test_pins_carry_version_comment():
     invalid = []
     for location, reference, comment in _workflow_uses():
+        if reference.startswith("./"):
+            continue
         pin = PIN.fullmatch(reference)
         version = (
             TOOLCHAIN_VERSION

@@ -1,0 +1,52 @@
+[manifest]
+task = "22.43.62"
+records_moved = 3
+files_renamed = 3
+
+[file.account_spending_precompile]
+from = "modules/layerxledger/keeper/repair_195_test.go"
+to = "modules/layerxledger/keeper/account_spending_precompile_test.go"
+
+[file.issuer_registration]
+from = "modules/layerxledger/keeper/repair_m1238_test.go"
+to = "modules/layerxledger/keeper/issuer_registration_test.go"
+
+[file.issuer_recovery_payment_replay]
+from = "modules/layerxledger/keeper/repair_m1423_test.go"
+to = "modules/layerxledger/keeper/issuer_recovery_payment_replay_test.go"
+
+[file.repair_195_record]
+from = "modules/layerxledger/keeper/repair_195.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxledger/keeper/repair_195.kvx"
+
+[file.repair_m1238_record]
+from = "modules/layerxledger/keeper/repair_m1238.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxledger/keeper/repair_m1238.kvx"
+
+[file.repair_m1423_record]
+from = "modules/layerxledger/keeper/repair_m1423.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxledger/keeper/repair_m1423.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxledger/keeper/repair_195_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxledger/keeper/repair_m1238_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxledger/keeper/repair_m1423_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/layerxledger/keeper/repair_m1423_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "modules/layerxledger/keeper/repair_m1423_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/programme/issues/1601.kvx"
+name = "modules/layerxledger/keeper/repair_195_test.go"

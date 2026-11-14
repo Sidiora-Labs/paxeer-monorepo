@@ -1,9 +1,8 @@
 # Paxeer Network
 
-**Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`).**
+**Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`).**
 
-`paxd` embeds the LayerX kernel as part of the network's block proposal and
-execution path. EVM execution, native balances, asset-ledger operations and
+The LayerX kernel runs inside every `paxd` node. It executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block. Validators check that block and commit it. EVM execution, native balances, asset-ledger operations and
 programs run within the merged chain. A receipt is final once its block is
 committed.
 

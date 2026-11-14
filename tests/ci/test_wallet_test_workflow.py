@@ -68,7 +68,7 @@ def test_wallet_vitest_aliases_node_sqlite():
     assert len(visited) > 1, "Inspect the browser entry's dependencies too"
     for name in (
         "BridgeView.test.tsx", "ExchangeView.test.tsx", "FeeChoice.test.tsx",
-        "LaunchpadView.test.tsx", "WebDataView.test.tsx", "repair-22-33-205.test.ts",
+        "LaunchpadView.test.tsx", "WebDataView.test.tsx", "surface-confirmation.test.ts",
     ):
         text = (WALLET / "src/surfaces" / name).read_text()
         assert "from '@sidiora/layerx-sdk/browser'" in text, name
@@ -79,7 +79,7 @@ def test_wallet_setup_provides_web_locks():
     steps = wallet_workflow()["jobs"]["vitest"]["steps"]
     setup = next(step for step in steps if step.get("uses", "").startswith("actions/setup-node@"))
     assert setup["with"]["node-version"] == "24.22.0"
-    for name in ("pns/repair-22-33-138.test.ts", "swap/repair-22-31-239.test.ts"):
+    for name in ("pns/pns-registration-lifecycle.test.ts", "swap/swap-broadcast-recovery.test.ts"):
         source = (WALLET / "src/widgets" / name).read_text()
         assert "import * as workerThreads from 'node:worker_threads'" in source, name
         assert "const locks: unknown = Reflect.get(workerThreads, 'locks')" in source, name

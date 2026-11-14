@@ -2,7 +2,7 @@
 
 Run every command from the monorepo root. The [topology overview](../README.md) describes the offline compiler and its capacity assumptions; this runbook describes the connected [operator CLI](operator.py), [evidence evaluator](evidence.py), [Kubernetes provider](providers.py) and [capacity CLI](capacity.py).
 
-Paxeer is one BFT network with the kernel participating in block proposals, EVM chain ID 125 (`0x7d`) and final receipts once their blocks commit. Set `topology.rpcEndpoints` to two to eight distinct verified HTTPS node root URLs from the [public node endpoint reference](../../../../../docs/site/docs/reference/public-rpc.md). Verify chain identity and committed hashes; quarantine a conflicting endpoint rather than rolling back committed application effects. Sub-chains are database tenant domains, not additional infrastructure fleets.
+Paxeer uses EVM chain ID 125 (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts are final once their blocks commit. Set `topology.rpcEndpoints` to two to eight distinct verified HTTPS node root URLs from the [public node endpoint reference](../../../../../docs/readme/PUBLIC-RPC.md). Verify chain identity and committed hashes; quarantine a conflicting endpoint rather than rolling back committed application effects. Sub-chains are database tenant domains, not additional infrastructure fleets.
 
 The command shape is:
 

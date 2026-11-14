@@ -7,8 +7,8 @@ export const metadata = metadataFor('/guarantors')
 export default function Guarantors() {
   return <DocsLayout>
     <h1>Validators and commitment</h1>
-    <p className="page-description">BFT block commitment, signed execution receipts, and independent evidence verification.</p>
-    <p>Paxeer validators commit blocks on one network. The kernel participates in block production. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.</p>
+    <p className="page-description">The LayerX kernel executes and orders transactions and builds blocks; validators check and commit them. Verify execution receipts and commitment evidence.</p>
+    <p>The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Paxeer validators commit blocks on one network. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.</p>
     <h2>Verify the execution outcome</h2>
     <ol><li>Confirm the chain ID and retain the signed transaction.</li><li>Retrieve the transaction receipt and its progress rung.</li><li>Obtain the governed receipt keys and check their authorized height ranges.</li><li>Verify the receipt signature, decoded fields, and output digests.</li><li>Verify the committed block covering the receipt sequence.</li></ol>
     <p>A receipt signature authenticates execution only when its signing key is authorized for the receipt height. The node exposes the governed key ranges through <code>px_getReceiptKeys</code>, implemented in <code>rpc/sequencer_receipt.go</code>.</p>
@@ -19,7 +19,7 @@ export default function Guarantors() {
     <table><thead><tr><th>Evidence</th><th>Meaning</th></tr></thead><tbody><tr><td>Submission acknowledgement</td><td>The node holds the transaction.</td></tr><tr><td>Signed execution receipt</td><td>The authorized signer records the execution outcome.</td></tr><tr><td>Receipt-key range</td><td>Governance authorizes a receipt key over stated heights.</td></tr><tr><td>Committed block</td><td>BFT commitment makes the included outcome final.</td></tr></tbody></table>
     <p><code>SequencerReceiptResult.Verify</code> checks receipt signatures, decoded fields, output digests, and required block fields. Pass the trusted receipt keys to authenticate signing authority. Consistency under an untrusted supplied key is insufficient.</p>
     <h2>Consensus membership</h2>
-    <p>Validator membership is part of the BFT network. The hosted gateway declares <code>px_getValidators</code> and <code>px_getCommit</code> in <code>services/platform/hosted/gateway/openrpc.json</code>; use their verified chain data when inspecting consensus evidence.</p>
+    <p>Paxeer validators check and commit the blocks the kernel builds. The hosted gateway declares <code>px_getValidators</code> and <code>px_getCommit</code> in <code>services/platform/hosted/gateway/openrpc.json</code>; use their verified chain data when inspecting consensus evidence.</p>
     <p>The public EVM chain ID is <code>125</code>. Bind transaction signatures and receipt verification to the intended chain and obtain current consensus state from that network.</p>
     <h2>Block confirmation</h2>
     <p>The <code>committed</code> rung means the receipt sequence is covered by a committed block. Its <code>blockNumber</code> and <code>blockHash</code> identify that block. Verify these bindings together with the execution result.</p>

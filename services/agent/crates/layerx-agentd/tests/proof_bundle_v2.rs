@@ -2,8 +2,9 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use k256::ecdsa::SigningKey as ReceiptSigningKey;
 use layerx_agent_api::proof::ProofBundleTarget;
 use layerx_agentd::read::{
-    proof_bundle, validator_set_hash, BlockCommit, BlockId, CheckpointHeader, CheckpointReadError,
-    CommitTimestamp, CommitValidator, CommitVote, ProofBundleRequest,
+    proof_bundle, validator_set_hash, AbciResultProof, BlockCommit, BlockId, CheckpointHeader,
+    CheckpointReadError, CommitTimestamp, CommitValidator, CommitVote, NativeResultSource,
+    ProofBundleRequest,
 };
 use layerx_agentd::receipt::{TransactionReceiptEvidence, TransactionReceiptMetadata};
 use layerx_client::sequencer::{SequencerEndpoint, StorageWitness};
@@ -38,8 +39,47 @@ fn rlp(payload: &[u8], list: bool) -> Vec<u8> {
     encoded
 }
 
-fn leaf(compact: &[u8], value: &[u8]) -> Vec<u8> {
-    rlp(&[bytes(compact), bytes(value)].concat(), true)
+fn protobuf_integer(mut value: u64, output: &mut Vec<u8>) {
+    while value >= 128 {
+        output.push((value as u8 & 127) | 128);
+        value >>= 7;
+    }
+    output.push(value as u8);
+}
+
+fn protobuf_bytes(field: u64, value: &[u8], output: &mut Vec<u8>) {
+    protobuf_integer((field << 3) | 2, output);
+    protobuf_integer(value.len() as u64, output);
+    output.extend_from_slice(value);
+}
+
+fn result_data(hash: [u8; 32], status: bool) -> Vec<u8> {
+    let mut response = vec![8];
+    protobuf_integer(21_000, &mut response);
+    if !status {
+        protobuf_bytes(2, b"execution reverted", &mut response);
+    }
+    protobuf_bytes(
+        4,
+        format!("0x{}", hex::encode(hash)).as_bytes(),
+        &mut response,
+    );
+    let mut message = Vec::new();
+    protobuf_bytes(
+        1,
+        b"/paxprotocol.paxchain.evm.MsgEVMTransaction",
+        &mut message,
+    );
+    protobuf_bytes(2, &response, &mut message);
+    let mut transaction = Vec::new();
+    protobuf_bytes(1, &message, &mut transaction);
+    transaction
+}
+
+fn result_root(result: &[u8]) -> [u8; 32] {
+    let leaf = Sha256::digest([&[0][..], result].concat());
+    let sibling = Sha256::digest([0]);
+    Sha256::digest([&[1][..], leaf.as_slice(), sibling.as_slice()].concat()).into()
 }
 
 fn vector_bytes<const N: usize>(value: &Value) -> [u8; N] {
@@ -188,22 +228,22 @@ impl Fixture {
             },
             canonical_receipt,
         };
-        // RLP(0) = 0x80: a branch at nibble 8, then a leaf at nibble 0.
-        let receipt_leaf = leaf(&[0x30], &receipt.canonical_receipt);
-        let mut children = Vec::new();
-        let receipt_leaf_hash = transaction_hash(&receipt_leaf);
-        for index in 0..17 {
-            children.extend(bytes(if index == 8 {
-                &receipt_leaf_hash[..]
-            } else {
-                &[]
-            }));
-        }
-        let receipt_branch = rlp(&children, true);
-        let receipt_root = transaction_hash(&receipt_branch);
-        let receipt_path = vec![receipt_branch, receipt_leaf];
+        let proof = lint_success(
+            NativeResultSource::from_results(
+                &json!([
+                    {"data": openssl::base64::encode_block(&result_data(transaction_hash(&raw), status)),
+                     "gas_wanted": "21000", "gas_used": "21000"},
+                    {}
+                ]),
+                0,
+            ),
+            "ABCI result inclusion",
+        );
+        let receipt_root = result_root(&proof.result);
+        lint_success(proof.verify(receipt_root, 0), "ABCI result root");
+        let receipt_path = lint_success(proof.encode(), "ABCI result proof encoding");
         let (header, commit, validators) =
-            committed_receipt_header(height, state_root, receipt_root);
+            committed_receipt_header(height + 1, state_root, receipt_root);
         Self {
             raw,
             receipt,
@@ -243,7 +283,7 @@ impl Fixture {
         storage_node(
             self.storage[0].address,
             self.storage[0].slot,
-            self.header.height,
+            self.receipt.metadata.block_height,
             response,
         )
     }
@@ -271,21 +311,15 @@ fn receipt_proof_bundle_verifies_against_the_receipts_root() {
                 let served =
                     proof_bundle(&request).unwrap_or_else(|error| panic!("bundle: {error:?}"));
                 assert_eq!(served.format, "layerx-receipt-proof-v2");
-                assert_eq!(served.verification_level, Rung::Receipted);
+                assert_eq!(served.verification_level, Rung::Committed);
                 assert_eq!(served.receipt, fixture.receipt);
                 assert_eq!(served.raw_transaction, fixture.raw);
                 assert_eq!(served.receipt_proof, fixture.receipt_path);
-                // Independently recompute both trie nodes using the served leaf value.
-                let leaf = leaf(&[0x30], &served.receipt.canonical_receipt);
-                let mut children = Vec::new();
-                let leaf_hash = transaction_hash(&leaf);
-                for index in 0..17 {
-                    children.extend(bytes(if index == 8 { &leaf_hash[..] } else { &[] }));
-                }
-                assert_eq!(
-                    transaction_hash(&rlp(&children, true)),
-                    served.receipts_root
+                let result = lint_success(
+                    AbciResultProof::decode(&served.receipt_proof),
+                    "served ABCI result proof",
                 );
+                assert_eq!(result_root(&result.result), served.receipts_root);
                 assert_eq!(
                     served.checkpoint.as_ref().map(|value| &value.commit),
                     Some(&fixture.commit)
@@ -336,6 +370,8 @@ fn receipt_proof_bundle_verifies_against_the_receipts_root() {
                 assert_eq!(
                     proof_bundle(&ProofBundleRequest {
                         requested_rung: Rung::Committed,
+                        receipt: &uncommitted_receipt,
+                        commit: None,
                         ..request
                     }),
                     Err(CheckpointReadError::BelowRequestedRung)

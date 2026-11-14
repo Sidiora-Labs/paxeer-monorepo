@@ -23,7 +23,7 @@ cast receipt "$TX_HASH" --rpc-url "$PAXEER_RPC_URL" --json
 | Receipt status 0 | The transaction was included but execution reverted | Inspect the ABI, revert data, and execution trace |
 | Receipt status 1 | Execution succeeded | Compare emitted events and resulting application state with the intended action |
 
-A receipt is final when its block is committed on the BFT network. A timeout after submission does not prove the transaction failed. Search for the original hash first; a new transaction can repeat the application action.
+A receipt is final when validators commit its block. A timeout after submission does not prove the transaction failed. Search for the original hash first; a new transaction can repeat the application action.
 
 ## Check the sender and call
 

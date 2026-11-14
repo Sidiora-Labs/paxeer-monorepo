@@ -901,6 +901,11 @@ type MempoolConfig struct {
 	DropPriorityReservoirSize int `mapstructure:"drop-priority-reservoir-size"`
 }
 
+// HasNoEntryTimeLimit reports whether neither entry time limit is configured.
+func (cfg *MempoolConfig) HasNoEntryTimeLimit() bool {
+	return cfg.TTLDuration == 0 && cfg.TTLNumBlocks == 0
+}
+
 func (cfg *MempoolConfig) ToMempoolConfig() *mempoolcfg.Config {
 	mcfg := &mempoolcfg.Config{
 		Size:                      cfg.Size,

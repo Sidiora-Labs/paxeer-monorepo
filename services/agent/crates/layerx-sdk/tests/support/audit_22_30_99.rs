@@ -166,10 +166,10 @@ impl Server {
         .with_no_client_auth()
         .with_single_cert(
             vec![CertificateDer::from(
-                include_bytes!("../fixtures/repair_22_31_227_fixture/server.der").to_vec(),
+                include_bytes!("../fixtures/tls_server/server.der").to_vec(),
             )],
             PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
-                include_bytes!("../fixtures/repair_22_31_227_fixture/server-key.der").to_vec(),
+                include_bytes!("../fixtures/tls_server/server-key.der").to_vec(),
             )),
         )
         .unwrap_or_else(|error| panic!("committed TLS fixture: {error:?}"));
@@ -847,7 +847,7 @@ pub(super) fn wallet_native_token_and_node_summary_round_trip_after_reopen() {
 pub(super) fn committed_wait_uses_live_block_authority_after_reopen() {
     let mut node = LocalNode::start();
     let record: Value = serde_json::from_str(include_str!(
-        "../../src/repair_22_31_227_fixture/committed.json"
+        "../../src/committed_receipt_fixture/committed.json"
     ))
     .unwrap_or_else(|error| panic!("recorded real node/Comet producer transcript: {error:?}"));
     let hash = fixed_field(&record["receiptJson"], "txHash");
@@ -1176,8 +1176,8 @@ fn owner_case() -> OwnerCase {
         .finalize()
         .into();
     let preparation = json!({"version":"1","preparation_id":hex(&digest),"canonical_bytes":hex(&canonical),"signing_preimage":hex(&call.signing_hash()),"activity":{"version":"1","module":"9","ordinal":"3"},"approval_required":false,"approval_id":null});
-    let disclosed = json!({"version":"1","preparation_id":hex(&digest),"canonical_bytes":hex(&canonical),"disclosure_digest":hex(&disclosure.audit_digest().unwrap_or_else(|error| panic!("call audit codec: {error:?}"))),"activity_type":disclosure.activity_type.value().to_string(),"actor":hex(&disclosure.actor),"authority":hex(&disclosure.authority),"asset":hex(&disclosure.asset),"fee_limit":disclosure.fee_limit.to_string(),"not_before":disclosure.expiry.not_before.to_string(),"not_after":disclosure.expiry.not_after.to_string(),"payload_expires_at":disclosure.expiry.payload_expires_at.to_string(),"idempotency_key":hex(&disclosure.idempotency_key)});
-    let mut document = json!({"tenant":"sdk-fixture","session_id":hex(&[0x51;32]),"token_id":hex(&[0x52;32]),"generation":"1","ca_pem":Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/repair_22_31_227_fixture/ca.pem").to_str().unwrap_or_else(|| panic!("CA path")),"owner_preview_purpose":hex(&purpose_bytes),"owner_public_key":hex(owner.verifying_key().as_bytes()),"evm_sender":hex(&sender),"owner_purpose_signature":hex(&purpose_signature.to_bytes()),"owner_preview_canonical_bytes":hex(&canonical),"external_evm_secret":hex(&external),"request":{"actor":actor,"authority":hex(owner.verifying_key().as_bytes()),"account_sequence":"7","not_before":"0","not_after":u64::MAX.to_string(),"idempotency_key":hex(&digest),"fee_limit":"200000","payload":hex(&payload),"payload_hash":hex(&payload_hash),"capability_id":hex(&[0x53;32])},"pending_lookup":{"activity_id":hex(&[0xab;32]),"required":"receipted"},"absent_lookup":{"activity_id":hex(&[0xcd;32]),"required":"receipted"}});
+    let disclosed = json!({"version":"1","preparation_id":hex(&digest),"canonical_bytes":hex(&canonical),"disclosure_digest":hex(&disclosure.signing_digest().unwrap_or_else(|error| panic!("call signing digest: {error:?}"))),"activity_type":disclosure.activity_type.value().to_string(),"actor":hex(&disclosure.actor),"authority":hex(&disclosure.authority),"asset":hex(&disclosure.asset),"fee_limit":disclosure.fee_limit.to_string(),"not_before":disclosure.expiry.not_before.to_string(),"not_after":disclosure.expiry.not_after.to_string(),"payload_expires_at":disclosure.expiry.payload_expires_at.to_string(),"idempotency_key":hex(&disclosure.idempotency_key)});
+    let mut document = json!({"tenant":"sdk-fixture","session_id":hex(&[0x51;32]),"token_id":hex(&[0x52;32]),"generation":"1","ca_pem":Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tls_server/ca.pem").to_str().unwrap_or_else(|| panic!("CA path")),"owner_preview_purpose":hex(&purpose_bytes),"owner_public_key":hex(owner.verifying_key().as_bytes()),"evm_sender":hex(&sender),"owner_purpose_signature":hex(&purpose_signature.to_bytes()),"owner_preview_canonical_bytes":hex(&canonical),"external_evm_secret":hex(&external),"request":{"actor":actor,"authority":hex(owner.verifying_key().as_bytes()),"account_sequence":"7","not_before":"0","not_after":u64::MAX.to_string(),"idempotency_key":hex(&digest),"fee_limit":"200000","payload":hex(&payload),"payload_hash":hex(&payload_hash),"capability_id":hex(&[0x53;32])},"pending_lookup":{"activity_id":hex(&[0xab;32]),"required":"receipted"},"absent_lookup":{"activity_id":hex(&[0xcd;32]),"required":"receipted"}});
     let server = owner_case_server(
         document.clone(),
         preparation,
@@ -1584,8 +1584,7 @@ pub(super) fn authenticated_registration_and_session_reach_exact_owner_results()
         json!({"request_id":envelope["request_id"],"value":values[index],
             "verification_status":{"state":"achieved","rung":"submitted"}})
     });
-    let ca = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/repair_22_31_227_fixture/ca.pem");
+    let ca = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tls_server/ca.pem");
     let transport = AgentEnvelopeTransport::connect(&server.endpoint, None, Some(&ca))
         .unwrap_or_else(|error| panic!("real authenticated envelope transport: {error:?}"));
     let credential = EnvelopeCredential::new(tenant, [0x51; 32], [0x52; 32], 1)
@@ -2293,6 +2292,8 @@ fn owner_case_server(
         digest,
     } = signed;
     let fixture = document;
+    let prepare_operation = layerx_agent_api::Operation::Prepare.name();
+    assert_eq!(prepare_operation, "prepare");
     let pending: Value = serde_json::from_str(include_str!(
         "../../../../../../services/agent/schema/agent-api/golden/agent-http-success-pending.json"
     ))
@@ -2308,7 +2309,7 @@ fn owner_case_server(
         }
         let request = &envelope["request"];
         let value = match field(&envelope, "operation") {
-            "prepare" if request["variant"] == "native_v1" => {
+            operation if operation == prepare_operation && request["variant"] == "native_v1" => {
                 for name in [
                     "actor",
                     "authority",
@@ -2325,7 +2326,7 @@ fn owner_case_server(
                 }
                 preparation.clone()
             }
-            "prepare" => {
+            operation if operation == prepare_operation => {
                 assert_eq!(
                     request["canonical_bytes"],
                     fixture["owner_preview_canonical_bytes"]
@@ -2612,10 +2613,16 @@ fn assert_native_disclosure(
         .unwrap_or_else(|error| panic!("migrated bind_call adapter: {error:?}"));
     assert_eq!(
         disclosure
-            .audit_digest()
-            .unwrap_or_else(|error| panic!("actual call audit: {error:?}")),
+            .signing_digest()
+            .unwrap_or_else(|error| panic!("actual call signing digest: {error:?}")),
         disclosed.disclosure_digest
     );
+    let mut audit = disclosed.clone();
+    audit.disclosure_digest = disclosure
+        .audit_digest()
+        .unwrap_or_else(|error| panic!("actual call audit: {error:?}"));
+    assert_ne!(audit.disclosure_digest, disclosed.disclosure_digest);
+    assert!(validate_call_disclosure(&disclosure_request, &audit, sender).is_err());
     for coordinate in ["actor", "authority", "fee", "purpose", "digest"] {
         let mut altered = disclosed.clone();
         match coordinate {

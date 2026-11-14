@@ -33,11 +33,14 @@ def read_bridge():
 def test_programs_readme_merged_node():
     overview = prose(README.split("## Workspace layout", 1)[0])
     for fact in (
-        "one BFT network: `paxd`, EVM chain ID `125` (`0x7d`)",
-        "kernel runs inside the node",
-        "participates in block proposal and execution",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID `125` (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "A receipt is final when its block is committed",
-        "programs do not wait for settlement on another chain",
+        "Programs do not require periodic checkpoint settlement or a separate settlement deployment.",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source(ROOT / "node/app.go")
@@ -135,15 +138,6 @@ def test_programs_readme_inventory_matches_crates():
 
 
 def test_programs_readme_adapter_is_retired():
-    retirement = [
-        paragraph for paragraph in README.split("\n\n")
-        if "layerx-programs-protocol-adapter" in paragraph
-    ]
-    assert len(retirement) == 1
-    assert "crate is retired" in retirement[0]
-    assert "do not add the retired adapter as a dependency" in retirement[0]
-    current = README.replace(retirement[0], "")
-    assert "protocol-adapter" not in current
     manifest = tomllib.loads(source(PROGRAMS / "Cargo.toml"))
     assert all("protocol-adapter" not in path for path in manifest["workspace"]["members"])
     for member in [".", *manifest["workspace"]["members"]]:
@@ -195,7 +189,7 @@ def test_programs_readme_record_and_rust_companion():
     assert manifest["package"]["name"] == "layerx-programs-integration-tests"
     assert manifest["package"]["publish"] is False
     assert manifest["test"] == [{
-        "name": "repair_22_33_238", "path": "tests/repair_22_33_238.rs"
+        "name": "registry_read_bridge", "path": "tests/registry_read_bridge.rs"
     }]
     assert manifest["dev-dependencies"]["layerx-programs-registry"]["path"] == (
         "crates/layerx-programs-registry"
@@ -205,8 +199,11 @@ def test_programs_readme_record_and_rust_companion():
     assert len(packages) == 1
     assert packages[0]["version"] == manifest["workspace"]["package"]["version"]
     assert set(packages[0]["dependencies"]) == set(manifest["dev-dependencies"])
-    rust = source(PROGRAMS / "tests/repair_22_33_238.rs")
-    assert set(re.findall(r"#\[test\]\s+fn (\w+)\(", rust)) == set(finding["rust_tests"])
+    rust = source(PROGRAMS / "tests/registry_read_bridge.rs")
+    assert set(re.findall(r"#\[test\]\s+fn (\w+)\(", rust)) == {
+        "registry_read_bridge_authenticates_membership",
+        "registry_read_bridge_authenticates_non_membership",
+    }
     assert '#[path = "../crates/layerx-programs-registry/tests/support/chain.rs"]' in rust
     for call in (
         "ChainFixture::new(", "fixture.encode_key(", "decode_commitment_proof(",

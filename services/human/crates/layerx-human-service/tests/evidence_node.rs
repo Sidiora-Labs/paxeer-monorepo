@@ -7,7 +7,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use layerx_client::rpc::evidence::{checkpoint, proof_bundle};
+use layerx_client::rpc::evidence::{checkpoint, proof_bundle, EvidenceError};
 use layerx_client::rpc::submit::{submit_signed, Submission, SubmitError};
 use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerReceipt};
 use layerx_human_test_support as support;
@@ -256,8 +256,8 @@ impl AdmissionSequencer {
                     }
                     "px_getReceiptKeys" => {
                         assert_eq!(params, &json!([]));
-                        json!({"result": [{"keyId": hex(&self.receipt_key),
-                            "publicKey": hex(&self.receipt_key), "firstHeight": "0x7", "lastHeight": "0x7"}]})
+                        json!({"result": {"keys": [{"keyId": hex(&self.receipt_key),
+                            "publicKey": hex(&self.receipt_key), "firstHeight": 7, "lastHeight": 7}]}})
                     }
                     "eth_getBlockByNumber" => {
                         assert_eq!(params, &json!(["0x7", true]));
@@ -344,7 +344,7 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     let mut node = AdmissionSequencer::new(&receipt_signer, "durable-admission");
     node.register_identity(b"did:layerx:actor", sender(&actor));
     let admission_directory = node.journal.directory().to_path_buf();
-    let (endpoint, config, server) = node.serve(11, true);
+    let (endpoint, config, server) = node.serve(10, true);
     let readiness = checked(NodeRpc::connect(&config));
     let ready = checked(gate.readiness_gate(&readiness));
     assert_eq!(ready.chain_id, 125);
@@ -408,9 +408,10 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     let block = checked(checkpoint(&endpoint, 7));
     assert_eq!(block.number, 7);
     assert_eq!(block.hash, [0x91; 32]);
-    let bundle = checked(proof_bundle(&endpoint, [0x52; 20], &[], 7));
-    assert_eq!(bundle.landing_block, block);
-    assert_eq!(bundle.landing_block.number, 7);
+    assert_eq!(
+        proof_bundle(&endpoint, [0x52; 20], &[], 7),
+        Err(EvidenceError::MissingCommittedHeader)
+    );
     let second = signed_activity(&actor, 2, 0x22);
     assert_eq!(
         submit_signed(&endpoint, &second),

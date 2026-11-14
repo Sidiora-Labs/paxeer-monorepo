@@ -1,6 +1,6 @@
 # Paxeer X Network documentation
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). The kernel runs inside `paxd`, and the documentation describes the network, its systems, operations and reference material.
+The LayerX kernel runs inside every `paxd` node. It executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check the block and commit it. This documentation describes the network, its systems, operations and reference material. The EVM chain identifier is 125 (`0x7d`).
 
 Public node JSON-RPC is served at the root of each node endpoint listed in the [public RPC reference](site/paxeer-docs/src/app/public-rpc/page.tsx). The node registers `px` methods for account, inference, history and kernel reads; `px_register` and `px_requestFunds` belong to the hosted gateway contract.
 

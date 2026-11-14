@@ -2,22 +2,23 @@ include!("reclaim.rs");
 
 use layerx_types::ids::Did;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use ciborium::value::Value as CborValue;
+use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::identity::{
-    register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
+    CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority, register,
 };
 use layerx_agentd::session::{
-    close, invalidate_on_revocation, open, InvalidationReason, OpenRequest, RevocationEvent,
-    SessionId, SessionRegistry, Token,
+    InvalidationReason, OpenRequest, RevocationEvent, SessionId, SessionRegistry, Token, close,
+    invalidate_on_revocation, open,
 };
 use layerx_agentd::sign::ProvisionedSessionKey;
 use layerx_crypto::session::IssuedSessionKey;
 use layerx_human_service::agents::{
-    AgentBalance, ArchiveAgentContract, ArchiveBoundary, ArchiveError, ArchiveJourney,
-    ArchiveRequest, ArchiveStage, FundsDispositionEvidence, ReclaimStatus, SessionArchiveAdapter,
-    ARCHIVE_ACTION_LABEL, ARCHIVE_CONFIRMATION_TONE, ARCHIVE_IRREVERSIBILITY_NOTICE,
+    ARCHIVE_ACTION_LABEL, ARCHIVE_CONFIRMATION_TONE, ARCHIVE_IRREVERSIBILITY_NOTICE, AgentBalance,
+    ArchiveAgentContract, ArchiveBoundary, ArchiveError, ArchiveJourney, ArchiveRequest,
+    ArchiveStage, FundsDispositionEvidence, ReclaimStatus, SessionArchiveAdapter,
 };
 use layerx_human_service::audit::{AuditChain, AuditEvent, SecurityChangeKind};
 use layerx_human_service::auth::{
@@ -32,9 +33,9 @@ use layerx_human_service::custody::{
 use layerx_human_service::notify::AgentId;
 use layerx_human_service::store::{EvidenceRef, RowKey};
 use layerx_types::verify::VerificationLevel;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-const ARCHIVE_ASSET: [u8; 32] = [0x33; 32];
+const ARCHIVE_ASSET: [u8; 32] = journey_receipt::ASSET;
 const ARCHIVE_RP_ID: &str = "paxportwallet.com";
 const ARCHIVE_ORIGIN: &str = "https://paxportwallet.com";
 const FLAG_UP: u8 = 1;
@@ -638,6 +639,7 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
         Err(ArchiveError::FundsRemain(remaining)) if remaining[0].amount == 1
     ));
     drop(scope);
+    drop(store);
 
     let reclaim_request = reclaim_request(
         "jrn_archivereclaim",
@@ -655,6 +657,7 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
     Reclaim::start(&mut scope, &reclaim_request, &registry(), 601)
         .unwrap_or_else(|error| panic!("archive reclaim start: {error}"));
     drop(scope);
+    drop(store);
     let mut reclaim_agent = RealAgentLayer::new(
         &fixture.agent_root,
         BTreeMap::from([([0x75; 32], DeliveryMode::TrackThenReceipt)]),
@@ -752,6 +755,7 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
         Err(ArchiveError::Agent(AgentContractError::Unavailable))
     ));
     drop(scope);
+    drop(store);
 
     let mut store = fixture.store();
     let mut scope = store
@@ -821,10 +825,12 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
             ..
         }
     )));
-    assert!(scope
-        .keys(Table::Notifications)
-        .iter()
-        .any(|key| key.as_str().starts_with("agent-archive-notification-")));
+    assert!(
+        scope
+            .keys(Table::Notifications)
+            .iter()
+            .any(|key| key.as_str().starts_with("agent-archive-notification-"))
+    );
     let report = scope
         .expire(10_000_000)
         .unwrap_or_else(|error| panic!("archive retention: {error}"));

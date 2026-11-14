@@ -279,7 +279,7 @@ fn native_program_batch_identity_binds_tree_and_entire_sequence_range() {
     }
 }
 
-#[path = "repair_22_33_1523.rs"]
+#[path = "native_transaction_codecs.rs"]
 mod native_submission;
 
 #[test]

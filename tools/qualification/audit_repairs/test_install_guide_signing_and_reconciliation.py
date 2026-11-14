@@ -123,7 +123,7 @@ def test_install_guide_inputs_raw_transaction_producer_transport():
     assert raw_schema["maxLength"] == 1_048_578
     assert arguments == {"raw_transaction": "0x02..."}
     assert "replace the ellipsis with complete signed transaction bytes" in prose()
-    assert "already signed EIP-1559 transaction" in prose()
+    assert "**already signed EIP-1559 transaction**" in prose()
     toolset = source(CLI + "src/toolset.rs")
     submit = toolset.split("fn submit_classified(", 1)[1].split("fn submission_result(", 1)[0]
     assert_facts(
@@ -198,10 +198,13 @@ def test_install_guide_inputs_preserves_bootstrap_and_mcp_requirements():
         "--sequencer-trust-anchor-file", "$HOME/.config/layerx/emulator/sequencer.anchor",
     ]
     assert_facts(
-        prose(), "`core_height`", "`core_sequence` field is refused",
-        "`mcp.binding_retired_key`", "`agent.readiness`",
+        prose(), "`core_height`", "`agent.readiness`",
         "authenticated HTTPS gateway and its protected credential file",
         "`--daemon-binding <path>`", "`--read-only`",
+    )
+    assert_facts(
+        source("docs/wiki/RunningAnAgent.md"),
+        "`mcp.binding_retired_key` | A binding still contains the retired `core_sequence` field",
     )
     emulator = source(CLI + "src/emulator.rs")
     assert_facts(emulator, "pub fn provision(", '"sequencer_seed_file"', '"sequencer_trust_anchor_file"')

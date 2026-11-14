@@ -121,12 +121,21 @@ def seed_inference_programs_genesis(genesis, accounts, bank_mirror, mirror_nativ
         account_main_id = bytes.fromhex(account['main_account'])
         require(account_main_id == account_id(account_main.encode()),
                 'generated main account identifier')
+        main_balance = 0 if role == 'settler' else 400_000_000 if role == 'host' else 100_000_000
+        fee_balance = 0 if role == 'settler' else 500_000_000 if role == 'host' else 125_000_000
+        if 'host_worker' in accounts:
+            if role == 'host':
+                main_balance -= 50_000_000
+            elif role == 'host_worker':
+                main_balance = 50_000_000
+            elif role in ('peer0', 'peer1', 'asker', 'evidence0', 'evidence1'):
+                fee_balance -= 25_000_000
         mains.append((account_main, account_main_id, 1,
-                      0 if role == 'settler' else 400_000_000 if role == 'host' else 100_000_000,
+                      main_balance,
                       bytes.fromhex(account['peer_key'])))
         name = 'agent:' + account['did'] + ':asset:' + asset.hex()
         payers.append((name, account_id(name.encode()), 14,
-                       0 if role == 'settler' else 500_000_000 if role == 'host' else 125_000_000,
+                       fee_balance,
                        bytes.fromhex(account['peer_key'])))
     for _, identifier, _, balance, _ in payers:
         if balance:
@@ -422,6 +431,19 @@ class ChainWriter:
             raise
         finally:
             write_json(path, record)
+
+    def committed_transaction_hashes(self, first_height):
+        """Return transaction hashes in a closed range of committed blocks."""
+        latest = int(self.rpc.request('eth_blockNumber', []), 16)
+        require(isinstance(first_height, int) and 1 <= first_height <= latest + 1,
+                'committed block range')
+        references = []
+        for height in range(first_height, latest + 1):
+            block = self.rpc.request('eth_getBlockByNumber', [hex(height), False])
+            require(block is not None and int(block['number'], 16) == height,
+                    'committed block in range')
+            references.extend(block['transactions'])
+        return references, latest
 
 
 class RuntimeFixture(ChainWriter):
@@ -864,7 +886,7 @@ def prepare_launch_runtime(directory, binary, revision, funded_accounts, funding
              'config.toml': (template / 'config/config.toml').read_bytes(),
              'app.toml': app_config.encode(),
              'priv_validator_key.json': (template / 'config/priv_validator_key.json').read_bytes(),
-             'rpc-ca.der': ssl.PEM_cert_to_DER_cert((ROOT / 'services/platform/hosted/node/tests/fixtures/repair_22_31_355/tls-certificate.pem.txt').read_text())}
+             'rpc-ca.der': ssl.PEM_cert_to_DER_cert((ROOT / 'services/platform/hosted/node/tests/fixtures/native_lifecycle/tls-certificate.pem.txt').read_text())}
     for name, content in files.items():
         target = inputs / name
         target.write_bytes(content)

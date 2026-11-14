@@ -125,8 +125,9 @@ def build(manifest_path):
     require(not manifest_path.exists(), 'fresh artifact manifest required')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     sources = source_manifest()
-    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/platform'))
-    require(target.is_absolute() and not target.is_relative_to(ROOT), 'external absolute build target required')
+    configured_target = os.environ.get('CARGO_TARGET_DIR')
+    target = Path(configured_target or str(ROOT / 'services/platform/target'))
+    require(target.is_absolute() and (configured_target is None or not target.is_relative_to(ROOT)), 'external absolute build target required')
     environment = os.environ.copy()
     environment['CARGO_TARGET_DIR'] = str(target)
     environment['CARGO_BUILD_JOBS'] = '2'

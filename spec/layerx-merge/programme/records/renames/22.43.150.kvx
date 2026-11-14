@@ -1,0 +1,292 @@
+[manifest]
+task = "22.43.150"
+records_moved = 16
+files_renamed = 10
+
+[file.1]
+from = "services/human/crates/layerx-human-test-support/tests/repair_22_33_52.rs"
+to = "services/human/crates/layerx-human-test-support/tests/committed_receipt_recovery.rs"
+
+[file.2]
+from = "services/human/crates/layerx-human-test-support/tests/repair_22_33_55.rs"
+to = "services/human/crates/layerx-human-test-support/tests/admission_journal_recovery.rs"
+
+[file.3]
+from = "services/human/crates/layerx-intents/fuzz/tests/repair_22_33_53.rs"
+to = "services/human/crates/layerx-intents/fuzz/tests/intent_fuzz_oracle.rs"
+
+[file.4]
+from = "services/human/crates/layerx-intents/tests/repair_22_31_557.rs"
+to = "services/human/crates/layerx-intents/tests/key_rotation_identifiers.rs"
+
+[file.5]
+from = "services/human/crates/layerx-intents/tests/repair_22_33_1519.rs"
+to = "services/human/crates/layerx-intents/tests/intent_chain_domain.rs"
+
+[file.6]
+from = "services/human/crates/layerx-network-gateway/tests/repair_22_31_157.rs"
+to = "services/human/crates/layerx-network-gateway/tests/amount_width.rs"
+
+[file.7]
+from = "services/human/crates/layerx-network-gateway/tests/repair_22_33_56.rs"
+to = "services/human/crates/layerx-network-gateway/tests/transport_boundaries.rs"
+
+[file.8]
+from = "services/human/crates/layerx-network-gateway/tests/repair_22_33_57.rs"
+to = "services/human/crates/layerx-network-gateway/tests/gateway_read_contracts.rs"
+
+[file.9]
+from = "services/human/tools/schema-check/tests/repair_22_33_28.rs"
+to = "services/human/tools/schema-check/tests/schema_retirement_baseline.rs"
+
+[file.10]
+from = "services/human/tests/repair_22_33_32.rs"
+to = "services/human/tests/documented_workspace_contracts.rs"
+
+[file.11]
+from = "services/human/crates/layerx-human-test-support/repair_22_39_437.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-test-support/repair_22_39_437.kvx"
+
+[file.12]
+from = "services/human/crates/layerx-human-test-support/tests/repair_22_33_52.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-test-support/tests/repair_22_33_52.kvx"
+
+[file.13]
+from = "services/human/crates/layerx-human-test-support/tests/repair_22_33_55.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-test-support/tests/repair_22_33_55.kvx"
+
+[file.14]
+from = "services/human/crates/layerx-intents/repair_22_39_439.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-intents/repair_22_39_439.kvx"
+
+[file.15]
+from = "services/human/crates/layerx-intents/tests/repair_22_31_557.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-intents/tests/repair_22_31_557.kvx"
+
+[file.16]
+from = "services/human/crates/layerx-intents/tests/repair_22_33_1519.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-intents/tests/repair_22_33_1519.kvx"
+
+[file.17]
+from = "services/human/crates/layerx-network-gateway/repair_22_39_260.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-network-gateway/repair_22_39_260.kvx"
+
+[file.18]
+from = "services/human/crates/layerx-network-gateway/repair_22_39_440.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-network-gateway/repair_22_39_440.kvx"
+
+[file.19]
+from = "services/human/crates/layerx-network-gateway/repair_22_39_492.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-network-gateway/repair_22_39_492.kvx"
+
+[file.20]
+from = "services/human/crates/layerx-network-gateway/tests/repair_22_33_57.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-network-gateway/tests/repair_22_33_57.kvx"
+
+[file.21]
+from = "services/human/schema/human-api/repair_22_33_41.kvx"
+to = "spec/layerx-merge/programme/records/services/human/schema/human-api/repair_22_33_41.kvx"
+
+[file.22]
+from = "services/human/schema/human-api/repair_22_39_161.kvx"
+to = "spec/layerx-merge/programme/records/services/human/schema/human-api/repair_22_39_161.kvx"
+
+[file.23]
+from = "services/human/schema/repair_22_39_261.kvx"
+to = "spec/layerx-merge/programme/records/services/human/schema/repair_22_39_261.kvx"
+
+[file.24]
+from = "services/human/tools/api-gen/repair_22_39_500.kvx"
+to = "spec/layerx-merge/programme/records/services/human/tools/api-gen/repair_22_39_500.kvx"
+
+[file.25]
+from = "services/human/tools/repair_22_39_441.kvx"
+to = "spec/layerx-merge/programme/records/services/human/tools/repair_22_39_441.kvx"
+
+[file.26]
+from = "services/human/tools/schema-check/tests/repair_22_33_28.kvx"
+to = "spec/layerx-merge/programme/records/services/human/tools/schema-check/tests/repair_22_33_28.kvx"
+
+[reference.1]
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_32.rs"
+name = "repair_22_33_32"
+
+[reference.2]
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_32.rs"
+name = "repair_22_33_32.rs"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_22_31_557.rs"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair_22_33_28.rs"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "repair_22_33_55.rs"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "repair_22_33_56.rs"
+
+[reference.7]
+file = "spec/layerx-merge/programme/issues/1738.kvx"
+name = "repair_22_31_557.rs"
+
+[reference.8]
+file = "spec/layerx-merge/programme/issues/input/1738.md"
+name = "repair_22_31_557.rs"
+
+[reference.9]
+file = "spec/layerx-merge/programme/records/renames/22.43.234.kvx"
+name = "repair_22_39_161.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_157.rs"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_557"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_557.rs"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_28.rs"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_55.rs"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_56.rs"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_57.rs"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_157"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_157.rs"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_557"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_557.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_557.rs"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1519"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1519.rs"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_28"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_28.rs"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_32"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_32.rs"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_52"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_52.rs"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_53"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_53.rs"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_55"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_55.rs"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_56"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_56.rs"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_57"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_57.rs"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_161.kvx"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_260.kvx"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_261.kvx"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_437.kvx"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_439.kvx"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_440.kvx"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_441.kvx"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_492.kvx"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_500.kvx"

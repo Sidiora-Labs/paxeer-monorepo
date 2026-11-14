@@ -16,6 +16,7 @@ pub(super) struct ProtectedRoot {
     path: PathBuf,
     directory: File,
     uid: u32,
+    writer_locked: bool,
 }
 
 fn refused(reason: &'static str) -> io::Error {
@@ -54,10 +55,11 @@ impl ProtectedRoot {
             .read(true)
             .custom_flags(NO_FOLLOW | DIRECTORY)
             .open(&path)?;
-        let root = Self {
+        let mut root = Self {
             path,
             directory,
             uid: rustix::process::geteuid().as_raw(),
+            writer_locked: false,
         };
         root.validate()?;
         if writable {
@@ -67,6 +69,7 @@ impl ProtectedRoot {
                 }
                 std::fs::TryLockError::Error(error) => error,
             })?;
+            root.writer_locked = true;
             root.validate()?;
         }
         Ok(root)
@@ -180,6 +183,45 @@ impl ProtectedRoot {
         fs::rename(&temporary.path, self.anchored(STORE_FILE))?;
         self.directory.sync_all()?;
         Ok(())
+    }
+}
+
+impl Drop for ProtectedRoot {
+    fn drop(&mut self) {
+        if self.writer_locked {
+            if let Err(error) = self.directory.unlock() {
+                eprintln!("store writer unlock: {error}");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProtectedRoot;
+
+    #[test]
+    fn writer_drop_releases_lock_with_a_duplicated_directory_descriptor() -> std::io::Result<()> {
+        let mut identifier = [0; 16];
+        getrandom::fill(&mut identifier).map_err(|error| {
+            std::io::Error::other(format!("store directory randomness: {error}"))
+        })?;
+        let path = std::fs::canonicalize(std::env::temp_dir())?.join(format!(
+            "store-writer-drop-{}-{}",
+            std::process::id(),
+            u128::from_ne_bytes(identifier)
+        ));
+        let writer = ProtectedRoot::open(&path, true)?;
+        let inherited = writer.directory.try_clone()?;
+        drop(writer);
+        let next = ProtectedRoot::open(&path, true)?;
+        assert!(matches!(
+            ProtectedRoot::open(&path, true),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+        ));
+        drop(next);
+        drop(inherited);
+        std::fs::remove_dir(path)
     }
 }
 

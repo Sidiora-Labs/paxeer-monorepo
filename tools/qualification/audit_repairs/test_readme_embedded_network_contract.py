@@ -10,7 +10,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_786.kvx")
 
 
@@ -44,14 +46,19 @@ def require_facts(text, facts):
 
 def test_doc_1_merged_paxd_network_programs_and_tenant_domains():
     require_facts(section("What is Paxeer X Network?", 2), (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "programs sandbox", "Sub-chains are tenant domains stored in the database",
         "managed by [`modules/layerxchains`]", "namespaces state within the shared network",
-        "does not require new node infrastructure", "no router and no separate LayerX interface",
+        "does not require new node infrastructure",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
     ))
+    assert "The former unified router and its prefixed RPC routes are retired" in PUBLIC_RPC
+    assert "The node serves the `px` namespace at the root path, answering from node state" in PUBLIC_RPC
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
@@ -63,17 +70,20 @@ def test_doc_1_merged_paxd_network_programs_and_tenant_domains():
 
 def test_doc_1_public_root_rpc_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
+    for fact in (
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
     require_facts(quickstart, (
-        "Public node JSON-RPC uses the root URL",
-        "https://api-mainnet-beta.paxeer.network",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix", "compare `eth_blockNumber`",
-        "never a JSON-RPC endpoint",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
+        "compare `eth_blockNumber`",
     ))
     hosts = {"api-mainnet-beta.paxeer.network"} | {
         f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)
     }
-    urls = [urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)]
+    urls = [urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)]
     rpc_urls = [url for url in urls if url.hostname in hosts]
     assert rpc_urls
     for url in rpc_urls:
@@ -85,9 +95,7 @@ def test_doc_1_public_root_rpc_and_chain_probe():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
@@ -191,7 +199,7 @@ def test_doc_1_operator_build_and_start_match_declared_producers():
     assert "cmd.NewRootCmd()" in source("daemon/paxd/main.go")
     for target in re.findall(r"\]\(([^)]+)\)", build):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (NETWORK_PAGE.parent / target.split("#", 1)[0]).exists(), target
 
 
 def test_doc_1_record_maps_finding_to_declared_proofs_and_evidence():

@@ -5,6 +5,7 @@ Out-of-scope clock violations remain violations and require named owner wiring.
 """
 
 import ast
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -12,6 +13,8 @@ import shlex
 import struct
 import tomllib
 from urllib.parse import urlsplit
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -69,7 +72,9 @@ def test_agent_compatibility_major_matches_schema_manifest_and_publication():
         encoded = bytes.fromhex(value(schema, f"golden.{carrier}.version", "encoded_hex"))
         assert struct.unpack_from(">HH", encoded) == (major, minor)
     assert "**2.0**" in document
-    assert "historical additive changes to major 1" in document
+    sdk_compatibility = read("services/agent/sdk/COMPATIBILITY.md")
+    assert "Within a contract major, schema changes must be additive." in sdk_compatibility
+    assert "historical compatibility information for major 1" in sdk_compatibility
     assert "SDKs reject an unsupported contract major" in document
     assert "web3_clientVersion" in document and "eth_chainId" in document
     assert "does not negotiate an independent\nnode protocol" in document
@@ -103,7 +108,7 @@ def test_agent_compatibility_signatures_rungs_and_unavailable_features():
     assert rungs == ["submitted", "receipted", "committed"]
     assert " to ".join(f"`{rung}`" for rung in rungs) in document
     assert "Finality comes from the committed\nblock of the single network" in document
-    assert "Approval holds are daemon-enforced" in document
+    assert "Approval holds are daemon-enforced restrictions" in " ".join(document.split())
     assert "confer no protocol authority" in document
 
 
@@ -123,26 +128,27 @@ def test_agent_compatibility_release_checks_match_real_make_consumers():
     assert "--check-report" in boundary
     assert "AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545" in read("Makefile")
     assert "LAYERX_QUALIFY_NODE_RPC_URL" in document
-    assert "http://127.0.0.1:8545" in document
+    assert "default HTTP\non loopback port `8545`" in document
 
 
 def test_agent_readme_topology_crates_and_root_rpc_match_current_inputs():
     document = read("services/agent/README.md")
-    assert "one BFT network, run by `paxd`" in document
-    assert "A receipt is final when its block is committed" in document
+    assert "the single network run by `paxd`" in document
+    assert "a receipt is final when its block is committed" in document
     assert "Sub-chains are tenant\ndomains in the database" in document
     assert "Signed transactions are submitted as exact bytes" in " ".join(document.split())
     assert "EVM chain ID is **125** (`0x7d`)" in document
-    endpoint = re.search(r"\]\((https://api-mainnet-beta[^)]+)\)", document)
+    boundary = read("docs/wiki/PaxeerBoundary.md")
+    endpoint = re.search(r"`(https://api-mainnet-beta[^`]+)`", boundary)
     assert endpoint
     parsed = urlsplit(endpoint[1])
     assert (parsed.scheme, parsed.hostname, parsed.path) == (
         "https", "api-mainnet-beta.paxeer.network", "/"
     )
     assert not parsed.query and not parsed.fragment
-    assert "api1.mainnet-beta.paxeer.network" in document
-    assert "api14.mainnet-beta.paxeer.network" in document
-    assert "`node.hyperpaxeer.com` is only the hpx library mirror" in document
+    assert "api1.mainnet-beta.paxeer.network" in boundary
+    assert "api14.mainnet-beta.paxeer.network" in boundary
+    assert "`node.hyperpaxeer.com` is the hpx library mirror used by builds, not an RPC endpoint." in boundary
     manifest = tomllib.loads(read("services/agent/Cargo.toml"))
     members = manifest["workspace"]["members"]
     table_names = re.findall(r"^\| `([^`]+)` \|", document, re.M)
@@ -188,10 +194,10 @@ def test_agent_readme_prerequisites_follow_make_and_real_node_script():
         assert fact in producer[1]
     assert "PAXEER_X_RUNTIME_MANIFEST" in document
     assert "LAYERX_TEST_PAXEER_RPC_PORT" in document
-    assert "chain ID 125" in document
-    for fixture in ("lxp_test_program_admission", "lxp_test_metered_allowance"):
-        assert fixture in script
+    assert "The EVM chain ID is **125** (`0x7d`)." in document
     assert "make paxeer-build" in script
+    assert "export PAXD=$repo_root/build/paxd" in script
+    assert 'sha256sum "$PAXD"' in script
     assert "run-real-node-tests.sh prepare" in recipe("agent-test-native-prerequisites")
     workspace_test = recipe("agent-test")
     assert "--locked --workspace" in workspace_test
@@ -285,10 +291,19 @@ def test_sdk_wallet_deadlines_use_explicit_clock_without_silent_fallback():
 def test_clock_scanner_violations_have_exact_out_of_scope_owner_requests():
     record = tomllib.loads(RECORD.read_text())
     pins = json.loads(
-        (Path(__file__).with_name("fixtures") / "repair_22_39_293_source_pins.json").read_text()
+        (Path(__file__).with_name("fixtures") / "python_sdk_and_clock_source_pins.json").read_text()
     )
-    assert pins["source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
-    requests = record["wiring"]["clock_requests"] + pins["clock_requests"]
+    assert pins["clock_source_revision"] == "4bf40d96827730373898dfe869065e56fb9ebf54"
+    record_requests = record["wiring"]["clock_requests"]
+    assert record_requests
+    for request in record_requests:
+        path, owner, action = request.split(" | ")
+        assert path
+        assert owner == "owning domain 9"
+        assert action
+
+    requests = pins["clock_requests"]
+    digests = pins["clock_sha256"]
     requested = set()
     for request in requests:
         path, owner, action = request.split(" | ")
@@ -296,7 +311,9 @@ def test_clock_scanner_violations_have_exact_out_of_scope_owner_requests():
         assert action
         assert path not in requested
         assert (ROOT / path).is_file()
+        assert digests[path] == hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
         requested.add(path)
+    assert set(digests) == requested
     violations = set()
     allowed = AGENT / "crates/layerx-agentd/src/main.rs"
     for path in (AGENT / "crates").rglob("*.rs"):

@@ -50,7 +50,7 @@ fn send_route(public_key: [u8; 32], key: u8) -> SendRoute {
             layerx_intents::canonical::PROTOCOL_VERSION,
         )
         .unwrap_or_else(|error| panic!("destination account: {error:?}")),
-        asset: [0x33; 32],
+        asset: journey_receipt::ASSET,
         amount: 1,
         source_sequence: ACCOUNT_SEQUENCE,
         idempotency_key: [key; 32],
@@ -89,7 +89,7 @@ fn reclaim_request(journey: &str, key: u8, mechanism: ReclaimMechanism) -> Recla
         idempotency_key: [key; 32],
         owner: account("agent:did:layerx:human:main"),
         agent_account: account("agent:did:layerx:worker:main"),
-        asset: AssetId::new([0x33; 32]),
+        asset: AssetId::new(journey_receipt::ASSET),
         amount: Amount::from_u128(1),
         mechanism,
         agent: ReclaimAgentContext {
@@ -166,7 +166,7 @@ fn assert_reclaim_receipts(
         let result = status
             .result()
             .unwrap_or_else(|| panic!("receipt result missing"));
-        assert_eq!(result.asset(), [0x33; 32]);
+        assert_eq!(result.asset(), journey_receipt::ASSET);
         assert_eq!(result.amount(), 1);
         assert_eq!(result.fee_charged(), 1);
         assert_ne!(result.activity_id(), [0; 32]);
@@ -202,6 +202,17 @@ fn assert_reclaim_receipts(
             agent.sender.or_fail("agent wallet")
         );
         assert_eq!(result.activity_id(), transaction_hash(raw));
+        let decoded_receipt = layerx_wire::receipt::decode(
+            &agent.receipt_material[&request.idempotency_key].canonical_bytes,
+        )
+        .or_fail("reclaim receipt");
+        let protocol = decoded_receipt.protocol().or_fail("EVM receipt");
+        assert_eq!(protocol.module_id(), 12);
+        assert_eq!(protocol.operation(), 2);
+        assert_eq!(protocol.amount(), 0);
+        assert_eq!(protocol.debit_sequence(), call.nonce);
+        assert_eq!(protocol.from()[12..], agent.sender.or_fail("agent wallet"));
+        assert_eq!(protocol.to()[12..], call.to);
         assert_eq!(
             agent.receipt_material[&request.idempotency_key].tx_hash,
             transaction_hash(raw)
@@ -298,6 +309,7 @@ fn every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity() {
         );
     }
     drop(scope);
+    drop(store);
 
     let modes = BTreeMap::from([
         ([0x71; 32], DeliveryMode::TrackThenReceipt),
@@ -359,7 +371,7 @@ fn signed_reclaim_receive() -> layerx_intents::NativeReceive {
         &support::receive::SignedReceiveRequest {
             from: &account("agent:did:layerx:worker:main"),
             to: &account("agent:did:layerx:human:main"),
-            asset: [0x33; 32],
+            asset: journey_receipt::ASSET,
             amount: 1,
             sequence: ACCOUNT_SEQUENCE,
             idempotency_key: [0x73; 32],
@@ -368,4 +380,104 @@ fn signed_reclaim_receive() -> layerx_intents::NativeReceive {
         },
     ))
     .unwrap_or_else(|error| panic!("signed receive: {error:?}"))
+}
+
+#[test]
+fn reclaim_binds_the_requested_amount_and_exact_receipt_after_reopen() {
+    for substitute_receipt in [false, true] {
+        let fixture = Fixture::new("reclaim-bound-result");
+        let request = reclaim_request(
+            "jrn_reclaimbound",
+            0x78,
+            ReclaimMechanism::AgentAuthorized(send_route(fixture.public_key, 0x78)),
+        );
+        let mut agent = RealAgentLayer::new(
+            &fixture.agent_root,
+            BTreeMap::from([([0x78; 32], DeliveryMode::TrackThenReceipt)]),
+        );
+        let mut store = fixture.store();
+        let mut scope = store.principal(&fixture.principal).or_fail("reclaim scope");
+        Reclaim::start(&mut scope, &request, &registry(), 500).or_fail("reclaim start");
+        let mut engine = JourneyEngine::load(&scope, &request.journey_id)
+            .or_fail("journey load")
+            .or_fail("journey exists");
+        for now in 501..510 {
+            let status = ready(engine.advance(
+                &mut scope,
+                &fixture.agent_contract,
+                &mut agent,
+                &fixture.signer,
+                &registry(),
+                &fixture.trace,
+                now,
+            ))
+            .or_fail("receipt-backed journey");
+            if status.state() == JourneyState::Done {
+                break;
+            }
+        }
+        assert_eq!(
+            engine.status().or_fail("journey status").state(),
+            JourneyState::Done
+        );
+        if substitute_receipt {
+            agent
+                .receipt_material
+                .get_mut(&request.idempotency_key)
+                .or_fail("retained material")
+                .signed_receipt[0] ^= 1;
+        } else {
+            let key = scope
+                .keys(Table::Journeys)
+                .into_iter()
+                .find(|key| key.as_str().starts_with("agent-reclaim-"))
+                .or_fail("reclaim row");
+            let mut record: serde_json::Value = serde_json::from_slice(
+                scope
+                    .get(Table::Journeys, &key)
+                    .or_fail("reclaim row")
+                    .bytes(),
+            )
+            .or_fail("reclaim record");
+            record["amount"] = serde_json::json!(2);
+            scope
+                .put(
+                    Table::Journeys,
+                    key,
+                    510,
+                    serde_json::to_vec(&record).or_fail("reclaim record encoding"),
+                )
+                .or_fail("persist reclaim amount");
+        }
+        drop(scope);
+        drop(store);
+        let mut store = fixture.store();
+        let mut scope = store
+            .principal(&fixture.principal)
+            .or_fail("reopened scope");
+        let mut reclaim = Reclaim::load(&scope, &request.journey_id)
+            .or_fail("reclaim load")
+            .or_fail("reclaim exists");
+        assert!(matches!(
+            ready(reclaim.advance(
+                &mut scope,
+                &fixture.agent_contract,
+                &mut agent,
+                &fixture.signer,
+                &registry(),
+                &fixture.trace,
+                511,
+            )),
+            Err(ReclaimError::ReceiptMismatch)
+        ));
+        assert!(
+            reclaim
+                .status()
+                .or_fail("reclaim status")
+                .result()
+                .is_none()
+        );
+        assert_eq!(agent.effects[&request.idempotency_key], 1);
+        assert_eq!(agent.submit_calls[&request.idempotency_key], 1);
+    }
 }

@@ -1,4 +1,4 @@
-//! Repair record: `src/repair_22_31_364.kvx` maps findings to these real-path tests.
+//! Repair record: `spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_31_364.kvx` maps findings to these real-path tests.
 //! Gate revisions and private evidence locations are supplied by hf-build/hf-done.
 
 fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
@@ -749,20 +749,20 @@ fn receipt_legacy_evidence_roundtrip_reopens_and_explicitly_migrates() {
         .unwrap_or_else(|| panic!("migrated evidence"));
     assert_eq!(v2.canonical_receipt, authenticated.canonical_bytes());
     assert_eq!(v2.metadata.transaction_hash, hash);
-    assert_eq!(
-        must(receipt::evidence_inventory(&store, &tenant())).with_evidence,
-        vec![persisted.clone()]
-    );
+    assert!(matches!(
+        receipt::evidence_inventory(&store, &tenant()),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
     drop(store);
     let store = must(Store::open(&directory.0));
     assert_eq!(
         must(receipt::serve_evidence(&store, tenant(), hash)),
         Some(v2)
     );
-    assert_eq!(
-        must(receipt::evidence_inventory(&store, &tenant())).with_evidence,
-        vec![persisted]
-    );
+    assert!(matches!(
+        receipt::evidence_inventory(&store, &tenant()),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
     assert_eq!(
         must(receipt::serve_evidence(&store, other_tenant(), hash)),
         None

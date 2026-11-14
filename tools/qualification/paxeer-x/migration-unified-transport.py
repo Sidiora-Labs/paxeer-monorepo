@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(prefix="migration-render-boundary-") as directo
         pass
     else:
         raise AssertionError("unknown migration profile field accepted")
-target = Path(os.environ.get("CARGO_TARGET_DIR", "/root/lx-target/migration-gateway"))
+target = Path(os.environ.get("CARGO_TARGET_DIR", str(root / "services/platform/target")))
 binaries = [p for p in (target / "debug/deps").glob("migration_transport-*") if p.is_file() and os.access(p, os.X_OK)]
 assert len(binaries) == 1, "one declared migration transport build artifact required"
 result = subprocess.run([str(binaries[0]), "--nocapture"], cwd=root, check=True, capture_output=True, text=True)

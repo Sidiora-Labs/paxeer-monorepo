@@ -1,6 +1,16 @@
 use layerx_human_test_support as support;
 
 use std::fs;
+use std::os::unix::fs::DirBuilderExt as _;
+
+#[allow(dead_code)]
+mod approval_owner {
+    include!("support/approval_owner.rs");
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
+}
 
 use layerx_human_service::audit::{AuditChain, AuditEvent};
 use layerx_human_service::notify::{
@@ -11,6 +21,66 @@ use layerx_human_service::notify::{
 use layerx_human_service::store::{PrincipalStore, Table};
 use layerx_human_service::trace::TraceId;
 use support::{directory, install_and_open, principal, retention_uniform, row_key, tenancy};
+
+fn dispatch_preference_approval(
+    owner: &approval_owner::Fixture,
+    scope: &mut layerx_human_service::store::PrincipalScope<'_>,
+    audit: &mut AuditChain,
+    trace: &TraceId,
+) -> Vec<layerx_human_service::notify::Delivery> {
+    use layerx_agentd::approval::{ApprovalEventKind, ApprovalEvents, ApprovalLifecycle};
+    use layerx_agentd::audit::{Coverage, Log};
+    use layerx_agentd::events::EventIngestor;
+    use layerx_agentd::session::SessionId;
+    use layerx_human_service::approvals::{ApprovalEvent, Inbox};
+    use layerx_types::ids::Did;
+
+    let stream = owner.root().join("notification-stream");
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&stream)
+        .unwrap_or_else(|error| panic!("approval stream directory: {error}"));
+    let mut ingestor = EventIngestor::open(
+        approval_owner::open_store(&stream),
+        owner.tenant.clone(),
+        16,
+        owner.sequence,
+    )
+    .unwrap_or_else(|error| panic!("approval stream: {error:?}"));
+    let mut agent_audit = Log::open(&stream, &owner.tenant)
+        .unwrap_or_else(|error| panic!("approval audit: {error:?}"));
+    let prepared = &owner.prepared[&4];
+    let lifecycle = ApprovalLifecycle {
+        tenant: owner.tenant.clone(),
+        agent: Did::new(prepared.disclosure.actor.as_str().as_bytes())
+            .unwrap_or_else(|error| panic!("approval actor: {error:?}")),
+        session: SessionId([7; 32]),
+        capability: [6; 32],
+        policy_version: "approval-actor-v1".to_owned(),
+        approval_id: [4; 32],
+        canonical_digest: prepared.disclosure.canonical_digest,
+        activity_type: prepared.disclosure.activity_type.0,
+        asset: prepared.disclosure.asset.as_str().to_owned(),
+        kind: ApprovalEventKind::Created,
+        principal: None,
+        observed_at_ms: 11,
+    };
+    let emission = ApprovalEvents::emit(
+        &mut ingestor,
+        &mut agent_audit,
+        &mut Coverage::default(),
+        &lifecycle,
+    )
+    .unwrap_or_else(|error| panic!("approval event: {error:?}"));
+    let event = ApprovalEvent::decode_agent_stream(&emission.canonical_event_bytes, 11)
+        .unwrap_or_else(|error| panic!("approval delivery: {error:?}"));
+    let mut inbox =
+        Inbox::new(owner.sequence, 3).unwrap_or_else(|error| panic!("approval inbox: {error:?}"));
+    inbox
+        .consume(&[event], &mut owner.client(), scope, audit, trace)
+        .unwrap_or_else(|error| panic!("approval notification: {error:?}"));
+    Dispatcher::deliveries(scope).unwrap_or_else(|error| panic!("approval deliveries: {error}"))
+}
 
 fn money(amount: u128) -> Money {
     Money::new(amount, "LXP").unwrap_or_else(|error| panic!("money: {error}"))
@@ -164,8 +234,9 @@ fn dispatches_every_required_class_to_real_durable_channels_and_audits_each_effe
 
 #[test]
 fn preference_changes_apply_immediately_and_critical_security_cannot_be_suppressed() {
+    let owner = approval_owner::Fixture::new(&[4]);
     let root = directory("notify-preferences");
-    let map = tenancy(&[("alice", "tenant-a")]);
+    let map = tenancy(&[("alice", owner.peer.tenant.as_str())]);
     let (mut store, _digest) = install_and_open(&root, &map, retention_uniform(100));
     let mut scope = store
         .principal(&principal("alice"))
@@ -182,21 +253,10 @@ fn preference_changes_apply_immediately_and_critical_security_cannot_be_suppress
         .get(Table::Notifications, &row_key("notify_preferences"))
         .is_some());
 
-    let approval_report = Dispatcher::dispatch(
-        &mut scope,
-        &mut audit,
-        11,
-        &trace,
-        &Event::ApprovalWaiting {
-            approval_id: approval("apr_preference"),
-            agent_id: agent("agt_preference"),
-            money: Some(money(77)),
-        },
-    )
-    .unwrap_or_else(|error| panic!("approval dispatch: {error}"));
-    assert_eq!(approval_report.deliveries().len(), 1);
-    assert_eq!(approval_report.deliveries()[0].channel(), Channel::Push);
-    assert!(approval_report.deliveries()[0]
+    let approval_deliveries = dispatch_preference_approval(&owner, &mut scope, &mut audit, &trace);
+    assert_eq!(approval_deliveries.len(), 1);
+    assert_eq!(approval_deliveries[0].channel(), Channel::Push);
+    assert!(approval_deliveries[0]
         .payload()
         .contains("\"amount\":\"77\""));
 

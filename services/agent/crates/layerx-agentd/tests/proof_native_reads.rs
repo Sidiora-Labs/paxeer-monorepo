@@ -590,7 +590,6 @@ pub(crate) mod disposable_node {
     use std::path::{Path, PathBuf};
     use std::process::{Command, Stdio};
     use std::thread;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use zeroize::Zeroizing;
 
     #[track_caller]
@@ -621,17 +620,29 @@ pub(crate) mod disposable_node {
                 "missing producer harness: {}",
                 script.display()
             );
-            let directory = Path::new("/tmp/lx-localnode").join(format!(
-                "native-reads-{}-{}",
-                std::process::id(),
-                must(SystemTime::now().duration_since(UNIX_EPOCH)).as_nanos()
-            ));
+            let mut identifier = [0_u8; 16];
+            must(getrandom::fill(&mut identifier));
+            let base = Path::new("/tmp/lx-localnode");
             must(
                 std::fs::DirBuilder::new()
                     .recursive(true)
                     .mode(0o700)
-                    .create(&directory),
+                    .create(base),
             );
+            let directory = (0..32)
+                .find_map(|attempt| {
+                    let candidate = base.join(format!(
+                        "native-reads-{}-{}-{attempt}",
+                        std::process::id(),
+                        layerx_programs::hex::encode(&identifier)
+                    ));
+                    match std::fs::DirBuilder::new().mode(0o700).create(&candidate) {
+                        Ok(()) => Some(candidate),
+                        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
+                        Err(error) => panic!("disposable native reads node: {error:?}"),
+                    }
+                })
+                .unwrap_or_else(|| panic!("disposable native reads node: directory allocation"));
             let environment = directory.join("localnode.env");
             let log_path = directory.join("startup.log");
             let log = must(
@@ -641,12 +652,18 @@ pub(crate) mod disposable_node {
                     .mode(0o600)
                     .open(&log_path),
             );
+            let paxd = std::env::var_os("PAXD")
+                .unwrap_or_else(|| panic!("PAXD must name the built native node"));
+            assert!(
+                Path::new(&paxd).is_file(),
+                "PAXD must name a native node file"
+            );
             let status = Command::new("bash")
                 .arg(&script)
                 .args(["--sequencer", "--env-out"])
                 .arg(&environment)
                 .env("TMPDIR", "/tmp")
-                .env_remove("PAXD")
+                .env("PAXD", paxd)
                 .stdout(Stdio::from(must(log.try_clone())))
                 .stderr(Stdio::from(log))
                 .status()

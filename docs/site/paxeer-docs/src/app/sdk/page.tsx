@@ -23,7 +23,7 @@ export default function SDK() {
       <p>Chain maintainers work in <code>sdk/</code>, <code>modules/</code>, and <code>node/</code>. Application developers use <code>services/agent/sdk/</code> (TypeScript, Python), <code>services/agent/crates/layerx-sdk</code> (Rust), <code>sdk/platform/</code> (Go, JVM, Swift, .NET), and <code>sdk/wallet</code>. <code>docs/system/sdk.md</code> indexes exported SDK symbols and their source paths.</p>
       <h3>Cross-surface application lifecycle</h3>
       <ol><li>Resolve the account identity and select the native asset denomination or ERC-20 pointer.</li><li>Use the matching client or native ABI to submit a signed transaction for the intended operation.</li><li>Track the transaction hash, execution receipt, and covering committed block.</li><li>Verify receipt signatures and committed inclusion before treating a payment as final.</li></ol>
-      <p>The <Link href="/unified-network">network overview</Link> explains how these execution surfaces compose. The kernel executes within the BFT network; an execution receipt becomes final when its covering block is committed.</p>
+      <p>The <Link href="/unified-network">network overview</Link> explains how these execution surfaces compose. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. An execution receipt becomes final when validators commit its covering block.</p>
 
       <h2>Overview</h2>
 
@@ -177,6 +177,8 @@ export default function SDK() {
         <li><code>mint</code> — Token minting</li>
         <li><code>launchpad</code>, <code>spot</code>, <code>perps</code>, <code>sequencer</code>, <code>store</code>, <code>xweb</code>, <code>lxphost</code></li>
         <li><code>layerxagent</code>, <code>layerxanchor</code>, <code>layerxauth</code>, <code>layerxbridge</code>, <code>layerxchains</code>, <code>layerxcustody</code>, <code>layerxexchange</code>, <code>layerxgov</code>, <code>layerxledger</code>, <code>layerxpay</code></li>
+        <li>Anchor — writes retire at the v7.0 upgrade height and bonds return to their owners; archive reads remain until the separate anchor-store deletion plan.</li>
+        <li>Custody — calls retire at the v7.0 upgrade height; remaining balances move to the custody authority and pending claims are cancelled.</li>
       </ul>
 
       <h2>BaseApp</h2>

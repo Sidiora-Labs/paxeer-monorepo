@@ -67,12 +67,9 @@ def test_rosetta_compose_node_wiring_withdraws_both_active_entry_points():
     assert (ROSETTA / "node/Dockerfile.historical").is_file()
     readme = (ROSETTA / "README.md").read_text(encoding="utf-8")
     for statement in (
-        "orchestration is **withdrawn**",
-        "Docker Compose discovery nor the former explicit paths can launch this fixture",
-        "unsupported and fail at the missing Dockerfile",
-        "Do not run those targets or pass the historical examples to Docker",
-        "not as current operating instructions",
-        "does not certify its integration with a maintained node",
+        "The fixture container definitions are",
+        "For local Paxeer node operation, build the explicit Paxd image recipe",
+        "a fresh compatible chain home",
     ):
         assert statement in readme, statement
     for relative in ("docker-compose.yaml.historical", "node/Dockerfile.historical"):

@@ -11,9 +11,9 @@ static FILE *fixture_output;
 #define printf(...) fprintf(fixture_output, __VA_ARGS__)
 #define putchar(c) fputc((c), fixture_output)
 #define main current_host_fixture
-#include "../../testdata/repair_1.c"
+#include "../../testdata/native_state_witness.c"
 #undef main
-#include "../../testdata/repair_m1_compat.c"
+#include "../../testdata/reserved_module_witness.c"
 #undef printf
 #undef putchar
 

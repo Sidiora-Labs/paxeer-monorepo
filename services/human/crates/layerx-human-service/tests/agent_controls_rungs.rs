@@ -1,6 +1,6 @@
 // These constructed-receipt cases cover local adversarial behavior, not paxd finality.
 // The recorded producer/transport/consumer regressions retain and reopen real evidence.
-#[path = "repair_22_33_50.rs"]
+#[path = "committed_control_transport.rs"]
 mod committed_evidence_regressions;
 
 pub mod canonical_owner {
@@ -15,18 +15,19 @@ mod control_fixture {
 
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
+    use std::os::unix::fs::PermissionsExt as _;
 
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_agentd::budget::{
-        reserve, BudgetLimiter, LimitConfig, LimitId, LimitRefusal, LimitScope, LocalLimit,
-        ReservationRequest,
+        BudgetLimiter, LimitConfig, LimitId, LimitRefusal, LimitScope, LocalLimit,
+        ReservationRequest, reserve,
     };
     use layerx_agentd::identity::{
-        register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
+        CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority, register,
     };
     use layerx_agentd::session::{
-        close, invalidate_on_revocation, open, InvalidationReason, OpenRequest, RevocationEvent,
-        SessionId, SessionRegistry, Token,
+        InvalidationReason, OpenRequest, RevocationEvent, SessionId, SessionRegistry, Token, close,
+        invalidate_on_revocation, open,
     };
     use layerx_agentd::sign::ProvisionedSessionKey;
     use layerx_agentd::store::{Store, TenantId};
@@ -34,11 +35,11 @@ mod control_fixture {
     use layerx_crypto::session::IssuedSessionKey;
     use layerx_crypto::signer::Signer as _;
     use layerx_human_service::agents::{
-        AgentControlAgent, AgentControlError, AgentControlProfile, AgentControlState,
-        AgentControls, AppLimitEvidence, AppLimitRequest, CapabilityProvision, LimitBacking,
-        LimitChangeRequest, LimitEnforcement, ProtocolAction, ProtocolEvidence,
-        SessionControlAdapter, APP_LIMIT_COPY_KEY, APP_LIMIT_EXPLANATION, PAUSE_CONSEQUENCE,
-        PAUSE_CONSEQUENCE_COPY_KEY, PROTOCOL_LIMIT_COPY_KEY,
+        APP_LIMIT_COPY_KEY, APP_LIMIT_EXPLANATION, AgentControlAgent, AgentControlError,
+        AgentControlProfile, AgentControlState, AgentControls, AppLimitEvidence, AppLimitRequest,
+        CapabilityProvision, LimitBacking, LimitChangeRequest, LimitEnforcement, PAUSE_CONSEQUENCE,
+        PAUSE_CONSEQUENCE_COPY_KEY, PROTOCOL_LIMIT_COPY_KEY, ProtocolAction, ProtocolEvidence,
+        SessionControlAdapter,
     };
     use layerx_human_service::agents::{
         AgentCreationContract, AgentEvidence, AgentFailure, SessionProvision,
@@ -109,6 +110,8 @@ mod control_fixture {
             primary_public_key: [u8; 32],
         ) -> Self {
             fs::create_dir_all(&root).unwrap_or_else(|error| panic!("agent root: {error}"));
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
+                .unwrap_or_else(|error| panic!("agent root permissions: {error}"));
             Self {
                 store: Store::open(&root).unwrap_or_else(|error| panic!("agent store: {error}")),
                 sessions: SessionRegistry::default(),
@@ -563,11 +566,13 @@ mod control_fixture {
                 active_budget_id: AGENT_ID,
             },
         );
-        assert!(controls
-            .boundary()
-            .sessions()
-            .contract()
-            .authorizes(first_grant, "prepare"));
+        assert!(
+            controls
+                .boundary()
+                .sessions()
+                .contract()
+                .authorizes(first_grant, "prepare")
+        );
 
         let paused = controls
             .pause(1_005)
@@ -592,11 +597,13 @@ mod control_fixture {
             _ => panic!("pause did not revoke the session"),
         };
         assert!(latency <= session_policy().maximum_revocation_latency_seconds());
-        assert!(!controls
-            .boundary()
-            .sessions()
-            .contract()
-            .daemon_open(first_grant));
+        assert!(
+            !controls
+                .boundary()
+                .sessions()
+                .contract()
+                .daemon_open(first_grant)
+        );
         let resumed = controls
             .resume(1_007)
             .unwrap_or_else(|error| panic!("resume: {error}"));
@@ -608,11 +615,13 @@ mod control_fixture {
             .session(&principal(), &did())
             .unwrap_or_else(|| panic!("replacement lease missing"));
         assert_ne!(replacement.grant_id, first_grant);
-        assert!(controls
-            .boundary()
-            .sessions()
-            .contract()
-            .authorizes(replacement.grant_id, "submit"));
+        assert!(
+            controls
+                .boundary()
+                .sessions()
+                .contract()
+                .authorizes(replacement.grant_id, "submit")
+        );
     }
 
     #[test]
@@ -697,10 +706,12 @@ mod control_fixture {
         assert_eq!(changed.limit.enforcement_copy_key, APP_LIMIT_COPY_KEY);
         assert_eq!(changed.limit.explanation, APP_LIMIT_EXPLANATION);
         assert!(!changed.limit.explanation.contains("protocol-enforced"));
-        assert!(changed
-            .limit
-            .explanation
-            .contains("not a protocol guarantee"));
+        assert!(
+            changed
+                .limit
+                .explanation
+                .contains("not a protocol guarantee")
+        );
         let layer = app.boundary().sessions().contract();
         assert_eq!(layer.app_limit_effects, 1);
         assert!(layer.app_refuses(101));
@@ -709,9 +720,11 @@ mod control_fixture {
             .as_ref()
             .unwrap_or_else(|| panic!("local limit missing"));
         assert_eq!(local.enforcement, "daemon-enforced");
-        assert!(local
-            .bypass_statement
-            .contains("bypassing layerx-agentd bypasses"));
+        assert!(
+            local
+                .bypass_statement
+                .contains("bypassing layerx-agentd bypasses")
+        );
 
         assert!(matches!(
             app.view(1_008),
@@ -958,10 +971,10 @@ mod archive_fixture {
         TrackedSubmission,
     };
     use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
-    use layerx_agentd::prepare::{verify_call_binding, EvmPrepared};
+    use layerx_agentd::prepare::{EvmPrepared, verify_call_binding};
     use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
     use layerx_agentd::sign::{
-        attach_external_signature, verify_before_submit, SigningPreparation,
+        SigningPreparation, attach_external_signature, verify_before_submit,
     };
     use layerx_agentd::store::{Store as AgentStore, TenantId};
     use layerx_human_service::custody::{
@@ -976,7 +989,6 @@ mod archive_fixture {
     use layerx_human_service::store::{PrincipalId, PrincipalStore, TenancyDigest};
     use layerx_human_service::trace::TraceId;
     use layerx_intents::{Intent, IntentKind, LxpSend};
-    use layerx_proof::receipt::AuthorizedBatch;
     use layerx_sdk::{Call, Client as AgentClient};
     use layerx_types::account::AccountId;
     use layerx_types::amount::Amount;
@@ -1070,7 +1082,7 @@ mod archive_fixture {
                 layerx_intents::canonical::PROTOCOL_VERSION,
             )
             .unwrap_or_else(|error| panic!("destination account: {error:?}")),
-            asset: [0x33; 32],
+            asset: journey_receipt::ASSET,
             amount,
             source_sequence: ACCOUNT_SEQUENCE,
             idempotency_key: [key; 32],
@@ -1085,7 +1097,7 @@ mod archive_fixture {
         let send = LxpSend::new(
             account("agent:did:layerx:alice:main"),
             account("agent:did:layerx:recipient:main"),
-            AssetId::new([0x33; 32]),
+            AssetId::new(journey_receipt::ASSET),
             Amount::from_u128(amount),
             Sequence::from_u64(ACCOUNT_SEQUENCE),
             IdempotencyKey::new([key; 32]),
@@ -1671,7 +1683,12 @@ mod archive_fixture {
                     None,
                 )
                 .map_err(|_| AgentBoundaryError::Refused)?;
-            let receipt = receipt(activity_id, key[0], self.preparation_activities[&key]);
+            let receipt = journey_receipt::material(
+                self.outbox
+                    .exact_signed_bytes(submission_id)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+                key[0],
+            );
             self.receipt_material.insert(key, receipt.clone());
             Self::count(&mut self.effects, key);
             let mode = self
@@ -1762,28 +1779,16 @@ mod archive_fixture {
                     .receipt_material
                     .get(&key)
                     .ok_or(AgentBoundaryError::CorruptResponse)?;
-                let signer = SigningKey::from_bytes(&[key[0].saturating_add(4); 32]);
-                let raw = support::raw_receipt_evidence(
-                    material.canonical_bytes.clone(),
-                    signer.verifying_key().to_bytes(),
-                    material.authorised_batch.previous_state_root(),
-                    material.authorised_batch.resulting_state_root(),
-                    u64::from(key[0]),
-                    &signer,
-                );
-                let verified = support::evidence_verifier(&signer)
-                    .verify_receipt(&raw)
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                journey_receipt::record_execution(
+                    &mut self.outbox,
+                    &mut self.store,
+                    submission_id,
+                    material,
+                )?;
                 let executed = self
                     .outbox
-                    .record_execution(
-                        &mut self.store,
-                        submission_id,
-                        verified,
-                        material.block_height,
-                        0,
-                    )
-                    .map_err(|_| AgentBoundaryError::Refused)?;
+                    .status(submission_id)
+                    .ok_or(AgentBoundaryError::CorruptResponse)?;
                 assert_eq!(executed.state, OutboxState::Executed);
                 let block = layerx_client::sequencer::SequencerBlock {
                     number: material.block_height,
@@ -1792,11 +1797,12 @@ mod archive_fixture {
                     timestamp: 1_000,
                     transactions_root: submission_id,
                     receipts_root: material.receipt_hash,
-                    transactions: vec![self
-                        .outbox
-                        .exact_signed_bytes(submission_id)
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?
-                        .to_vec()],
+                    transactions: vec![
+                        self.outbox
+                            .exact_signed_bytes(submission_id)
+                            .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                            .to_vec(),
+                    ],
                 };
                 let committed = self
                     .outbox
@@ -1855,117 +1861,8 @@ mod archive_fixture {
         }
     }
 
-    #[derive(Clone)]
-    struct ReceiptFields {
-        activity_id: [u8; 32],
-        previous_state_root: [u8; 32],
-        resulting_state_root: [u8; 32],
-        batch_id: [u8; 32],
-        asset: [u8; 32],
-        module: ModuleId,
-        operation: u8,
-        sequence: u64,
-    }
-
-    fn receipt(activity_id: [u8; 32], marker: u8, activity: ActivityType) -> ReceiptMaterial {
-        let fields = ReceiptFields {
-            activity_id,
-            previous_state_root: [marker.saturating_add(1); 32],
-            resulting_state_root: [marker.saturating_add(2); 32],
-            batch_id: {
-                let mut height = [0; 32];
-                height[24..].copy_from_slice(&u64::from(marker).to_be_bytes());
-                height
-            },
-            asset: [0x33; 32],
-            module: activity.module(),
-            operation: u8::try_from(activity.ordinal())
-                .unwrap_or_else(|_| panic!("activity ordinal is outside receipt range")),
-            sequence: u64::from(marker),
-        };
-        let signer = SigningKey::from_bytes(&[marker.saturating_add(4); 32]);
-        let unsigned = encode_receipt(&fields, None);
-        let mut digest = Sha256::new();
-        digest.update(b"LXP/v1/receipt\0");
-        digest.update(&unsigned);
-        let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
-        ReceiptMaterial {
-            canonical_bytes: encode_receipt(&fields, Some(signature.to_bytes())),
-            signed_receipt: encode_receipt(&fields, Some(signature.to_bytes())),
-            tx_hash: activity_id,
-            receipt_hash: Sha256::digest(encode_receipt(&fields, Some(signature.to_bytes())))
-                .into(),
-            block_height: u64::from(marker),
-            rung: Rung::Receipted,
-            receipt_key: layerx_human_service::journeys::ReceiptKeyEntry {
-                key_id: [0x94; 32],
-                public_key: signer.verifying_key().to_bytes(),
-                first_height: 1,
-                last_height: u64::MAX,
-            },
-            inclusion_height: fields.sequence,
-            authorised_batch: AuthorizedBatch::new(
-                fields.batch_id,
-                fields.asset,
-                fields.previous_state_root,
-                fields.resulting_state_root,
-                signer.verifying_key().to_bytes(),
-            ),
-            verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
-        }
-    }
-
-    fn encode_receipt(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        push_u16(&mut bytes, layerx_intents::canonical::PROTOCOL_VERSION);
-        push_u16(&mut bytes, 0x5201);
-        push_u16(&mut bytes, layerx_intents::canonical::PROTOCOL_VERSION);
-        push_bytes(&mut bytes, &fields.activity_id);
-        push_u64(&mut bytes, fields.sequence);
-        push_bytes(&mut bytes, &fields.previous_state_root);
-        push_bytes(&mut bytes, &fields.resulting_state_root);
-        push_bytes(&mut bytes, &[0x81; 32]);
-        bytes.extend_from_slice(&0_i32.to_be_bytes());
-        bytes.extend_from_slice(&0_u32.to_be_bytes());
-        bytes.extend_from_slice(&1_u128.to_be_bytes());
-        push_bytes(&mut bytes, &fields.batch_id);
-        push_u16(&mut bytes, u16::from(fields.module as u8));
-        bytes.extend_from_slice(&1_u32.to_be_bytes());
-        bytes.extend_from_slice(&1_u32.to_be_bytes());
-        bytes.push(fields.operation);
-        push_bytes(&mut bytes, &fields.asset);
-        bytes.extend_from_slice(&1_u128.to_be_bytes());
-        push_bytes(&mut bytes, &[0x91; 32]);
-        bytes.extend_from_slice(&10_u128.to_be_bytes());
-        bytes.extend_from_slice(&9_u128.to_be_bytes());
-        push_u64(&mut bytes, 1);
-        push_bytes(&mut bytes, &[0x92; 32]);
-        bytes.extend_from_slice(&20_u128.to_be_bytes());
-        bytes.extend_from_slice(&21_u128.to_be_bytes());
-        push_bytes(&mut bytes, &[0x93; 32]);
-        push_bytes(&mut bytes, &[0x94; 32]);
-        push_bytes(&mut bytes, &[0x95; 32]);
-        push_u64(&mut bytes, 1_000);
-        bytes.push(u8::from(signature.is_some()));
-        if let Some(signature) = signature {
-            push_bytes(&mut bytes, &signature);
-        }
-        bytes
-    }
-
-    fn push_u16(bytes: &mut Vec<u8>, value: u16) {
-        bytes.extend_from_slice(&value.to_be_bytes());
-    }
-
-    fn push_u64(bytes: &mut Vec<u8>, value: u64) {
-        bytes.extend_from_slice(&value.to_be_bytes());
-    }
-
-    fn push_bytes(output: &mut Vec<u8>, value: &[u8]) {
-        let length =
-            u32::try_from(value.len()).unwrap_or_else(|_| panic!("receipt field length overflow"));
-        output.extend_from_slice(&length.to_be_bytes());
-        output.extend_from_slice(value);
+    mod journey_receipt {
+        include!("support/journey_receipt.rs");
     }
 
     struct Fixture {
@@ -2008,8 +1905,12 @@ mod archive_fixture {
                         .unwrap_or_else(|error| panic!("entropy: {error}")),
                 )
                 .unwrap_or_else(|error| panic!("generate key: {error}"));
+            let signer_root = root.join("signer-store");
+            let signer_digest = map
+                .install(&signer_root)
+                .unwrap_or_else(|error| panic!("signer tenancy: {error}"));
             let signer_store =
-                PrincipalStore::open(&store_root, retention_uniform(10_000), tenancy_digest)
+                PrincipalStore::open(&signer_root, retention_uniform(10_000), signer_digest)
                     .unwrap_or_else(|error| panic!("signer store: {error}"));
             let signer = CustodySigner::new(
                 keystore,
@@ -2202,9 +2103,11 @@ mod archive_fixture {
         let notifications = JourneyEngine::notification_events(&final_scope, &id)
             .unwrap_or_else(|error| panic!("notifications: {error}"));
         assert_eq!(stream, notifications);
-        assert!(stream
-            .windows(2)
-            .all(|pair| pair[1].sequence() == pair[0].sequence() + 1));
+        assert!(
+            stream
+                .windows(2)
+                .all(|pair| pair[1].sequence() == pair[0].sequence() + 1)
+        );
         let cursors = stream
             .iter()
             .map(JourneyProgress::cursor)
@@ -2283,9 +2186,11 @@ mod archive_fixture {
         assert_eq!(expected.len(), 1);
         for key in scope.keys(Table::Journeys) {
             if key.as_str().starts_with("jstream-") || key.as_str().starts_with("jnotify-") {
-                assert!(scope
-                    .remove(Table::Journeys, &key)
-                    .unwrap_or_else(|error| panic!("remove progress: {error}")));
+                assert!(
+                    scope
+                        .remove(Table::Journeys, &key)
+                        .unwrap_or_else(|error| panic!("remove progress: {error}"))
+                );
             }
         }
         drop(scope);
@@ -2359,7 +2264,7 @@ mod archive_fixture {
                 layerx_intents::canonical::PROTOCOL_VERSION,
             )
             .unwrap_or_else(|error| panic!("destination account: {error:?}")),
-            asset: [0x33; 32],
+            asset: journey_receipt::ASSET,
             amount: 1,
             source_sequence: 7,
             idempotency_key: [key; 32],
@@ -2399,7 +2304,7 @@ mod archive_fixture {
             idempotency_key: [key; 32],
             owner: account("agent:did:layerx:human:main"),
             agent_account: account("agent:did:layerx:worker:main"),
-            asset: AssetId::new([0x33; 32]),
+            asset: AssetId::new(journey_receipt::ASSET),
             amount: Amount::from_u128(1),
             mechanism,
             agent: ReclaimAgentContext {
@@ -2529,7 +2434,7 @@ mod archive_fixture {
             let result = status
                 .result()
                 .unwrap_or_else(|| panic!("receipt result missing"));
-            assert_eq!(result.asset(), [0x33; 32]);
+            assert_eq!(result.asset(), journey_receipt::ASSET);
             assert_eq!(result.amount(), 1);
             assert_eq!(result.fee_charged(), 1);
             assert_ne!(result.activity_id(), [0; 32]);
@@ -2643,7 +2548,7 @@ mod archive_fixture {
                 layerx_human_service::activity::detail::ReceiptActual::from_verified(&verified)
                     .unwrap_or_else(|error| panic!("activity actual: {error:?}"));
             assert_eq!(actual.asset(), requests[0].asset.bytes());
-            assert_eq!(actual.amount(), requests[0].amount.value());
+            assert_eq!(actual.amount(), 0);
         }
 
         assert!(page.entries().iter().all(|entry| {
@@ -2702,6 +2607,7 @@ mod archive_fixture {
             );
         }
         drop(scope);
+        drop(store);
 
         let modes = BTreeMap::from([
             ([0x71; 32], DeliveryMode::TrackThenReceipt),
@@ -2745,7 +2651,7 @@ mod archive_fixture {
             &support::receive::SignedReceiveRequest {
                 from: &account("agent:did:layerx:worker:main"),
                 to: &account("agent:did:layerx:human:main"),
-                asset: [0x33; 32],
+                asset: journey_receipt::ASSET,
                 amount: 1,
                 sequence: ACCOUNT_SEQUENCE,
                 idempotency_key: [0x73; 32],
@@ -2756,22 +2662,22 @@ mod archive_fixture {
         .unwrap_or_else(|error| panic!("signed receive: {error:?}"))
     }
 
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use base64::Engine as _;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use ciborium::value::Value as CborValue;
     use layerx_agentd::identity::{
-        register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
+        CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority, register,
     };
     use layerx_agentd::session::{
-        close, invalidate_on_revocation, open, InvalidationReason, OpenRequest, RevocationEvent,
-        SessionId, SessionRegistry, Token,
+        InvalidationReason, OpenRequest, RevocationEvent, SessionId, SessionRegistry, Token, close,
+        invalidate_on_revocation, open,
     };
     use layerx_agentd::sign::ProvisionedSessionKey;
     use layerx_crypto::session::IssuedSessionKey;
     use layerx_human_service::agents::{
+        ARCHIVE_ACTION_LABEL, ARCHIVE_CONFIRMATION_TONE, ARCHIVE_IRREVERSIBILITY_NOTICE,
         AgentBalance, ArchiveAgentContract, ArchiveBoundary, ArchiveError, ArchiveJourney,
         ArchiveRequest, ArchiveStage, FundsDispositionEvidence, SessionArchiveAdapter,
-        ARCHIVE_ACTION_LABEL, ARCHIVE_CONFIRMATION_TONE, ARCHIVE_IRREVERSIBILITY_NOTICE,
     };
     use layerx_human_service::audit::{AuditChain, AuditEvent, SecurityChangeKind};
     use layerx_human_service::auth::{
@@ -2787,9 +2693,9 @@ mod archive_fixture {
     use layerx_human_service::notify::AgentId;
     use layerx_human_service::store::{EvidenceRef, PrincipalScope, RowKey, Table};
     use layerx_types::verify::VerificationLevel;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
-    const ARCHIVE_ASSET: [u8; 32] = [0x33; 32];
+    const ARCHIVE_ASSET: [u8; 32] = journey_receipt::ASSET;
     const ARCHIVE_RP_ID: &str = "paxportwallet.com";
     const ARCHIVE_ORIGIN: &str = "https://paxportwallet.com";
     const FLAG_UP: u8 = 1;
@@ -3385,6 +3291,7 @@ mod archive_fixture {
             Err(ArchiveError::FundsRemain(remaining)) if remaining[0].amount == 1
         ));
         drop(scope);
+        drop(store);
 
         let funds = &mut boundary.inner.sessions_mut().contract_mut().funds;
         funds.before[0].amount = 0;
@@ -3400,21 +3307,27 @@ mod archive_fixture {
                 ArchiveJourney::start(&mut scope, &mut boundary, &request, &[], 630),
                 Err(ArchiveError::UnverifiedDisposition)
             ));
-            assert!(ArchiveJourney::load(&scope, request.idempotency_key)
-                .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
-                .is_none());
+            assert!(
+                ArchiveJourney::load(&scope, request.idempotency_key)
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+                    .is_none()
+            );
             assert_eq!(boundary.inner.sessions().contract().suspension_effects, 0);
             assert_eq!(boundary.inner.sessions().contract().revocation_effects, 0);
-            assert!(boundary
-                .inner
-                .sessions()
-                .contract()
-                .daemon_open(lease.grant_id));
-            assert!(boundary
-                .inner
-                .sessions()
-                .contract()
-                .authorizes(lease.grant_id));
+            assert!(
+                boundary
+                    .inner
+                    .sessions()
+                    .contract()
+                    .daemon_open(lease.grant_id)
+            );
+            assert!(
+                boundary
+                    .inner
+                    .sessions()
+                    .contract()
+                    .authorizes(lease.grant_id)
+            );
         }
         boundary.inner.sessions_mut().contract_mut().funds.rung = Rung::Committed;
         let mut archive = ArchiveJourney::start(&mut scope, &mut boundary, &request, &[], 630)
@@ -3481,11 +3394,13 @@ mod archive_fixture {
             );
             assert_eq!(boundary.inner.sessions().contract().suspension_effects, 0);
             assert_eq!(boundary.inner.sessions().contract().revocation_effects, 0);
-            assert!(boundary
-                .inner
-                .sessions()
-                .contract()
-                .authorizes(lease.grant_id));
+            assert!(
+                boundary
+                    .inner
+                    .sessions()
+                    .contract()
+                    .authorizes(lease.grant_id)
+            );
             archive = ArchiveJourney::load(&scope, request.idempotency_key)
                 .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
                 .or_fail("pending archive survives reload");
@@ -3507,6 +3422,7 @@ mod archive_fixture {
             Err(ArchiveError::Agent(AgentContractError::Unavailable))
         ));
         drop(scope);
+        drop(store);
 
         let mut store = fixture.store();
         let mut scope = store
@@ -3577,10 +3493,12 @@ mod archive_fixture {
                 ..
             }
         )));
-        assert!(scope
-            .keys(Table::Notifications)
-            .iter()
-            .any(|key| key.as_str().starts_with("agent-archive-notification-")));
+        assert!(
+            scope
+                .keys(Table::Notifications)
+                .iter()
+                .any(|key| key.as_str().starts_with("agent-archive-notification-"))
+        );
         let report = scope
             .expire(10_000_000)
             .unwrap_or_else(|error| panic!("archive retention: {error}"));

@@ -24,6 +24,60 @@ fn fixture(name: &str) -> Value {
     )
 }
 
+/// Uses the canonical grant's receiver account for each ledger sequence observation.
+///
+/// # Panics
+/// Panics if the recorded owner, asset or receiver account does not match the grants.
+#[must_use]
+pub fn account_sequence_recording(mut recording: Value) -> Value {
+    let owner = option_assertion::required(
+        recording["ledger"]["receiverDidKey"].as_str(),
+        "receiver owner key",
+    )
+    .to_owned();
+    let grants = option_assertion::required(
+        recording["ledger"]["grants"].as_array(),
+        "canonical ledger grants",
+    )
+    .clone();
+    let accounts = recording["ledger"]["receiverAccounts"].clone();
+    let observations = option_assertion::required(
+        recording["endpoints"]["gateway"]["*"].as_array_mut(),
+        "ledger observations",
+    );
+    for observation in observations {
+        if observation["method"] != "eth_call" {
+            continue;
+        }
+        let data = option_assertion::required(
+            observation["params"][0]["data"].as_str(),
+            "ledger calldata",
+        );
+        if !data.starts_with("0xce2f921f") {
+            continue;
+        }
+        assert_eq!(data.len(), 138);
+        assert_eq!(&data[10..74], owner);
+        assert_eq!(observation["params"][1], "pending");
+        let canonical = option_assertion::required(
+            grants.iter().find_map(|grant| {
+                let canonical = grant["canonical"].as_str()?;
+                (canonical.get(192..256) == Some(&data[74..])).then_some(canonical)
+            }),
+            "grant for sequence asset",
+        );
+        let account = &canonical[128..192];
+        assert!(
+            option_assertion::required(accounts.as_object(), "receiver accounts")
+                .values()
+                .any(|value| value.as_str() == Some(account))
+        );
+        assert_ne!(account, owner);
+        observation["params"][0]["data"] = json!(format!("0xce2f921f{account}{}", &data[74..]));
+    }
+    recording
+}
+
 fn read_http(stream: &mut TcpStream) -> (String, BTreeMap<String, String>, Vec<u8>) {
     result_assertion::required(
         stream.set_read_timeout(Some(Duration::from_secs(5))),
@@ -83,7 +137,7 @@ impl NodeRecording {
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let worker = thread::spawn(move || {
-            let metered = fixture("gateway/metered.json");
+            let metered = account_sequence_recording(fixture("gateway/metered.json"));
             let exact = fixture("gateway/exact.json");
             for stream in listener.incoming() {
                 let mut stream = result_assertion::required(stream, "node connection");

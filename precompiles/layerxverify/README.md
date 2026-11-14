@@ -1,6 +1,6 @@
 # LayerX Verify precompile
 
-This directory holds the Go implementation, ABI, Solidity interface and tests for the `layerxVerify` EVM precompile. It remains registered in Paxeer at `0x0000000000000000000000000000000000001012`; once the `v7.0` merge upgrade is active, every method reverts with `LXP_MODULE_DISABLED: module disabled; layerxVerify retired`. Paxeer is one BFT network with the LayerX kernel embedded in the node, and a receipt is final when its block is committed.
+This directory holds the Go implementation, ABI, Solidity interface and tests for the `layerxVerify` EVM precompile. It remains registered in Paxeer at `0x0000000000000000000000000000000000001012`; once the `v7.0` merge upgrade is active, every method reverts with `LXP_MODULE_DISABLED: module disabled; layerxVerify retired`. The LayerX kernel inside every `paxd` node executes and orders each transaction and builds each block; validators check and commit it, and a receipt is final when its block is committed.
 
 ## Layout
 

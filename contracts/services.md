@@ -1,6 +1,6 @@
 # Launchpad service contracts
 
-Launchpad services read and project the single Paxeer BFT network, EVM chain ID **125** (`0x7d`). The kernel belongs to `paxd` and block proposal, and a receipt is final on block commit. Services provide indexing, application state and authenticated HTTP/stream transports; they do not add a settlement network. Tenant domains are database namespaces, not new chain infrastructure.
+Launchpad services read and project the single Paxeer network, EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when the validators commit its block. Services provide indexing, application state and authenticated HTTP/stream transports; they do not add a settlement network. Tenant domains are database namespaces, not new chain infrastructure.
 
 Use node JSON-RPC at the configured HTTPS origin's root path. Hosted registration and funding methods are declared in the [platform gateway contract](../services/platform/hosted/gateway/openrpc.json). Launchpad REST and stream routes below are application services.
 

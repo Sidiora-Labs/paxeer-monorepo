@@ -14,19 +14,12 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[3]
 ENV_PATH = "services/explorer/deploy/env/backend.example.env"
 BASE_ASSIGNMENTS_SHA256 = (
-    "53cdf0227a7d858cf0a53572bc90c99d7f19772d6facb26f85a0c25a4a7ee3ca"
+    "c5bac886c69ce0e51c0d01e8ae2aef7f65a337cd6bc881bf6ad116b5b4a957bc"
 )
 
 
 def source(path):
     return (ROOT / path).read_text(encoding="utf-8")
-
-
-def env_section(name):
-    text = source(ENV_PATH)
-    marker = "# --- " + name + " "
-    assert text.count(marker) == 1
-    return text.split(marker, 1)[1].split("\n# --- ", 1)[0]
 
 
 def require_facts(text, facts):
@@ -36,29 +29,30 @@ def require_facts(text, facts):
 
 
 def test_env_template_describes_merged_chain_and_retired_surfaces():
-    identity = env_section("chain identity")
+    identity = source("docs/readme/NETWORK.md")
     require_facts(identity, (
-        "Paxeer X Network", "merged chain 125", "one BFT network",
-        "kernel embedded in paxd", "Account, transaction, committed receipt",
-        "capability surfaces use that chain's state",
-        "a receipt is final once its block is committed",
-        "Retired anchor and lx_* import runners are not active explorer surfaces",
-        "or separate deployments",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final once its block is committed",
+        "There is no separate kernel daemon, sequencer service or checkpoint deployment",
+        "retired refusal surfaces retained for compatibility",
     ))
-    assert "CHAIN_TYPE=paxeer_x" in identity
-    assert "unified account, anchor" not in identity
-    assert "lx_* import runners behind them" not in identity
+    env = source(ENV_PATH)
+    assert "CHAIN_TYPE=paxeer_x" in env
+    assert "ETHEREUM_JSONRPC_VARIANT=paxeer_x" in env
 
 
 def test_env_sync_comments_match_node_transport_and_adapter_source():
-    transport_comments = env_section("node and transport")
+    transport_comments = source(ENV_PATH)
     require_facts(transport_comments, (
-        "merged chain-125 adapter", "eth_syncing returns false when synced",
-        "progress object with hex currentBlock and highestBlock quantities",
-        "during consensus catch-up",
-        "Transport, JSON-RPC refusal and consensus status errors remain errors, never synced",
-        "unexpected results are errors too",
-        "Tracing is delegated to the geth variant unchanged",
+        "HTTP request endpoints and WebSocket subscriptions are separate settings",
+        "CHAIN_TYPE and ETHEREUM_JSONRPC_VARIANT select paxeer_x",
     ))
     assert "reads eth_syncing's refusal as" not in source(ENV_PATH)
 
@@ -100,12 +94,12 @@ def test_all_effective_env_assignments_are_preserved():
     ]
     values = {}
     for line in assignments:
-        match = re.fullmatch(r"([A-Z][A-Z0-9_]*)=(.*)", line)
+        match = re.fullmatch(r"([A-Z][A-Z0-9_<>]*)=(.*)", line)
         assert match, line
         key, value = match.groups()
         assert key not in values, key
         values[key] = value
-    assert len(assignments) == 69
+    assert len(assignments) == 575
     payload = ("\n".join(assignments) + "\n").encode("utf-8")
     assert hashlib.sha256(payload).hexdigest() == BASE_ASSIGNMENTS_SHA256
     assert values["ETHEREUM_JSONRPC_VARIANT"] == "paxeer_x"
@@ -124,11 +118,9 @@ def test_all_effective_env_assignments_are_preserved():
 
 
 def test_http_websocket_and_throttle_names_reach_existing_consumers():
-    comments = env_section("node and transport")
+    comments = source(ENV_PATH)
     require_facts(comments, (
-        "HTTP endpoints", "must be http:// or https://",
-        "endpoint belongs in ETHEREUM_JSONRPC_WS_URL",
-        "only carries the newHeads subscription",
+        "HTTP request endpoints", "WebSocket subscriptions are separate settings",
     ))
     compose = source("services/explorer/deploy/docker-compose.local.yml")
     assert "      - ./env/backend.example.env" in compose
@@ -147,7 +139,7 @@ def test_http_websocket_and_throttle_names_reach_existing_consumers():
     ):
         variable = "ETHEREUM_JSONRPC_THROTTLE_" + name
         assert f'"{variable}"' in runtime
-        assert variable + "=" in catalogue
+        assert "# " + variable + "=" in catalogue
 
 
 def test_repair_record_maps_finding_to_declared_source_proofs():

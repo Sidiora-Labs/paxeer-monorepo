@@ -8,7 +8,7 @@ Build the Paxeer X node, deterministic LayerX kernel, hosted services, agent too
 
 ## Build the complete network stack
 
-The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces, SDKs, and program tooling. The network entry point is `paxd`, which embeds the kernel and proposes blocks. A receipt is final when its block commits.
+The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces, SDKs, and program tooling. The network entry point is `paxd`. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when validators commit its block.
 
 | Component | Build surface | Purpose |
 | --- | --- | --- |

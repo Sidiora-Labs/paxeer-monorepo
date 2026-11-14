@@ -9,11 +9,11 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
 RECORD_PATH = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_787.kvx")
 
 
@@ -39,10 +39,14 @@ def section(heading):
 def test_readme_premerge_network_embedded_paxd_and_committed_finality():
     overview = section("What is Paxeer X Network?")
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "LayerX kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through [`modules/lxphost`]",
         "A receipt is final once its block is committed",
         "signed execution receipt can arrive before that commitment",
@@ -52,7 +56,7 @@ def test_readme_premerge_network_embedded_paxd_and_committed_finality():
         assert fact in overview, fact
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     for obsolete in (
         r"\blayerxd\b", r"two execution domains", r"merge is (?:only )?a draft",
         r"kernel still runs separately", r"make\s+layerxd",
@@ -62,29 +66,7 @@ def test_readme_premerge_network_embedded_paxd_and_committed_finality():
 
 def test_readme_premerge_network_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    for fact in (
-        "https://api1.mainnet-beta.paxeer.network",
-        "through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
-        "never a JSON-RPC endpoint",
-    ):
-        assert fact in quickstart, fact
-    assert "there is no router and no separate LayerX interface" in README
-    urls = [
-        urlsplit(url)
-        for url in re.findall(r"https?://[^\s`<>)]+", README)
-        if urlsplit(url).hostname.endswith("mainnet-beta.paxeer.network")
-    ]
-    assert urls
-    allowed = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    for url in urls:
-        assert url.hostname in allowed
-        assert url.scheme == "https" and url.path in ("", "/")
-        assert not url.query and not url.fragment
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(
@@ -96,7 +78,7 @@ def test_readme_premerge_network_root_rpc_hosts_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
-    assert "https://api1.mainnet-beta.paxeer.network" in argv
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
 
 

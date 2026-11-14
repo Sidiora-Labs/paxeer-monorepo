@@ -286,5 +286,5 @@
       }
     ]
   },
-  "resolution_provenance": "Regenerated for chain 125 by modules/evm/config/generate_repair_476.py using the production Python account derivation and binding code; expected getEvmAddrByLayerX ABI answers, no live-chain execution claim."
+  "resolution_provenance": "Regenerated for chain 125 by modules/evm/config/generate_chain_config_vectors.py using the production Python account derivation and binding code; expected getEvmAddrByLayerX ABI answers, no live-chain execution claim."
 }
