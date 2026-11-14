@@ -29,6 +29,46 @@ linters:
           - gosec
         text: "Use of weak random number generator"
 
+      - path: "^tools/pnsdns/server\\.go$"
+        linters: [gosec]
+        text: "^(?:G115:\\ integer\\ overflow\\ conversion\\ int\\ ->\\ uint16)$"
+
+      - path: "^tools/specgen/kvx\\.go$"
+        linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
+
+      - path: "^tools/specgen/main\\.go$"
+        linters: [gosec]
+        text: "^(?:G301:\\ Expect\\ directory\\ permissions\\ to\\ be\\ 0750\\ or\\ less|G304:\\ Potential\\ file\\ inclusion\\ via\\ variable|G306:\\ Expect\\ WriteFile\\ permissions\\ to\\ be\\ 0600\\ or\\ less)$"
+
+      - path: "^tools/specgen/render\\.go$"
+        linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
+
+      - path: "^daemon/committed\\-fixture/main\\.go$"
+        linters: [gosec]
+        text: "^(?:G204:\\ Subprocess\\ launched\\ with\\ a\\ potential\\ tainted\\ input\\ or\\ cmd\\ arguments|G301:\\ Expect\\ directory\\ permissions\\ to\\ be\\ 0750\\ or\\ less|G304:\\ Potential\\ file\\ inclusion\\ via\\ variable|G306:\\ Expect\\ WriteFile\\ permissions\\ to\\ be\\ 0600\\ or\\ less)$"
+
+      - path: "^daemon/committed\\-fixture/vector_v1\\.go$"
+        linters: [gosec]
+        text: "^(?:G115:\\ integer\\ overflow\\ conversion\\ int\\ ->\\ uint64)$"
+
+      - path: "^daemon/committed\\-fixture/vector_v1_programs\\.go$"
+        linters: [gosec]
+        text: "^(?:G115:\\ integer\\ overflow\\ conversion\\ int\\ ->\\ uint32|G301:\\ Expect\\ directory\\ permissions\\ to\\ be\\ 0750\\ or\\ less|G306:\\ Expect\\ WriteFile\\ permissions\\ to\\ be\\ 0600\\ or\\ less)$"
+
+      - path: "^daemon/committed\\-fixture/vector_v2\\.go$"
+        linters: [gosec]
+        text: "^(?:G115:\\ integer\\ overflow\\ conversion\\ int64\\ ->\\ uint64|G301:\\ Expect\\ directory\\ permissions\\ to\\ be\\ 0750\\ or\\ less|G306:\\ Expect\\ WriteFile\\ permissions\\ to\\ be\\ 0600\\ or\\ less)$"
+
+      - path: "^daemon/committed\\-fixture/vector_v4\\.go$"
+        linters: [gosec]
+        text: "^(?:G115:\\ integer\\ overflow\\ conversion\\ int64\\ ->\\ uint64|G115:\\ integer\\ overflow\\ conversion\\ uint64\\ ->\\ int64|G115:\\ integer\\ overflow\\ conversion\\ uint64\\ ->\\ uint32|G115:\\ integer\\ overflow\\ conversion\\ uint\\ ->\\ int)$"
+
+      - path: "^tools/tx\\-scanner/state/types\\.go$"
+        linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
+
       # Scoped wiring request: see repair_22_39_4.kvx.
       - path: "^services/bridge/deploy/appenv/appenv\\.go$"
         linters: [gosec]
@@ -244,45 +284,15 @@ linters:
       - path: "^contracts/bridge/vectors/solana\\.go$"
         linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/main\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/main\\.go$"
-        linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/vector_v1\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/vector_v1\\.go$"
-        linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/vector_v1_programs\\.go$"
-        linters: [goconst]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/vector_v1_programs\\.go$"
-        linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/vector_v2\\.go$"
-        linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/vector_v4\\.go$"
-        linters: [gosec]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/vector_v4\\.go$"
-        linters: [staticcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^daemon/committed\\-fixture/vector_v6\\.go$"
-        linters: [prealloc]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^daemon/paxd/cmd/ethreplay\\.go$"
@@ -1017,11 +1027,7 @@ linters:
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/launchpad/fees\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/launchpad/hooks\\.go$"
+      - path: "^precompiles/launchpad/[^/]+\\.go$"
         linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
@@ -1030,31 +1036,11 @@ linters:
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/launchpad/nft\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/launchpad/nft\\.go$"
         linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/launchpad/pool\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/launchpad/pool\\.go$"
         linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/launchpad/router\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/launchpad/run\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^precompiles/launchpad/treasury\\.go$"
-        linters: [goconst]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^precompiles/launchpad/treasury\\.go$"
@@ -2268,69 +2254,10 @@ linters:
       - path: "^tools/launchpad/production/feature\\-acceptance/references\\.go$"
         linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/pnsdns/main\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/pnsdns/main\\.go$"
-        linters: [prealloc]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/pnsdns/main\\.go$"
-        linters: [staticcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/pnsdns/server\\.go$"
-        linters: [errcheck]
 
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/pnsdns/server\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/pnsdns/server\\.go$"
-        linters: [staticcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/specgen/kvx\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/specgen/kvx\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/specgen/main\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/specgen/render\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/specgen/validate\\.go$"
-        linters: [prealloc]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/tx\\-scanner/client/grpc\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/tx\\-scanner/client/grpc\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/tx\\-scanner/cmd/scan\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/tx\\-scanner/cmd/scan\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^tools/tx\\-scanner/state/types\\.go$"
-        linters: [gosec]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/v6120\\-halt\\-export/main\\.go$"
