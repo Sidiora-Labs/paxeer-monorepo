@@ -3,8 +3,9 @@
 `lxphost` is the Go/cgo host for the native LayerX kernel and Rust programs
 runtime inside `paxd`. It registers kernel modules, validates and executes
 activities, stages account and module state in the transaction's SDK store,
-and provides typed reads for chain keepers and native precompiles. The kernel
-runs within the Paxeer BFT network; a receipt is final when its block commits.
+and provides typed reads for chain keepers and native precompiles. The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when validators commit its block.
 
 ## Layout
 

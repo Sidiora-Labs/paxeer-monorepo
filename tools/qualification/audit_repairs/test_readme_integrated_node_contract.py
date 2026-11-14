@@ -52,9 +52,12 @@ def section(heading, level=3):
 def test_root_separate_daemon_is_replaced_by_one_integrated_paxd_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "Paxeer mainnet-beta is one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
         "proposes blocks inside `paxd`",
         "validators commit those blocks through BFT consensus",
         "no separate kernel daemon, sequencer service or checkpoint deployment",

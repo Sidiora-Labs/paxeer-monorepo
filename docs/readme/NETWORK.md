@@ -2,7 +2,7 @@
 
 ## What is Paxeer X Network?
 
-[Paxeer X Network](https://paxeer.network/) is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The LayerX kernel is embedded in the node and participates in block proposal and deterministic execution. The kernel is part of the network and proposes blocks inside `paxd`; validators commit those blocks through BFT consensus.
+[Paxeer X Network](https://paxeer.network/) is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel runs inside every `paxd` node. It executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block. Validators check that block and commit it. The kernel is part of the network and proposes blocks inside `paxd`; validators commit those blocks through BFT consensus.
 
 In this repository you’ll find the core components of the network: the Paxeer X chain, the LayerX kernel, on-chain contracts, off-chain services, client SDKs and user-facing applications. Together, they provide the infrastructure for developers to build applications and agents on a shared network.
 

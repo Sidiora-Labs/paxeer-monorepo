@@ -28,10 +28,25 @@ def test_docs_readme_does_not_call_network_overview_historical():
 
     content = (DOCS / "README.md").read_text(encoding="utf-8")
     introduction = " ".join(content.split("## Systems", 1)[0].split())
-    assert "Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`)." in introduction
-    assert "the documentation describes the network, its systems, operations and reference material." in introduction
+    for fact in (
+        "The LayerX kernel runs inside every `paxd` node.",
+        "It executes each transaction when it arrives, gives it the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block; validators check the block and commit it.",
+        "The EVM chain identifier is 125 (`0x7d`).",
+    ):
+        assert fact in introduction, fact
+    assert "This documentation describes the network, its systems, operations and reference material." in introduction
     overview = (DOCS / "paxeer-network.md").read_text(encoding="utf-8")
-    assert "Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`)." in overview
+    for fact in (
+        "The LayerX kernel runs inside every `paxd` node.",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "EVM chain ID `125` (`0x7d`).",
+    ):
+        assert fact in overview, fact
 
 
 def test_docs_readme_links_release_plan():

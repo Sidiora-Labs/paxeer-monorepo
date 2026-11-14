@@ -2,9 +2,10 @@
 
 The explorer backend is the Blockscout fork under
 [services/explorer/backend](../services/explorer/backend/). It indexes the
-single Paxeer mainnet-beta BFT network, EVM chain ID **125 (`0x7d`)**. The
-kernel is part of the network and proposes blocks; a receipt becomes final
-when its block is committed. Explorer indexing can lag consensus.
+single Paxeer mainnet-beta network, EVM chain ID **125 (`0x7d`)**. The
+LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when the validators
+commit its block. Explorer indexing can lag consensus.
 Sub-chains are tenant domains in the database, not separate node deployments.
 
 The configuration owners are
