@@ -61,11 +61,14 @@ def make_rule(text, target):
 def test_docs_root_architecture_embeds_kernel_in_chain_125():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel",
         "modules/lxphost",
         "node/sequencer/",
@@ -273,7 +276,7 @@ def test_docs_root_architecture_has_no_separate_deployment():
     ):
         assert not re.search(stale, NETWORK, re.I), stale
     topology, sequence = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     assert "subgraph Node[paxd]" in topology
     assert "RPC --> Order --> Host --> Native" in topology
     assert "Validators -->|Commit| State" in topology

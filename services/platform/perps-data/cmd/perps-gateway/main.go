@@ -44,7 +44,7 @@ func main() {
 	}
 }
 
-func run(logger *slog.Logger) error {
+func run(logger *slog.Logger) (resultErr error) {
 	cfg, err := config.Gateway.Load()
 	if err != nil {
 		return err
@@ -57,8 +57,11 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-
+	defer func() {
+		if closeErr := db.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	nc, err := nats.Connect(cfg.NATSURL, nats.Name(natsConnectionName), nats.MaxReconnects(natsMaxReconnects), nats.ReconnectWait(natsReconnectWait))
 	if err != nil {
 		return fmt.Errorf("connect nats: %w", err)

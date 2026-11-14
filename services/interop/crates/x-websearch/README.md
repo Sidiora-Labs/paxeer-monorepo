@@ -6,7 +6,8 @@ The Paxeer web search sidecar serves `GET /health` and `GET /readyz` for free,
 `--config <path>`. The loader refuses unknown fields, missing required fields,
 placeholders and embedded key material, naming the refused field.
 
-Paxeer is one BFT network: `paxd` includes the kernel that proposes blocks.
+Paxeer uses the LayerX kernel inside `paxd`, which executes and orders each
+transaction and builds each block; validators check and commit it.
 Mainnet-beta uses EVM chain id 125 (`0x7d`). Public node JSON-RPC uses the root
 path; choose a node that provides the methods required below.
 

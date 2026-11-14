@@ -280,7 +280,10 @@ impl SignalChain for TestChain {
                 Ok(json!("0x7d"))
             }
             "eth_getBlockByNumber" => {
-                assert_eq!(params, json!(["latest", false]));
+                assert_eq!(
+                    params,
+                    json!([format!("0x{:x}", self.reference.head_sequence), false])
+                );
                 Ok(
                     json!({"number": format!("0x{:x}", self.reference.head_sequence),
                     "hash": format!("0x{}", hex::encode(self.reference.checkpoint))}),

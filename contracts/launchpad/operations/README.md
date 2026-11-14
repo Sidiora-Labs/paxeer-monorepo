@@ -31,8 +31,9 @@ cd contracts/launchpad
 
 The configured mainnet network in [hardhat.config.js](../hardhat.config.js) is `paxeer-x-network`
 (chain ID 125 / `0x7d`). It uses node JSON-RPC at the configured HTTPS origin’s root path. These
-contracts run on the single Paxeer BFT network; its kernel proposes blocks, and receipts are final
-when their blocks commit.
+contracts run on the single Paxeer network. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is final when the
+validators commit its block.
 
 With the deployment environment loaded, run:
 

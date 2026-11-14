@@ -119,10 +119,9 @@ fn store_independent_writer_loss_recovery() -> Result {
     ));
     let alias = root.with_extension("alias");
     symlink(&root, &alias)?;
-    assert_contended(PrincipalStore::open(
-        &alias,
-        retention_uniform(1_000),
-        digest,
+    let alias_refusal = PrincipalStore::open(&alias, retention_uniform(1_000), digest);
+    assert!(matches!(alias_refusal,
+        Err(StoreError::Io(error)) if error.kind() == io::ErrorKind::NotADirectory
     ));
     let first_head = write_audited_row(&mut first, &principal("alice"), "x", 1)?;
     drop(first);

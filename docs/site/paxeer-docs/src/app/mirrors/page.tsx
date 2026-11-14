@@ -9,7 +9,7 @@ export default function Mirrors() {
     <div className="page-header"><h1 className="page-title">Ethereum &amp; Solana Mirrors</h1><p className="page-description">Publish Paxeer X batch archives to external chains and verify committed receipt evidence independently of a hosted gateway.</p></div>
     <h2>External access to canonical evidence</h2>
     <p>The mirror system builds committed batch archives, publishes them to Ethereum or Solana, and retrieves them through independently configured chain sources. A consumer can then verify an archived receipt under its own sequencer key configuration without contacting the Paxeer X gateway.</p>
-    <p>Mirror publication distributes evidence. Paxeer receipts are final once their blocks are committed by the BFT network. External-chain publication confirms archive availability under that chain&apos;s rules; it does not authorize a Paxeer transfer.</p>
+    <p>Mirror publication distributes evidence. Paxeer receipts are final once validators commit their blocks. External-chain publication confirms archive availability under that chain&apos;s rules; it does not authorize a Paxeer transfer.</p>
     <h2>Publisher and verifier roles</h2>
     <table><thead><tr><th>Component</th><th>Responsibility</th></tr></thead><tbody>
       <tr><td><code>layerx-mirror-publisher</code></td><td>Acquire committed node data, construct archives, publish to configured targets and track durable progress</td></tr>

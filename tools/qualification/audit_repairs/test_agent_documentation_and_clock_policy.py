@@ -133,7 +133,7 @@ def test_agent_compatibility_release_checks_match_real_make_consumers():
 
 def test_agent_readme_topology_crates_and_root_rpc_match_current_inputs():
     document = read("services/agent/README.md")
-    assert "the single BFT network run by `paxd`" in document
+    assert "the single network run by `paxd`" in document
     assert "a receipt is final when its block is committed" in document
     assert "Sub-chains are tenant\ndomains in the database" in document
     assert "Signed transactions are submitted as exact bytes" in " ".join(document.split())

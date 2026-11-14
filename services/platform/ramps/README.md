@@ -9,8 +9,9 @@ Every customer surface must display:
 
 > External custody: this independent market maker controls the off-platform funds and payout.
 
-Paxeer is one BFT network, with the kernel inside `paxd` executing transactions
-and proposing blocks. EVM chain ID is **125** (`0x7d`). Block commit is finality;
+Paxeer uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd`
+executes and orders each transaction and builds each block; validators check and
+commit it. Block commit is finality;
 there is no separate execution/settlement chain pair. External provider custody
 and the operator's inventory rebalancing remain distinct business workflows.
 A customer order cannot choose the operator's inventory account, wallet, vault

@@ -38,10 +38,14 @@ def section(heading, level=3):
 def test_readme_retired_topology_merged_network_and_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through [`modules/lxphost`](../../modules/lxphost/)",
         "node links `build/liblayerx.a`",
         "A receipt is final once its block is committed",
@@ -50,7 +54,7 @@ def test_readme_retired_topology_merged_network_and_finality():
         assert fact in overview, fact
     topology = section("Integrated network topology")
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State[Committed block and chain state]",

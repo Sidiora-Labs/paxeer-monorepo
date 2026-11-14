@@ -45,11 +45,14 @@ def section(heading, level=3):
 def test_doc_root_architecture_merged_network_and_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "signed execution receipt can arrive before that commitment",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
@@ -147,7 +150,7 @@ def test_doc_root_architecture_diagrams_show_integrated_commit_flow():
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
@@ -213,7 +216,7 @@ def test_doc_root_architecture_build_and_activation_guidance():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "`v7.0` merge handler activates the merged interfaces" in release
     assert "`v7.0-anchor-store-delete` removes the historical anchor store" in release
     assert 'const MergeUpgrade = "v7.0"' in source("precompiles/common/precompiles.go")

@@ -1,4 +1,6 @@
-# One paxd BFT network. The shared C/Rust kernel and its typed Go keepers
+# The LayerX kernel inside paxd executes and orders each transaction and builds
+# each block; validators check and commit it.
+# The shared C/Rust kernel and its typed Go keepers
 # are linked into paxd; no standalone core, replica or receipt supervisor.
 FROM rust:1.91.1-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 AS build
 WORKDIR /src

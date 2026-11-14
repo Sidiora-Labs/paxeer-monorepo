@@ -9,8 +9,9 @@ This reference accompanies the
 [operations runbook](../../operations/README.md).
 
 These are EVM contract events on Paxeer mainnet-beta (chain ID 125 / `0x7d`). Read receipts and logs
-through root-path node JSON-RPC. Receipts are final when their block is committed on the single BFT
-network, whose kernel proposes blocks. Discover the hub proxy and source contracts in
+through root-path node JSON-RPC. A receipt is final when the validators commit its block. The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block; validators check
+and commit it. Discover the hub proxy and source contracts in
 `deployments/<network>-addresses.json`.
 
 The hub is an optional mirror, with coverage determined by each producer and the deployed wiring.

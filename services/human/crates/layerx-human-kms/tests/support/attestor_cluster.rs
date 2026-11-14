@@ -750,9 +750,7 @@ impl Cluster {
             .try_into()
             .map_err(|_| "Ed25519 key length")?;
         let evm_public = self.generate_key("provider-evm", "secp256k1", owner, "")?;
-        let group = k256::ecdsa::VerifyingKey::from_sec1_bytes(&evm_public)?;
-        let point = group.to_encoded_point(false);
-        let address: [u8; 20] = sha3::Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
+        let address = checked(layerx_crypto::secp256k1::evm_address(&evm_public))?;
         assert_ne!(address, [0; 20]);
         for (name, bytes) in [
             ("attestor-ca.der", self.pki.certificate_der("node-ca")?),
