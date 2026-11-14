@@ -35,6 +35,12 @@ pub(crate) enum Fate {
     CommitDuringLookup,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SubmissionSequenceMode {
+    Any,
+    CommittedOnly,
+}
+
 pub(crate) struct Transcript {
     pub(crate) account_sequence: u8,
     pub(crate) observation_sequence: u64,
@@ -42,6 +48,7 @@ pub(crate) struct Transcript {
     pub(crate) tx_fates: Vec<Fate>,
     pub(crate) txs: Vec<Vec<u8>>,
     pub(crate) ticker_requests: usize,
+    pub(crate) fresh_quotes: bool,
     pub(crate) api_keys: Vec<String>,
     pub(crate) redirect: Option<String>,
     pub(crate) lose_ack: bool,
@@ -53,8 +60,12 @@ pub(crate) struct Transcript {
     pub(crate) mempool_pages: Vec<u64>,
     pub(crate) account_reads: Vec<u64>,
     pub(crate) observation_reads: Vec<(u64, u64)>,
+    pub(crate) observation_busy_reads: Vec<(u64, u64)>,
+    pub(crate) observation_error: Option<Value>,
     pub(crate) observation_sequences: std::collections::BTreeMap<u64, u64>,
     pub(crate) response_delay_ms: u64,
+    pub(crate) submission_sequence_mode: SubmissionSequenceMode,
+    pub(crate) sequence_refusals: usize,
 }
 
 impl Default for Transcript {
@@ -66,6 +77,7 @@ impl Default for Transcript {
             tx_fates: Vec::new(),
             txs: Vec::new(),
             ticker_requests: 0,
+            fresh_quotes: false,
             api_keys: Vec::new(),
             redirect: None,
             lose_ack: false,
@@ -77,8 +89,12 @@ impl Default for Transcript {
             mempool_pages: Vec::new(),
             account_reads: Vec::new(),
             observation_reads: Vec::new(),
+            observation_busy_reads: Vec::new(),
+            observation_error: None,
             observation_sequences: std::collections::BTreeMap::new(),
             response_delay_ms: 0,
+            submission_sequence_mode: SubmissionSequenceMode::Any,
+            sequence_refusals: 0,
         }
     }
 }
@@ -104,11 +120,14 @@ struct ObservationGate {
 struct ObservationGateState {
     expected: usize,
     in_flight: usize,
+    highest_in_flight: usize,
+    busy_limit: Option<usize>,
     bound_passed: bool,
 }
 
 struct ObservationPermit {
     gate: Arc<ObservationGate>,
+    busy: bool,
 }
 
 impl ObservationGate {
@@ -126,6 +145,7 @@ impl ObservationGate {
             .unwrap_or_else(|error| panic!("{error:?}"));
         state.expected = expected;
         state.in_flight = 0;
+        state.highest_in_flight = 0;
         state.bound_passed = false;
         self.changed.notify_all();
     }
@@ -137,6 +157,10 @@ impl ObservationGate {
             .lock()
             .unwrap_or_else(|error| panic!("{error:?}"));
         state.in_flight += 1;
+        state.highest_in_flight = state.highest_in_flight.max(state.in_flight);
+        let busy = state
+            .busy_limit
+            .is_some_and(|limit| state.in_flight > limit);
         if state.expected != 0 && state.in_flight >= state.expected {
             state.bound_passed = true;
             self.changed.notify_all();
@@ -157,6 +181,7 @@ impl ObservationGate {
         }
         ObservationPermit {
             gate: Arc::clone(self),
+            busy,
         }
     }
 
@@ -268,6 +293,61 @@ impl Peer {
     pub(crate) fn observation_bound_passed(&self) -> bool {
         self.observation_gate.bound_passed()
     }
+
+    pub(crate) fn limit_observation_reads(&self, limit: usize) {
+        self.observation_gate.state.lock().unwrap().busy_limit = Some(limit);
+    }
+
+    pub(crate) fn highest_observation_reads_in_flight(&self) -> usize {
+        self.observation_gate
+            .state
+            .lock()
+            .unwrap()
+            .highest_in_flight
+    }
+
+    pub(crate) fn serve_fresh_quotes(&self) {
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .fresh_quotes = true;
+    }
+
+    pub(crate) fn disable_transaction_lookup(&self) {
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .lookup_error = Some(json!({
+            "code": -32603,
+            "message": "Internal error",
+            "data": "transaction querying is disabled",
+        }));
+    }
+
+    pub(crate) fn admit_only_committed_sequence(&self) {
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .submission_sequence_mode = SubmissionSequenceMode::CommittedOnly;
+    }
+
+    pub(crate) fn commit_submission(&self, index: usize, height: u64) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        assert!(index < state.txs.len(), "commit follows a broadcast");
+        let previous = state.tx_fates.get(index).copied().unwrap_or(state.fate);
+        if !matches!(previous, Fate::Committed { .. }) {
+            state.account_sequence = state.account_sequence.saturating_add(1);
+            state.observation_sequence = state.observation_sequence.saturating_add(1);
+        }
+        if state.tx_fates.len() <= index {
+            state.tx_fates.resize(index + 1, Fate::Pending);
+        }
+        state.tx_fates[index] = Fate::Committed { code: 0, height };
+        state.committed_height = Some(height);
+    }
 }
 
 fn serve_connection(
@@ -276,6 +356,7 @@ fn serve_connection(
     observation_gate: Arc<ObservationGate>,
 ) {
     let (header, body) = read_request(&mut stream);
+    let mut observation_permit = None;
     let (status, extra, body) = if header.starts_with("GET ") {
         let mut transcript = shared.lock().unwrap_or_else(|error| panic!("{error:?}"));
         transcript.ticker_requests += 1;
@@ -298,26 +379,32 @@ fn serve_connection(
         if let Some(location) = &transcript.redirect {
             (302, format!("Location: {location}\r\n"), String::new())
         } else {
-            (
-                200,
-                String::new(),
-                include_str!("../fixtures/chainflow_ticker_btc.json")
-                    .replace("PERP_BTC_USDC", &format!("PERP_{symbol}_USDC")),
-            )
+            let mut ticker: Value =
+                serde_json::from_str(include_str!("../fixtures/chainflow_ticker_btc.json"))
+                    .unwrap_or_else(|error| panic!("{error:?}"));
+            ticker["symbol"] = json!(format!("PERP_{symbol}_USDC"));
+            if transcript.fresh_quotes {
+                ticker["updated_at"] = json!(now_ms());
+            }
+            (200, String::new(), ticker.to_string())
         }
     } else {
         assert!(header.starts_with("POST / "));
         let request: Value =
             serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(request["jsonrpc"], "2.0");
-        let observation_permit = (request["method"] == "eth_call"
+        observation_permit = (request["method"] == "eth_call"
             && request["params"][0]["data"]
                 .as_str()
                 .is_some_and(|data| data.starts_with("0x48f83666")))
         .then(|| observation_gate.enter());
         let mut transcript = shared.lock().unwrap_or_else(|error| panic!("{error:?}"));
-        let result = transcript.answer(&request);
-        drop(observation_permit);
+        let result = transcript.answer(
+            &request,
+            observation_permit
+                .as_ref()
+                .is_some_and(|permit| permit.busy),
+        );
         if transcript.lose_ack && request["method"] == "broadcast_tx_sync" {
             (503, String::new(), "acknowledgement lost".to_owned())
         } else {
@@ -330,6 +417,7 @@ fn serve_connection(
         .response_delay_ms;
     thread::sleep(Duration::from_millis(response_delay_ms));
     let response = format!("HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+    drop(observation_permit);
     stream
         .write_all(response.as_bytes())
         .unwrap_or_else(|error| panic!("{error:?}"));
@@ -386,7 +474,7 @@ impl Transcript {
         account
     }
 
-    fn answer(&mut self, request: &Value) -> Value {
+    fn answer(&mut self, request: &Value, observation_busy: bool) -> Value {
         let result = match request["method"]
             .as_str()
             .unwrap_or_else(|| panic!("required protocol value is absent"))
@@ -412,6 +500,15 @@ impl Transcript {
                         .unwrap_or_else(|error| panic!("{error:?}"));
                     self.observation_reads.push((market_id, height));
                     assert_eq!(request["params"][1], format!("0x{height:x}"));
+                    if observation_busy {
+                        self.observation_busy_reads.push((market_id, height));
+                        return json!({"jsonrpc":"2.0","id":1,"error":{
+                            "code": -32005, "message": "rejected due to rate limit"
+                        }});
+                    }
+                    if let Some(error) = &self.observation_error {
+                        return json!({"jsonrpc":"2.0","id":1,"error":error});
+                    }
                     json!(format!(
                         "0x{:064x}{}",
                         self.observation_sequences
@@ -432,9 +529,25 @@ impl Transcript {
                     .unwrap_or_else(|error| panic!("{error:?}"));
                 assert!(!tx.is_empty());
                 let hash = hex_encode(&Sha256::digest(&tx));
+                let sequence = tx_sequence(&tx);
                 let tx_index = self.txs.len();
                 self.txs.push(tx);
                 let fate = self.tx_fates.get(tx_index).copied().unwrap_or(self.fate);
+                if self.submission_sequence_mode == SubmissionSequenceMode::CommittedOnly
+                    && sequence != u64::from(self.account_sequence)
+                {
+                    self.sequence_refusals += 1;
+                    return json!({
+                        "code": 32,
+                        "data": "",
+                        "log": format!(
+                            "account sequence mismatch, expected {}, got {}: incorrect account sequence",
+                            self.account_sequence, sequence
+                        ),
+                        "codespace": "sdk",
+                        "hash": hash.to_uppercase(),
+                    });
+                }
                 if matches!(fate, Fate::Committed { .. }) {
                     self.account_sequence = self.account_sequence.saturating_add(1);
                     self.observation_sequence = self.observation_sequence.saturating_add(1);
@@ -518,6 +631,78 @@ impl Transcript {
     }
 }
 
+fn tx_sequence(tx: &[u8]) -> u64 {
+    let auth_info = protobuf_bytes(tx, 2).unwrap_or_else(|| panic!("transaction auth info absent"));
+    let signer_info =
+        protobuf_bytes(auth_info, 1).unwrap_or_else(|| panic!("transaction signer info absent"));
+    protobuf_field_varint(signer_info, 3).unwrap_or_else(|| panic!("transaction sequence absent"))
+}
+
+fn protobuf_bytes(mut input: &[u8], wanted: u64) -> Option<&[u8]> {
+    while !input.is_empty() {
+        let key = protobuf_varint(&mut input)?;
+        let field = key >> 3;
+        match key & 7 {
+            0 => {
+                protobuf_varint(&mut input)?;
+                if field == wanted {
+                    return None;
+                }
+            }
+            2 => {
+                let length = usize::try_from(protobuf_varint(&mut input)?).ok()?;
+                if input.len() < length {
+                    return None;
+                }
+                let value = &input[..length];
+                input = &input[length..];
+                if field == wanted {
+                    return Some(value);
+                }
+            }
+            _ => return None,
+        }
+    }
+    None
+}
+
+fn protobuf_varint(input: &mut &[u8]) -> Option<u64> {
+    let mut value = 0;
+    for shift in (0..70).step_by(7) {
+        let byte = *input.first()?;
+        *input = &input[1..];
+        value |= u64::from(byte & 0x7f) << shift;
+        if byte & 0x80 == 0 {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn protobuf_field_varint(mut input: &[u8], wanted: u64) -> Option<u64> {
+    while !input.is_empty() {
+        let key = protobuf_varint(&mut input)?;
+        let field = key >> 3;
+        match key & 7 {
+            0 => {
+                let value = protobuf_varint(&mut input)?;
+                if field == wanted {
+                    return Some(value);
+                }
+            }
+            2 => {
+                let length = usize::try_from(protobuf_varint(&mut input)?).ok()?;
+                if input.len() < length {
+                    return None;
+                }
+                input = &input[length..];
+            }
+            _ => return None,
+        }
+    }
+    None
+}
+
 pub(crate) struct StateDir(pub(crate) PathBuf);
 impl StateDir {
     pub(crate) fn new() -> Self {
@@ -559,6 +744,7 @@ pub(crate) fn config(peer: &Peer) -> Config {
         gas_limit: 200_000,
         cadence_ms: 1000,
         max_pending_submissions: 8,
+        max_committed_reads_in_flight: 6,
         pending_submission_block_limit: round::PENDING_SUBMISSION_BLOCK_LIMIT,
         retry_backoff_ms: 1,
         retry_max_attempts: 2,

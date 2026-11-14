@@ -14326,6 +14326,108 @@ value = "Task 22.39.529 takes tools/qualification/localnode/v6120-node.sh into i
 basis = "Gotcha 4450."
 affects = ["22.39.529"]
 
+[decision.3536]
+title = "The committed reads of the price sidecar stay below a bound and repeat a busy answer"
+value = "The configuration of the price sidecar takes the optional key max_committed_reads_in_flight with the default 6; zero is refused. read_observations has at most that many reads in flight and keeps the order of the answers by market. A read that the node answers with its busy error is repeated by the retry plan of the configuration, retry_backoff_ms and retry_max_attempts, before the reconcile reports that it could not read. Every other error of a read ends the reconcile as now. The rules of decisions 3532 and 3533, the stored forms, the metric names and the log lines stay as they are."
+basis = "Gotcha 4451, decisions 3532 and 3533."
+affects = []
+
+[decision.3537]
+title = "The web search sidecar starts while its receiver has no bound identity and opens the paid route once it resolves"
+value = "The resolution of the receiver is the read of the identity bound to its address and of the ledger account of each accepted asset. A resolution that does not pass at start no longer ends the process. The sidecar starts with every other role. While the receiver is unresolved the paid route answers 503 payment_unavailable, publishes no offer and serves no search. The start report names the receiver address and the read that did not pass. The sidecar repeats the resolution every thirty seconds and opens the paid route when it passes, without a restart. The readiness answer carries a payment field of its own, and the value ready keeps its present rule over the present roles. A refused config, network id, key file, store, lock or adapter descriptor still ends the process. No rule of payment verification changes."
+basis = "Gotcha 4452."
+affects = []
+
+[decision.3538]
+title = "The web search sidecar gets a command that reports the receiver identity and a command that binds it"
+value = "One command word may follow the config path. receiver-status prints the receiver address, whether an identity is bound to it, the identity, the ledger accounts and the balance of the address. bind-receiver takes the file of an identity key, sends bindLayerX of the address precompile from the receiver address with the signature of the identity, waits for the receipt and confirms with getLayerXDid. It sends nothing when the address is already bound or cannot pay the cost. Neither command starts a listener or writes to the store, and neither prints a key or a signature. Without a command word the binary behaves as before."
+basis = "Gotcha 4452, decision 3537."
+affects = []
+
+[decision.3539]
+title = "A node with sequencing disabled forwards receipt requests when the forward URL is set"
+value = "At start a node with sequencing disabled and a nonempty sequencer.receipt-forward-url hands the option of NewFollowerReceiptOption to the application before the EVM servers are built. It then answers pax_sequencerReceipt with the receipt of the sequencing node after the present verification, and the present forwarding option of the EVM servers is built from the same URL. With an empty key the node behaves as before. A node with sequencing enabled keeps its refusal of the key. A URL the option refuses ends the start with the present text. No rule of receipt verification changes."
+basis = "Gotcha 4453."
+affects = []
+
+[decision.3540]
+title = "The price sidecar keeps one submission pending unless the configuration names more"
+value = "The default of max_pending_submissions becomes 1: a round starts when no submission of the account is pending. A larger value stays valid for a node that admits sequences ahead of the committed one, and zero stays refused. The stand-in peer of the tests gets a mode that admits a submission only at the committed sequence, as a node does. The keys of the sidecar and their defaults are described where the variables of the platform services are listed. No fate rule, stored form, metric name or log line changes."
+basis = "Gotcha 4454."
+affects = []
+
+[decision.3541]
+title = "The ordinary deliver step of the concurrent block path serves store iteration"
+value = "The second scheduler of ProcessTXsWithOCCGiga, built with app.DeliverTx, serves Iterator and ReverseIterator over the stores it shares with the fast executor. The view is the one of synchronous delivery: the entries of the parent merged with the entries the store holds unwritten, in key order, with deletions honoured. The scheduler of the fast executor keeps its present behaviour, where iteration ends the transaction with the present abort. A block executed through the concurrent path gives the results, gas and application state of the synchronous execution of the same block, also when a transaction comes from an address whose balance must be migrated at first use. No transaction form, result code, event or stored form changes."
+basis = "Gotcha 4455."
+affects = []
+
+[decision.3542]
+title = "The deliver entry of the node honours the trace switch"
+value = "DeliverTx of the node passes the trace switch of the application to ResponseDeliverTxWithEvents, as the same calls of the base application do. With the switch off the answer is the present one byte for byte. With the switch on the log of a failed delivery carries the full text. Code, codespace, data, gas and events of the result do not depend on the switch."
+basis = "Gotcha 4456."
+affects = []
+
+[decision.3543]
+title = "The tracing methods answer for blocks built by the sequencing node"
+value = "debug_traceTransaction, debug_traceBlockByNumber, debug_traceBlockByHash and debug_traceCall treat the entries of a block as the block read methods of the same package do: an entry that is not a transaction is not handed to the transaction decoder, and the transactions of the block keep their positions and hashes. Answers for blocks without such an entry do not change. No method name, parameter or answer form changes."
+basis = "Gotcha 4457."
+affects = []
+
+[decision.3544]
+title = "The request watch of the web search service keeps its stored position"
+value = "A cursor that stands without a journal is taken as the next block; the watch no longer starts at zero. When the read endpoint answers that the range at the stored position is no longer served, the watch asks for the earliest block the endpoint serves, continues there, and says so once in its log and in the relay part of the readiness answer with the count of blocks passed over. A journal of the present form keeps its present meaning. No request that the journal holds is dropped."
+basis = "Gotcha 4458."
+affects = []
+
+[decision.3545]
+title = "The start test of the daemon command supplies replication TLS material"
+value = "The case makes a certificate, a key and roots in its temporary directory and sets the five replication flags, by the means the tests of node/sequencer use. The requirement of node/sequencer/dial.go stays as it is. Task 22.39.551 carries the change, since the file is in its paths."
+basis = "Gotcha 4459."
+affects = ["22.39.551"]
+
+[decision.3546]
+title = "The spend composition cases run in full where their producer supplies the inputs and end at once elsewhere"
+value = "A case of programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs whose input name is not set prints one line that names the missing input and ends without a failure. A case whose input name is set keeps its present behaviour in full, so a missing or wrong file under a set name fails as now. The producer keeps setting both names and keeps requiring that each case ran alone and passed. Task 22.39.509 carries the change, since the file is in its paths."
+basis = "Gotcha 4460."
+affects = ["22.39.509"]
+
+[decision.3547]
+title = "The price sidecar does not keep a submission that the node refused as ahead of the committed sequence"
+value = "When the answer to a broadcast is the sequence refusal and its expected sequence is below the sent one, the transaction did not enter the pool. The sidecar removes the entry from the pending list, returns the journal to the newest entry that remains or to committed state, stores the progress and ends the round. After such an answer it starts no further submission until the pending list is empty. A refusal whose expected sequence is above the sent one, a refusal text without the two numbers, a transport error and every other answer keep their present handling. Against a node that admits sequences ahead of the committed one the behaviour up to the bound does not change. This replaces the part of decision 3540 by which a refused entry stays pending."
+basis = "Gotcha 4461."
+affects = []
+
+[decision.3548]
+title = "The local node script keeps its full node on request and the package tests compare both nodes"
+value = "The option --follower, valid together with --sequencer, keeps the full node running until the script stops the network. The environment file then names its consensus endpoint as LOCAL_NODE_FOLLOWER_COMET and its EVM endpoint as LOCAL_NODE_FOLLOWER_RPC. Without the option the script behaves as now. Tests whose names begin with TestLocalNodeV6120Follower send transactions to the sequencing node and require that the full node reaches the block of each receipt, is still running, and shows the same block hash, application hash and receipt status as the sequencing node. The transactions cover an address at its first use, a block with a transaction that is not an EVM transaction ahead of an EVM one, the identity bind at 0x0000000000000000000000000000000000001004 and a call of the ledger precompile at 0x000000000000000000000000000000000000101a."
+basis = "Gotcha 4462."
+affects = []
+
+[decision.3549]
+title = "Release 7.0.1 keeps the upgrade plan v7.0 and the release scripts follow version.json"
+value = "tools/release/version.json holds version v7.0.1 and upgrade v7.0. tools/release/preflight.sh and tools/release/postflight.sh take the accepted version from that file, with and without the leading v, and the tests follow the file. CITATION.cff, RELEASE.md and tools/release/README.md name 7.0.1 where they name the current release. The documents of 7.0.0 under docs/release stay as they are, and docs/release/7.0.1-release-notes.md states the changes of 7.0.1. Release 7.0.1 is taken without a new upgrade plan: it replaces the binary of 7.0.0."
+basis = "Gotcha 4463."
+affects = []
+
+[decision.3550]
+title = "The live check of paid search pays with the exact scheme and a payer key file"
+value = "The check takes the single offer of the exact scheme in PAX, sends payExact at 0x000000000000000000000000000000000000101a from the account of the payer to the account of the offer, signed with the key of the file named by CHECK_LIVE_SEARCH_PAYER_KEY_FILE through the node endpoint named by CHECK_LIVE_SEARCH_NODE_RPC, reads the receipt through the gateway argument and presents transaction hash and receipt digest with the request. The key file is refused unless it is a regular file that only its owner can read, and neither the key nor the signed transaction is printed. The standing grant argument and CHECK_LIVE_SEARCH_GRANT_ID are removed."
+basis = "Gotcha 4464."
+affects = []
+
+[decision.3551]
+title = "The local network shows a paid search from the registration of the asset to the released result"
+value = "Tests whose names begin with TestLocalNodeV6120PaidSearch run against the local network with its full node kept. An issuer registers an asset at 0x000000000000000000000000000000000000101a, the receiver of the service and a buyer are bound, the buyer receives units, and the built binary of the web search service runs against the sequencing node. An unpaid search answers 402 with an exact offer, the buyer pays it with payExact, and the same request with the payment is answered with the result. After every transaction the full node shows the same block hash, application hash and receipt status as the sequencing node. The task follows 22.39.558, which adds the option and the comparison."
+basis = "Gotcha 4465."
+affects = []
+
+[decision.3552]
+title = "The web search service offers payment only in assets the ledger reports as registered and not paused"
+value = "The resolution reads getAsset at 0x000000000000000000000000000000000000101a for every accepted asset. An asset whose read is refused or whose record is paused is withheld: no offer names it and a payment in it is refused as not offered. The payment state is ready when the identity of the receiver is resolved and at least one asset is payable, and the readiness answer lists the payable and the withheld assets. The reads repeat at the resolution interval also while the state is ready, so a later registration, pause or release changes the offers without a restart. A transport error of a read withholds nothing: it leaves the state as it was."
+basis = "Gotcha 4466."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43986,6 +44088,141 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.562]
+title = "Offer payment in the web search service only for assets the ledger reports as registered"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch", "docs/release/variables/service-interop.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payable_assets --test payment_start --test payment --test server --test binary --test receiver_commands"
+do_1 = "do_1 Gotcha 4466, decision 3552. Read resolve_receiver, payment_ready, payment_resolution, offer and challenge in services/interop/crates/x-websearch/src/payment.rs, the readiness answer and the repeat of the resolution in services/interop/crates/x-websearch/src/main.rs, and getAsset in precompiles/layerxledger/abi.json."
+symbols = []
+
+[capability.22.39.561]
+title = "Show a paid search on the local network from the registration of the asset to the released result"
+reqs = ["22998.1"]
+touches = ["tools/qualification/localnode"]
+tests = []
+verification_contract = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-paid.env && set -a && . /tmp/lx-localnode-paid.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run '^TestLocalNodeV6120PaidSearch'"
+do_1 = "do_1 Gotcha 4465, decision 3551. Read in services/interop/crates/x-websearch/README.md the sections on paid requests, the receiver commands and the configuration keys, the checks of the exact scheme in services/interop/crates/x-websearch/src/payment.rs, the methods register, openAccount, mint and payExact in precompiles/layerxledger/abi.json, the comparison helper of tools/qualification/localnode/v6120_follower_test.go, and how TestLocalNodeV6120SequencerReceipt reads the receipt key of the local network."
+symbols = []
+
+[capability.22.39.560]
+title = "Pay the paid search of the live check with the exact scheme"
+reqs = ["22998.1"]
+touches = ["tools/bringup"]
+tests = []
+verification_contract = "go test -count=1 ./tools/bringup/..."
+do_1 = "do_1 Gotcha 4464, decision 3550. Read CheckSearchPayment and ValidateSearchPrice in tools/bringup/live_rpc.go, the search-payment case in tools/bringup/live_cli.go, check_search in tools/bringup/check-live.sh, the section on paid requests in services/interop/crates/x-websearch/README.md and the checks of the exact scheme in services/interop/crates/x-websearch/src/payment.rs, among them how the payment reference of a request is formed and which fields the payment payload carries."
+symbols = []
+
+[capability.22.39.559]
+title = "Set release 7.0.1 and make the release scripts follow version.json"
+reqs = ["22998.1"]
+touches = ["tools/release", "CITATION.cff", "RELEASE.md", "docs/release/README.md"]
+tests = []
+verification_contract = "bash tools/release/tests/identity.test.sh && bash tools/release/tests/preflight.test.sh && bash tools/release/tests/postflight.test.sh && python3 -m pytest -q tools/release/tests/test_upgrade_info.py"
+do_1 = "do_1 Gotcha 4463, decision 3549. Set tools/release/version.json to version v7.0.1 and keep upgrade v7.0. In tools/release/preflight.sh and tools/release/postflight.sh take the accepted version from that file, with and without the leading v, in place of the literals; the upgrade plan name stays as it is read now. A missing or malformed file is refused with a clear message."
+symbols = []
+
+[capability.22.39.558]
+title = "Keep the full node of the local node script on request and compare it with the sequencing node"
+reqs = ["22998.1"]
+touches = ["tools/qualification/localnode"]
+tests = []
+verification_contract = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-follower.env && set -a && . /tmp/lx-localnode-follower.env && set +a && go test -count=1 ./tools/qualification/localnode/ -run '^TestLocalNodeV6120Follower'"
+do_1 = "do_1 Gotcha 4462, decision 3548. Read the sequencer branch of tools/qualification/localnode/v6120-node.sh: the start of the full node under the role bootstrap-peer, its stop after the committee check, the stop path of the script and the lines that write the environment file. Add the option --follower, refused without --sequencer. With it the full node is not stopped after the committee check and runs until the script stops the network, started as now with sequencing enabled in its configuration and without the sequencer flags of the primary."
+symbols = []
+
+[capability.22.39.557]
+title = "Remove a submission of the price sidecar that the node refused as ahead of the committed sequence"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_ahead_refusal --test sidecar_pending_default --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4461, decision 3547. Read attempt, submit, record_broadcast, next_submission, reconcile, run_round, RetryPlan and parse_broadcast in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs, and admit_only_committed_sequence in services/platform/hosted/feeder/tests/support/submission_peer.rs. Read the two numbers of the refusal text, whose form is account sequence mismatch, expected N, got M."
+symbols = []
+
+[capability.22.39.556]
+title = "Keep the stored position of the request watch of the web search service"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test watch_position --test program_watch --test binary"
+do_1 = "do_1 Gotcha 4458, decision 3544. Read RequestWatcher::open and the read of confirmed blocks in services/interop/crates/x-websearch/src/watch.rs. A cursor that stands without a journal is taken as the next block. Change the sentence of the comment of open that says otherwise."
+symbols = []
+
+[capability.22.39.555]
+title = "Answer the tracing methods for blocks built by the sequencing node"
+reqs = ["22998.1"]
+touches = ["rpc"]
+tests = []
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^(TestTraceBlockEntries|TestDebugTraceBlock)'"
+do_1 = "do_1 Gotcha 4457, decision 3543. Read TraceTransaction, TraceBlockByNumber, TraceBlockByHash and TraceCall in rpc/tracers.go and the means they use to read and replay a block, and read how a node with sequencing enabled lays out the entries of a block it builds and how the block read methods of rpc treat them. Name in the final message the entry that the transaction decoder does not read and the place where the tracing path hands it to the decoder."
+symbols = []
+
+[capability.22.39.554]
+title = "Honour the trace switch in the deliver entry of the node"
+reqs = ["22998.1"]
+touches = ["node/abci.go"]
+tests = []
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestDeliverTrace'"
+do_1 = "do_1 Gotcha 4456, decision 3542. Read DeliverTx in node/abci.go and the same calls in sdk/baseapp/abci.go. Both calls of ResponseDeliverTxWithEvents in node/abci.go pass the trace switch of the application, read through Trace of the base application."
+symbols = []
+
+[capability.22.39.553]
+title = "Serve store iteration in the ordinary deliver step of the concurrent block path"
+reqs = ["22998.1"]
+touches = ["engine/deps/store", "engine/deps/tasks", "node/app.go"]
+tests = []
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./engine/deps/store/ ./engine/deps/tasks/ && CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestConcurrentFirstUse'"
+do_1 = "do_1 Gotcha 4455, decision 3541. Read ProcessTXsWithOCCGiga and CacheContext in node/app.go, tryInitMultiVersionStore in engine/deps/tasks/scheduler.go, the store in engine/deps/store/cachekv.go, AssociateAddress in node/ante/evm_checktx.go and MigrateBalance in utils/helpers/associate.go. The scheduler that ProcessTXsWithOCCGiga builds with app.DeliverTx serves Iterator and ReverseIterator over the stores it shares with the fast executor. The view is the one of synchronous delivery: the entries of the parent merged with the entries the store holds unwritten, in key order, with deletions honoured, for bounded and open ranges."
+symbols = []
+
+[capability.22.39.552]
+title = "Keep one submission of the price sidecar pending unless the configuration names more"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_pending_default --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4454, decision 3540. Read default_max_pending_submissions, validate and the start report in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs, the start of a round in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs. The default of max_pending_submissions becomes 1. A larger value stays valid and zero stays refused with the present text."
+symbols = []
+
+[capability.22.39.551]
+title = "Forward receipt requests on a node with sequencing disabled when the forward URL is set"
+reqs = ["22998.1"]
+touches = ["node/sequencer", "daemon/paxd/cmd", "node/app.go"]
+tests = []
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^(TestFollowerStart|TestFollowerReceiptOption|TestForwardedReceiptOnFollowerNode|TestProofSequencerReceipt)' && CGO_ENABLED=1 go test -count=1 ./daemon/paxd/cmd/ -run 'NewApp|RootCommands'"
+do_1 = "do_1 Gotcha 4453, decision 3539. Read NewNode in node/sequencer/node.go for a configuration with sequencing disabled, NewFollowerReceiptOption in node/sequencer/follower.go, SetSequencerRPC and the place where the EVM servers take the receipt option in node/app.go, and the start of the application in daemon/paxd/cmd/root.go. At start, a node with sequencing disabled and a nonempty sequencer.receipt-forward-url hands the option of NewFollowerReceiptOption to the application through SetSequencerRPC before the EVM servers are built. Choose the place, NewNode or the command, that every start path of the node command passes, and say in the final message which."
+symbols = []
+
+[capability.22.39.550]
+title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test receiver_commands --test payment_start --test binary --test payment --test keys"
+do_1 = "do_1 Gotcha 4452, decision 3538. Read config_path and main in services/interop/crates/x-websearch/src/main.rs, read_receiver_did and the signing of ledger transactions in services/interop/crates/x-websearch/src/payment.rs, read_secret in services/interop/crates/x-websearch/src/keys.rs, the section on the addr precompile in docs/system/precompiles.md, precompiles/addr/README.md and precompiles/addr/addr.go for the exact message the identity signs in bindLayerX. Accept one command word after the config path: receiver-status and bind-receiver. Without a command word the binary behaves as it does now, and any other word is refused as now."
+symbols = []
+
+[capability.22.39.549]
+title = "Start the web search sidecar while its receiver has no bound identity and open the paid route once it resolves"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment_start --test binary --test payment --test server --test config --test keys"
+do_1 = "do_1 Gotcha 4452, decision 3537. Read assemble and the readiness answer in services/interop/crates/x-websearch/src/main.rs, PaymentGate::new_with_network_id, GateError and the uses of payment_unavailable in services/interop/crates/x-websearch/src/payment.rs and the routes in services/interop/crates/x-websearch/src/server.rs. Part the construction of the payment state: what needs no read of the chain stays at start with its present refusals, and the resolution of the receiver, that is read_receiver_did for the receiver address and the ledger account of each accepted asset, becomes a step that can be repeated."
+symbols = []
+
+[capability.22.39.548]
+title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4451, decision 3536. Read read_observations, read_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the configuration in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs. Add the optional key max_committed_reads_in_flight beside max_pending_submissions: default 6, zero refused with the message form of the other keys, shown in the start-up report where the other bounds are shown. A configuration without the key parses as before."
+symbols = []
 
 [capability.22.39.547]
 title = "Start a round of the price sidecar at every cadence while fewer submissions than the bound are pending"
@@ -196132,6 +196369,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.559]
+title = "Set release 7.0.1 and make the release scripts follow version.json"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.559"]
+interfaces = []
+do_1 = "do_1 Gotcha 4463, decision 3549. Set tools/release/version.json to version v7.0.1 and keep upgrade v7.0. In tools/release/preflight.sh and tools/release/postflight.sh take the accepted version from that file, with and without the leading v, in place of the literals; the upgrade plan name stays as it is read now. A missing or malformed file is refused with a clear message."
+do_2 = "do_2 Make the tests under tools/release/tests follow the file wherever they compare with the release version: tools/release/tests/identity.test.sh and the cases of the preflight, postflight and upgrade information tests. A fixture that names an artifact or a tag of 7.0.0 as an example and is not compared with the file may stay. Change nothing under .github: the workflows already read the file, and a comment there that names a version of an action is not a release version."
+do_3 = "do_3 CITATION.cff names version v7.0.1 with the release date 2026-11-14. RELEASE.md and tools/release/README.md name 7.0.1 where they name the current release and say that the version comes from tools/release/version.json and that 7.0.1 keeps plan v7.0. Sentences about plan v7.0 itself stay."
+do_4 = "do_4 Add docs/release/7.0.1-release-notes.md in the form of docs/release/7.0.0-release-notes.md and link it from docs/release/README.md. It says that 7.0.1 replaces the binary of 7.0.0 on every node without a new upgrade plan, and states each change as the behaviour of 7.0.1 in the present tense: a node without sequencing applies a block with an EVM transaction from an address at its first use with the results of the sequencing node; the deliver entry of the node honours the trace switch; the tracing methods answer for blocks built by the sequencing node; a node with sequencing disabled forwards receipt requests when the forward URL is set; a pool configuration without an entry time limit is reported at construction. It describes the product only and names no network, operator or date other than the release date. The documents of 7.0.0 stay unchanged."
+do_5 = "do_5 Run every test script and Python test under tools/release/tests once by hand. A case that does not pass for a cause outside the paths or that did not pass before the change: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/release", "CITATION.cff", "RELEASE.md", "docs/release/README.md"]
+tests = []
+planned_paths = ["docs/release/7.0.1-release-notes.md"]
+build_cmd = "bash -n tools/release/preflight.sh && bash -n tools/release/postflight.sh"
+verify_cmd = "bash tools/release/tests/identity.test.sh && bash tools/release/tests/preflight.test.sh && bash tools/release/tests/postflight.test.sh && python3 -m pytest -q tools/release/tests/test_upgrade_info.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.540]
 title = "Declare the JSON crate for the test targets of the intents member that include the journey resolver"
 status = "done"
@@ -196293,7 +196562,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.521]
 title = "Bring the intent tests of the human service member to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.499"]
@@ -196783,6 +197052,7 @@ do_6 = "do_6 Decision 3482, gotcha 4395. This item takes the place of do_5, and 
 do_7 = "do_7 Decision 3512, gotcha 4425. The paths of this task now take in tools/qualification/paxeer-x/program-interface.py. In the interface test file of the member layerx-programs-registry the case on native receipts, which reads the directory named by PAXEER_X_INTERFACE_FIXTURES, gets an ignore attribute whose reason says that it runs in the harness of the program interface; change nothing else of the case. In the harness the command of the protocol suite gets the option --include-ignored directly after the path of the test program; change nothing else in that file. The harness keeps requiring that no case is reported as ignored and keeps the case in its list of required cases. If a test under tools/qualification/paxeer-x/tests reads that command, run it by hand where the test runner is present, and name it in the final message if it would have to change."
 do_8 = "do_8 Decision 3522, gotcha 4437. In programs/crates/layerx-programs-runtime the adapter from_captured answers the replay bound code for a refusal whose reason begins with the text of the Bounds refusal, because the producer appends the check and its site to that text. The test file native_result_replay_bounds reads that refusal by its leading text and keeps the assertion on the code. For the case of the trapping start function of that file read the start path of the executor and bring the case and the runtime to one statement: the runtime retains a failure record with its replay record for a trap of the start function. Where the cause lies outside the crate, the case takes the mark of expected failure and the final message names the cause."
 do_9 = "do_9 Decision 3534, gotcha 4449. The cases of programs/sdk/rust/tests/cross_language_call_budget.rs start javac, swiftc, dotnet and tsc, and the task now qualifies where they are present. Change nothing for this. Run the build once and the verification once at the final revision. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message."
+do_10 = "do_10 Decision 3546, gotcha 4460. In programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs the six cases whose names begin with actual_ read PAXEER_X_SPEND_GUESTS through actual_guest or PAXEER_X_SPEND_RESULTS directly. Where the name a case needs is not set, the case prints one line that names the missing input and ends without a failure. Where the name is set, the present behaviour stays in full. Change nothing under tools/qualification/paxeer-x. The counted verification stays make -s programs-test. Run the build once and the verification once at the final revision."
 
 [task.22.39.500]
 title = "Bring the lint target of the human services in line"
@@ -206481,9 +206751,265 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.562]
+title = "Offer payment in the web search service only for assets the ledger reports as registered"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.562"]
+interfaces = []
+do_1 = "do_1 Gotcha 4466, decision 3552. Read resolve_receiver, payment_ready, payment_resolution, offer and challenge in services/interop/crates/x-websearch/src/payment.rs, the readiness answer and the repeat of the resolution in services/interop/crates/x-websearch/src/main.rs, and getAsset in precompiles/layerxledger/abi.json."
+do_2 = "do_2 The resolution reads getAsset(bytes32) at 0x000000000000000000000000000000000000101a for every accepted asset beside the account read. An asset is payable when the read answers a record that is not paused. A refused read or a paused record withholds the asset: no offer names it, and a payment in it is refused as not offered without releasing content. A transport error of the read withholds nothing and leaves the state as it was."
+do_3 = "do_3 The payment state is ready when the identity of the receiver is resolved and at least one asset is payable. With none payable the state is unresolved, the reason names the assets by symbol and says that the ledger reports no usable record, and the paid routes answer 503 payment_unavailable as now. The readiness answer gains under payment the list of payable symbols and the list of withheld symbols with the reason for each; its present fields keep name and meaning. The command receiver-status reports the same two lists."
+do_4 = "do_4 The reads repeat at PAYMENT_RESOLUTION_INTERVAL also while the state is ready, so an asset that is registered, paused or released later changes the offers without a restart. The stored payment journals, the recovery and the checks of a presented payment do not change."
+do_5 = "do_5 Add services/interop/crates/x-websearch/tests/payable_assets.rs with cases whose names begin with payable_assets_, against a stand-in settlement endpoint: four payable assets give the four present offers; one refused read gives three offers and the readiness answer lists the fourth as withheld; four refused reads give 503 and the state unresolved with the reason; a paused asset is withheld; an asset whose record appears later is offered after the next repeat of the reads, which the case drives directly or waits for; a transport error leaves the state as it was; a payment that names a withheld asset is refused. Give the stand-in endpoints of the present tests an answer to getAsset where they lack one. Add one sentence on withheld assets to services/interop/crates/x-websearch/README.md and to docs/release/variables/service-interop.md. Run the tests of the crate once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch", "docs/release/variables/service-interop.md"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/payable_assets.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payable_assets --test payment_start --test payment --test server --test binary --test receiver_commands"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.561]
+title = "Show a paid search on the local network from the registration of the asset to the released result"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.558"]
+reqs = ["22998.1"]
+capabilities = ["22.39.561"]
+interfaces = []
+do_1 = "do_1 Gotcha 4465, decision 3551. Read in services/interop/crates/x-websearch/README.md the sections on paid requests, the receiver commands and the configuration keys, the checks of the exact scheme in services/interop/crates/x-websearch/src/payment.rs, the methods register, openAccount, mint and payExact in precompiles/layerxledger/abi.json, the comparison helper of tools/qualification/localnode/v6120_follower_test.go, and how TestLocalNodeV6120SequencerReceipt reads the receipt key of the local network."
+do_2 = "do_2 Add tools/qualification/localnode/v6120_paid_search_test.go with cases whose names begin with TestLocalNodeV6120PaidSearch. Each fails with a clear message when the names the option --follower writes are not set, or when the built binary is absent under services/interop/target/debug or under the directory CARGO_TARGET_DIR names. Setup on the local network: an issuer key bound to an identity registers one asset through register at 0x000000000000000000000000000000000000101a; the receiver of the service is bound with the product command bind-receiver; a buyer key is bound; accounts are opened where the ledger requires it; the issuer mints units to the account of the buyer."
+do_3 = "do_3 Start the binary with a configuration in a temporary directory: the asset with a price, the gateway endpoint and the EVM endpoint at the sequencing node, the receipt key of the local network with its height range, the chain id of the network, a free loopback port, and no crawl entry outside loopback. Wait until the readiness answer reports the payment state ready. Stop the process and remove the directory when a case ends."
+do_4 = "do_4 Cases: an unpaid search answers 402 with an exact offer for the asset whose account is the account of the receiver; the buyer sends payExact for the offer and the same request with the payment payload answers 200 with a successful payment response; the ledger balances of buyer and receiver moved by the price; the same payment presented for a different query is refused without content; a payment below the price is refused. After every transaction of setup and cases the comparison helper holds: the full node reaches the block, still answers, and shows the same block hash, application hash and receipt status as the sequencing node."
+do_5 = "do_5 If the local network cannot serve a step, do not change the node or the service: keep the case as written, mark nothing as expected to fail, and give step, call and first message in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/localnode"]
+tests = []
+planned_paths = ["tools/qualification/localnode/v6120_paid_search_test.go"]
+build_cmd = "make -f chain.mk install && cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --bin x-websearch"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-paid.env && set -a && . /tmp/lx-localnode-paid.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run '^TestLocalNodeV6120PaidSearch'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.557]
+title = "Remove a submission of the price sidecar that the node refused as ahead of the committed sequence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.557"]
+interfaces = []
+do_1 = "do_1 Gotcha 4461, decision 3547. Read attempt, submit, record_broadcast, next_submission, reconcile, run_round, RetryPlan and parse_broadcast in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs, and admit_only_committed_sequence in services/platform/hosted/feeder/tests/support/submission_peer.rs. Read the two numbers of the refusal text, whose form is account sequence mismatch, expected N, got M."
+do_2 = "do_2 When the answer to a broadcast is the sequence refusal with the expected sequence below the sent one, remove the entry from the pending list, return the journal to the newest entry that remains or, with none, to committed state, store the progress before anything else is sent, and end the round. After such an answer no further submission starts until the pending list is empty; this state is kept in memory only. The answer is counted under the present label sequence_mismatch."
+do_3 = "do_3 A refusal whose expected sequence is above the sent one, a refusal text without the two numbers, a transport error and every other answer keep their present handling, and so does the retry rule for a sequence refusal while nothing else is pending. Change no stored form of the progress or the journal and no present text of the start report."
+do_4 = "do_4 Add services/platform/hosted/feeder/tests/sidecar_ahead_refusal.rs with cases whose names begin with ahead_refusal_, built on the stand-in peer of the present tests. With a peer that admits only the committed sequence and a bound of four: the pending list never holds more than one entry after a round, no later submission is signed past a removed entry, every committed submission raises the stored sequence of each market it carries by one, and twelve rounds with a commit between them give twelve committed submissions. With a peer that admits sequences ahead and a bound of four the list fills to four as now. A refusal with the expected sequence above the sent one keeps the present outcome. A restart with one entry pending decides it as now."
+do_5 = "do_5 Change the case pending_default_bound_four_keeps_refused_sequences_pending in services/platform/hosted/feeder/tests/sidecar_pending_default.rs to the rule of decision 3547 and give it a name that says so; every other present expectation stays. In docs/release/variables/service-platform.md add one sentence under max_pending_submissions: against a node that admits only the committed sequence one submission is pending at a time whatever the bound. Run the tests of the package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_ahead_refusal.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_ahead_refusal --test sidecar_pending_default --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.556]
+title = "Keep the stored position of the request watch of the web search service"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.556"]
+interfaces = []
+do_1 = "do_1 Gotcha 4458, decision 3544. Read RequestWatcher::open and the read of confirmed blocks in services/interop/crates/x-websearch/src/watch.rs. A cursor that stands without a journal is taken as the next block. Change the sentence of the comment of open that says otherwise."
+do_2 = "do_2 When the read endpoint answers that the range at the stored position is no longer served, the watch asks for the earliest block the endpoint serves and continues there. It says so once in its log and in the relay part of the readiness answer with the count of blocks passed over. Any other error of the endpoint keeps its present handling, and the position is stored by the present atomic means."
+do_3 = "do_3 A journal of the present form keeps its present meaning and no request that the journal holds is dropped. Change no stored form and no present text that tests read."
+do_4 = "do_4 Add services/interop/crates/x-websearch/tests/watch_position.rs with cases whose names begin with watch_position_, built on the stand-in endpoint of the present tests. A cursor without a journal continues at its block. A journal continues at its next block. A stand-in endpoint that serves only blocks from a given number makes the watch continue at that number and report the count once. An endpoint error of another kind leaves the position unchanged."
+do_5 = "do_5 Run the tests of the package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/watch_position.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test watch_position --test program_watch --test binary"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.552]
+title = "Keep one submission of the price sidecar pending unless the configuration names more"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.548"]
+reqs = ["22998.1"]
+capabilities = ["22.39.552"]
+interfaces = []
+do_1 = "do_1 Gotcha 4454, decision 3540. Read default_max_pending_submissions, validate and the start report in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs, the start of a round in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs. The default of max_pending_submissions becomes 1. A larger value stays valid and zero stays refused with the present text."
+do_2 = "do_2 The stand-in peer gets a mode in which it admits a submission only at the committed sequence of the account and answers every other sequence with the text of a node: account sequence mismatch, expected the committed sequence, got the sent one. The present mode stays the default of the peer. A present case that relies on more than one pending submission sets the key itself; change no other expectation of a present case."
+do_3 = "do_3 Add services/platform/hosted/feeder/tests/sidecar_pending_default.rs with cases whose names begin with pending_default_. A configuration without the key shows the bound 1 in the start report. With the new mode of the peer and the default, twelve rounds give twelve admitted submissions and no refusal of a sequence. With the new mode and a bound of four the peer counts refusals of a sequence, and the case states what the sidecar does with them by its present rules without changing them. Change no fate rule, no stored form, no metric name and no log line."
+do_4 = "do_4 In docs/release/variables/service-platform.md describe, where the keys of the price sidecar stand, the keys cadence_ms, max_pending_submissions, max_committed_reads_in_flight and pending_submission_block_limit with their defaults, and say that a bound above one needs a node that admits sequences ahead of the committed one. Keep the form of the page."
+do_5 = "do_5 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_pending_default.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_pending_default --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.550]
+title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.549"]
+reqs = ["22998.1"]
+capabilities = ["22.39.550"]
+interfaces = []
+do_1 = "do_1 Gotcha 4452, decision 3538. Read config_path and main in services/interop/crates/x-websearch/src/main.rs, read_receiver_did and the signing of ledger transactions in services/interop/crates/x-websearch/src/payment.rs, read_secret in services/interop/crates/x-websearch/src/keys.rs, the section on the addr precompile in docs/system/precompiles.md, precompiles/addr/README.md and precompiles/addr/addr.go for the exact message the identity signs in bindLayerX. Accept one command word after the config path: receiver-status and bind-receiver. Without a command word the binary behaves as it does now, and any other word is refused as now."
+do_2 = "do_2 receiver-status loads the config and the receiver key only. Through the settlement endpoint it reads the identity bound to the receiver address, the ledger account of each accepted asset and the balance of the address. It prints one line of JSON with the address, whether an identity is bound, the identity when bound, the ledger accounts when bound and the balance. The exit status is zero when the reads answered, bound or not. It starts no listener, takes no lock on the store and writes nothing."
+do_3 = "do_3 bind-receiver takes the option --identity-key-file followed by a path. The file holds 32 hexadecimal bytes of an Ed25519 key and is read by the rules of the other key files. The command signs the binding message with that key, sends bindLayerX to the address precompile from the receiver address, waits for the receipt and confirms with getLayerXDid. An address already bound to the same identity: it reports that and ends with status zero without a transaction. An address bound to another identity: it refuses and sends nothing. A balance below the cost of the transaction: it refuses with the address and the amount needed and sends nothing. A failed receipt is reported with the transaction hash and a status that is not zero. It prints the address, the identity and the transaction hash, and no key and no signature. It starts no listener and writes nothing to the store."
+do_4 = "do_4 Add services/interop/crates/x-websearch/tests/receiver_commands.rs with cases whose names begin with receiver_command_ and a stand-in endpoint. For fixed keys the message and the call data of bindLayerX equal what the address precompile accepts: take the expected bytes from the tests of the precompile under precompiles/addr or from the binding vectors of the client crate under services/agent, and say in the final message which. receiver-status on an unbound and on a bound address prints the fields of do_2. bind-receiver on an unbound address sends one transaction and reports the bound identity. The three refusals of do_3 send nothing. A run without a command word still starts the sidecar. Describe both commands in a section of the README of the crate."
+do_5 = "do_5 Run the tests of the package once by hand with --no-fail-fast. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/receiver_commands.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test receiver_commands --test payment_start --test binary --test payment --test keys"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.549]
+title = "Start the web search sidecar while its receiver has no bound identity and open the paid route once it resolves"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.549"]
+interfaces = []
+do_1 = "do_1 Gotcha 4452, decision 3537. Read assemble and the readiness answer in services/interop/crates/x-websearch/src/main.rs, PaymentGate::new_with_network_id, GateError and the uses of payment_unavailable in services/interop/crates/x-websearch/src/payment.rs and the routes in services/interop/crates/x-websearch/src/server.rs. Part the construction of the payment state: what needs no read of the chain stays at start with its present refusals, and the resolution of the receiver, that is read_receiver_did for the receiver address and the ledger account of each accepted asset, becomes a step that can be repeated."
+do_2 = "do_2 A resolution that does not pass at start, because no identity is bound to the address, an asset has no ledger account, the answer is malformed or the settlement endpoint does not answer, no longer ends the process. The sidecar starts with every other role. While the receiver is unresolved the paid route answers 503 payment_unavailable before any other work for the request, publishes no offer and serves no search. The start report prints one line with the receiver address as hexadecimal text and the read that did not pass. A refused config, network id, key file, store, lock or adapter descriptor still ends the process with its present text."
+do_3 = "do_3 The sidecar repeats the resolution every thirty seconds until it passes. From then on the paid route works as it does now, without a restart, and the resolution is not repeated. The interval is a constant of the crate and no configuration key. The readiness answer carries a field payment beside roles with the state and, while unresolved, the reason. The value ready keeps its present rule over the present roles. The health answer stays as it is. Change no rule of payment verification, no stored form and no present text that tests read, except the one of do_4."
+do_4 = "do_4 Add services/interop/crates/x-websearch/tests/payment_start.rs with cases whose names begin with payment_start_ and extend the stand-in endpoints of the tests where they lack a means. With no identity bound to the receiver address the sidecar starts, the paid route answers 503 payment_unavailable, the readiness answer shows the payment field unresolved with its reason and the value ready is what it is with a resolved receiver. After the stand-in binds the identity, one repeat of the resolution opens the paid route and it answers the offer. The case calls the repeat itself or sets a short interval through a means of the tests, and sleeps on no thirty seconds. A settlement endpoint that does not answer and a malformed answer give the same state with their own reasons. A refused adapter descriptor still ends the start. Adjust the case of services/interop/crates/x-websearch/tests/binary.rs that expects the text the 402LXP adapter cannot be registered for an unresolved receiver: it now expects a running process and the line of the start report. Bring the README of the crate in step with the new start."
+do_5 = "do_5 Run the tests of the package once by hand with --no-fail-fast. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/payment_start.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment_start --test binary --test payment --test server --test config --test keys"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.548]
+title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.547"]
+reqs = ["22998.1"]
+capabilities = ["22.39.548"]
+interfaces = []
+do_1 = "do_1 Gotcha 4451, decision 3536. Read read_observations, read_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the configuration in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs. Add the optional key max_committed_reads_in_flight beside max_pending_submissions: default 6, zero refused with the message form of the other keys, shown in the start-up report where the other bounds are shown. A configuration without the key parses as before."
+do_2 = "do_2 In read_observations keep at most max_committed_reads_in_flight reads in flight at any moment and start the next read when one ends. Keep the one committed height of the reads, the order of the answers by market and the present error texts."
+do_3 = "do_3 A read whose error carries the busy answer of the node, the text rejected due to rate limit, is repeated by the retry plan of the configuration before it counts as failed. Only that read is repeated, not the reads that answered. Every other error ends the reconcile as now. Change no fate rule, no stored form, no metric name and no log line."
+do_4 = "do_4 Add services/platform/hosted/feeder/tests/sidecar_read_bound.rs with cases whose names begin with read_bound_ and extend the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs where it lacks a means. The peer counts the observation reads in flight, records the highest count, and can answer the busy error to every read above a limit the case sets. With eighteen markets and the default bound, one reconcile decides committed and the highest count is six at most. With a peer limit of three and the default bound, the reconcile still decides committed and the peer answered busy at least once. With a peer that answers busy to every read, the reconcile reports that it could not read after the attempts of the retry plan, and the pending submission keeps its open fate. A configuration with the key at zero is refused and one without the key holds six. No case compares a measured duration. Adjust the cases of services/platform/hosted/feeder/tests/sidecar_committed_reads.rs so that its peer holds the reads until as many are in flight as the bound allows."
+do_5 = "do_5 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_read_bound.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.547]
 title = "Start a round of the price sidecar at every cadence while fewer submissions than the bound are pending"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.546"]
@@ -206515,7 +207041,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.546]
 title = "Run the committed reads of the price sidecar together and only when a fate is decided"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206799,7 +207325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.529]
 title = "Bring the tests of the member layerx-agentd of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -241115,6 +241641,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.560]
+title = "Pay the paid search of the live check with the exact scheme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.560"]
+interfaces = []
+do_1 = "do_1 Gotcha 4464, decision 3550. Read CheckSearchPayment and ValidateSearchPrice in tools/bringup/live_rpc.go, the search-payment case in tools/bringup/live_cli.go, check_search in tools/bringup/check-live.sh, the section on paid requests in services/interop/crates/x-websearch/README.md and the checks of the exact scheme in services/interop/crates/x-websearch/src/payment.rs, among them how the payment reference of a request is formed and which fields the payment payload carries."
+do_2 = "do_2 CheckSearchPayment takes the single offer whose scheme is exact and whose currency is PAX, and ValidateSearchPrice accepts that scheme with its present price rule. It sends payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32) at 0x000000000000000000000000000000000000101a from the ledger account of the payer to the account of the offer, with the asset and the amount of the offer, an expiry inside the time the offer allows and the payment reference the service expects for this request. The transaction is an EIP-155 transaction for chain 125, signed with the key of the file named by CHECK_LIVE_SEARCH_PAYER_KEY_FILE and sent to the node endpoint named by CHECK_LIVE_SEARCH_NODE_RPC. The check reads the receipt of the transaction through the gateway argument within a bound, then repeats the request with the payload of the exact scheme and requires the present success conditions."
+do_3 = "do_3 The key file is refused when it is missing, is not a regular file, can be read by group or others, or does not hold 32 bytes in hexadecimal. Neither the key nor the signed transaction is printed or logged. The payer address derives from the key, and CHECK_LIVE_SEARCH_PAYER_ADDRESS, when set, must equal it. Remove the standing grant argument and CHECK_LIVE_SEARCH_GRANT_ID from the command, the script, its usage text and tools/bringup/README.md. The output line keeps its present form and adds the transaction hash."
+do_4 = "do_4 Add tools/bringup/live_search_exact_test.go with cases whose names begin with TestSearchExact, against a stand-in server: the full path with one exact PAX offer, an accepted transaction, a served receipt and a paid answer; the calldata of the sent transaction decoded and compared field by field with the offer; a challenge with only a metered offer refused; two exact PAX offers refused; a receipt that is not served within the bound refused; a paid answer other than 200 refused; a key file that group or others can read refused; a payer address that differs from the key refused. Change the present cases of tools/bringup/live_evidence_test.go that expect the grant form."
+do_5 = "do_5 Run the tests of the package and tools/bringup/check-live.test.sh once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/bringup"]
+tests = []
+planned_paths = ["tools/bringup/live_search_exact_test.go"]
+build_cmd = "go vet ./tools/bringup/... && bash -n tools/bringup/check-live.sh"
+verify_cmd = "go test -count=1 ./tools/bringup/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.558]
+title = "Keep the full node of the local node script on request and compare it with the sequencing node"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.558"]
+interfaces = []
+do_1 = "do_1 Gotcha 4462, decision 3548. Read the sequencer branch of tools/qualification/localnode/v6120-node.sh: the start of the full node under the role bootstrap-peer, its stop after the committee check, the stop path of the script and the lines that write the environment file. Add the option --follower, refused without --sequencer. With it the full node is not stopped after the committee check and runs until the script stops the network, started as now with sequencing enabled in its configuration and without the sequencer flags of the primary."
+do_2 = "do_2 With --follower the environment file also names LOCAL_NODE_FOLLOWER_COMET, the consensus endpoint of the full node, and LOCAL_NODE_FOLLOWER_RPC, its EVM endpoint. Before the script reports ready it requires that the full node is running and has reached the height of the last receipt the script itself produced. Without the option every line the script writes and every step it takes stay as now, and no line that a present test reads changes."
+do_3 = "do_3 Add tools/qualification/localnode/v6120_follower_test.go with cases whose names begin with TestLocalNodeV6120Follower; each fails with a clear message when the two names of do_2 are not set. A helper sends a transaction to the sequencing node, waits for its receipt, and then requires within sixty seconds that the full node has reached that block, that its process still answers, and that block hash, application hash and receipt status at that block are equal on both nodes."
+do_4 = "do_4 Cases: a value transfer from a key that has never sent a transaction and holds its balance from a bank transfer to its cast address; two such keys in one run; a bank transfer and a first-use EVM transfer sent together, repeated up to twenty times until one block holds the bank transfer ahead of the EVM one, with the layout of that block named in the test log; a contract call that reverts from a first-use key; the identity bind at 0x0000000000000000000000000000000000001004 in the form that services/interop/crates/x-websearch/src/receiver.rs builds, from a first-use key; and one state-changing call of the ledger precompile at 0x000000000000000000000000000000000000101a in the form that services/interop/crates/x-websearch/src/payment.rs builds. Where the local network lacks state that the ledger call needs, cover the nearest call it can serve and name in the final message what is missing."
+do_5 = "do_5 If a case shows the full node stopping or differing, do not change the node: keep the case as written, mark nothing as expected to fail, and give case, block layout and the first message of the log of the full node in the final message. Run the present cases of the package named TestLocalNodeV6120SequencerReceipt once by hand against a run without --follower. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/localnode"]
+tests = []
+planned_paths = ["tools/qualification/localnode/v6120_follower_test.go"]
+build_cmd = "make -f chain.mk install"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-follower.env && set -a && . /tmp/lx-localnode-follower.env && set +a && go test -count=1 ./tools/qualification/localnode/ -run '^TestLocalNodeV6120Follower'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.542]
 title = "Report at construction a pool configuration without an entry time limit"
@@ -305072,7 +305662,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.39.505]
 title = "Bring the SDK verification target of the platform in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -328895,6 +329485,131 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.555]
+title = "Answer the tracing methods for blocks built by the sequencing node"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.555"]
+interfaces = []
+do_1 = "do_1 Gotcha 4457, decision 3543. Read TraceTransaction, TraceBlockByNumber, TraceBlockByHash and TraceCall in rpc/tracers.go and the means they use to read and replay a block, and read how a node with sequencing enabled lays out the entries of a block it builds and how the block read methods of rpc treat them. Name in the final message the entry that the transaction decoder does not read and the place where the tracing path hands it to the decoder."
+do_2 = "do_2 The tracing methods treat the entries of a block as the block read methods do: an entry that is not a transaction is not handed to the transaction decoder, and the transactions keep their positions and hashes. Answers for blocks without such an entry do not change. Change no method name, parameter or answer form."
+do_3 = "do_3 Add rpc/trace_block_entries_test.go with cases whose names begin with TestTraceBlockEntries, built on the means of rpc/debug_trace_block_test.go. For a block laid out as the sequencing node builds it, each of the four methods answers without the text tx parse error, the trace of a transaction equals the trace of the same transaction in a block without the extra entry, and the count and order of traces of a block equal its transactions."
+do_4 = "do_4 If the place of do_1 lies outside rpc, change nothing there and give file, symbol and first message in the final message. Run the tests of ./rpc/ named Trace once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["rpc"]
+tests = []
+planned_paths = ["rpc/trace_block_entries_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./rpc/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^(TestTraceBlockEntries|TestDebugTraceBlock)'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.554]
+title = "Honour the trace switch in the deliver entry of the node"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.554"]
+interfaces = []
+do_1 = "do_1 Gotcha 4456, decision 3542. Read DeliverTx in node/abci.go and the same calls in sdk/baseapp/abci.go. Both calls of ResponseDeliverTxWithEvents in node/abci.go pass the trace switch of the application, read through Trace of the base application."
+do_2 = "do_2 Add node/deliver_trace_test.go with cases whose names begin with TestDeliverTrace. With the switch off the answer of a failed delivery equals the present one byte for byte. With the switch on the log carries the full text of the failure. Code, codespace, data, gas and events are equal in both. A delivery that ends in a recovered panic shows the text of the panic in the log when the switch is on."
+do_3 = "do_3 Change nothing else in the deliver path. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/abci.go"]
+tests = []
+planned_paths = ["node/deliver_trace_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./node/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestDeliverTrace'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.553]
+title = "Serve store iteration in the ordinary deliver step of the concurrent block path"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.553"]
+interfaces = []
+do_1 = "do_1 Gotcha 4455, decision 3541. Read ProcessTXsWithOCCGiga and CacheContext in node/app.go, tryInitMultiVersionStore in engine/deps/tasks/scheduler.go, the store in engine/deps/store/cachekv.go, AssociateAddress in node/ante/evm_checktx.go and MigrateBalance in utils/helpers/associate.go. The scheduler that ProcessTXsWithOCCGiga builds with app.DeliverTx serves Iterator and ReverseIterator over the stores it shares with the fast executor. The view is the one of synchronous delivery: the entries of the parent merged with the entries the store holds unwritten, in key order, with deletions honoured, for bounded and open ranges."
+do_2 = "do_2 The scheduler of the fast executor keeps its present behaviour: iteration over these stores ends the transaction with the present abort, and no text or code of that abort changes. Say in the final message how the two schedulers are told apart and why the view of do_1 is complete at every place where the second scheduler runs."
+do_3 = "do_3 Add engine/deps/store/iteration_view_test.go: the view of do_1 equals a reference over an ordinary store for sets, overwrites and deletions, forward and reverse, bounded and open ranges, with and without unwritten entries, and the plain store still refuses iteration as now. Add engine/deps/tasks/scheduler_iteration_test.go: a scheduler for the ordinary deliver path runs a deliver function that iterates a shared store, with a second transaction that iterates keys the first one wrote, and the results equal sequential execution; the scheduler of the fast executor shows the present abort for the same function."
+do_4 = "do_4 Add node/concurrent_first_use_test.go with cases whose names begin with TestConcurrentFirstUse, built on the means of node/sequenced_execution_recovery_test.go. A block holds an EVM transaction from an address that is not yet associated and holds a balance under its cast address. Executed through ExecuteTxsConcurrently it gives results, gas and application state equal to the synchronous execution of the same block, and no result carries the infrastructure codespace. Cases: the transaction alone; after another EVM transaction; before a transaction that is not an EVM transaction; after a transaction that is not an EVM transaction; two first-use senders in one block; a first-use sender whose transaction reverts."
+do_5 = "do_5 Change no transaction form, result code, event or stored form, and no present test expectation. Run the tests of ./engine/deps/... and the cases of ./node/ named TestSequencedExecution once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["engine/deps/store", "engine/deps/tasks", "node/app.go"]
+tests = []
+planned_paths = ["engine/deps/store/iteration_view_test.go", "engine/deps/tasks/scheduler_iteration_test.go", "node/concurrent_first_use_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./node/... ./engine/deps/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./engine/deps/store/ ./engine/deps/tasks/ && CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestConcurrentFirstUse'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.551]
+title = "Forward receipt requests on a node with sequencing disabled when the forward URL is set"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.551"]
+interfaces = []
+do_1 = "do_1 Gotcha 4453, decision 3539. Read NewNode in node/sequencer/node.go for a configuration with sequencing disabled, NewFollowerReceiptOption in node/sequencer/follower.go, SetSequencerRPC and the place where the EVM servers take the receipt option in node/app.go, and the start of the application in daemon/paxd/cmd/root.go. At start, a node with sequencing disabled and a nonempty sequencer.receipt-forward-url hands the option of NewFollowerReceiptOption to the application through SetSequencerRPC before the EVM servers are built. Choose the place, NewNode or the command, that every start path of the node command passes, and say in the final message which."
+do_2 = "do_2 With an empty key the node behaves as it does now and answers with the present text. A node with sequencing enabled keeps its present refusal of the key. A URL that NewFollowerReceiptOption refuses ends the start with the present text. Change no rule of receipt verification, no method name and no present text that tests read."
+do_3 = "do_3 Add node/sequencer/follower_start_test.go with cases whose names begin with TestFollowerStart, built on the means of node/sequencer/rpc_e2e_test.go and node/sequencer/proof_sequencer_receipt_test.go. A node started by the path of do_1 with sequencing disabled and the key naming a stand-in sequencing endpoint answers pax_sequencerReceipt with the forwarded receipt after verification, and a receipt whose signer is not pinned is refused as now. Without the key the answer is the present text. With sequencing enabled and the key set the start is refused as now. The cases set the option through the start path and not by a call of SetSequencerRPC of their own."
+do_4 = "do_4 Run the tests of ./node/sequencer/ and ./daemon/paxd/cmd/ once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer", "daemon/paxd/cmd", "node/app.go"]
+tests = []
+planned_paths = ["node/sequencer/follower_start_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./node/... ./daemon/paxd/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^(TestFollowerStart|TestFollowerReceiptOption|TestForwardedReceiptOnFollowerNode|TestProofSequencerReceipt)' && CGO_ENABLED=1 go test -count=1 ./daemon/paxd/cmd/ -run 'NewApp|RootCommands'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3545, gotcha 4459. TestNewAppPassesSequencerConfigToNode in daemon/paxd/cmd/new_app_test.go names a standby address and sets none of the replication flags. Give the case a certificate, a key, roots, a peer name and the digest of the peer key, made in its temporary directory and set through the five replication flags of node/sequencer/config.go, by the means the tests of node/sequencer use. Every present expectation of the case stays. The requirement of node/sequencer/dial.go does not change. Run the build once and the verification once at the final revision."
 
 [task.22.39.539]
 title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"

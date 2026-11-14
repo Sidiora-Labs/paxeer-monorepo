@@ -69,11 +69,17 @@ fn committed_state_committed_submission_recovers_after_restart() -> TestResult {
     clear_reads(&peer);
     let metrics = Mutex::new(health::Metrics::default());
     let mut sidecar = start(&config, &peer, &dir);
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     {
         let state = peer.state.lock().unwrap();
         assert_eq!(state.account_reads, [840]);
-        assert_eq!(state.observation_reads, [(0, 840), (1, 840)]);
+        let mut observations = state.observation_reads.clone();
+        observations.sort_unstable();
+        assert_eq!(observations, [(0, 840), (1, 840)]);
         assert!(state.mempool_pages.is_empty());
     }
     let journal = Journal::load(&dir.0, 0)?;
@@ -102,7 +108,11 @@ fn committed_state_committed_submission_recovers_after_restart() -> TestResult {
     drop(sidecar);
     let mut sidecar = start(&config, &peer, &dir);
     let metrics = Mutex::new(health::Metrics::default());
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert_eq!(dir.progress(), progress);
     assert_eq!(Journal::load(&dir.0, 0)?, journal);
     assert!(health::lock(&metrics)
@@ -131,7 +141,11 @@ fn committed_state_failed_execution_resynchronises_every_market() -> TestResult 
     }
     clear_reads(&peer);
     let mut sidecar = start(&config, &peer, &dir);
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert_reads(&peer, 840, &[0, 1], 1);
     assert_unconfirmed(&metrics);
     assert!(dir.progress()["pending"]
@@ -176,7 +190,11 @@ fn committed_state_unused_sequence_stays_pending_within_bound() -> TestResult {
     ] {
         peer.state.lock().unwrap().committed_height = Some(height);
         clear_reads(&peer);
-        assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+        assert!(
+            sidecar
+                .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+                .fate_open
+        );
         let state = peer.state.lock().unwrap();
         assert_eq!(state.account_reads, [height]);
         assert!(state.observation_reads.is_empty());
@@ -186,6 +204,7 @@ fn committed_state_unused_sequence_stays_pending_within_bound() -> TestResult {
         assert_unconfirmed(&metrics);
     }
     let requests = peer.state.lock().unwrap().ticker_requests;
+    peer.serve_fresh_quotes();
     round::run_round(
         &config,
         &agent(),
@@ -196,8 +215,8 @@ fn committed_state_unused_sequence_stays_pending_within_bound() -> TestResult {
         &dir.0,
     )?;
     let state = peer.state.lock().unwrap();
-    assert_eq!(state.txs.len(), 1);
-    assert_eq!(state.ticker_requests, requests);
+    assert_eq!(state.txs.len(), 2);
+    assert_eq!(state.ticker_requests, requests + 1);
     Ok(())
 }
 
@@ -222,7 +241,11 @@ fn committed_state_unused_sequence_is_evicted_at_bound() -> TestResult {
         peer.state.lock().unwrap().committed_height = Some(height);
         clear_reads(&peer);
         let mut sidecar = start(&config, &peer, &dir);
-        assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+        assert!(
+            !sidecar
+                .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+                .fate_open
+        );
         assert_reads(&peer, height, &[0], 1);
         assert!(dir.progress()["pending"]
             .as_array()
@@ -267,7 +290,11 @@ fn committed_state_served_lookup_reads_pool_pages_until_total() -> TestResult {
         state.mempool.as_mut().unwrap()[200] = previous;
         state.fate = Fate::Evicted;
     }
-    assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert_eq!(peer.state.lock().unwrap().mempool_pages, [1, 2, 3]);
     assert_eq!(dir.progress(), pending);
     assert_eq!(Journal::load(&dir.0, 0)?, journal);
@@ -279,7 +306,11 @@ fn committed_state_served_lookup_reads_pool_pages_until_total() -> TestResult {
         state.mempool_pages.clear();
         state.tx_lookups = 0;
     }
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     let state = peer.state.lock().unwrap();
     assert_eq!(state.mempool_pages, [1, 2, 3]);
     assert_eq!(state.tx_lookups, 2);
