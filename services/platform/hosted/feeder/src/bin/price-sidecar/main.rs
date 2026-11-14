@@ -28,6 +28,10 @@ fn default_max_pending_submissions() -> usize {
     8
 }
 
+fn default_max_committed_reads_in_flight() -> usize {
+    6
+}
+
 fn default_pending_submission_block_limit() -> u64 {
     round::PENDING_SUBMISSION_BLOCK_LIMIT
 }
@@ -54,6 +58,8 @@ pub struct Config {
     pub cadence_ms: u64,
     #[serde(default = "default_max_pending_submissions")]
     pub max_pending_submissions: usize,
+    #[serde(default = "default_max_committed_reads_in_flight")]
+    pub max_committed_reads_in_flight: usize,
     #[serde(default = "default_pending_submission_block_limit")]
     pub pending_submission_block_limit: u64,
     pub retry_backoff_ms: u64,
@@ -97,6 +103,10 @@ impl Config {
             (
                 "max_pending_submissions",
                 self.max_pending_submissions as u64,
+            ),
+            (
+                "max_committed_reads_in_flight",
+                self.max_committed_reads_in_flight as u64,
             ),
             (
                 "pending_submission_block_limit",
@@ -320,6 +330,12 @@ pub fn run(check_config: bool) -> Result<(), String> {
         env("PRICE_SIDECAR_EVM_RPC_URL")?,
     )?;
     let mut sidecar = round::start(&config, &rpc, secret, &state_dir)?;
+    eprintln!(
+        "price-sidecar: max_pending_submissions {}, max_committed_reads_in_flight {}, pending_submission_block_limit {}",
+        config.max_pending_submissions,
+        config.max_committed_reads_in_flight,
+        config.pending_submission_block_limit,
+    );
     let metrics = Arc::new(Mutex::new(health::Metrics::default()));
     health::serve(&health, Arc::clone(&metrics), config.cadence_ms)?;
     let cadence = Duration::from_millis(config.cadence_ms);
