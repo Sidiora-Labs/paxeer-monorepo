@@ -118,12 +118,17 @@ fn finding_029_checktx_is_pending_and_restart_confirms_actual_height() -> TestRe
     let journal = Journal::load(&dir.0, 0)?;
     assert_eq!(journal.next_account_sequence, 3);
     assert_eq!(journal.markets["BTC"].sequence, 0);
-    assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     let requests = peer
         .state
         .lock()
         .unwrap_or_else(|error| panic!("{error:?}"))
         .ticker_requests;
+    peer.serve_fresh_quotes();
     round::run_round(
         &config,
         &agent(),
@@ -138,7 +143,7 @@ fn finding_029_checktx_is_pending_and_restart_confirms_actual_height() -> TestRe
             .lock()
             .unwrap_or_else(|error| panic!("{error:?}"))
             .ticker_requests,
-        requests
+        requests + 1
     );
     assert_eq!(
         peer.state
@@ -146,26 +151,38 @@ fn finding_029_checktx_is_pending_and_restart_confirms_actual_height() -> TestRe
             .unwrap_or_else(|error| panic!("{error:?}"))
             .txs
             .len(),
-        1
+        2
     );
     drop(sidecar);
     let mut sidecar = start(&config, &peer, &dir);
     let metrics = Mutex::new(health::Metrics::default());
-    assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert_unconfirmed(&metrics);
     {
         let mut state = peer
             .state
             .lock()
             .unwrap_or_else(|error| panic!("{error:?}"));
-        state.fate = Fate::Committed {
-            code: 0,
-            height: 840,
-        };
+        state.fate = Fate::Evicted;
+        state.tx_fates = vec![
+            Fate::Committed {
+                code: 0,
+                height: 840,
+            },
+            Fate::Evicted,
+        ];
         state.account_sequence = 4;
         state.observation_sequence = 1;
     }
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     let journal = Journal::load(&dir.0, 0)?;
     assert_eq!(journal.next_account_sequence, 4);
     assert_eq!(journal.markets["BTC"].sequence, 1);
@@ -219,7 +236,11 @@ fn recovery_after_failure(fate: Fate, expected_account: u8, label: &str) -> Test
         state.account_sequence = expected_account;
     }
     let mut sidecar = start(&config, &peer, &dir);
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert_unconfirmed(&metrics);
     assert!(dir.progress()["pending"]
         .as_array()
@@ -250,7 +271,11 @@ fn recovery_after_failure(fate: Fate, expected_account: u8, label: &str) -> Test
         state.account_sequence += 1;
         state.observation_sequence = 1;
     }
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert_eq!(dir.progress()["confirmed_height"], 845);
     assert!(health::lock(&metrics).is_ready(now_ms(), 1000));
     Ok(())
@@ -346,7 +371,11 @@ fn finding_029_lost_acknowledgement_retries_identical_signed_bytes_and_recovers(
         state.observation_sequence = 1;
     }
     let mut reopened = start(&config, &peer, &dir);
-    assert!(reopened.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !reopened
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert_eq!(dir.progress()["confirmed_height"], 840);
     assert_eq!(
         peer.state

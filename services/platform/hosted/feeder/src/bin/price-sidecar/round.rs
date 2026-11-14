@@ -431,6 +431,15 @@ pub enum Outcome {
     Transport(String),
 }
 
+/// Result of reconciling the oldest pending submissions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReconcileReport {
+    /// Whether the node reads needed to decide the available fates succeeded.
+    pub could_read: bool,
+    /// Whether the oldest pending submission still has an open fate.
+    pub fate_open: bool,
+}
+
 impl Outcome {
     /// Metric label of the outcome.
     #[must_use]
@@ -707,14 +716,14 @@ impl Sidecar {
         Ok(account)
     }
 
-    fn read_observations(
+    fn read_observations_from(
         &self,
         config: &Config,
         rpc: &Rpc,
         account: Account,
+        mut journal: Journal,
     ) -> Result<Journal, String> {
         let validator = config.validator()?;
-        let mut journal = self.journal.clone();
         journal.next_account_sequence = account.sequence;
         let height = format!("0x{:x}", account.height);
         let sequences: Vec<_> = thread::scope(|scope| {
@@ -751,6 +760,15 @@ impl Sidecar {
         Ok(journal)
     }
 
+    fn read_observations(
+        &self,
+        config: &Config,
+        rpc: &Rpc,
+        account: Account,
+    ) -> Result<Journal, String> {
+        self.read_observations_from(config, rpc, account, self.journal.clone())
+    }
+
     fn read_committed(&self, config: &Config, rpc: &Rpc) -> Result<(Account, Journal), String> {
         let account = self.read_account(rpc)?;
         let journal = self.read_observations(config, rpc, account)?;
@@ -765,7 +783,6 @@ impl Sidecar {
     }
 
     /// Reconciles durable submissions with committed execution and the mempool.
-    /// Returns false while a submission is still pending; no new round may spend its sequences.
     ///
     /// # Errors
     /// Returns an error when the account, transaction lookup, mempool response,
@@ -776,7 +793,7 @@ impl Sidecar {
         rpc: &Rpc,
         metrics: &Mutex<Metrics>,
         dir: &Path,
-    ) -> Result<bool, String> {
+    ) -> Result<ReconcileReport, String> {
         #[derive(Deserialize)]
         struct ExecutionResult {
             #[serde(default)]
@@ -791,7 +808,10 @@ impl Sidecar {
                     self.sync_committed(config, rpc, dir)?;
                 }
                 lock(metrics).clear_pending();
-                return Ok(true);
+                return Ok(ReconcileReport {
+                    could_read: true,
+                    fate_open: false,
+                });
             };
             lock(metrics).pending(
                 &pending.hash,
@@ -835,15 +855,19 @@ impl Sidecar {
                     }
                 }
                 TxLookup::NotServed => {
-                    self.journal = Journal::load(dir, 0)?;
                     let account = self.read_account(rpc)?;
                     if account.sequence < pending.journal.next_account_sequence
                         && account.height.saturating_sub(pending.proposed_height)
                             < config.pending_submission_block_limit
                     {
-                        return Ok(false);
+                        return Ok(ReconcileReport {
+                            could_read: true,
+                            fate_open: true,
+                        });
                     }
-                    let committed = self.read_observations(config, rpc, account)?;
+                    let committed_base = Journal::load(dir, 0)?;
+                    let committed =
+                        self.read_observations_from(config, rpc, account, committed_base)?;
                     committed_read = true;
                     committed_journal = Some(committed.clone());
                     if account.sequence >= pending.journal.next_account_sequence {
@@ -914,7 +938,10 @@ impl Sidecar {
                                 .decode(tx.as_str().ok_or("unconfirmed_txs: invalid bytes")?)
                                 .map_err(|e| e.to_string())?;
                             if hex_encode(&Sha256::digest(bytes)) == pending.hash {
-                                return Ok(false);
+                                return Ok(ReconcileReport {
+                                    could_read: true,
+                                    fate_open: true,
+                                });
                             }
                         }
                         if read == page_total {
@@ -955,9 +982,13 @@ impl Sidecar {
                 while self.progress.pending.pop().is_some() {
                     lock(metrics).submission(&Outcome::Evicted, 0, now_ms());
                 }
+                self.journal = journal_for_store;
                 self.progress.store(dir)?;
                 lock(metrics).clear_pending();
-                return Ok(true);
+                return Ok(ReconcileReport {
+                    could_read: true,
+                    fate_open: false,
+                });
             }
         }
     }
@@ -1078,9 +1109,6 @@ impl Sidecar {
                 },
             },
         };
-        if reread {
-            self.journal.next_account_sequence = read.sequence;
-        }
         *account = Some(read);
         let submission = self.next_submission(config, read, observations.to_vec());
         let tx = match encode_tx(&self.secret, &submission) {
@@ -1123,14 +1151,24 @@ impl Sidecar {
         let mut observations = observations.to_vec();
         let mut plan = RetryPlan::new(config.retry_backoff_ms, config.retry_max_attempts);
         let mut account = None;
-        let mut pending_index = None;
+        let mut pending_index: Option<usize> = None;
         let mut last = None;
         while let Some(attempt) = plan.next(last.as_ref()) {
             thread::sleep(Duration::from_millis(attempt.delay_ms));
             if attempt.reread {
-                if !self.reconcile(config, rpc, metrics, state_dir)? {
+                let pending_hash = pending_index
+                    .and_then(|index| self.progress.pending.get(index))
+                    .map(|pending| pending.hash.clone());
+                let report = self.reconcile(config, rpc, metrics, state_dir)?;
+                if !report.could_read {
                     break;
                 }
+                pending_index = pending_hash.and_then(|hash| {
+                    self.progress
+                        .pending
+                        .iter()
+                        .position(|pending| pending.hash == hash)
+                });
                 for observation in &mut observations {
                     let market = config
                         .markets
@@ -1209,13 +1247,15 @@ pub fn run_round(
     metrics: &Mutex<Metrics>,
     state_dir: &Path,
 ) -> Result<(), String> {
-    match sidecar.reconcile(config, rpc, metrics, state_dir) {
-        Ok(true) => {}
-        Ok(false) => return Ok(()),
+    let report = match sidecar.reconcile(config, rpc, metrics, state_dir) {
+        Ok(report) => report,
         Err(error) => {
             eprintln!("price-sidecar: reconciliation deferred: {error}");
             return Ok(());
         }
+    };
+    if !report.could_read {
+        return Ok(());
     }
     if sidecar.pending_count() >= config.max_pending_submissions {
         return Ok(());
