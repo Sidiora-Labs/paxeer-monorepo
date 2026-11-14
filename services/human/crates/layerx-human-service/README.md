@@ -7,9 +7,9 @@ authorized native calls. The [Human API schema](../../schema/human-api/README.md
 contract. Principal and tenant authorization precede operation dispatch;
 caller aliases and currency labels are selectors, not signing authority.
 
-Paxeer mainnet-beta is one BFT network with EVM chain id **125** (`0x7d`). The
-kernel is part of the network and proposes blocks. A receipt becomes final when
-its block is committed. Tenant domains are database namespaces. Human services
+Paxeer mainnet-beta uses EVM chain id **125** (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt becomes final when its block is committed. Tenant domains are database namespaces. Human services
 consume that network's transaction and receipt paths.
 
 ## Processes and dependencies
