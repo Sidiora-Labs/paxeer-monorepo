@@ -503,6 +503,7 @@ fn atomic_rotation_lost_response_restart_and_tombstones() -> Result<()> {
     checked(write_frame(&mut lost_reply, &rotate, MAX))?;
     let clock = Arc::clone(&host.clock);
     let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
+    let mut poll_delay = Duration::from_millis(20);
     loop {
         let (_, observed) = facts(&host.call(&request(2, binding, &handle, None)?)?)?;
         if observed != original {
@@ -511,7 +512,8 @@ fn atomic_rotation_lost_response_restart_and_tombstones() -> Result<()> {
         if deadline.remaining(clock.as_ref())?.is_zero() {
             return Err("lost-response rotation was not committed".into());
         }
-        std::thread::sleep(Duration::from_millis(20));
+        std::thread::sleep(poll_delay);
+        poll_delay = poll_delay.saturating_mul(2).min(Duration::from_millis(200));
     }
     drop(lost_reply);
     let committed = host.call(&rotate)?;
@@ -2066,6 +2068,7 @@ fn assert_lost_reply_export(
     checked(write_frame(&mut lost_reply, &lost_export, MAX))?;
     let clock = Arc::clone(&host.clock);
     let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
+    let mut poll_delay = Duration::from_millis(20);
     loop {
         if client.evm_operation(6, &lost, &lost_reference, &[]).err()
             == Some(KmsError::SelfCustodied)
@@ -2075,7 +2078,8 @@ fn assert_lost_reply_export(
         if deadline.remaining(clock.as_ref())?.is_zero() {
             return Err("lost-response export was not committed".into());
         }
-        std::thread::sleep(Duration::from_millis(20));
+        std::thread::sleep(poll_delay);
+        poll_delay = poll_delay.saturating_mul(2).min(Duration::from_millis(200));
     }
     drop(lost_reply);
     let lost_envelope = client.export_envelope(&lost, &lost_reference, &lost_ceremony)?;

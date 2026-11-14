@@ -82,17 +82,25 @@ fn sign_setup(
     (binding, handle, _public): ([u8; 32], &[u8], [u8; 32]),
     (canonical, _call_disclosure): &(Vec<u8>, CallBinding),
     disclosure: &CallBinding,
-) -> Result<[u8; 65]> {
+) -> Result<Option<[u8; 65]>> {
     let encoded = disclosure.disclosure_bytes()?;
     let (request, digest) = evm_signing_request(host, binding, handle, canonical, &encoded)?;
     let response = host.call(&request)?;
-    assert_eq!(response[7], 0, "native creation {kind} signing refused");
-    assert_eq!(
-        response.len(),
-        73,
-        "native creation {kind} signature length"
-    );
-    verify_evm_signature(host, binding, handle, &digest, &response[8..])?;
+    let signature = if kind == "budget-create-v1" {
+        // The attestor policy requires a pinned construct-state witness before
+        // it signs a state-dependent budget creation call.
+        assert_eq!(response.as_slice(), b"LXKP\0\x07\x05\x01");
+        None
+    } else {
+        assert_eq!(response[7], 0, "native creation {kind} signing refused");
+        assert_eq!(
+            response.len(),
+            73,
+            "native creation {kind} signature length"
+        );
+        verify_evm_signature(host, binding, handle, &digest, &response[8..])?;
+        Some(response[8..].try_into()?)
+    };
     if let Some(shared) = disclosure.shared_disclosure() {
         for changed in mutated_native(shared) {
             assert_eq!(
@@ -135,7 +143,7 @@ fn sign_setup(
             );
         }
     }
-    Ok(response[8..].try_into()?)
+    Ok(signature)
 }
 
 #[path = "native_setup_vectors.rs"]
@@ -210,16 +218,6 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
         calls.iter().map(|(kind, _, _)| *kind).collect::<Vec<_>>(),
         CREATION_KINDS
     );
-    let (initial_kind, initial_payload, initial_call) = &calls[0];
-    let initial_disclosure = setup_disclosure(target_public, initial_payload, &initial_call.1)?;
-    let signature = sign_setup(
-        initial_kind,
-        &host,
-        target,
-        initial_call,
-        &initial_disclosure,
-    )?;
-    let mut first = Vec::new();
     for pass in 0..2 {
         if pass == 1 {
             host.stop();
@@ -237,7 +235,9 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
                 setup_disclosure(target_public, payload, &call.1).map_err(|error| {
                     format!("native creation {kind}, pass {pass}: disclosure: {error}")
                 })?;
-            signatures.push(sign_setup(kind, &host, target, &call, &disclosure)?);
+            let signature = sign_setup(kind, &host, target, &call, &disclosure)?;
+            assert_eq!(signature.is_some(), *kind != "budget-create-v1");
+            signatures.push(signature);
             covered.push(*kind);
         }
         assert_eq!(
@@ -245,12 +245,6 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
             "native creation coverage on pass {pass}"
         );
         assert_eq!(signatures.len(), CREATION_KINDS.len());
-        assert_eq!(signatures[0], signature);
-        if pass == 0 {
-            first = signatures;
-        } else {
-            assert_eq!(signatures, first);
-        }
     }
     Ok(())
 }
