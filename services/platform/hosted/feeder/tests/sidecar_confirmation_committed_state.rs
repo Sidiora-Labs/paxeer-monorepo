@@ -69,11 +69,8 @@ fn committed_state_committed_submission_recovers_after_restart() -> TestResult {
     assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
     {
         let state = peer.state.lock().unwrap();
-        assert_eq!(state.account_reads, [840, 841]);
-        assert_eq!(
-            state.observation_reads,
-            [(0, 840), (1, 840), (0, 841), (1, 841)]
-        );
+        assert_eq!(state.account_reads, [840]);
+        assert_eq!(state.observation_reads, [(0, 840), (1, 840)]);
         assert!(state.mempool_pages.is_empty());
     }
     let journal = Journal::load(&dir.0, 0)?;
@@ -89,11 +86,11 @@ fn committed_state_committed_submission_recovers_after_restart() -> TestResult {
         );
         assert_eq!(
             journal.markets[*symbol].activity_id,
-            pending["hash"].as_str().unwrap()
+            pending[0]["hash"].as_str().unwrap()
         );
     }
     let progress = dir.progress();
-    assert!(progress["pending"].is_null());
+    assert!(progress["pending"].as_array().is_some_and(Vec::is_empty));
     assert_eq!(progress["confirmed_height"], 840);
     assert!(health::lock(&metrics).is_ready(now_ms(), 1000));
     assert!(health::lock(&metrics)
@@ -132,9 +129,11 @@ fn committed_state_failed_execution_resynchronises_every_market() -> TestResult 
     clear_reads(&peer);
     let mut sidecar = start(&config, &peer, &dir);
     assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
-    assert_reads(&peer, 840, &[0, 1], 2);
+    assert_reads(&peer, 840, &[0, 1], 1);
     assert_unconfirmed(&metrics);
-    assert!(dir.progress()["pending"].is_null());
+    assert!(dir.progress()["pending"]
+        .as_array()
+        .is_some_and(Vec::is_empty));
     let journal = Journal::load(&dir.0, 0)?;
     assert_eq!(journal.next_account_sequence, 4);
     assert_eq!(journal.markets["BTC"].sequence, 1);
@@ -163,7 +162,7 @@ fn committed_state_unused_sequence_stays_pending_within_bound() -> TestResult {
     submit(&config, &peer, &dir, &mut sidecar, &metrics);
     let pending = dir.progress();
     let journal = Journal::load(&dir.0, 0)?;
-    let proposed = pending["pending"]["proposed_height"].as_u64().unwrap();
+    let proposed = pending["pending"][0]["proposed_height"].as_u64().unwrap();
     drop(sidecar);
     disable_lookup(&peer);
     let mut sidecar = start(&config, &peer, &dir);
@@ -208,7 +207,7 @@ fn committed_state_unused_sequence_is_evicted_at_bound() -> TestResult {
         let metrics = Mutex::new(health::Metrics::default());
         let mut sidecar = start(&config, &peer, &dir);
         let submission = submit(&config, &peer, &dir, &mut sidecar, &metrics);
-        let proposed = dir.progress()["pending"]["proposed_height"]
+        let proposed = dir.progress()["pending"][0]["proposed_height"]
             .as_u64()
             .unwrap();
         drop(sidecar);
@@ -218,8 +217,10 @@ fn committed_state_unused_sequence_is_evicted_at_bound() -> TestResult {
         clear_reads(&peer);
         let mut sidecar = start(&config, &peer, &dir);
         assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
-        assert_reads(&peer, height, &[0], 2);
-        assert!(dir.progress()["pending"].is_null());
+        assert_reads(&peer, height, &[0], 1);
+        assert!(dir.progress()["pending"]
+            .as_array()
+            .is_some_and(Vec::is_empty));
         assert_unconfirmed(&metrics);
         let journal = Journal::load(&dir.0, 0)?;
         assert_eq!(journal.next_account_sequence, submission.sequence);
@@ -276,8 +277,10 @@ fn committed_state_served_lookup_reads_pool_pages_until_total() -> TestResult {
     let state = peer.state.lock().unwrap();
     assert_eq!(state.mempool_pages, [1, 2, 3]);
     assert_eq!(state.tx_lookups, 2);
-    assert!(dir.progress()["pending"].is_null());
-    assert_eq!(Journal::load(&dir.0, 0)?.next_account_sequence, 4);
+    assert!(dir.progress()["pending"]
+        .as_array()
+        .is_some_and(Vec::is_empty));
+    assert_eq!(Journal::load(&dir.0, 0)?.next_account_sequence, 3);
     assert!(health::lock(&metrics)
         .metrics_text(now_ms())
         .contains("result=\"evicted\"} 1\n"));
