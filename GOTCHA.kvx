@@ -21915,3 +21915,8 @@ fix = "Decision 3504. The file of the case joins the paths of the task."
 title = "The test target of the human workspace takes no member selection"
 symptom = "The target human-test of the Makefile runs the tests of every member of the human workspace in one cargo line. A task that brings a group of members in line cannot be counted on that group."
 fix = "Decision 3505. The cargo line of the target reads its member selection from a variable whose default is the whole workspace."
+
+[gotcha.4419]
+title = "The two format steps of the lint targets leave out different directories"
+symptom = "The format step of the target paxeer-manifest-lint of the Makefile leaves out the dependency sources under core/deps, the output directory build and the fixtures of the vendored tree under tools. The format step of the target lint of chain.mk, which the same target calls next, leaves out none of the three."
+fix = "Decision 3506. Task 22.39.516."
