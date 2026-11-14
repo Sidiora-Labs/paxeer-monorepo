@@ -328748,7 +328748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.516]
 title = "Let the format step of the lint target leave out what the Makefile leaves out and bring the target to pass as a whole"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.511", "22.39.535"]
