@@ -204,7 +204,7 @@ func challengeHTTP(t *testing.T, svc *Service) *httptest.Server {
 	t.Cleanup(server.Close)
 	return server
 }
-func challengeRequest(server *httptest.Server, path string, body any) (result, error) {
+func challengeRequestJSON(server *httptest.Server, path string, body any) (result, error) {
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return result{}, err
@@ -220,7 +220,7 @@ func challengeRequest(server *httptest.Server, path string, body any) (result, e
 }
 func challengePost(t *testing.T, server *httptest.Server, path string, body any) result {
 	t.Helper()
-	r, err := challengeRequest(server, path, body)
+	r, err := challengeRequestJSON(server, path, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -407,7 +407,7 @@ func TestChallengeBoundedCleanupAndAtomicUse(t *testing.T) {
 	}
 	out := make(chan outcome, 16)
 	for i := 0; i < 16; i++ {
-		go func() { r, err := challengeRequest(server, "/v2/auth/verify", request); out <- outcome{r, err} }()
+		go func() { r, err := challengeRequestJSON(server, "/v2/auth/verify", request); out <- outcome{r, err} }()
 	}
 	// Cleanup and concurrent verifies share the same production DB path.
 	if n, err := svc.CleanupChallenges(context.Background()); err != nil || n != 0 {
