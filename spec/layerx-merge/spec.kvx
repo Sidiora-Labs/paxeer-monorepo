@@ -171156,7 +171156,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.334]
 title = "Bring the page on the modules of the docs site and the files built from it to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
