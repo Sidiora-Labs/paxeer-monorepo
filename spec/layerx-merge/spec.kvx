@@ -207197,7 +207197,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.533]
 title = "Run the test target of the agent workspace over its whole scope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.526", "22.39.527", "22.39.528", "22.39.529", "22.39.530", "22.39.531", "22.39.532"]
