@@ -206590,7 +206590,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.550]
 title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.549"]
