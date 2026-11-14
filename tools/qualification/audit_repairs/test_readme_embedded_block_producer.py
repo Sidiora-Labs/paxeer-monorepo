@@ -58,8 +58,8 @@ def test_051_single_paxd_network_and_embedded_block_producer():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "The public API reaches the node directly at the root path on EVM chain ID 125", "outside consensus",
@@ -225,7 +225,7 @@ def test_051_build_commands_target_the_merged_node_without_obsolete_steps():
     require(source("daemon/paxd/cmd/root.go"), "server.AddCommands(")
     release = section("Releases and Network Upgrades")
     require(release, "executes kernel activity inside `paxd`",
-            "commits it with the BFT chain state")
+            "validators commit it in the same block")
     assert "The former unified router and its prefixed RPC routes are retired." in RPC_REFERENCE
     for stale in (
         r"\blayerxd\b", r"\blx_sendActivity\b", r"https?://[^\s`<>)]+/rpc(?:/|\b)",

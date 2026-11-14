@@ -51,8 +51,8 @@ def test_readme_integrates_kernel_and_block_proposal_inside_paxd():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel", "runs inside `paxd`", "modules/lxphost",
         "Sub-chains are tenant domains stored in the database",
         "does not require new node infrastructure",
@@ -198,7 +198,7 @@ def test_readme_diagrams_keep_execution_and_finality_in_one_network():
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
     assert len(diagrams) == 2
     topology, sequence = diagrams
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     assert "subgraph Node[paxd]" in topology
     assert "RPC --> Order --> Host --> Native" in topology
     assert "Validators -->|Commit| State" in topology

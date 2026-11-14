@@ -50,8 +50,8 @@ def test_doc_root_two_domains_finished_paxd_network_and_commit_finality():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "Sub-chains are tenant domains stored in the database",
@@ -65,7 +65,7 @@ def test_doc_root_two_domains_finished_paxd_network_and_commit_finality():
     )
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     for stale in (
         r"\blayerxd\b", r"two (?:execution )?domains",
         r"kernel still runs separately", r"merge is (?:only )?a draft",

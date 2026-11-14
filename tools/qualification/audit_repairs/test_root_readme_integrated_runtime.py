@@ -50,8 +50,8 @@ def test_doc_01_integrated_paxd_network_and_block_finality():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel",
         "runs inside `paxd`",
         "modules/lxphost",
@@ -66,7 +66,7 @@ def test_doc_01_integrated_paxd_network_and_block_finality():
     assert len(diagrams) == 1
     topology = diagrams[0]
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
