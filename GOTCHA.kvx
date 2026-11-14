@@ -22095,3 +22095,23 @@ fix = "Decision 3539. Task 22.39.551 joins them at start."
 title = "The price sidecar keeps eight submissions pending by default while a node admits one sequence per account at a time"
 symptom = "default_max_pending_submissions in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs returns 8, so a sidecar without the key starts a round at every cadence until eight submissions of its account are pending. A node admits a submission only at the committed sequence of the account and answers every later sequence with account sequence mismatch until the earlier one is committed. With the default a round after the first is refused and repeated."
 fix = "Decision 3540. Task 22.39.552 sets the default to one."
+
+[gotcha.4455]
+title = "The ordinary deliver step of the concurrent block path takes stores that do not serve iteration"
+symptom = "ProcessTXsWithOCCGiga in node/app.go builds two schedulers from engine/deps/tasks: one for the fast executor and one with app.DeliverTx for the ordinary deliver path. tryInitMultiVersionStore in engine/deps/tasks/scheduler.go gives both the stores of the fast executor, whose Iterator and ReverseIterator in engine/deps/store/cachekv.go are not served. A handler of the ordinary deliver path that iterates a store, such as the balance migration of the address association in utils/helpers/associate.go, therefore ends differently on this path than in synchronous delivery."
+fix = "Decision 3541. Task 22.39.553 gives the ordinary deliver step the view of synchronous delivery."
+
+[gotcha.4456]
+title = "The deliver entry of the node does not honour the trace switch"
+symptom = "DeliverTx in node/abci.go passes a fixed false as the last argument of ResponseDeliverTxWithEvents at both of its calls, while the same calls in sdk/baseapp/abci.go pass the trace switch of the application. A node started with the trace switch reports a failed delivery of this entry with the short text only."
+fix = "Decision 3542. Task 22.39.554 passes the switch."
+
+[gotcha.4457]
+title = "The tracing methods answer tx parse error for a block built by the sequencing node"
+symptom = "For a block built by a node with sequencing enabled, debug_traceTransaction, debug_traceBlockByNumber and debug_traceCall of rpc/tracers.go answer with the text expected 2 wire type, got 0: tx parse error, while the block read methods serve the same block. The entry of the block that the transaction decoder does not read has not been named yet."
+fix = "Decision 3543. Task 22.39.555 names it and makes the tracing methods read such a block."
+
+[gotcha.4458]
+title = "The request watch of the web search service starts at block zero when a cursor stands without a journal"
+symptom = "RequestWatcher::open in services/interop/crates/x-websearch/src/watch.rs sets the next block to zero when the cursor file exists and the journal does not. On a long chain the scan from zero does not end in useful time, and a read endpoint that keeps only recent blocks refuses the early ranges, so the watch does not advance."
+fix = "Decision 3544. Task 22.39.556 continues at the cursor and moves forward to the earliest block the endpoint serves."
