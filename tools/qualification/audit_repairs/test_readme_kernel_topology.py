@@ -59,8 +59,8 @@ def test_readme_topology_integrates_the_kernel_in_one_paxd_bft_network():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through [`modules/lxphost`](../../modules/lxphost/)",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
@@ -72,7 +72,7 @@ def test_readme_topology_integrates_the_kernel_in_one_paxd_bft_network():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
@@ -251,7 +251,7 @@ def test_readme_topology_build_and_launch_use_the_merged_paxd_entry_point():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     upgrades = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in upgrades
-    assert "commits it with the BFT chain state" in upgrades
+    assert "validators commit it in the same block" in upgrades
 
 
 def test_repair_record_maps_the_audit_finding_to_declared_source_proofs():

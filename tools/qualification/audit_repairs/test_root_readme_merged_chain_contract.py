@@ -53,8 +53,8 @@ def test_034_one_chain_125_embeds_kernel_in_paxd():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -190,7 +190,7 @@ def test_034_current_repository_paths_and_merge_status():
         assert (ROOT / path).is_dir(), path
     releases = section("Releases and Network Upgrades")
     assert "merged runtime executes kernel activity inside `paxd`" in releases
-    assert "commits it with the BFT chain state" in releases
+    assert "validators commit it in the same block" in releases
     assert "`v7.0` merge handler activates the merged interfaces" in releases
     assert "retires the old custody/checkpoint write paths" in releases
     assert not re.search(r"\bmerge\b[^.\n]*\bdraft\b|\bdraft\b[^.\n]*\bmerge\b", NETWORK, re.I)

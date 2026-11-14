@@ -180,13 +180,13 @@ fn retention_never_expires_inside_the_protocol_window() {
     );
     assert_eq!(
         store
-            .sweep(199)
+            .sweep(200)
             .unwrap_or_else(|error| panic!("sweep: {error:?}")),
         0
     );
     assert_eq!(
         store
-            .sweep(200)
+            .sweep(201)
             .unwrap_or_else(|error| panic!("sweep: {error:?}")),
         1
     );

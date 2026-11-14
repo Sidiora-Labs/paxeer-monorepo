@@ -50,8 +50,8 @@ def test_repository_topology_embeds_kernel_in_one_chain_125_network():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -67,7 +67,7 @@ def test_repository_topology_embeds_kernel_in_one_chain_125_network():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ):
@@ -200,7 +200,7 @@ def test_repository_topology_paxd_build_and_historical_source_boundary():
     )
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     for body in (build, section("What is Paxeer X Network?", 2), section("EVM and Native Precompiles")):
         for target in re.findall(r"\]\(([^)]+)\)", body):
             if not target.startswith(("https:", "http:", "#")):

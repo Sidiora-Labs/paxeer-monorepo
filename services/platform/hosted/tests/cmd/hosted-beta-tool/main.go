@@ -12,6 +12,10 @@ import (
 	hosted "github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/hosted/tests"
 )
 
+const (
+	nativeSaveCommand = "native-save"
+)
+
 func policy(args []string) (hosted.TreasuryPolicy, error) {
 	if len(args) != 3 {
 		return hosted.TreasuryPolicy{}, errors.New("native material requires network id, asset id and treasury recipient")
@@ -24,7 +28,7 @@ func policy(args []string) (hosted.TreasuryPolicy, error) {
 	return result, result.Validate()
 }
 
-func run(args []string) (any, error) {
+func run(args []string) (result0 any, resultErr error) {
 	if len(args) == 0 {
 		return nil, errors.New("hosted-beta-tool requires a command")
 	}
@@ -33,13 +37,17 @@ func run(args []string) (any, error) {
 		if len(args) != 3 {
 			return nil, errors.New("snapshot ROOT ARCHIVE")
 		}
-		var output io.Writer = io.Discard
+		output := io.Discard
 		if args[2] != "-" {
 			file, err := os.Create(args[2])
 			if err != nil {
 				return nil, err
 			}
-			defer file.Close()
+			defer func() {
+				if closeErr := file.Close(); resultErr == nil {
+					resultErr = closeErr
+				}
+			}()
 			output = file
 		}
 		return hosted.SnapshotSource(args[1], output)
@@ -59,12 +67,20 @@ func run(args []string) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer input.Close()
+		defer func() {
+			if closeErr := input.Close(); resultErr == nil {
+				resultErr = closeErr
+			}
+		}()
 		output, err := os.Create(args[6])
 		if err != nil {
 			return nil, err
 		}
-		defer output.Close()
+		defer func() {
+			if closeErr := output.Close(); resultErr == nil {
+				resultErr = closeErr
+			}
+		}()
 		return hosted.ProjectImageContext(plan, input, output)
 	case "mirror-public":
 		if len(args) != 2 {
@@ -87,9 +103,9 @@ func run(args []string) (any, error) {
 			return nil, err
 		}
 		return map[string]bool{"configured": true}, nil
-	case "native-save", "native-open", "native-secret":
+	case nativeSaveCommand, "native-open", "native-secret":
 		offset := 2
-		if args[0] == "native-save" {
+		if args[0] == nativeSaveCommand {
 			offset = 3
 		}
 		if len(args) != offset+3 {
@@ -99,7 +115,7 @@ func run(args []string) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if args[0] == "native-save" {
+		if args[0] == nativeSaveCommand {
 			return hosted.SaveNativeMaterial(args[1], args[2], expected)
 		}
 		material, err := hosted.OpenNativeMaterial(args[1], expected)
@@ -147,11 +163,15 @@ func run(args []string) (any, error) {
 func main() {
 	value, err := run(os.Args[1:])
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if _, writeErr := fmt.Fprintln(os.Stderr, err); writeErr != nil {
+			os.Exit(1)
+		}
 		os.Exit(1)
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(value); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if _, writeErr := fmt.Fprintln(os.Stderr, err); writeErr != nil {
+			os.Exit(1)
+		}
 		os.Exit(1)
 	}
 }

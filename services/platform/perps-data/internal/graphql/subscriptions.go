@@ -284,12 +284,16 @@ func optString(s sql.NullString) *string {
 
 type scanner interface{ Scan(dest ...any) error }
 
-func queryAll[T any](ctx context.Context, db *sql.DB, scan func(scanner) (T, error), query string, args ...any) ([]T, error) {
+func queryAll[T any](ctx context.Context, db *sql.DB, scan func(scanner) (T, error), query string, args ...any) (result0 []T, resultErr error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	var out []T
 	for rows.Next() {
 		v, err := scan(rows)

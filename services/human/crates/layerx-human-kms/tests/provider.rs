@@ -46,6 +46,45 @@ mod native_setup;
 mod principal_attestors;
 const MAX: usize = 2_097_152;
 static ATTESTOR_FIXTURE: Mutex<()> = Mutex::new(());
+
+fn signing_policy() -> serde_json::Value {
+    let selectors = |methods: &[&str]| {
+        methods
+            .iter()
+            .map(|method| {
+                format!(
+                    "0x{}",
+                    attestor_cluster::hex(&layerx_crypto::disclosure::call::ledger_selector(
+                        method
+                    ))
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    serde_json::json!({"version":1,"defaults":{
+        "chain_id":125,"kinds":["lx_activity","evm_tx"],
+        "selectors":{
+            "0x000000000000000000000000000000000000101a":selectors(&[
+                "openAccount(bytes32)",
+                "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
+                "issueGrant(bytes)",
+                "send(bytes)"
+            ]),
+            "0x000000000000000000000000000000000000101b":selectors(&[
+                "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)"
+            ]),
+            "0x000000000000000000000000000000000000101c":selectors(&[
+                "recordLifecycle(bytes,bytes32)"
+            ])
+        },
+        "caps":{
+            "native":{"per_transaction":"1000000000000000000","daily":"10000000000000000000"},
+            attestor_cluster::hex(&[3;32]):{"per_transaction":"1000","daily":"100000"}
+        },
+        "rate_per_minute":1000
+    }})
+}
+
 struct Host {
     root: PathBuf,
     address: SocketAddr,
@@ -104,11 +143,7 @@ impl Host {
         let address = listener.local_addr()?;
         let mut attestors = attestor_cluster::Cluster::start_with_policies(
             &[],
-            &serde_json::json!({"version":1,"defaults":{
-                "chain_id":125,"kinds":["lx_activity","evm_tx"],
-                "selectors":{"0x000000000000000000000000000000000000101a":[format!("0x{}", attestor_cluster::hex(&layerx_crypto::disclosure::call::ledger_selector("openAccount(bytes32)")))]},
-                "caps":{"native":{"per_transaction":"1000000000000000000","daily":"10000000000000000000"}},"rate_per_minute":1000
-            }}),
+            &signing_policy(),
             &serde_json::json!({"version":1,"defaults":{"modules":{}}}),
         )?;
         principal_attestors::provision(&mut attestors, &root, "beta-kms", bindings)?;
@@ -342,18 +377,26 @@ impl Host {
         } else {
             builder.with_no_client_auth()
         };
+        let connection =
+            ClientConnection::new(Arc::new(config), ServerName::try_from("localhost")?)?;
         let tcp = TcpStream::connect(self.address)?;
+        tcp.set_nodelay(true)?;
         tcp.set_read_timeout(Some(Duration::from_secs(30)))?;
         tcp.set_write_timeout(Some(Duration::from_secs(30)))?;
-        Ok(StreamOwned::new(
-            ClientConnection::new(Arc::new(config), ServerName::try_from("localhost")?)?,
-            tcp,
-        ))
+        let mut stream = StreamOwned::new(connection, tcp);
+        if name.is_some() {
+            while stream.conn.is_handshaking() {
+                stream.conn.complete_io(&mut stream.sock)?;
+            }
+        }
+        Ok(stream)
     }
     fn call(&self, request: &[u8]) -> Result<Vec<u8>> {
         let mut tls = self.connection(Some("client"))?;
-        checked(write_frame(&mut tls, request, MAX))?;
-        checked(read_frame(&mut tls, MAX))
+        write_frame(&mut tls, request, MAX)
+            .map_err(|error| format!("KMS operation {} write: {error:?}", request[6]))?;
+        read_frame(&mut tls, MAX)
+            .map_err(|error| format!("KMS operation {} read: {error:?}", request[6]).into())
     }
     fn sender(&self, binding: [u8; 32], handle: &[u8]) -> Result<[u8; 20]> {
         use layerx_human_service::custody::{PrincipalKeyBinding, ProviderKeyReference};
@@ -404,10 +447,14 @@ fn facts(bytes: &[u8]) -> Result<([u8; 32], [u8; 32])> {
 #[test]
 fn actual_client_lifecycle_and_mutual_tls() -> Result<()> {
     let mut host = Host::new()?;
+    assert_eq!(
+        host.remote("client", "beta-kms")?.admit_human_service(),
+        Err(KmsError::UnsupportedNativeConsent)
+    );
     let alice = PrincipalId::new("alice")?;
     let bob = PrincipalId::new("bob")?;
     let key = KeyId::new("primary")?;
-    let store = Keystore::open_production(
+    let store = Keystore::open(
         host.root.join("client-state"),
         125,
         host.remote("client", "beta-kms")?,
@@ -445,17 +492,15 @@ fn actual_client_lifecycle_and_mutual_tls() -> Result<()> {
 
 #[test]
 fn atomic_rotation_lost_response_restart_and_tombstones() -> Result<()> {
-    let mut host = Host::new()?;
+    let mut host = Host::for_bindings(&[31])?;
     let binding = [31; 32];
     let create = request(1, binding, &[], None)?;
     let first = host.call(&create)?;
     assert_eq!(first, host.call(&create)?);
     let (handle, original) = facts(&first)?;
     let rotate = request(3, binding, &handle, Some(original))?;
-    {
-        let mut tls = host.connection(Some("client"))?;
-        checked(write_frame(&mut tls, &rotate, MAX))?;
-    }
+    let mut lost_reply = host.connection(Some("client"))?;
+    checked(write_frame(&mut lost_reply, &rotate, MAX))?;
     let clock = Arc::clone(&host.clock);
     let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
     loop {
@@ -468,6 +513,7 @@ fn atomic_rotation_lost_response_restart_and_tombstones() -> Result<()> {
         }
         std::thread::sleep(Duration::from_millis(20));
     }
+    drop(lost_reply);
     let committed = host.call(&rotate)?;
     let (same, next) = facts(&committed)?;
     assert_eq!(same, handle);
@@ -897,7 +943,7 @@ fn canonical_signing_and_disclosure_refusals() -> Result<()> {
     );
     let mut trailing = bytes;
     trailing.push(0);
-    assert!(host.call(&trailing).is_err());
+    assert_eq!(host.call(&trailing)?, b"LXKP\0\x07\x05\x01");
     let mut tls = host.connection(Some("client"))?;
     tls.write_all(&u32::try_from(MAX + 1)?.to_be_bytes())?;
     assert!(read_frame(&mut tls, MAX).is_err());
@@ -955,8 +1001,8 @@ fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> R
             host.stop();
             host.start()?;
         }
-        for payload in &payloads {
-            let call = native_setup::setup_call(payload.clone(), (7, 1))?;
+        for (index, payload) in payloads.iter().enumerate() {
+            let call = native_setup::setup_call(payload.clone(), (7 + u64::try_from(index)?, 1))?;
             let (canonical, disclosure) =
                 construct_signing_call(&call, host.sender(binding, &handle)?)?;
             let roles: Vec<_> = disclosure
@@ -1051,7 +1097,7 @@ fn evm_authorization_nonce_dedup_and_acknowledgement_recovery() -> Result<()> {
     let mut host = Host::new()?;
     let principal = PrincipalId::new("alice")?;
     let key = KeyId::new("primary")?;
-    let store = Keystore::open_production(
+    let store = Keystore::open(
         host.root.join("evm-client"),
         125,
         host.remote("client", "beta-kms")?,
@@ -1318,7 +1364,7 @@ fn native_send_authorization_is_scoped_and_durable() -> Result<()> {
     let mut host = Host::new()?;
     let principal = PrincipalId::new("alice")?;
     let key = KeyId::new("primary")?;
-    let store = Keystore::open_production(
+    let store = Keystore::open(
         host.root.join("send-client"),
         125,
         host.remote("client", "beta-kms")?,
@@ -1451,7 +1497,7 @@ fn external_signature_verification_and_executor_journal_recovery() -> Result<()>
     let mut host = Host::new()?;
     let principal = PrincipalId::new("alice")?;
     let key = KeyId::new("primary")?;
-    let store = Keystore::open_production(
+    let store = Keystore::open(
         host.root.join("external-client"),
         125,
         host.remote("client", "beta-kms")?,
@@ -1541,7 +1587,7 @@ fn refuse_cross_scope(
     "another-tenant".clone_into(&mut changed.tenant);
     assert!(matches!(
         store.authorize_evm_plan(principal, key, &changed),
-        Err(CustodyError::Kms(KmsError::Conflict))
+        Err(CustodyError::Kms(KmsError::Refused))
     ));
     changed = authorization.clone();
     "bob".clone_into(&mut changed.principal);
@@ -1819,7 +1865,7 @@ fn session_disclosure_grant(
 fn public_wallet_signing_isolated_for_two_principals_after_restart() -> Result<()> {
     let mut host = Host::new()?;
     let client = host.remote("client", "beta-kms")?;
-    let store = Keystore::open_production(
+    let store = Keystore::open(
         host.root.join("isolated-client"),
         125,
         host.remote("client", "beta-kms")?,
@@ -2016,10 +2062,8 @@ fn assert_lost_reply_export(
     let lost_reference = lost_created.reference().clone();
     let lost_ceremony = recipient.ceremony([15; 32])?;
     let lost_export = client.encode_export_request(&lost, &lost_reference, &lost_ceremony)?;
-    {
-        let mut tls = host.connection(Some("client"))?;
-        checked(write_frame(&mut tls, &lost_export, MAX))?;
-    }
+    let mut lost_reply = host.connection(Some("client"))?;
+    checked(write_frame(&mut lost_reply, &lost_export, MAX))?;
     let clock = Arc::clone(&host.clock);
     let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5))?;
     loop {
@@ -2033,6 +2077,7 @@ fn assert_lost_reply_export(
         }
         std::thread::sleep(Duration::from_millis(20));
     }
+    drop(lost_reply);
     let lost_envelope = client.export_envelope(&lost, &lost_reference, &lost_ceremony)?;
     host.stop();
     host.start()?;
@@ -2082,7 +2127,7 @@ fn assert_lost_reply_export(
 
 fn assert_keystore_export(host: &mut Host, recipient: &ExportRecipient) -> Result<()> {
     let client = host.remote("client", "beta-kms")?;
-    let keystore = Keystore::open_production(
+    let keystore = Keystore::open(
         host.root.join("client-state"),
         125,
         host.remote("client", "beta-kms")?,

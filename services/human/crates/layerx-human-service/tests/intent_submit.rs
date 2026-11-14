@@ -169,11 +169,10 @@ fn observed(now: u64) -> ObservedState {
         TimestampSeconds::from_u64(now),
         account(HOME),
         None,
-        vec![BalanceEntry::new(
-            home,
-            AssetId::new(ASSET),
-            Amount::from_u128(500),
-        )],
+        vec![
+            BalanceEntry::new(home, AssetId::new(ASSET), Amount::from_u128(500)),
+            BalanceEntry::new(worker(), AssetId::new(ASSET), Amount::ZERO),
+        ],
         Vec::new(),
         Vec::new(),
         fees(),
@@ -1045,11 +1044,10 @@ fn unified_shape_refuses_unsupported_reordered_and_discontinuous_legs() {
         TimestampSeconds::from_u64(1_000),
         account(HOME),
         None,
-        vec![BalanceEntry::new(
-            home(),
-            AssetId::new(ASSET),
-            Amount::from_u128(500),
-        )],
+        vec![
+            BalanceEntry::new(home(), AssetId::new(ASSET), Amount::from_u128(500)),
+            BalanceEntry::new(worker(), AssetId::new(ASSET), Amount::ZERO),
+        ],
         vec![allowance],
         Vec::new(),
         fees(),

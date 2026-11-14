@@ -45,8 +45,8 @@ def test_readme_premerge_network_embedded_paxd_and_committed_finality():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through [`modules/lxphost`]",
         "A receipt is final once its block is committed",
         "signed execution receipt can arrive before that commitment",
@@ -56,7 +56,7 @@ def test_readme_premerge_network_embedded_paxd_and_committed_finality():
         assert fact in overview, fact
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     for obsolete in (
         r"\blayerxd\b", r"two execution domains", r"merge is (?:only )?a draft",
         r"kernel still runs separately", r"make\s+layerxd",

@@ -74,6 +74,18 @@ pub fn verify_evm_outcome(
     let protocol = receipt.protocol().ok_or(AgentFailure::Refused(
         "EVM receipt is not protocol material",
     ))?;
+    if matches!(
+        bound
+            .disclosure
+            .construct_method()
+            .map_err(|_| AgentFailure::Refused("invalid EVM receipt method"))?,
+        Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer { .. })
+    ) && !crate::journeys::pointer_transfer_succeeded(protocol)
+    {
+        return Err(AgentFailure::Refused(
+            "native pointer transfer return differs",
+        ));
+    }
     let height = protocol.batch_id();
     for (differs, reason) in [
         (
@@ -766,13 +778,33 @@ impl<'a> ProductionAgentCreation<'a> {
         let bound = evidence.bound_activity(kind).map_err(|_| {
             AgentFailure::Refused("lifecycle receipt does not prove successful action")
         })?;
-        let verified = verify_evm_outcome(evidence, bound.activity_type())?;
+        let receipt = layerx_wire::receipt::decode(&evidence.receipt_bytes)
+            .map_err(|_| AgentFailure::Refused("invalid transaction receipt"))?;
+        let receipt_module = receipt
+            .protocol()
+            .ok_or(AgentFailure::Refused(
+                "lifecycle receipt is not protocol material",
+            ))?
+            .module_id();
+        let (verified, module, operation) = if receipt_module == EVM_RECEIPT_MODULE_ID {
+            (
+                verify_evm_outcome(evidence, bound.activity_type())?,
+                EVM_RECEIPT_MODULE_ID,
+                2,
+            )
+        } else {
+            (
+                evidence.verify_outcome(bound.activity_type())?,
+                expected_module as u16,
+                0,
+            )
+        };
         let protocol = verified.protocol().ok_or(AgentFailure::Refused(
             "lifecycle receipt is not protocol material",
         ))?;
         if protocol.activity_id() != evidence.tx_hash
-            || protocol.module_id() != EVM_RECEIPT_MODULE_ID
-            || protocol.operation() != 2
+            || protocol.module_id() != module
+            || protocol.operation() != operation
             || protocol.result_code() != 0
         {
             return Err(AgentFailure::Refused(
@@ -1348,5 +1380,75 @@ fn session_period_anchor(request: &SessionProvision) -> Result<u64, AgentFailure
             .not_before
             .checked_mul(1_000)
             .ok_or(AgentFailure::Refused("session time overflow")),
+    }
+}
+
+#[cfg(test)]
+mod native_pointer_evidence_tests {
+    use super::*;
+
+    fn bytes(value: &serde_json::Value) -> Vec<u8> {
+        let hex = value.as_str().unwrap_or_else(|| panic!("receipt hex"));
+        hex.strip_prefix("0x")
+            .unwrap_or_else(|| panic!("hex prefix"))
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                u8::from_str_radix(
+                    std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex: {error}")),
+                    16,
+                )
+                .unwrap_or_else(|error| panic!("hex: {error}"))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn native_pointer_receipt_preserves_transaction_bindings() {
+        let document: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/bank_move_receipts.json"))
+                .unwrap_or_else(|error| panic!("native pointer evidence: {error}"));
+        let record = &document["records"][0];
+        let raw = bytes(&record["raw"]);
+        let signed = SignedCreationTransaction::decode(&raw)
+            .unwrap_or_else(|error| panic!("pointer transaction: {error:?}"));
+        let canonical = bytes(&record["view"]["receipt"]);
+        let evidence = ProtocolEvidence {
+            actor: signed.disclosure.actor.clone(),
+            owner_public_key: signed.owner_public_key,
+            network_id: signed.network_id,
+            action_key: signed.disclosure.idempotency_key,
+            activity_id: signed.activity_id,
+            signed_activity: raw,
+            tx_hash: signed.activity_id,
+            receipt_hash: Sha256::digest(&canonical).into(),
+            receipt_bytes: canonical,
+            block_height: record["height"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("height")),
+            rung: Rung::Committed,
+        };
+        let expected = signed.disclosure.activity_type;
+        let receipt = verify_evm_outcome(&evidence, expected)
+            .unwrap_or_else(|error| panic!("pointer receipt: {error:?}"));
+        assert_eq!(
+            receipt.protocol().map(|receipt| receipt.protocol_version()),
+            Some(2)
+        );
+        let mut changed = evidence.clone();
+        changed.rung = Rung::Receipted;
+        assert!(verify_evm_outcome(&changed, expected).is_err());
+        let mut changed = evidence.clone();
+        changed.receipt_hash[0] ^= 1;
+        assert!(verify_evm_outcome(&changed, expected).is_err());
+        let mut changed = evidence.clone();
+        changed.owner_public_key[0] ^= 1;
+        assert!(verify_evm_outcome(&changed, expected).is_err());
+        let mut changed = evidence.clone();
+        changed.network_id += 1;
+        assert!(verify_evm_outcome(&changed, expected).is_err());
+        let mut changed = evidence;
+        changed.action_key[0] ^= 1;
+        assert!(verify_evm_outcome(&changed, expected).is_err());
     }
 }

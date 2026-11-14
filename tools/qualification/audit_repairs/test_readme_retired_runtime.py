@@ -44,8 +44,8 @@ def test_readme_retired_runtime_one_embedded_network_and_commit_finality():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "A signed execution receipt can arrive before that commitment",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
@@ -59,7 +59,7 @@ def test_readme_retired_runtime_one_embedded_network_and_commit_finality():
     )
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     for stale in (
         r"\blayerxd\b",
         r"two (?:execution )?domains",

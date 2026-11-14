@@ -1,7 +1,8 @@
 # Beta environments
 
-Paxeer mainnet-beta runs on chain 125 (`0x7d`). The kernel is part of the
-network, and a transaction is final when its block commits. Public node
+Paxeer mainnet-beta runs on chain 125 (`0x7d`). The LayerX kernel inside `paxd`
+executes and orders each transaction and builds each block; validators check and
+commit it. A receipt is final when validators commit its block. Public node
 JSON-RPC uses the node root path; connection details are in the
 [public RPC guide](../site/paxeer-docs/src/app/public-rpc/page.tsx).
 

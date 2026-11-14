@@ -51,8 +51,8 @@ def test_root_network_guide_merged_paxd_and_finality():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "outside consensus",
@@ -196,7 +196,7 @@ def test_root_network_guide_retired_executors_and_merged_build():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     upgrades = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in upgrades
-    assert "commits it with the BFT chain state" in upgrades
+    assert "validators commit it in the same block" in upgrades
 
 
 def test_root_network_guide_record_names_all_proofs_and_scope():

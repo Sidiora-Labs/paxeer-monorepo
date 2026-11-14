@@ -102,12 +102,16 @@ func embedded() ([]migration, error) {
 	return files, nil
 }
 
-func recordedSums(ctx context.Context, db *sql.DB) (map[string][]byte, error) {
+func recordedSums(ctx context.Context, db *sql.DB) (result0 map[string][]byte, resultErr error) {
 	rows, err := db.QueryContext(ctx, recordedSQL)
 	if err != nil {
 		return nil, fmt.Errorf("read perps.schema_migrations: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	recorded := map[string][]byte{}
 	for rows.Next() {
 		var file string

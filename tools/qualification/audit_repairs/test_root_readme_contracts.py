@@ -60,8 +60,8 @@ def test_single_network_embeds_the_block_proposing_kernel():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "Sub-chains are tenant domains stored in the database",
@@ -162,7 +162,7 @@ def test_diagrams_keep_execution_inside_the_network_and_commit_finality():
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
     assert len(diagrams) == 2
     topology, sequence = diagrams
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     assert "subgraph Node[paxd]" in topology
     assert "Embedded C17 kernel and Rust programs host" in topology
     assert "RPC --> Order --> Host --> Native" in topology
@@ -305,7 +305,7 @@ def test_paxd_build_start_and_source_navigation_match_current_layout():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "Source directory names describe code organization, not separate network deployments" in NETWORK
     for target in re.findall(r"\]\(([^)]+)\)", NETWORK):
         if not target.startswith(("https:", "http:", "#")):

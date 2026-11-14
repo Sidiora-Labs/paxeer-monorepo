@@ -50,8 +50,8 @@ def test_doc_1_merged_paxd_network_programs_and_tenant_domains():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "programs sandbox", "Sub-chains are tenant domains stored in the database",
         "managed by [`modules/layerxchains`]", "namespaces state within the shared network",
         "does not require new node infrastructure",

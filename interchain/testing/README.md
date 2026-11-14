@@ -2,8 +2,10 @@
 
 This package exercises IBC clients, connections, channels and packets against SDK
 applications in process. Its chains are test fixtures. Paxeer runs one network
-through `paxd`, with the kernel participating in block proposal and finality at
-block commit. Creating two `TestChain` instances does not provision production
+through `paxd`. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final when the validators commit its block. Creating two `TestChain` instances
+does not provision production
 networks or tenant domains.
 
 The default application is [simapp](simapp/README.md); the [mock application](mock/README.md)

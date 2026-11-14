@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -165,7 +166,9 @@ func run(config *Config) {
 				}()
 				fundingTx := txClient.GenerateERC20FundingTx()
 				sent := false
-				txClient.SendEvmTx(fundingTx, func() { sent = true })
+				if err := txClient.SendEvmTx(fundingTx, func() { sent = true }); err != nil {
+					panic(err)
+				}
 				if !sent {
 					panic("Failed to send ERC20 funding transaction")
 				}
@@ -196,9 +199,12 @@ func startLoadtestWorkers(client *LoadTestClient, config Config) error {
 }
 
 func runLoadtestWorkers(parent context.Context, client *LoadTestClient, config Config, ticks <-chan time.Time) error {
-	if config.TargetTps == 0 || config.TargetTps > uint64(^uint(0)>>1) {
+	targetTps := config.TargetTps
+	if targetTps == 0 || targetTps > math.MaxInt {
 		return fmt.Errorf("invalid target TPS: %d", config.TargetTps)
 	}
+	targetBurst := int(targetTps)
+	targetWeight := int64(targetTps)
 	ctx, cancel := context.WithCancelCause(parent)
 	defer cancel(nil)
 	startHeight, err := getLastHeight(ctx, config.BlockchainEndpoint)
@@ -215,8 +221,8 @@ func runLoadtestWorkers(parent context.Context, client *LoadTestClient, config C
 	}
 	fmt.Printf("Running with \n %s \n", configString)
 	txQueues := make([]chan SignedTx, len(client.AccountKeys))
-	producerRateLimiter := rate.NewLimiter(rate.Limit(config.TargetTps), int(config.TargetTps))
-	consumerSemaphore := semaphore.NewWeighted(int64(config.TargetTps))
+	producerRateLimiter := rate.NewLimiter(rate.Limit(targetTps), targetBurst)
+	consumerSemaphore := semaphore.NewWeighted(targetWeight)
 	var wg sync.WaitGroup
 	for i := range txQueues {
 		txQueues[i] = make(chan SignedTx, 10)
@@ -329,7 +335,7 @@ func printStats(
 		totalProduced += atomic.LoadInt64(producedCountPerMsgType[msg_type])
 	}
 
-	var totalTps float64 = 0
+	var totalTps float64
 	for msgType := range sentCountPerMsgType {
 		sentCount := atomic.LoadInt64(sentCountPerMsgType[msgType])
 		prevTotalSent := atomic.LoadInt64(prevSentPerCounterPerMsgType[msgType])
@@ -589,13 +595,13 @@ func benchmarkEndpoint(endpoint string, allowWebsocket bool) (*url.URL, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid endpoint: %w", err)
 	}
-	if u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https" && !(allowWebsocket && (u.Scheme == "ws" || u.Scheme == "wss"))) {
+	if u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https" && (!allowWebsocket || (u.Scheme != "ws" && u.Scheme != "wss"))) {
 		return nil, fmt.Errorf("invalid RPC endpoint %q", endpoint)
 	}
 	return u, nil
 }
 
-func readBenchmarkRPC(ctx context.Context, endpoint, path string, query url.Values, target any) error {
+func readBenchmarkRPC(ctx context.Context, endpoint, path string, query url.Values, target any) (err error) {
 	u, err := benchmarkEndpoint(endpoint, false)
 	if err != nil {
 		return err
@@ -612,7 +618,12 @@ func readBenchmarkRPC(ctx context.Context, endpoint, path string, query url.Valu
 	if err != nil {
 		return fmt.Errorf("GET %s: %w", u, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("GET %s: HTTP %s", u, resp.Status)
 	}
