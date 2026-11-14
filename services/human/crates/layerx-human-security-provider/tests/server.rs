@@ -582,10 +582,19 @@ fn stored_recovery_is_reverified_against_protected_trust() {
     assert!(fixture.ingest().status.success());
     let server = fixture.start(uid());
     fixture.client().probe().unwrap();
-    let mut history = fs::read(fixture.trust()).unwrap();
-    let public_offset = b"LayerX/sequencer-trust-history/v1\0".len() + 4 + 2 + 4 + 8 + 32;
-    history[public_offset] ^= 1;
-    fs::write(fixture.trust(), history).unwrap();
+    use layerx_programs::chain_proof::{
+        trust_store::TrustRoot,
+        validators::{TrustedValidator, ValidatorSet},
+    };
+    let mut root = TrustRoot::decode(&fs::read(fixture.trust()).unwrap()).unwrap();
+    let mut validators = root.validators.validators().to_vec();
+    let replacement = ed25519_dalek::SigningKey::from_bytes(&[0x77; 32]);
+    validators[0] = TrustedValidator::new(
+        replacement.verifying_key().to_bytes(),
+        validators[0].voting_power,
+    );
+    root.validators = ValidatorSet::new(validators).unwrap();
+    fs::write(fixture.trust(), root.canonical_bytes().unwrap()).unwrap();
     assert!(fixture
         .client()
         .reveal_verified_receipt(&principal(), "recovery-1", 100)

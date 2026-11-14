@@ -1299,7 +1299,9 @@ impl SendFixture {
             .collect();
         fs::write(
             root.join("attestor.json"),
-            serde_json::to_vec(&json!({
+            serde_json::to_vec(&json!({"bindings":[{
+                "binding": BINDING, "tenant": "tenant", "principal": OWNER,
+                "assertion_file": root.join("assertion"), "config": {
                 "nodes": nodes,
                 "trust_anchors": [cluster.pki.path("node-ca.der")],
                 "client_certificate_chain": [cluster.pki.path("gateway.der")],
@@ -1307,7 +1309,7 @@ impl SendFixture {
                 "key_id": "ed25519-owner", "public_key": public,
                 "evm_key_id": EVM_KEY, "evm_address": wallet,
                 "signers": attestor_cluster::SIGNERS, "network_id":snapshot.chain_id, "timeout_seconds":60
-            }))?,
+            }}]}))?,
         )?;
         for entry in fs::read_dir(&root)? {
             fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
@@ -1581,13 +1583,14 @@ fn attestor_signs_a_send_authorization_then_the_completed_send() -> Result<()> {
     assert_eq!(json!(amount), request["disclosure"]["amount"]);
     let after = fixture.cluster.audit(&client)?;
     assert_eq!(fixture.cluster.nodes.len(), NODES);
-    assert_eq!(before.len(), SIGNERS.len());
+    assert_eq!(before.len(), NODES);
     assert_eq!(after.len(), before.len());
-    for (previous, current) in before.iter().zip(&after) {
-        assert!(
-            current > previous,
-            "every attestor must record the EVM signing"
-        );
+    for (index, (previous, current)) in before.iter().zip(&after).enumerate() {
+        if SIGNERS.contains(&fixture.cluster.nodes[index].0.as_str()) {
+            assert!(current > previous, "each selected signer records signing");
+        } else {
+            assert_eq!(current, previous, "unselected audit sequence is preserved");
+        }
     }
     assert_eq!(
         fixture.call(3, 11, &fixture.reference, Some(&payload))?,
@@ -1910,14 +1913,16 @@ fn assert_repeated_session(
         assert_eq!(body["error"]["code"], "token_invalid", "{node}: {body}");
     }
     for (index, sequence) in cluster.audit(observer)?.iter().enumerate() {
-        assert!(*sequence > before[index]);
+        let selected = SIGNERS.contains(&cluster.nodes[index].0.as_str());
+        assert_eq!(*sequence, before[index] + u64::from(selected));
     }
 
     Ok(())
 }
 
 fn assert_direct_signer_policy(fixture: &SendFixture, call: &Eip1559Call) -> Result<()> {
-    let config = serde_json::from_slice(&fs::read(fixture.root.join("attestor.json"))?)?;
+    let bindings: Value = serde_json::from_slice(&fs::read(fixture.root.join("attestor.json"))?)?;
+    let config = serde_json::from_value(bindings["bindings"][0]["config"].clone())?;
     let mut signer = checked(layerx_human_kms::attestor::AttestorSigner::from_config(
         &config,
     ))?;

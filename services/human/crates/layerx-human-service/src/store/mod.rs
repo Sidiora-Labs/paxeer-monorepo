@@ -460,12 +460,7 @@ impl PrincipalStore {
     /// Refuses principals without a tenancy mapping and corrupt or
     /// newer-versioned principal files.
     pub fn principal(&mut self, id: &PrincipalId) -> Result<PrincipalScope<'_>, StoreError> {
-        self.verify_root()?;
-        if self.provider.is_none() {
-            self.tenancy.tenant_for(id)?;
-        }
-        let directory = self.principal_directory(id)?;
-        let tenant = self.resolve_tenant_in(id, &directory)?;
+        let (tenant, directory) = self.resolve_principal(id)?;
         let state = match directory.read(STORE_FILE)? {
             Some(bytes) => decode_state(&bytes, self.version)?,
             None => PrincipalState::default(),
@@ -528,8 +523,14 @@ fn verify_principals_tree(root: &Directory) -> Result<(), StoreError> {
         let Some(text) = name.to_str() else {
             return Err(StoreError::Corrupt("foreign principals entry"));
         };
-        PrincipalId::new(text)?;
-        principals.child(&name, false)?;
+        PrincipalId::new(text).map_err(|_| StoreError::Corrupt("foreign principals entry"))?;
+        principals.child(&name, false).map_err(|error| {
+            if error.kind() == io::ErrorKind::NotADirectory {
+                StoreError::Corrupt("foreign principals entry")
+            } else {
+                StoreError::from(error)
+            }
+        })?;
     }
     Ok(())
 }

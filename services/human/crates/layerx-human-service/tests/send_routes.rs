@@ -3,7 +3,7 @@ use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_human_service::journeys::{
     CustodyRoute, Endpoint, EndpointKind, ExecutableShape, LegMechanism, Mechanism, Relationship,
-    RouteError, RouteRequest, RouteResolver, SendRoute,
+    RouteError, RouteRequest, RouteResolver, SendRoute, BANK_ADDRESS,
 };
 use layerx_intents::{Intent, IntentKind};
 use layerx_types::account::AccountId;
@@ -13,7 +13,8 @@ use layerx_types::intent::{
     AuthorizationSignature, ContextHash, DepositProofId, EvmAddress, NetworkId, ProtocolVersion,
     PublicKey, SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
 };
-use sha3::{Digest as _, Keccak256};
+use sha2::{Digest as _, Sha256};
+use sha3::Keccak256;
 
 fn send_route(pending_nonce: u64) -> SendRoute {
     let signer = SigningKey::from_bytes(&[7; 32]);
@@ -76,7 +77,7 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
     )
     .or_fail("sender address");
     let to = [4; 20];
-    let pointer = [6; 20];
+    let pointer = BANK_ADDRESS;
     for (pending_nonce, amount, denom) in [
         (0, 1, "upax"),
         (1, 50, "upax"),
@@ -101,7 +102,7 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
                 max_fee_per_gas: 30,
                 gas_limit: 100_000,
             },
-            AssetId::new([1; 32]),
+            AssetId::new(Sha256::digest(denom.as_bytes()).into()),
             Amount::from_u128(amount),
         )
         .or_fail("bank route admitted through public API");
@@ -125,20 +126,29 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
         assert_eq!(call.gas_limit, 100_000);
         assert_eq!(
             &call.data[..4],
-            &Keccak256::digest(b"transfer(address,uint256)")[..4]
+            &Keccak256::digest(b"send(address,address,string,uint256)")[..4]
         );
         let mut amount_word = [0; 32];
         amount_word[16..].copy_from_slice(&amount.to_be_bytes());
-        assert_eq!(call.data.len(), 68);
+        assert_eq!(call.data.len(), 164 + denom.len().div_ceil(32) * 32);
         assert_eq!(&call.data[4..16], &[0; 12]);
-        assert_eq!(&call.data[16..36], &to);
-        assert_eq!(&call.data[36..68], &amount_word);
-        let disclosure = bind_call(call, from).or_fail("real pointer calldata consumer");
+        assert_eq!(&call.data[16..36], &from);
+        assert_eq!(&call.data[36..48], &[0; 12]);
+        assert_eq!(&call.data[48..68], &to);
+        assert_eq!(&call.data[68..99], &[0; 31]);
+        assert_eq!(call.data[99], 128);
+        assert_eq!(&call.data[100..132], &amount_word);
+        assert_eq!(&call.data[132..156], &[0; 24]);
+        assert_eq!(&call.data[156..164], &(denom.len() as u64).to_be_bytes());
+        assert_eq!(&call.data[164..164 + denom.len()], denom.as_bytes());
+        assert!(call.data[164 + denom.len()..].iter().all(|byte| *byte == 0));
+        let disclosure = bind_call(call, from).or_fail("bank calldata consumer");
         assert_eq!(
             disclosure.construct_method().or_fail("bank ABI"),
-            Some(ConstructMethod::PointerTransfer {
-                pointer,
+            Some(ConstructMethod::BankSend {
+                from,
                 to,
+                denom: denom.to_owned(),
                 amount: amount_word,
             })
         );

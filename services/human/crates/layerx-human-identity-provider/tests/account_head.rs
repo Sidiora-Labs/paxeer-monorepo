@@ -4,7 +4,15 @@ mod support;
 
 use std::io::Write;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
+use std::time::Duration;
+
+use layerx_types::clock::Clock as _;
+
+#[path = "support/account_head.rs"]
+mod account_head;
+
+use account_head::{must, snapshot_at, write_snapshot, Damage, TranscriptPeer};
 
 use layerx_proof::inclusion::{verify_receipt, SequencerAuthorization};
 use layerx_proof::merkle::{decode_proof, Proof};
@@ -43,7 +51,7 @@ fn fixture_proof(bytes: &[u8]) -> String {
 }
 
 fn run(input: &str) -> std::process::Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"))
+    let mut child = must(support::command())
         .arg("validate-account-head")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -59,6 +67,61 @@ fn run(input: &str) -> std::process::Output {
     child
         .wait_with_output()
         .unwrap_or_else(|e| panic!("output: {e}"))
+}
+
+fn current_account_head() -> (
+    tempfile::TempDir,
+    TranscriptPeer,
+    serde_json::Value,
+    serde_json::Value,
+) {
+    let directory = must(tempfile::tempdir());
+    let clock = must(support::clock());
+    let now = must(clock.sample(Duration::from_secs(1))).unix_milliseconds;
+    let record = snapshot_at(17, now);
+    let path = directory.path().join("committed.json");
+    write_snapshot(&path, &record);
+    let peer = TranscriptPeer::reopen(&path, Damage::None);
+    let input = peer.input();
+    (directory, peer, input, record)
+}
+
+fn assert_current_account_head(
+    output: &std::process::Output,
+    record: &serde_json::Value,
+    peer: &TranscriptPeer,
+) {
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        must(peer.requests.lock())
+            .iter()
+            .filter(|request| request["method"] == "eth_call")
+            .count(),
+        5,
+    );
+    let result: serde_json::Value = must(serde_json::from_slice(&output.stdout));
+    assert_eq!(
+        result,
+        serde_json::json!({
+            "schema": "layerx.human.account-head.v1",
+            "chain_id": record["chain_id"],
+            "owner_did": record["owner_did"],
+            "account": record["owner_account"],
+            "asset_id": record["asset_id"],
+            "committed_height": 17,
+            "block_hash": format!("{:064x}", 17),
+            "state_root": format!("{:064x}", 117),
+            "observed_at": record["block"]["timestamp"].as_str()
+                .and_then(|value| u64::from_str_radix(&value[2..], 16).ok())
+                .unwrap_or_else(|| panic!("block timestamp")) * 1000,
+            "balance": "100",
+            "consumed": 0,
+        })
+    );
 }
 
 #[test]
@@ -167,12 +230,11 @@ fn actual_daemon_head_binds_the_declared_receipt_digest() {
             "observed_at": header.timestamp_ms(), "batch_evidence": {"header_hex": encoded(&header_bytes),
                 "header_signature": encoded(&read("header.signature")), "receipt_proof_hex": fixture_proof(&read("receipt.proof"))}}});
     let output = run(&input.to_string());
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(output.stdout, b"{\"consumed\":0}\n");
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    let (_directory, _peer, observation, record) = current_account_head();
+    let output = run(&observation.to_string());
+    assert_current_account_head(&output, &record, &_peer);
     for index in 0..digest.len() {
         let mut changed = digest;
         changed[index] ^= 1;
@@ -208,12 +270,23 @@ fn maintenance_head() -> serde_json::Value {
 fn actual_daemon_maintenance_head_is_authenticated_before_initialization() {
     let input = maintenance_head();
     let output = run(&input.to_string());
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(output.stdout, b"{\"consumed\":0}\n");
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    let (_directory, _peer, observation, record) = current_account_head();
+    let output = run(&observation.to_string());
+    assert_current_account_head(&output, &record, &_peer);
+    for damage in [
+        Damage::RpcError,
+        Damage::WrongResponseId,
+        Damage::AdvancingHead,
+        Damage::ChangedHash,
+        Damage::ChangedRoot,
+    ] {
+        let peer = TranscriptPeer::reopen(&_directory.path().join("committed.json"), damage);
+        let output = run(&peer.input().to_string());
+        assert!(!output.status.success());
+        assert!(output.stdout.is_empty());
+    }
     for field in ["receipt_digest", "state_root", "receipt_hex"] {
         let original = hex(input["head"][field]
             .as_str()

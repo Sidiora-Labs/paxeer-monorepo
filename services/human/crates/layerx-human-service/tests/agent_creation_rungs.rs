@@ -109,10 +109,10 @@ fn receipt(owner: &canonical_owner::SignedOwner) -> (Vec<u8>, [[u8; 32]; 5]) {
     raw.extend_from_slice(&0_u32.to_be_bytes());
     raw.extend_from_slice(&1_u128.to_be_bytes());
     bytes(&mut raw, &batch);
-    raw.extend_from_slice(&(ModuleId::Budget as u16).to_be_bytes());
+    raw.extend_from_slice(&12_u16.to_be_bytes());
     raw.extend_from_slice(&1_u32.to_be_bytes());
     raw.extend_from_slice(&1_u32.to_be_bytes());
-    raw.push(0);
+    raw.push(2);
     bytes(&mut raw, &[0; 32]);
     raw.extend_from_slice(&0_u128.to_be_bytes());
     bytes(&mut raw, &[0; 32]);
@@ -122,9 +122,10 @@ fn receipt(owner: &canonical_owner::SignedOwner) -> (Vec<u8>, [[u8; 32]; 5]) {
     bytes(&mut raw, &[0; 32]);
     raw.extend_from_slice(&0_u128.to_be_bytes());
     raw.extend_from_slice(&0_u128.to_be_bytes());
-    for _ in 0..3 {
+    for _ in 0..2 {
         bytes(&mut raw, &[0; 32]);
     }
+    bytes(&mut raw, &[0x91; 32]);
     raw.extend_from_slice(&1002_u64.to_be_bytes());
     raw.push(0);
     let unsigned = checked(layerx_wire::receipt::decode(&raw));
@@ -218,8 +219,7 @@ fn fresh_exchanges(
     let mut nonce_request = Vec::new();
     bytes(&mut nonce_request, b"did:layerx:owner-receipt-fixture");
     bytes(&mut nonce_request, hex(&owner.public_key).as_bytes());
-    let mut nonce_answer = 1_u64.to_be_bytes().to_vec();
-    nonce_answer.push(rung_byte);
+    let nonce_answer = 1_u64.to_be_bytes().to_vec();
     exchanges.push((Some(frame(13, &nonce_request)), frame(0, &nonce_answer)));
 
     let (call, _) = checked(layerx_crypto::evm_transaction::decode_signed(&owner.bytes));
@@ -246,9 +246,11 @@ fn fresh_exchanges(
     exchanges.push((None, frame(0, &preparation)));
 
     let mut submitted = owner.id.to_vec();
-    bytes(&mut submitted, b"budget-submission");
+    submitted.extend_from_slice(&owner.id);
     submitted.push(6);
-    bytes(&mut submitted, b"budget-receipt");
+    submitted.extend_from_slice(&Sha256::digest(
+        &answer[5..5 + u32::from_be_bytes(checked(answer[1..5].try_into())) as usize],
+    ));
     submitted.extend_from_slice(&[rung_byte, 0, 0]);
     submitted.extend_from_slice(answer);
     exchanges.push((None, frame(0, &submitted)));
@@ -404,6 +406,12 @@ impl Fixture {
         answer.extend_from_slice(&<[u8; 32]>::from(Sha256::digest(&receipt)));
         answer.extend_from_slice(&HEIGHT.to_be_bytes());
         answer.push(rung_byte);
+        bytes(&mut answer, &receipt);
+        answer.extend_from_slice(&[0x91; 32]);
+        answer.extend_from_slice(&batch[4]);
+        answer.extend_from_slice(&HEIGHT.to_be_bytes());
+        answer.extend_from_slice(&HEIGHT.to_be_bytes());
+        answer.extend_from_slice(&HEIGHT.to_be_bytes());
         let mut exchanges = Vec::new();
         if fresh {
             exchanges.extend(fresh_exchanges(&owner, &compiled, rung_byte, &answer));
@@ -554,11 +562,10 @@ fn budget_stages_with_a_distinct_budget_id_pass_the_signed_creation_check() {
             expected_key,
         );
         disclosure.idempotency_key = [0x63; 32];
-        assert_ne!(
-            disclosure.idempotency_key,
-            checked(ProtocolEvidence::creation_idempotency_key(
-                &disclosure,
-                ACTION
+        assert_eq!(
+            ProtocolEvidence::creation_idempotency_key(&disclosure, ACTION),
+            Err(AgentFailure::Refused(
+                "invalid lifecycle transaction method"
             )),
         );
         checked(capability);

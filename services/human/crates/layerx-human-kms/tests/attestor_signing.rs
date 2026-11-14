@@ -177,16 +177,17 @@ fn client_tls() -> Arc<ClientConfig> {
     )
 }
 fn tls(address: SocketAddr) -> StreamOwned<ClientConnection, TcpStream> {
+    let connection =
+        ClientConnection::new(client_tls(), ServerName::IpAddress(address.ip().into()))
+            .unwrap_or_else(|error| panic!("{error:?}"));
     let tcp = TcpStream::connect(address).unwrap_or_else(|error| panic!("{error:?}"));
+    tcp.set_nodelay(true)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     tcp.set_read_timeout(Some(Duration::from_secs(10)))
         .unwrap_or_else(|error| panic!("{error:?}"));
     tcp.set_write_timeout(Some(Duration::from_secs(10)))
         .unwrap_or_else(|error| panic!("{error:?}"));
-    StreamOwned::new(
-        ClientConnection::new(client_tls(), ServerName::IpAddress(address.ip().into()))
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        tcp,
-    )
+    StreamOwned::new(connection, tcp)
 }
 struct ClockSource {
     source: Arc<RuntimeClock>,
@@ -1106,6 +1107,7 @@ fn fragmented_handshake_and_frame_release_all_permits() -> Result {
     assert!(hello.len() > 20);
     for _ in 0..16 {
         let mut tcp = TcpStream::connect(host.address)?;
+        tcp.set_nodelay(true)?;
         tcp.write_all(&hello[..1])?;
         streams.push(tcp);
     }
