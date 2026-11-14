@@ -206817,7 +206817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.557]
 title = "Remove a submission of the price sidecar that the node refused as ahead of the committed sequence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
