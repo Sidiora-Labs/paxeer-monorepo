@@ -206624,7 +206624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.547]
 title = "Start a round of the price sidecar at every cadence while fewer submissions than the bound are pending"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.546"]

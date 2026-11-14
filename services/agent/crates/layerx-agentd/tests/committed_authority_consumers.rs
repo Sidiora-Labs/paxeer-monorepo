@@ -91,6 +91,33 @@ fn certificate(issuer: Option<(&X509, &PKey<Private>)>) -> (X509, PKey<Private>)
 
 fn documents() -> Value {
     let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+    let producer_target =
+        Path::new(&must(std::env::var("CARGO_TARGET_DIR"))).join("authority-documents");
+    let produced = must(
+        std::process::Command::new(env!("CARGO"))
+            .current_dir(&repository)
+            .env("CARGO_TARGET_DIR", producer_target)
+            .args([
+                "test",
+                "--locked",
+                "--manifest-path",
+                "services/platform/hosted/authority/Cargo.toml",
+                "--test",
+                "committed_human_documents",
+                "producers_emit_committed_documents",
+                "--",
+                "--exact",
+            ])
+            .output(),
+    );
+    assert!(
+        produced.status.success(),
+        "authority documents: {}\n{}",
+        String::from_utf8_lossy(&produced.stdout),
+        String::from_utf8_lossy(&produced.stderr)
+    );
+    assert!(String::from_utf8_lossy(&produced.stdout)
+        .contains("test producers_emit_committed_documents ... ok"));
     let path = committed_documents::corpus_path(&repository);
     let metadata = require_ok(
         std::fs::metadata(&path),

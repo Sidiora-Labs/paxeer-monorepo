@@ -104,7 +104,11 @@ fn cadence_pending_evicted_oldest_ends_queue() -> TestResult {
         state.fate = Fate::Evicted;
         state.committed_height = Some(proposed + config.pending_submission_block_limit);
     }
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert!(dir.progress()["pending"].as_array().unwrap().is_empty());
     Ok(())
 }
@@ -136,7 +140,11 @@ fn cadence_pending_failed_middle_preserves_later_order() -> TestResult {
     for _ in 0..3 {
         submit(&config, &peer, &dir, &mut sidecar, &metrics);
     }
-    assert!(sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert!(dir.progress()["pending"].as_array().unwrap().is_empty());
     let text = health::lock(&metrics).metrics_text(now_ms());
     assert!(text.contains("result=\"failed\"} 1"));
@@ -159,7 +167,11 @@ fn cadence_pending_restart_decides_each_entry() -> TestResult {
         height: 850,
     };
     let mut reopened = start(&config, &peer, &dir);
-    assert!(reopened.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !reopened
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert!(dir.progress()["pending"].as_array().unwrap().is_empty());
     Ok(())
 }
@@ -186,7 +198,11 @@ fn cadence_pending_legacy_progress_loads_as_list() -> TestResult {
         height: 851,
     };
     let mut reopened = start(&config, &peer, &dir);
-    assert!(reopened.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        !reopened
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     assert!(dir.progress()["pending"].as_array().unwrap().is_empty());
     Ok(())
 }
@@ -208,7 +224,11 @@ fn cadence_pending_one_reconcile_reads_each_market_once() -> TestResult {
     peer.state.lock().unwrap().observation_sequence = 0;
     peer.state.lock().unwrap().account_reads.clear();
     peer.state.lock().unwrap().observation_reads.clear();
-    assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
+    assert!(
+        sidecar
+            .reconcile(&config, &peer.rpc(), &metrics, &dir.0)?
+            .fate_open
+    );
     let state = peer.state.lock().unwrap();
     assert_eq!(state.account_reads.len(), 1);
     assert!(state.observation_reads.is_empty());
