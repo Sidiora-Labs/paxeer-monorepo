@@ -328452,7 +328452,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.519]
 title = "Repair the code behind the lint rules of the benchmark tools and the pipeline controller and remove the rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.517"]
