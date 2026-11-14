@@ -196080,7 +196080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.540]
 title = "Declare the JSON crate for the test targets of the intents member that include the journey resolver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
