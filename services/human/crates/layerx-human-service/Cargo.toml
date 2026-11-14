@@ -34,6 +34,7 @@ rustix = { workspace = true, features = ["fs", "event"] }
 layerx-human-kms = { path = "../layerx-human-kms" }
 
 [dev-dependencies]
+layerx-programs.workspace = true
 layerx-human-test-support = { path = "../layerx-human-test-support" }
 native-tls = "=0.2.18"
 ciborium = "=0.2.2"

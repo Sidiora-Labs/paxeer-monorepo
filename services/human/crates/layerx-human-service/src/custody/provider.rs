@@ -1572,6 +1572,18 @@ impl EnvelopeKms {
                 && to == request.disclosure.recipient
                 && denom == request.disclosure.denom
                 && amount == request.disclosure.amount => {}
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
+                pointer,
+                to,
+                amount,
+            }) if to == request.disclosure.recipient && amount == request.disclosure.amount => {
+                layerx_human_kms::verify_native_pointer(
+                    &request.disclosure.denom,
+                    pointer,
+                    call.chain_id,
+                )
+                .map_err(|_| KmsError::Refused)?;
+            }
             _ => return Err(KmsError::Refused),
         }
         let authorization =
