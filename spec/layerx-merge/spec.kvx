@@ -328616,7 +328616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.518]
 title = "Repair the code behind the lint rules of three small tools and the fixture program and remove the rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
