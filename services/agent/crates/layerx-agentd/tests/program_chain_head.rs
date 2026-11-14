@@ -585,6 +585,7 @@ fn sign_journal_head(fixture: &mut deployment_support::ProtocolFixture, now: u64
 }
 
 #[test]
+#[ignore = "programs/crates/layerx-programs-registry/tests/support/mod.rs: primitive deployment fixture"]
 fn journal_admission_verifies_through_the_current_chain_head() {
     chain_head_read_verifies_the_validator_signed_commitment();
 

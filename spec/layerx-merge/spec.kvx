@@ -14344,6 +14344,18 @@ value = "One command word may follow the config path. receiver-status prints the
 basis = "Gotcha 4452, decision 3537."
 affects = []
 
+[decision.3539]
+title = "A node with sequencing disabled forwards receipt requests when the forward URL is set"
+value = "At start a node with sequencing disabled and a nonempty sequencer.receipt-forward-url hands the option of NewFollowerReceiptOption to the application before the EVM servers are built. It then answers pax_sequencerReceipt with the receipt of the sequencing node after the present verification, and the present forwarding option of the EVM servers is built from the same URL. With an empty key the node behaves as before. A node with sequencing enabled keeps its refusal of the key. A URL the option refuses ends the start with the present text. No rule of receipt verification changes."
+basis = "Gotcha 4453."
+affects = []
+
+[decision.3540]
+title = "The price sidecar keeps one submission pending unless the configuration names more"
+value = "The default of max_pending_submissions becomes 1: a round starts when no submission of the account is pending. A larger value stays valid for a node that admits sequences ahead of the committed one, and zero stays refused. The stand-in peer of the tests gets a mode that admits a submission only at the committed sequence, as a node does. The keys of the sidecar and their defaults are described where the variables of the platform services are listed. No fate rule, stored form, metric name or log line changes."
+basis = "Gotcha 4454."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44004,6 +44016,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.552]
+title = "Keep one submission of the price sidecar pending unless the configuration names more"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_pending_default --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4454, decision 3540. Read default_max_pending_submissions, validate and the start report in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs, the start of a round in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs. The default of max_pending_submissions becomes 1. A larger value stays valid and zero stays refused with the present text."
+symbols = []
+
+[capability.22.39.551]
+title = "Forward receipt requests on a node with sequencing disabled when the forward URL is set"
+reqs = ["22998.1"]
+touches = ["node/sequencer", "daemon/paxd/cmd", "node/app.go"]
+tests = []
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^(TestFollowerStart|TestFollowerReceiptOption|TestForwardedReceiptOnFollowerNode|TestProofSequencerReceipt)' && CGO_ENABLED=1 go test -count=1 ./daemon/paxd/cmd/ -run 'NewApp|RootCommands'"
+do_1 = "do_1 Gotcha 4453, decision 3539. Read NewNode in node/sequencer/node.go for a configuration with sequencing disabled, NewFollowerReceiptOption in node/sequencer/follower.go, SetSequencerRPC and the place where the EVM servers take the receipt option in node/app.go, and the start of the application in daemon/paxd/cmd/root.go. At start, a node with sequencing disabled and a nonempty sequencer.receipt-forward-url hands the option of NewFollowerReceiptOption to the application through SetSequencerRPC before the EVM servers are built. Choose the place, NewNode or the command, that every start path of the node command passes, and say in the final message which."
+symbols = []
 
 [capability.22.39.550]
 title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
@@ -206526,6 +206556,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.552]
+title = "Keep one submission of the price sidecar pending unless the configuration names more"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.548"]
+reqs = ["22998.1"]
+capabilities = ["22.39.552"]
+interfaces = []
+do_1 = "do_1 Gotcha 4454, decision 3540. Read default_max_pending_submissions, validate and the start report in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs, the start of a round in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs. The default of max_pending_submissions becomes 1. A larger value stays valid and zero stays refused with the present text."
+do_2 = "do_2 The stand-in peer gets a mode in which it admits a submission only at the committed sequence of the account and answers every other sequence with the text of a node: account sequence mismatch, expected the committed sequence, got the sent one. The present mode stays the default of the peer. A present case that relies on more than one pending submission sets the key itself; change no other expectation of a present case."
+do_3 = "do_3 Add services/platform/hosted/feeder/tests/sidecar_pending_default.rs with cases whose names begin with pending_default_. A configuration without the key shows the bound 1 in the start report. With the new mode of the peer and the default, twelve rounds give twelve admitted submissions and no refusal of a sequence. With the new mode and a bound of four the peer counts refusals of a sequence, and the case states what the sidecar does with them by its present rules without changing them. Change no fate rule, no stored form, no metric name and no log line."
+do_4 = "do_4 In docs/release/variables/service-platform.md describe, where the keys of the price sidecar stand, the keys cadence_ms, max_pending_submissions, max_committed_reads_in_flight and pending_submission_block_limit with their defaults, and say that a bound above one needs a node that admits sequences ahead of the committed one. Keep the form of the page."
+do_5 = "do_5 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_pending_default.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_pending_default --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.550]
 title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
 status = "pending"
@@ -206560,7 +206622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.549]
 title = "Start the web search sidecar while its receiver has no bound identity and open the paid route once it resolves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206592,7 +206654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.548]
 title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.547"]
@@ -206624,7 +206686,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.547]
 title = "Start a round of the price sidecar at every cadence while fewer submissions than the bound are pending"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.546"]
@@ -206940,7 +207002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.529]
 title = "Bring the tests of the member layerx-agentd of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -329036,6 +329098,37 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.551]
+title = "Forward receipt requests on a node with sequencing disabled when the forward URL is set"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.551"]
+interfaces = []
+do_1 = "do_1 Gotcha 4453, decision 3539. Read NewNode in node/sequencer/node.go for a configuration with sequencing disabled, NewFollowerReceiptOption in node/sequencer/follower.go, SetSequencerRPC and the place where the EVM servers take the receipt option in node/app.go, and the start of the application in daemon/paxd/cmd/root.go. At start, a node with sequencing disabled and a nonempty sequencer.receipt-forward-url hands the option of NewFollowerReceiptOption to the application through SetSequencerRPC before the EVM servers are built. Choose the place, NewNode or the command, that every start path of the node command passes, and say in the final message which."
+do_2 = "do_2 With an empty key the node behaves as it does now and answers with the present text. A node with sequencing enabled keeps its present refusal of the key. A URL that NewFollowerReceiptOption refuses ends the start with the present text. Change no rule of receipt verification, no method name and no present text that tests read."
+do_3 = "do_3 Add node/sequencer/follower_start_test.go with cases whose names begin with TestFollowerStart, built on the means of node/sequencer/rpc_e2e_test.go and node/sequencer/proof_sequencer_receipt_test.go. A node started by the path of do_1 with sequencing disabled and the key naming a stand-in sequencing endpoint answers pax_sequencerReceipt with the forwarded receipt after verification, and a receipt whose signer is not pinned is refused as now. Without the key the answer is the present text. With sequencing enabled and the key set the start is refused as now. The cases set the option through the start path and not by a call of SetSequencerRPC of their own."
+do_4 = "do_4 Run the tests of ./node/sequencer/ and ./daemon/paxd/cmd/ once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer", "daemon/paxd/cmd", "node/app.go"]
+tests = []
+planned_paths = ["node/sequencer/follower_start_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./node/... ./daemon/paxd/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^(TestFollowerStart|TestFollowerReceiptOption|TestForwardedReceiptOnFollowerNode|TestProofSequencerReceipt)' && CGO_ENABLED=1 go test -count=1 ./daemon/paxd/cmd/ -run 'NewApp|RootCommands'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.539]
 title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"

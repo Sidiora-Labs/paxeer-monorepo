@@ -1,0 +1,53 @@
+# LayerX agent daemon test repair record.
+
+[meta]
+task = "22.39.529"
+status = "in_progress"
+
+[repair.1]
+rule = "The receipt lifecycle consumer invokes the maintained committed-evidence producer path."
+changed_files = ["services/agent/crates/layerx-agentd/tests/committed_receipt_owner_lifecycle.rs"]
+
+[repair.2]
+rule = "The key-rotation consumer checks the current compiled payload constant exported by the keeper test."
+changed_files = ["services/agent/crates/layerx-agentd/tests/key_rotation_payload.rs"]
+
+[repair.3]
+rule = "State export retention selects the checkpoint height from the inclusion format, using the receipt height for legacy RLP and the successor for native JSON evidence."
+changed_files = ["services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+
+[repair.4]
+rule = "Malformed completion requests receive the daemon's HTTP error response and drain unread bytes before the test connection closes."
+changed_files = ["services/agent/crates/layerx-agentd/tests/inference_serve.rs"]
+
+[repair.5]
+rule = "The authority consumer runs the real committed-document producer in its own build directory before reading its private corpus and checking the served verification ranks."
+changed_files = ["services/agent/crates/layerx-agentd/tests/committed_authority_consumers.rs"]
+
+[repair.6]
+rule = "The independent-authority connection retains its configured peer and cross-checks canonical head evidence and coordinates before admitting validator-authenticated reads; native consensus connections use their configured source."
+changed_files = ["services/agent/crates/layerx-agentd/src/read/program_node.rs"]
+
+[repair.7]
+rule = "Receipt references hash the canonical unsigned receipt; budget recovery restores requested spend from durable reservations and selects signed receipt and header timestamps within an exclusive millisecond period, including mixed legacy and current inventories."
+changed_files = ["services/agent/crates/layerx-agentd/tests/receipt_inventory_recovery.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs"]
+
+[repair.8]
+rule = "Dropping a writable store explicitly releases its kernel lock even while a duplicated directory descriptor remains open; another live writer still excludes competing openers."
+changed_files = ["services/agent/crates/layerx-agentd/src/store/protected.rs"]
+
+[repair.9]
+rule = "Deployment integration requires node-exported authenticated interface and execution evidence from the Programs fixture provider."
+changed_files = ["services/agent/crates/layerx-agentd/tests/program_chain_head.rs"]
+
+[repair.10]
+rule = "The listener cleanup fixture keeps the occupied completion port allocated while the signal listener uses the same port on a separate loopback address."
+changed_files = ["services/agent/crates/layerx-agentd/tests/inference_profile_boot.rs"]
+
+[repair.11]
+rule = "Disposable nodes allow sixty seconds for each role to stop; the bootstrap peer can be forcibly terminated and reaped before its data directory is replaced."
+changed_files = ["tools/qualification/localnode/v6120-node.sh", "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
+
+[repair.12]
+rule = "Disposable native-read nodes retain random directory identifiers and allocate an exclusive directory by retrying a bounded suffix when a candidate is already present."
+changed_files = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]

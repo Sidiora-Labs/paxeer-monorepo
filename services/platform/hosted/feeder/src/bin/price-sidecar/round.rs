@@ -1764,7 +1764,7 @@ mod tests {
         )
         .map_err(|e| e.to_string())?;
         assert_eq!(parsed.cadence_ms, 1000);
-        assert_eq!(parsed.max_pending_submissions, 8);
+        assert_eq!(parsed.max_pending_submissions, 1);
         assert_eq!(
             parsed.pending_submission_block_limit,
             PENDING_SUBMISSION_BLOCK_LIMIT

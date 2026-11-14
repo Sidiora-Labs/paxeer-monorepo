@@ -22085,3 +22085,13 @@ fix = "Decision 3536. Task 22.39.548 bounds the reads in flight and repeats a bu
 title = "The web search sidecar ends at start when its receiver has no bound identity"
 symptom = "PaymentGate::new_with_network_id in services/interop/crates/x-websearch/src/payment.rs reads the identity bound to the receiver address and the ledger account of each accepted asset, and assemble in services/interop/crates/x-websearch/src/main.rs ends the process when one of these reads does not pass. The text of the refusal names the adapter and not the read. The binary takes the option for the config and nothing else, so it shows no receiver address and has no means to bind one."
 fix = "Decisions 3537 and 3538. Task 22.39.549 lets the sidecar start with the paid route closed, task 22.39.550 adds the two commands."
+
+[gotcha.4453]
+title = "A node with sequencing disabled does not forward receipt requests although the forward URL is set"
+symptom = "NewFollowerReceiptOption in node/sequencer/follower.go builds the forwarding option from the key sequencer.receipt-forward-url, and the node command reads the key in daemon/paxd/cmd/root.go. No start path hands the option to the application: NewNode returns no node when sequencing is disabled and SetSequencerRPC is called only for a sequencing node. Such a node answers pax_sequencerReceipt with the text served by sequencer whatever the key holds. Only tests join the two."
+fix = "Decision 3539. Task 22.39.551 joins them at start."
+
+[gotcha.4454]
+title = "The price sidecar keeps eight submissions pending by default while a node admits one sequence per account at a time"
+symptom = "default_max_pending_submissions in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs returns 8, so a sidecar without the key starts a round at every cadence until eight submissions of its account are pending. A node admits a submission only at the committed sequence of the account and answers every later sequence with account sequence mismatch until the earlier one is committed. With the default a round after the first is refused and repeated."
+fix = "Decision 3540. Task 22.39.552 sets the default to one."
