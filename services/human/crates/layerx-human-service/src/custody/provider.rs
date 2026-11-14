@@ -957,6 +957,7 @@ impl RemoteKmsProvider {
             let _permit = self.gate.acquire().map_err(map_transport)?;
             let tcp = TcpStream::connect_timeout(&self.endpoint, limits.deadline)
                 .map_err(|_| KmsError::Timeout)?;
+            tcp.set_nodelay(true).map_err(|_| KmsError::Unavailable)?;
             let socket = DeadlineSocket {
                 tcp,
                 deadline,
@@ -2251,8 +2252,11 @@ impl Write for DeadlineSocket {
         self.bound()?;
         self.tcp.write(bytes)
     }
-    fn flush(&mut self) -> std::io::Result<()> {
+    fn write_vectored(&mut self, buffers: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
         self.bound()?;
+        self.tcp.write_vectored(buffers)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
         self.tcp.flush()
     }
 }

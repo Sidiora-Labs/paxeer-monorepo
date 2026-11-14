@@ -9,7 +9,7 @@ digest = "b52695f614376ea5d1774545e77458e9ba78729a26bfbdd2069d6f7f928df816"
 
 [source.human-api]
 root = "services/human/schema/human-api"
-digest = "f0e78fd42bc81ac6a2be6d378ddffa18fbf79ac1501494397142fc55d63d793f"
+digest = "b23c47e547148a683d3e38181445cb09147b4afabd0dcab92394771b400569e9"
 
 [source.mirror-v2]
 root = "sdk/platform/schema"
