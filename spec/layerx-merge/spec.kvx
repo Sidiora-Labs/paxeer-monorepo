@@ -14284,6 +14284,66 @@ value = "Task 22.39.544 brings services/interop/Cargo.lock in step with the mani
 basis = "Gotcha 4443, decisions 3422 and 3526."
 affects = []
 
+[decision.3529]
+title = "The client of the price sidecar keeps an idle connection for every request of a round"
+value = "http_agent sets the count of idle connections for one host and in total to sixty-four, which covers the markets of a round and the calls to the node. A round then reuses the connections of the round before it. The timeouts, the redirect rule and the trust roots stay as they are."
+basis = "Gotcha 4444."
+affects = []
+
+[decision.3530]
+title = "The Swift step of the SDK verification recipe leaves the process case probe of the agent envelope out"
+value = "The Swift test step of the recipe platform-verify-sdks leaves the test testAgentOperationEnvelopeProcessCases out, as the dotnet step leaves the probe of its kit out. The probe runs under the envelope harness, which names its case file, and keeps refusing a run without one. Task 22.39.505 takes services/platform/Makefile.inc into its paths for that one step."
+basis = "Gotcha 4445, decision 3418."
+affects = ["22.39.505"]
+
+[decision.3531]
+title = "A task on a library root takes the formatting of a declared module with it"
+value = "Task 22.39.545 takes services/platform/hosted/feeder/src/chainflow.rs into its paths. The formatting that the formatter gives that file with the library root is committed with the task; nothing else in that file changes."
+basis = "Gotcha 4446, decision 3529."
+affects = ["22.39.545"]
+
+[decision.3532]
+title = "The committed reads of the price sidecar run together and only when a fate is decided"
+value = "read_committed spawns the read of every market before it joins the first, the way run_round fetches the tickers. Where the node serves no transaction lookup, a reconcile reads the account first. While the account sequence is below the one after the oldest pending submission and the block limit has not passed, it returns without an observation read. It reads the observation sequences when it decides a fate, each market at most once in one reconcile. The fate rules of decisions 3524 and 3527, the stored forms, the metric names and the log lines stay as they are."
+basis = "Gotcha 4447, decisions 3524 and 3527."
+affects = []
+
+[decision.3533]
+title = "A round of the price sidecar starts at every cadence while fewer submissions than the bound are pending"
+value = "A reconcile decides the fates it can. An open fate of the oldest pending submission no longer holds the round. After the reconcile a round collects and submits whenever fewer submissions than max_pending_submissions are pending, and at the bound it submits nothing. A new submission continues from the journal of the last pending one, with the next account sequence and observation sequences after its observation sequences. A reconcile that decides nothing leaves that journal in memory as it is. After a failed or an evicted fate the next submission starts from committed state, as decision 3527 says. A reconcile that cannot read still defers the round, and the readiness rule stays as it is."
+basis = "Gotcha 4448, decisions 3527 and 3532."
+affects = []
+
+[decision.3534]
+title = "The task on the program kit qualifies where the compilers of every kit are present"
+value = "Task 22.39.509 takes the profile sdk-all, under which tasks that verify with make programs-test have qualified. Its paths, its build and its verification stay as they are."
+basis = "Gotcha 4449."
+affects = ["22.39.509"]
+
+[decision.3535]
+title = "The stop step of the local node script waits longer and ends the bootstrap peer whose data is replaced"
+value = "Task 22.39.529 takes tools/qualification/localnode/v6120-node.sh into its paths. stop_node waits up to sixty seconds for a role. At the stop of the bootstrap peer before its data directory is replaced, a role that still runs after the bound is ended with the forced signal. Every other stop still ends the script at the bound. No test under services/agent/crates/layerx-agentd/tests is left out with a reason that names the script."
+basis = "Gotcha 4450."
+affects = ["22.39.529"]
+
+[decision.3536]
+title = "The committed reads of the price sidecar stay below a bound and repeat a busy answer"
+value = "The configuration of the price sidecar takes the optional key max_committed_reads_in_flight with the default 6; zero is refused. read_observations has at most that many reads in flight and keeps the order of the answers by market. A read that the node answers with its busy error is repeated by the retry plan of the configuration, retry_backoff_ms and retry_max_attempts, before the reconcile reports that it could not read. Every other error of a read ends the reconcile as now. The rules of decisions 3532 and 3533, the stored forms, the metric names and the log lines stay as they are."
+basis = "Gotcha 4451, decisions 3532 and 3533."
+affects = []
+
+[decision.3537]
+title = "The web search sidecar starts while its receiver has no bound identity and opens the paid route once it resolves"
+value = "The resolution of the receiver is the read of the identity bound to its address and of the ledger account of each accepted asset. A resolution that does not pass at start no longer ends the process. The sidecar starts with every other role. While the receiver is unresolved the paid route answers 503 payment_unavailable, publishes no offer and serves no search. The start report names the receiver address and the read that did not pass. The sidecar repeats the resolution every thirty seconds and opens the paid route when it passes, without a restart. The readiness answer carries a payment field of its own, and the value ready keeps its present rule over the present roles. A refused config, network id, key file, store, lock or adapter descriptor still ends the process. No rule of payment verification changes."
+basis = "Gotcha 4452."
+affects = []
+
+[decision.3538]
+title = "The web search sidecar gets a command that reports the receiver identity and a command that binds it"
+value = "One command word may follow the config path. receiver-status prints the receiver address, whether an identity is bound to it, the identity, the ledger accounts and the balance of the address. bind-receiver takes the file of an identity key, sends bindLayerX of the address precompile from the receiver address with the signature of the identity, waits for the receipt and confirms with getLayerXDid. It sends nothing when the address is already bound or cannot pay the cost. Neither command starts a listener or writes to the store, and neither prints a key or a signature. Without a command word the binary behaves as before."
+basis = "Gotcha 4452, decision 3537."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43944,6 +44004,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.550]
+title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test receiver_commands --test payment_start --test binary --test payment --test keys"
+do_1 = "do_1 Gotcha 4452, decision 3538. Read config_path and main in services/interop/crates/x-websearch/src/main.rs, read_receiver_did and the signing of ledger transactions in services/interop/crates/x-websearch/src/payment.rs, read_secret in services/interop/crates/x-websearch/src/keys.rs, the section on the addr precompile in docs/system/precompiles.md, precompiles/addr/README.md and precompiles/addr/addr.go for the exact message the identity signs in bindLayerX. Accept one command word after the config path: receiver-status and bind-receiver. Without a command word the binary behaves as it does now, and any other word is refused as now."
+symbols = []
+
+[capability.22.39.549]
+title = "Start the web search sidecar while its receiver has no bound identity and open the paid route once it resolves"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment_start --test binary --test payment --test server --test config --test keys"
+do_1 = "do_1 Gotcha 4452, decision 3537. Read assemble and the readiness answer in services/interop/crates/x-websearch/src/main.rs, PaymentGate::new_with_network_id, GateError and the uses of payment_unavailable in services/interop/crates/x-websearch/src/payment.rs and the routes in services/interop/crates/x-websearch/src/server.rs. Part the construction of the payment state: what needs no read of the chain stays at start with its present refusals, and the resolution of the receiver, that is read_receiver_did for the receiver address and the ledger account of each accepted asset, becomes a step that can be repeated."
+symbols = []
+
+[capability.22.39.548]
+title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4451, decision 3536. Read read_observations, read_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the configuration in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs. Add the optional key max_committed_reads_in_flight beside max_pending_submissions: default 6, zero refused with the message form of the other keys, shown in the start-up report where the other bounds are shown. A configuration without the key parses as before."
+symbols = []
+
+[capability.22.39.547]
+title = "Start a round of the price sidecar at every cadence while fewer submissions than the bound are pending"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4448, decision 3533. Read run_round, reconcile, submit and attempt in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the loop in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs. Let reconcile report apart whether it could read and decide, and whether a fate is still open. run_round defers the round only when the reconcile could not read. After the reconcile it collects and submits whenever fewer submissions than max_pending_submissions are pending, whether or not the oldest has a fate, and at the bound it submits nothing."
+symbols = []
+
+[capability.22.39.546]
+title = "Run the committed reads of the price sidecar together and only when a fate is decided"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+do_1 = "do_1 Gotcha 4447, decision 3532. Read read_committed, sync_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the way run_round fetches the tickers. In read_committed collect the handles of all spawned market reads into a vector before the first join. Keep the one committed height of the reads, the order of the answers by market and the present error texts."
+symbols = []
+
+[capability.22.39.545]
+title = "Let the price sidecar reuse its feed connections across rounds"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder/src/lib.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --lib --test feed_connection_reuse"
+do_1 = "do_1 Gotcha 4444, decision 3529. Read http_agent in services/platform/hosted/feeder/src/lib.rs and the defaults for idle connections of the client library in the version the lock file pins. Set in http_agent the count of idle connections for one host and in total to sixty-four. Put the pool settings into one function that http_agent and a test share, so that the test needs no root certificate. Change no timeout, no caller and no other file of the package."
+symbols = []
 
 [capability.22.39.544]
 title = "Bring the interop lock file in step with the manifests it resolves"
@@ -196065,7 +196179,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.540]
 title = "Declare the JSON crate for the test targets of the intents member that include the journey resolver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196224,7 +196338,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.521]
 title = "Bring the intent tests of the human service member to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.499"]
@@ -196697,7 +196811,7 @@ planned_paths = ["programs/sdk/rust/repair_22_39_509.kvx"]
 build_cmd = "make -s programs-build"
 verify_cmd = "test -s programs/sdk/rust/repair_22_39_509.kvx && make -s programs-test"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-programs"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -196713,6 +196827,7 @@ do_5 = "do_5 Decision 3481, gotcha 4394. The paths of this task now hold tools/q
 do_6 = "do_6 Decision 3482, gotcha 4395. This item takes the place of do_5, and the paths of this task are again programs/sdk/rust, Makefile and programs/crates. In the test files of programs/crates/layerx-programs-arbiter that read a corpus from a variable of the environment, verified_step, authority_from_prestate and the case of the market profile among them, the function that loads the corpus gives nothing back where the variable is not set, and each case that needs the corpus then prints one line that names the variable and returns. With the variable set nothing changes: a path that cannot be read or a corpus that cannot be parsed stops the case as before. No case gets an ignore attribute and no assertion changes. The line of programs/crates/README.md about these variables says that the cases run where the variables name a corpus. Add the rule to the record. Run make programs-test by hand to its end before the counted runs; a stop in another member is handled by the items above. Run the build once and the verification once at the final revision."
 do_7 = "do_7 Decision 3512, gotcha 4425. The paths of this task now take in tools/qualification/paxeer-x/program-interface.py. In the interface test file of the member layerx-programs-registry the case on native receipts, which reads the directory named by PAXEER_X_INTERFACE_FIXTURES, gets an ignore attribute whose reason says that it runs in the harness of the program interface; change nothing else of the case. In the harness the command of the protocol suite gets the option --include-ignored directly after the path of the test program; change nothing else in that file. The harness keeps requiring that no case is reported as ignored and keeps the case in its list of required cases. If a test under tools/qualification/paxeer-x/tests reads that command, run it by hand where the test runner is present, and name it in the final message if it would have to change."
 do_8 = "do_8 Decision 3522, gotcha 4437. In programs/crates/layerx-programs-runtime the adapter from_captured answers the replay bound code for a refusal whose reason begins with the text of the Bounds refusal, because the producer appends the check and its site to that text. The test file native_result_replay_bounds reads that refusal by its leading text and keeps the assertion on the code. For the case of the trapping start function of that file read the start path of the executor and bring the case and the runtime to one statement: the runtime retains a failure record with its replay record for a trap of the start function. Where the cause lies outside the crate, the case takes the mark of expected failure and the final message names the cause."
+do_9 = "do_9 Decision 3534, gotcha 4449. The cases of programs/sdk/rust/tests/cross_language_call_budget.rs start javac, swiftc, dotnet and tsc, and the task now qualifies where they are present. Change nothing for this. Run the build once and the verification once at the final revision. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message."
 
 [task.22.39.500]
 title = "Bring the lint target of the human services in line"
@@ -206411,9 +206526,199 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.550]
+title = "Give the web search sidecar a command that reports the receiver identity and a command that binds it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.549"]
+reqs = ["22998.1"]
+capabilities = ["22.39.550"]
+interfaces = []
+do_1 = "do_1 Gotcha 4452, decision 3538. Read config_path and main in services/interop/crates/x-websearch/src/main.rs, read_receiver_did and the signing of ledger transactions in services/interop/crates/x-websearch/src/payment.rs, read_secret in services/interop/crates/x-websearch/src/keys.rs, the section on the addr precompile in docs/system/precompiles.md, precompiles/addr/README.md and precompiles/addr/addr.go for the exact message the identity signs in bindLayerX. Accept one command word after the config path: receiver-status and bind-receiver. Without a command word the binary behaves as it does now, and any other word is refused as now."
+do_2 = "do_2 receiver-status loads the config and the receiver key only. Through the settlement endpoint it reads the identity bound to the receiver address, the ledger account of each accepted asset and the balance of the address. It prints one line of JSON with the address, whether an identity is bound, the identity when bound, the ledger accounts when bound and the balance. The exit status is zero when the reads answered, bound or not. It starts no listener, takes no lock on the store and writes nothing."
+do_3 = "do_3 bind-receiver takes the option --identity-key-file followed by a path. The file holds 32 hexadecimal bytes of an Ed25519 key and is read by the rules of the other key files. The command signs the binding message with that key, sends bindLayerX to the address precompile from the receiver address, waits for the receipt and confirms with getLayerXDid. An address already bound to the same identity: it reports that and ends with status zero without a transaction. An address bound to another identity: it refuses and sends nothing. A balance below the cost of the transaction: it refuses with the address and the amount needed and sends nothing. A failed receipt is reported with the transaction hash and a status that is not zero. It prints the address, the identity and the transaction hash, and no key and no signature. It starts no listener and writes nothing to the store."
+do_4 = "do_4 Add services/interop/crates/x-websearch/tests/receiver_commands.rs with cases whose names begin with receiver_command_ and a stand-in endpoint. For fixed keys the message and the call data of bindLayerX equal what the address precompile accepts: take the expected bytes from the tests of the precompile under precompiles/addr or from the binding vectors of the client crate under services/agent, and say in the final message which. receiver-status on an unbound and on a bound address prints the fields of do_2. bind-receiver on an unbound address sends one transaction and reports the bound identity. The three refusals of do_3 send nothing. A run without a command word still starts the sidecar. Describe both commands in a section of the README of the crate."
+do_5 = "do_5 Run the tests of the package once by hand with --no-fail-fast. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/receiver_commands.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test receiver_commands --test payment_start --test binary --test payment --test keys"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.549]
+title = "Start the web search sidecar while its receiver has no bound identity and open the paid route once it resolves"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.549"]
+interfaces = []
+do_1 = "do_1 Gotcha 4452, decision 3537. Read assemble and the readiness answer in services/interop/crates/x-websearch/src/main.rs, PaymentGate::new_with_network_id, GateError and the uses of payment_unavailable in services/interop/crates/x-websearch/src/payment.rs and the routes in services/interop/crates/x-websearch/src/server.rs. Part the construction of the payment state: what needs no read of the chain stays at start with its present refusals, and the resolution of the receiver, that is read_receiver_did for the receiver address and the ledger account of each accepted asset, becomes a step that can be repeated."
+do_2 = "do_2 A resolution that does not pass at start, because no identity is bound to the address, an asset has no ledger account, the answer is malformed or the settlement endpoint does not answer, no longer ends the process. The sidecar starts with every other role. While the receiver is unresolved the paid route answers 503 payment_unavailable before any other work for the request, publishes no offer and serves no search. The start report prints one line with the receiver address as hexadecimal text and the read that did not pass. A refused config, network id, key file, store, lock or adapter descriptor still ends the process with its present text."
+do_3 = "do_3 The sidecar repeats the resolution every thirty seconds until it passes. From then on the paid route works as it does now, without a restart, and the resolution is not repeated. The interval is a constant of the crate and no configuration key. The readiness answer carries a field payment beside roles with the state and, while unresolved, the reason. The value ready keeps its present rule over the present roles. The health answer stays as it is. Change no rule of payment verification, no stored form and no present text that tests read, except the one of do_4."
+do_4 = "do_4 Add services/interop/crates/x-websearch/tests/payment_start.rs with cases whose names begin with payment_start_ and extend the stand-in endpoints of the tests where they lack a means. With no identity bound to the receiver address the sidecar starts, the paid route answers 503 payment_unavailable, the readiness answer shows the payment field unresolved with its reason and the value ready is what it is with a resolved receiver. After the stand-in binds the identity, one repeat of the resolution opens the paid route and it answers the offer. The case calls the repeat itself or sets a short interval through a means of the tests, and sleeps on no thirty seconds. A settlement endpoint that does not answer and a malformed answer give the same state with their own reasons. A refused adapter descriptor still ends the start. Adjust the case of services/interop/crates/x-websearch/tests/binary.rs that expects the text the 402LXP adapter cannot be registered for an unresolved receiver: it now expects a running process and the line of the start report. Bring the README of the crate in step with the new start."
+do_5 = "do_5 Run the tests of the package once by hand with --no-fail-fast. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates/x-websearch"]
+tests = []
+planned_paths = ["services/interop/crates/x-websearch/tests/payment_start.rs"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment_start --test binary --test payment --test server --test config --test keys"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.548]
+title = "Keep the committed reads of the price sidecar below a bound and repeat a busy answer of the node"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.547"]
+reqs = ["22998.1"]
+capabilities = ["22.39.548"]
+interfaces = []
+do_1 = "do_1 Gotcha 4451, decision 3536. Read read_observations, read_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the configuration in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs. Add the optional key max_committed_reads_in_flight beside max_pending_submissions: default 6, zero refused with the message form of the other keys, shown in the start-up report where the other bounds are shown. A configuration without the key parses as before."
+do_2 = "do_2 In read_observations keep at most max_committed_reads_in_flight reads in flight at any moment and start the next read when one ends. Keep the one committed height of the reads, the order of the answers by market and the present error texts."
+do_3 = "do_3 A read whose error carries the busy answer of the node, the text rejected due to rate limit, is repeated by the retry plan of the configuration before it counts as failed. Only that read is repeated, not the reads that answered. Every other error ends the reconcile as now. Change no fate rule, no stored form, no metric name and no log line."
+do_4 = "do_4 Add services/platform/hosted/feeder/tests/sidecar_read_bound.rs with cases whose names begin with read_bound_ and extend the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs where it lacks a means. The peer counts the observation reads in flight, records the highest count, and can answer the busy error to every read above a limit the case sets. With eighteen markets and the default bound, one reconcile decides committed and the highest count is six at most. With a peer limit of three and the default bound, the reconcile still decides committed and the peer answered busy at least once. With a peer that answers busy to every read, the reconcile reports that it could not read after the attempts of the retry plan, and the pending submission keeps its open fate. A configuration with the key at zero is refused and one without the key holds six. No case compares a measured duration. Adjust the cases of services/platform/hosted/feeder/tests/sidecar_committed_reads.rs so that its peer holds the reads until as many are in flight as the bound allows."
+do_5 = "do_5 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_read_bound.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_read_bound --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.547]
+title = "Start a round of the price sidecar at every cadence while fewer submissions than the bound are pending"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.546"]
+reqs = ["22998.1"]
+capabilities = ["22.39.547"]
+interfaces = []
+do_1 = "do_1 Gotcha 4448, decision 3533. Read run_round, reconcile, submit and attempt in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the loop in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs. Let reconcile report apart whether it could read and decide, and whether a fate is still open. run_round defers the round only when the reconcile could not read. After the reconcile it collects and submits whenever fewer submissions than max_pending_submissions are pending, whether or not the oldest has a fate, and at the bound it submits nothing."
+do_2 = "do_2 A new submission continues from the journal of the last pending one: the next account sequence and observation sequences after its observation sequences. A reconcile that decides nothing leaves the journal in memory as the last pending submission left it. The reread step of submit follows the same rule: it continues from the last pending submission while fates are open and from committed state after a failed or an evicted fate. Keep the rules of decision 3527 for the submissions behind a failed or an evicted one. No account sequence and no observation sequence is spent by two committed submissions."
+do_3 = "do_3 Keep the names of the present metrics, the log lines that tests read, the stored forms, every configuration key and the readiness rule. The count of rounds counts every round that fetched."
+do_4 = "do_4 Add services/platform/hosted/feeder/tests/sidecar_round_cadence.rs with cases whose names begin with round_cadence_ and extend the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs where it lacks a means. The peer serves no transaction lookup and commits a submission only when the case tells it. The case calls run_round itself and sleeps on no cadence. Three rounds without a commit leave three pending submissions with consecutive account sequences and rising observation sequences for each market. After the peer commits the first, the next round decides it and broadcasts a fourth. At the bound a round broadcasts nothing, and after one commit the next round broadcasts again. An evicted oldest submission ends the ones behind it and the next round starts from committed state. A restart with several pending submissions decides each of them and then submits. The committed submissions of a case spend each account sequence and each observation sequence once. No case compares a measured duration. Adjust a present case of the package only where it expected a round to wait for the fate of the submission before it."
+do_5 = "do_5 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_round_cadence.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_round_cadence --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.546]
+title = "Run the committed reads of the price sidecar together and only when a fate is decided"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.546"]
+interfaces = []
+do_1 = "do_1 Gotcha 4447, decision 3532. Read read_committed, sync_committed and reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs and the way run_round fetches the tickers. In read_committed collect the handles of all spawned market reads into a vector before the first join. Keep the one committed height of the reads, the order of the answers by market and the present error texts."
+do_2 = "do_2 In the branch of reconcile for a node that serves no transaction lookup, read the account before any observation. While the account sequence is below the one after the oldest pending submission and the block limit has not passed, return the present answer for an open fate without an observation read. Read the observation sequences when a fate is decided, each market at most once in one reconcile, and store the journal as now. Split read_committed where that serves this. Change no fate rule, no stored form, no metric name and no log line."
+do_3 = "do_3 Add services/platform/hosted/feeder/tests/sidecar_committed_reads.rs with cases whose names begin with committed_reads_ and extend the stand-in peer in services/platform/hosted/feeder/tests/support/submission_peer.rs where it lacks a means. The peer can hold every observation read until as many reads are in flight as there are markets, answers anyway after ten seconds and records that this bound passed. It counts the observation reads. With eighteen markets and a pending submission whose account sequence has passed, one reconcile decides committed, the peer never reached the bound and each market was read once. With a pending submission whose account sequence has not passed, a reconcile answers an open fate and the peer counted no observation read. After the peer commits that submission, the next reconcile decides it. No case compares a measured duration. Adjust a present case of the package only where it expected an observation read in a reconcile that decides nothing."
+do_4 = "do_4 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/sidecar_committed_reads.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --bin price-sidecar --test sidecar_committed_reads --test sidecar_cadence_pending --test sidecar_confirmation_committed_state --test sidecar_submission_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.545]
+title = "Let the price sidecar reuse its feed connections across rounds"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.545"]
+interfaces = []
+do_1 = "do_1 Gotcha 4444, decision 3529. Read http_agent in services/platform/hosted/feeder/src/lib.rs and the defaults for idle connections of the client library in the version the lock file pins. Set in http_agent the count of idle connections for one host and in total to sixty-four. Put the pool settings into one function that http_agent and a test share, so that the test needs no root certificate. Change no timeout, no caller and no other file of the package."
+do_2 = "do_2 Add services/platform/hosted/feeder/tests/feed_connection_reuse.rs with cases whose names begin with feed_connection_reuse_. A stand-in feed on a local listener counts the connections it accepts and keeps each connection open between requests. A client with the shared pool settings sends eighteen requests at once in each of five rounds, and the feed has accepted no more than eighteen connections at the end. A client with the defaults of the library over the same rounds makes more, which shows that the case measures the setting. Wait between the rounds until every answer is read."
+do_3 = "do_3 Run the tests of the feeder package once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder/src/lib.rs", "services/platform/hosted/feeder/src/chainflow.rs"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/tests/feed_connection_reuse.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --lib --test feed_connection_reuse"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3531, gotcha 4446. Formatting services/platform/hosted/feeder/src/lib.rs also formats services/platform/hosted/feeder/src/chainflow.rs. Read the output of git status and of git diff for that file after formatting. Where the difference is formatting only, commit it with the task. Change nothing else in that file. Where the difference is more than formatting, restore the file and give its first changed lines in the final message."
+
 [task.22.39.544]
 title = "Bring the interop lock file in step with the manifests it resolves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206443,7 +206748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.543]
 title = "Keep the price sidecar submitting at its cadence while earlier submissions await their fate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206603,7 +206908,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.530]
 title = "Bring the tests of the member layerx-agentd-host of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -206648,7 +206953,7 @@ do_3 = "do_3 Where the cause lies in a file outside the paths of this task, chan
 do_4 = "do_4 Change no test outside the scope, except through a support file the scope shares with it; where you change a shared support file or a source file, run by hand the other tests of the workspace that use it. Keep a change to another member as small as the cause needs."
 do_5 = "do_5 Record in services/agent/crates/layerx-agentd/repair_22_39_529.kvx the rule each repair follows and the changed files. List no case that does not pass in any file of the tree. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates"]
+touches = ["services/agent/crates", "tools/qualification/localnode/v6120-node.sh"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_529.kvx"]
 build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt && go mod download && make -s agent-build"
@@ -206664,6 +206969,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3535, gotcha 4450. tools/qualification/localnode/v6120-node.sh is in the paths. In stop_node wait up to sixty seconds for a role. Give the stop of the bootstrap peer before the copy of the data directory a means to end a role that still runs after the bound with the forced signal and to wait for it. Every other stop still ends the script at the bound. Change nothing else in the script. No test under services/agent/crates/layerx-agentd/tests carries an ignore attribute whose reason names the script: remove each one and let the case run. Run the build once and the verification once at the final revision."
 
 [task.22.39.528]
 title = "Bring the tests of the member layerx-client of the agent workspace to pass"
@@ -304907,7 +305213,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.39.505]
 title = "Bring the SDK verification target of the platform in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -304918,7 +305224,7 @@ wiring = ["wiring.J42.1"]
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make platform-verify-sdks passes. The native lifecycle fixtures under sdk/platform/conformance/fixtures equal the output of their generator at the present revision and are produced by it. The JVM conformance run reads the account sequence in the encoding that the producer of the fixture writes, and the SDK under sdk/platform/jvm accepts that encoding. The cases of the Swift SDK under sdk/platform/swift assert the receipt version that the producer writes at the present revision, and a case that needs the envelope case variable of the agent operation states that need through the make target, so that the target sets it. In each of the three the consumer follows the producer. No case is removed or ignored."
 do_2 = "do_2 Record in sdk/platform/repair_22_39_505.kvx the rule, the changed files and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["sdk/platform/conformance", "sdk/platform/conformance-runner", "sdk/platform/jvm", "sdk/platform/swift", "sdk/platform/pipeline.kvx"]
+touches = ["sdk/platform/conformance", "sdk/platform/conformance-runner", "sdk/platform/jvm", "sdk/platform/swift", "sdk/platform/pipeline.kvx", "services/platform/Makefile.inc"]
 tests = []
 planned_paths = ["sdk/platform/repair_22_39_505.kvx"]
 build_cmd = "make -s platform-build"
@@ -304936,6 +305242,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_3 = "do_3 Decision 3520, gotcha 4435. After the change of the conformance entry of the JVM kit run make -s platform-sdk-generate from the repository root and read the output of git status. Where the generation keeps the changed file and writes only sdk/platform/pipeline.kvx, commit the metadata with the change. Where the generation writes the file back to its former text, the file has a producer under sdk/platform/generators: change nothing there, and give the producer and the lines in the final message. Then make -s platform-sdk-check passes before the counted build."
+do_4 = "do_4 Decision 3530, gotcha 4445. In the recipe platform-verify-sdks of services/platform/Makefile.inc the Swift test step leaves the test testAgentOperationEnvelopeProcessCases out with the skip option of the test command, as the dotnet step of the same recipe leaves the probe of its kit out. Change no other line of that file. The probe keeps refusing a run without its case file and is not changed to pass without one. Every other case of the Swift test target passes under the recipe. A case whose cause lies in a file outside the paths: change nothing there and give test, file, function and what would have to change in the final message."
 
 [task.22.39.454]
 title = "Bring the whole lint recipe of the programs workspace through"

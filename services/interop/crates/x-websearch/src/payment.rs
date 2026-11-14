@@ -61,6 +61,8 @@ pub const METERED: &str = "metered";
 pub const EXACT: &str = "exact";
 pub const OFFER_TIMEOUT_SECONDS: u32 = 60;
 pub const DRAW_VALIDITY_MS: u64 = 60_000;
+/// Time between attempts to resolve the receiver identity and ledger accounts.
+pub const PAYMENT_RESOLUTION_INTERVAL: Duration = Duration::from_secs(30);
 pub const GRANT_BYTES: usize = 346;
 pub const LEDGER_PRECOMPILE: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
@@ -1167,6 +1169,12 @@ struct Receiver {
     accounts: [[u8; 32]; 4],
 }
 
+#[derive(Clone, Debug)]
+pub struct PaymentResolution {
+    pub state: &'static str,
+    pub reason: Option<String>,
+}
+
 /// The payment hook every paid route calls.
 pub struct PaymentGate {
     assets: AcceptedAssets,
@@ -1180,6 +1188,7 @@ pub struct PaymentGate {
     store: PaymentStore,
     clock: Clock,
     adapter: AdapterDescriptor,
+    resolution: Mutex<Option<([u8; 32], [[u8; 32]; 4])>>,
     delivery_lock: Mutex<()>,
     payment_lock: Mutex<()>,
     _lease: fs::File,
@@ -1201,13 +1210,15 @@ impl PaymentGate {
         conformance: ConformanceSuite,
         clock: Clock,
     ) -> Result<Self, GateError> {
-        Self::new_with_network_id(
+        let gate = Self::new_with_network_id(
             config,
             config.kernel_network_id.ok_or(GateError::NetworkId)?,
             receiver,
             conformance,
             clock,
-        )
+        )?;
+        gate.resolve_receiver().map_err(|_| GateError::Adapter)?;
+        Ok(gate)
     }
 
     /// # Errors
@@ -1250,22 +1261,16 @@ impl PaymentGate {
         lease
             .try_lock()
             .map_err(|_| GateError::Store(io::Error::other("payment journal already open")))?;
-        let address = signer_address(receiver);
-        let owner = read_receiver_did(&rpc, &address).map_err(|_| GateError::Adapter)?;
-        let mut accounts = [[0; 32]; 4];
-        for (slot, asset) in accounts.iter_mut().zip(assets.all()) {
-            *slot =
-                ledger_account_for_owner(&rpc, &owner, asset).map_err(|_| GateError::Adapter)?;
-        }
         let adapter = x402_adapter_descriptor(conformance).map_err(|_| GateError::Adapter)?;
+        let address = signer_address(receiver);
         Ok(Self {
             assets,
             receiver: Receiver {
                 key: receiver.clone(),
                 purpose: purpose_hash(&address),
                 address,
-                did_key: owner,
-                accounts,
+                did_key: [0; 32],
+                accounts: [[0; 32]; 4],
             },
             network: format!("eip155:{}", config.evm.chain_id),
             chain_id: config.evm.chain_id,
@@ -1276,10 +1281,71 @@ impl PaymentGate {
             store,
             clock,
             adapter,
+            resolution: Mutex::new(None),
             delivery_lock: Mutex::new(()),
             payment_lock: Mutex::new(()),
             _lease: lease,
         })
+    }
+
+    /// Attempts to resolve the receiver identity and one ledger account for
+    /// each accepted asset. A failed read leaves the gate closed and can be
+    /// retried after the settlement chain becomes available.
+    pub fn resolve_receiver(&self) -> Result<(), String> {
+        if self
+            .resolution
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .is_some()
+        {
+            return Ok(());
+        }
+        let owner = read_receiver_did(&self.rpc, &self.receiver.address)
+            .map_err(|error| format!("receiver identity read failed: {error}"))?;
+        let mut accounts = [[0; 32]; 4];
+        for (slot, asset) in accounts.iter_mut().zip(self.assets.all()) {
+            *slot = ledger_account_for_owner(&self.rpc, &owner, asset).map_err(|error| {
+                format!(
+                    "ledger account read failed for {}: {error}",
+                    asset.symbol.code()
+                )
+            })?;
+        }
+        *self
+            .resolution
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some((owner, accounts));
+        Ok(())
+    }
+
+    #[must_use]
+    pub fn payment_ready(&self) -> bool {
+        self.resolution
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .is_some()
+    }
+
+    #[must_use]
+    pub fn payment_resolution(&self, reason: Option<String>) -> PaymentResolution {
+        if self.payment_ready() {
+            PaymentResolution {
+                state: "ready",
+                reason: None,
+            }
+        } else {
+            PaymentResolution {
+                state: "unresolved",
+                reason,
+            }
+        }
+    }
+
+    fn resolved_identity(&self) -> Option<([u8; 32], [[u8; 32]; 4])> {
+        self.resolution
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// The configured settlement authority, shared by payment and readiness.
@@ -1331,7 +1397,8 @@ impl PaymentGate {
             .iter()
             .position(|candidate| candidate.asset_id == asset.asset_id)
             .unwrap_or_default();
-        self.receiver.accounts[index]
+        self.resolved_identity()
+            .map_or([0; 32], |(_, accounts)| accounts[index])
     }
 
     #[must_use]
@@ -1345,12 +1412,15 @@ impl PaymentGate {
         scheme: &str,
         payer: Option<[u8; 20]>,
     ) -> Result<PaymentRequirements, Response> {
+        let Some((did_key, _)) = self.resolved_identity() else {
+            return Err(Response::error(503, "payment_unavailable"));
+        };
         let account = if asset.symbol == crate::config::AssetSymbol::Pax {
-            format!("agent:did:layerx:{}:main", hex(&self.receiver.did_key))
+            format!("agent:did:layerx:{}:main", hex(&did_key))
         } else {
             format!(
                 "agent:did:layerx:{}:asset:{}",
-                hex(&self.receiver.did_key),
+                hex(&did_key),
                 asset.id_hex()
             )
         };
@@ -1902,7 +1972,16 @@ impl PaymentGate {
         handler: impl Fn(&Request) -> Response + Send + Sync + 'static,
     ) -> Result<(), RouteError> {
         let gate = Arc::clone(gate);
+        let payment_gate = Arc::clone(&gate);
+        if let Err(error) = routes.set_paid_eligibility(move || payment_gate.payment_ready()) {
+            if !matches!(error, RouteError::AlreadySet) {
+                return Err(error);
+            }
+        }
         routes.set(route, move |request: &Request| {
+            if request.route.is_paid() && !gate.payment_ready() {
+                return Response::error(503, "payment_unavailable");
+            }
             if let Err(response) = validate(request) {
                 return response;
             }
@@ -2128,6 +2207,9 @@ impl Plane<'_> {
     }
 
     fn run(&self, request: &LayerXPaymentRequest) -> Settled {
+        if !self.gate.payment_ready() {
+            return Err("payment_pending");
+        }
         let asset = unhex32(&request.asset)
             .and_then(|id| self.gate.assets.by_id(&id).copied())
             .ok_or("unsupported_asset")?;
@@ -2207,6 +2289,9 @@ impl Plane<'_> {
             .ok_or("invalid_grant")?;
         let payer_account =
             ledger_account(&self.gate.rpc, &payer, asset).map_err(|_| "payment_pending")?;
+        let Some((did_key, _)) = self.gate.resolved_identity() else {
+            return Err("payment_pending");
+        };
         check_grant(
             &grant,
             &payer_account,
@@ -2228,9 +2313,9 @@ impl Plane<'_> {
             Err(_) => return Err("payment_pending"),
         }
         let rpc = &self.gate.rpc;
-        let did_key =
+        let current_did_key =
             read_receiver_did(rpc, &self.gate.receiver.address).map_err(|_| "payment_pending")?;
-        if did_key != self.gate.receiver.did_key {
+        if current_did_key != did_key {
             return Err("payment_pending");
         }
         let receiver_sequence = read_receiver_sequence(rpc, &did_key, &asset.asset_id)

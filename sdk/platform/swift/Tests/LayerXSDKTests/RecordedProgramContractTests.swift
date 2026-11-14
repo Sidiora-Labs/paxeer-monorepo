@@ -128,7 +128,7 @@ enum RecordedProgramEvidence {
     // Independently pinned execution block from the recorded local chain, never from bundle input.
     try CommittedTrust(
       chainID: "committed-fixture", height: 10,
-      blockHash: hex("0x066b3b86eb6f62437b659c1d075f28eb22246d233fe86b3d5cacbdb5e18216e9"))
+      blockHash: hex("0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108"))
   }
   static func published(_ level: String) throws -> Record {
     let values = try array(fixture("vector-v5-portable"), "bundles")
@@ -185,9 +185,16 @@ enum RecordedProgramEvidence {
   static func commit(_ value: Record) throws -> CometCommit {
     let signatures = try array(value, "Signatures").map { item -> CometCommitSignature in
       let signature = try XCTUnwrap(item.objectValue)
+      let flag = try XCTUnwrap(
+        CometBlockIDFlag(rawValue: UInt8(integer(signature, "BlockIDFlag"))))
+      if flag == .absent {
+        XCTAssertEqual(signature["Signature"], .null)
+        XCTAssertEqual(try base64(signature, "ValidatorAddress"), Data())
+        XCTAssertEqual(try text(signature, "Timestamp"), "0001-01-01T00:00:00Z")
+        return CometCommitSignature(blockIDFlag: flag)
+      }
       return try CometCommitSignature(
-        blockIDFlag: XCTUnwrap(
-          CometBlockIDFlag(rawValue: UInt8(integer(signature, "BlockIDFlag")))),
+        blockIDFlag: flag,
         validatorAddress: base64(signature, "ValidatorAddress"),
         timestamp: time(text(signature, "Timestamp")),
         signature: base64(signature, "Signature"))

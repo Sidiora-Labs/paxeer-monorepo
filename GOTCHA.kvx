@@ -22040,3 +22040,48 @@ fix = "Decision 3527. Task 22.39.543 lets the sidecar submit at its cadence."
 title = "The interop workspace resolves packages of the platform workspace through its path dependencies"
 symptom = "Members of the interop workspace depend by path on members of the platform workspace, so the lock file of the interop workspace also pins the packages those members name. A version change in a manifest of the platform workspace that such a path reaches asks for the same change in services/interop/Cargo.lock. Until then a command with the locked flag over the interop workspace refuses the lock file, and so does scripts/interop/dependency-policy.sh, which reads the metadata with that flag."
 fix = "Decision 3528. Task 22.39.544 brings the lock file in step."
+
+[gotcha.4444]
+title = "The client of the price sidecar keeps the default count of idle connections"
+symptom = "The client that http_agent builds in services/platform/hosted/feeder/src/lib.rs keeps the default count of idle connections of its library for one host, which is smaller than the market count of a usual configuration. A round fetches the ticker of every configured market at once from one host. The requests beyond that count open a new connection with a new handshake in every round, inside the timeout of the request."
+fix = "Decision 3529. Task 22.39.545 sets the counts."
+
+[gotcha.4445]
+title = "The process case probe of the agent envelope runs under its harness"
+symptom = "The test testAgentOperationEnvelopeProcessCases of the Swift kit reads a case file that the envelope harness names for it and refuses a run without one. The recipe platform-verify-sdks in services/platform/Makefile.inc runs the test target of each kit outside that harness. Its dotnet step leaves the probe of that kit out; the Swift step names the whole test target."
+fix = "Decision 3530. Task 22.39.505 brings the Swift step to the form of the dotnet step."
+
+[gotcha.4446]
+title = "Formatting a library root also formats the modules it declares"
+symptom = "The formatter follows the module declarations of the file it is given. Formatting services/platform/hosted/feeder/src/lib.rs therefore also formats services/platform/hosted/feeder/src/chainflow.rs, which the library root declares. A task whose paths name only the library root then carries a formatting change in a file beside it."
+fix = "Decision 3531. Task 22.39.545 takes the module file into its paths for its formatting."
+
+[gotcha.4447]
+title = "A spawn and its join in one iterator chain run the reads one after another"
+symptom = "read_committed in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs spawns the read of a market and joins it in one iterator chain. An iterator chain takes one element through every step before it takes the next, so each read is joined before the next is spawned and the reads run one after another. Where the node serves no transaction lookup, a reconcile also makes these reads before it compares the account sequence, so a reconcile that decides nothing reads every market."
+fix = "Decision 3532. Task 22.39.546 collects the handles first and reads the account first."
+
+[gotcha.4448]
+title = "A reconcile that reports an open fate holds the round of the price sidecar"
+symptom = "reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs answers false while the oldest pending submission has no fate, and run_round and the reread step of submit start nothing on that answer. The bound max_pending_submissions is compared only after a reconcile that answered true. The list of pending submissions therefore holds one entry at most, and a round follows the fate of the submission before it and not the cadence."
+fix = "Decision 3533. Task 22.39.547 starts a round at every cadence below the bound."
+
+[gotcha.4449]
+title = "The cross-language cases of the Rust program kit start the compilers of the other kits"
+symptom = "The cases of programs/sdk/rust/tests/cross_language_call_budget.rs start javac, swiftc, dotnet and tsc. They run with make programs-test, so a task that verifies with that target needs the profile that carries those compilers."
+fix = "Decision 3534. Task 22.39.509 takes the profile sdk-all."
+
+[gotcha.4450]
+title = "The stop step of the local node script ends on a bound of ten seconds"
+symptom = "stop_node in tools/qualification/localnode/v6120-node.sh signals a role and waits ten seconds for it. A role that still runs then ends the script. The script stops the bootstrap peer once before it replaces the data directory of that peer, and a test that starts the script ends with it when the peer stops later than the bound."
+fix = "Decision 3535. Task 22.39.529 takes the script into its paths."
+
+[gotcha.4451]
+title = "The node answers an EVM read above its bound with a busy error at once"
+symptom = "The EVM read interface in rpc/simulate.go admits at most max_concurrent_simulation_calls reads at a time, by default the count of processor cores. A read above the bound does not wait; it is answered at once with a busy error. read_observations in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs starts one read for every market at the same moment, so the reads of one reconcile can take the whole bound and a read of this or of another client then ends with the busy error."
+fix = "Decision 3536. Task 22.39.548 bounds the reads in flight and repeats a busy answer."
+
+[gotcha.4452]
+title = "The web search sidecar ends at start when its receiver has no bound identity"
+symptom = "PaymentGate::new_with_network_id in services/interop/crates/x-websearch/src/payment.rs reads the identity bound to the receiver address and the ledger account of each accepted asset, and assemble in services/interop/crates/x-websearch/src/main.rs ends the process when one of these reads does not pass. The text of the refusal names the adapter and not the read. The binary takes the option for the config and nothing else, so it shows no receiver address and has no means to bind one."
+fix = "Decisions 3537 and 3538. Task 22.39.549 lets the sidecar start with the paid route closed, task 22.39.550 adds the two commands."

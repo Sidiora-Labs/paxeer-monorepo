@@ -240,6 +240,7 @@ pub struct RouteTable {
     health: Option<Handler>,
     readiness: Option<Handler>,
     serving_eligibility: Option<ServingEligibility>,
+    paid_eligibility: Option<ServingEligibility>,
     handlers: BTreeMap<Route, Handler>,
     attestations: Option<AttestationHandler>,
     program_attestations: Option<ProgramAttestationHandler>,
@@ -304,6 +305,21 @@ impl RouteTable {
             return Err(RouteError::AlreadySet);
         }
         self.serving_eligibility = Some(Box::new(eligibility));
+        Ok(())
+    }
+
+    /// Sets the payment gate's eligibility check for paid routes.
+    ///
+    /// # Errors
+    /// Returns an error when a payment eligibility check is already installed.
+    pub fn set_paid_eligibility(
+        &mut self,
+        eligibility: impl Fn() -> bool + Send + Sync + 'static,
+    ) -> Result<(), RouteError> {
+        if self.paid_eligibility.is_some() {
+            return Err(RouteError::AlreadySet);
+        }
+        self.paid_eligibility = Some(Box::new(eligibility));
         Ok(())
     }
 
@@ -391,6 +407,13 @@ impl RouteTable {
             };
             return catch_unwind(AssertUnwindSafe(|| handler(request)))
                 .unwrap_or_else(|_| Response::error(500, "internal_error"));
+        }
+        if request.route.is_paid()
+            && self.paid_eligibility.as_ref().is_some_and(|eligibility| {
+                !catch_unwind(AssertUnwindSafe(eligibility)).unwrap_or(false)
+            })
+        {
+            return Response::error(503, "payment_unavailable");
         }
         if !self.is_serving_eligible() {
             return Response::error(503, "service_not_ready");
