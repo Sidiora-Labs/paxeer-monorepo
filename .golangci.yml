@@ -1469,290 +1469,6 @@ linters:
         linters: [unconvert]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/paxeer/profile\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/paxeer/profile\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/paxeer/profile\\.go$"
-        linters: [staticcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/beta_readiness\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/beta_readiness\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/beta_runtime\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/beta_runtime\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/beta_runtime\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/beta_topology\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/beta_topology\\.go$"
-        linters: [prealloc]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/cmd/hosted\\-beta\\-tool/main\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/cmd/hosted\\-beta\\-tool/main\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/hosted/tests/cmd/hosted\\-beta\\-tool/main\\.go$"
-        linters: [staticcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/cmd/perps\\-explorer/main\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/cmd/perps\\-gateway/main\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/cmd/perps\\-indexer/main\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/cmd/perps\\-replay/main\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/cmd/perps\\-replay/main\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/config/config\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/decode/perps\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/decode/pricefeed\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/decode/registry\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/decode/spot\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/decode/spot\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/delivery/store\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/delivery/store\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/explorer/explorer\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/feeds/book\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/feeds/topics\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/feeds/topics\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/feeds/topics\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/graphql/account\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/graphql/perps\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/graphql/perps\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/graphql/spot\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/graphql/spot\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/graphql/subscriptions\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/indexer/indexer\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/indexer/rewind\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/markets/markets\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/pnl/pnl\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/portal/pages\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/portal/server\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/publish/publisher\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/records/marketset\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/records/records\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/records/records\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/replay/replay\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/replay/replay\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/rest/accountv2\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/rest/accountv2\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/rest/markets\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/rest/markets\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/rest/spotusers\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/rest/symbol\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/rest/venue\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/rest/venue\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/source/follower\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/source/follower\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/source/rpc\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/source/rpc\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/store/facts\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/store/facts\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/store/migrate\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/store/projections\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/store/projections\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/store/spotboard\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/store/spotboard\\.go$"
-        linters: [gosec]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/ws/spotuser\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/loadtest/load\\.go$"
-        linters: [errcheck]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/loadtest/load\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^src/modules/history/accounts\\.go$"
         linters: [errcheck]
 
@@ -2377,16 +2093,36 @@ linters:
         linters: [errcheck]
 
       # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/graphql/account\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
-      - path: "^services/platform/perps\\-data/internal/graphql/perps\\.go$"
-        linters: [goconst]
-
-      # Scoped wiring request: see repair_22_39_511.kvx.
       - path: "^tools/flyci/controller/github\\.go$"
         linters: [goconst]
+
+      - path: "^services/platform/hosted/paxeer/profile\\.go$"
+        linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
+
+      - path: "^services/platform/hosted/tests/beta_runtime\\.go$"
+        linters: [gosec]
+        text: "^(?:G304:\\ Potential\\ file\\ inclusion\\ via\\ variable)$"
+
+      - path: "^services/platform/perps\\-data/internal/config/config\\.go$"
+        linters: [gosec]
+        text: "^(?:G101:\\ Potential\\ hardcoded\\ credentials)$"
+
+      - path: "^services/platform/perps\\-data/internal/decode/spot\\.go$"
+        linters: [gosec]
+        text: "^(?:G101:\\ Potential\\ hardcoded\\ credentials)$"
+
+      - path: "^services/platform/perps\\-data/internal/delivery/store\\.go$"
+        linters: [gosec]
+        text: "^(?:G202:\\ SQL\\ string\\ concatenation)$"
+
+      - path: "^services/platform/perps\\-data/internal/feeds/topics\\.go$"
+        linters: [gosec]
+        text: "^(?:G101:\\ Potential\\ hardcoded\\ credentials)$"
+
+      - path: "^services/platform/perps\\-data/internal/records/records\\.go$"
+        linters: [gosec]
+        text: "^(?:G101:\\ Potential\\ hardcoded\\ credentials)$"
 
 formatters:
   enable:
@@ -2396,3 +2132,8 @@ formatters:
     paths:
       - "core/deps/cosmwasm/packages/go-gen/tests/"
       - "tools/hyperfide/tests/fixtures/"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: false

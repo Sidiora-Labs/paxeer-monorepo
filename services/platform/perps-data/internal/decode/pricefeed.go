@@ -80,7 +80,10 @@ type BlockInput struct {
 // place in the block.
 func (r *Registry) DecodeBlock(ctx context.Context, q Querier, in BlockInput) (*Result, error) {
 	res := &Result{}
+	eventIndex := uint(0)
 	for i, ev := range in.Events {
+		index := eventIndex
+		eventIndex++
 		var names []string
 		switch ev.Type {
 		case EventAggregate:
@@ -118,7 +121,7 @@ func (r *Registry) DecodeBlock(ctx context.Context, q Querier, in BlockInput) (*
 			args[k] = v
 		}
 		res.Decoded = append(res.Decoded, Decoded{
-			Event: Event{ev.Type, ev.Type, args, in.Number, strings.ToLower(in.Hash.Hex()), uint(i)},
+			Event: Event{ev.Type, ev.Type, args, in.Number, strings.ToLower(in.Hash.Hex()), index},
 			Rows:  []Row{row},
 		})
 	}

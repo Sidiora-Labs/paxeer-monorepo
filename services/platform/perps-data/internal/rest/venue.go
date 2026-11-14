@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/feeds"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/records"
 )
 
 type Venue struct {
@@ -141,7 +141,11 @@ func (v *Venue) openInterest(w http.ResponseWriter, r *http.Request) {
 		venueUnavailable(w)
 		return
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			slog.Error(closeRowsMessage, "err", closeErr)
+		}
+	}()
 	data := []venueOI{}
 	for rows.Next() {
 		var (
@@ -228,7 +232,7 @@ LEFT JOIN LATERAL (SELECT index_price FROM (
         WHERE market_id = m.market_id AND kind = 'aggregate' AND index_price IS NOT NULL
         ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1)
 ) latest_index ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) ip ON true
-LEFT JOIN LATERAL (SELECT funding_rate, ` + records.LastFundingRateHourlySQL + ` AS hourly FROM perps.funding_settlements WHERE market_id = m.market_id
+LEFT JOIN LATERAL (SELECT funding_rate, ` + lastFundingRateHourlySQL + ` AS hourly FROM perps.funding_settlements WHERE market_id = m.market_id
     ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) fs ON true
 LEFT JOIN LATERAL (SELECT long_oi, short_oi FROM perps.open_interest WHERE market_id = m.market_id
     ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) oi ON true
@@ -257,12 +261,16 @@ func venueNumber(raw sql.NullString) (*float64, error) {
 	return &v, nil
 }
 
-func (v *Venue) readTickers(ctx context.Context, symbol string) ([]venueTickerEntry, error) {
+func (v *Venue) readTickers(ctx context.Context, symbol string) (result0 []venueTickerEntry, resultErr error) {
 	rows, err := v.db.QueryContext(ctx, venueTickersSQL, usdScale, symbol)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	data := []venueTickerEntry{}
 	for rows.Next() {
 		var (

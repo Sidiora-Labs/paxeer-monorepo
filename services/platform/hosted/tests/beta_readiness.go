@@ -71,7 +71,7 @@ func nativeHash(value string, prefix bool) bool {
 	return err == nil && len(raw) == 32 && !bytes.Equal(raw, make([]byte, 32))
 }
 
-func (readiness *NativeReadiness) call(ctx context.Context, origin, method string, params any, result any) error {
+func (readiness *NativeReadiness) call(ctx context.Context, origin, method string, params any, result any) (resultErr error) {
 	endpoint, err := url.Parse(origin)
 	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") {
 		return errors.New("native RPC must use a root JSON-RPC origin")
@@ -90,7 +90,11 @@ func (readiness *NativeReadiness) call(ctx context.Context, origin, method strin
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("native RPC returned HTTP %d", response.StatusCode)
 	}
@@ -127,7 +131,7 @@ func parseNativeHeight(value string) (uint64, error) {
 	return height, nil
 }
 
-func (readiness *NativeReadiness) Probe(ctx context.Context, rpc, consensus, transaction string) (NativeReadyState, error) {
+func (readiness *NativeReadiness) Probe(ctx context.Context, rpc, consensus, transaction string) (result0 NativeReadyState, resultErr error) {
 	var empty NativeReadyState
 	if readiness.closed || readiness.material.closed {
 		return empty, errors.New("native readiness is closed")
@@ -254,7 +258,11 @@ func (readiness *NativeReadiness) Probe(ctx context.Context, rpc, consensus, tra
 	if err != nil {
 		return empty, err
 	}
-	defer os.Remove(temporary.Name())
+	defer func() {
+		if removeErr := os.Remove(temporary.Name()); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) && resultErr == nil {
+			resultErr = removeErr
+		}
+	}()
 	if _, err = temporary.Write(raw); err == nil {
 		err = temporary.Sync()
 	}
@@ -273,7 +281,11 @@ func (readiness *NativeReadiness) Probe(ctx context.Context, rpc, consensus, tra
 		return empty, err
 	}
 	err = directory.Sync()
-	directory.Close()
+	defer func() {
+		if closeErr := directory.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	if err != nil {
 		return empty, err
 	}
