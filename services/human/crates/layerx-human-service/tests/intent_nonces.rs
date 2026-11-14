@@ -53,7 +53,17 @@ fn nonce_plan(allow_top_up: bool) -> UnifiedPlan {
         TimestampSeconds::from_u64(1_000),
         home_account,
         None,
-        vec![BalanceEntry::new(home, asset, Amount::from_u128(500))],
+        {
+            let mut balances = vec![BalanceEntry::new(home, asset, Amount::from_u128(500))];
+            if allow_top_up {
+                balances.push(BalanceEntry::new(
+                    source.clone(),
+                    asset,
+                    Amount::from_u128(0),
+                ));
+            }
+            balances
+        },
         allowances,
         Vec::new(),
         FeeSchedule::new(vec![(LegMechanism::Protocol(Mechanism::Send), 2)])

@@ -18,6 +18,7 @@ AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
 AGENT_BOUNDARY_COMMAND ?= $(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked --
 AGENT_BOUNDARY_MODE ?=
 HUMAN_CARGO ?= cargo
+HUMAN_TEST_SCOPE ?= --workspace
 HUMAN_API_GEN ?= $(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked --
 HUMAN_API_SCHEMA_DIR ?= services/human/schema/human-api
 HUMAN_API_OUT_DIR ?= apps/web/src/api/generated
@@ -1742,7 +1743,7 @@ human-build:
 	$(HUMAN_NPM) run build
 
 human-test: human-test-hosted-provisioning
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked $(HUMAN_TEST_SCOPE)
 	$(HUMAN_NPM) test
 
 HUMAN_TARGET_DIR ?= $(or $(CARGO_TARGET_DIR),$(CURDIR)/services/human/target)

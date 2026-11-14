@@ -25,7 +25,11 @@ fn evm_log_bytes_are_not_an_intent() {
     committed_targets.sort();
     assert_eq!(
         committed_targets,
-        [OsString::from(format!("{fuzz_target}.rs"))]
+        [
+            OsString::from("fixtures"),
+            OsString::from(format!("{fuzz_target}.rs")),
+            OsString::from("intent_harness.rs")
+        ]
     );
 
     let manifest = include_str!("../fuzz/Cargo.toml");
