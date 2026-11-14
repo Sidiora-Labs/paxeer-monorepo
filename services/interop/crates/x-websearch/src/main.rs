@@ -15,7 +15,9 @@ use x_websearch::content::{self, ContentStore};
 use x_websearch::crawl::{CrawlBudget, CrawlReport, Crawler, StopSignal};
 use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
-use x_websearch::payment::{system_clock, PaymentGate};
+use x_websearch::payment::{
+    system_clock, PaymentGate, PaymentResolution, PAYMENT_RESOLUTION_INTERVAL,
+};
 use x_websearch::program::{self, ProgramAttestor, ProgramExchange, ProgramRelay, Step};
 
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
@@ -46,6 +48,7 @@ struct RoleReadiness {
 
 struct Readiness {
     roles: Mutex<BTreeMap<&'static str, RoleReadiness>>,
+    payment: Mutex<PaymentResolution>,
     network_id: u32,
     relay_lag: Mutex<Option<serde_json::Value>>,
 }
@@ -109,6 +112,10 @@ impl Readiness {
         }
         Self {
             roles: Mutex::new(roles),
+            payment: Mutex::new(PaymentResolution {
+                state: "unresolved",
+                reason: Some("receiver identity has not been resolved".to_owned()),
+            }),
             network_id,
             relay_lag: Mutex::new(None),
         }
@@ -130,6 +137,12 @@ impl Readiness {
                     row.last_success_unix_ms = Some(now_ms());
                 }
             }
+        }
+    }
+
+    fn set_payment(&self, payment: PaymentResolution) {
+        if let Ok(mut current) = self.payment.lock() {
+            *current = payment;
         }
     }
 
@@ -177,7 +190,14 @@ impl Readiness {
         }
         let ready =
             !roles.is_empty() && roles.iter().all(|row| row.state == DependencyState::Ready);
-        let mut answer = serde_json::json!({"version":1,"ready":ready,"roles":roles,"checked_at_unix_ms":now,"network_id":self.network_id,"protocol_version":x_websearch::payment::PROTOCOL_VERSION});
+        let payment = self
+            .payment
+            .lock()
+            .map(|payment| serde_json::json!({"state": payment.state, "reason": payment.reason}))
+            .unwrap_or_else(
+                |_| serde_json::json!({"state":"unresolved","reason":"readiness_unavailable"}),
+            );
+        let mut answer = serde_json::json!({"version":1,"ready":ready,"roles":roles,"payment":payment,"checked_at_unix_ms":now,"network_id":self.network_id,"protocol_version":x_websearch::payment::PROTOCOL_VERSION});
         if let Some(lag) = self.relay_lag.lock().ok().and_then(|lag| lag.clone()) {
             answer["relay_lag"] = lag;
         }
@@ -192,6 +212,8 @@ struct ReadinessProbe {
     index: Arc<WebIndex>,
     store: Arc<ContentStore>,
     signer: Option<[u8; 20]>,
+    payment_next_attempt: Mutex<Instant>,
+    payment_reason: Mutex<Option<String>>,
 }
 
 fn directory_usable(path: &std::path::Path) -> bool {
@@ -312,6 +334,31 @@ fn peer_readiness_digest(
 
 impl ReadinessProbe {
     fn check(&self) {
+        if !self.gate.payment_ready() {
+            let attempt = self
+                .payment_next_attempt
+                .lock()
+                .map(|mut next| {
+                    if Instant::now() >= *next {
+                        *next = Instant::now() + PAYMENT_RESOLUTION_INTERVAL;
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .unwrap_or(false);
+            if attempt {
+                let reason = self.gate.resolve_receiver().err();
+                if reason.is_none() {
+                    self.readiness
+                        .set_payment(self.gate.payment_resolution(None));
+                } else if let Ok(mut current) = self.payment_reason.lock() {
+                    *current = reason;
+                    self.readiness
+                        .set_payment(self.gate.payment_resolution(current.clone()));
+                }
+            }
+        }
         self.readiness.update(
             "paid_delivery",
             "index",
@@ -514,8 +561,11 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         )
         .map_err(|error| format!("assets, gateway or data_dir: {error}"))?,
     );
-    gate.recover_pending_deliveries()
-        .map_err(|error| format!("payment delivery recovery in data_dir: {error}"))?;
+    let initial_payment_reason = gate.resolve_receiver().err();
+    if initial_payment_reason.is_none() {
+        gate.recover_pending_deliveries()
+            .map_err(|error| format!("payment delivery recovery in data_dir: {error}"))?;
+    }
     let store = Arc::new(
         ContentStore::open(&config.data_dir, &config.peers)
             .map_err(|error| format!("peers or data_dir: {error}"))?,
@@ -549,6 +599,7 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         pipeline.is_some(),
         relay.is_some(),
     ));
+    readiness.set_payment(gate.payment_resolution(initial_payment_reason.clone()));
     register_status_routes(
         &mut routes,
         &readiness,
@@ -571,6 +622,8 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
             index: Arc::clone(&index),
             store,
             signer,
+            payment_next_attempt: Mutex::new(Instant::now() + PAYMENT_RESOLUTION_INTERVAL),
+            payment_reason: Mutex::new(initial_payment_reason),
         },
     })
 }
@@ -1301,6 +1354,14 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if let Ok(reason) = probe.payment_reason.lock() {
+        if let Some(reason) = reason.as_deref() {
+            eprintln!(
+                "x-websearch payment unresolved: receiver 0x{}: {reason}",
+                x_websearch::payment::hex(&probe.gate.receiver_address())
+            );
+        }
+    }
     let signals = match Signals::new([SIGTERM, SIGINT]) {
         Ok(signals) => signals,
         Err(error) => {
