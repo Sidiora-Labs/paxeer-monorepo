@@ -374589,7 +374589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.314]
 title = "List every large tracked file and take the planning files out of the growth budget"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374889,7 +374889,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.300]
 title = "Bring the pages of the services, the deployment files, the tools and the test directories to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
