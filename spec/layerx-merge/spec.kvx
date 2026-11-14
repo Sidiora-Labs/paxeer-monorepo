@@ -374712,7 +374712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.329]
 title = "Bring the network page and the tests that read it to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
