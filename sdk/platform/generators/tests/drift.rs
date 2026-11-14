@@ -188,6 +188,23 @@ fn place_generated_fixture(root: &Path) {
     );
     place(
         root,
+        "services/agent/sdk/typescript/src/generated/mirror.ts",
+        include_str!("../../../../services/agent/sdk/typescript/src/generated/mirror.ts"),
+    );
+    place(
+        root,
+        "services/agent/sdk/typescript/src/generated/precompile-writes.ts",
+        include_str!(
+            "../../../../services/agent/sdk/typescript/src/generated/precompile-writes.ts"
+        ),
+    );
+    place(
+        root,
+        "services/agent/sdk/python/layerx_sdk/generated/__init__.py",
+        include_str!("../../../../services/agent/sdk/python/layerx_sdk/generated/__init__.py"),
+    );
+    place(
+        root,
         "services/agent/sdk/python/layerx_sdk/generated/client.py",
         "GENERATED = True\n",
     );
@@ -203,6 +220,23 @@ fn place_generated_fixture(root: &Path) {
     );
     place(
         root,
+        "services/agent/sdk/python/layerx_sdk/generated/mirror.py",
+        include_str!("../../../../services/agent/sdk/python/layerx_sdk/generated/mirror.py"),
+    );
+    place(
+        root,
+        "services/agent/sdk/python/layerx_sdk/generated/mirror.pyi",
+        include_str!("../../../../services/agent/sdk/python/layerx_sdk/generated/mirror.pyi"),
+    );
+    place(
+        root,
+        "services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py",
+        include_str!(
+            "../../../../services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py"
+        ),
+    );
+    place(
+        root,
         "services/agent/sdk/COMPATIBILITY.md",
         "compatibility\n",
     );
@@ -210,6 +244,11 @@ fn place_generated_fixture(root: &Path) {
         root,
         "apps/web/src/api/generated/index.ts",
         "export const humanApi = true;\n",
+    );
+    place(
+        root,
+        "apps/web/src/api/generated/conformance.ts",
+        include_str!("../../../../apps/web/src/api/generated/conformance.ts"),
     );
     place(
         root,
@@ -341,6 +380,65 @@ fn freshly_generated_pipeline_passes_the_gate() {
 }
 
 #[test]
+fn fixture_generated_inventory_matches_the_committed_pipeline() {
+    let root = repo_fixture("inventory");
+    generate(&root);
+    let fixture = capture(&root).unwrap_or_else(|error| panic!("capture: {error}"));
+    let committed = parse_lock(include_str!("../../pipeline.kvx"))
+        .unwrap_or_else(|error| panic!("parse committed pipeline: {error}"));
+    assert_eq!(fixture.outputs.len(), committed.outputs.len());
+    for (fixture, committed) in fixture.outputs.iter().zip(&committed.outputs) {
+        assert_eq!(fixture.name, committed.name);
+        assert_eq!(
+            fixture
+                .files
+                .iter()
+                .map(|(path, _)| path)
+                .collect::<BTreeSet<_>>(),
+            committed
+                .files
+                .iter()
+                .map(|(path, _)| path)
+                .collect::<BTreeSet<_>>(),
+            "{} generated inventory",
+            committed.name
+        );
+    }
+    cleanup(&root);
+}
+
+#[test]
+fn typescript_mirror_and_precompile_output_edits_fail_the_gate() {
+    for file in ["mirror.ts", "precompile-writes.ts"] {
+        let root = repo_fixture("edit-ts-contract");
+        generate(&root);
+        let relative = format!("services/agent/sdk/typescript/src/generated/{file}");
+        let mut source = fs::read_to_string(root.join(&relative))
+            .unwrap_or_else(|error| panic!("read {file}: {error}"));
+        source.push('\n');
+        place(&root, &relative, &source);
+        expect_failure(
+            &root,
+            &format!("generated typescript file {relative} is stale or hand-edited"),
+        );
+        cleanup(&root);
+    }
+}
+
+#[test]
+fn missing_typescript_mirror_and_precompile_outputs_fail_the_gate() {
+    for file in ["mirror.ts", "precompile-writes.ts"] {
+        let root = repo_fixture("deleted-ts-contract");
+        generate(&root);
+        let relative = format!("services/agent/sdk/typescript/src/generated/{file}");
+        fs::remove_file(root.join(&relative))
+            .unwrap_or_else(|error| panic!("remove {file}: {error}"));
+        expect_failure(&root, &relative);
+        cleanup(&root);
+    }
+}
+
+#[test]
 fn rust_operation_catalogue_is_derived_from_programs_schema() {
     let root = repo_fixture("rust-programs");
     generate(&root);
@@ -458,7 +556,7 @@ fn untracked_file_in_a_generated_root_fails_the_gate() {
         "services/agent/sdk/typescript/src/generated/extra.ts",
         "export const extra = true;\n",
     );
-    expect_failure(&root, "untracked file in generated typescript root");
+    expect_failure(&root, "unclassified file in generated typescript root");
     cleanup(&root);
 }
 
@@ -817,17 +915,15 @@ fn repository_retired_reference_repair_is_regenerated() {
         .find(|output| output.name == "agent-compatibility")
         .unwrap_or_else(|| panic!("missing agent-compatibility output"));
     assert_eq!(output.root, "services/agent/sdk");
+    let records = root.join("spec/layerx-merge/programme/records/services/agent/sdk");
     for relative in [
         "repair_22_39_258.kvx",
         "repair_22_39_288.kvx",
         "repair_22_39_297.kvx",
         "repair_22_39_299.kvx",
     ] {
-        assert!(root.join(&output.root).join(relative).is_file());
-        assert!(
-            output.handwritten.iter().any(|path| path == relative),
-            "repair record {relative} must be declared handwritten"
-        );
+        assert!(records.join(relative).is_file());
+        assert!(!output.handwritten.iter().any(|path| path == relative));
         assert!(
             !output.files.iter().any(|(path, _)| path == relative),
             "repair record {relative} must not be generated"

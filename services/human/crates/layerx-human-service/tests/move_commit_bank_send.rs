@@ -89,6 +89,7 @@ fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<(
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     assert_no_retired_dependency();
     let mut fixture = Fixture::open()?;
+    let bank_nonce = fixture.start_bank_node()?;
     let wallet = {
         let peer = fixture.peer_state.lock().map_err(|_| "peer state")?;
         let actor = fixture.document["actor"].as_str().ok_or("owner actor")?;
@@ -123,7 +124,7 @@ fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<(
         assert!(peer
             .pending_nonces
             .iter()
-            .all(|answer| *answer == (wallet, NONCE)));
+            .all(|answer| *answer == (wallet, bank_nonce)));
         let (hash, raw) = peer.submitted.iter().next().ok_or("bank transaction")?;
         (*hash, raw.clone())
     };
@@ -135,11 +136,13 @@ fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<(
         recover_sender(&call, &signature).map_err(|error| format!("sender: {error:?}"))?,
         wallet
     );
-    assert_eq!(call.nonce, NONCE);
+    assert_eq!(call.nonce, bank_nonce);
     assert_eq!(call.chain_id, 125);
-    let mut bank = [0; 20];
-    bank[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
-    assert_eq!(call.to, bank);
+    let pointer = production_fixture::native_pointer_recording()["pointer"]
+        .as_str()
+        .ok_or("recorded native pointer")?
+        .to_owned();
+    assert_eq!(format!("0x{}", cluster::hex(&call.to)), pointer);
     assert_eq!(
         layerx_crypto::evm_transaction::assemble(&call, &signature),
         raw,
@@ -152,10 +155,9 @@ fn move_commit_submits_a_bank_transfer_without_a_movement_provider() -> Result<(
             .map_err(|error| format!("bank disclosure: {error:?}"))?
             .construct_method()
             .map_err(|error| format!("bank method: {error:?}"))?,
-        Some(ConstructMethod::BankSend {
-            from: wallet,
+        Some(ConstructMethod::PointerTransfer {
+            pointer: call.to,
             to: recipient,
-            denom: "alxp".to_owned(),
             amount: amount_word
         })
     );
@@ -225,6 +227,7 @@ fn exercise_accepted_submission_recovery(
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut fixture = Fixture::open()?;
+    fixture.start_bank_node()?;
     let (commit, started) = start_accepted_submission(&mut fixture)?;
     let journey_id = started["journey_id"].as_str().ok_or("journey id")?;
     let (hash, raw) = {
