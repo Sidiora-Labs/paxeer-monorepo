@@ -21970,3 +21970,8 @@ fix = "Decision 3514. The target is made of step targets and the vet step reads 
 title = "The bank precompile serves its send to the native pointer of the denomination"
 symptom = "The send of the bank precompile is served to one caller, the ERC-20 native pointer of the denomination. A wallet moves a bank denomination by the transfer of that pointer, and the pointer view of the chain names the pointer of a denomination."
 fix = "Decision 3515. The wallet bank transfer of the human service is the transfer of the pointer."
+
+[gotcha.4430]
+title = "A vet with the module proxy off reads more modules than a build of the same directory"
+symptom = "The vet step reads the test files of a directory and every package they import. A build of the directory alone leaves some modules of the root module out of the module cache, and with the proxy off the vet step cannot fetch them."
+fix = "Decision 3516. The build of such a task downloads the modules of the root module first."

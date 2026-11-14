@@ -14206,6 +14206,12 @@ value = "The wallet bank transfer of the human service is one call of transfer w
 basis = "Gotcha 4429, requirement 10051, decisions 3505 and 3509."
 affects = ["22.39.523"]
 
+[decision.3516]
+title = "The build of a task that vets with the module proxy off downloads the modules of the root module first"
+value = "Where the verification of a task runs go vet with the module proxy off, its build starts with go mod download in the root module. The build of task 22.39.535 takes this form; its verification stays as it is."
+basis = "Gotcha 4430, decision 3514."
+affects = ["22.39.535"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -328398,7 +328404,7 @@ symbols = []
 touches = ["precompiles/layerxpay/served/served_test.go"]
 tests = []
 planned_paths = ["precompiles/layerxpay/served/repair_22_39_535.kvx"]
-build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxpay/..."
+build_cmd = "go mod download && make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxpay/..."
 verify_cmd = "test -s precompiles/layerxpay/served/repair_22_39_535.kvx && make -s paxd-native-libs && CGO_ENABLED=1 GOPROXY=off go vet ./precompiles/layerxpay/... && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxpay/served/"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -328411,6 +328417,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3516, gotcha 4430. The build now downloads the modules of the root module first. Run the vet step of the verification once by hand after the build, then the counted verification."
 
 [task.22.39.534]
 title = "Let the rules for the linter of repeated literals cover package directories"
