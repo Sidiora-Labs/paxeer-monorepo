@@ -58,7 +58,7 @@ def test_doc_01_one_paxd_bft_network_embeds_kernel_execution():
         "each block.",
         "Validators check that block and commit it.",
         "returns a signed execution receipt and builds each block.",
-        "proposes blocks inside `paxd`", "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.", "A receipt is final when the validators commit its block.",
         "C17 kernel", "runs inside `paxd`", "modules/lxphost",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "The public API reaches the node directly at the root path on EVM chain ID 125",
@@ -71,7 +71,7 @@ def test_doc_01_one_paxd_bft_network_embeds_kernel_execution():
     )
     topology = section("Integrated network topology")
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native", "Validators -->|Commit| State",
         "outside consensus", "The public API reaches the node directly at the root path on EVM chain ID 125",
@@ -215,7 +215,7 @@ def test_doc_01_source_names_are_distinct_from_running_components():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_doc_01_repair_record_maps_the_finding_to_declared_proofs():

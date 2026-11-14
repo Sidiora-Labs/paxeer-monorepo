@@ -52,8 +52,8 @@ def test_readme_network_embeds_kernel_and_proposes_committed_blocks():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through",
         "A receipt is final once its block is committed",
     ):

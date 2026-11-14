@@ -53,8 +53,8 @@ def test_doc_1_one_merged_paxd_network_and_block_finality():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",

@@ -56,8 +56,8 @@ def test_f59_integrated_network_and_merge_status():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -65,7 +65,7 @@ def test_f59_integrated_network_and_merge_status():
         assert fact in overview, fact
     releases = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in releases
-    assert "commits it with the BFT chain state" in releases
+    assert "validators commit it in the same block" in releases
     assert "retires the old custody/checkpoint write paths" in releases
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
@@ -165,7 +165,7 @@ def test_f59_diagrams_keep_execution_and_finality_in_one_network():
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",

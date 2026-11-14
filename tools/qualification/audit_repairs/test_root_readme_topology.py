@@ -65,8 +65,8 @@ def test_single_paxd_network_embeds_kernel_and_commits_receipts():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -82,7 +82,7 @@ def test_single_paxd_network_embeds_kernel_and_commits_receipts():
     )
     upgrades = section("Releases and Network Upgrades")
     assert "merged runtime executes kernel activity inside `paxd`" in upgrades
-    assert "commits it with the BFT chain state" in upgrades
+    assert "validators commit it in the same block" in upgrades
     for stale in (
         r"\blayerxd\b", r"\bmake\s+checkpoint\b", r"\bLNI\b",
         r"merge is (?:only )?a draft", r"kernel still runs separately",
@@ -173,7 +173,7 @@ def test_architecture_and_receipt_diagrams_preserve_the_same_network_flow():
     assert len(diagrams) == 2
     topology, receipt = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native", "Proposed block in execution order",
         "Validators -->|Commit| State",

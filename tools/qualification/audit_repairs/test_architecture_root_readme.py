@@ -120,11 +120,11 @@ def test_architecture_root_diagram_contains_embedded_execution_and_gateway_relay
     for component in ("RPC", "Order", "Host", "Native"):
         assert re.search(rf'^\s+{component}\[[^\n]+\]$', node, re.M)
     for fact in ("RPC --> Order --> Host --> Native", "Embedded C17 kernel and Rust programs host",
-                 "Integrated sequencing and block proposal"):
+                 "LayerX kernel executes, orders and builds the block"):
         assert fact in node
     for fact in ("Hosted[Optional hosted developer gateway] -->|Chain RPC and committed state| RPC",
                  "Client[Wallet, SDK or application] -->|Signed EVM transaction / root JSON-RPC| RPC",
-                 "Order -->|Proposed block in execution order| Validators[BFT validators]",
+                 "Order -->|Proposed block in execution order| Validators[Validators check and commit]",
                  "Validators -->|Commit| State[Committed block and chain state]",
                  "State -->|Transaction receipts, logs and proofs| Client"):
         assert fact in diagram

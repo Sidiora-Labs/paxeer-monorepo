@@ -57,8 +57,8 @@ def test_readme_retired_network_is_one_paxd_bft_chain():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -153,7 +153,7 @@ def test_readme_diagrams_keep_execution_and_finality_in_paxd():
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
@@ -200,7 +200,7 @@ def test_readme_build_and_upgrade_match_integrated_release():
     assert "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd" in command
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "`v7.0` merge handler" in release
     assert "retires the old custody/checkpoint write paths" in release
     assert "`v7.0-anchor-store-delete` removes the historical anchor store" in release

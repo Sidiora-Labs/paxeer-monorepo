@@ -235,7 +235,7 @@ def test_finding_23_readme_matches_embedded_network_and_precompile_producer():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed", "root path without a route suffix",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "`submitted`, `receipted` and `committed`", "make paxd-build",

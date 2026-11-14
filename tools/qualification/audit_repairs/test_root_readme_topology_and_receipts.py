@@ -52,8 +52,8 @@ def test_root_readme_topology_is_one_integrated_chain_125_network():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "Sub-chains are tenant domains stored in the database",
         "does not require new node infrastructure",
@@ -69,7 +69,7 @@ def test_root_readme_topology_is_one_integrated_chain_125_network():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
@@ -218,7 +218,7 @@ def test_root_readme_build_and_release_target_the_merged_paxd():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "`v7.0` merge handler activates the merged interfaces" in release
     assert 'const AnchorStoreDeleteUpgrade = "v7.0-anchor-store-delete"' in source("node/upgrades.go")
 

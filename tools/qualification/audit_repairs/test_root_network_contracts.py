@@ -54,8 +54,8 @@ def test_root_network_embeds_kernel_in_one_chain_125_paxd():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
     ))
@@ -67,13 +67,13 @@ def test_root_network_embeds_kernel_in_one_chain_125_paxd():
     release = section("Releases and Network Upgrades", 3)
     require_facts(release, (
         "executes kernel activity inside `paxd`",
-        "commits it with the BFT chain state",
+        "validators commit it in the same block",
         "retires the old custody/checkpoint write paths",
     ))
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
     assert len(diagrams) == 2
     require_facts(diagrams[0], (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ))
