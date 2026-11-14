@@ -622,17 +622,27 @@ pub(crate) mod disposable_node {
             );
             let mut identifier = [0_u8; 16];
             must(getrandom::fill(&mut identifier));
-            let directory = Path::new("/tmp/lx-localnode").join(format!(
-                "native-reads-{}-{}",
-                std::process::id(),
-                layerx_programs::hex::encode(&identifier)
-            ));
+            let base = Path::new("/tmp/lx-localnode");
             must(
                 std::fs::DirBuilder::new()
                     .recursive(true)
                     .mode(0o700)
-                    .create(&directory),
+                    .create(base),
             );
+            let directory = (0..32)
+                .find_map(|attempt| {
+                    let candidate = base.join(format!(
+                        "native-reads-{}-{}-{attempt}",
+                        std::process::id(),
+                        layerx_programs::hex::encode(&identifier)
+                    ));
+                    match std::fs::DirBuilder::new().mode(0o700).create(&candidate) {
+                        Ok(()) => Some(candidate),
+                        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
+                        Err(error) => panic!("disposable native reads node: {error:?}"),
+                    }
+                })
+                .unwrap_or_else(|| panic!("disposable native reads node: directory allocation"));
             let environment = directory.join("localnode.env");
             let log_path = directory.join("startup.log");
             let log = must(
@@ -1079,7 +1089,6 @@ mod proof {
     }
 
     #[test]
-    #[ignore = "tools/qualification/localnode/v6120-node.sh"]
     fn program_state_unavailable() {
         let path = format!("/v1/programs/{}/balances", "11".repeat(32));
         // Both actual producers: refreshing authority fails on a wrong chain,

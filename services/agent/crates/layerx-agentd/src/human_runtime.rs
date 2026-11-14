@@ -20857,10 +20857,15 @@ pub fn retain_state_export(
         &validators,
     )
     .map_err(|error| export_refusal(&error))?;
-    let commitment_height = artifact
-        .height
-        .checked_add(1)
-        .ok_or_else(|| state_export_refused("receipt_checkpoint_height", &artifact.height))?;
+    let commitment_height = crate::export::committed_checkpoint_height(
+        artifact.height,
+        bundle
+            .receipt_inclusion
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .as_bytes(),
+    )
+    .map_err(|error| state_export_refused("receipt_checkpoint_height", &error))?;
     let checkpoint = crate::read::checkpoint(
         commitment_height,
         &header.chain_id,

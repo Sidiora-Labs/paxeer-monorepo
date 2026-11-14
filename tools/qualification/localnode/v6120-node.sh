@@ -20,10 +20,14 @@ fail() {
 }
 
 stop_node() {
-    local dir pid role command attempt
+    local dir pid role command attempt force=0
     dir=$(realpath -e "$1")
     [[ "$dir" == "$BASE"/node.* ]] && [ -f "$dir/.localnode" ] || fail "not a disposable localnode home: $dir"
     shift
+    if [ "${1:-}" = --force ]; then
+        force=1
+        shift
+    fi
     if [ "$#" = 0 ]; then
         set -- feeder node standby bootstrap-peer
     fi
@@ -36,13 +40,18 @@ stop_node() {
             command=$(tr '\0' ' ' < "/proc/$pid/cmdline")
             [[ "$command" == *"$dir"* ]] || fail "$role pid no longer belongs to $dir"
             kill "$pid"
-            for ((attempt = 0; attempt < 100; attempt++)); do
+            for ((attempt = 0; attempt < 600; attempt++)); do
                 kill -0 "$pid" 2>/dev/null || break
                 [ "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" != Z ] || break
                 sleep 0.1
             done
             if kill -0 "$pid" 2>/dev/null && [ "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" != Z ]; then
-                fail "$role did not stop; see $dir/$role.log"
+                if [ "$force" = 1 ]; then
+                    kill -KILL "$pid"
+                    wait "$pid" 2>/dev/null || true
+                else
+                    fail "$role did not stop; see $dir/$role.log"
+                fi
             fi
         fi
     done
@@ -665,7 +674,7 @@ if [ "$SEQUENCER" = 1 ]; then
     esac
     grep -Eq "halting node per configuration.*height=$BOOTSTRAP_HEIGHT time=0$" "$NODE_HOME/bootstrap.log" \
         || fail "bootstrap did not reach its halt height: $NODE_HOME/bootstrap.log"
-    stop_node "$NODE_HOME" bootstrap-peer
+    stop_node "$NODE_HOME" --force bootstrap-peer
     cp -a "$NODE_HOME/data/." "$BOOTSTRAP_HOME/data/"
     for home in "$NODE_HOME" "$BOOTSTRAP_HOME"; do
         set_toml "$home/config/config.toml" consensus.sequencer enable true
