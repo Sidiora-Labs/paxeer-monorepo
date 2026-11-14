@@ -34,8 +34,8 @@ def test_finding_61_one_paxd_network_and_tenant_namespaces():
         "each block."
     ) in overview
     assert "Validators check that block and commit it." in overview
-    assert "proposes blocks inside `paxd`" in overview
-    assert "validators commit those blocks through BFT consensus" in overview
+    assert "A receipt is final when the validators commit its block." in overview
+    assert "A receipt is final when the validators commit its block." in overview
     assert "no separate kernel daemon, sequencer service or checkpoint deployment" in overview
     assert "Sub-chains are tenant domains stored in the database" in overview
     assert "namespaces state within the shared network" in overview

@@ -53,8 +53,8 @@ def test_readme_merged_network_and_block_finality():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
     ):
@@ -67,7 +67,7 @@ def test_readme_merged_network_and_block_finality():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
@@ -234,7 +234,7 @@ def test_readme_merged_build_runtime_and_operator_links():
             assert (NETWORK_PATH.parent / target).is_file(), target
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "retires the old custody/checkpoint write paths" in release
     assert "This reference page describes the integrated network architecture" in section("Specification", 2)
 

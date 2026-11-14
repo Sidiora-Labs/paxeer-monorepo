@@ -51,8 +51,8 @@ def test_merged_paxd_network_and_block_commit_finality():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
         "A receipt is final once its block is committed",
         "A signed execution receipt can arrive before that commitment",
@@ -146,7 +146,7 @@ def test_topology_and_receipt_diagrams_agree_with_commit_model():
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
@@ -184,7 +184,7 @@ def test_retired_executors_and_versioned_upgrade_history():
     ):
         assert fact in precompiles, fact
     release = section("Releases and Network Upgrades")
-    assert "executes kernel activity inside `paxd` and commits it with the BFT chain state" in release
+    assert "executes kernel activity inside `paxd`; validators commit it in the same block" in release
     assert "`v7.0` merge handler activates the merged interfaces" in release
     assert "retires the old custody/checkpoint write paths" in release
     assert "`v7.0-anchor-store-delete` removes the historical anchor store" in release

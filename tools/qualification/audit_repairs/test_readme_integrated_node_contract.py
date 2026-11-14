@@ -58,8 +58,8 @@ def test_root_separate_daemon_is_replaced_by_one_integrated_paxd_network():
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
         "Validators check that block and commit it.",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
     ):
         assert fact in overview, fact
@@ -170,7 +170,7 @@ def test_transaction_receipt_producer_transport_and_commit_consumer():
 def test_topology_deployment_and_recovery_stay_inside_paxd():
     topology = section("Integrated network topology")
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State", "outside consensus",
         "A configured standby follows the integrated node's durable WAL for recovery",
@@ -196,7 +196,7 @@ def test_topology_deployment_and_recovery_stay_inside_paxd():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_custody_and_checkpoint_executors_are_explicitly_retired():

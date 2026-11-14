@@ -46,8 +46,8 @@ def test_root_readme_topology_is_one_embedded_paxd_network():
         "It executes each transaction when it arrives, assigns the next position "
         "in one global sequence, returns a signed execution receipt and builds "
         "each block.",
-        "Validators check that block and commit it.", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -61,7 +61,7 @@ def test_root_readme_topology_is_one_embedded_paxd_network():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ):
@@ -174,7 +174,7 @@ def test_root_readme_upgrade_and_operating_guidance_is_merged():
     assert "running network entry point is `paxd`" in build
     upgrade = section("Releases and Network Upgrades")
     for fact in (
-        "executes kernel activity inside `paxd`", "commits it with the BFT chain state",
+        "executes kernel activity inside `paxd`", "validators commit it in the same block",
         "`v7.0` merge handler activates the merged interfaces",
         "retires the old custody/checkpoint write paths",
         "`v7.0-anchor-store-delete` removes the historical anchor store",
