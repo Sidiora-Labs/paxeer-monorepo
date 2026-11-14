@@ -22010,3 +22010,8 @@ fix = "Decision 3521. The selection of task 22.39.504 names the library, binary 
 title = "The reason of a replay record refusal carries the check and its site"
 symptom = "The producer in programs/crates/layerx-programs-runtime appends the check and its site to the reason of a refusal of the replay record. A reader of that reason takes the refusal by its leading text."
 fix = "Decision 3522. Task 22.39.509 brings the adapter of the native result and its test file to the leading text."
+
+[gotcha.4438]
+title = "A test module inside a source file is compiled in every test target that includes the file by path"
+symptom = "The test targets intent_chain_domain and proof_human_intents of the intents member include the source of the journey resolver of the human service by path. The test module pointer_view_tests at the end of that source is compiled in those targets as well and names the JSON crate, so the including member declares that crate among its development dependencies."
+fix = "Decision 3523. Task 22.39.540 declares the crate in services/human/crates/layerx-intents/Cargo.toml."

@@ -14248,6 +14248,12 @@ value = "The adapter from_captured answers the replay bound code for a refusal w
 basis = "Gotcha 4437, decision 3418."
 affects = ["22.39.509"]
 
+[decision.3523]
+title = "A source file included by path keeps its test modules compilable in every including target"
+value = "A task that adds a test module to a source file searches the workspace for path attributes that name the file. For each including test target it declares in the including member what the module names, or it places the module in a test file of its own member. Task 22.39.540 declares the JSON crate for the two targets of the intents member."
+basis = "Gotcha 4438."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43908,6 +43914,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.540]
+title = "Declare the JSON crate for the test targets of the intents member that include the journey resolver"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-intents/Cargo.toml"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-intents/repair_22_39_540.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-intents --test intent_chain_domain --test proof_human_intents'"
+do_1 = "do_1 Gotcha 4438, decision 3523. Read the path attribute at the head of services/human/crates/layerx-intents/tests/proof_human_intents.rs and the test module pointer_view_tests at the end of services/human/crates/layerx-human-service/src/journeys/resolver.rs. Declare the JSON crate among the development dependencies in services/human/crates/layerx-intents/Cargo.toml in the workspace form the other entries use. Change no other dependency and no source file."
+symbols = []
 
 [capability.22.39.539]
 title = "Bind the resolver fixture of the names DNS tool to the present root Forge configuration"
@@ -195978,6 +195993,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.540]
+title = "Declare the JSON crate for the test targets of the intents member that include the journey resolver"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.540"]
+interfaces = []
+do_1 = "do_1 Gotcha 4438, decision 3523. Read the path attribute at the head of services/human/crates/layerx-intents/tests/proof_human_intents.rs and the test module pointer_view_tests at the end of services/human/crates/layerx-human-service/src/journeys/resolver.rs. Declare the JSON crate among the development dependencies in services/human/crates/layerx-intents/Cargo.toml in the workspace form the other entries use. Change no other dependency and no source file."
+do_2 = "do_2 Run the test targets intent_chain_domain and proof_human_intents of the intents member by hand; they compile and pass. Then compile the tests of the whole human workspace once by hand with the no-run option. A target that does not compile for a cause outside the paths: change nothing there and give target, file and first message in the final message."
+do_3 = "do_3 Record in services/human/crates/layerx-intents/repair_22_39_540.kvx the dependency line and the two targets. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/crates/layerx-intents/Cargo.toml"]
+tests = []
+planned_paths = ["services/human/crates/layerx-intents/repair_22_39_540.kvx"]
+build_cmd = "python3 -m pip install -q -r tests/bridge/requirements.txt pytest PyYAML && go mod download && make -s human-build"
+verify_cmd = "test -s services/human/crates/layerx-intents/repair_22_39_540.kvx && make -s human-test HUMAN_TEST_SCOPE='-p layerx-intents --test intent_chain_domain --test proof_human_intents'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
