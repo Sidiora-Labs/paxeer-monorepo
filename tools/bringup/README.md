@@ -1,6 +1,6 @@
 # Network bringup tools
 
-This directory holds the scripts, Go inspection library and command, deployment manifests, and tests used to initialize, inspect and maintain the Paxeer network and its hosted services. The tools manage native `paxd` identities and genesis, certificates, edge routing, RPC fleet recovery, software upgrades and service state. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125; its kernel runs within the network, and receipts become final when their blocks commit. Node JSON-RPC uses the root path, while hosted gateway operations use their explicitly configured service endpoint.
+This directory holds the scripts, Go inspection library and command, deployment manifests, and tests used to initialize, inspect and maintain the Paxeer network and its hosted services. The tools manage native `paxd` identities and genesis, certificates, edge routing, RPC fleet recovery, software upgrades and service state. Paxeer mainnet-beta is one network with EVM chain ID 125: the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it, and receipts become final when the validators commit their blocks. Node JSON-RPC uses the root path, while hosted gateway operations use their explicitly configured service endpoint.
 
 ## Layout
 
