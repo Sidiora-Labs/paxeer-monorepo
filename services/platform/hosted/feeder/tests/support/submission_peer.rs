@@ -66,6 +66,7 @@ pub(crate) struct Transcript {
     pub(crate) response_delay_ms: u64,
     pub(crate) submission_sequence_mode: SubmissionSequenceMode,
     pub(crate) sequence_refusals: usize,
+    pub(crate) broadcast_refusal: Option<String>,
 }
 
 impl Default for Transcript {
@@ -95,6 +96,7 @@ impl Default for Transcript {
             response_delay_ms: 0,
             submission_sequence_mode: SubmissionSequenceMode::Any,
             sequence_refusals: 0,
+            broadcast_refusal: None,
         }
     }
 }
@@ -533,19 +535,22 @@ impl Transcript {
                 let tx_index = self.txs.len();
                 self.txs.push(tx);
                 let fate = self.tx_fates.get(tx_index).copied().unwrap_or(self.fate);
-                if self.submission_sequence_mode == SubmissionSequenceMode::CommittedOnly
-                    && sequence != u64::from(self.account_sequence)
+                if self.broadcast_refusal.is_some()
+                    || (self.submission_sequence_mode == SubmissionSequenceMode::CommittedOnly
+                        && sequence != u64::from(self.account_sequence))
                 {
                     self.sequence_refusals += 1;
                     return json!({
+                        "jsonrpc": "2.0", "id": 1, "result": {
                         "code": 32,
                         "data": "",
-                        "log": format!(
+                        "log": self.broadcast_refusal.clone().unwrap_or_else(|| format!(
                             "account sequence mismatch, expected {}, got {}: incorrect account sequence",
                             self.account_sequence, sequence
-                        ),
+                        )),
                         "codespace": "sdk",
                         "hash": hash.to_uppercase(),
+                        }
                     });
                 }
                 if matches!(fate, Fate::Committed { .. }) {
@@ -631,11 +636,32 @@ impl Transcript {
     }
 }
 
-fn tx_sequence(tx: &[u8]) -> u64 {
+pub(crate) fn tx_sequence(tx: &[u8]) -> u64 {
     let auth_info = protobuf_bytes(tx, 2).unwrap_or_else(|| panic!("transaction auth info absent"));
     let signer_info =
         protobuf_bytes(auth_info, 1).unwrap_or_else(|| panic!("transaction signer info absent"));
     protobuf_field_varint(signer_info, 3).unwrap_or_else(|| panic!("transaction sequence absent"))
+}
+
+pub(crate) fn tx_observation_sequences(tx: &[u8]) -> Vec<(u64, u64)> {
+    let body = protobuf_bytes(tx, 1).unwrap();
+    let message = protobuf_bytes(body, 1).unwrap();
+    let mut prices = protobuf_bytes(message, 2).unwrap();
+    let mut observations = Vec::new();
+    while !prices.is_empty() {
+        let key = protobuf_varint(&mut prices).unwrap();
+        assert_eq!(key & 7, 2);
+        let length = usize::try_from(protobuf_varint(&mut prices).unwrap()).unwrap();
+        let value = &prices[..length];
+        prices = &prices[length..];
+        if key >> 3 == 2 {
+            observations.push((
+                protobuf_field_varint(value, 1).unwrap_or(0),
+                protobuf_field_varint(value, 2).unwrap(),
+            ));
+        }
+    }
+    observations
 }
 
 fn protobuf_bytes(mut input: &[u8], wanted: u64) -> Option<&[u8]> {
