@@ -21940,3 +21940,8 @@ fix = "Decision 3509. Tasks 22.39.520 to 22.39.533."
 title = "The page on the modules of the docs site and the files built from it do not hold the kernel sentence"
 symptom = "The page names the kernel inside a link and describes it with an earlier wording. The search index, the copies of the pages in markdown and the files for assistants are built from the pages and hold the same wording."
 fix = "Decision 3510. Task 22.43.334."
+
+[gotcha.4424]
+title = "The test target of the platform workspaces takes no member selection"
+symptom = "The target platform-test runs the tests of every member of the platform workspace in one cargo line and those of the workspace of the platform tools in a second. A task that brings a group of members in line cannot be counted on that group."
+fix = "Decision 3511. The two cargo lines read their member selections from variables whose defaults are the present options."
