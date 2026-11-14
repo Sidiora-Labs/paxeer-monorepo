@@ -202,7 +202,7 @@ Supply decoded evidence from the network; this SDK does not automatically
 fetch or assemble it for this function.
 
 The second step returns `level: "committed"`, the landing height and block
-hash. That is finality on the merged BFT network. A server's `rung` string or
+hash. That is finality: validators have committed the receipt's block. A server's `rung` string or
 an ordinary EVM receipt is not a substitute for this offline proof.
 Verification establishes authenticity and commitment, not successful
 execution: inspect `verified.receipt.receipt.resultCode` on the returned

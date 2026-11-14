@@ -3,9 +3,10 @@
 The `programs/` Cargo workspace supplies the deterministic WASM runtime,
 receipt-bound registry, guest SDK and reference programs used by the merged
 Paxeer network. Programs execution is kernel module `9` (`LXP_MODULE_PROGRAMS`
-in `include/layerx/lxp_module.h`). The kernel runs inside the network and
-proposes blocks; program effects and EVM transactions belong to the same
-chain, and a receipt is final when its block is committed.
+in `include/layerx/lxp_module.h`). The LayerX kernel inside `paxd` executes and
+orders each transaction and builds each block; validators check and commit it.
+Program effects and EVM transactions belong to the same chain, and a receipt is
+final when validators commit its block.
 
 The C implementation is `src/modules/programs/`. Rust host entry points live
 in the runtime's `src/ffi*.rs` and the sandbox's `src/host_ffi.rs`.

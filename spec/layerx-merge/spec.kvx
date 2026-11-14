@@ -170862,7 +170862,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.323]
 title = "Let the pages of the documentation site describe the network by its kernel in every wording"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.321"]

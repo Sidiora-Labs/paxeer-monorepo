@@ -14,9 +14,10 @@ SDKs live under `programs/sdk/`. `sdk/platform/` holds client SDKs (dotnet, go, 
 swift, conformance, generators). CALL receipt terminal verification for
 those clients is on [SdkTerminalVerification](SdkTerminalVerification.md).
 
-Programs executes inside `paxd` on the merged BFT network, chain ID **125**
-(`0x7d`). `modules/lxphost/` hosts the kernel and Rust runtime in the node's
-transaction context. Program storage, transfers, and receipt events become
+Programs executes inside `paxd` on chain ID **125** (`0x7d`). The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. `modules/lxphost/` hosts the kernel and Rust
+runtime in the node's transaction context. Program storage, transfers, and receipt events become
 final with their block's commit. See [Home](Home.md) for the network overview.
 
 The Rust guest SDK includes LXT-20 codecs at `programs/sdk/rust/src/lxt20.rs`
