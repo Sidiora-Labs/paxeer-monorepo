@@ -22050,3 +22050,68 @@ fix = "Decision 3529. Task 22.39.545 sets the counts."
 title = "The process case probe of the agent envelope runs under its harness"
 symptom = "The test testAgentOperationEnvelopeProcessCases of the Swift kit reads a case file that the envelope harness names for it and refuses a run without one. The recipe platform-verify-sdks in services/platform/Makefile.inc runs the test target of each kit outside that harness. Its dotnet step leaves the probe of that kit out; the Swift step names the whole test target."
 fix = "Decision 3530. Task 22.39.505 brings the Swift step to the form of the dotnet step."
+
+[gotcha.4446]
+title = "Formatting a library root also formats the modules it declares"
+symptom = "The formatter follows the module declarations of the file it is given. Formatting services/platform/hosted/feeder/src/lib.rs therefore also formats services/platform/hosted/feeder/src/chainflow.rs, which the library root declares. A task whose paths name only the library root then carries a formatting change in a file beside it."
+fix = "Decision 3531. Task 22.39.545 takes the module file into its paths for its formatting."
+
+[gotcha.4447]
+title = "A spawn and its join in one iterator chain run the reads one after another"
+symptom = "read_committed in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs spawns the read of a market and joins it in one iterator chain. An iterator chain takes one element through every step before it takes the next, so each read is joined before the next is spawned and the reads run one after another. Where the node serves no transaction lookup, a reconcile also makes these reads before it compares the account sequence, so a reconcile that decides nothing reads every market."
+fix = "Decision 3532. Task 22.39.546 collects the handles first and reads the account first."
+
+[gotcha.4448]
+title = "A reconcile that reports an open fate holds the round of the price sidecar"
+symptom = "reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs answers false while the oldest pending submission has no fate, and run_round and the reread step of submit start nothing on that answer. The bound max_pending_submissions is compared only after a reconcile that answered true. The list of pending submissions therefore holds one entry at most, and a round follows the fate of the submission before it and not the cadence."
+fix = "Decision 3533. Task 22.39.547 starts a round at every cadence below the bound."
+
+[gotcha.4449]
+title = "The cross-language cases of the Rust program kit start the compilers of the other kits"
+symptom = "The cases of programs/sdk/rust/tests/cross_language_call_budget.rs start javac, swiftc, dotnet and tsc. They run with make programs-test, so a task that verifies with that target needs the profile that carries those compilers."
+fix = "Decision 3534. Task 22.39.509 takes the profile sdk-all."
+
+[gotcha.4450]
+title = "The stop step of the local node script ends on a bound of ten seconds"
+symptom = "stop_node in tools/qualification/localnode/v6120-node.sh signals a role and waits ten seconds for it. A role that still runs then ends the script. The script stops the bootstrap peer once before it replaces the data directory of that peer, and a test that starts the script ends with it when the peer stops later than the bound."
+fix = "Decision 3535. Task 22.39.529 takes the script into its paths."
+
+[gotcha.4451]
+title = "The node answers an EVM read above its bound with a busy error at once"
+symptom = "The EVM read interface in rpc/simulate.go admits at most max_concurrent_simulation_calls reads at a time, by default the count of processor cores. A read above the bound does not wait; it is answered at once with a busy error. read_observations in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs starts one read for every market at the same moment, so the reads of one reconcile can take the whole bound and a read of this or of another client then ends with the busy error."
+fix = "Decision 3536. Task 22.39.548 bounds the reads in flight and repeats a busy answer."
+
+[gotcha.4452]
+title = "The web search sidecar ends at start when its receiver has no bound identity"
+symptom = "PaymentGate::new_with_network_id in services/interop/crates/x-websearch/src/payment.rs reads the identity bound to the receiver address and the ledger account of each accepted asset, and assemble in services/interop/crates/x-websearch/src/main.rs ends the process when one of these reads does not pass. The text of the refusal names the adapter and not the read. The binary takes the option for the config and nothing else, so it shows no receiver address and has no means to bind one."
+fix = "Decisions 3537 and 3538. Task 22.39.549 lets the sidecar start with the paid route closed, task 22.39.550 adds the two commands."
+
+[gotcha.4453]
+title = "A node with sequencing disabled does not forward receipt requests although the forward URL is set"
+symptom = "NewFollowerReceiptOption in node/sequencer/follower.go builds the forwarding option from the key sequencer.receipt-forward-url, and the node command reads the key in daemon/paxd/cmd/root.go. No start path hands the option to the application: NewNode returns no node when sequencing is disabled and SetSequencerRPC is called only for a sequencing node. Such a node answers pax_sequencerReceipt with the text served by sequencer whatever the key holds. Only tests join the two."
+fix = "Decision 3539. Task 22.39.551 joins them at start."
+
+[gotcha.4454]
+title = "The price sidecar keeps eight submissions pending by default while a node admits one sequence per account at a time"
+symptom = "default_max_pending_submissions in services/platform/hosted/feeder/src/bin/price-sidecar/main.rs returns 8, so a sidecar without the key starts a round at every cadence until eight submissions of its account are pending. A node admits a submission only at the committed sequence of the account and answers every later sequence with account sequence mismatch until the earlier one is committed. With the default a round after the first is refused and repeated."
+fix = "Decision 3540. Task 22.39.552 sets the default to one."
+
+[gotcha.4455]
+title = "The ordinary deliver step of the concurrent block path takes stores that do not serve iteration"
+symptom = "ProcessTXsWithOCCGiga in node/app.go builds two schedulers from engine/deps/tasks: one for the fast executor and one with app.DeliverTx for the ordinary deliver path. tryInitMultiVersionStore in engine/deps/tasks/scheduler.go gives both the stores of the fast executor, whose Iterator and ReverseIterator in engine/deps/store/cachekv.go are not served. A handler of the ordinary deliver path that iterates a store, such as the balance migration of the address association in utils/helpers/associate.go, therefore ends differently on this path than in synchronous delivery."
+fix = "Decision 3541. Task 22.39.553 gives the ordinary deliver step the view of synchronous delivery."
+
+[gotcha.4456]
+title = "The deliver entry of the node does not honour the trace switch"
+symptom = "DeliverTx in node/abci.go passes a fixed false as the last argument of ResponseDeliverTxWithEvents at both of its calls, while the same calls in sdk/baseapp/abci.go pass the trace switch of the application. A node started with the trace switch reports a failed delivery of this entry with the short text only."
+fix = "Decision 3542. Task 22.39.554 passes the switch."
+
+[gotcha.4457]
+title = "The tracing methods answer tx parse error for a block built by the sequencing node"
+symptom = "For a block built by a node with sequencing enabled, debug_traceTransaction, debug_traceBlockByNumber and debug_traceCall of rpc/tracers.go answer with the text expected 2 wire type, got 0: tx parse error, while the block read methods serve the same block. The entry of the block that the transaction decoder does not read has not been named yet."
+fix = "Decision 3543. Task 22.39.555 names it and makes the tracing methods read such a block."
+
+[gotcha.4458]
+title = "The request watch of the web search service starts at block zero when a cursor stands without a journal"
+symptom = "RequestWatcher::open in services/interop/crates/x-websearch/src/watch.rs sets the next block to zero when the cursor file exists and the journal does not. On a long chain the scan from zero does not end in useful time, and a read endpoint that keeps only recent blocks refuses the early ranges, so the watch does not advance."
+fix = "Decision 3544. Task 22.39.556 continues at the cursor and moves forward to the earliest block the endpoint serves."

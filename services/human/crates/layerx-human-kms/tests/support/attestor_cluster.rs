@@ -14,7 +14,7 @@ use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -110,6 +110,7 @@ pub const NODES: usize = 5;
 pub const SIGNERS: [&str; 3] = ["node-1", "node-3", "node-5"];
 
 static SCRATCH: AtomicU64 = AtomicU64::new(0);
+static CLUSTER_START: Mutex<()> = Mutex::new(());
 
 pub fn checked<T, E: std::fmt::Debug>(value: std::result::Result<T, E>) -> Result<T> {
     value.map_err(|error| format!("{error:?}").into())
@@ -504,6 +505,7 @@ pub struct Cluster {
     inventory_members: Vec<Value>,
     inventory_keys: Vec<Value>,
     inventory_sequence: u64,
+    reservations: Vec<Option<TcpListener>>,
 }
 
 impl Drop for Cluster {
@@ -578,7 +580,16 @@ impl Cluster {
             root.join("kernel-policy.json"),
             serde_json::to_vec(kernel_policy)?,
         )?;
-        let addresses = free_addresses(NODES * 2 + 1)?;
+        let _startup = CLUSTER_START
+            .lock()
+            .map_err(|_| "attestor startup lock poisoned")?;
+        let reservations = (0..NODES * 2 + 1)
+            .map(|_| TcpListener::bind("127.0.0.1:0"))
+            .collect::<std::io::Result<Vec<_>>>()?;
+        let addresses = reservations
+            .iter()
+            .map(TcpListener::local_addr)
+            .collect::<std::io::Result<Vec<_>>>()?;
         let chain_rpc = format!("http://{}", addresses[NODES * 2]);
         let nodes: Vec<(String, SocketAddr)> = ids
             .iter()
@@ -605,10 +616,12 @@ impl Cluster {
                 .collect(),
             inventory_keys: Vec::new(),
             inventory_sequence: 0,
+            reservations: reservations.into_iter().map(Some).collect(),
         };
         cluster.publish_inventory()?;
         cluster.spawn_nodes(&ids, &pins, &peers, &daemon, activity_types, &chain_rpc)?;
         cluster.wait_ready()?;
+        cluster.reservations.clear();
         Ok(cluster)
     }
 
@@ -691,9 +704,26 @@ impl Cluster {
                 .stdin(Stdio::null())
                 .stdout(log.try_clone()?)
                 .stderr(log);
+            drop(self.reservations[index].take());
+            drop(self.reservations[NODES + index].take());
             let child = command.spawn()?;
             self.children.push((id.clone(), child));
             self.commands.push((id.clone(), command));
+            let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(10))?;
+            loop {
+                if let Some(status) = self.children[index].1.try_wait()? {
+                    return Err(format!("{id} exited with {status}: {}", self.logs()).into());
+                }
+                if TcpStream::connect(self.nodes[index].1).is_ok()
+                    && TcpStream::connect(peers[index]).is_ok()
+                {
+                    break;
+                }
+                if deadline.remaining(self.clock.as_ref())?.is_zero() {
+                    return Err(format!("{id} listeners did not bind: {}", self.logs()).into());
+                }
+                thread::sleep(Duration::from_millis(20));
+            }
         }
         Ok(())
     }

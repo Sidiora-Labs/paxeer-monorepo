@@ -306,6 +306,10 @@ private struct PortableTime: Codable {
 
   init(from decoder: Decoder) throws {
     let text = try decoder.singleValueContainer().decode(String.self)
+    if text == "0001-01-01T00:00:00Z" {
+      value = CometTimestamp(seconds: -62_135_596_800)
+      return
+    }
     let pattern = #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$"#
     let regex = try NSRegularExpression(pattern: pattern)
     let range = NSRange(text.startIndex..., in: text)
@@ -329,6 +333,11 @@ private struct PortableTime: Codable {
 
   func encode(to encoder: Encoder) throws {
     guard value.valid else { throw portableFailure() }
+    if value == CometTimestamp(seconds: -62_135_596_800) {
+      var container = encoder.singleValueContainer()
+      try container.encode("0001-01-01T00:00:00Z")
+      return
+    }
     let formatter = ISO8601DateFormatter()
     let base = formatter.string(from: Date(timeIntervalSince1970: Double(value.seconds)))
     guard base.hasSuffix("Z") else { throw portableFailure() }
@@ -529,7 +538,12 @@ private struct PortableSignature: Codable {
     BlockIDFlag = try container.decode(UInt8.self, forKey: .BlockIDFlag)
     ValidatorAddress = try container.decode(Foundation.Data.self, forKey: .ValidatorAddress)
     Timestamp = try container.decode(PortableTime.self, forKey: .Timestamp)
-    Signature = try container.decode(Foundation.Data.self, forKey: .Signature)
+    if BlockIDFlag == CometBlockIDFlag.absent.rawValue, try container.decodeNil(forKey: .Signature)
+    {
+      Signature = Data()
+    } else {
+      Signature = try container.decode(Foundation.Data.self, forKey: .Signature)
+    }
   }
 
   init(_ value: CometCommitSignature) {
