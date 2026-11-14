@@ -63,10 +63,10 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Troubleshoot a Node](https://docs.paxeer.app/node-troubleshooting/): Diagnose Paxeer X sync stalls, peer failures, RPC errors, database locks, and AppHash mismatches before changing node state.
 - [Operators Guide](https://docs.paxeer.app/operators/): Manage paxd nodes, whose LayerX kernel executes and orders transactions and builds blocks, and the validators that check and commit them.
 - [Oracles & Market Risk](https://docs.paxeer.app/oracle-risk/): Understand how Paxeer X accepts signed price observations, rejects stale or anomalous inputs, and applies market-specific risk limits.
-- [Applications. Payments. Programs. Build on Paxeer.](https://docs.paxeer.app/): The LayerX kernel inside every paxd node executes each transaction on arrival, orders it in one global sequence and returns a signed execution receipt; validators check and commit the blocks it builds.
+- [Applications. Payments. Programs. Build on Paxeer.](https://docs.paxeer.app/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [Paid APIs and x402](https://docs.paxeer.app/paid-apis/): Use x402 version 2 offers, EVM payments, and verified receipts to release paid HTTP resources on Paxeer mainnet-beta.
 - [Design for Parallel Execution](https://docs.paxeer.app/parallelization/): Reduce shared-state contention in Paxeer contracts, preserve on-chain invariants, and measure gas separately from throughput.
-- [Paxeer X and LayerX](https://docs.paxeer.app/paxeer-vs-layerx/): The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. EVM smart contracts, autonomous agent execution, and programmable finance share the sequence, with finality at block commit.
+- [Paxeer X and LayerX](https://docs.paxeer.app/paxeer-vs-layerx/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [Your first payment](https://docs.paxeer.app/payments-quickstart/): Quote, commit, and verify a Paxeer X payment using the application SDK or a signed ledger transaction.
 - [Payments](https://docs.paxeer.app/payments/): Build transfers, paid APIs, merchant checkout, metered usage, and subscriptions on Paxeer X with explicit approval, bounded fees, and verifiable settlement.
 - [Perpetual Futures](https://docs.paxeer.app/perpetuals/): Trade long and short exposure through the native order book, USDL cross margin, governed market parameters and committed transaction receipts.
@@ -75,7 +75,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Programs Developer Workspace](https://docs.paxeer.app/program-workspace/): Build deterministic Paxeer X programs with runtime crates, language SDKs, fixtures, policies and reproducible development workflows.
 - [Deterministic Programs](https://docs.paxeer.app/programs/): Deploy and call deterministic Paxeer X programs with scoped capabilities, metered execution, governed upgrades and verifiable outputs.
 - [Receipts & Proofs](https://docs.paxeer.app/proofs/): Verify Paxeer outcomes independently with signed receipts, native state witnesses, custody proofs, and mirror archives.
-- [Public RPC endpoints](https://docs.paxeer.app/public-rpc/): Connect to Paxeer mainnet-beta, EVM chain ID 125, through node JSON-RPC; the LayerX kernel executes and orders transactions and builds blocks that validators check and commit.
+- [Public RPC endpoints](https://docs.paxeer.app/public-rpc/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125.
 - [Python Quickstart](https://docs.paxeer.app/python/): Connect to Paxeer with web3.py, read PAX balances and ERC-20 state, and inspect transaction receipts without a signing key.
 - [Query the EVM](https://docs.paxeer.app/querying-evm/): Read Paxeer balances, contract state, receipts, and bounded event ranges with JSON-RPC, Cast, and viem.
 - [Receipts & Proofs](https://docs.paxeer.app/receipts/): Verify what the protocol executed, what it charged, and whether the covering block has committed.
@@ -97,7 +97,7 @@ Paxeer X connects EVM applications with LayerX identities, payments, markets, bu
 - [Streaming Payments](https://docs.paxeer.app/streams/): Pay for elapsed time or verified usage with funded, capped streams, deterministic accrual, settlement, and cancellation.
 - [Event subscriptions](https://docs.paxeer.app/subscriptions/): Build durable agent consumers with scoped visibility, acknowledged cursors, explicit gap recovery, and verified receipt references.
 - [System map](https://docs.paxeer.app/system-map/): Explore every Paxeer 7.0.0 system by kind, release change, and name, with build commands, configuration, health checks, dependencies, and documentation.
-- [Unified Network Architecture](https://docs.paxeer.app/unified-network/): The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it.
+- [Unified Network Architecture](https://docs.paxeer.app/unified-network/): The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 - [WASM Runtime](https://docs.paxeer.app/wasm-runtime/): Understand Paxeer’s in-tree CosmWasm virtual machine, Go and Rust boundary, native library builds, and gas accounting.
 - [WASM](https://docs.paxeer.app/wasm/): CosmWasm contract lifecycle, deployment permissions, and calls between Paxeer’s EVM and WebAssembly runtimes.
 - [WASM Bindings](https://docs.paxeer.app/wasmbinding/): Use Paxeer custom messages and queries from CosmWasm, including token creation, EVM calls, address association, and native module reads.
@@ -7011,13 +7011,15 @@ PAXEER X / NETWORK DOCUMENTATION
 
 # Applications. Payments. Programs. Build on Paxeer.
 
-The LayerX kernel inside every paxd node executes each transaction on arrival, orders it in one global sequence and returns a signed execution receipt; validators check and commit the blocks it builds.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 [Explore the network](https://docs.paxeer.app/unified-network)[Start with the XDK](https://docs.paxeer.app/xdk)
 
 LayerX kernelEVM chain ID `125`Native token `PAX`
 
     The LayerX kernel executes, orders and receipts every transaction; EVM applications run on the same sequence.EVM 125 · PAX
+
+On arrival, the kernel gives each transaction a position in one global sequence and returns a signed execution receipt. Validators check and commit each block it builds.
 
 NETWORK INTERFACES
 
@@ -7373,11 +7375,11 @@ URL: https://docs.paxeer.app/paxeer-vs-layerx/
 
 # Paxeer X and LayerX
 
-The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. EVM smart contracts, autonomous agent execution, and programmable finance share the sequence, with finality at block commit.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 ## One Network, Kernel In-Process
 
-Paxeer X uses EVM chain ID `125`. `paxd` supplies the Cosmos SDK chain and native EVM. The LayerX kernel runs inside the node through `modules/lxphost`, executes and orders each transaction and builds each block; validators check and commit it. `node/sequencer` supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.
+Paxeer X uses EVM chain ID `125`. `paxd` supplies the Cosmos SDK chain and native EVM. The LayerX kernel runs inside the node through `modules/lxphost`, executes and orders each transaction and builds each block; validators check and commit it. Each transaction receives the next position in one global sequence and a signed execution receipt. EVM smart contracts, autonomous agent execution, and programmable finance share that sequence, with finality at block commit. `node/sequencer` supplies execution ordering within the node. Applications compose both through native EVM precompiles and protocol receipts.
 
 The kernel runs inside `paxd`. Native wallet payments submit signed EVM transactions to the ledger precompile; protocol activity authorization binds the payment terms. Kernel state changes commit with the rest of the node's transaction state. A receipt is final once its block is committed. There is no later checkpoint or settlement step.
 
@@ -8348,7 +8350,7 @@ URL: https://docs.paxeer.app/public-rpc/
 
 # Public RPC endpoints
 
-Connect to Paxeer mainnet-beta, EVM chain ID 125, through node JSON-RPC; the LayerX kernel executes and orders transactions and builds blocks that validators check and commit.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125.
 
 ## Connect to the node
 
@@ -14211,11 +14213,11 @@ URL: https://docs.paxeer.app/unified-network/
 
 # Unified Network Architecture
 
-The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 ## The Network Model
 
-Paxeer X uses EVM chain ID `125` (`0x7d`). The node binary `paxd` runs the Cosmos SDK application and native EVM. The LayerX kernel runs in-process inside `paxd` through `modules/lxphost`, and `node/sequencer` supplies execution ordering within the node.
+Paxeer X uses EVM chain ID `125` (`0x7d`). The node binary `paxd` runs the Cosmos SDK application and native EVM. The LayerX kernel runs in-process inside `paxd` through `modules/lxphost`, executes and orders each transaction, gives it the next position in one global sequence, and returns a signed execution receipt. `node/sequencer` supplies execution ordering within the node.
 
 Kernel state changes commit with the rest of the node's transaction state. A receipt is final once its block is committed. Applications establish finality from the committed block and the receipt's inclusion evidence.
 

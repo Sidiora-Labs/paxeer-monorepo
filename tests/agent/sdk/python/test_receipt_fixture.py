@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
 
-from layerx_sdk import PlatformSdkError  # noqa: E402
+from layerx_sdk import PlatformSdkError, SdkErrorCode  # noqa: E402
 from layerx_sdk.verifier import (  # noqa: E402
     ReceiptKey,
     SequencerReceiptVerificationError,
@@ -92,7 +92,19 @@ class ReceiptFixtureTest(unittest.TestCase):
                 self.assertEqual(receipt.activity_root, sha256(_hex(view["returnData"])).digest())
                 self.assertEqual(tuple(effect.body for effect in receipt.effects[1:]), _log_bodies(vector))
                 self.assertFalse(hasattr(receipt, "program_outcome"))
-                if vector["vector"] == "V2":
+                if vector["id"] == "V2-pax-transfer-insufficient-funds":
+                    self.assertEqual(view["status"], "0x0")
+                    self.assertEqual(view["returnData"], "0x")
+                    self.assertEqual(view["vmError"], "insufficient balance for transfer")
+                    self.assertEqual(view["gasUsed"], "0x0")
+                    self.assertEqual(view["cumulativeGasUsed"], "0x0")
+                    self.assertEqual(view["feeAmount"], "0x0")
+                    self.assertEqual(view["logs"], [])
+                    with self.assertRaises(PlatformSdkError) as refused:
+                        raise_for_receipt_status(view)
+                    self.assertIs(refused.exception.code, SdkErrorCode.DECODE_FAILURE)
+                    self.assertEqual(refused.exception.retry, "never")
+                elif vector["vector"] == "V2":
                     with self.assertRaises(RevertReasonError) as refused:
                         raise_for_receipt_status(view)
                     self.assertEqual(refused.exception.code, vector["lxpCode"])

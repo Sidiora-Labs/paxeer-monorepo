@@ -29,7 +29,7 @@ export default function Home() {
       <section className="home-hero">
         <p className="eyebrow">PAXEER X / NETWORK DOCUMENTATION</p>
         <h1>Applications. Payments. Programs.<br /><span>Build on Paxeer.</span></h1>
-        <p className="page-description">The LayerX kernel inside every paxd node executes each transaction on arrival, orders it in one global sequence and returns a signed execution receipt; validators check and commit the blocks it builds.</p>
+        <p className="page-description">The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.</p>
         <div className="hero-actions"><Link className="pill-button primary-button" href="/unified-network">Explore the network <Icon name="arrow" size={16} /></Link><Link className="pill-button" href="/xdk">Start with the XDK</Link></div>
         <div className="hero-network"><span>LayerX kernel</span><i /><span>EVM chain ID <code>125</code></span><i /><span>Native token <code>PAX</code></span></div>
       </section>
@@ -38,6 +38,7 @@ export default function Home() {
         <img src="/art/docs/system-overview.webp" alt="Paxeer Docs: explore the connected system" width={1536} height={1024} decoding="async" />
         <figcaption><span>The LayerX kernel executes, orders and receipts every transaction; EVM applications run on the same sequence.</span><span>EVM 125 · PAX</span></figcaption>
       </figure>
+      <p>On arrival, the kernel gives each transaction a position in one global sequence and returns a signed execution receipt. Validators check and commit each block it builds.</p>
       <Band />
       <section className="cd-strip" aria-label="Network interfaces">
         <p className="eyebrow">NETWORK INTERFACES</p>

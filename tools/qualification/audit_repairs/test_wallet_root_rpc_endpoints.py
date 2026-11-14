@@ -125,7 +125,10 @@ def test_015_network_fixture_matches_retained_producer_and_consumer():
         "consensus": None, "reason": "consensus_unavailable",
     }
     assert profiles["network_consensus"]["px_getNetwork"]["result"]["consensus"] == {
-        "latest_height": "9", "catching_up": False,
+        "latest_height": "9",
+        "latest_block_hash": "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+        "latest_app_hash": "CDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCDCD",
+        "catching_up": False,
     }
     assert profiles["wrong_chain"]["eth_chainId"] == {"result": "0x1"}
     assert profiles["network_wrong_chain"]["px_getNetwork"]["result"]["paxeer"]["chain_id"] == "0x1"
@@ -149,16 +152,7 @@ def test_015_network_fixture_matches_retained_producer_and_consumer():
 
 @pytest.mark.parametrize("name", [
     "check_live_passing_endpoint",
-    pytest.param(
-        "check_live_consensus_endpoint",
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason=(
-                "tests/wallet/check-live.test.sh lacks consensus block and app hashes "
-                "required by the current checker."
-            ),
-        ),
-    ),
+    "check_live_consensus_endpoint",
     "check_live_network_malformed", "check_live_wrong_chain_id",
     "check_live_network_wrong_chain", "check_live_network_wrong_reason",
     "check_live_account_read_refused", "check_live_resolve_read_error",

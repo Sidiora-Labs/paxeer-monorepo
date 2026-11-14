@@ -123,14 +123,6 @@ def nearest_workspace(directory):
     raise AssertionError(f"No workspace found above {directory.relative_to(ROOT)}")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        ".github/workflows/launchpad-test.yml names testdata/repair29 "
-        "instead of testdata/reward_schema."
-    ),
-)
 def test_pnpm_steps_resolve_a_pnpm_workspace_root():
     checked = 0
     workflows = sorted((ROOT / ".github/workflows").glob("*.yml"))

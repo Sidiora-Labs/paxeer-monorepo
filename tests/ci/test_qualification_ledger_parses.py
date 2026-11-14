@@ -7,9 +7,6 @@ import re
 import subprocess
 import tempfile
 
-import pytest
-
-
 ROOT = Path(__file__).resolve().parents[2]
 LEDGER = ROOT / "spec/layerx-merge/qualification.kvx"
 
@@ -49,14 +46,6 @@ def test_ledger_strings_terminated():
     assert not invalid_strings, invalid_strings
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "spec/layerx-merge/qualification.kvx contains finding severities "
-        "outside blocker, suspect, assumption and note."
-    ),
-)
 def test_beta_ledger_check_passes():
     environment = os.environ.copy()
     for name in (

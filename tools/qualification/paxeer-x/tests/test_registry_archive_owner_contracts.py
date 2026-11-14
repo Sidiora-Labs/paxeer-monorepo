@@ -28,6 +28,7 @@ from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 QUAL = Path(__file__).resolve().parents[1]
 ROOT = QUAL.parents[2]
 HUMAN_PATH = ROOT / 'services/platform/hosted/human'
+OWNER_PATH = HUMAN_PATH / 'test_owner_custody.py'
 sys.path.insert(0, str(QUAL))
 sys.path.insert(0, str(HUMAN_PATH))
 import merged_qualification as merged
@@ -49,7 +50,7 @@ BOOTSTRAP = load('bootstrap', QUAL / 'registry-router-bootstrap.py')
 HUMAN = load('human', QUAL / 'human-owner-evidence.py')
 XWEB = load('xweb', QUAL / 'fixtures/xweb_fixture.py')
 RECORDED = load('recorded', QUAL / 'tests/test_program_router_wallet_contracts.py')
-OWNER = load('owner', HUMAN_PATH / 'test_owner_custody.py')
+OWNER = load('owner', OWNER_PATH)
 REVISION = '76c050242a1edcad6212aa52fac15670ecb5612d'
 GENESIS = '0x' + 'aa' * 32
 IMAGE = 'paxd@sha256:' + 'ab' * 32

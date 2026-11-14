@@ -1,19 +1,9 @@
 from pathlib import PurePosixPath
 import subprocess
 
-import pytest
-
 from retired_tests import REPO_ROOT, assert_paths_absent
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "tools/jev/tests/fixtures/ledger/beta-qualification.kvx references "
-        "the retired tests/vectors/finality_evidence_v1.vec."
-    ),
-)
 def test_finality_vector_retired():
     assert_paths_absent(["tests/vectors/finality_evidence_v1.vec"])
     result = subprocess.run(

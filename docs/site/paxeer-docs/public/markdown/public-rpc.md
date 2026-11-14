@@ -2,7 +2,7 @@
 
 # Public RPC endpoints
 
-Connect to Paxeer mainnet-beta, EVM chain ID 125, through node JSON-RPC; the LayerX kernel executes and orders transactions and builds blocks that validators check and commit.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125.
 
 ## Connect to the node
 

@@ -21840,3 +21840,23 @@ fix = "Decision 3489. Task 22.39.504 takes the test directory of that member int
 title = "Pages across the repository open with the consensus family"
 symptom = "Beyond the entry pages of decision 3485, pages in the documentation, the wiki, the contract pages, the pages of services, kits and applications and pages of upstream specification carry one sentence that calls the network one BFT network and says that the kernel participates in block proposal. Thirteen Python tests read that sentence on the network page, the overview page, the documentation index and the page of the programs, and the index no longer holds it."
 fix = "Decision 3490. Tasks 22.43.295 to 22.43.303."
+
+[gotcha.4404]
+title = "Cases of the Python tests wait on files of the product"
+symptom = "The test series of decision 3478 brought the Python tests to the present tree. Where the file a case reads, and not the case, is the side that moved on, the case carries a mark of expected failure that names the file: a checksum file, two workflow files, the ledger, fixtures, pages, package manifests and rows of the interface file."
+fix = "Decision 3491. Tasks 22.43.304 to 22.43.320."
+
+[gotcha.4405]
+title = "Tests read the kernel sentence on pages of several tasks"
+symptom = "The Python tests under tools/qualification/audit_repairs that read the old sentence of the network read it on more pages than the three of task 22.43.295: pages of the wiki, docs/system/rpc.md and sdk/README.md among them, which the tasks 22.43.296 to 22.43.303 change. The verification of task 22.43.295 ran thirteen test files."
+fix = "Decision 3492. Task 22.43.295 gets do_5, the path tests/ci and a verification over every test file that names the wording."
+
+[gotcha.4406]
+title = "A case reads a table form the contract page no longer holds"
+symptom = "The case test_contract_matches_the_served_registry of tools/qualification/audit_repairs/test_inference_market_interfaces.py reads rows of six cells with a task and a status and two count lines on spec/layerx-merge/contracts/inference-market.md. The page holds one table per section with the four columns Interface, Kind, Source and Signature."
+fix = "Decision 3493. Task 22.43.319 gets do_4: the case reads the present form of the page."
+
+[gotcha.4407]
+title = "Four page descriptions of the documentation site run past the recommended length"
+symptom = "The audit that follows the build of the documentation site reports the description of the front page and of the pages paxeer-vs-layerx, public-rpc and unified-network as longer than 160 characters. The description of a page is its lead paragraph, and the generated copies of the site carry it."
+fix = "Decision 3494. Task 22.43.321 shortens the four descriptions and keeps their facts in the body of the page."
