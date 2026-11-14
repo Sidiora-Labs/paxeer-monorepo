@@ -206393,7 +206393,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.527]
 title = "Bring the tests of the member layerx-wire of the agent workspace to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.498"]
@@ -328457,7 +328457,7 @@ do_6 = "do_6 Decision 3513, gotcha 4426. In .golangci.yml replace the seven rule
 
 [task.22.39.517]
 title = "Repair the code behind the lint rules of the services under services/platform and remove the rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
