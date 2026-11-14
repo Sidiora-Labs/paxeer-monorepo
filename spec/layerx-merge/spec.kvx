@@ -196190,7 +196190,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.520]
 title = "Bring the tests of the key-management member of the human services to pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.499"]
