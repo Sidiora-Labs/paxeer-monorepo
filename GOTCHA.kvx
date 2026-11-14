@@ -21995,3 +21995,8 @@ fix = "Decision 3518. Task 22.39.538 brings the case and the package to one form
 title = "The resolver fixture of the names DNS tool binds the digest of the root Forge configuration"
 symptom = "The contract test of tools/pnsdns reads the digests of seven producers of its resolver fixture from tools/pnsdns/testdata/names_sources.json, among them foundry.toml. A change of foundry.toml, also in a profile the fixture does not use, asks for a review of the fixture and a new binding."
 fix = "Decision 3519. Task 22.39.539 reviews the fixture against the present configuration and binds it."
+
+[gotcha.4435]
+title = "The pipeline metadata binds the digest of the conformance entry of the JVM kit"
+symptom = "The file sdk/platform/pipeline.kvx records a digest for each file of the JVM kit that the generator names, among them the conformance entry under sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java. A change of such a file asks the check target platform-sdk-check for a generation."
+fix = "Decision 3520. The paths of task 22.39.505 take the metadata and the task runs the generation."
