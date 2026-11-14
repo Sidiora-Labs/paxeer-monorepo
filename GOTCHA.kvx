@@ -22065,3 +22065,13 @@ fix = "Decision 3532. Task 22.39.546 collects the handles first and reads the ac
 title = "A reconcile that reports an open fate holds the round of the price sidecar"
 symptom = "reconcile in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs answers false while the oldest pending submission has no fate, and run_round and the reread step of submit start nothing on that answer. The bound max_pending_submissions is compared only after a reconcile that answered true. The list of pending submissions therefore holds one entry at most, and a round follows the fate of the submission before it and not the cadence."
 fix = "Decision 3533. Task 22.39.547 starts a round at every cadence below the bound."
+
+[gotcha.4449]
+title = "The cross-language cases of the Rust program kit start the compilers of the other kits"
+symptom = "The cases of programs/sdk/rust/tests/cross_language_call_budget.rs start javac, swiftc, dotnet and tsc. They run with make programs-test, so a task that verifies with that target needs the profile that carries those compilers."
+fix = "Decision 3534. Task 22.39.509 takes the profile sdk-all."
+
+[gotcha.4450]
+title = "The stop step of the local node script ends on a bound of ten seconds"
+symptom = "stop_node in tools/qualification/localnode/v6120-node.sh signals a role and waits ten seconds for it. A role that still runs then ends the script. The script stops the bootstrap peer once before it replaces the data directory of that peer, and a test that starts the script ends with it when the peer stops later than the bound."
+fix = "Decision 3535. Task 22.39.529 takes the script into its paths."
