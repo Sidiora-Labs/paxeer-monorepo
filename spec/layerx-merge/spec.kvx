@@ -196371,7 +196371,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.559]
 title = "Set release 7.0.1 and make the release scripts follow version.json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
