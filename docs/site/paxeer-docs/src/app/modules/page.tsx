@@ -19,7 +19,7 @@ export default function Modules() {
       </div>
 
       <h2>Unified Paxeer X modules</h2>
-      <p>Paxeer X combines EVM and Cosmos execution with the LayerX kernel. The chain modules below enforce the chain-side rules; the <Link href="/layerx-kernel">LayerX kernel</Link> is part of the same network, and a receipt is final when its block is committed. Addresses below are shortened; see <Link href="/precompiles">precompiles</Link> for full addresses and upgrade gates.</p>
+      <p>Paxeer X combines EVM and Cosmos execution with the LayerX kernel. The chain modules below enforce the chain-side rules; the <Link href="/layerx-kernel">LayerX kernel</Link> inside <code>paxd</code> executes and orders each transaction and builds each block; validators check and commit it, and a receipt is final when its block is committed. Addresses below are shortened; see <Link href="/precompiles">precompiles</Link> for full addresses and upgrade gates.</p>
       <table><thead><tr><th>Module</th><th>Role in Paxeer X</th><th>EVM entry point</th></tr></thead><tbody>
         <tr><td><code>lxphost</code></td><td>Shared cgo host for kernel validation and execution; also backs the <code>layerxprograms</code> precompile</td><td><code>0x101D</code></td></tr>
         <tr><td><code>layerxledger</code></td><td>Asset registration, derived accounts, transfers, and exact payments. The old payer-grant issue, revoke, and draw operations are retired</td><td><code>0x101A</code></td></tr>
