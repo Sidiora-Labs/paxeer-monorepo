@@ -1,22 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+version_file=$script_dir/version.json
+
 if ! command -v python3 >/dev/null 2>&1; then
   echo 'postflight: python3 is required' >&2
   exit 1
 fi
 
-exec python3 - "$@" <<'PY'
+exec python3 - "$version_file" "$@" <<'PY'
 import argparse
 import base64
 import json
 import math
+from pathlib import Path
 import re
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+version_file = Path(sys.argv[1]).absolute()
+del sys.argv[1]
+try:
+    identity = json.loads(version_file.read_text(encoding="utf-8"))
+    if (not isinstance(identity, dict) or set(identity) != {"upgrade", "version"}
+            or identity.get("upgrade") != "v7.0"
+            or not isinstance(identity.get("version"), str)
+            or not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", identity["version"])):
+        raise ValueError
+except (OSError, ValueError, TypeError, json.JSONDecodeError):
+    print("postflight: invalid release identity in tools/release/version.json", file=sys.stderr)
+    raise SystemExit(1)
+RELEASE_VERSION = identity["version"]
+RELEASE_VERSION_UNPREFIXED = RELEASE_VERSION.removeprefix("v")
+VERSIONS = (RELEASE_VERSION_UNPREFIXED, RELEASE_VERSION)
 
 
 class Options(argparse.ArgumentParser):
@@ -52,7 +72,7 @@ def endpoint(value):
 
 parser = Options(
     prog="postflight.sh",
-    description="Read-only checks of a Paxeer 7.0.0 node after its upgrade height (requires Python 3).",
+    description=f"Read-only checks of a Paxeer {RELEASE_VERSION_UNPREFIXED} node after its upgrade height (requires Python 3).",
     epilog=("Ledger/auth/chains parameters are read from committed store keys; pay/agent and "
             "sequencer use Cosmos queries. Programs and lxphost operating schedules are read "
             "through the Programs precompile. Every served namespace must answer a read; "
@@ -129,7 +149,7 @@ def check(label, action):
 def version():
     info = request(options.rest_rpc + "/cosmos/base/tendermint/v1beta1/node_info")
     actual = info["application_version"]["version"]
-    require(actual in ("7.0.0", "v7.0.0"), f"expected 7.0.0, got {actual}")
+    require(actual in VERSIONS, f"expected {RELEASE_VERSION_UNPREFIXED}, got {actual}")
 
 
 check("version", version)

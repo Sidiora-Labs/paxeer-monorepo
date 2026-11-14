@@ -5,7 +5,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 version_file=$root/tools/release/version.json
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
-want=v7.0.0
+want=$(jq -er '.version' "$version_file")
 semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
 
 # The comparison of .github/workflows/paxeer-release-check.yml:57-65 against the tags of repository $1.
@@ -23,7 +23,7 @@ newer_than_latest_tag() {
   echo "Paxeer release identity is paxeer-network/$version (upgrade $(jq -er '.upgrade' "$version_file"))"
 }
 
-version_and_upgrade_are_v700() {
+version_and_upgrade_match_release_identity() {
   local version upgrade
   version=$(jq -er '.version' "$version_file") || return 1
   upgrade=$(jq -er '.upgrade' "$version_file") || return 1
@@ -91,7 +91,7 @@ tag_is_free_and_derived() {
 
 passed=0
 failed=0
-for t in version_and_upgrade_are_v700 upgrade_name_is_declared version_is_newer_than_latest_tag tag_is_free_and_derived; do
+for t in version_and_upgrade_match_release_identity upgrade_name_is_declared version_is_newer_than_latest_tag tag_is_free_and_derived; do
   if (set -e; "$t"); then
     echo "PASS $t"
     passed=$((passed + 1))

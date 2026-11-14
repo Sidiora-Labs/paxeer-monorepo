@@ -3,6 +3,8 @@ set -euo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 stage="$root/tools/release/stage.sh"
+release_version=$(jq -er '.version' "$root/tools/release/version.json")
+release_version_unprefixed=${release_version#v}
 source "$stage"
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
@@ -18,19 +20,19 @@ fixture() {
 	case_dir=$(mktemp -d "$work/case.XXXXXXXX")
 	mkdir -p "$case_dir/bin" "$case_dir/dist"
 	install -m 0755 -- "$(type -P true)" "$case_dir/bin/paxd"
-	install -m 0755 -- "$(type -P printf)" "$case_dir/dist/paxd-v6.12.0-linux-amd64"
-	install -m 0755 -- "$(type -P sha256sum)" "$case_dir/dist/price-sidecar-v6.12.0-linux-amd64"
+	install -m 0755 -- "$(type -P printf)" "$case_dir/dist/paxd-$release_version-linux-amd64"
+	install -m 0755 -- "$(type -P sha256sum)" "$case_dir/dist/price-sidecar-$release_version-linux-amd64"
 	old_sha=$(sha256sum "$case_dir/bin/paxd" | cut -d ' ' -f 1)
-	release_sha=$(sha256sum "$case_dir/dist/paxd-v6.12.0-linux-amd64" | cut -d ' ' -f 1)
-	sidecar_sha=$(sha256sum "$case_dir/dist/price-sidecar-v6.12.0-linux-amd64" | cut -d ' ' -f 1)
-	python3 - "$root/tools/release/env/rollout.env.example" "$case_dir" "$release_sha" "$sidecar_sha" <<'PY'
+	release_sha=$(sha256sum "$case_dir/dist/paxd-$release_version-linux-amd64" | cut -d ' ' -f 1)
+	sidecar_sha=$(sha256sum "$case_dir/dist/price-sidecar-$release_version-linux-amd64" | cut -d ' ' -f 1)
+	python3 - "$root/tools/release/env/rollout.env.example" "$case_dir" "$release_sha" "$sidecar_sha" "$release_version" <<'PY'
 import pathlib
 import sys
 
-template, directory, release, sidecar = sys.argv[1:]
+template, directory, release, sidecar, version = sys.argv[1:]
 values = {
     "RELEASE_ID": "r1",
-    "RELEASE_TAG": "paxeer-network/v6.12.0",
+    "RELEASE_TAG": f"paxeer-network/{version}",
     "RELEASE_SHA256": release,
     "SIDECAR_SHA256": sidecar,
     "HALT_HEIGHT": "20",
@@ -116,12 +118,12 @@ stage_keeps_previous_binary() {
 	invoke --local --receipt "$case_dir/receipt.json"
 	assert_sha "$case_dir/bin/paxd" "$old_sha"
 	assert_sha "$case_dir/bin/paxd.pre-r1" "$old_sha"
-	assert_sha "$case_dir/bin/paxd.v6.12.0" "$release_sha"
+	assert_sha "$case_dir/bin/paxd.$release_version" "$release_sha"
 	assert_sha "$case_dir/bin/price-sidecar" "$sidecar_sha"
-	[[ $(stat -c %a "$case_dir/bin/paxd.v6.12.0") == 755 ]] || fail 'release mode differs'
+	[[ $(stat -c %a "$case_dir/bin/paxd.$release_version") == 755 ]] || fail 'release mode differs'
 	assert_receipt 1 pass
 	retained=$(stat -c '%i:%Y:%a' "$case_dir/bin/paxd.pre-r1")
-	cp -- "$case_dir/bin/paxd.v6.12.0" "$case_dir/bin/paxd"
+	cp -- "$case_dir/bin/paxd.$release_version" "$case_dir/bin/paxd"
 	invoke --local
 	assert_sha "$case_dir/bin/paxd.pre-r1" "$old_sha"
 	[[ $(stat -c '%i:%Y:%a' "$case_dir/bin/paxd.pre-r1") == "$retained" ]] || fail 'retained binary changed'
@@ -144,10 +146,10 @@ int main(void) {
 }
 C
 	cc -Wall -Wextra -Werror -Wl,-z,nodefaultlib "$case_dir/tls.c" -lssl -lcrypto \
-		-o "$case_dir/dist/paxd-v6.12.0-linux-amd64"
-	set_input RELEASE_SHA256 "$(sha256sum "$case_dir/dist/paxd-v6.12.0-linux-amd64" | cut -d ' ' -f 1)"
+		-o "$case_dir/dist/paxd-$release_version-linux-amd64"
+	set_input RELEASE_SHA256 "$(sha256sum "$case_dir/dist/paxd-$release_version-linux-amd64" | cut -d ' ' -f 1)"
 	refusal 'stage: unresolved shared library libssl.so.3' invoke --local --receipt "$case_dir/receipt.json"
-	[[ ! -e $case_dir/bin/paxd.v6.12.0 && ! -e $case_dir/bin/price-sidecar ]] || fail 'unresolved binary installed'
+	[[ ! -e $case_dir/bin/paxd.$release_version && ! -e $case_dir/bin/price-sidecar ]] || fail 'unresolved binary installed'
 	[[ ! -e $case_dir/bin/paxd.pre-r1 ]] || fail 'rollback copy created before validation'
 	assert_sha "$case_dir/bin/paxd" "$old_sha"
 	assert_receipt 0 fail
@@ -205,13 +207,13 @@ empty_input_refused() {
 
 sha_mismatch_refused() {
 	local artifact diagnostic
-	for artifact in paxd-v6.12.0-linux-amd64 price-sidecar-v6.12.0-linux-amd64; do
+	for artifact in paxd-$release_version-linux-amd64 price-sidecar-$release_version-linux-amd64; do
 		fixture
 		printf 'corrupt' >>"$case_dir/dist/$artifact"
-		diagnostic=paxd.v6.12.0
-		[[ $artifact == price-sidecar-v6.12.0-linux-amd64 ]] && diagnostic=price-sidecar
+		diagnostic=paxd.$release_version
+		[[ $artifact == price-sidecar-$release_version-linux-amd64 ]] && diagnostic=price-sidecar
 		refusal "stage: checksum mismatch for $diagnostic" invoke --local --receipt "$case_dir/receipt.json"
-		[[ ! -e $case_dir/bin/paxd.v6.12.0 && ! -e $case_dir/bin/price-sidecar ]] || fail 'corrupt release installed'
+		[[ ! -e $case_dir/bin/paxd.$release_version && ! -e $case_dir/bin/price-sidecar ]] || fail 'corrupt release installed'
 		[[ ! -e $case_dir/bin/paxd.pre-r1 ]] || fail 'rollback copy created before validation'
 		assert_sha "$case_dir/bin/paxd" "$old_sha"
 		assert_receipt 0 fail
@@ -230,8 +232,8 @@ check_changes_nothing() {
 installed_corruption_refused() {
 	fixture
 	invoke --local
-	printf 'corrupt' >>"$case_dir/bin/paxd.v6.12.0"
-	refusal 'stage: checksum mismatch for paxd.v6.12.0' invoke --local --verify --receipt "$case_dir/receipt.json"
+	printf 'corrupt' >>"$case_dir/bin/paxd.$release_version"
+	refusal "stage: checksum mismatch for paxd.$release_version" invoke --local --verify --receipt "$case_dir/receipt.json"
 	assert_receipt 0 fail
 	fixture
 	invoke --local
@@ -247,7 +249,7 @@ retained_symlink_refused() {
 	fixture
 	ln -s paxd "$case_dir/bin/paxd.pre-r1"
 	refusal 'stage: retained binary is invalid' invoke --local
-	[[ ! -e $case_dir/bin/paxd.v6.12.0 ]] || fail 'installed despite invalid backup'
+	[[ ! -e $case_dir/bin/paxd.$release_version ]] || fail 'installed despite invalid backup'
 	assert_sha "$case_dir/bin/paxd" "$old_sha"
 }
 
