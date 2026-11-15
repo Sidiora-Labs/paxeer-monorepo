@@ -14794,6 +14794,12 @@ value = "The build stages of docker/platform-webhooks/Dockerfile and docker/plat
 basis = "Gotcha 4530."
 affects = []
 
+[decision.3614]
+title = "The consensus route of the node front admits the calls the receipt verifier of the webhooks ingress makes"
+value = "The consensus route of the node front admits, beside its present calls, block with a decimal height and a proved abci_query for the path /store/sequencer/key with the key 0x03 and no other key of that store. One file states the consensus calls of the receipt verifier; a case of the webhooks service states that the verifier makes these calls, and a case of the node front states that its route admits each of them. The definition of the node front names the consensus origin of the node as an input. The consensus origin of the receipt verifier names the path of the consensus route of the node front."
+basis = "Gotcha 4531. Decision 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44454,6 +44460,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.698]
+title = "Let the consensus route of the node front admit the calls of the receipt verifier of the webhooks ingress"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/paxeer/src", "services/platform/hosted/paxeer/tests", "services/platform/hosted/webhooks/tests", "deploy/projects/platform/paxeer-boundary.kvx", "tools/deploy/tests/projects/test_platform_paxeer_boundary.py", "docs/wiki/PaxeerBoundary.md", "docs/wiki/HostedWebhooks.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --bins comet && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test verifier_consensus_calls && python3 -m pytest -q tools/deploy/tests/projects/test_platform_paxeer_boundary.py"
+do_1 = "do_1 Gotcha 4531, decision 3614. Read in services/platform/hosted/webhooks/src/trusted.rs the receipt verifier with every call it makes on its consensus origin and on its node origin, in services/platform/hosted/webhooks/src/boundary.rs how an origin with a path is addressed, in services/platform/hosted/paxeer/src/comet.rs the validation of a request, the validation of a result and the cases, in services/platform/hosted/paxeer/src/main.rs the routes and the settings, and services/platform/hosted/paxeer/tests/comet.py."
+symbols = []
 
 [capability.22.39.697]
 title = "Let the build stages of the webhooks image and of the core image hold the files the types crate reads"
@@ -212082,6 +212097,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.698]
+title = "Let the consensus route of the node front admit the calls of the receipt verifier of the webhooks ingress"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.698"]
+interfaces = []
+do_1 = "do_1 Gotcha 4531, decision 3614. Read in services/platform/hosted/webhooks/src/trusted.rs the receipt verifier with every call it makes on its consensus origin and on its node origin, in services/platform/hosted/webhooks/src/boundary.rs how an origin with a path is addressed, in services/platform/hosted/paxeer/src/comet.rs the validation of a request, the validation of a result and the cases, in services/platform/hosted/paxeer/src/main.rs the routes and the settings, and services/platform/hosted/paxeer/tests/comet.py."
+do_2 = "do_2 In services/platform/hosted/paxeer/src/comet.rs the route admits the call block with one decimal height: the result is passed on only where its block states the asked height, within the present bound of a response. The route admits a proved abci_query for the path /store/sequencer/key with the key 0x03; another key of that store stays refused, and every present refusal stays. The result of the new query is validated in the form of the present queries."
+do_3 = "do_3 Add services/platform/hosted/webhooks/tests/fixtures/verifier-consensus-calls.json: the list of the consensus calls of the receipt verifier, each with its method and the form of its parameters. Add services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs: with a stand-in consensus origin in the form the present cases of the verifier use, the readiness check and one verification make the calls of the file and no other call on the consensus origin, and an origin given with the path /comet receives them at that path."
+do_4 = "do_4 In the cases of services/platform/hosted/paxeer/src/comet.rs a case reads services/platform/hosted/webhooks/tests/fixtures/verifier-consensus-calls.json and states that the route admits each call of the file with the upstream request it makes. Add cases: block without a height is refused; block with a height that is not decimal is refused; a result whose block states another height is refused; the key 0x04 of the sequencer store is refused; a query of that store without proof is refused. Bring services/platform/hosted/paxeer/tests/comet.py in line with the new calls."
+do_5 = "do_5 In deploy/projects/platform/paxeer-boundary.kvx the service takes the setting LAYERX_PAXEER_COMET_URL from an input of the operator class, stated as the consensus origin of the node as an HTTP origin on the loopback with a nonzero port. Bring tools/deploy/tests/projects/test_platform_paxeer_boundary.py in line and add a case for the new input."
+do_6 = "do_6 In docs/wiki/PaxeerBoundary.md the table of the consensus route names the two new calls. In docs/wiki/HostedWebhooks.md the section on the receipt verifier states that the consensus origin may name the path of the consensus route of the node front and that the node origin may name the node front."
+do_7 = "do_7 Run the cases by hand before the counted verification and repair what they show. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/paxeer/src", "services/platform/hosted/paxeer/tests", "services/platform/hosted/webhooks/tests", "deploy/projects/platform/paxeer-boundary.kvx", "tools/deploy/tests/projects/test_platform_paxeer_boundary.py", "docs/wiki/PaxeerBoundary.md", "docs/wiki/HostedWebhooks.md"]
+tests = []
+planned_paths = ["services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs", "services/platform/hosted/webhooks/tests/fixtures/verifier-consensus-calls.json"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary -p layerx-platform-webhooks --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --bins comet && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test verifier_consensus_calls && python3 -m pytest -q tools/deploy/tests/projects/test_platform_paxeer_boundary.py"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

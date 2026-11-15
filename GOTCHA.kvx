@@ -22475,3 +22475,8 @@ fix = "Decision 3612. Task 22.39.696."
 title = "The build script of the types crate reads files of the repository root, and an image that copies chosen directories holds them"
 symptom = "The build script services/agent/crates/layerx-types/build.rs reads include/layerx/lxp_result.h, include/layerx/programs.h and spec/layerx-merge/contracts/address-table.md. The build stages of docker/platform-webhooks/Dockerfile and docker/platform-core/Dockerfile copy the directories services and programs and then build a binary whose crates depend on the types crate. The image of the gateway copies the whole context. A build stage that copies chosen directories copies each file a build script of its crates reads."
 fix = "Decision 3613. Task 22.39.697."
+
+[gotcha.4531]
+title = "The receipt verifier of the webhooks ingress and the consensus route of the node front name the consensus calls each on its own"
+symptom = "The receipt verifier in services/platform/hosted/webhooks/src/trusted.rs posts to its consensus origin the calls status, commit with a height, block with a height, and a proved abci_query for the path /store/sequencer/key with the key 0x03. A consensus origin given with a path is addressed at that path. The consensus route of the node front in services/platform/hosted/paxeer/src/comet.rs admits status, commit, validators and a proved abci_query for /store/evm/key and for two key forms of /store/lxphost/key. The definition deploy/projects/platform/paxeer-boundary.kvx names no consensus origin for the node front. A reader and the front it reads through name the same calls."
+fix = "Decision 3614. Task 22.39.698."
