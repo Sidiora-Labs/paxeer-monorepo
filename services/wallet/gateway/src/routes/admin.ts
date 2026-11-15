@@ -7,10 +7,15 @@ import { loadInventoryProvisioning } from '../db/custodyInventory.js';
 import { safeEqual } from '../crypto.js';
 import {
   CustodyAuthorityError,
+  CustodyInventoryConflictError,
+  admitWalletInventory,
+  verifyWalletInventory,
   findWalletInventoryKey,
   loadWalletInventory,
   type WalletInventoryKey,
 } from '../agent/authority.js';
+
+export const CUSTODY_INVENTORY_PATH = '/v1/admin/custody-inventory';
 
 export const LEGACY_IMPORT_PATH = '/v1/admin/legacy-import';
 export const CUSTODY_INVENTORY_REQUESTS_PATH = '/v1/admin/custody-inventory/requests';
@@ -84,6 +89,31 @@ function importReceipt(r: z.infer<typeof LegacyImport>) {
 }
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
+  app.post(CUSTODY_INVENTORY_PATH, { bodyLimit: 2_200_000 }, async (req, reply) => {
+    if (!authorized(req)) return reply.code(401).send({ error: 'unauthorized' });
+    const parsed = z
+      .object({ token: z.string().min(1).max(2_097_152) })
+      .strict()
+      .safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_inventory' });
+    try {
+      verifyWalletInventory(parsed.data.token);
+    } catch {
+      return reply.code(400).send({ error: 'invalid_inventory' });
+    }
+    try {
+      const result = await admitWalletInventory(parsed.data.token);
+      return reply.code(result.retained ? 200 : 502).send({
+        sequence: result.sequence,
+        members: result.members,
+      });
+    } catch (error) {
+      if (error instanceof CustodyAuthorityError || error instanceof CustodyInventoryConflictError)
+        return reply.code(error.statusCode).send({ error: error.code });
+      throw error;
+    }
+  });
+
   app.get(CUSTODY_INVENTORY_REQUESTS_PATH, async (req, reply) => {
     if (!authorized(req)) return reply.code(401).send({ error: 'unauthorized' });
     const parsed = InventoryRequestsQuery.safeParse(req.query ?? {});
