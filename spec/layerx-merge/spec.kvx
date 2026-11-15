@@ -14536,6 +14536,12 @@ value = "Where the verification of a task tests one crate of the agent workspace
 basis = "Gotcha 4489."
 affects = ["22.39.617"]
 
+[decision.3571]
+title = "A definition the project tool refuses for its env names takes the names of decision 3564"
+value = "Where the load function of the project tool refuses a definition for an env name, the definition takes the name of decision 3564 for that key, in the vars section and in the inputs section alike, with the word and the comment of the input kept. Where two keys read one input, each key takes its own name by the rule, or the key whose value the container fixes states that value plainly. A variable of a definition that no file of the service, its container or its start script reads is left out of the definition with its input. The tests of the definition under tools/deploy/tests/projects follow the definition."
+basis = "Gotcha 4490. Decision 3564."
+affects = ["22.39.611"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -378381,6 +378387,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3571, gotcha 4490. This replaces the sentence of do_2 that the env names stay as they are, for the definitions the tool refuses. In agent-boundary, dashboard and webhooks-public and in any other definition of the folder the load function refuses for an env name, give each key the name of decision 3564 in the vars section and in the inputs section, keep word and comment of each input, and give each of two keys that read one input its own name or state the value plainly where the container fixes it. In webhooks-public leave out the two certificate variables in PEM form that no file of the service reads, with their inputs, so the test of that definition passes without a change to its check of readers. Bring the tests of the changed definitions under tools/deploy/tests/projects in line with the names and change nothing else of them. The work of the earlier candidate stays where it agrees with this. Run the whole verify command locally before the counted verification. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.610]
 title = "Let the project tool name inputs by the folder and take the repository from the project file"
