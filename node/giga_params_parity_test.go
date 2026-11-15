@@ -29,13 +29,11 @@ import (
 )
 
 type gigaParamsParityOutcome struct {
-	results    []*abci.ExecTxResult
-	receipts   []*evmtypes.Receipt
-	baseFee    string
-	appHash    []byte
-	err        string
-	stateHash  []byte
-	beforeHash []byte
+	results  []*abci.ExecTxResult
+	receipts []*evmtypes.Receipt
+	baseFee  string
+	appHash  []byte
+	err      string
 }
 
 // TestGigaParamsParity compares the ordinary and fast executors with each
@@ -79,8 +77,10 @@ func runGigaParamsParity(t *testing.T, removedKeys [][]byte) {
 	require.NoError(t, err)
 
 	newApplication := func(giga bool) *app.TestWrapper {
+		asyncWriteBuffer := 0
 		a := app.SetupWithSc(t, true, true, app.TestAppOpts{
 			UseSc: true, EnableGiga: true, EnableGigaOCC: true,
+			ReceiptAsyncWriteBuffer: &asyncWriteBuffer,
 		}, func(ba *baseapp.BaseApp) {
 			ba.SetOccEnabled(true)
 			ba.SetConcurrencyWorkers(1)
@@ -106,30 +106,37 @@ func runGigaParamsParity(t *testing.T, removedKeys [][]byte) {
 		for _, key := range removedKeys {
 			storeKey := append([]byte(a.EvmKeeper.Paramstore.Name()+"/"), key...)
 			ctx.KVStore(a.GetKey(paramtypes.StoreKey)).Delete(storeKey)
+			require.False(t, a.EvmKeeper.Paramstore.Has(ctx, key))
+			require.False(t, a.GigaEvmKeeper.Paramstore.Has(ctx, key))
 		}
 		return &app.TestWrapper{App: a, Ctx: ctx}
 	}
 
 	ordinary := newApplication(false)
 	fast := newApplication(true)
+	require.NotNil(t, fast.App.GigaEvmKeeper.EvmoneVM)
+	require.True(t, fast.App.GigaOCCEnabled)
+	require.Equal(t, gigaStorageGasState(t, ordinary), gigaStorageGasState(t, fast))
 	transactions, signed, contract, revertContract := gigaParamsParityTransactions(t, ordinary, &payer, &recipient, gasLimit)
+	before := mergeFallbackCounter(t)
 	want := applyGigaParamsParityBlock(t, ordinary, transactions, signed, contract, revertContract)
 	got := applyGigaParamsParityBlock(t, fast, transactions, signed, contract, revertContract)
 
-	if want.err != "" || got.err != "" {
-		// A missing value can make both executors refuse the block. The
-		// refusal layers may report different text, but neither path may
-		// commit state.
-		require.NotEmpty(t, want.err)
-		require.NotEmpty(t, got.err)
-		t.Logf("ordinary refusal: %q; fast refusal: %q", want.err, got.err)
-		require.Equal(t, want.beforeHash, want.stateHash)
-		require.Equal(t, got.beforeHash, got.stateHash)
-		require.Equal(t, want.stateHash, got.stateHash)
-		return
-	}
-	require.Len(t, want.results, len(got.results))
+	require.Empty(t, want.err, "ordinary path: %s", want.err)
+	require.Empty(t, got.err, "fast path: %s", got.err)
+	require.Equal(t, before, mergeFallbackCounter(t))
+	require.Len(t, want.results, len(signed))
+	require.Len(t, got.results, len(signed))
+	require.Len(t, want.receipts, len(signed))
+	require.Len(t, got.receipts, len(signed))
 	for i := range want.results {
+		if i == 4 {
+			require.Equal(t, sdkerrors.ErrEVMVMError.ABCICode(), want.results[i].Code)
+			require.Zero(t, want.receipts[i].Status)
+		} else {
+			require.Zero(t, want.results[i].Code, want.results[i].Log)
+			require.Equal(t, uint32(1), want.receipts[i].Status, want.receipts[i].VmError)
+		}
 		require.Equal(t, want.results[i].Code, got.results[i].Code)
 		require.Equal(t, want.results[i].Codespace, got.results[i].Codespace)
 		require.Equal(t, want.results[i].GasWanted, got.results[i].GasWanted)
@@ -142,6 +149,10 @@ func runGigaParamsParity(t *testing.T, removedKeys [][]byte) {
 			require.Equal(t, want.results[i].EvmTxInfo.GetNonce(), got.results[i].EvmTxInfo.GetNonce())
 		}
 	}
+	require.Equal(t, contract.Hex(), want.receipts[1].ContractAddress)
+	require.Equal(t, revertContract.Hex(), want.receipts[3].ContractAddress)
+	require.Len(t, want.receipts[1].Logs, 1)
+	require.Len(t, want.receipts[2].Logs, 1)
 	for i := range want.receipts {
 		wantReceipt := *want.receipts[i]
 		gotReceipt := *got.receipts[i]
@@ -176,7 +187,6 @@ func normalizeGigaParamsResultData(t *testing.T, data []byte) []byte {
 
 func applyGigaParamsParityBlock(t *testing.T, w *app.TestWrapper, txs [][]byte, signed []*ethtypes.Transaction, contract, revertContract common.Address) gigaParamsParityOutcome {
 	t.Helper()
-	before := append([]byte(nil), w.App.LastCommitID().Hash...)
 	response, err := w.App.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Header: &tmproto.Header{
 			Height: w.Ctx.BlockHeight(), ChainID: chainsBlockChainID, Time: w.Ctx.BlockTime(),
@@ -184,28 +194,29 @@ func applyGigaParamsParityBlock(t *testing.T, w *app.TestWrapper, txs [][]byte, 
 		Txs: txs,
 	})
 	if err != nil {
-		after := append([]byte(nil), w.App.LastCommitID().Hash...)
-		return gigaParamsParityOutcome{err: err.Error(), beforeHash: before, stateHash: after}
+		return gigaParamsParityOutcome{err: fmt.Sprintf("FinalizeBlock: %s", err)}
 	}
 	if response == nil {
-		return gigaParamsParityOutcome{err: "nil finalize response", beforeHash: before, stateHash: before}
+		return gigaParamsParityOutcome{err: "FinalizeBlock: nil response"}
 	}
 	for _, result := range response.TxResults {
 		if result.Code != 0 && result.Code != sdkerrors.ErrEVMVMError.ABCICode() {
-			after := append([]byte(nil), w.App.LastCommitID().Hash...)
-			return gigaParamsParityOutcome{err: fmt.Sprintf("%d:%s", result.Code, result.Log), beforeHash: before, stateHash: after}
+			return gigaParamsParityOutcome{err: fmt.Sprintf("FinalizeBlock transaction: %d:%s", result.Code, result.Log)}
 		}
 	}
 	if _, err := w.App.Commit(context.Background()); err != nil {
-		return gigaParamsParityOutcome{err: err.Error(), beforeHash: before, stateHash: before}
+		return gigaParamsParityOutcome{err: fmt.Sprintf("Commit: %s", err)}
 	}
+	require.NotEmpty(t, response.AppHash)
+	require.Equal(t, response.AppHash, w.App.LastCommitID().Hash)
 	ctx := w.App.GetCheckCtx()
-	out := gigaParamsParityOutcome{results: response.TxResults, appHash: append([]byte(nil), response.AppHash...), stateHash: append([]byte(nil), response.AppHash...), beforeHash: before}
+	out := gigaParamsParityOutcome{results: response.TxResults, appHash: append([]byte(nil), response.AppHash...)}
 	out.baseFee = w.App.EvmKeeper.GetNextBaseFeePerGas(ctx).String()
+	require.Equal(t, out.baseFee, w.App.GigaEvmKeeper.GetNextBaseFeePerGas(ctx).String())
 	for _, tx := range signed {
-		receipt, err := w.App.EvmKeeper.GetReceipt(ctx, tx.Hash())
+		receipt, err := w.App.EvmKeeper.GetReceiptWithRetry(ctx, tx.Hash(), 5)
 		if err != nil {
-			return gigaParamsParityOutcome{err: err.Error(), beforeHash: before, stateHash: out.stateHash}
+			return gigaParamsParityOutcome{err: fmt.Sprintf("GetReceiptWithRetry(%s): %s", tx.Hash(), err)}
 		}
 		out.receipts = append(out.receipts, receipt)
 	}
