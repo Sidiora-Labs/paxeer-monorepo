@@ -9,7 +9,7 @@ health = "/healthz"
 restart = "ALWAYS"
 replicas = 1
 order = 8
-needs = ["redis-router", "redis-internal", "identity"]
+needs = ["redis-gateway", "redis-internal", "identity"]
 
 [vars.dashboard]
 DASHBOARD_CLIENT_CERT = "env:PLATFORM_DASHBOARD_DASHBOARD_CLIENT_CERT"
