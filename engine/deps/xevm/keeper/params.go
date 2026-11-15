@@ -13,6 +13,10 @@ import (
 
 const BaseDenom = "uhpx"
 
+// LegacyMinimumFeePerGas is the minimum fee used by the ordinary keeper when
+// the parameter store has no minimum-fee value.
+const LegacyMinimumFeePerGas = uint64(67_000_000)
+
 var MaxUint64BigInt = new(big.Int).SetUint64(math.MaxUint64)
 
 func (k Keeper) SetParams(ctx sdk.Context, params types.Params) {
@@ -167,6 +171,16 @@ func (k *Keeper) GetMinimumFeePerGas(ctx sdk.Context) sdk.Dec {
 	default:
 		return k.GetParams(ctx).MinimumFeePerGas
 	}
+}
+
+// GetMinimumFeePerGasOrDefault applies the ordinary keeper's missing-value
+// rule while preserving GetMinimumFeePerGas's raw parameter-store behavior.
+func (k *Keeper) GetMinimumFeePerGasOrDefault(ctx sdk.Context) sdk.Dec {
+	minimumFeePerGas := k.GetMinimumFeePerGas(ctx)
+	if minimumFeePerGas.IsNil() {
+		return sdk.NewDecFromInt(sdk.NewIntFromUint64(LegacyMinimumFeePerGas))
+	}
+	return minimumFeePerGas
 }
 
 func (k *Keeper) GetMaximumFeePerGas(ctx sdk.Context) sdk.Dec {
