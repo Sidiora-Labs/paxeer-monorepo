@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -256,6 +257,13 @@ func preflightConsensusRollback(cfg *tmcfg.Config, target int64) error {
 }
 
 func snapshotRollbackDB(source, dest *tmcfg.Config, name string) (retErr error) {
+	started := time.Now()
+	fmt.Printf("rollback preflight: copying store %s\n", name)
+	var records, parts int
+	defer func() {
+		fmt.Printf("rollback preflight: copied store %s: records=%d parts=%d time=%s\n", name, records, parts, time.Since(started))
+	}()
+
 	sourceDir := tmcfg.ResolveDBDir(name, source.DBDir())
 	if _, err := os.Stat(filepath.Join(sourceDir, name+".db")); err != nil {
 		return err
@@ -274,19 +282,58 @@ func snapshotRollbackDB(source, dest *tmcfg.Config, name string) (retErr error) 
 	if err != nil {
 		return err
 	}
-	defer iter.Close()
+	defer func() { retErr = errors.Join(retErr, iter.Close()) }()
 	batch := dst.NewBatch()
-	defer batch.Close()
-	for ; iter.Valid(); iter.Next() {
-		if err := batch.Set(iter.Key(), iter.Value()); err != nil {
+	defer func() { retErr = errors.Join(retErr, batch.Close()) }()
+	batchBytes := 0
+	flush := func(sync bool) error {
+		var err error
+		if sync {
+			err = batch.WriteSync()
+		} else {
+			err = batch.Write()
+		}
+		closeErr := batch.Close()
+		err = errors.Join(err, closeErr)
+		if err == nil {
+			parts++
+		}
+		batch = dst.NewBatch()
+		batchBytes = 0
+		return err
+	}
+	for iter.Valid() {
+		key, value := iter.Key(), iter.Value()
+		iter.Next()
+		if err := iter.Error(); err != nil {
 			return err
+		}
+		if err := batch.Set(key, value); err != nil {
+			return err
+		}
+		batchBytes += len(key) + len(value)
+		records++
+		if !iter.Valid() {
+			if err := flush(true); err != nil {
+				return err
+			}
+			break
+		}
+		if batchBytes >= rollbackDBCopyPartLimit {
+			if err := flush(false); err != nil {
+				return err
+			}
 		}
 	}
 	if err := iter.Error(); err != nil {
 		return err
 	}
-	return batch.WriteSync()
+	return nil
 }
+
+const rollbackDBCopyPartSize = 64 * 1024 * 1024
+
+var rollbackDBCopyPartLimit = rollbackDBCopyPartSize
 
 func prepareRollback(cfg *tmcfg.Config, app types.Application, intent *rollbackIntent) error {
 	if app.CommitMultiStore().LastCommitID().Version > intent.Target {
