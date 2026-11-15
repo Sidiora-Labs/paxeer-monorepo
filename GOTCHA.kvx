@@ -22380,3 +22380,8 @@ fix = "Decision 3592. Task 22.39.676."
 title = "A token file with two schemes needs a contrast reader that knows the schemes"
 symptom = "The contrast reader of the human web application takes one value for each token of the token file. A token file that states a value for the light scheme and a value for the dark scheme, in the two-value form of the scheme function and in explicit blocks, holds more than one value for a token, and a reader that takes one of them measures a single scheme without naming it. A foundation case that states the form of the browser configuration follows that configuration: the configuration is the product side, the case is its reader."
 fix = "Decision 3593. Task 22.39.677."
+
+[gotcha.4512]
+title = "A proof that starts the TypeScript SDK from its sources needs the packages of that SDK"
+symptom = "The proof of the receipt keys method of the hosted gateway, in services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs, starts the TypeScript SDK under services/agent/sdk/typescript from its sources to read the keys as a consumer does. The runtime resolves the packages the SDK declares from the directory of the SDK, so they have to be installed there before the proof runs."
+fix = "Decision 3594. The build of task 22.39.669 installs them."
