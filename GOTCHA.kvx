@@ -22290,3 +22290,8 @@ fix = "Decision 3573. Tasks 22.39.635 and 22.39.636."
 title = "A whole compile of the explorer app stops on a default argument no call uses"
 symptom = "The apps of the explorer backend compile with warnings as errors outside the development environment. The private request function of services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex states a default for its query that no call uses, which is a compiler warning. A compile that takes only changed files does not reach the file; a compile of the whole app does, for example after a change in the JSON-RPC client the app depends on."
 fix = "Decision 3574. Task 22.39.637."
+
+[gotcha.4494]
+title = "The variable contract of the launchpad names startup documents that no tool composes"
+symptom = "On the hosting platform a launchpad service takes each startup document as a variable that holds the standard base64 of the JSON bytes, beside a variable that holds the digest of those bytes. The variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad) requires these variables for all twelve services, but no tool of the tree writes them, and no command applies the registered migrations under migrations to a database outside a test. The expected schema document of a service carries values that only a migrated database gives."
+fix = "Decision 3575. Tasks 22.39.638 to 22.39.650."
