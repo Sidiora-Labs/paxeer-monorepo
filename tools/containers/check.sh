@@ -62,6 +62,7 @@ explorer-elixir-builder|docker/explorer-elixir-builder/Dockerfile|services/explo
 localnode|docker/localnode/Dockerfile|docker/localnode/Dockerfile|.
 rpcnode|docker/rpcnode/Dockerfile|docker/rpcnode/Dockerfile|.
 bridge-relayer|docker/bridge-relayer/Dockerfile|docker/bridge-relayer/Dockerfile|.
+bridge-web|docker/bridge-web/Dockerfile|docker/bridge-web/Dockerfile|.
 gas-station|docker/gas-station/Dockerfile|docker/gas-station/Dockerfile|.
 human-service|docker/human-service/Dockerfile|docker/human-service/Dockerfile|.
 kernel|docker/kernel/Dockerfile|docker/kernel/Dockerfile|.
