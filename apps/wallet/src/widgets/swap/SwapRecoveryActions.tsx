@@ -10,7 +10,7 @@ export function SwapRecoveryActions({ execution }: { execution: UseSwapExecution
   return (
     <>
       {hasRecovery && (
-        <div role="status" className="rounded-2xl bg-white/5 px-4 py-3 text-sm space-y-2">
+        <div role="status" className="rounded-2xl bg-pax-control px-4 py-3 text-sm space-y-2">
           <p>
             {execution.completedLegs} of {execution.intent!.expectedLegs} swap legs confirmed.
           </p>
@@ -32,7 +32,7 @@ export function SwapRecoveryActions({ execution }: { execution: UseSwapExecution
             type="button"
             disabled={execution.executing}
             onClick={() => void execution.recover()}
-            className="w-full rounded-full bg-pax-accent text-black font-semibold py-3 disabled:opacity-40"
+            className="w-full rounded-full bg-pax-accent text-pax-on-accent font-semibold py-3 disabled:opacity-40"
           >
             Check transaction status
           </button>
@@ -41,12 +41,12 @@ export function SwapRecoveryActions({ execution }: { execution: UseSwapExecution
               type="button"
               disabled={execution.executing}
               onClick={execution.reset}
-              className="w-full py-2"
+              className="min-h-[var(--touch-target)] w-full py-2"
             >
               Review a new swap
             </button>
           )}
-          {execution.execError && <p className="text-xs text-red-400">{execution.execError}</p>}
+          {execution.execError && <p className="text-xs text-pax-error">{execution.execError}</p>}
         </div>
       )}
       <TxTimeoutModal

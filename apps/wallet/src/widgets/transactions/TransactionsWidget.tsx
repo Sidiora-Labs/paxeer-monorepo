@@ -24,7 +24,10 @@ export interface TransactionsWidgetProps {
 
 const EMPTY_CONFIG: Record<ActivityTab, { title: string; subtitle: string }> = {
   tx: { title: 'No transactions yet', subtitle: 'Your on-chain activity will appear here' },
-  transfers: { title: 'No token transfers yet', subtitle: 'Token sends and receives will appear here' },
+  transfers: {
+    title: 'No token transfers yet',
+    subtitle: 'Token sends and receives will appear here',
+  },
 };
 
 export function TransactionsWidget({ onTxDetail }: TransactionsWidgetProps) {
@@ -43,14 +46,13 @@ export function TransactionsWidget({ onTxDetail }: TransactionsWidgetProps) {
   return (
     <div className="px-4 pt-4 pb-4">
       {/* 2-tab bar */}
-      <div className="flex gap-1 p-1 rounded-xl bg-white/5 mb-4">
-        {(
-          [
-            { key: 'tx' as const, label: 'TX' },
-            { key: 'transfers' as const, label: 'Transfers' },
-          ]
-        ).map(({ key, label }) => (
+      <div className="flex gap-1 p-1 rounded-xl bg-pax-control mb-4">
+        {[
+          { key: 'tx' as const, label: 'TX' },
+          { key: 'transfers' as const, label: 'Transfers' },
+        ].map(({ key, label }) => (
           <button
+            type="button"
             key={key}
             onClick={() => setTab(key)}
             className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${

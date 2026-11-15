@@ -50,7 +50,7 @@ export function InfoCard({
       <div className="col-span-2 px-1 pt-1">
         <SectionLabel text="Info" />
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-[20px]  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-white/[0.04] overflow-hidden">
         <InfoRow label="Name" value={<span className="font-semibold">{tokenName}</span>} />
         <InfoRow label="Symbol" value={<span className="font-semibold">{tokenSymbol}</span>} />
         <InfoRow label="Network" value={<span className="font-semibold">Paxeer</span>} />
@@ -59,25 +59,15 @@ export function InfoCard({
             label="Contract"
             value={
               <button
+                type="button"
                 onClick={() => handleCopy(tokenId)}
-                className="flex items-center gap-1.5 press-scale"
+                className="flex items-center gap-2 press-scale"
               >
                 <span className="font-mono font-semibold">{shortenAddress(tokenId, 5)}</span>
                 {copied ? (
-                  <SvgIcon
-                    name="check"
-                    className="w-3.5 h-3.5"
-                    style={{
-                      filter:
-                        'invert(69%) sepia(61%) saturate(588%) hue-rotate(88deg) brightness(93%) contrast(93%)',
-                    }}
-                  />
+                  <SvgIcon name="check" className="w-3.5 h-3.5" />
                 ) : (
-                  <SvgIcon
-                    name="copy"
-                    className="w-3.5 h-3.5"
-                    style={{ filter: 'brightness(0) invert(0.5)' }}
-                  />
+                  <SvgIcon name="copy" className="w-3.5 h-3.5" />
                 )}
               </button>
             }
