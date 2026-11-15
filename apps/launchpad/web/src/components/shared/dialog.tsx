@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { cn } from "@/lib/utils";
+import * as React from 'react';
+import { ModalDialog } from '@/core/app-foundation/modal-dialog';
+import { cn } from '@/lib/utils';
 
 interface DialogProps {
   open: boolean;
@@ -9,9 +10,19 @@ interface DialogProps {
   children: React.ReactNode;
 }
 
-export function Dialog({ open, onOpenChange: _onOpenChange, children }: DialogProps) {
-  if (!open) return null;
-  return <>{children}</>;
+const DialogContext = React.createContext<{
+  open: boolean;
+  close: () => void;
+  titleId: string;
+} | null>(null);
+
+export function Dialog({ open, onOpenChange, children }: DialogProps) {
+  const titleId = React.useId();
+  return (
+    <DialogContext.Provider value={{ open, close: () => onOpenChange(false), titleId }}>
+      {children}
+    </DialogContext.Provider>
+  );
 }
 
 export function DialogContent({
@@ -19,47 +30,44 @@ export function DialogContent({
   children,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
+  const context = React.useContext(DialogContext);
+  if (!context) throw new Error('DialogContent requires Dialog');
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-scrim/70"
-        onClick={() => {
-          const event = new CustomEvent("dialog-close");
-          window.dispatchEvent(event);
-        }}
-      />
-      <div
-        className={cn(
-          "relative z-50 animate-in fade-in zoom-in-95 duration-150",
-          className,
-        )}
-        {...props}
-      >
+    <ModalDialog
+      open={context.open}
+      onClose={() => {
+        context.close();
+        window.dispatchEvent(new CustomEvent('dialog-close'));
+      }}
+      aria-labelledby={context.titleId}
+      aria-label={props['aria-label'] ?? 'Dialog'}
+      className="max-w-modal-width-md flex-col rounded-lg shadow-modal"
+    >
+      <div className={cn('relative p-6', className)} {...props}>
         {children}
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 
-export function DialogHeader({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)}
+      className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)}
       {...props}
     />
   );
 }
 
-export function DialogTitle({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLHeadingElement>) {
+export function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  const context = React.useContext(DialogContext);
   return (
     <h2
-      className={cn("text-lg font-semibold leading-none tracking-tight", className)}
+      id={context?.titleId}
+      className={cn(
+        'text-lg font-semibold leading-[var(--sl-leading-none)] tracking-tight',
+        className
+      )}
       {...props}
     />
   );
