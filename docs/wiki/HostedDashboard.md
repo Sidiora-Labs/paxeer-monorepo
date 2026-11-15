@@ -94,6 +94,16 @@ Without the gateway origin or a valid tenant, key registration and proof sign-in
 return 503 with `sign_in_not_configured`; token sign-in remains available. The
 page explains this refusal.
 
+The Keys view issues a gateway key with the Ed25519 public key held by the
+browser, the six gateway scopes (`activity:write`, `program:call`,
+`program:read`, `program:simulate`, `receipt:read` and `state:read`) and a
+quota of 1–1,000,000 requests over 1–2,592,000 seconds. Active keys can be
+rotated or revoked after confirmation. Each write uses a fresh idempotency key.
+An issued or rotated secret is shown once with a copy control and stays only in
+page memory until its dialog closes; it is never written to browser storage.
+When no active key exists, the overview replaces its request counters with a
+no-quota message and a control that opens Keys.
+
 A successful sign-in returns 204 and sets `__Host-layerx-session` with `Secure`,
 `HttpOnly`, `SameSite=Strict`, `Path=/` and no Domain. Its `Max-Age` ends at the
 proof session's `expires_at`, or twelve hours after a token is accepted.

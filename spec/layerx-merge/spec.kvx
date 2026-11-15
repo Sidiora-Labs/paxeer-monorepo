@@ -14776,6 +14776,12 @@ value = "The dashboard web serves POST /keys, POST /keys/ID/rotate and DELETE /k
 basis = "Gotcha 4527. Decisions 3587 and 3605."
 affects = []
 
+[decision.3611]
+title = "The builder of the explorer backend holds the page assets, the native library and the compiler tools the cases of the web app call"
+value = "The builder builds the page assets of the web app before a run that reaches the browser cases, holds the toolchain the native library of the sign-in message package is compiled with, and holds the compiler tools the cases of contract verification call. A case reaches no service outside the builder: a case that addresses the Sourcify service uses a stand-in the case defines. Task 22.39.695 holds the modules BlockScoutWeb.Account.API.V2.AuthenticateControllerTest, BlockScoutWeb.API.RPC.ContractControllerTest, BlockScoutWeb.API.V2.VerificationControllerTest, BlockScoutWeb.AddressContractVerificationTest, BlockScoutWeb.ViewingAddressesTest, BlockScoutWeb.ViewingBlocksTest, BlockScoutWeb.ViewingChainTest and BlockScoutWeb.ViewingTokensTest and verifies the suite of the app whole. The verification of task 22.39.686 runs the suite of the app without these modules. Decision 3572 holds for every case."
+basis = "Gotcha 4528. Decisions 3602 and 3572."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44436,6 +44442,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.695]
+title = "Let the builder of the explorer backend hold what the cases of the web app call"
+reqs = ["22998.1"]
+touches = ["services/explorer/deploy/tools/mix-in-builder.sh", "services/explorer/deploy/tools/tests", "docker/explorer-elixir-builder", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/block_scout_web/lib", "services/explorer/backend/apps/block_scout_web/assets", "services/explorer/backend/apps/block_scout_web/config/test.exs", "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/sourcify.ex", "services/explorer/backend/README.md"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+do_1 = "do_1 Gotcha 4528, decisions 3611, 3602 and 3572. Read services/explorer/deploy/tools/mix-in-builder.sh with the script it runs in the container, docker/explorer-elixir-builder/Dockerfile, services/explorer/backend/apps/block_scout_web/assets/package.json with services/explorer/backend/apps/block_scout_web/assets/webpack.config.js, services/explorer/backend/apps/block_scout_web/test/test_helper.exs with the support of the browser cases, the package of the sign-in message in services/explorer/backend/apps/explorer/mix.exs, and services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/sourcify.ex with the cases that reach it. Run services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test once and list every case that does not pass with file and first message, grouped by cause."
+symbols = []
 
 [capability.22.39.694]
 title = "Let a developer issue, rotate and revoke keys in the dashboard web"
@@ -462505,6 +462520,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.695]
+title = "Let the builder of the explorer backend hold what the cases of the web app call"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.686"]
+reqs = ["22998.1"]
+capabilities = ["22.39.695"]
+interfaces = []
+do_1 = "do_1 Gotcha 4528, decisions 3611, 3602 and 3572. Read services/explorer/deploy/tools/mix-in-builder.sh with the script it runs in the container, docker/explorer-elixir-builder/Dockerfile, services/explorer/backend/apps/block_scout_web/assets/package.json with services/explorer/backend/apps/block_scout_web/assets/webpack.config.js, services/explorer/backend/apps/block_scout_web/test/test_helper.exs with the support of the browser cases, the package of the sign-in message in services/explorer/backend/apps/explorer/mix.exs, and services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/sourcify.ex with the cases that reach it. Run services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test once and list every case that does not pass with file and first message, grouped by cause."
+do_2 = "do_2 Page assets. A test run of the builder that reaches the web app builds the page assets with the deploy script of services/explorer/backend/apps/block_scout_web/assets/package.json from the lock file, into the place the endpoint serves in the test environment, before the cases start. The result is kept with the build of the working tree, and a rerun whose inputs did not change builds nothing. A run that names only cases of another app builds nothing. The browser cases under services/explorer/backend/apps/block_scout_web/test/block_scout_web/features then find what the scripts of the pages render. A case that states an element the page holds in no configuration follows the page."
+do_3 = "do_3 Native library. docker/explorer-elixir-builder/Dockerfile holds the toolchain the package of the sign-in message compiles its native library with, pinned to a version, and the library loads in a test run. The label of the inputs of the image follows the changed file, so the script builds the image anew."
+do_4 = "do_4 Compiler tools. The image or the builder holds the compiler tools the script checks for in the function compiler_binaries_available, pinned to versions, so that the check holds and no case is excluded for it. A case of contract verification that addresses the Sourcify service uses a stand-in the case defines and reaches no service outside the builder. Read which form of that service services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/sourcify.ex addresses and which form the cases state, and bring the two in line."
+do_5 = "do_5 Bring each case of the list of do_1 in line cause by cause. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why."
+do_6 = "do_6 Keep the cases under services/explorer/deploy/tools/tests in line with the script and add a case for the build of the page assets in the form of services/explorer/deploy/tools/tests/test_mix_builder_redis.py. Read what scripts/explorer/gate-test.sh and .github/workflows/explorer-images.yml state of the script, and keep the forms they call."
+do_7 = "do_7 State in services/explorer/backend/README.md what the builder holds for the cases of the web app and how a run reuses it."
+do_8 = "do_8 Run the suite of the app twice more by hand with two different orders of the files and repair what the other order shows. Give in the final message the count of cases of the last run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/deploy/tools/mix-in-builder.sh", "services/explorer/deploy/tools/tests", "docker/explorer-elixir-builder", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/block_scout_web/lib", "services/explorer/backend/apps/block_scout_web/assets", "services/explorer/backend/apps/block_scout_web/config/test.exs", "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/sourcify.ex", "services/explorer/backend/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.688]
 title = "Let the suite of the explorer backend pass whole with no path in the builder"
 status = "pending"
@@ -462587,7 +462637,7 @@ touches = ["services/explorer/backend/apps/block_scout_web/test", "services/expl
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test --exclude module:BlockScoutWeb.Account.API.V2.AuthenticateControllerTest --exclude module:BlockScoutWeb.API.RPC.ContractControllerTest --exclude module:BlockScoutWeb.API.V2.VerificationControllerTest --exclude module:BlockScoutWeb.AddressContractVerificationTest --exclude module:BlockScoutWeb.ViewingAddressesTest --exclude module:BlockScoutWeb.ViewingBlocksTest --exclude module:BlockScoutWeb.ViewingChainTest --exclude module:BlockScoutWeb.ViewingTokensTest"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -462599,6 +462649,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3611, gotcha 4528. The verification now runs the suite of the app without the eight modules decision 3611 names, which task 22.39.695 holds. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.685]
 title = "Let the suite of the indexer app of the explorer backend pass whole in the builder"
