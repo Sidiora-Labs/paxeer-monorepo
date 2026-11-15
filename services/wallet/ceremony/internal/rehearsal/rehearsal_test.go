@@ -312,7 +312,7 @@ func TestRehearseMigratesEveryWalletThroughFiveDaemons(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rehearse: %v (report %s)", err, r)
 	}
-	if got := r.String(); got != "wallets=3 eligible=2 funded_archived=1 already_migrated=0 read=2 verified=2 imported=2 refreshed=2 test_signed=2 matched=2" {
+	if got := r.String(); got != "wallets=3 eligible=2 funded_archived=1 already_migrated=0 deliverable=2 waiting_identity=0 external_identity=0 read=2 verified=2 imported=2 refreshed=2 test_signed=2 matched=2" {
 		t.Fatalf("report line %q", got)
 	}
 	if err := r.Copy.Verify(); err != nil {
@@ -371,11 +371,18 @@ func TestRehearseStopsOnMismatch(t *testing.T) {
 	if !errors.As(err, &we) || we.WalletID != bad || we.Stage != "open" || !errors.Is(err, envelope.ErrAddressMismatch) {
 		t.Fatalf("mismatch did not stop the rehearsal: %v", err)
 	}
-	if r.Wallets != 2 || r.Eligible != 2 || r.Report != (migrate.Report{Read: 1}) {
+	if r.Wallets != 2 || r.Eligible != 2 || r.Deliverable != 1 || r.Report != (migrate.Report{Read: 1, ExternalIdentity: 1}) {
 		t.Fatalf("report %s", r)
 	}
 	if n := databases(t, s.pg); n != 0 {
 		t.Fatalf("%d temporary databases left behind", n)
+	}
+}
+
+func TestWaitingIdentityReportCounts(t *testing.T) {
+	r := rehearsal.Report{Wallets: 4, Eligible: 3, Deliverable: 1, AlreadyMigrated: 1, Report: migrate.Report{WaitingIdentity: 1, ExternalIdentity: 1}}
+	if got := r.String(); got != "wallets=4 eligible=3 funded_archived=0 already_migrated=1 deliverable=1 waiting_identity=1 external_identity=1 read=0 verified=0 imported=0 refreshed=0 test_signed=0 matched=0" {
+		t.Fatalf("identity counts: %s", got)
 	}
 }
 

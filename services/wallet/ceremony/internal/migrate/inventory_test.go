@@ -125,7 +125,9 @@ func TestPlanInventoryRequestsDelivery(t *testing.T) {
 	t.Run("invalid wallet preserves document", func(t *testing.T) {
 		invalid := *plan
 		invalid.Eligible = append([]migrate.Wallet(nil), plan.Eligible...)
+		invalid.Deliverable = append([]migrate.Wallet(nil), plan.Deliverable...)
 		invalid.Eligible[1].EncryptedPrivateKey = "invalid"
+		invalid.Deliverable[1].EncryptedPrivateKey = "invalid"
 		if n, err := invalid.WriteInventoryRequests(ctx, pg.DB, master, path); n != 0 || !errors.Is(err, envelope.ErrFormat) {
 			t.Fatalf("invalid envelope: count=%d err=%v", n, err)
 		}
