@@ -253,5 +253,63 @@ new = "public/icons/solana_color.svg"
 sha256 = "7176b39f651da976c6ac94a7fad85c54b7f12bd999d074e3c1910a32d4175e49"
 
 [shared.charting_library]
-source = "apps/perps/public/static/charting_library/charting_library.d.ts"
+source = "apps/perps/apps/web/public/static/charting_library/charting_library.d.ts"
 reference = "public/charting_library/charting_library.d.ts"
+sha256 = "3716e6b6a8e054380c6432a95391a2c086c3b51184ed56de72f21b99c720b777"
+
+# The trading workspace retains these upstream public asset filenames.
+[workspace_legacy_name.1]
+path = "public/assets/Group 427320986.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.2]
+path = "public/assets/Group 427320987.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.3]
+path = "public/assets/Group 427320988.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.4]
+path = "public/assets/Group 427321040.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.5]
+path = "public/assets/Group 427321302.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.6]
+path = "public/assets/Group 427321514.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.7]
+path = "public/assets/Group 48097638.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.8]
+path = "public/assets/Group 48097639.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.9]
+path = "public/assets/Group 48097640.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.10]
+path = "public/assets/Group 48097641.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.11]
+path = "public/assets/Group 48097642.svg"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.12]
+path = "public/assets/Line 122.png"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.13]
+path = "public/assets/Rectangle 12.png"
+reason = "Trading workspace public export"
+
+[workspace_legacy_name.14]
+path = "public/assets/vertical line.png"
+reason = "Trading workspace public export"

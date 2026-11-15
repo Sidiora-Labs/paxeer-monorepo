@@ -28,6 +28,7 @@ ATTESTOR_ABIS = {
 DEPLOYMENT_SOURCE = "contracts/launchpad/deployments/paxeer-x-network-addresses.json"
 DEPLOYMENT_COPY = "services/launchpad/indexer/internal/receipt/deployment_source.json"
 INVENTORIES = "tools/launchpad/production/feature-acceptance"
+TRADING_WORKSPACE_ROOTS = ("apps/perps/apps/web/", "apps/perps/packages/")
 # Upstream trees have their own copy policies. Explorer provenance is pinned in
 # docs/explorer/UPSTREAM.md; the remaining imported trees carry VENDOR.kvx.
 UPSTREAM_TREES = (
@@ -408,6 +409,12 @@ func main() {
 def test_other_intentional_copies_match_sources():
     for source, copy, comparison, _, _ in _listed_copies():
         _assert_copy(source, copy, comparison)
+
+
+def test_trading_workspace_artifacts_are_inventoried():
+    names = {path.as_posix() for path in _first_party_files()}
+    assert any(name.startswith(TRADING_WORKSPACE_ROOTS[0]) for name in names)
+    assert any(name.startswith(TRADING_WORKSPACE_ROOTS[1]) for name in names)
 
 
 def _first_party_files():
