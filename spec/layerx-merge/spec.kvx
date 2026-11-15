@@ -379753,7 +379753,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.672]
 title = "Answer the health path of the indexer image during the first backfill"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -459430,7 +459430,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.636]
 title = "Let the acceptance replay of the explorer read the blocks of one step side by side"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.624"]
