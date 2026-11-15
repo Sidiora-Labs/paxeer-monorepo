@@ -172,7 +172,7 @@ export function NetworkSwitcher() {
               type="button"
               aria-pressed={active.chainId === network.chainId}
               onClick={() => switchNetwork(network.chainId)}
-              className="flex-1 rounded-xl bg-white/[0.06] p-3 text-left text-sm press-scale"
+              className="flex-1 rounded-xl bg-pax-control p-3 text-left text-sm press-scale"
             >
               <span>
                 {network.name}
@@ -204,18 +204,18 @@ export function NetworkSwitcher() {
           placeholder="1 or https://…/chains/1"
           required
           maxLength={512}
-          className="w-full rounded-xl bg-white/[0.06] px-3 py-2.5 text-sm"
+          className="w-full rounded-xl bg-pax-control px-3 py-2.5 text-sm"
         />
         <button
           type="submit"
           disabled={adding || !input.trim()}
-          className="w-full rounded-xl bg-pax-accent py-2.5 text-sm font-semibold text-black press-scale disabled:opacity-30"
+          className="w-full rounded-xl bg-pax-accent py-2.5 text-sm font-semibold text-pax-on-accent press-scale disabled:opacity-30"
         >
           {adding ? 'Checking network…' : 'Add network'}
         </button>
       </form>
       {error && (
-        <p role="alert" className="text-xs text-red-400">
+        <p role="alert" className="text-xs text-pax-error">
           {error}
         </p>
       )}
