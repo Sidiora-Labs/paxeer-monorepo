@@ -1,6 +1,5 @@
 {
   "schema_version": 2,
-  "state": "implemented-not-qualified",
   "application_order": [
     60000,
     80001,
@@ -92,27 +91,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/indexer/internal/store/canonical.go",
-          "sha256": "9826dbf4a4b68ab4e3a9560314e93bb96edc311962391b4b5bf2f9ecdb46ed02"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/indexer",
           "original_version": 1,
           "source_sha256": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
           "up_sha256": "09ffe92c969cc2beb07cba17aed4b17689a9f7695c120d2301e3ece19fbabe92",
-          "structural_fingerprint": null
+          "structural_fingerprint": "b2bab48cb9f6f4646339f31ad813ff0179f953ae2d4da9cbbea545748951b341"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/indexer/internal/store/canonical.go",
+          "sha256": "9826dbf4a4b68ab4e3a9560314e93bb96edc311962391b4b5bf2f9ecdb46ed02"
         }
       ]
     },
@@ -128,14 +127,30 @@
         "00001_init.sql",
         "00002_processed_swaps.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "core/trading-charts",
+          "original_version": 1,
+          "source_sha256": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",
+          "up_sha256": "6c37d39665d3f7830c989521c0e3ef94551bf0bee46ef3a4f8d15a77ef0ee2f9",
+          "structural_fingerprint": "7daa0526138b026689abcd67f14ce87779e69d637c00d607b87adb3987728a76"
+        },
+        {
+          "service": "core/trading-charts",
+          "original_version": 2,
+          "source_sha256": "7a4f16b05e60d28af478ef0c1ba74ccd1fd2a7c664ad0634928f78938b3f5053",
+          "up_sha256": "6d48410a7a7c349191fdde2b1c3a8b214ab9704b2f45d40d10084d3e35675473",
+          "structural_fingerprint": "84b84b8f66519421cce40bd4da74df52207203f39d1a872ef8a9b62929870582"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -144,22 +159,6 @@
         {
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "core/trading-charts",
-          "original_version": 1,
-          "source_sha256": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",
-          "up_sha256": "6c37d39665d3f7830c989521c0e3ef94551bf0bee46ef3a4f8d15a77ef0ee2f9",
-          "structural_fingerprint": null
-        },
-        {
-          "service": "core/trading-charts",
-          "original_version": 2,
-          "source_sha256": "7a4f16b05e60d28af478ef0c1ba74ccd1fd2a7c664ad0634928f78938b3f5053",
-          "up_sha256": "6d48410a7a7c349191fdde2b1c3a8b214ab9704b2f45d40d10084d3e35675473",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -174,14 +173,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "core/stats-workers",
+          "original_version": 1,
+          "source_sha256": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
+          "up_sha256": "eb4ed63cb45de9ebc76463dc15f2ed6edb9e3b0eefabe39b3dbfb26c84da97be",
+          "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -190,15 +198,6 @@
         {
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "core/stats-workers",
-          "original_version": 1,
-          "source_sha256": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
-          "up_sha256": "eb4ed63cb45de9ebc76463dc15f2ed6edb9e3b0eefabe39b3dbfb26c84da97be",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -213,14 +212,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "core/pnl-tracker",
+          "original_version": 1,
+          "source_sha256": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
+          "up_sha256": "53203a74eab5f4a62076510fe16253cd94e2fd244822a4c5e969a6538e068aa4",
+          "structural_fingerprint": "f97e5dd3d73c3d7a0988bb37828b6cd4b457bebacf566bbfba00e9f5b56d4007"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -229,15 +237,6 @@
         {
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "core/pnl-tracker",
-          "original_version": 1,
-          "source_sha256": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
-          "up_sha256": "53203a74eab5f4a62076510fe16253cd94e2fd244822a4c5e969a6538e068aa4",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -252,14 +251,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "media/user",
+          "original_version": 1,
+          "source_sha256": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
+          "up_sha256": "c1f68f7e724349ae4e648add8f0003816a9bee18c26d7059c3590164bd5ead89",
+          "structural_fingerprint": "17b1d3f81de8f32c18b93c4fc4abfb49f417507c283c1666610c89d9afe5ed2a"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -268,15 +276,6 @@
         {
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "media/user",
-          "original_version": 1,
-          "source_sha256": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
-          "up_sha256": "c1f68f7e724349ae4e648add8f0003816a9bee18c26d7059c3590164bd5ead89",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -291,14 +290,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "media/social",
+          "original_version": 1,
+          "source_sha256": "3ac8a1b2dbdcfd6070d02cd2222c145f4b949925a77ed614d0440d83a9b00348",
+          "up_sha256": "3d960c68ad8816e5fd42408253001f4bf08670b8ec1ec846bb6641a5aadd6c00",
+          "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -307,15 +315,6 @@
         {
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "media/social",
-          "original_version": 1,
-          "source_sha256": "3ac8a1b2dbdcfd6070d02cd2222c145f4b949925a77ed614d0440d83a9b00348",
-          "up_sha256": "3d960c68ad8816e5fd42408253001f4bf08670b8ec1ec846bb6641a5aadd6c00",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -331,14 +330,30 @@
         "00001_init.sql",
         "00002_add_decimals.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "media/metadata",
+          "original_version": 1,
+          "source_sha256": "75dffff2b76737c76e425f395852dea20c3018ae01771b2361728ccfee2044f3",
+          "up_sha256": "f7ba90d9b9707c72ce2ecd4b8a3df9698044d31bfce8474e23d16cfa972dd67e",
+          "structural_fingerprint": "5bdd14b94f49518f4a140a638b47d03cf8ab500dc0b621891348ff6aa282f14d"
+        },
+        {
+          "service": "media/metadata",
+          "original_version": 2,
+          "source_sha256": "ca32154857496eed96c7301e7f41c470fb91c47a7636beb3835e971ea0a9360a",
+          "up_sha256": "4e15fd05b433b30c005e2e05a626840bfe82f3b423da04a1383afd747f669e0c",
+          "structural_fingerprint": "ed3a19bd30039af11064d218d72eb54e00c368790aedd4da33f4a7ad259f2141"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -347,22 +362,6 @@
         {
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "media/metadata",
-          "original_version": 1,
-          "source_sha256": "75dffff2b76737c76e425f395852dea20c3018ae01771b2361728ccfee2044f3",
-          "up_sha256": "f7ba90d9b9707c72ce2ecd4b8a3df9698044d31bfce8474e23d16cfa972dd67e",
-          "structural_fingerprint": null
-        },
-        {
-          "service": "media/metadata",
-          "original_version": 2,
-          "source_sha256": "ca32154857496eed96c7301e7f41c470fb91c47a7636beb3835e971ea0a9360a",
-          "up_sha256": "4e15fd05b433b30c005e2e05a626840bfe82f3b423da04a1383afd747f669e0c",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -377,14 +376,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "media/livestream",
+          "original_version": 1,
+          "source_sha256": "54a5f921759d466ae8f7a333f4bde1c401937b3916c9b42ce0173bd6b7cfdd56",
+          "up_sha256": "5040ab63f597b149a6f79034a6d3599a11e455a9930167a1b6903c2f1ca05be7",
+          "structural_fingerprint": "1a924d48a69b24551f5d46e270bd6b4f9d9e5c90963bc8d09ad3c0d1e88edf91"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -393,15 +401,6 @@
         {
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "media/livestream",
-          "original_version": 1,
-          "source_sha256": "54a5f921759d466ae8f7a333f4bde1c401937b3916c9b42ce0173bd6b7cfdd56",
-          "up_sha256": "5040ab63f597b149a6f79034a6d3599a11e455a9930167a1b6903c2f1ca05be7",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -415,15 +414,15 @@
       "predecessor_ids": [
         190000
       ],
-      "legacy_dependencies": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -433,8 +432,7 @@
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
         }
-      ],
-      "legacy_predecessors": []
+      ]
     },
     {
       "migration_id": 330000,
@@ -447,24 +445,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/user",
           "original_version": 1,
           "source_sha256": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
           "up_sha256": "c1f68f7e724349ae4e648add8f0003816a9bee18c26d7059c3590164bd5ead89",
-          "structural_fingerprint": null
+          "structural_fingerprint": "17b1d3f81de8f32c18b93c4fc4abfb49f417507c283c1666610c89d9afe5ed2a"
         }
-      ]
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 340001,
@@ -477,27 +474,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "sdk/launchpad/shared/auth/ledger.go",
-          "sha256": "47fe3b6ae0bfc93154522f589b29f083cfb9713420aea2dd15616f3de02a0932"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "media/social",
           "original_version": 1,
           "source_sha256": "3ac8a1b2dbdcfd6070d02cd2222c145f4b949925a77ed614d0440d83a9b00348",
           "up_sha256": "3d960c68ad8816e5fd42408253001f4bf08670b8ec1ec846bb6641a5aadd6c00",
-          "structural_fingerprint": null
+          "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "sdk/launchpad/shared/auth/ledger.go",
+          "sha256": "47fe3b6ae0bfc93154522f589b29f083cfb9713420aea2dd15616f3de02a0932"
         }
       ]
     },
@@ -513,34 +510,34 @@
         "00001_init.sql",
         "00002_add_decimals.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "sdk/launchpad/shared/auth/ledger.go",
-          "sha256": "47fe3b6ae0bfc93154522f589b29f083cfb9713420aea2dd15616f3de02a0932"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "media/metadata",
           "original_version": 1,
           "source_sha256": "75dffff2b76737c76e425f395852dea20c3018ae01771b2361728ccfee2044f3",
           "up_sha256": "f7ba90d9b9707c72ce2ecd4b8a3df9698044d31bfce8474e23d16cfa972dd67e",
-          "structural_fingerprint": null
+          "structural_fingerprint": "5bdd14b94f49518f4a140a638b47d03cf8ab500dc0b621891348ff6aa282f14d"
         },
         {
           "service": "media/metadata",
           "original_version": 2,
           "source_sha256": "ca32154857496eed96c7301e7f41c470fb91c47a7636beb3835e971ea0a9360a",
           "up_sha256": "4e15fd05b433b30c005e2e05a626840bfe82f3b423da04a1383afd747f669e0c",
-          "structural_fingerprint": null
+          "structural_fingerprint": "ed3a19bd30039af11064d218d72eb54e00c368790aedd4da33f4a7ad259f2141"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "sdk/launchpad/shared/auth/ledger.go",
+          "sha256": "47fe3b6ae0bfc93154522f589b29f083cfb9713420aea2dd15616f3de02a0932"
         }
       ]
     },
@@ -555,27 +552,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "sdk/launchpad/shared/auth/ledger.go",
-          "sha256": "47fe3b6ae0bfc93154522f589b29f083cfb9713420aea2dd15616f3de02a0932"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "media/livestream",
           "original_version": 1,
           "source_sha256": "54a5f921759d466ae8f7a333f4bde1c401937b3916c9b42ce0173bd6b7cfdd56",
           "up_sha256": "5040ab63f597b149a6f79034a6d3599a11e455a9930167a1b6903c2f1ca05be7",
-          "structural_fingerprint": null
+          "structural_fingerprint": "1a924d48a69b24551f5d46e270bd6b4f9d9e5c90963bc8d09ad3c0d1e88edf91"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "sdk/launchpad/shared/auth/ledger.go",
+          "sha256": "47fe3b6ae0bfc93154522f589b29f083cfb9713420aea2dd15616f3de02a0932"
         }
       ]
     },
@@ -587,22 +584,21 @@
       "path": "migrations/440000.sql",
       "sha256": "2f77e922553f640bc6a25ad748afd4ac7a53d454eff14a369aa3c8ab1fce345f",
       "predecessor_ids": [],
-      "legacy_dependencies": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "deploy/launchpad/production/recovery/epoch.sql",
           "sha256": "ad43f86651005c18cf8143345df9b8cc9886a501f1f55968f29e1ea4287b37b1"
         }
-      ],
-      "legacy_predecessors": []
+      ]
     },
     {
       "migration_id": 80000,
@@ -617,14 +613,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "core/indexer",
+          "original_version": 1,
+          "source_sha256": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
+          "up_sha256": "09ffe92c969cc2beb07cba17aed4b17689a9f7695c120d2301e3ece19fbabe92",
+          "structural_fingerprint": "b2bab48cb9f6f4646339f31ad813ff0179f953ae2d4da9cbbea545748951b341"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -633,15 +638,6 @@
         {
           "path": "sdk/launchpad/shared/delivery/partition.sql",
           "sha256": "8644fad912d1a981c27eb38262ddb2bcd30f2ab9ca4367606fea5cc5c8810554"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "core/indexer",
-          "original_version": 1,
-          "source_sha256": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
-          "up_sha256": "09ffe92c969cc2beb07cba17aed4b17689a9f7695c120d2301e3ece19fbabe92",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -659,34 +655,34 @@
         "00001_init.sql",
         "00002_processed_swaps.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/trading-charts/internal/store/transactional.go",
-          "sha256": "d69845976dbce71fc51d10e9e0c3787e03d8c5254dcf6807b20410c698ffe766"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/trading-charts",
           "original_version": 1,
           "source_sha256": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",
           "up_sha256": "6c37d39665d3f7830c989521c0e3ef94551bf0bee46ef3a4f8d15a77ef0ee2f9",
-          "structural_fingerprint": null
+          "structural_fingerprint": "7daa0526138b026689abcd67f14ce87779e69d637c00d607b87adb3987728a76"
         },
         {
           "service": "core/trading-charts",
           "original_version": 2,
           "source_sha256": "7a4f16b05e60d28af478ef0c1ba74ccd1fd2a7c664ad0634928f78938b3f5053",
           "up_sha256": "6d48410a7a7c349191fdde2b1c3a8b214ab9704b2f45d40d10084d3e35675473",
-          "structural_fingerprint": null
+          "structural_fingerprint": "84b84b8f66519421cce40bd4da74df52207203f39d1a872ef8a9b62929870582"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/trading-charts/internal/store/transactional.go",
+          "sha256": "d69845976dbce71fc51d10e9e0c3787e03d8c5254dcf6807b20410c698ffe766"
         }
       ]
     },
@@ -703,27 +699,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/stats-workers/internal/projectionstats/postgres.go",
-          "sha256": "3d7d2b7dd9a5a63ace5474e96b4ada694c1d980dd0e1f127c82b7b009d3554bd"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/stats-workers",
           "original_version": 1,
           "source_sha256": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
           "up_sha256": "eb4ed63cb45de9ebc76463dc15f2ed6edb9e3b0eefabe39b3dbfb26c84da97be",
-          "structural_fingerprint": null
+          "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/stats-workers/internal/projectionstats/postgres.go",
+          "sha256": "3d7d2b7dd9a5a63ace5474e96b4ada694c1d980dd0e1f127c82b7b009d3554bd"
         }
       ]
     },
@@ -740,27 +736,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
-          "sha256": "58a06bc9622875ef53b4d39d3409b5d51acdb9f8b322cf5cdf717e9264809b65"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/pnl-tracker",
           "original_version": 1,
           "source_sha256": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
           "up_sha256": "53203a74eab5f4a62076510fe16253cd94e2fd244822a4c5e969a6538e068aa4",
-          "structural_fingerprint": null
+          "structural_fingerprint": "f97e5dd3d73c3d7a0988bb37828b6cd4b457bebacf566bbfba00e9f5b56d4007"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+          "sha256": "58a06bc9622875ef53b4d39d3409b5d51acdb9f8b322cf5cdf717e9264809b65"
         }
       ]
     },
@@ -772,17 +768,15 @@
       "path": "migrations/190000.sql",
       "sha256": "7b0f040ca17a6e019053cd7d8b499e119c6de5e1ae7603fa13a966ac71fdd8eb",
       "predecessor_ids": [],
-      "legacy_dependencies": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [],
-      "legacy_predecessors": []
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 340000,
@@ -797,27 +791,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "sdk/launchpad/shared/auth/ledger.go",
-          "sha256": "47fe3b6ae0bfc93154522f589b29f083cfb9713420aea2dd15616f3de02a0932"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "media/user",
           "original_version": 1,
           "source_sha256": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
           "up_sha256": "c1f68f7e724349ae4e648add8f0003816a9bee18c26d7059c3590164bd5ead89",
-          "structural_fingerprint": null
+          "structural_fingerprint": "17b1d3f81de8f32c18b93c4fc4abfb49f417507c283c1666610c89d9afe5ed2a"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "sdk/launchpad/shared/auth/ledger.go",
+          "sha256": "47fe3b6ae0bfc93154522f589b29f083cfb9713420aea2dd15616f3de02a0932"
         }
       ]
     },
@@ -835,24 +829,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/social",
           "original_version": 1,
           "source_sha256": "3ac8a1b2dbdcfd6070d02cd2222c145f4b949925a77ed614d0440d83a9b00348",
           "up_sha256": "3d960c68ad8816e5fd42408253001f4bf08670b8ec1ec846bb6641a5aadd6c00",
-          "structural_fingerprint": null
+          "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
         }
-      ]
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 390000,
@@ -869,14 +862,30 @@
         "00001_init.sql",
         "00002_add_decimals.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [
+        {
+          "service": "media/metadata",
+          "original_version": 1,
+          "source_sha256": "75dffff2b76737c76e425f395852dea20c3018ae01771b2361728ccfee2044f3",
+          "up_sha256": "f7ba90d9b9707c72ce2ecd4b8a3df9698044d31bfce8474e23d16cfa972dd67e",
+          "structural_fingerprint": "5bdd14b94f49518f4a140a638b47d03cf8ab500dc0b621891348ff6aa282f14d"
+        },
+        {
+          "service": "media/metadata",
+          "original_version": 2,
+          "source_sha256": "ca32154857496eed96c7301e7f41c470fb91c47a7636beb3835e971ea0a9360a",
+          "up_sha256": "4e15fd05b433b30c005e2e05a626840bfe82f3b423da04a1383afd747f669e0c",
+          "structural_fingerprint": "ed3a19bd30039af11064d218d72eb54e00c368790aedd4da33f4a7ad259f2141"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/metadata/internal/metadata/production.go",
@@ -885,22 +894,6 @@
         {
           "path": "services/launchpad/metadata/internal/metadata/v2.go",
           "sha256": "3f5abf22b16f3ce20b73c760704f0179809e3ec5de929d8ef7b0b37f2eab7dae"
-        }
-      ],
-      "legacy_predecessors": [
-        {
-          "service": "media/metadata",
-          "original_version": 1,
-          "source_sha256": "75dffff2b76737c76e425f395852dea20c3018ae01771b2361728ccfee2044f3",
-          "up_sha256": "f7ba90d9b9707c72ce2ecd4b8a3df9698044d31bfce8474e23d16cfa972dd67e",
-          "structural_fingerprint": null
-        },
-        {
-          "service": "media/metadata",
-          "original_version": 2,
-          "source_sha256": "ca32154857496eed96c7301e7f41c470fb91c47a7636beb3835e971ea0a9360a",
-          "up_sha256": "4e15fd05b433b30c005e2e05a626840bfe82f3b423da04a1383afd747f669e0c",
-          "structural_fingerprint": null
         }
       ]
     },
@@ -918,27 +911,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/livestream/internal/streams/lifecycle.go",
-          "sha256": "b2660b91d066e911d68141efd62871663a348db1006021d1e49cc284e6c33c38"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "media/livestream",
           "original_version": 1,
           "source_sha256": "54a5f921759d466ae8f7a333f4bde1c401937b3916c9b42ce0173bd6b7cfdd56",
           "up_sha256": "5040ab63f597b149a6f79034a6d3599a11e455a9930167a1b6903c2f1ca05be7",
-          "structural_fingerprint": null
+          "structural_fingerprint": "1a924d48a69b24551f5d46e270bd6b4f9d9e5c90963bc8d09ad3c0d1e88edf91"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/livestream/internal/streams/lifecycle.go",
+          "sha256": "b2660b91d066e911d68141efd62871663a348db1006021d1e49cc284e6c33c38"
         }
       ]
     },
@@ -955,27 +948,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/stats-workers/internal/analytics/reactions.go",
-          "sha256": "5df1982ece1241828ab9923354384abe5b16692a68fc69c299c00776e98ed48a"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/stats-workers",
           "original_version": 1,
           "source_sha256": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
           "up_sha256": "eb4ed63cb45de9ebc76463dc15f2ed6edb9e3b0eefabe39b3dbfb26c84da97be",
-          "structural_fingerprint": null
+          "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/stats-workers/internal/analytics/reactions.go",
+          "sha256": "5df1982ece1241828ab9923354384abe5b16692a68fc69c299c00776e98ed48a"
         }
       ]
     },
@@ -992,27 +985,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/pnl-tracker/internal/production/l18/schema.sql",
-          "sha256": "7d77bd6f06410c8da014e4889a5a5f6e6d21e380a7a816a55dd0a189f1d43114"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/pnl-tracker",
           "original_version": 1,
           "source_sha256": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
           "up_sha256": "53203a74eab5f4a62076510fe16253cd94e2fd244822a4c5e969a6538e068aa4",
-          "structural_fingerprint": null
+          "structural_fingerprint": "f97e5dd3d73c3d7a0988bb37828b6cd4b457bebacf566bbfba00e9f5b56d4007"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/pnl-tracker/internal/production/l18/schema.sql",
+          "sha256": "7d77bd6f06410c8da014e4889a5a5f6e6d21e380a7a816a55dd0a189f1d43114"
         }
       ]
     },
@@ -1029,27 +1022,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/stats-workers/internal/search/schema.sql",
-          "sha256": "38393022a4ccdd4da4efe5d25c9baa24f6bca62f2ec2b6dbf123779443e3c0a1"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/stats-workers",
           "original_version": 1,
           "source_sha256": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
           "up_sha256": "eb4ed63cb45de9ebc76463dc15f2ed6edb9e3b0eefabe39b3dbfb26c84da97be",
-          "structural_fingerprint": null
+          "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/stats-workers/internal/search/schema.sql",
+          "sha256": "38393022a4ccdd4da4efe5d25c9baa24f6bca62f2ec2b6dbf123779443e3c0a1"
         }
       ]
     },
@@ -1069,24 +1062,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/user",
           "original_version": 1,
           "source_sha256": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
           "up_sha256": "c1f68f7e724349ae4e648add8f0003816a9bee18c26d7059c3590164bd5ead89",
-          "structural_fingerprint": null
+          "structural_fingerprint": "17b1d3f81de8f32c18b93c4fc4abfb49f417507c283c1666610c89d9afe5ed2a"
         }
-      ]
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 370000,
@@ -1101,24 +1093,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/social",
           "original_version": 1,
           "source_sha256": "3ac8a1b2dbdcfd6070d02cd2222c145f4b949925a77ed614d0440d83a9b00348",
           "up_sha256": "3d960c68ad8816e5fd42408253001f4bf08670b8ec1ec846bb6641a5aadd6c00",
-          "structural_fingerprint": null
+          "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
         }
-      ]
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 150001,
@@ -1133,27 +1124,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/stats-workers/internal/analytics/snapshot.go",
-          "sha256": "4a64346339f5a5ba9db1e9e9de9bce589dc28ea87d81573b2236f86419ad036a"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/stats-workers",
           "original_version": 1,
           "source_sha256": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
           "up_sha256": "eb4ed63cb45de9ebc76463dc15f2ed6edb9e3b0eefabe39b3dbfb26c84da97be",
-          "structural_fingerprint": null
+          "structural_fingerprint": "fa10672b6eb2f3845614a00e88a19c065a145d80fc62d87b243164bb238db5ae"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/stats-workers/internal/analytics/snapshot.go",
+          "sha256": "4a64346339f5a5ba9db1e9e9de9bce589dc28ea87d81573b2236f86419ad036a"
         }
       ]
     },
@@ -1171,24 +1162,23 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [],
       "legacy_predecessors": [
         {
           "service": "media/social",
           "original_version": 1,
           "source_sha256": "3ac8a1b2dbdcfd6070d02cd2222c145f4b949925a77ed614d0440d83a9b00348",
           "up_sha256": "3d960c68ad8816e5fd42408253001f4bf08670b8ec1ec846bb6641a5aadd6c00",
-          "structural_fingerprint": null
+          "structural_fingerprint": "98b5e0cb5c8644f7a9625e9aea90e299c59fce7a86c166b90167a1e5728ec1e2"
         }
-      ]
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 470000,
@@ -1203,27 +1193,27 @@
       "legacy_dependencies": [
         "00001_init.sql"
       ],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
-      "transaction_mode": "transactional",
-      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
-      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
-      "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": [
-        {
-          "path": "services/launchpad/security/control/store.go",
-          "sha256": "6865df4124267f81ec018eedb0620e164f9477633add1642c4a0f2b2ed020347"
-        }
-      ],
       "legacy_predecessors": [
         {
           "service": "core/pnl-tracker",
           "original_version": 1,
           "source_sha256": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
           "up_sha256": "53203a74eab5f4a62076510fe16253cd94e2fd244822a4c5e969a6538e068aa4",
-          "structural_fingerprint": null
+          "structural_fingerprint": "f97e5dd3d73c3d7a0988bb37828b6cd4b457bebacf566bbfba00e9f5b56d4007"
+        }
+      ],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
+      "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/security/control/store.go",
+          "sha256": "6865df4124267f81ec018eedb0620e164f9477633add1642c4a0f2b2ed020347"
         }
       ]
     },
@@ -1237,23 +1227,21 @@
       "predecessor_ids": [
         330000
       ],
-      "legacy_dependencies": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/gateway/internal/auth/identity_models.go",
           "sha256": "79c449367af70eaef56b9217bd80b8eae2f02fc1fd08edc69e76045ab918d693"
         }
-      ],
-      "capability": "versioned-action-bound-account-deletion-and-scoped-ticket-ledger",
-      "legacy_predecessors": []
+      ]
     },
     {
       "migration_id": 190001,
@@ -1266,23 +1254,21 @@
         60000,
         80000
       ],
-      "legacy_dependencies": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable source facts and interfaces; rollback readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred legacy facts or automatic synthetic backfill. Populate only corroborated canonical source facts or verified runtime capture.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/190001.sql",
           "sha256": "f3650bb5df134922e17d44da61f92c33d3e8410df705b544edb1c941a3223dc6"
         }
-      ],
-      "legacy_predecessors": [],
-      "capability": "canonical-creation-transfer-and-readonly-source-authority-views"
+      ]
     },
     {
       "migration_id": 160001,
@@ -1296,23 +1282,21 @@
         160000,
         190001
       ],
-      "legacy_dependencies": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable source facts and interfaces; rollback readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred legacy facts or automatic synthetic backfill. Populate only corroborated canonical source facts or verified runtime capture.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
           "sha256": "d4a4870a8bf2770c8a0edf787caea5a4c587c237fab5c6c25cebaeff6c778af2"
         }
-      ],
-      "legacy_predecessors": [],
-      "capability": "captured-zero-baseline-and-same-owner-replay-attestations"
+      ]
     },
     {
       "migration_id": 440001,
@@ -1324,23 +1308,21 @@
       "predecessor_ids": [
         440000
       ],
-      "legacy_dependencies": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable source facts and interfaces; rollback readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred legacy facts or automatic synthetic backfill. Populate only corroborated canonical source facts or verified runtime capture.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/440001.sql",
           "sha256": "7679977e772a3e2ca41928ace3945b32232c873841f82cb0b0ead985e271a641"
         }
-      ],
-      "legacy_predecessors": [],
-      "capability": "actual-broker-fence-before-versioned-activation"
+      ]
     },
     {
       "migration_id": 150002,
@@ -1353,23 +1335,21 @@
         130000,
         160001
       ],
-      "legacy_dependencies": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "legacy_predecessors": [],
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain immutable delivery and snapshot histories; rollback readers and fence append authority. Compensating DDL requires independent approval.",
       "backfill_strategy": "Capture real committed source trade projection only; no fabricated snapshots or source publications.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/150002.sql",
           "sha256": "89433d6361c8b99f505a2574ea5676478f594cb0794ac2cc9ae9ac5d591ddc82"
         }
-      ],
-      "legacy_predecessors": [],
-      "capability": "postgres-snapshot-replay-and-same-transaction-market-trade-source-bridge"
+      ]
     },
     {
       "migration_id": 60001,
@@ -1383,16 +1363,15 @@
         80000,
         190001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/indexer/internal/store/quarantine.go",
@@ -1411,16 +1390,15 @@
         80000,
         60001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/webhook.sql",
@@ -1440,16 +1418,15 @@
       "path": "migrations/90000.sql",
       "sha256": "e66fd72a34500955a6a48775bc40a8f7a958b7e6e9d49dfe226d12d1c07da687",
       "predecessor_ids": [],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/api/internal/cache/adapter.go",
@@ -1468,16 +1445,15 @@
         100000,
         60001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/trading-charts/internal/store/series.go",
@@ -1499,16 +1475,15 @@
       "predecessor_ids": [
         130000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/projectionstats/service.go",
@@ -1527,16 +1502,15 @@
         160000,
         160001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/queries.go",
@@ -1556,16 +1530,15 @@
         80008,
         130001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/ranking-algo/internal/store/publication.go",
@@ -1583,16 +1556,15 @@
       "predecessor_ids": [
         200000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/search/schema.sql",
@@ -1608,16 +1580,15 @@
       "path": "migrations/210000.sql",
       "sha256": "26fde2648699722a9531fbcc00935e6b7bed0bf3de8defc3e376062de7a1ae03",
       "predecessor_ids": [],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/discovery/schema.sql",
@@ -1633,16 +1604,15 @@
       "path": "migrations/210001.sql",
       "sha256": "544d0f8219da6203484603e32a8086443a443f9793d9c2ecb0e2523652cbc805",
       "predecessor_ids": [],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/notifications/schema.sql",
@@ -1660,16 +1630,15 @@
       "predecessor_ids": [
         210001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No backfill of erased account identity is inferred. Persist hashed deletion fences only through the authenticated account-deletion path.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/notifications/schema.sql",
@@ -1692,16 +1661,15 @@
         330001,
         80004
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/gateway/internal/auth/identity_lifecycle.go",
@@ -1720,16 +1688,15 @@
         350000,
         330002
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/330000.sql",
@@ -1752,16 +1719,15 @@
         190001,
         390001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/social/internal/fanout/notification.go",
@@ -1784,17 +1750,15 @@
         370000,
         380000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": []
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 380001,
@@ -1806,17 +1770,15 @@
       "predecessor_ids": [
         380000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": []
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 390001,
@@ -1829,16 +1791,15 @@
         390000,
         60001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/metadata/internal/metadata/connected.go",
@@ -1876,16 +1837,15 @@
       "predecessor_ids": [
         400000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/livestream/internal/streams/usage.go",
@@ -1909,16 +1869,15 @@
         330002,
         450000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/security/control/providers.go",
@@ -1936,16 +1895,15 @@
       "predecessor_ids": [
         160002
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
@@ -1987,17 +1945,15 @@
       "predecessor_ids": [
         180000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": []
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 340004,
@@ -2010,17 +1966,15 @@
         340000,
         60001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": []
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 340005,
@@ -2032,17 +1986,15 @@
       "predecessor_ids": [
         340001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": []
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 340006,
@@ -2054,17 +2006,15 @@
       "predecessor_ids": [
         340002
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": []
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 340007,
@@ -2076,17 +2026,15 @@
       "predecessor_ids": [
         340003
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
-      "source_inputs": []
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f"
     },
     {
       "migration_id": 410000,
@@ -2096,16 +2044,15 @@
       "path": "migrations/410000.sql",
       "sha256": "a45d7165bd5998fde966de7f830fb3a0d4a23d18e621a5e449ee4b5373b67e95",
       "predecessor_ids": [],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/gateway/internal/storage/connected.go",
@@ -2125,16 +2072,15 @@
       "path": "migrations/450000.sql",
       "sha256": "bf10cc35a7ad09249d5166fc16b2426f50813a2713ef199f9a7c9c530f363a3d",
       "predecessor_ids": [],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/security/policy/operator.go",
@@ -2152,16 +2098,15 @@
       "predecessor_ids": [
         130000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/holdings/postgres.go",
@@ -2181,16 +2126,15 @@
         100001,
         60001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/stream.go",
@@ -2208,16 +2152,15 @@
       "predecessor_ids": [
         340004
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -2235,16 +2178,15 @@
       "predecessor_ids": [
         340008
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -2264,16 +2206,15 @@
         170000,
         60001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
@@ -2294,23 +2235,21 @@
         190001,
         150005
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain immutable delivery history; fence the stats producer and roll back readers. Compensating DDL requires independent approval.",
       "backfill_strategy": "No backfill: core/stats-workers appends market.stats/market.price frames only from committed canonical fills and creations.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/150004.sql",
           "sha256": "8a24a6e2148f801a14c9b5ce67f95282aec5b88f87166fe68399de140082a21c"
         }
-      ],
-      "capability": "committed-market-stats-and-price-stream-sources"
+      ]
     },
     {
       "migration_id": 190003,
@@ -2324,16 +2263,15 @@
         190002,
         190004
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Additive function only; roll back callers (ranking publication) first. Dropping the function requires independent approval.",
       "backfill_strategy": "None: the function only commits frames for ranking heads published after it exists.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/190003.sql",
@@ -2351,16 +2289,15 @@
       "predecessor_ids": [
         190002
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Views only; drop requires independent approval after api_stream.append_ranking stops reading them.",
       "backfill_strategy": "None: views over existing ranking tables.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/190003.sql",
@@ -2378,16 +2315,15 @@
       "predecessor_ids": [
         130000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "View only; drop requires independent approval after api_stream.append_market_stats stops reading it.",
       "backfill_strategy": "None: view over the existing stats.trade_facts table.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/150005.sql",
@@ -2405,16 +2341,15 @@
       "predecessor_ids": [
         370001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
-      "destructive": false,
-      "approval_manifest_digest": null,
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "None: new empty tables; only the platform runtime writes authenticated v2 callouts, bounties and reports.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/social/migrations/00002_dev_v2_social.sql",
@@ -2432,16 +2367,15 @@
       "predecessor_ids": [
         380001
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
-      "destructive": false,
-      "approval_manifest_digest": null,
       "rollback_strategy": "View only; drop requires independent approval after media/livestream stops reading it.",
       "backfill_strategy": "None: view over the existing chat.safety_bans table.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/380002.sql",
@@ -2459,16 +2393,15 @@
       "predecessor_ids": [
         150005
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
-      "destructive": false,
-      "approval_manifest_digest": null,
       "rollback_strategy": "View only; drop requires independent approval after media/livestream stops reading it.",
       "backfill_strategy": "None: view over the existing stats.pool_stats projection.",
+      "destructive": false,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "migrations/150006.sql",
@@ -2486,16 +2419,15 @@
       "predecessor_ids": [
         160002
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/queries.go",
@@ -2513,16 +2445,15 @@
       "predecessor_ids": [
         190000
       ],
-      "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "5ad91faaeab52088691b3ac1655cf75fc07d213c5f9e81fc9040acdaed7e9562",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain all eight category histories; roll back readers only. A compensating constraint requires independent approval.",
       "backfill_strategy": "None: existing rows remain valid; gainers and losers are admitted from ranker.Categories.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
       "source_inputs": [
         {
           "path": "services/launchpad/ranking-algo/internal/ranker/snapshot.go",
@@ -2531,18 +2462,11 @@
       ]
     }
   ],
-  "approval_digest": null,
-  "qualification_required": [
-    "isolated PostgreSQL measured lock <=2000ms",
-    "reviewed deployed reader minimum versions",
-    "actual structural fingerprints",
-    "reviewed frozen output interface digest",
-    "operator pg_trgm version admission in public schema",
-    "reviewed approval digest for the complete current registry; no admission while approval_digest is null",
-    "all source_inputs resolved and reviewed against their preserved sha256 at monorepo-relative paths",
-    "existing-database import and restart refusal with exact per-service histories and reviewed catalog fingerprints",
-    "combined least-privilege runtime readiness with measured catalog, reader and recovery evidence"
-  ],
+  "approval_digest": "1622f50649ab4f3c0964475b01de96fcf8d1791e17ea7a22c148a540816e4c6f",
+  "server_major_version": 18,
+  "state": "approved",
+  "qualification_required": [],
+  "path_base": "monorepo-root",
   "extension_prerequisites": [
     {
       "extension": "pg_trgm",
@@ -2550,6 +2474,5 @@
       "version": null,
       "runtime_install": false
     }
-  ],
-  "path_base": "monorepo-root"
+  ]
 }
