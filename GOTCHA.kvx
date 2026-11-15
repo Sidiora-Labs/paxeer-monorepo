@@ -22230,3 +22230,8 @@ fix = "Decision 3565 and tasks 22.39.616 and 22.39.618."
 title = "A wire vector file and its copy change in one commit"
 symptom = "The copy inventory tests/ci/data/intentional_copies.txt pairs the wallet vectors under services/agent/crates/layerx-wire/tests/support/wallet_vectors with their copies under services/wallet/attestor/internal/lxwire/testdata and compares each pair by bytes. A change to one file of a pair without the other leaves the pair apart, and every verification that runs the copy test stops on it."
 fix = "Decision 3566 and task 22.39.617."
+
+[gotcha.4482]
+title = "The certificate roster and the definitions name the hosted gateway in two ways"
+symptom = "The certificate roster tools/bringup/ca-services.tsv names the hosted gateway service gateway and its store redis-gateway, and the bring-up tools take those names alone. The definition deploy/projects/platform/router.kvx, the rows of deploy/rollout.kvx and their tests name the same two services router and redis-router. A certificate of the roster is issued to a service by its roster name, so a service created under the other name receives none."
+fix = "Decision 3567 and task 22.39.619."

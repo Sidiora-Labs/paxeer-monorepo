@@ -14512,6 +14512,12 @@ value = "For the pairs of tests/ci/data/intentional_copies.txt under services/ag
 basis = "Gotcha 4481. One list of native accounts serves both languages."
 affects = []
 
+[decision.3567]
+title = "A hosted service carries the name the certificate roster gives it"
+value = "The name of a hosted service in tools/bringup/ca-services.tsv is its name in every definition under deploy/projects, in deploy/rollout.kvx, in the needs lists and references of other services and in the env names of its inputs. The hosted gateway is gateway with the definition file gateway.kvx and the env names PLATFORM_GATEWAY_ followed by the variable name; its store is redis-gateway. A definition of a service the roster has no row for keeps its name. A name the roster lists as retired is used by no definition and no row."
+basis = "Gotcha 4482. The roster is the list certificates are issued from, and the bring-up tools read it."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44172,6 +44178,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.619]
+title = "Give the hosted gateway and its store the names of the certificate roster"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform", "deploy/rollout.kvx", "tools/rollout/tests", "tools/deploy/tests/projects/test_platform_router.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py && bash tools/rollout/tests/rollout.test.sh"
+do_1 = "do_1 Gotcha 4482, decision 3567. Read tools/bringup/ca-services.tsv, tools/bringup/roster.go, deploy/projects/platform/router.kvx, deploy/projects/platform/faucet.kvx, deploy/rollout.kvx, tools/deploy/tests/projects/test_platform_router.py, tools/deploy/tests/projects/test_platform_folder.py and under tools/rollout/tests the files rollout.test.sh and retained.kvx with the entries they replay."
+symbols = []
 
 [capability.22.39.618]
 title = "Let the perps project tool name itself in its requests"
@@ -377998,6 +378013,38 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.619]
+title = "Give the hosted gateway and its store the names of the certificate roster"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.611"]
+reqs = ["22998.1"]
+capabilities = ["22.39.619"]
+interfaces = []
+do_1 = "do_1 Gotcha 4482, decision 3567. Read tools/bringup/ca-services.tsv, tools/bringup/roster.go, deploy/projects/platform/router.kvx, deploy/projects/platform/faucet.kvx, deploy/rollout.kvx, tools/deploy/tests/projects/test_platform_router.py, tools/deploy/tests/projects/test_platform_folder.py and under tools/rollout/tests the files rollout.test.sh and retained.kvx with the entries they replay."
+do_2 = "do_2 Move deploy/projects/platform/router.kvx to deploy/projects/platform/gateway.kvx with git mv. In it the sections are service.gateway, vars.gateway and inputs.gateway, every input is named PLATFORM_GATEWAY_ followed by the variable part it has now, the needs list and the reference to the private name of the store say redis-gateway, and the comments say redis-gateway. Change no other value of the definition."
+do_3 = "do_3 In every other definition under deploy/projects/platform replace a need of or a reference to redis-router or router by the roster name. In deploy/rollout.kvx the rows of the two services take the roster names, with their service names on the hosting platform, and every needs entry that names them follows. A row of another service stays as it is."
+do_4 = "do_4 Move tools/deploy/tests/projects/test_platform_router.py to tools/deploy/tests/projects/test_platform_gateway.py with git mv and bring it in line with the new names; it requires in addition that no definition under deploy/projects/platform and no row of deploy/rollout.kvx uses a name the roster function of tools/bringup/roster.go lists as retired, reading that list from the source file. Bring the tests and recorded entries under tools/rollout/tests in line with the new row names. A fixture that states the retained names of an earlier rollout on purpose keeps them; say so in the final message."
+do_5 = "do_5 List in the final message every definition under deploy/projects whose service has no row in the roster, with its file. Change none of them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform", "deploy/rollout.kvx", "tools/rollout/tests", "tools/deploy/tests/projects/test_platform_router.py"]
+tests = []
+planned_paths = ["deploy/projects/platform/gateway.kvx", "tools/deploy/tests/projects/test_platform_gateway.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_gateway.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py && bash tools/rollout/tests/rollout.test.sh"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.618]
 title = "Let the perps project tool name itself in its requests"
