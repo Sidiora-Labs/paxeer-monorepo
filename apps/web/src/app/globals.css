@@ -57,6 +57,11 @@
   :where(input, select, textarea) {
     accent-color: var(--accent);
   }
+
+  next-route-announcer {
+    inset-block-start: var(--space-1);
+    inset-inline-start: var(--space-1);
+  }
 }
 
 @layer components {

@@ -271,6 +271,7 @@ impl Fixture {
     fn configure(&self) {
         Environment::set("LAYERX_GATEWAY_LISTEN", "127.0.0.1:0");
         Environment::set("LAYERX_GATEWAY_LISTENER", "plain");
+        Environment::set("LAYERX_GATEWAY_TENANT", "beta");
         Environment::set(
             "LAYERX_GATEWAY_OUTBOUND_CA_DER",
             self.directory.path().join("server.der"),

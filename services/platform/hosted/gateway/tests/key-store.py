@@ -85,6 +85,11 @@ class Corpus:
         self.log.close()
 
     def eval(self, name, keys, arguments):
+        event_position = {"ISSUE_SCRIPT": 10, "ROTATE_SCRIPT": 10, "REVOKE_SCRIPT": 1,
+                          "RESERVE_SCRIPT": 5, "COMPLETE_SCRIPT": 4, "CONSUME_SCRIPT": 3}[name]
+        principal = arguments[event_position].split(":", 1)[0]
+        index = f"gateway:principal:{principal}:audit"
+        keys = [*keys, index, index + ":version"]
         return self.command("EVAL", self.scripts[name], len(keys), *keys, *arguments)
 
     def audit(self, principal="owner", stale=False):
