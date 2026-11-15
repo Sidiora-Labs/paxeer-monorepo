@@ -2,12 +2,14 @@ package app
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	oracleprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/oracle"
 	anchorprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
@@ -17,6 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 )
@@ -58,6 +61,16 @@ func requireMergeUpgradeABIValues(t *testing.T, want, got []interface{}) {
 			require.Equal(t, expected, got[i], "ABI result %d", i)
 		}
 	}
+}
+
+func newMergeUpgradeCallEVM(t *testing.T, a *App, ctx sdk.Context) *vm.EVM {
+	t.Helper()
+	db := state.NewDBImpl(ctx, &a.EvmKeeper, true)
+	block, err := a.EvmKeeper.GetVMBlockContext(ctx, core.GasPool(math.MaxUint64))
+	require.NoError(t, err)
+	sstore := a.EvmKeeper.GetSstoreSetGasEIP2200(ctx)
+	chain := evmtypes.DefaultChainConfig().EthereumConfigWithSstore(a.EvmKeeper.ChainID(ctx), &sstore)
+	return vm.NewEVM(*block, db, chain, vm.Config{}, a.EvmKeeper.CustomPrecompiles(ctx))
 }
 
 func requireMergeUpgradeRestoredCalls(t *testing.T, a *App, ctx sdk.Context, below map[common.Address]vm.PrecompiledContract, oracleActive bool) {
@@ -109,7 +122,7 @@ func requireMergeUpgradeRestoredCalls(t *testing.T, a *App, ctx sdk.Context, bel
 		require.True(t, ok, "restored address needs a production call: %s", address.Hex())
 		input, err := typed.GetABI().Pack(tc.method, tc.args...)
 		require.NoError(t, err)
-		evm := &vm.EVM{StateDB: state.NewDBImpl(ctx, &a.EvmKeeper, true)}
+		evm := newMergeUpgradeCallEVM(t, a, ctx)
 		output, err := contract.Run(evm, owner, owner, input, nil, true, false, nil)
 		require.NoError(t, err, "%s %s", address.Hex(), tc.method)
 		values, err := typed.GetABI().Unpack(tc.method, output)
@@ -129,7 +142,7 @@ func requireMergeUpgradeOracleCall(t *testing.T, a *App, ctx sdk.Context, active
 	feeds := []oracleprecompile.Feed{{Price: big.NewInt(17), Confidence: big.NewInt(3), Timestamp: big.NewInt(ctx.BlockTime().Unix())}}
 	input, err := typed.GetABI().Pack(oracleprecompile.AggregateMethod, feeds)
 	require.NoError(t, err)
-	evm := &vm.EVM{StateDB: state.NewDBImpl(ctx, &a.EvmKeeper, true)}
+	evm := newMergeUpgradeCallEVM(t, a, ctx)
 	output, err := contract.Run(evm, common.Address{1}, common.Address{1}, input, nil, true, false, nil)
 	if !active {
 		require.ErrorIs(t, err, vm.ErrExecutionReverted)
