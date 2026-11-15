@@ -49,11 +49,11 @@ export function FillsTable({ rows, token, filter, wallets }: FillsTableProps) {
   return (
     <div className="flex flex-col">
       <p className="sr-only">{noTimeNote} {noValuationNote}</p>
-      <div role="region" aria-label="Trades table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
-        <table className="w-full min-w-[36rem] text-xs [&_td]:whitespace-nowrap [&_td]:px-3" aria-label="Trades">
+      <div role="region" aria-label="Trades table" tabIndex={0} className="relative overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
+        <table className="w-full min-w-144 text-xs [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_td]:px-3" aria-label="Trades">
           <thead className="sticky top-0 z-[var(--sl-z-raised)] bg-surface-1">
             <tr>
-              <SortHeader className="h-6" label={<Tooltip content={noTimeNote}><span tabIndex={0}>Block</span></Tooltip>} sort={sort} onSort={() => setSort(sort === 'desc' ? 'asc' : 'desc')} />
+              <SortHeader className="h-6" align="right" label={<Tooltip content={noTimeNote}><span tabIndex={0}>Block</span></Tooltip>} sort={sort} onSort={() => setSort(sort === 'desc' ? 'asc' : 'desc')} />
               <SortHeader className="h-6" label="Type" />
               <SortHeader className="h-6" label="Amount" align="right" />
               <SortHeader className="h-6" label="USDL" align="right" />
@@ -69,7 +69,7 @@ export function FillsTable({ rows, token, filter, wallets }: FillsTableProps) {
               const href = explorerOrigin && /^0x[0-9a-fA-F]{64}$/.test(row.position.transactionHash) ? `${explorerOrigin}/tx/${row.position.transactionHash}` : null;
               return (
                 <tr key={key} data-fill-key={key} className={cn('h-9 bg-surface-1 transition-colors hover:bg-surface-hover', flash.has(key) && (row.side === 'buy' ? 'sl-flash-up' : 'sl-flash-down'))}>
-                  <td data-numeric className="font-mono tabular-nums text-text-muted">{row.position.height}</td>
+                  <td data-numeric className="text-right font-mono tabular-nums text-text-muted">{row.position.height}</td>
                   <td className={cn('font-bold capitalize', row.side === 'buy' ? 'text-success' : 'text-danger')}>{row.side}</td>
                   <td data-numeric className="text-right tabular-nums text-text">{decimals === null ? <span className="text-text-faint" title="Token decimals are not verified">-</span> : formatTokenAmount(row.tokenAmountRaw, decimals)}</td>
                   <td data-numeric className={cn('text-right tabular-nums', row.side === 'buy' ? 'text-success' : 'text-danger')}>{formatUsdl(row.usdlAmountRaw)}</td>

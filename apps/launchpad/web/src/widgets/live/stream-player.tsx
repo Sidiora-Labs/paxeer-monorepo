@@ -309,7 +309,7 @@ export function StreamPlayer(props: StreamPlayerProps) {
           {!stopped && playable ? (
             <IconButton label="Play stream" icon={<Play className="size-7" />} variant="on-media" size="lg" onClick={play} />
           ) : null}
-          {stopped || !playable ? <p className="text-sm font-bold text-text">{label}</p> : null}
+          {stopped || !playable ? <p className={cn("text-sm font-bold", poster || playable ? "text-on-media" : "text-text")}>{label}</p> : null}
           {stopped && playable && (state === 'failed' || state === 'unavailable') ? (
             <Button variant="secondary" size="sm" onClick={() => setAttempt(current => current + 1)}>Try again</Button>
           ) : null}
@@ -328,7 +328,7 @@ export function StreamPlayer(props: StreamPlayerProps) {
       <p
         role="status"
         className={cn(statusLine && playable && !stopped
-          ? 'absolute bottom-3 left-3 rounded-pill bg-media-overlay px-2 py-0.5 text-xs text-text'
+          ? 'absolute bottom-3 left-3 rounded-pill bg-media-overlay px-2 py-0.5 text-xs text-on-media'
           : 'sr-only')}
       >
         {label}

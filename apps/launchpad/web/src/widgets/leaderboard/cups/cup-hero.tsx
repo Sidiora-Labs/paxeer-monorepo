@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
 import { Info, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,15 +22,15 @@ export interface CupHeroProps {
  * The frame never collapses: every state keeps the same art area (tall on
  * phones, 16:7 from md), the in-frame control, a name row, a prize line and a
  * rules row, so the page structure survives a failed or unserved cup query.
- * The art area sits above the text block, which carries the flat media tint
+ * The art area sits above the text block, which carries the secondary surface
  * (pump.fun anatomy). The frame grows with its content
  * instead of clipping it, so a long notice on a narrow phone never hides the
  * rules row.
  */
-const frame = 'relative flex flex-col rounded-lg bg-surface-1 aspect-[3/4] min-h-[360px] sm:aspect-[4/3] md:aspect-[16/7] md:min-h-[340px]';
-const block = 'relative mt-auto flex flex-col gap-2 rounded-b-lg bg-media-overlay px-4 pt-4 pb-1 md:px-6 md:pt-5';
-const nameClass = 'text-md font-bold uppercase tracking-[0.04em] text-text';
-const prizeClass = 'text-[32px] font-extrabold leading-none tabular-nums md:text-[40px]';
+const frame = '@container/cup relative flex flex-col rounded-lg bg-surface-1 aspect-[3/4] min-h-90 sm:aspect-[4/3] md:aspect-[16/7] md:min-h-85';
+const block = 'relative mt-auto flex shrink-0 flex-col gap-2 [&>*]:shrink-0 rounded-b-lg bg-surface-2 px-4 pt-4 pb-1 md:px-6 md:pt-5';
+const nameClass = 'text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold uppercase tracking-[var(--sl-tracking-label)] text-text';
+const prizeClass = 'text-2xl font-extrabold tabular-nums';
 const footRow = '-mx-3 flex h-12 items-center gap-3 rounded-sm px-3 text-sm';
 const rulesLabel = 'Schedule, scoring, eligibility and rules';
 
@@ -55,7 +56,7 @@ function Control({ children }: { children?: ReactNode }) {
  * Cup hero (components.md 38). Variants come from the real IF_CUP_CURRENT
  * answer: live, scheduled, finished, none (served `cup: null`), and the
  * unavailable state when no service serves `/v2/cups/current`. Art is a flat
- * surface-2 mark with our own trophy; the bottom block sits on the media tint.
+ * surface-2 mark with our own trophy; the bottom block sits on the secondary surface.
  * No prize figure or ranking is ever shown unless it came from the record.
  * Unavailable and failed answers use the shared state notices (chip variant)
  * inside the frame rather than replacing it.
@@ -67,9 +68,9 @@ export function CupHero({ cup, onRetry, control, className }: CupHeroProps) {
         <Mark />
         <div className={block}>
           <Control>{control}</Control>
-          <Skeleton variant="text" width={180} height={20} label="competition" />
-          <Skeleton variant="text" width={220} height={40} />
-          <div className={footRow}><Skeleton variant="text" width={260} height={16} /></div>
+          <Skeleton variant="text" width={surfaceSpacing(45)} height={surfaceSpacing(5)} label="competition" />
+          <Skeleton variant="text" width={surfaceSpacing(55)} height={surfaceSpacing(10)} />
+          <div className={footRow}><Skeleton variant="text" width={surfaceSpacing(65)} height={surfaceSpacing(4)} /></div>
         </div>
       </section>
     );
@@ -90,7 +91,7 @@ export function CupHero({ cup, onRetry, control, className }: CupHeroProps) {
         <div className={block}>
           <Control>{control}</Control>
           <h2 className={nameClass}>{title}</h2>
-          <p className="text-xl font-bold text-text-faint">No prize pool announced</p>
+          <p className="text-[length:var(--sl-text-prize-placeholder)] leading-[var(--sl-leading-xl)] font-bold text-text-faint">No prize pool announced</p>
           {cup.state === 'unsupported' ? (
             <UnavailableState variant="chip" wrap title="Competitions" plural operation={cup.operation} status={cup.status} onRetry={onRetry} className="self-start" />
           ) : null}

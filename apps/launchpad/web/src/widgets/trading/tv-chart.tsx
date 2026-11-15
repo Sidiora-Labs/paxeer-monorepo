@@ -1,5 +1,7 @@
 'use client';
 
+import { launchpadChartRoles } from '@/app/presentation-tokens';
+import { surfaceColor } from '@/core/app-foundation/surface-color';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChartingLibraryWidgetConstructor, ChartingLibraryWidgetOptions, IBasicDataFeed, IChartingLibraryWidget, ResolutionString, TimeFrameItem } from '../../../public/charting_library/charting_library';
 import { CandlestickChart } from 'lucide-react';
@@ -34,7 +36,6 @@ declare global {
 
 const TV_LIB_URL = '/charting_library/charting_library.standalone.js';
 const TV_LIB_PATH = '/charting_library/';
-const TV_THEME_URL = '/charting_library/sidiora-theme.css';
 
 const TIME_FRAMES: TimeFrameItem[] = [
   { text: '1d', resolution: '5' as ResolutionString, description: '1 day', title: '1D' },
@@ -67,8 +68,7 @@ type Palette = Partial<Record<'canvas' | 'surface' | 'text' | 'textFaint' | 'gri
 /** The library renders inside its own iframe, so the role tokens are read once from the host document and handed over as values. */
 function readPalette(): Palette {
   if (typeof document === 'undefined') return {};
-  const style = getComputedStyle(document.documentElement);
-  const token = (name: string) => { const value = style.getPropertyValue(name).trim(); return value || undefined; };
+  const token = surfaceColor;
   return {
     canvas: token('--sl-canvas'), surface: token('--sl-surface-1'), text: token('--sl-text-muted'), textFaint: token('--sl-text-faint'), grid: token('--sl-chart-grid'), crosshair: token('--sl-chart-crosshair'),
     up: token('--sl-candle-up'), down: token('--sl-candle-down'), volumeUp: token('--sl-volume-up'), volumeDown: token('--sl-volume-down'), accent: token('--sl-accent'), onAccent: token('--sl-on-accent'),
@@ -111,6 +111,16 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
   const intervalRef = useRef<ChartInterval>('5');
   const accessibleIntervalRef = useRef<ChartInterval | null>(null);
   const presentationRef = useRef<ChartMarkPresentation>({ enabled: true });
+
+  const [darkScheme, setDarkScheme] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const syncScheme = () => setDarkScheme(media.matches);
+    syncScheme();
+    media.addEventListener('change', syncScheme);
+    return () => media.removeEventListener('change', syncScheme);
+  }, []);
 
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -254,11 +264,11 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         symbol: symbol || poolAddress,
         interval: startInterval as ResolutionString,
         library_path: TV_LIB_PATH,
-        custom_css_url: TV_THEME_URL,
         locale: 'en',
         fullscreen: false,
         autosize: true,
-        theme: 'dark',
+        theme: darkScheme ? 'dark' : 'light',
+        custom_font_family: getComputedStyle(document.documentElement).getPropertyValue('--sl-font-sans').trim(),
         time_frames: TIME_FRAMES,
         toolbar_bg: palette.canvas,
         loading_screen: { backgroundColor: palette.canvas, foregroundColor: palette.accent },
@@ -290,6 +300,10 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
       widget.onChartReady(() => {
         if (!active || widgetRef.current !== widget) return;
         chartReadyRef.current = true;
+        for (const [property, role] of Object.entries(launchpadChartRoles)) {
+          const color = surfaceColor(role);
+          if (color) widget.setCSSCustomProperty(property, color);
+        }
         const chart = widget.activeChart();
         const viewport = viewportRef.current;
         if (viewport?.pool === poolAddress) chart.dataReady(() => {
@@ -327,7 +341,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
       datafeed.dispose();
       if (widgetRef.current) { try { widgetRef.current.remove(); } catch {} widgetRef.current = null; }
     };
-  }, [loaded, poolAddress, symbol, mode, feedSupply, retryGeneration, update]);
+  }, [loaded, poolAddress, symbol, mode, feedSupply, retryGeneration, update, darkScheme]);
 
   useEffect(() => {
     const widget = widgetRef.current;
@@ -389,7 +403,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         onRetry={() => retryRef.current?.()}
       />
       <ChartSplit height={height} onHeightChange={setHeight} min={CHART_MIN_HEIGHT} max={CHART_MAX_HEIGHT} defaultHeight={CHART_DEFAULT_HEIGHT}>
-        <div ref={containerRef} className="absolute inset-0 h-full w-full" />
+        <div ref={containerRef} inert={!loaded || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || !!error || stalled || noTrades || valuationBlocked} className="absolute inset-0 h-full w-full" />
         {!loaded && !error && !stalled ? (
           <div role="status" className="absolute inset-0 flex items-center justify-center bg-canvas text-sm text-text-faint">Loading chart...</div>
         ) : null}
@@ -432,7 +446,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
               <table className="w-full text-left">
                 <caption className="pb-2 text-left text-text-faint">Prices in USDL, every {timeframe}, times in UTC</caption>
                 <thead><tr>{['Time', 'Open', 'High', 'Low', 'Close', 'Volume (USDL)', 'Volume (coin, raw)', 'Version'].map(label => <th key={label} scope="col" className="p-2 font-bold text-text-faint">{label}</th>)}</tr></thead>
-                <tbody>{view.rows.filter(row => row.interval === timeframe).map(row => <tr key={row.start} className="odd:bg-surface-3"><th scope="row" className="p-2 font-semibold"><time dateTime={row.start}>{row.start}</time></th>{[row.open, row.high, row.low, row.close, row.volumeUsdl, row.volumeTokenRaw, row.revision].map((value, index) => <td key={index} data-numeric className="p-2 font-mono">{value}</td>)}</tr>)}</tbody>
+                <tbody>{view.rows.filter(row => row.interval === timeframe).map(row => <tr key={row.start} className="odd:bg-surface-3"><th scope="row" className="p-2 font-semibold"><time dateTime={row.start}>{row.start}</time></th>{[row.open, row.high, row.low, row.close, row.volumeUsdl, row.volumeTokenRaw, row.revision].map((value, index) => <td key={index} data-numeric className="p-2 text-right font-mono tabular-nums">{value}</td>)}</tr>)}</tbody>
               </table>
             </div>
             {view.rows.length === 0 ? <p>No trades in this range yet</p> : null}
@@ -440,7 +454,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
               <table className="w-full text-left">
                 <caption className="pb-2 text-left text-text-faint">Trades shown on the chart</caption>
                 <thead><tr>{['Date', 'Type', 'Amount (raw)', 'USDL (raw)', 'Price', 'Transaction', 'Account', 'Source'].map(label => <th key={label} scope="col" className="p-2 font-bold text-text-faint">{label}</th>)}</tr></thead>
-                <tbody>{view.markers.filter(marker => marker.interval === timeframe).map(marker => <tr key={marker.id} className="odd:bg-surface-3"><td className="p-2">{new Date(marker.time * 1000).toISOString()}</td>{[marker.side, marker.tokenAmountRaw, marker.usdlAmountRaw, marker.executionPrice, marker.transactionHash, marker.actor, marker.actorBasis].map((value, index) => <td key={index} data-numeric className="p-2 font-mono">{value}</td>)}</tr>)}</tbody>
+                <tbody>{view.markers.filter(marker => marker.interval === timeframe).map(marker => <tr key={marker.id} className="odd:bg-surface-3"><td className="p-2">{new Date(marker.time * 1000).toISOString()}</td>{[marker.side, marker.tokenAmountRaw, marker.usdlAmountRaw, marker.executionPrice, marker.transactionHash, marker.actor, marker.actorBasis].map((value, index) => <td key={index} data-numeric className="p-2 text-right font-mono tabular-nums">{value}</td>)}</tr>)}</tbody>
               </table>
             </div>
           </div>

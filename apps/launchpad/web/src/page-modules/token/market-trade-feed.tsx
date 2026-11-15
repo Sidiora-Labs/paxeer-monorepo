@@ -65,7 +65,7 @@ export function MarketTradeFeed({ pool, token, rows, watermark, contiguous, expl
       <p role="status" className="ml-auto text-xs text-text-faint">{contiguous ? 'Live' : 'Catching up...'}</p>
     </div>
     {matching.length ? <div data-market-scroller="fills" ref={scroller} role="region" aria-label="Trade history table" tabIndex={0} className="max-h-[var(--sl-list-max-height)] overflow-auto focus-visible:outline-2 focus-visible:outline-focus" style={{ overflowAnchor: 'none' }} onScroll={event => setStart(Math.min(Math.max(0, matching.length - 1), Math.floor(event.currentTarget.scrollTop / rowHeight)))}>
-      <table className="w-full min-w-[40rem] text-sm [&_td]:whitespace-nowrap [&_td]:px-3">
+      <table className="w-full min-w-160 text-sm [&_td]:whitespace-nowrap [&_td]:px-3">
         <thead className="sticky top-0 z-[1] bg-surface-1"><tr>
           <SortHeader label="Block" />
           <SortHeader label="Type" />

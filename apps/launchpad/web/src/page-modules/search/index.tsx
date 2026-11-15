@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { normalizeAddress } from '@/core/app-foundation/navigation';
@@ -157,7 +158,7 @@ function SearchFromParams() {
 
 export default function SearchModule() {
   return (
-    <Suspense fallback={<div className="mx-auto w-full max-w-3xl px-4 py-4 md:px-6"><Skeleton variant="block" height={56} label="search" /></div>}>
+    <Suspense fallback={<div className="mx-auto w-full max-w-3xl px-4 py-4 md:px-6"><Skeleton variant="block" height={surfaceSpacing(14)} label="search" /></div>}>
       <SearchFromParams />
     </Suspense>
   );
