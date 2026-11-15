@@ -14458,6 +14458,36 @@ value = "When the five modules build and pass go mod verify with the reviewed bu
 basis = "Gotcha 4472."
 affects = []
 
+[decision.3558]
+title = "The perps project tool sends credentials only for rows that ask for them and follows the service when a deployment is replaced"
+value = "An image row with credentials = 1 is pulled with the two registry credential variables, and the tool requires the variables only when such a row exists; a row without the key is pulled without credentials. The images of the perps project file under deploy are public and its rows carry no such key. When the deployment a deploy call started ends replaced, removed or skipped, the tool reads the latest deployment of the same service and waits on that one; a failed or crashed state of the latest deployment is the failure it reports. The message bus rows give the route variable as a list in brackets, set the variable with which the hosting platform runs a container as user 0, so the server can write its volume, and name the server information path /varz as health path, which a server answers as soon as it runs."
+basis = "Gotchas 4473 and 4474."
+affects = []
+
+[decision.3559]
+title = "One tool creates and updates a project of the hosting platform from a folder of definition files"
+value = "The folder deploy/projects/<project> holds project.kvx with a meta section that names project and environment, and one file per service. tools/deploy/platform-project.py reads the folder, prints a plan, and with the apply flag creates what is missing, updates what differs and deploys in the order of the rows, waiting for health wave by wave. Row kinds are database, image and repo. A repo row is built by the hosting platform from the repository at a branch, with the container file, the root folder and the watch patterns of the row. Values that begin with env: are read from the process environment and never printed; the plan shows names only. What decision 3558 states for credentials and replaced deployments holds for this tool as well. The tool is self-contained, and the perps project tool and its file stay as they are."
+basis = "Gotcha 4475."
+affects = []
+
+[decision.3560]
+title = "A service definition is one file with the service row, its variables and its inputs"
+value = "The file deploy/projects/<project>/<service>.kvx holds three sections in the row form of the perps project file under deploy. The section service.<name> states kind, container file or image, root folder, watch patterns, health path, restart policy, replicas, an optional volume path, public = 1 for a public address, order for the apply wave and needs, the names of the services of the project it refers to. The section vars.<name> states every variable the service reads at build or run time and no other: a literal, a reference to a value of another service in the form the perps project file under deploy uses, or env: followed by a name. That name is the project name, the service name and the variable name in upper case joined by underscores. The section inputs.<name> has one row per env name with one of four words: generated for a random value only the services of the project share, provider for a key of an outside provider, chain for a key or an address of a chain account, operator for anything else; a comment line above the row says what the value is and which format it has. A store only this service uses is a database row in the same file, named after the service; a store or service that deploy/rollout.kvx already lists is referenced and not declared again. A service that cannot run on the hosting platform because it needs a public port that is not HTTP, a privileged container or a host device carries target = other in its service row with a comment line that gives the reason. Each definition has a test under tools/deploy/tests/projects that reads the file with the standard library and compares it with the sources: the container file and the paths of the watch patterns exist, every variable the service requires is a row, every row is a variable the service reads, the port variable is the port the service listens on, and the health path is a route it serves. No value of a deployment, no address of a host and no key enters a definition."
+basis = "Gotcha 4475."
+affects = []
+
+[decision.3561]
+title = "A service without a container file gains one under docker in the form of its neighbours"
+value = "The container file builds from the repository root, pins its base images by digest, runs as a user without privileges, reads its port from the port variable and joins the image table of services/platform/hosted/tests/beta-images.sh and the checks of tools/containers/check.sh. Public settings of a web application are build arguments; server-only settings are run time variables."
+basis = "Gotcha 4476."
+affects = []
+
+[decision.3562]
+title = "The type check of the trading workspace builds the packages the web application imports before it checks"
+value = "The task that holds the manifest of the workspace root makes the type check script do so, and a task whose build runs the type check waits for it."
+basis = "Gotcha 4477."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44118,6 +44148,321 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.608]
+title = "Define the service docs of the project sites for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/Dockerfile"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_docs.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docs/site/paxeer-docs/Dockerfile with every file it copies from its folder and from docker/common, the documentation site under docs/site/paxeer-docs and its serve script, the code that reads the settings of the service. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.607]
+title = "Add the container file of the service inference-peer and define it in the project sites for the hosting platform"
+reqs = ["22998.1"]
+touches = ["apps/inference-peer", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_inference_peer.py && test -s docker/inference-peer-web/Dockerfile"
+do_1 = "do_1 Gotchas 4475 and 4476, decisions 3559 to 3561. Read the application apps/inference-peer with its manifest, its build and start commands and the code that reads its settings, the page docs/release/variables/app-inference-peer.md. Read two container files under docker that build the same kind of program, services/platform/hosted/tests/beta-images.sh, tools/containers/check.sh and the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.606]
+title = "Add the container file of the service names and define it in the project sites for the hosting platform"
+reqs = ["22998.1"]
+touches = ["apps/names", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_names.py && test -s docker/names-web/Dockerfile"
+do_1 = "do_1 Gotchas 4475 and 4476, decisions 3559 to 3561. Read the application apps/names with its manifest, its build and start commands and the code that reads its settings, the page docs/release/variables/app-names.md. Read two container files under docker that build the same kind of program, services/platform/hosted/tests/beta-images.sh, tools/containers/check.sh and the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.605]
+title = "Define the service smart-contract-verifier of the project explorer for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/explorer-smart-contract-verifier"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_smart_contract_verifier.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/explorer-smart-contract-verifier/Dockerfile with every file it copies from its folder and from docker/common, the contract verifier server, the code that reads the settings of the service, the page docs/release/variables/service-explorer.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.604]
+title = "Define the service sig-provider of the project explorer for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/explorer-sig-provider"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_sig_provider.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/explorer-sig-provider/Dockerfile with every file it copies from its folder and from docker/common, the signature provider server, the code that reads the settings of the service, the page docs/release/variables/service-explorer.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.603]
+title = "Define the service frontend of the project explorer for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/explorer-frontend"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_frontend.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/explorer-frontend/Dockerfile with every file it copies from its folder and from docker/common, the application apps/explorer, its entry script and its settings validator, the code that reads the settings of the service, the page docs/release/variables/app-explorer.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.602]
+title = "Define the service backend of the project explorer for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/explorer-backend"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_backend.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/explorer-backend/Dockerfile with every file it copies from its folder and from docker/common, the backend under services/explorer/backend and its release configuration, the code that reads the settings of the service, the page docs/release/variables/service-explorer.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.601]
+title = "Add the container file of the service bridge-web and define it in the project interop for the hosting platform"
+reqs = ["22998.1"]
+touches = ["apps/bridge", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_bridge_web.py && test -s docker/bridge-web/Dockerfile"
+do_1 = "do_1 Gotchas 4475 and 4476, decisions 3559 to 3561. Read the application apps/bridge with its manifest, its build and start commands and the code that reads its settings, the page docs/release/variables/app-bridge.md. Read two container files under docker that build the same kind of program, services/platform/hosted/tests/beta-images.sh, tools/containers/check.sh and the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.600]
+title = "Define the service bridge-relayer of the project interop for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/bridge-relayer"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_bridge_relayer.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/bridge-relayer/Dockerfile with every file it copies from its folder and from docker/common, the bridge relayer and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-bridge.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.599]
+title = "Define the service mirror of the project interop for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/interop-mirror"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_mirror.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/interop-mirror/Dockerfile with every file it copies from its folder and from docker/common, the mirror publisher binary and its configuration file, the code that reads the settings of the service, the page docs/release/variables/service-interop.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.598]
+title = "Define the service interop of the project interop for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/interop-gateway"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_interop.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/interop-gateway/Dockerfile with every file it copies from its folder and from docker/common, the interop gateway binary and the example files under services/interop/deploy, the code that reads the settings of the service, the page docs/release/variables/service-interop.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.597]
+title = "Define the service wallet-pwa of the project wallet for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/wallet-pwa"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_wallet_pwa.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/wallet-pwa/Dockerfile with every file it copies from its folder and from docker/common, the wallet application under apps/wallet, its start script and its build arguments, the code that reads the settings of the service, the page docs/release/variables/app-wallet.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.596]
+title = "Define the service wallet-attestor of the project wallet for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/wallet-attestor"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_wallet_attestor.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/wallet-attestor/Dockerfile with every file it copies from its folder and from docker/common, the attestor binary, the code that reads the settings of the service, the page docs/release/variables/service-wallet.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.595]
+title = "Define the service gas-station of the project wallet for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/gas-station"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_gas_station.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/gas-station/Dockerfile with every file it copies from its folder and from docker/common, the gas station binary, its start program and the example files under services/interop/deploy/gas-station, the code that reads the settings of the service, the pages docs/release/variables/service-wallet.md and docs/release/variables/service-interop.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.594]
+title = "Define the service wallet-gateway of the project wallet for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/wallet-gateway"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_wallet_gateway.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/wallet-gateway/Dockerfile with every file it copies from its folder and from docker/common, the wallet gateway under services/wallet and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-wallet.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.593]
+title = "Define the service hpx-registry of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/hpx-registry"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_hpx_registry.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/hpx-registry/Dockerfile with every file it copies from its folder and from docker/common, the registry service and the entry scripts of the image, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.592]
+title = "Define the service human-web of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/web"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_human_web.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/web/Dockerfile with every file it copies from its folder and from docker/common, the web application under apps/web and its build arguments, the code that reads the settings of the service, the page docs/release/variables/app-web.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.591]
+title = "Define the service human of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/human-service"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_human.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/human-service/Dockerfile with every file it copies from its folder and from docker/common, the human service, its entry script and its journal start script, the code that reads the settings of the service, the page docs/release/variables/service-human.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.590]
+title = "Define the service paxeer-boundary of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/paxeer"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_paxeer_boundary.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/paxeer/Dockerfile with every file it copies from its folder and from docker/common, the chain boundary binary, the code that reads the settings of the service, the pages docs/release/variables/service-platform.md and docs/release/variables/chain-node.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.589]
+title = "Define the service receipt-authority of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-authority"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_receipt_authority.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-authority/Dockerfile with every file it copies from its folder and from docker/common, the receipt authority binary and the clock wrapper that starts it, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.588]
+title = "Define the service core-boundary of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-core"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_core_boundary.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-core/Dockerfile with every file it copies from its folder and from docker/common, the core boundary binary, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.587]
+title = "Define the service agent-boundary of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-agent-boundary"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_agent_boundary.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-agent-boundary/Dockerfile with every file it copies from its folder and from docker/common, the agent boundary binary, the code that reads the settings of the service, the pages docs/release/variables/service-platform.md and docs/release/variables/service-agent.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.586]
+title = "Define the service testnet-control of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-testnet"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_testnet_control.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-testnet/Dockerfile with every file it copies from its folder and from docker/common, the testnet control binary, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.585]
+title = "Define the service faucet of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-faucet"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_faucet.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-faucet/Dockerfile with every file it copies from its folder and from docker/common, the faucet binary, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.584]
+title = "Define the service ramp of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/ramps"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_ramp.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/ramps/Dockerfile with every file it copies from its folder and from docker/common, the reference ramp binary and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.583]
+title = "Add the container file of the service ai-evaluator and define it in the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/ai-evaluator", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_ai_evaluator.py && test -s docker/ai-evaluator/Dockerfile"
+do_1 = "do_1 Gotchas 4475 and 4476, decisions 3559 to 3561. Read the crate services/platform/hosted/ai-evaluator with its manifest, its build and start commands and the code that reads its settings, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read two container files under docker that build the same kind of program, services/platform/hosted/tests/beta-images.sh, tools/containers/check.sh and the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.582]
+title = "Define the service search-front of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/search-front"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_search_front.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/search-front/Dockerfile with every file it copies from its folder and from docker/common, the proxy configuration and the entry scripts of the image, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.581]
+title = "Define the service indexer of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-indexer"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_indexer.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-indexer/Dockerfile with every file it copies from its folder and from docker/common, the indexer binary and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.580]
+title = "Define the service dashboard-web of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-dashboard-web"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard_web.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-dashboard-web/Dockerfile with every file it copies from its folder and from docker/common, the dashboard web application and its build arguments, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.579]
+title = "Define the service dashboard of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-dashboard"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-dashboard/Dockerfile with every file it copies from its folder and from docker/common, the dashboard service binary, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.578]
+title = "Define the service webhooks-public of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-webhooks"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_webhooks_public.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-webhooks/Dockerfile with every file it copies from its folder and from docker/common, the webhooks binary in its public role and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.577]
+title = "Define the service webhooks-ingress of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-webhooks"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_webhooks_ingress.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-webhooks/Dockerfile with every file it copies from its folder and from docker/common, the webhooks binary in its ingress role and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.576]
+title = "Define the service router of the project platform for the hosting platform"
+reqs = ["22998.1"]
+touches = ["docker/platform-gateway"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_router.py"
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-gateway/Dockerfile with every file it copies from its folder and from docker/common, the gateway binary and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+symbols = []
+
+[capability.22.39.575]
+title = "Add the project tool that creates and updates services from a folder of definition files"
+reqs = ["22998.1"]
+touches = ["tools/deploy/python-tests.mk", "deploy/README.md", "tools/deploy/tests/fixtures"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+do_1 = "do_1 Gotcha 4475, decisions 3558 to 3560. Read the perps project tool under tools/deploy with its test and its fixtures, the perps project file under deploy, tools/deploy/python-tests.mk, deploy/rollout.kvx and deploy/README.md."
+symbols = []
+
+[capability.22.39.574]
+title = "Send registry credentials only where a row asks and follow a replaced deployment in the perps project tool"
+reqs = ["22998.1"]
+touches = ["tools/deploy/railway-perps-project.py", "deploy/railway-perps-project.kvx", "tools/deploy/tests/railway-perps-project.test.sh", "tools/deploy/tests", "services/platform/perps-data/deploy", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "bash tools/deploy/tests/*-perps-project.test.sh && go test -count=1 -run '^TestServices$' ./services/platform/perps-data/deploy/"
+do_1 = "do_1 Gotchas 4473 and 4474, decision 3558. Read the perps project tool under tools/deploy, its test and the readiness test beside the other tests there, the perps project file under deploy, services/platform/perps-data/deploy/nats/nats.conf, services/platform/perps-data/deploy/nats/Dockerfile, services/platform/perps-data/deploy/nats_test.go, services/platform/perps-data/deploy/services_test.go and services/platform/perps-data/deploy/services.json."
+symbols = []
 
 [capability.22.39.573]
 title = "Bring the documentation site data in line with the trading workspace"
@@ -171784,6 +172129,102 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.607]
+title = "Add the container file of the service inference-peer and define it in the project sites for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.607"]
+interfaces = []
+do_1 = "do_1 Gotchas 4475 and 4476, decisions 3559 to 3561. Read the application apps/inference-peer with its manifest, its build and start commands and the code that reads its settings, the page docs/release/variables/app-inference-peer.md. Read two container files under docker that build the same kind of program, services/platform/hosted/tests/beta-images.sh, tools/containers/check.sh and the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/sites/inference-peer.kvx as decision 3560 states, for the service inference-peer of the project folder sites: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_sites_inference_peer.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Add docker/inference-peer-web/Dockerfile with its ignore file as decision 3561 states, add the image to the table of services/platform/hosted/tests/beta-images.sh and to what tools/containers/check.sh reads, and run the build of the program once by hand the way the container file runs it. Change the sources of the service only where the build or the port variable needs it, and say so in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/inference-peer", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
+tests = []
+planned_paths = ["deploy/projects/sites/inference-peer.kvx", "tools/deploy/tests/projects/test_sites_inference_peer.py", "docker/inference-peer-web/Dockerfile"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_sites_inference_peer.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_inference_peer.py && test -s docker/inference-peer-web/Dockerfile"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.606]
+title = "Add the container file of the service names and define it in the project sites for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.606"]
+interfaces = []
+do_1 = "do_1 Gotchas 4475 and 4476, decisions 3559 to 3561. Read the application apps/names with its manifest, its build and start commands and the code that reads its settings, the page docs/release/variables/app-names.md. Read two container files under docker that build the same kind of program, services/platform/hosted/tests/beta-images.sh, tools/containers/check.sh and the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/sites/names.kvx as decision 3560 states, for the service names of the project folder sites: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_sites_names.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Add docker/names-web/Dockerfile with its ignore file as decision 3561 states, add the image to the table of services/platform/hosted/tests/beta-images.sh and to what tools/containers/check.sh reads, and run the build of the program once by hand the way the container file runs it. Change the sources of the service only where the build or the port variable needs it, and say so in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/names", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
+tests = []
+planned_paths = ["deploy/projects/sites/names.kvx", "tools/deploy/tests/projects/test_sites_names.py", "docker/names-web/Dockerfile"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_sites_names.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_names.py && test -s docker/names-web/Dockerfile"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.601]
+title = "Add the container file of the service bridge-web and define it in the project interop for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.601"]
+interfaces = []
+do_1 = "do_1 Gotchas 4475 and 4476, decisions 3559 to 3561. Read the application apps/bridge with its manifest, its build and start commands and the code that reads its settings, the page docs/release/variables/app-bridge.md. Read two container files under docker that build the same kind of program, services/platform/hosted/tests/beta-images.sh, tools/containers/check.sh and the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/interop/bridge-web.kvx as decision 3560 states, for the service bridge-web of the project folder interop: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_interop_bridge_web.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Add docker/bridge-web/Dockerfile with its ignore file as decision 3561 states, add the image to the table of services/platform/hosted/tests/beta-images.sh and to what tools/containers/check.sh reads, and run the build of the program once by hand the way the container file runs it. Change the sources of the service only where the build or the port variable needs it, and say so in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/bridge", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
+tests = []
+planned_paths = ["deploy/projects/interop/bridge-web.kvx", "tools/deploy/tests/projects/test_interop_bridge_web.py", "docker/bridge-web/Dockerfile"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_interop_bridge_web.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_bridge_web.py && test -s docker/bridge-web/Dockerfile"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.573]
 title = "Bring the documentation site data in line with the trading workspace"
 status = "pending"
@@ -171819,7 +172260,7 @@ title = "Carry the legal pages and the consent notice into the trading workspace
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.563"]
 reqs = ["22998.1"]
 capabilities = ["22.39.567"]
 interfaces = []
@@ -171848,7 +172289,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.565]
 title = "Take the trading workspace out of the wallet workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196654,6 +197095,70 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.583]
+title = "Add the container file of the service ai-evaluator and define it in the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.583"]
+interfaces = []
+do_1 = "do_1 Gotchas 4475 and 4476, decisions 3559 to 3561. Read the crate services/platform/hosted/ai-evaluator with its manifest, its build and start commands and the code that reads its settings, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read two container files under docker that build the same kind of program, services/platform/hosted/tests/beta-images.sh, tools/containers/check.sh and the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/ai-evaluator.kvx as decision 3560 states, for the service ai-evaluator of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_ai_evaluator.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Add docker/ai-evaluator/Dockerfile with its ignore file as decision 3561 states, add the image to the table of services/platform/hosted/tests/beta-images.sh and to what tools/containers/check.sh reads, and run the build of the program once by hand the way the container file runs it. Change the sources of the service only where the build or the port variable needs it, and say so in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/ai-evaluator", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
+tests = []
+planned_paths = ["deploy/projects/platform/ai-evaluator.kvx", "tools/deploy/tests/projects/test_platform_ai_evaluator.py", "docker/ai-evaluator/Dockerfile"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_ai_evaluator.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_ai_evaluator.py && test -s docker/ai-evaluator/Dockerfile"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.574]
+title = "Send registry credentials only where a row asks and follow a replaced deployment in the perps project tool"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.574"]
+interfaces = []
+do_1 = "do_1 Gotchas 4473 and 4474, decision 3558. Read the perps project tool under tools/deploy, its test and the readiness test beside the other tests there, the perps project file under deploy, services/platform/perps-data/deploy/nats/nats.conf, services/platform/perps-data/deploy/nats/Dockerfile, services/platform/perps-data/deploy/nats_test.go, services/platform/perps-data/deploy/services_test.go and services/platform/perps-data/deploy/services.json."
+do_2 = "do_2 An image row with credentials = 1 is pulled with the two registry credential variables. The tool requires the two variables only when the file holds such a row, and sends no credential field for a row without the key. The rows of the perps project file under deploy carry no such key. The usage text and the comment head of the file say so."
+do_3 = "do_3 When the deployment a deploy call started ends replaced, removed or skipped, the tool reads the latest deployment of the same service and waits on that one. A failed or crashed state of the latest deployment is reported as before, with the service name. The wait still ends after its limit."
+do_4 = "do_4 The three message bus rows of the perps project file under deploy give the route variable as a list in brackets whose members are the routes to the two other servers, the form services/platform/perps-data/deploy/nats/nats.conf reads, set the variable with which the hosting platform runs a container as user 0, which the documentation of the platform on volumes names, and name the server information path /varz as health path. The name tables of services/platform/perps-data/deploy/services_test.go and services/platform/perps-data/deploy/services.json and the page docs/release/variables/service-platform.md follow where they list the variables of the message bus."
+do_5 = "do_5 The test of the tool covers: a row with the key sends the credentials; a file without such a row applies with both credential variables unset and sends no credential field; a replaced deployment is followed to the success of the latest one; a latest deployment that failed is reported. A case reads the three message bus rows and requires each route value to parse as a list in brackets that names the two other servers, and the health path /varz. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/railway-perps-project.py", "deploy/railway-perps-project.kvx", "tools/deploy/tests/railway-perps-project.test.sh", "tools/deploy/tests", "services/platform/perps-data/deploy", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/*-perps-project.py"
+verify_cmd = "bash tools/deploy/tests/*-perps-project.test.sh && go test -count=1 -run '^TestServices$' ./services/platform/perps-data/deploy/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -377284,6 +377789,966 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.608]
+title = "Define the service docs of the project sites for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.608"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docs/site/paxeer-docs/Dockerfile with every file it copies from its folder and from docker/common, the documentation site under docs/site/paxeer-docs and its serve script, the code that reads the settings of the service. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/sites/docs.kvx as decision 3560 states, for the service docs of the project folder sites: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_sites_docs.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/Dockerfile"]
+tests = []
+planned_paths = ["deploy/projects/sites/docs.kvx", "tools/deploy/tests/projects/test_sites_docs.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_sites_docs.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_docs.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.605]
+title = "Define the service smart-contract-verifier of the project explorer for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.605"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/explorer-smart-contract-verifier/Dockerfile with every file it copies from its folder and from docker/common, the contract verifier server, the code that reads the settings of the service, the page docs/release/variables/service-explorer.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/explorer/smart-contract-verifier.kvx as decision 3560 states, for the service smart-contract-verifier of the project folder explorer: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_explorer_smart_contract_verifier.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/explorer-smart-contract-verifier"]
+tests = []
+planned_paths = ["deploy/projects/explorer/smart-contract-verifier.kvx", "tools/deploy/tests/projects/test_explorer_smart_contract_verifier.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_explorer_smart_contract_verifier.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_smart_contract_verifier.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.604]
+title = "Define the service sig-provider of the project explorer for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.604"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/explorer-sig-provider/Dockerfile with every file it copies from its folder and from docker/common, the signature provider server, the code that reads the settings of the service, the page docs/release/variables/service-explorer.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/explorer/sig-provider.kvx as decision 3560 states, for the service sig-provider of the project folder explorer: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_explorer_sig_provider.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/explorer-sig-provider"]
+tests = []
+planned_paths = ["deploy/projects/explorer/sig-provider.kvx", "tools/deploy/tests/projects/test_explorer_sig_provider.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_explorer_sig_provider.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_sig_provider.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.603]
+title = "Define the service frontend of the project explorer for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.603"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/explorer-frontend/Dockerfile with every file it copies from its folder and from docker/common, the application apps/explorer, its entry script and its settings validator, the code that reads the settings of the service, the page docs/release/variables/app-explorer.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/explorer/frontend.kvx as decision 3560 states, for the service frontend of the project folder explorer: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_explorer_frontend.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/explorer-frontend"]
+tests = []
+planned_paths = ["deploy/projects/explorer/frontend.kvx", "tools/deploy/tests/projects/test_explorer_frontend.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_explorer_frontend.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_frontend.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.602]
+title = "Define the service backend of the project explorer for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.602"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/explorer-backend/Dockerfile with every file it copies from its folder and from docker/common, the backend under services/explorer/backend and its release configuration, the code that reads the settings of the service, the page docs/release/variables/service-explorer.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/explorer/backend.kvx as decision 3560 states, for the service backend of the project folder explorer: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_explorer_backend.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/explorer-backend"]
+tests = []
+planned_paths = ["deploy/projects/explorer/backend.kvx", "tools/deploy/tests/projects/test_explorer_backend.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_explorer_backend.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_backend.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.600]
+title = "Define the service bridge-relayer of the project interop for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.600"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/bridge-relayer/Dockerfile with every file it copies from its folder and from docker/common, the bridge relayer and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-bridge.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/interop/bridge-relayer.kvx as decision 3560 states, for the service bridge-relayer of the project folder interop: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_interop_bridge_relayer.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/bridge-relayer"]
+tests = []
+planned_paths = ["deploy/projects/interop/bridge-relayer.kvx", "tools/deploy/tests/projects/test_interop_bridge_relayer.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_interop_bridge_relayer.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_bridge_relayer.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.599]
+title = "Define the service mirror of the project interop for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.599"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/interop-mirror/Dockerfile with every file it copies from its folder and from docker/common, the mirror publisher binary and its configuration file, the code that reads the settings of the service, the page docs/release/variables/service-interop.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/interop/mirror.kvx as decision 3560 states, for the service mirror of the project folder interop: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_interop_mirror.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/interop-mirror"]
+tests = []
+planned_paths = ["deploy/projects/interop/mirror.kvx", "tools/deploy/tests/projects/test_interop_mirror.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_interop_mirror.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_mirror.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.598]
+title = "Define the service interop of the project interop for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.598"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/interop-gateway/Dockerfile with every file it copies from its folder and from docker/common, the interop gateway binary and the example files under services/interop/deploy, the code that reads the settings of the service, the page docs/release/variables/service-interop.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/interop/interop.kvx as decision 3560 states, for the service interop of the project folder interop: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_interop_interop.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/interop-gateway"]
+tests = []
+planned_paths = ["deploy/projects/interop/interop.kvx", "tools/deploy/tests/projects/test_interop_interop.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_interop_interop.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_interop.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.597]
+title = "Define the service wallet-pwa of the project wallet for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.597"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/wallet-pwa/Dockerfile with every file it copies from its folder and from docker/common, the wallet application under apps/wallet, its start script and its build arguments, the code that reads the settings of the service, the page docs/release/variables/app-wallet.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/wallet/wallet-pwa.kvx as decision 3560 states, for the service wallet-pwa of the project folder wallet: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_wallet_wallet_pwa.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/wallet-pwa"]
+tests = []
+planned_paths = ["deploy/projects/wallet/wallet-pwa.kvx", "tools/deploy/tests/projects/test_wallet_wallet_pwa.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_wallet_wallet_pwa.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_wallet_pwa.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.596]
+title = "Define the service wallet-attestor of the project wallet for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.596"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/wallet-attestor/Dockerfile with every file it copies from its folder and from docker/common, the attestor binary, the code that reads the settings of the service, the page docs/release/variables/service-wallet.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/wallet/wallet-attestor.kvx as decision 3560 states, for the service wallet-attestor of the project folder wallet: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_wallet_wallet_attestor.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/wallet-attestor"]
+tests = []
+planned_paths = ["deploy/projects/wallet/wallet-attestor.kvx", "tools/deploy/tests/projects/test_wallet_wallet_attestor.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_wallet_wallet_attestor.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_wallet_attestor.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.595]
+title = "Define the service gas-station of the project wallet for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.595"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/gas-station/Dockerfile with every file it copies from its folder and from docker/common, the gas station binary, its start program and the example files under services/interop/deploy/gas-station, the code that reads the settings of the service, the pages docs/release/variables/service-wallet.md and docs/release/variables/service-interop.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/wallet/gas-station.kvx as decision 3560 states, for the service gas-station of the project folder wallet: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_wallet_gas_station.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/gas-station"]
+tests = []
+planned_paths = ["deploy/projects/wallet/gas-station.kvx", "tools/deploy/tests/projects/test_wallet_gas_station.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_wallet_gas_station.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_gas_station.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.594]
+title = "Define the service wallet-gateway of the project wallet for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.594"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/wallet-gateway/Dockerfile with every file it copies from its folder and from docker/common, the wallet gateway under services/wallet and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-wallet.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/wallet/wallet-gateway.kvx as decision 3560 states, for the service wallet-gateway of the project folder wallet: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_wallet_wallet_gateway.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/wallet-gateway"]
+tests = []
+planned_paths = ["deploy/projects/wallet/wallet-gateway.kvx", "tools/deploy/tests/projects/test_wallet_wallet_gateway.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_wallet_wallet_gateway.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_wallet_gateway.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.593]
+title = "Define the service hpx-registry of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.593"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/hpx-registry/Dockerfile with every file it copies from its folder and from docker/common, the registry service and the entry scripts of the image, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/hpx-registry.kvx as decision 3560 states, for the service hpx-registry of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_hpx_registry.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/hpx-registry"]
+tests = []
+planned_paths = ["deploy/projects/platform/hpx-registry.kvx", "tools/deploy/tests/projects/test_platform_hpx_registry.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_hpx_registry.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_hpx_registry.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.592]
+title = "Define the service human-web of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.592"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/web/Dockerfile with every file it copies from its folder and from docker/common, the web application under apps/web and its build arguments, the code that reads the settings of the service, the page docs/release/variables/app-web.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/human-web.kvx as decision 3560 states, for the service human-web of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_human_web.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/web"]
+tests = []
+planned_paths = ["deploy/projects/platform/human-web.kvx", "tools/deploy/tests/projects/test_platform_human_web.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_human_web.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_human_web.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.591]
+title = "Define the service human of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.591"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/human-service/Dockerfile with every file it copies from its folder and from docker/common, the human service, its entry script and its journal start script, the code that reads the settings of the service, the page docs/release/variables/service-human.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/human.kvx as decision 3560 states, for the service human of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_human.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/human-service"]
+tests = []
+planned_paths = ["deploy/projects/platform/human.kvx", "tools/deploy/tests/projects/test_platform_human.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_human.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_human.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.590]
+title = "Define the service paxeer-boundary of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.590"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/paxeer/Dockerfile with every file it copies from its folder and from docker/common, the chain boundary binary, the code that reads the settings of the service, the pages docs/release/variables/service-platform.md and docs/release/variables/chain-node.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/paxeer-boundary.kvx as decision 3560 states, for the service paxeer-boundary of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_paxeer_boundary.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/paxeer"]
+tests = []
+planned_paths = ["deploy/projects/platform/paxeer-boundary.kvx", "tools/deploy/tests/projects/test_platform_paxeer_boundary.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_paxeer_boundary.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_paxeer_boundary.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.589]
+title = "Define the service receipt-authority of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.589"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-authority/Dockerfile with every file it copies from its folder and from docker/common, the receipt authority binary and the clock wrapper that starts it, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/receipt-authority.kvx as decision 3560 states, for the service receipt-authority of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_receipt_authority.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-authority"]
+tests = []
+planned_paths = ["deploy/projects/platform/receipt-authority.kvx", "tools/deploy/tests/projects/test_platform_receipt_authority.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_receipt_authority.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_receipt_authority.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.588]
+title = "Define the service core-boundary of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.588"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-core/Dockerfile with every file it copies from its folder and from docker/common, the core boundary binary, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/core-boundary.kvx as decision 3560 states, for the service core-boundary of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_core_boundary.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-core"]
+tests = []
+planned_paths = ["deploy/projects/platform/core-boundary.kvx", "tools/deploy/tests/projects/test_platform_core_boundary.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_core_boundary.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_core_boundary.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.587]
+title = "Define the service agent-boundary of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.587"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-agent-boundary/Dockerfile with every file it copies from its folder and from docker/common, the agent boundary binary, the code that reads the settings of the service, the pages docs/release/variables/service-platform.md and docs/release/variables/service-agent.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/agent-boundary.kvx as decision 3560 states, for the service agent-boundary of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_agent_boundary.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-agent-boundary"]
+tests = []
+planned_paths = ["deploy/projects/platform/agent-boundary.kvx", "tools/deploy/tests/projects/test_platform_agent_boundary.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_agent_boundary.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_agent_boundary.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.586]
+title = "Define the service testnet-control of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.586"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-testnet/Dockerfile with every file it copies from its folder and from docker/common, the testnet control binary, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/testnet-control.kvx as decision 3560 states, for the service testnet-control of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_testnet_control.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-testnet"]
+tests = []
+planned_paths = ["deploy/projects/platform/testnet-control.kvx", "tools/deploy/tests/projects/test_platform_testnet_control.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_testnet_control.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_testnet_control.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.585]
+title = "Define the service faucet of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.585"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-faucet/Dockerfile with every file it copies from its folder and from docker/common, the faucet binary, the code that reads the settings of the service, the page docs/release/variables/service-platform.md. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/faucet.kvx as decision 3560 states, for the service faucet of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_faucet.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-faucet"]
+tests = []
+planned_paths = ["deploy/projects/platform/faucet.kvx", "tools/deploy/tests/projects/test_platform_faucet.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_faucet.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_faucet.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.584]
+title = "Define the service ramp of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.584"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/ramps/Dockerfile with every file it copies from its folder and from docker/common, the reference ramp binary and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/ramp.kvx as decision 3560 states, for the service ramp of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_ramp.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/ramps"]
+tests = []
+planned_paths = ["deploy/projects/platform/ramp.kvx", "tools/deploy/tests/projects/test_platform_ramp.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_ramp.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_ramp.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.582]
+title = "Define the service search-front of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.582"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/search-front/Dockerfile with every file it copies from its folder and from docker/common, the proxy configuration and the entry scripts of the image, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/search-front.kvx as decision 3560 states, for the service search-front of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_search_front.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/search-front"]
+tests = []
+planned_paths = ["deploy/projects/platform/search-front.kvx", "tools/deploy/tests/projects/test_platform_search_front.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_search_front.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_search_front.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.581]
+title = "Define the service indexer of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.581"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-indexer/Dockerfile with every file it copies from its folder and from docker/common, the indexer binary and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/indexer.kvx as decision 3560 states, for the service indexer of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_indexer.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-indexer"]
+tests = []
+planned_paths = ["deploy/projects/platform/indexer.kvx", "tools/deploy/tests/projects/test_platform_indexer.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_indexer.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_indexer.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.580]
+title = "Define the service dashboard-web of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.580"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-dashboard-web/Dockerfile with every file it copies from its folder and from docker/common, the dashboard web application and its build arguments, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/dashboard-web.kvx as decision 3560 states, for the service dashboard-web of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_dashboard_web.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-dashboard-web"]
+tests = []
+planned_paths = ["deploy/projects/platform/dashboard-web.kvx", "tools/deploy/tests/projects/test_platform_dashboard_web.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_dashboard_web.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard_web.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.579]
+title = "Define the service dashboard of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.579"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-dashboard/Dockerfile with every file it copies from its folder and from docker/common, the dashboard service binary, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/dashboard.kvx as decision 3560 states, for the service dashboard of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_dashboard.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-dashboard"]
+tests = []
+planned_paths = ["deploy/projects/platform/dashboard.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_dashboard.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.578]
+title = "Define the service webhooks-public of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.578"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-webhooks/Dockerfile with every file it copies from its folder and from docker/common, the webhooks binary in its public role and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/webhooks-public.kvx as decision 3560 states, for the service webhooks-public of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_webhooks_public.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-webhooks"]
+tests = []
+planned_paths = ["deploy/projects/platform/webhooks-public.kvx", "tools/deploy/tests/projects/test_platform_webhooks_public.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_webhooks_public.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_webhooks_public.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.577]
+title = "Define the service webhooks-ingress of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.577"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-webhooks/Dockerfile with every file it copies from its folder and from docker/common, the webhooks binary in its ingress role and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/webhooks-ingress.kvx as decision 3560 states, for the service webhooks-ingress of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_webhooks_ingress.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-webhooks"]
+tests = []
+planned_paths = ["deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_webhooks_ingress.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_webhooks_ingress.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.576]
+title = "Define the service router of the project platform for the hosting platform"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.576"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3559 and 3560. Read docker/platform-gateway/Dockerfile with every file it copies from its folder and from docker/common, the gateway binary and its entry script, the code that reads the settings of the service, the page docs/release/variables/service-platform.md and the rows of the service in deploy/rollout.kvx. Read the perps project file under deploy for the row form."
+do_2 = "do_2 Write deploy/projects/platform/router.kvx as decision 3560 states, for the service router of the project folder platform: kind repo with the container file, the root folder, the watch patterns that cover the container folder, docker/common where the file copies from it and the source folders the build copies, and health path, restart policy, replicas, volume, public address, order and needs as the sources show them. Services of the project are named as deploy/rollout.kvx names them where it lists them."
+do_3 = "do_3 The vars section holds every variable the service reads at build or run time, found from the code and not from the pages alone: required ones, optional ones only where the service needs a value other than its default to run on the hosting platform, and the variables the entry script turns into files. A build argument of the container file is a row as well. The inputs section holds one row per env name with its word and its comment line. No value of a deployment, no address of a host and no key is written."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_router.py as decision 3560 states. The test finds the variable names in the sources by the way the service reads them and keeps no list of its own, so a required variable added to the service later makes the test ask for its row. It also requires every env name to follow the naming rule and to have its inputs row. Where a page under docs/release/variables and the code differ, the code decides; name the difference in the final message and leave the page."
+do_5 = "do_5 Where the container file cannot run on the hosting platform as it is, for example a fixed port, a file that must be mounted or a build argument without a value, change the container folder so that it can and say so in the final message. Change no source of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-gateway"]
+tests = []
+planned_paths = ["deploy/projects/platform/router.kvx", "tools/deploy/tests/projects/test_platform_router.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_router.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_router.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.575]
+title = "Add the project tool that creates and updates services from a folder of definition files"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.575"]
+interfaces = []
+do_1 = "do_1 Gotcha 4475, decisions 3558 to 3560. Read the perps project tool under tools/deploy with its test and its fixtures, the perps project file under deploy, tools/deploy/python-tests.mk, deploy/rollout.kvx and deploy/README.md."
+do_2 = "do_2 Add tools/deploy/platform-project.py as decision 3559 states. It takes the project folder, the plan flag or the apply flag, an optional branch for repo rows with main as default, an optional map of image digests for image rows, and options that replace the project name and the environment name of project.kvx. It reads project.kvx and every other kvx file of the folder as service definitions in the form of decision 3560, and refuses with file and row: an unknown key, an unknown kind, a service name stated twice, a needs entry that names no service of the folder and none of deploy/rollout.kvx, an order below the order of a needed service, an env name without an inputs row, an inputs row without a use, and an env name that does not follow the naming rule. A row with target = other is listed in the plan and never applied."
+do_3 = "do_3 Plan and apply follow the perps project tool in what they send and in what they keep from output: a plan prints names and never a value read from the environment, the apply creates what is missing, updates what differs, deploys in order and waits for health wave by wave. A repo row sets repository, branch, container file, root folder and watch patterns. Credentials and replaced deployments behave as decision 3558 states. The transport can be replaced by a recorded one for tests, as in the perps project tool. The tool imports nothing from the perps project tool and changes no file of it."
+do_4 = "do_4 Add the five project files deploy/projects/platform/project.kvx, deploy/projects/wallet/project.kvx, deploy/projects/interop/project.kvx, deploy/projects/explorer/project.kvx, deploy/projects/sites/project.kvx, each with a meta section that names the project as paxeer-x- followed by the folder name and the environment production, and deploy/projects/README.md: one page that says what the folder holds, the form of a definition, the four input words and how plan and apply are started. deploy/README.md gains one line that names the folder."
+do_5 = "do_5 Add tools/deploy/tests/test_platform_project.py with a recorded transport: a plan over a folder of three definitions with one row of each kind; an apply that creates, a second apply that changes nothing; each refusal of do_2; a value read from the environment that appears in no output; a replaced deployment followed; a row with target = other left alone. The fixtures of the test lie in the test file or under tools/deploy/tests/fixtures/platform-project. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/python-tests.mk", "deploy/README.md", "tools/deploy/tests/fixtures"]
+tests = []
+planned_paths = ["tools/deploy/platform-project.py", "tools/deploy/tests/test_platform_project.py", "deploy/projects/README.md", "deploy/projects/platform/project.kvx", "deploy/projects/wallet/project.kvx", "deploy/projects/interop/project.kvx", "deploy/projects/explorer/project.kvx", "deploy/projects/sites/project.kvx"]
+build_cmd = "python3 -m py_compile tools/deploy/platform-project.py tools/deploy/tests/test_platform_project.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.572]
 title = "Describe the trading workspace in its readme and in the documents that name the application"
