@@ -40,7 +40,7 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest.NodeWebSocket do
          })}
       end)
 
-    send(state.owner, {:node_published, state.phase, length(frames)})
+    send(state.owner, {:node_published, state.phase, self(), length(frames)})
     {:reply, frames, state}
   end
 end
@@ -54,9 +54,7 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest do
   alias EthereumJSONRPC.WebSocket.Supervisor, as: WebSocketSupervisor
   alias EthereumJSONRPC.WebSocket.WebSocketClient.Options
 
-  @client Indexer.Block.Realtime.WebSocket
-  @primary_listener __MODULE__.Primary
-  @fallback_listener __MODULE__.Fallback
+  @client __MODULE__.Client
   @fixture Path.expand("../support/fixture/paxeer_x/new_head_full.json", __DIR__)
   @primary_id "0xa6f9c33d92741a00bdc4ff02dd328147"
   @fallback_id "0xb7fa044e03852b11ced50013ee439258"
@@ -66,21 +64,18 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest do
   test "original subscription remains cancellable through primary outage, fallback and primary recovery" do
     %{"new_head" => head, "block" => block} = @fixture |> File.read!() |> Jason.decode!()
     fixture = %{owner: self(), head: head, block: block}
-    primary_port = start_node(@primary_listener, :primary, @primary_id, fixture)
-    fallback_port = start_node(@fallback_listener, :fallback, @fallback_id, fixture)
+    primary_listener = {__MODULE__, make_ref()}
+    fallback_listener = {__MODULE__, make_ref()}
+    primary_port = start_node(primary_listener, :primary, @primary_id, fixture)
+    fallback_port = start_node(fallback_listener, :fallback, @fallback_id, fixture)
 
-    previous_retry = Application.get_env(:ethereum_jsonrpc, RetryWorker)
-    previous_subscribe = Application.get_env(:indexer, :subscribe_named_arguments)
-    previous_overrides = Application.get_env(:indexer, :realtime_overrides)
+    previous_retry = Application.fetch_env(:ethereum_jsonrpc, RetryWorker)
 
     on_exit(fn ->
       restore_env(:ethereum_jsonrpc, RetryWorker, previous_retry)
-      restore_env(:indexer, :subscribe_named_arguments, previous_subscribe)
-      restore_env(:indexer, :realtime_overrides, previous_overrides)
     end)
 
     Application.put_env(:ethereum_jsonrpc, RetryWorker, retry_interval: 60_000)
-    Application.put_env(:indexer, :realtime_overrides, [])
 
     transport_options = %WebSocket{
       url: "ws://127.0.0.1:#{primary_port}",
@@ -90,11 +85,6 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest do
     }
 
     named_arguments = [transport: WebSocket, transport_options: transport_options]
-
-    Application.put_env(:indexer, :subscribe_named_arguments,
-      transport: WebSocket,
-      transport_options: transport_options |> Map.from_struct() |> Map.to_list()
-    )
 
     start_supervised!({WebSocketSupervisor, transport_options})
 
@@ -106,7 +96,7 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest do
     assert subscription_id(initial_pid, subscription) == @primary_id
     assert_node_head(subscription, initial_pid, primary_connection, :primary, head)
 
-    assert :ok = :cowboy.stop_listener(@primary_listener)
+    assert :ok = :cowboy.stop_listener(primary_listener)
     fallback_connection = assert_subscribe_request(:fallback)
 
     await(fn ->
@@ -117,10 +107,11 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest do
     end)
 
     assert_node_head(subscription, initial_pid, fallback_connection, :fallback, head)
-    assert start_node(@primary_listener, :recovered, @recovered_id, fixture, primary_port) == primary_port
+    assert start_node(primary_listener, :recovered, @recovered_id, fixture, primary_port) == primary_port
     monitor = Process.monitor(initial_pid)
     send(RetryWorker, :retry)
     assert_receive {:DOWN, ^monitor, :process, ^initial_pid, :shutdown}, 15_000
+    assert_receive {^subscription, {:error, {:websocket_terminated, :shutdown}}}, 2_000
 
     recovered_connection = assert_subscribe_request(:recovered)
 
@@ -158,7 +149,8 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest do
     assert {:ok, false} = rpc(recovered_pid, "eth_unsubscribe", [@recovered_id])
     assert {:error, :not_found} = EthereumJSONRPC.unsubscribe(subscription)
     send(recovered_connection, :new_head)
-    assert_receive {:node_published, :recovered, 0}
+    assert {:ok, ^block} = rpc(recovered_pid, "eth_getBlockByHash", [head["hash"], false])
+    assert_receive {:node_published, :recovered, ^recovered_connection, 0}
     refute_receive {^subscription, {:ok, _}}, 1_500
     refute_receive {:node_request, :fallback, _, %{"method" => "eth_unsubscribe"}}
   end
@@ -188,10 +180,12 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest do
 
   defp assert_node_head(subscription, pid, connection, phase, expected_head) do
     send(connection, :new_head)
-    assert_receive {:node_published, ^phase, 1}
+    assert {:ok, expected_block} = rpc(pid, "eth_getBlockByHash", [expected_head["hash"], false])
+    assert_receive {:node_published, ^phase, ^connection, 1}
     assert_receive {^subscription, {:ok, %{"hash" => hash} = head}}, 10_000
     assert head == expected_head
     assert {:ok, block} = rpc(pid, "eth_getBlockByHash", [hash, false])
+    assert block == expected_block
     assert is_map(block)
 
     for field <- ~w(hash number parentHash stateRoot receiptsRoot transactionsRoot) do
@@ -213,6 +207,6 @@ defmodule EthereumJSONRPC.WebSocketSubscriptionFailbackTest do
     end
   end
 
-  defp restore_env(app, key, nil), do: Application.delete_env(app, key)
-  defp restore_env(app, key, value), do: Application.put_env(app, key, value)
+  defp restore_env(app, key, :error), do: Application.delete_env(app, key)
+  defp restore_env(app, key, {:ok, value}), do: Application.put_env(app, key, value)
 end
