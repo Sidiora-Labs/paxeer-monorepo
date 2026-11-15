@@ -243931,7 +243931,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.663]
 title = "Write the inventory requests of the custody ceremony with its plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -243963,7 +243963,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.660]
 title = "Admit a newer signed inventory on a running attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -243996,7 +243996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.659]
 title = "Add the inventory command of the attestor module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
