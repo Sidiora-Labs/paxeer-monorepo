@@ -382,9 +382,12 @@ export function SecurityScreen({ client: suppliedClient, authenticator: supplied
             <label className="flex flex-col gap-1 text-sm font-semibold text-foreground">
               {copyEntry("security.passkeys.label").message}
               <SettingsTextInput
+                name="passkey_label"
                 value={passkeyLabel}
                 maxLength={128}
                 autoComplete="off"
+                required
+                aria-invalid={passkeyLabel.trim().length === 0 || undefined}
                 onChange={(event) => { setPasskeyLabel(event.target.value); }}
               />
             </label>
@@ -506,9 +509,12 @@ export function SecurityScreen({ client: suppliedClient, authenticator: supplied
               <label className="flex flex-col gap-1 text-sm font-semibold text-foreground">
                 {copyEntry("security.authenticator.label").message}
                 <SettingsTextInput
+                  name="authenticator_label"
                   value={authenticatorLabel}
                   maxLength={128}
                   autoComplete="off"
+                  required
+                  aria-invalid={authenticatorLabel.trim().length === 0 || undefined}
                   onChange={(event) => { setAuthenticatorLabel(event.target.value); }}
                 />
               </label>
@@ -544,10 +550,13 @@ export function SecurityScreen({ client: suppliedClient, authenticator: supplied
               <label className="flex flex-col gap-1 text-sm font-semibold text-foreground">
                 {copyEntry("security.authenticator.code").message}
                 <SettingsTextInput
+                  name="authenticator_code"
                   value={authenticatorCode}
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={8}
+                  required
+                  aria-invalid={authenticatorCode.length < 6 || undefined}
                   onChange={(event) => { setAuthenticatorCode(event.target.value.replaceAll(/\D/g, "")); }}
                 />
               </label>
