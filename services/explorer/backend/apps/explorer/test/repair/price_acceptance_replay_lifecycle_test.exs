@@ -50,6 +50,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
   end
 
   setup do
+    Explorer.TestHelper.start_migration_owner!()
     assert :ok = Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
     body = fixture("block_txs.json")
     result_body = fixture("block_results.json")
@@ -138,15 +139,19 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     # The stored status must agree with the real failed-transaction decoder.
     Repo.query!("UPDATE paxeer_x_price_updates SET status = 0 WHERE block_hash = $1", [context.block.hash.bytes])
     assert :ok = PriceAcceptanceBackfill.retain(worker, @height, context.transactions, failed_results)
+    payload = retained_payload(@height)
     assert {:ok, 9} = PriceAcceptanceBackfill.step(worker, 9)
+    assert retained_payload(@height) == payload
     assert cursor() == [[0, 8, false, nil]]
     assert accepted_values() == List.duplicate(false, 9) ++ List.duplicate(nil, 9)
     assert observations(@height + 1) == other_before
     first_batch = observations(@height) |> Enum.take(9)
 
     stop_supervised!(PriceAcceptanceBackfill)
-    reopened = start_supervised!({PriceAcceptanceBackfill, []})
+    reopened = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
+    assert retained_payload(@height) == payload
     assert {:ok, 9} = PriceAcceptanceBackfill.step(reopened, 9)
+    assert retained_payload(@height) == payload
     assert cursor() == [[0, 17, true, nil]]
     assert accepted_values() == List.duplicate(false, 18)
     assert Enum.take(observations(@height), 9) == first_batch
@@ -173,6 +178,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
       acceptance_backfill_retry_interval: 25
     )
 
+    batch = Explorer.TestHelper.pause_next_replay_batch()
     supervisor = start_supervised!({PriceUpdatesSupervisor, [[json_rpc_named_arguments: []]]})
 
     {PriceAcceptanceReplay, runner, :worker, _} =
@@ -187,9 +193,11 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
 
     Agent.update(availability, fn _ -> true end)
     assert_receive {:node_request, "/block_results", "height=37715713"}, 5_000
-    await(fn -> cursor() == [[0, 8, false, nil]] end)
+    Explorer.TestHelper.await_replay_batch(batch, runner)
+    assert cursor() == [[0, 8, false, nil]]
     assert Enum.count(accepted_values(), &is_nil/1) == 9
     first_batch = observations(@height) |> Enum.take(9)
+    :ok = :sys.resume(runner)
     assert_receive {:DOWN, ^monitor, :process, ^runner, :normal}, 5_000
     assert cursor() == [[0, 17, true, nil]]
     assert Enum.take(observations(@height), 9) == first_batch
@@ -255,7 +263,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     refute_receive {:node_request, _, _}, 150
     assert Process.alive?(runner)
 
-    stop_supervised!(PriceAcceptanceReplay)
+    assert :ok = Explorer.TestHelper.stop_supervised_if_alive(PriceAcceptanceReplay)
     reopened = start_supervised!({PriceAcceptanceReplay, options})
     assert reopened != runner
     assert :deferred = PriceAcceptanceBackfill.step(:sys.get_state(reopened).worker, 9)
@@ -267,7 +275,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert cursor(orphan.number) == [[-1, -1, false, nil]]
     refute_receive {:node_request, _, _}, 150
     assert Process.alive?(reopened)
-    stop_supervised!(PriceAcceptanceReplay)
+    assert :ok = Explorer.TestHelper.stop_supervised_if_alive(PriceAcceptanceReplay)
   end
 
   test "migration_defers_preexisting_orphan_jobs", context do
@@ -297,7 +305,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert cursor() == [[-1, -1, false, nil]]
     refute_receive {:node_request, _, _}, 150
     assert Process.alive?(runner)
-    stop_supervised!(PriceAcceptanceReplay)
+    assert :ok = Explorer.TestHelper.stop_supervised_if_alive(PriceAcceptanceReplay)
   end
 
   test "orphan_replay_resumes_after_consensus_returns", context do
@@ -307,9 +315,10 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
   def orphan_replay_resumes_after_consensus_returns(context) do
     migrate()
     options = replay_options(context) |> Keyword.put(:acceptance_backfill_interval, 1_000)
+    batch = Explorer.TestHelper.pause_next_replay_batch()
     runner = start_supervised!({PriceAcceptanceReplay, options})
-    await(fn -> cursor() == [[0, 8, false, nil]] end)
-    :ok = :sys.suspend(runner)
+    Explorer.TestHelper.await_replay_batch(batch, runner)
+    assert cursor() == [[0, 8, false, nil]]
     first_batch = Enum.take(observations(@height), 9)
     before_orphan = observations(@height)
     payload = retained_payload(@height)
@@ -322,7 +331,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert_receive {:node_request, "/block", _}, 5_000
     assert_receive {:node_request, "/block_results", "height=37715713"}, 5_000
 
-    stop_supervised!(PriceAcceptanceReplay)
+    assert :ok = Explorer.TestHelper.stop_supervised_if_alive(PriceAcceptanceReplay)
     reopened = start_supervised!({PriceAcceptanceReplay, options})
     assert reopened != runner
     assert :deferred = PriceAcceptanceBackfill.step(:sys.get_state(reopened).worker, 9)
