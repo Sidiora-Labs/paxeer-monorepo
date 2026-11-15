@@ -22405,3 +22405,43 @@ fix = "Decision 3597. Task 22.39.680."
 title = "A surface is built before it is rendered, and a build reads more than the presentation"
 symptom = "The render check starts a surface with the command of its surface file, and that command builds the application first. The build of the wallet demo resolves the wallet package from its sources, whose imports name the compiled extension, through the configuration of its bundler and of its compiler. The build of the playground of the module tools compiles its sources with the type check before it copies its pages. A proof task whose paths hold only the presentation cannot bring such a build to a start."
 fix = "Decision 3598. Tasks 22.44.42 and 22.44.47."
+
+[gotcha.4517]
+title = "A method that reads a file needs a row of the file table, and a row is required by every start it applies to"
+symptom = "The start script of an image writes each row of its file table that applies to the role of the start from a variable into a file, and a start whose variable is missing ends. A row marked for every role is required by every start. The native table of the gateway holds the four files of the chain methods. The methods px_register and px_openSession read the address of the identity service, its token, the provisioning token, the tenant and a client identity, each from a variable or from a file; without them the two methods answer registration_not_configured and every other method serves as before. A definition that offers the two methods names their files in rows under a role of their own, so that a start without the role keeps its four files."
+fix = "Decision 3599. Task 22.39.681."
+
+[gotcha.4518]
+title = "Behind a front the request address of a server is not the address the browser used"
+symptom = "A web server that runs behind a front which ends TLS builds the address of a request from its own listening address and port. The browser addressed the public name, and the Origin it sends names that public name. A rule that compares the Origin with the origin of the request address therefore refuses every browser behind such a front, while a direct request to the listening address passes. The name the browser addressed reaches the server in the host header of the request."
+fix = "Decision 3601. Task 22.39.684."
+
+[gotcha.4519]
+title = "A run of the builder with no path reaches every app of the explorer backend"
+symptom = "The form services/explorer/deploy/tools/mix-in-builder.sh test with no path runs the suites of all apps under services/explorer/backend/apps one after the other: utils, ethereum_jsonrpc, explorer, indexer, block_scout_web and nft_media_handler. A task whose paths are the apps explorer and ethereum_jsonrpc cannot bring the cases of the other apps to pass within its paths. The script takes paths under apps and then runs only the apps the paths name."
+fix = "Decision 3602. Tasks 22.39.685 to 22.39.688; the verification of task 22.39.634."
+
+[gotcha.4520]
+title = "Cases of the explorer theme pin token values and read the presets of the product"
+symptom = "The cases under apps/explorer/toolkit/theme/foundations state the values of the colour, radius and shadow tokens and the routes of the semantic tokens, and they read the presets apps/explorer/configs/envs/paxeer-x.env and apps/explorer/configs/envs/paxeer-x-dev.env, which declare each colour the theme declares. A task that changes the form of the tokens changes these cases and the presets with it. The case apps/explorer/toolkit/components/forms/fields/colorAndRadioFields.spec.ts imports a package for the intersection observer that the package file of the explorer does not declare."
+fix = "Decision 3603. Task 22.44.1 holds the presets in its paths."
+
+[gotcha.4521]
+title = "A decimal parameter of the virtual machine without a stored value is an empty decimal"
+symptom = "The readers of the decimal parameters in modules/evm/keeper/params.go return the stored field as it is: the priority normalizer, the base fee, the minimum and the maximum fee for a unit of gas and the two adjustments of the dynamic base fee. Without a stored value the field is an empty decimal, a computation with it does not end, and the block is refused. The ordinary path and the fast path report a refused block through different layers, so the texts of the two refusals differ while the outcome is the same."
+fix = "Decision 3604. Tasks 22.39.679 and 22.39.689."
+
+[gotcha.4522]
+title = "The dashboard API reads an index of each principal, and the writer of the entries keeps that index"
+symptom = "The dashboard API reads the requests of a principal from the stream gateway:principal:DIGEST:audit and the receipt of an activity from the hash webhooks:principal:DIGEST:activities, where DIGEST is the audit digest of the principal, and beside each key a key of the same name followed by :version with the value 1. The gateway appends its audit entries to the common stream gateway:audit, and the webhooks service stores the events of a principal in the document of the principal. A reader and the writer of its entries name the same keys, and a case of the reader that fills the keys by itself does not show that the writer fills them."
+fix = "Decision 3605. Tasks 22.39.690 and 22.39.691."
+
+[gotcha.4523]
+title = "The two keepers of the virtual machine purge the state of an account in two forms"
+symptom = "The keeper of the ordinary path in modules/evm/keeper/keeper.go purges a prefix by the range key listing of the store, meters the scan over a copy of the range and then deletes each key. The keeper of the fast path in engine/deps/xevm/keeper/keeper.go purges a prefix through the range deletion of its store. The case TestPurgePrefixNotHang of engine/deps/xevm/keeper/keeper_test.go purges a prefix under fifty stacked cache stores, and a verification that runs the package whole holds that case."
+fix = "Decision 3606. Task 22.39.692; the verifications of tasks 22.39.679 and 22.39.689."
+
+[gotcha.4524]
+title = "A class merge that is not told the names of a theme takes a font size of the theme for a colour"
+symptom = "The helper cn of a surface joins class names and lets the last of two classes of one kind stand. The merge library sorts a class with the prefix text- into the font sizes only for the sizes it knows, and every other name of that prefix counts as a colour. A theme that names font sizes of its own, such as text-body-sm, then loses the colour class that stands before the size class, or the size class that stands before the colour class, and a control keeps the colour of the text around it. The same holds for each other prefix a theme uses for two kinds of value, such as shadow- and border-. The helper in apps/bridge/src/lib/utils.ts tells the merge the font sizes of its theme."
+fix = "Decision 3607. Tasks 22.44.49 to 22.44.51."

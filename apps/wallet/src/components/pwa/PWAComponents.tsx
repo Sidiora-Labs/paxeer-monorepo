@@ -16,20 +16,21 @@ export function InstallBanner() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   return (
-    <div className="fixed bottom-24 left-3 right-3 z-50 animate-slide-up">
-      <div className="glass-card   p-4 shadow-2xl shadow-black/40">
+    <div className="pax-banner fixed bottom-24 left-3 right-3 mx-auto max-w-md z-50 animate-slide-up">
+      <div className="glass-card   p-4 shadow-menu">
         <button
           onClick={dismissInstallPrompt}
+          aria-label="Dismiss installation prompt"
           className="absolute top-3 right-3 p-1 text-pax-muted press-scale"
         >
-          <SvgIcon name="x" className="w-4 h-4" style={{ filter: 'brightness(0) invert(1)' }} />
+          <SvgIcon name="x" className="w-4 h-4" />
         </button>
 
-        <div className="flex items-start gap-3">
-          <div className="w-11 h-11 rounded-xl bg-pax-accent/10 flex items-center justify-center shrink-0">
-            <SvgIcon name="arrow-left" className="w-5 h-5 rotate-90" style={{ filter: 'brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(7388%) hue-rotate(222deg) brightness(98%) contrast(101%)' }} />
+        <div className="pax-banner-heading flex items-start gap-3">
+          <div className="w-11 h-11 rounded-xl bg-pax-accent-muted flex items-center justify-center shrink-0">
+            <SvgIcon name="arrow-left" className="w-5 h-5 rotate-90" />
           </div>
-          <div className="flex-1 min-w-0 pr-4">
+          <div className="flex-1 min-w-0 pr-12">
             <p className="text-sm font-semibold">Install Paxeer Wallet</p>
             <p className="text-xs text-pax-muted mt-0.5">
               {isIOS
@@ -42,14 +43,17 @@ export function InstallBanner() {
         {!isIOS ? (
           <button
             onClick={promptInstall}
-            className="mt-3 w-full py-2.5 rounded-xl bg-pax-accent text-black text-sm font-semibold press-scale transition-colors hover:bg-pax-accent/90"
+            className="mt-3 w-full py-2.5 rounded-xl bg-pax-accent text-pax-on-accent text-sm font-semibold press-scale transition-colors hover:bg-pax-accent"
           >
             Install App
           </button>
         ) : (
           <div className="mt-3 flex items-center gap-2 text-xs text-pax-muted">
-            <SvgIcon name="share" className="w-3.5 h-3.5" style={{ filter: 'brightness(0) invert(1)' }} />
-            <span>Tap <strong className="text-white">Share</strong> → <strong className="text-white">Add to Home Screen</strong></span>
+            <SvgIcon name="share" className="w-3.5 h-3.5" />
+            <span>
+              Tap <strong className="text-pax-light">Share</strong> →{' '}
+              <strong className="text-pax-light">Add to Home Screen</strong>
+            </span>
           </div>
         )}
       </div>
@@ -88,20 +92,21 @@ export function NotificationPrompt() {
   };
 
   return (
-    <div className="fixed top-[calc(env(safe-area-inset-top,0px)+60px)] left-3 right-3 z-50 animate-slide-down">
-      <div className="glass-card   p-4 shadow-2xl shadow-black/40">
+    <div className="pax-banner fixed top-[calc(var(--safe-area-top)+var(--space-16))] left-3 right-3 mx-auto max-w-md z-50 animate-slide-down">
+      <div className="glass-card   p-4 shadow-menu">
         <button
           onClick={dismissNotificationPrompt}
+          aria-label="Dismiss notification prompt"
           className="absolute top-3 right-3 p-1 text-pax-muted press-scale"
         >
-          <SvgIcon name="x" className="w-4 h-4" style={{ filter: 'brightness(0) invert(1)' }} />
+          <SvgIcon name="x" className="w-4 h-4" />
         </button>
 
-        <div className="flex items-start gap-3">
-          <div className="w-11 h-11 rounded-xl bg-yellow-500/10 flex items-center justify-center shrink-0">
-            <Bell className="w-5 h-5 text-yellow-400" />
+        <div className="pax-banner-heading flex items-start gap-3">
+          <div className="w-11 h-11 rounded-xl bg-pax-warning-muted flex items-center justify-center shrink-0">
+            <Bell className="w-5 h-5 text-pax-warning" />
           </div>
-          <div className="flex-1 min-w-0 pr-4">
+          <div className="flex-1 min-w-0 pr-12">
             <p className="text-sm font-semibold">Enable Notifications</p>
             <p className="text-xs text-pax-muted mt-0.5">
               Get alerts for transactions, price changes & more
@@ -112,21 +117,22 @@ export function NotificationPrompt() {
         <div className="flex gap-2 mt-3">
           <button
             onClick={dismissNotificationPrompt}
+            aria-label="Dismiss notification prompt"
             disabled={subscribing}
-            className="flex-1 py-2 rounded-xl bg-white/5 text-sm font-medium text-pax-muted press-scale"
+            className="flex-1 py-2 rounded-xl bg-pax-control text-sm font-medium text-pax-muted press-scale"
           >
             Not now
           </button>
           <button
             onClick={handleAllow}
             disabled={subscribing}
-            className="flex-1 py-2 rounded-xl bg-pax-accent text-black text-sm font-semibold press-scale disabled:opacity-60"
+            className="flex-1 py-2 rounded-xl bg-pax-accent text-pax-on-accent text-sm font-semibold press-scale disabled:opacity-60"
           >
             {subscribing ? 'Enabling…' : 'Enable'}
           </button>
         </div>
         {error && (
-          <p className="mt-3 rounded-xl   bg-pax-error/10 px-3 py-2 text-xs font-medium text-pax-error">
+          <p className="mt-3 rounded-xl   bg-pax-error-muted px-3 py-2 text-xs font-medium text-pax-error">
             {error}
           </p>
         )}
@@ -155,23 +161,24 @@ export function FloatingAppIcon() {
   };
 
   return (
-    <div className="fixed bottom-28 right-4 z-50">
+    <div className="pax-floating-install fixed bottom-28 right-4 z-50">
       {expanded && isIOS && (
-        <div className="mb-2 glass-card   p-3 rounded-xl text-xs text-pax-muted w-52 animate-fade-in shadow-xl shadow-black/40">
+        <div className="mb-2 glass-card   p-3 rounded-xl text-xs text-pax-muted w-52 animate-fade-in shadow-menu">
           <div className="flex items-center gap-2">
-            <SvgIcon name="share" className="w-3.5 h-3.5" style={{ filter: 'brightness(0) invert(1)' }} />
+            <SvgIcon name="share" className="w-3.5 h-3.5" />
             <span>
-              Tap <strong className="text-white">Share</strong> → <strong className="text-white">Add to Home Screen</strong>
+              Tap <strong className="text-pax-light">Share</strong> →{' '}
+              <strong className="text-pax-light">Add to Home Screen</strong>
             </span>
           </div>
         </div>
       )}
       <button
         onClick={handleClick}
-        className="w-12 h-12 rounded-full bg-pax-accent shadow-lg shadow-pax-accent/25 flex items-center justify-center press-scale animate-bounce-subtle"
+        className="w-12 h-12 rounded-full bg-pax-accent text-pax-on-accent shadow-card shadow-menu flex items-center justify-center press-scale animate-bounce-subtle"
         aria-label="Install App"
       >
-        <SvgIcon name="apps" className="w-5 h-5" style={{ filter: 'brightness(0)' }} />
+        <SvgIcon name="apps" className="w-5 h-5" />
       </button>
     </div>
   );
@@ -180,19 +187,14 @@ export function FloatingAppIcon() {
 // ── Notification Toggle (inline, for use in Settings) ───────────────────────
 
 export function NotificationToggle({ className = '' }: { className?: string }) {
-  const {
-    pushSupported,
-    notificationPermission,
-    isSubscribed,
-    subscribePush,
-    unsubscribePush,
-  } = usePWA();
+  const { pushSupported, notificationPermission, isSubscribed, subscribePush, unsubscribePush } =
+    usePWA();
   const [loading, setLoading] = useState(false);
 
   if (!pushSupported) {
     return (
       <div className={`flex items-center gap-2 text-xs text-pax-muted ${className}`}>
-        <BellOff className="w-3.5 h-3.5" />
+        <BellOff className="w-3.5 h-3.5 shrink-0" />
         <span>Push not supported in this browser</span>
       </div>
     );
@@ -200,8 +202,8 @@ export function NotificationToggle({ className = '' }: { className?: string }) {
 
   if (notificationPermission === 'denied') {
     return (
-      <div className={`flex items-center gap-2 text-xs text-red-400 ${className}`}>
-        <BellOff className="w-3.5 h-3.5" />
+      <div className={`flex items-center gap-2 text-xs text-pax-error ${className}`}>
+        <BellOff className="w-3.5 h-3.5 shrink-0" />
         <span>Notifications blocked — enable in browser settings</span>
       </div>
     );
@@ -224,7 +226,7 @@ export function NotificationToggle({ className = '' }: { className?: string }) {
     <button
       onClick={handleToggle}
       disabled={loading}
-      className={`flex items-center justify-between w-full py-3 px-4 rounded-xl bg-white/5 press-scale disabled:opacity-50 ${className}`}
+      className={`flex items-center justify-between w-full py-3 px-4 rounded-xl bg-pax-control press-scale disabled:opacity-50 ${className}`}
     >
       <div className="flex items-center gap-3">
         {isSubscribed ? (
@@ -238,11 +240,11 @@ export function NotificationToggle({ className = '' }: { className?: string }) {
       </div>
       <div
         className={`w-10 h-6 rounded-full relative transition-colors ${
-          isSubscribed ? 'bg-pax-accent' : 'bg-white/10'
+          isSubscribed ? 'bg-pax-accent' : 'bg-pax-control'
         }`}
       >
         <div
-          className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+          className={`absolute top-1 w-4 h-4 rounded-full bg-[var(--color-switch-thumb)] transition-transform ${
             isSubscribed ? 'left-5' : 'left-1'
           }`}
         />
@@ -260,10 +262,10 @@ export function UpdateBanner() {
   if (!updateAvailable) return null;
 
   return (
-    <div className="fixed top-[calc(env(safe-area-inset-top,0px)+60px)] left-3 right-3 z-50 animate-slide-down">
-      <div className="glass-card   p-4 shadow-2xl shadow-black/40">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-pax-accent/10 flex items-center justify-center shrink-0">
+    <div className="pax-banner fixed top-[calc(var(--safe-area-top)+var(--space-16))] left-3 right-3 mx-auto max-w-md z-50 animate-slide-down">
+      <div className="glass-card   p-4 shadow-menu">
+        <div className="pax-banner-heading flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-pax-accent-muted flex items-center justify-center shrink-0">
             <RefreshCw className="w-5 h-5 text-pax-accent" />
           </div>
           <div className="flex-1 min-w-0">
@@ -273,7 +275,7 @@ export function UpdateBanner() {
         </div>
         <button
           onClick={applyUpdate}
-          className="mt-3 w-full py-2.5 rounded-xl bg-pax-accent text-white text-sm font-semibold press-scale transition-colors hover:bg-pax-accent/90"
+          className="mt-3 w-full py-2.5 rounded-xl bg-pax-accent text-pax-on-accent text-sm font-semibold press-scale transition-colors hover:bg-pax-accent"
         >
           Refresh Now
         </button>
@@ -303,9 +305,9 @@ export function OfflineIndicator() {
   if (!offline) return null;
 
   return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+92px)] left-1/2 z-[80] -translate-x-1/2 animate-fade-in pointer-events-none">
-      <div className="flex items-center gap-2 px-4 py-2 rounded-full   bg-pax-warning text-black text-xs font-semibold shadow-2xl shadow-black/40">
-        <WifiOff className="w-3.5 h-3.5" />
+    <div className="pax-offline-status fixed bottom-[calc(var(--safe-area-bottom)+var(--space-24))] left-1/2 z-[80] -translate-x-1/2 animate-fade-in pointer-events-none">
+      <div className="flex items-center gap-2 px-4 py-2 rounded-full   bg-pax-warning-surface text-pax-warning text-xs font-semibold shadow-menu">
+        <WifiOff className="w-3.5 h-3.5 shrink-0" />
         <span>No connection</span>
       </div>
     </div>

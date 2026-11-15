@@ -243,24 +243,53 @@ checked-in service hostname does not establish a public network endpoint.
 | `LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS` | Probe cache lifetime, 1–300 seconds; default 15 |
 | `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | Optional product upstream bindings; catalogue presence alone is insufficient |
 | `LAYERX_GATEWAY_TRUSTED_PROXIES` | Trusted proxy CIDRs for client-address attribution |
+| `LAYERX_GATEWAY_IDENTITY_URL`, `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | Identity service HTTPS address and outbound token file |
+| `LAYERX_GATEWAY_TENANT` | Trusted registration/session tenant, 1–95 lowercase letters, digits, dots, underscores or hyphens |
+| `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12`, `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | Paired outbound client identity bundle and password file |
 | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | Self-service registration authorization |
 | `LAYERX_GATEWAY_FAUCET_URL`, `LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE`, `LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT` | Faucet integration and expected starter-credit amount |
 | `LAYERX_GATEWAY_IDEMPOTENCY_SECONDS` | Retention 3,600–2,592,000 seconds; default 604,800 |
 
 Optional kernel backend integration is selected by
-`LAYERX_GATEWAY_COMPONENT_URL`. Its group comprises component, authority,
-identity and program-registry URLs and their respective `*_TOKEN_FILE`
-variables, `LAYERX_GATEWAY_PUBLIC_CORE_URL`,
-`LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12`,
-`LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE`,
-`LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` and
-`LAYERX_GATEWAY_MODULE_REGISTRY_FILE`. Setting members of this group without
-the component URL is a startup error. These are hosted backend configuration
-names retained in the implementation, not a second network topology.
+`LAYERX_GATEWAY_COMPONENT_URL`. Its required group comprises component,
+authority and program-registry URLs and their respective `*_TOKEN_FILE`
+variables, `LAYERX_GATEWAY_PUBLIC_CORE_URL`, a client identity and
+`LAYERX_GATEWAY_MODULE_REGISTRY_FILE`. Identity configuration can also be used
+independently for registration and sessions; the optional
+`LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` requires the identity URL.
+These are hosted backend configuration names retained in the implementation.
 
-Without that group, outbound service mTLS may use the paired
+Outbound service mTLS may alternatively use the paired
 `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12` and
-`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables.
+`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables. The two
+client-identity pairs cannot be configured together.
+
+### Native deployment identity inputs
+
+The [platform gateway definition](../../deploy/projects/platform/gateway.kvx)
+sets `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` and `LAYERX_ROLE=identity`.
+It reads `LAYERX_GATEWAY_IDENTITY_URL` from the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL`, an absolute HTTPS identity
+service address, and `LAYERX_GATEWAY_TENANT` from the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT` with the tenant format above.
+
+The [native file table](../../docker/platform-gateway/native-files.tsv) selects
+four additional rows for this role, each with mode `0600`. The project reads
+each file input from a launch input named `PLATFORM_GATEWAY_` followed by the
+file input name. The image stages the files for the gateway's runtime user.
+
+| File input | Destination | Gateway variable | Input category and format |
+| --- | --- | --- | --- |
+| `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of token text issued by the identity service |
+| `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by identity |
+| `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 bundle written by the launcher |
+| `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client password written by the launcher |
+
+The role selects eight rows including the four `*` rows for outbound CA,
+Redis username, Redis password and receipt keys. A native start without the
+role and identity settings selects only those four chain files and serves
+the chain methods; `px_register` and `px_openSession` answer
+`registration_not_configured`.
 
 `capabilities::chain_rpc` sends upstream node calls to the root path: a
 bare node origin gets the base path `/`.

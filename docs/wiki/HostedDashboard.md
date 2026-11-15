@@ -9,7 +9,7 @@ receipt-backed test payments
 `@layerx/developer-dashboard` provides the browser UI; its Fly configuration
 is checked in separately.
 
-It does not accept writes. Every path except `GET /healthz` requires a
+The dashboard API serves reads. Every API path except `GET /healthz` requires a
 developer session. Protocol facts that the dashboard renders carry the
 verification level the human plane displays; settlement is claimed only
 where a verified LayerX receipt stands behind the fact
@@ -71,8 +71,44 @@ connections are live. The `tls` listener uses
 Every `/v1/dashboard/*` route calls the same developer identity
 introspector as webhooks: `Authorization: Bearer` or cookie
 `__Host-layerx-session` (`services/platform/hosted/dashboard/src/main.rs`).
-Failed authentication is `401 session_required`. Mutating cookie
-requests are not served; the dashboard is GET-only.
+Failed authentication is `401 session_required`. The dashboard API is GET-only.
+
+The browser UI presents sign-in after a 401. A developer creates and keeps a
+non-exportable Ed25519 private key in this browser's IndexedDB, uses the key
+already held here, or enters a session token. The public key has a copy control.
+When key sign-in is configured, one primary action creates and uses a key when
+none is held, or signs in with the held key. A browser without Ed25519 offers
+the token path. Without the runtime tenant or gateway origin, the view says that
+key sign-in is not configured while the session token path remains available.
+
+On the browser UI host, `POST /session/registration` forwards a registration
+proof to `px_register`. `POST /session` forwards a fresh key proof to
+`px_openSession`, or checks a supplied token against the dashboard API overview
+with Bearer authorization. The gateway origin comes from the server runtime
+variable `DASHBOARD_GATEWAY_ORIGIN`. The tenant comes from the server runtime
+variable `DASHBOARD_GATEWAY_TENANT` and must contain 1 to 95 lower case letters,
+digits, dots, underscores or hyphens. The tenant is read for each request, so it
+is not compiled into the build. Registration bindings and session digests include
+that runtime tenant. Invalid or absent tenant values are treated as unset. The API origin matches the build-time `DASHBOARD_API_ORIGIN` rewrite.
+Without the gateway origin or a valid tenant, key registration and proof sign-in
+return 503 with `sign_in_not_configured`; token sign-in remains available. The
+page explains this refusal.
+
+A successful sign-in returns 204 and sets `__Host-layerx-session` with `Secure`,
+`HttpOnly`, `SameSite=Strict`, `Path=/` and no Domain. Its `Max-Age` ends at the
+proof session's `expires_at`, or twelve hours after a token is accepted.
+`DELETE /session` returns 204 and clears the cookie with the same attributes
+and `Max-Age=0`. The shell's sign-out control returns to sign-in.
+
+These web routes require an Origin matching either the parsed HTTPS origin of
+the Host header, including its port, or the origin of the request URL for direct
+access. An absent, multi-value or malformed Host header supplies no HTTPS origin.
+Missing or non-matching Origins return 403 with `origin_refused` before the body
+is read.
+
+Requests require `Content-Type: application/json` with a body bound of 8192 bytes;
+upstream calls have a five-second time limit. Response bodies and error text
+contain no session token.
 
 ---
 

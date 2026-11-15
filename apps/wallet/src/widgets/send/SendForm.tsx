@@ -13,9 +13,6 @@ import { TokenIcon } from './TokenIcon';
 import type { SendableToken } from './useSendableTokens';
 import type { Contact } from '@/lib/contacts';
 
-const ACCENT_FILTER =
-  'brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(7388%) hue-rotate(222deg) brightness(98%) contrast(101%)';
-
 export interface SendFormProps {
   selectedToken: SendableToken | null;
   to: string;
@@ -51,27 +48,25 @@ export function SendForm({
       <div>
         <label className="text-xs text-pax-muted mb-1.5 block">Token</label>
         <button
+          type="button"
           onClick={onOpenTokenSelector}
-          className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/5 press-scale transition-colors hover:bg-white/8"
+          aria-haspopup="dialog"
+          className="min-h-[var(--touch-target)] w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-pax-control press-scale transition-colors hover:bg-pax-overlay focus-visible:ring-2 focus-visible:ring-pax-accent"
         >
           {selectedToken ? (
             <>
               <TokenIcon token={selectedToken} />
               <div className="flex-1 text-left min-w-0">
                 <p className="text-sm font-medium">{selectedToken.symbol}</p>
-                <p className="text-[11px] text-pax-muted truncate">{selectedToken.name}</p>
+                <p className="text-xs text-pax-muted truncate">{selectedToken.name}</p>
               </div>
               <div className="text-right mr-1">
                 <p className="text-xs text-pax-muted">{selectedToken.balance}</p>
               </div>
-              <SvgIcon
-                name="chevron-down"
-                className="w-4 h-4"
-                style={{ filter: 'brightness(0) invert(0.6)' }}
-              />
+              <SvgIcon name="chevron-down" className="w-4 h-4" />
             </>
           ) : (
-            <span className="text-sm text-white/20">Select token...</span>
+            <span className="text-sm text-pax-muted">Select token...</span>
           )}
         </button>
       </div>
@@ -79,51 +74,63 @@ export function SendForm({
       {/* Recipient */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs text-pax-muted">Recipient Address</label>
+          <label htmlFor="send-recipient" className="text-xs text-pax-muted">
+            Recipient Address
+          </label>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onOpenScanner}
-              className="flex items-center gap-1 text-[11px] text-pax-accent press-scale"
+              className="min-h-[var(--touch-target)] flex items-center gap-1 text-xs text-pax-accent press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
             >
               <ScanLine className="w-3 h-3" />
               Scan QR
             </button>
             {hasContacts && (
               <button
+                type="button"
                 onClick={onOpenContactPicker}
-                className="flex items-center gap-1 text-[11px] text-pax-accent press-scale"
+                className="min-h-[var(--touch-target)] flex items-center gap-1 text-xs text-pax-accent press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
               >
-                <SvgIcon name="user" className="w-3 h-3" style={{ filter: ACCENT_FILTER }} />
+                <SvgIcon name="user" className="w-3 h-3" />
                 Contacts
               </button>
             )}
           </div>
         </div>
         <input
+          id="send-recipient"
           type="text"
+          name="recipient"
+          autoComplete="off"
+          aria-label="Recipient address"
           value={to}
           onChange={(e) => onChangeTo(e.target.value)}
           placeholder="0x..."
-          className="w-full px-4 py-3.5 rounded-xl bg-white/5   text-sm outline-none  transition-colors placeholder:text-white/20"
+          className="w-full px-4 py-3 rounded-xl bg-pax-control   text-sm outline-none  transition-colors placeholder:text-pax-muted"
         />
         {resolvedContact && (
-          <p className="text-[11px] text-pax-accent mt-1 px-1">
-            Sending to: {resolvedContact.name}
-          </p>
+          <p className="text-xs text-pax-accent mt-1 px-1">Sending to: {resolvedContact.name}</p>
         )}
       </div>
 
       {/* Amount */}
       <div>
-        <label className="text-xs text-pax-muted mb-1.5 block">Amount</label>
+        <label htmlFor="send-amount" className="text-xs text-pax-muted mb-1.5 block">
+          Amount
+        </label>
         <div className="relative">
           <input
+            id="send-amount"
             type="text"
+            name="amount"
             inputMode="decimal"
+            autoComplete="off"
+            aria-label="Amount"
             value={amount}
             onChange={(e) => onChangeAmount(e.target.value)}
             placeholder="0.00"
-            className="w-full px-4 py-3.5 pr-16 rounded-xl bg-white/5   text-sm outline-none  transition-colors placeholder:text-white/20"
+            className="w-full px-4 py-3 pr-16 rounded-xl bg-pax-control   text-sm outline-none  transition-colors placeholder:text-pax-muted"
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-pax-muted font-medium">
             {selectedToken?.symbol || 'PAX'}
@@ -132,9 +139,10 @@ export function SendForm({
         <div className="flex gap-2 mt-2">
           {PERCENTAGES.map((pct) => (
             <button
+              type="button"
               key={pct}
               onClick={() => onApplyPercentage(pct)}
-              className="flex-1 py-1.5 rounded-lg bg-white/5 text-[11px] font-medium text-pax-muted hover:bg-white/10 hover:text-white transition-all press-scale"
+              className="min-h-[var(--touch-target)] flex-1 py-1.5 rounded-lg bg-pax-control text-xs font-medium text-pax-muted hover:bg-pax-overlay hover:text-pax-light transition-all press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
             >
               {pct === 100 ? 'MAX' : `${pct}%`}
             </button>

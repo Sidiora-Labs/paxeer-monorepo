@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { X, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import type { ToasterToast } from './use-toast';
+import { motionDurations, springMotion } from '@/theme/motion';
 
 interface ToastItemProps {
   toast: ToasterToast;
@@ -11,9 +12,9 @@ interface ToastItemProps {
 }
 
 const VARIANT_STYLES: Record<NonNullable<ToasterToast['variant']>, string> = {
-  default: 'bg-[var(--color-surface-overlay)]',
-  success: 'bg-emerald-950',
-  destructive: 'bg-red-950',
+  default: 'bg-pax-overlay',
+  success: 'bg-pax-success-surface',
+  destructive: 'bg-pax-error-surface',
 };
 
 const VARIANT_ICON = {
@@ -35,27 +36,28 @@ export function ToastItem({ toast, onClose }: ToastItemProps) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: -12, scale: 0.96 }}
+      initial={{ opacity: 0, y: 'calc(-1 * var(--space-3))', scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 24, scale: 0.96, transition: { duration: 0.18 } }}
-      transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+      exit={{
+        opacity: 0,
+        x: 'var(--space-6)',
+        scale: 0.96,
+        transition: { duration: motionDurations.fast },
+      }}
+      transition={springMotion}
       className={cn(
-        'pointer-events-auto flex items-start gap-2.5 rounded-2xl px-3.5 py-3 shadow-2xl backdrop-blur-sm',
-        VARIANT_STYLES[variant],
+        'pax-toast pointer-events-auto flex items-start gap-2.5 rounded-2xl px-3.5 py-3 shadow-menu backdrop-blur-sm',
+        VARIANT_STYLES[variant]
       )}
       role={variant === 'destructive' ? 'alert' : 'status'}
     >
       <Icon className={cn('mt-0.5 w-4 h-4 shrink-0', VARIANT_ICON_CLASS[variant])} />
       <div className="flex-1 min-w-0 space-y-0.5">
         {toast.title && (
-          <div className="text-[13px] font-semibold leading-tight text-white">
-            {toast.title}
-          </div>
+          <div className="text-sm font-semibold leading-tight text-pax-light">{toast.title}</div>
         )}
         {toast.description && (
-          <div className="text-[11px] leading-snug text-pax-muted break-words">
-            {toast.description}
-          </div>
+          <div className="text-xs leading-snug text-pax-muted break-words">{toast.description}</div>
         )}
         {toast.action && <div className="pt-1">{toast.action}</div>}
       </div>
@@ -63,7 +65,7 @@ export function ToastItem({ toast, onClose }: ToastItemProps) {
         type="button"
         onClick={onClose}
         aria-label="Dismiss notification"
-        className="p-1 -mr-1 rounded-md text-pax-muted hover:text-white hover:bg-white/[0.06] transition-colors press-scale"
+        className="p-1 -mr-1 rounded-md text-pax-muted hover:text-pax-light hover:bg-pax-control transition-colors press-scale"
       >
         <X className="w-3.5 h-3.5" />
       </button>

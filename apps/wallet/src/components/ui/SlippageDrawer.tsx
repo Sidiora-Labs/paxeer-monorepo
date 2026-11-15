@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ModalPanel } from './primitives';
+import { motionDurations } from '@/theme/motion';
 import { AlertTriangle, Settings2 } from 'lucide-react';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import {
@@ -74,50 +76,42 @@ export function SlippageDrawer({ open, onClose, slippageBps, onChange }: Slippag
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            transition={{ duration: motionDurations.normal }}
+            className="absolute inset-0 bg-pax-scrim backdrop-blur-sm"
             onClick={onClose}
           />
 
           {/* Sheet */}
-          <motion.div
-            key="slippage-sheet"
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-            className="relative w-full max-w-md bg-pax-card rounded-t-3xl p-5"
-            style={{
-              paddingBottom: 'max(5.5rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))',
-            }}
+          <ModalPanel
+            onDismiss={onClose}
+            aria-label="Swap Settings"
+            className="relative w-full max-w-md bg-pax-card rounded-t-3xl p-5 safe-area-pb"
           >
-            <div className="w-10 h-1 rounded-full bg-white/10 absolute top-2.5 left-1/2 -translate-x-1/2" />
-
             {/* Header */}
             <div className="flex items-center justify-between mb-5 pt-2">
               <div className="flex items-center gap-2">
                 <Settings2 className="w-4 h-4 text-pax-muted" />
                 <h3 className="text-base font-bold">Swap Settings</h3>
               </div>
-              <button onClick={onClose} className="p-1.5 rounded-full bg-white/5 press-scale">
-                <SvgIcon
-                  name="x"
-                  className="w-4 h-4"
-                  style={{ filter: 'brightness(0) invert(0.6)' }}
-                />
+              <button
+                aria-label="Close swap settings"
+                onClick={onClose}
+                className="p-1.5 rounded-full bg-pax-control press-scale"
+              >
+                <SvgIcon name="x" className="w-4 h-4" />
               </button>
             </div>
 
             {/* Slippage section */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium">Slippage Tolerance</p>
                 <span
                   className={`text-sm font-semibold ${
                     riskLevel === 'high'
-                      ? 'text-red-400'
+                      ? 'text-pax-error'
                       : riskLevel === 'low'
-                        ? 'text-amber-400'
+                        ? 'text-pax-warning'
                         : 'text-pax-accent'
                   }`}
                 >
@@ -126,15 +120,15 @@ export function SlippageDrawer({ open, onClose, slippageBps, onChange }: Slippag
               </div>
 
               {/* Preset buttons */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--space-16)),1fr))] gap-2">
                 {PRESET_BPS.map((bps) => (
                   <button
                     key={bps}
                     onClick={() => handlePreset(bps)}
                     className={`py-2.5 rounded-xl text-xs font-semibold transition-all press-scale ${
                       slippageBps === bps && !isCustom
-                        ? 'bg-pax-accent/15 text-pax-accent'
-                        : 'bg-white/[0.06] text-pax-muted hover:bg-white/10'
+                        ? 'bg-pax-accent-muted text-pax-accent'
+                        : 'bg-pax-control text-pax-muted hover:bg-pax-control'
                     }`}
                   >
                     {bps / 100}%
@@ -153,8 +147,8 @@ export function SlippageDrawer({ open, onClose, slippageBps, onChange }: Slippag
                   aria-invalid={inputError !== null}
                   aria-describedby={inputError ? 'slippage-input-error' : undefined}
                   placeholder="Custom %"
-                  className={`w-full px-3 py-2.5 rounded-xl bg-white/[0.06]  text-sm outline-none transition-colors placeholder:text-white/20 ${
-                    isCustom ? ' text-white' : ' text-pax-muted '
+                  className={`w-full px-3 py-2.5 rounded-xl bg-pax-control  text-sm outline-none transition-colors placeholder:text-pax-mid ${
+                    isCustom ? ' text-pax-light' : ' text-pax-muted '
                   }`}
                 />
                 {customRaw && (
@@ -164,25 +158,25 @@ export function SlippageDrawer({ open, onClose, slippageBps, onChange }: Slippag
                 )}
               </div>
               {inputError && (
-                <p id="slippage-input-error" role="alert" className="text-xs text-red-400">
+                <p id="slippage-input-error" role="alert" className="text-xs text-pax-error">
                   {inputError}
                 </p>
               )}
 
               {/* Warnings */}
               {riskLevel === 'high' && (
-                <div className="flex items-start gap-2 rounded-xl bg-red-500/8   px-3 py-2.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
-                  <p className="text-[11px] text-red-300/80 leading-relaxed">
+                <div className="flex items-start gap-2 rounded-xl bg-pax-error-muted   px-3 py-2.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-pax-error mt-0.5 shrink-0" />
+                  <p className="text-xs text-pax-error leading-relaxed">
                     High slippage ({slippageBps / 100}%) may result in unfavorable swap rates or
                     front-running.
                   </p>
                 </div>
               )}
               {riskLevel === 'low' && (
-                <div className="flex items-start gap-2 rounded-xl bg-amber-500/8   px-3 py-2.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
-                  <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                <div className="flex items-start gap-2 rounded-xl bg-pax-warning-muted   px-3 py-2.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-pax-warning mt-0.5 shrink-0" />
+                  <p className="text-xs text-pax-warning leading-relaxed">
                     Very low slippage may cause your transaction to fail if the price moves
                     slightly.
                   </p>
@@ -193,11 +187,11 @@ export function SlippageDrawer({ open, onClose, slippageBps, onChange }: Slippag
             <button
               onClick={onClose}
               disabled={inputError !== null}
-              className="w-full mt-5 py-3.5 rounded-2xl bg-pax-accent text-black font-semibold text-sm press-scale disabled:opacity-40"
+              className="w-full mt-5 py-3.5 rounded-2xl bg-pax-accent text-pax-on-accent font-semibold text-sm press-scale disabled:opacity-40"
             >
               Done
             </button>
-          </motion.div>
+          </ModalPanel>
         </div>
       )}
     </AnimatePresence>

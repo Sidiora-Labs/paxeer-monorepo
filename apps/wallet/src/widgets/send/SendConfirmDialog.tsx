@@ -58,9 +58,7 @@ export function SendConfirmDialog({
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-pax-muted">Recipient</span>
-          <span className="text-[11px] font-mono text-pax-muted truncate max-w-[180px]">
-            {to}
-          </span>
+          <span className="text-xs font-mono text-pax-muted truncate max-w-[180px]">{to}</span>
         </div>
       </div>
     </ConfirmDrawer>

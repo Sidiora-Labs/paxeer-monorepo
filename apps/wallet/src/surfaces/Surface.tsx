@@ -87,10 +87,7 @@ export function SentResult({ state }: { state: ModuleSend }) {
         </p>
       )}
       {state.sent && (
-        <div
-          data-role="sent"
-          className="space-y-2 rounded-2xl bg-[var(--color-surface-raised)] p-4 text-xs"
-        >
+        <div data-role="sent" className="space-y-2 rounded-2xl bg-pax-surface p-4 text-xs">
           <p className="break-all text-pax-light">
             <span data-role="hash">{state.sent.hash}</span> ·{' '}
             <span data-role="status">{state.sent.status}</span> ·{' '}
@@ -101,7 +98,7 @@ export function SentResult({ state }: { state: ModuleSend }) {
               <li
                 key={`${event.event}-${index}`}
                 data-event={event.event}
-                className="rounded-xl bg-[var(--color-surface-card)] p-2"
+                className="rounded-xl bg-pax-card p-2"
               >
                 <p className="font-semibold text-pax-light">{event.event}</p>
                 <dl>
