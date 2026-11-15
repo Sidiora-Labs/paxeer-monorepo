@@ -1,4 +1,5 @@
 *
+!docker/explorer-sig-provider
 !services/explorer/services/sig-provider
 services/explorer/services/sig-provider/target
 services/explorer/services/sig-provider/README.md
