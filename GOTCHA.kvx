@@ -22415,3 +22415,13 @@ fix = "Decision 3599. Task 22.39.681."
 title = "Behind a front the request address of a server is not the address the browser used"
 symptom = "A web server that runs behind a front which ends TLS builds the address of a request from its own listening address and port. The browser addressed the public name, and the Origin it sends names that public name. A rule that compares the Origin with the origin of the request address therefore refuses every browser behind such a front, while a direct request to the listening address passes. The name the browser addressed reaches the server in the host header of the request."
 fix = "Decision 3601. Task 22.39.684."
+
+[gotcha.4519]
+title = "A run of the builder with no path reaches every app of the explorer backend"
+symptom = "The form services/explorer/deploy/tools/mix-in-builder.sh test with no path runs the suites of all apps under services/explorer/backend/apps one after the other: utils, ethereum_jsonrpc, explorer, indexer, block_scout_web and nft_media_handler. A task whose paths are the apps explorer and ethereum_jsonrpc cannot bring the cases of the other apps to pass within its paths. The script takes paths under apps and then runs only the apps the paths name."
+fix = "Decision 3602. Tasks 22.39.685 to 22.39.688; the verification of task 22.39.634."
+
+[gotcha.4520]
+title = "Cases of the explorer theme pin token values and read the presets of the product"
+symptom = "The cases under apps/explorer/toolkit/theme/foundations state the values of the colour, radius and shadow tokens and the routes of the semantic tokens, and they read the presets apps/explorer/configs/envs/paxeer-x.env and apps/explorer/configs/envs/paxeer-x-dev.env, which declare each colour the theme declares. A task that changes the form of the tokens changes these cases and the presets with it. The case apps/explorer/toolkit/components/forms/fields/colorAndRadioFields.spec.ts imports a package for the intersection observer that the package file of the explorer does not declare."
+fix = "Decision 3603. Task 22.44.1 holds the presets in its paths."
