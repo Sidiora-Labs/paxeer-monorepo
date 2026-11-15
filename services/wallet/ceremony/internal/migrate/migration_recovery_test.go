@@ -686,7 +686,7 @@ func (c *migrationRecoveryConn) row(w *migrationRecoveryWallet) []driver.Value {
 	if _, ok := c.updates[w.ID]; ok {
 		migrated = true
 	}
-	return []driver.Value{w.ID, w.UserID, w.Address, w.EncryptedPrivateKey, int64(w.KeyVersion), w.ChainID, w.Kind, w.Kind == "funded" || w.fundedAccount, migrated, w.DID, w.MainAccountID, w.OriginalIdentityKeyID}
+	return []driver.Value{w.ID, w.UserID, w.Address, w.EncryptedPrivateKey, int64(w.KeyVersion), w.ChainID, w.Kind, w.Kind == "funded" || w.fundedAccount, migrated, w.DID, w.MainAccountID, w.OriginalIdentityKeyID, w.ProvisioningState}
 }
 func (c *migrationRecoveryConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	c.data.mu.Lock()
@@ -705,7 +705,7 @@ func (c *migrationRecoveryConn) QueryContext(_ context.Context, query string, ar
 			c.data.locks[key] = true
 		}
 		return migrationRecoveryResult([]driver.Value{free}), nil
-	case strings.Contains(query, "from wallets w order by"):
+	case strings.Contains(query, "from wallets w") && strings.Contains(query, "order by"):
 		var rows [][]driver.Value
 		for _, w := range c.data.wallets {
 			rows = append(rows, c.row(w))
@@ -728,7 +728,7 @@ func (c *migrationRecoveryConn) QueryContext(_ context.Context, query string, ar
 	case strings.Contains(query, "from wallets w where id="):
 		for _, w := range c.data.wallets {
 			if w.ID == args[0].Value {
-				return migrationRecoveryResult(c.row(w)), nil
+				return migrationRecoveryResult([]driver.Value{w.ID, w.UserID, w.Address, w.EncryptedPrivateKey, int64(w.KeyVersion), w.ChainID, w.Kind, w.Kind == "funded" || w.fundedAccount, w.Migrated, w.DID, w.MainAccountID, w.OriginalIdentityKeyID}), nil
 			}
 		}
 		return migrationRecoveryResult(), nil
@@ -1059,7 +1059,7 @@ func newMigrationRecoveryFixture(t *testing.T, kinds ...string) *migrationRecove
 		}
 		identity := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{byte(i + 1)}, 32))
 		pub := hex.EncodeToString(identity.Public().(ed25519.PublicKey))
-		w := &migrationRecoveryWallet{Wallet: Wallet{ID: fmt.Sprintf("00000000-0000-0000-0000-%012d", i+1), UserID: fmt.Sprintf("10000000-0000-0000-0000-%012d", i+1), Address: crypto.PubkeyToAddress(secp.PublicKey).Hex(), KeyVersion: 1, ChainID: 125, Kind: kind, DID: "did:layerx:" + pub}, secp: secp, identity: identity}
+		w := &migrationRecoveryWallet{Wallet: Wallet{ID: fmt.Sprintf("00000000-0000-0000-0000-%012d", i+1), UserID: fmt.Sprintf("10000000-0000-0000-0000-%012d", i+1), Address: crypto.PubkeyToAddress(secp.PublicKey).Hex(), KeyVersion: 1, ChainID: 125, Kind: kind, DID: "did:layerx:" + pub, ProvisioningState: "active"}, secp: secp, identity: identity}
 		name := []byte("agent:" + w.DID + ":main")
 		hash := sha256.Sum256(append(append([]byte("LX:ACCOUNT:v1"), binary.BigEndian.AppendUint32(nil, uint32(len(name)))...), name...))
 		w.MainAccountID = hex.EncodeToString(hash[:])
@@ -1546,7 +1546,7 @@ func TestMigrationPlanAndDelivery(t *testing.T) {
 	t.Run("completion-and-original-identity", migrationRecoveryTestCompleteDelivery)
 	t.Run("signature-mismatch-stops-run", migrationRecoveryTestSignatureMismatch)
 	t.Run("envelope-mismatch", migrationRecoveryTestEnvelopeMismatch)
-	t.Run("external-identity-refused", migrationRecoveryTestExternalIdentity)
+	t.Run("external-identity-counted", migrationRecoveryTestExternalIdentity)
 	t.Run("mandatory-rehearsal-and-journal", migrationRecoveryTestRehearsal)
 }
 
@@ -1565,7 +1565,7 @@ func migrationRecoveryTestPlan(t *testing.T) {
 		}
 	}
 	plan := f.plan(t)
-	if plan.Total != 5 || plan.AlreadyMigrated != 1 || len(plan.Funded) != 2 || len(plan.Eligible) != 2 {
+	if plan.Total != 5 || plan.AlreadyMigrated != 1 || len(plan.Funded) != 2 || len(plan.Eligible) != 2 || len(plan.Deliverable) != 1 || len(plan.ExternalIdentity) != 1 {
 		t.Fatalf("plan %+v", plan)
 	}
 	eligible := map[string]bool{}
@@ -1574,6 +1574,9 @@ func migrationRecoveryTestPlan(t *testing.T) {
 	}
 	if !eligible[f.data.wallets[0].ID] || !eligible[f.data.wallets[1].ID] {
 		t.Fatal("standard and agent wallets are not the eligible set")
+	}
+	if plan.Deliverable[0].ID != f.data.wallets[0].ID || plan.ExternalIdentity[0].ID != f.data.wallets[1].ID {
+		t.Fatal("identity state sets are not ordered")
 	}
 	funded := map[string]bool{}
 	for _, w := range plan.Funded {
@@ -1709,8 +1712,8 @@ func migrationRecoveryTestExternalIdentity(t *testing.T) {
 	options := f.options
 	options.Rehearsal = true
 	report, err := Deliver(context.Background(), f.db, client, f.master, plan, options)
-	if !errors.Is(err, ErrExternalIdentity) || report.Imported != 0 || report.Matched != 0 || f.data.wallets[0].Migrated {
-		t.Fatalf("external custody accepted: %+v %v", report, err)
+	if err != nil || report.ExternalIdentity != 1 || report.Read != 0 || report.Imported != 0 || report.Matched != 0 || f.data.wallets[0].Migrated {
+		t.Fatalf("external custody was delivered: %+v %v", report, err)
 	}
 	for i := range f.peers.ids() {
 		if len(f.peers.states[i]) != 0 {
@@ -1740,6 +1743,8 @@ func migrationRecoveryTestRehearsal(t *testing.T) {
 	changed := *plan
 	changed.Eligible = append([]Wallet(nil), plan.Eligible...)
 	changed.Eligible[0].DID = "did:layerx:" + strings.Repeat("00", 32)
+	changed.Deliverable = append([]Wallet(nil), plan.Deliverable...)
+	changed.Deliverable[0].DID = changed.Eligible[0].DID
 	if _, err := Deliver(context.Background(), f.db, client, f.master, &changed, f.options); !errors.Is(err, ErrRehearsal) {
 		t.Fatalf("changed identity rehearsal accepted: %v", err)
 	}
