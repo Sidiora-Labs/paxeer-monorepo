@@ -173697,7 +173697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.694]
 title = "Let a developer issue, rotate and revoke keys in the dashboard web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174877,7 +174877,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.22]
 title = "Close the launchpad: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.20", "22.44.21"]
