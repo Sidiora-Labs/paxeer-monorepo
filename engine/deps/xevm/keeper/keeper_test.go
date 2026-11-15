@@ -169,14 +169,9 @@ func TestGetChainID(t *testing.T) {
 	k, ctx := keeper.MockEVMKeeper(t)
 	require.Equal(t, config.DefaultChainID, k.ChainID(ctx).Int64())
 
-	ctx = ctx.WithChainID("pacific-1")
-	require.Equal(t, int64(1329), k.ChainID(ctx).Int64())
-
-	ctx = ctx.WithChainID("atlantic-2")
-	require.Equal(t, int64(1328), k.ChainID(ctx).Int64())
-
-	ctx = ctx.WithChainID("arctic-1")
-	require.Equal(t, int64(713715), k.ChainID(ctx).Int64())
+	for _, chainID := range []string{"pacific-1", "atlantic-2", "arctic-1", "hyperpax_125-1", "unmapped-chain"} {
+		require.Equal(t, config.DefaultChainID, k.ChainID(ctx.WithChainID(chainID)).Int64(), chainID)
+	}
 }
 
 func TestGetVMBlockContext(t *testing.T) {

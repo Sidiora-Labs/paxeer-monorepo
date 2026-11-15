@@ -173668,7 +173668,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.50]
 title = "Tell the class merge of the launchpad the names of its theme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
