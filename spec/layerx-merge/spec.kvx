@@ -378048,7 +378048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.618]
 title = "Let the perps project tool name itself in its requests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378078,7 +378078,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.616]
 title = "Let the project tool speak the forms of the hosting platform for a repo row"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610"]
@@ -378463,7 +378463,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.599]
 title = "Define the service mirror of the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378847,7 +378847,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.587]
 title = "Define the service agent-boundary of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
