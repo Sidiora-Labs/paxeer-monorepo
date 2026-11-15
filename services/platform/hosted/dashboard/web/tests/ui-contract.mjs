@@ -17,3 +17,17 @@ assert.ok(sourceMatch, "dashboard styles must name the UI source");
 const uiSourcePath = resolve(dirname(globalsPath), sourceMatch[1]);
 assert.equal((await stat(uiSourcePath)).isDirectory(), true, "dashboard UI source must resolve to a directory");
 assert.equal((await stat(resolve(uiSourcePath, "components/app-shell.tsx"))).isFile(), true, "dashboard UI source must include app-shell.tsx");
+
+for (const control of [
+  "Create a developer key in this browser and sign in",
+  "Sign in with the key this browser holds",
+  "Sign in with a session token",
+  "Sign out",
+  "Copy public key",
+]) {
+  assert.ok(source.includes(control), `dashboard session control is present: ${control}`);
+}
+assert.match(source, /needsSession \? <SignInView/, "a refused read presents the sign-in view");
+assert.match(source, /notificationControl=\{signOutControl\}/, "the shell presents sign-out on desktop and mobile");
+assert.match(source, /sessionRequest\("\/session", \{\}, "DELETE"\)/, "sign-out removes the host session cookie");
+assert.match(source, /does not support Ed25519/, "the token path explains browser key support");
