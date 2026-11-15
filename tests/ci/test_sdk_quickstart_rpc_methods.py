@@ -1,5 +1,6 @@
 """Keep the shipped SDK quickstarts on the supported RPC surface."""
 
+import json
 import re
 from pathlib import Path
 
@@ -38,3 +39,36 @@ def test_quickstarts_name_px_request_funds_for_faucet(page):
         assert re.search(r"\bpx_requestFunds\b", body), (
             f"{page}: {heading} must name the hosted px_requestFunds operation"
         )
+
+
+def test_hosted_gateway_rpc_methods_match_contract():
+    document = json.loads(
+        (ROOT / "services/platform/hosted/gateway/openrpc.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    names = {
+        method["name"]
+        for method in document["methods"]
+        if not method["name"].startswith("px_getInference")
+    }
+    assert names == {
+        "pax_sequencerReceipt",
+        "px_getAccount",
+        "px_getBalances",
+        "px_getCapabilities",
+        "px_getCommit",
+        "px_getHistory",
+        "px_getNetwork",
+        "px_getReceiptKeys",
+        "px_getRouteCatalogue",
+        "px_getSequenceBatch",
+        "px_getUnifiedHistory",
+        "px_getValidators",
+        "px_listAssets",
+        "px_listHolderRecords",
+        "px_openSession",
+        "px_register",
+        "px_requestFunds",
+        "px_resolveAccount",
+    }
