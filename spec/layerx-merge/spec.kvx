@@ -173763,7 +173763,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.52]
 title = "Let the render check measure what a person can see and take the declared answers of a state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
