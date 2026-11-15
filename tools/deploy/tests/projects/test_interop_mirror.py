@@ -78,7 +78,7 @@ def test_mirror_manifest_describes_the_publisher_container() -> None:
     sections = parse_kvx(PROJECT)
     service = sections["service.mirror"]
     assert service["kind"] == '"repo"'
-    assert service["container"] == '"docker/interop-mirror/Dockerfile"'
+    assert service["dockerfile"] == '"docker/interop-mirror/Dockerfile"'
     assert service["root"] == '"."'
     assert service["health"] == '"/readyz"'
     assert service["restart"] == '"ALWAYS"'
@@ -90,7 +90,7 @@ def test_mirror_manifest_describes_the_publisher_container() -> None:
     assert path_is_watched("docker/interop-mirror/Dockerfile", patterns)
     assert path_is_watched("docker/common/env-files.sh", patterns)
     assert path_is_watched("services/interop/Cargo.toml", patterns)
-    assert (ROOT / service["container"].strip('"')).is_file()
+    assert (ROOT / service["dockerfile"].strip('"')).is_file()
     assert (ROOT / "docker/common/env-files.sh").is_file()
 
     dockerfile = (CONTAINER / "Dockerfile").read_text()
@@ -109,7 +109,11 @@ def test_mirror_manifest_tracks_every_container_input() -> None:
     names = source_variables()
     assert names
     assert all(name.startswith(expected_prefix) for name in names)
-    assert names == set(variables) == set(inputs)
+    assert names == set(variables)
+    assert set(inputs) == {
+        value.strip('"').removeprefix("env:")
+        for value in variables.values()
+    }
     assert all(value.startswith('"env:') for value in variables.values())
     assert all(value.strip('"').startswith("operator") for value in inputs.values())
 
