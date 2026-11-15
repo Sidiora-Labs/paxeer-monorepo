@@ -4,20 +4,34 @@
 // @coord dropped ./scrollL2 (ScrollL2BlockStatus) — out of trading-app scope
 // @coord dropped ./zkSyncL2 (ZkSyncBatchesItem) — out of trading-app scope
 // @coord dropped local interfaces ArbitrumTransactionData / ScrollTransactionData / OpWithdrawal / InteropTransactionInfo and ZKEVM_L2_TX_STATUSES constant — all consumed only by chain-specific fields narrowed to `unknown` below.
-import type { AddressParam } from './addressParams';
-import type { BlockTransactionsResponse } from './block';
-import type { DecodedInput } from './decodedInput';
-import type { Fee } from './fee';
-import type { TokenInfo } from './token';
-import type { TokenTransfer } from './tokenTransfer';
-import type { TxAction } from './txAction';
+import type { AddressParam } from "./addressParams";
+import type { BlockTransactionsResponse } from "./block";
+import type { DecodedInput } from "./decodedInput";
+import type { Fee } from "./fee";
+import type { TokenInfo } from "./token";
+import type { TokenTransfer } from "./tokenTransfer";
+import type { TxAction } from "./txAction";
 
-export type TransactionRevertReason = {
-  raw: string;
-} | DecodedInput;
+export type TransactionRevertReason =
+  | {
+      raw: string;
+    }
+  | DecodedInput;
 
-export type WrappedTransactionFields = 'decoded_input' | 'fee' | 'gas_limit' | 'gas_price' | 'hash' | 'max_fee_per_gas' |
-'max_priority_fee_per_gas' | 'method' | 'nonce' | 'raw_input' | 'to' | 'type' | 'value';
+export type WrappedTransactionFields =
+  | "decoded_input"
+  | "fee"
+  | "gas_limit"
+  | "gas_price"
+  | "hash"
+  | "max_fee_per_gas"
+  | "max_priority_fee_per_gas"
+  | "method"
+  | "nonce"
+  | "raw_input"
+  | "to"
+  | "type"
+  | "value";
 
 export type Transaction = {
   to: AddressParam | null;
@@ -25,7 +39,7 @@ export type Transaction = {
   hash: string;
   result: string;
   confirmations: number;
-  status: 'ok' | 'error' | null | undefined;
+  status: "ok" | "error" | null | undefined;
   block_number: number | null;
   timestamp: string | null;
   confirmation_duration: Array<number> | null;
@@ -120,7 +134,9 @@ export interface TransactionsStats {
   transactions_count_24h: string;
 }
 
-export type TransactionsResponse = TransactionsResponseValidated | TransactionsResponsePending;
+export type TransactionsResponse =
+  | TransactionsResponseValidated
+  | TransactionsResponsePending;
 
 export interface TransactionsResponseValidated {
   items: Array<Transaction>;
@@ -128,7 +144,7 @@ export interface TransactionsResponseValidated {
     block_number: number;
     index: number;
     items_count: number;
-    filter: 'validated';
+    filter: "validated";
   } | null;
 }
 
@@ -137,7 +153,7 @@ export interface TransactionsResponsePending {
   next_page_params: {
     inserted_at: string;
     hash: string;
-    filter: 'pending';
+    filter: "pending";
   } | null;
 }
 
@@ -159,30 +175,41 @@ export interface TransactionsResponseWatchlist {
   } | null;
 }
 
-export type TransactionType = 'rootstock_remasc' |
-'rootstock_bridge' |
-'token_transfer' |
-'contract_creation' |
-'contract_call' |
-'token_creation' |
-'coin_transfer' |
-'blob_transaction';
+export type TransactionType =
+  | "rootstock_remasc"
+  | "rootstock_bridge"
+  | "token_transfer"
+  | "contract_creation"
+  | "contract_call"
+  | "token_creation"
+  | "coin_transfer"
+  | "blob_transaction";
 
-export type TxsResponse = TransactionsResponseValidated | TransactionsResponsePending | BlockTransactionsResponse;
+export type TxsResponse =
+  | TransactionsResponseValidated
+  | TransactionsResponsePending
+  | BlockTransactionsResponse;
 
 export interface TransactionsSorting {
-  sort: 'value' | 'fee' | 'block_number';
-  order: 'asc' | 'desc';
+  sort: "value" | "fee" | "block_number";
+  order: "asc" | "desc";
 }
 
-export type TransactionsSortingField = TransactionsSorting['sort'];
+export type TransactionsSortingField = TransactionsSorting["sort"];
 
-export type TransactionsSortingValue = `${ TransactionsSortingField }-${ TransactionsSorting['order'] }` | 'default';
+export type TransactionsSortingValue =
+  | `${TransactionsSortingField}-${TransactionsSorting["order"]}`
+  | "default";
 
 export interface TxAuthorization {
   address_hash: string;
   authority: string;
   chain_id: number;
   nonce: number;
-  status: 'ok' | 'invalid_chain_id' | 'invalid_nonce' | 'invalid_signature' | null;
+  status:
+    | "ok"
+    | "invalid_chain_id"
+    | "invalid_nonce"
+    | "invalid_signature"
+    | null;
 }

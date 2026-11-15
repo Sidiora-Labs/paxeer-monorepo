@@ -1,103 +1,86 @@
-import { OrderBookFacetABI as OrderBookFacetAbi } from "@paxeer-network/paxeer-backend/core/network/abi/OrderBookFacet";
-import { DIAMOND_ADDRESS } from "@paxeer-network/paxeer-backend/core/perps/config";
-import { readContract, writeContract, waitForTx } from "./useContract";
+import type { Address, Hex } from "viem";
+
+import {
+  buildCancelByCloid,
+  buildCancelOrder,
+  buildGetOrder,
+  buildGetUserOrderIds,
+  buildPlaceLimitOrder,
+  buildPlaceStopLimitOrder,
+  buildSetPositionTpSl,
+  type LimitOrderInput,
+  type SetPositionTpSlInput,
+  type StopLimitOrderInput,
+} from "@paxeer-network/paxeer-backend/core/perps/calls";
+import {
+  planOrder,
+  type PlaceOrderCall,
+} from "@paxeer-network/paxeer-backend/core/perps/positionWrites";
+import {
+  readContract,
+  writeContract,
+  waitForTx,
+  type WaitForTxResult,
+} from "./useContract";
+import { sendPlan } from "./usePosition";
 
 export function usePerpsOrders() {
   async function getOrder(orderId: bigint) {
-    return readContract({
-      address: DIAMOND_ADDRESS,
-      abi: OrderBookFacetAbi,
-      functionName: "getOrder",
-      args: [orderId],
-    });
+    return readContract(buildGetOrder(orderId));
   }
 
-  async function getUserOrderIds(user: `0x${string}`): Promise<readonly bigint[]> {
-    return readContract({
-      address: DIAMOND_ADDRESS,
-      abi: OrderBookFacetAbi,
-      functionName: "getUserOrderIds",
-      args: [user],
-    }) as Promise<readonly bigint[]>;
+  async function getUserOrderIds(account: Address): Promise<readonly bigint[]> {
+    return (await readContract(
+      buildGetUserOrderIds(account),
+    )) as readonly bigint[];
   }
 
-  async function placeLimitOrder(params: {
-    marketId: bigint;
-    isLong: boolean;
-    triggerPrice: bigint;
-    sizeUsd: bigint;
-    leverage: bigint;
-    collateralToken: `0x${string}`;
-    collateralAmount: bigint;
-  }) {
-    const hash = await writeContract({
-      address: DIAMOND_ADDRESS,
-      abi: OrderBookFacetAbi,
-      functionName: "placeLimitOrder",
-      args: [
-        params.marketId, params.isLong, params.triggerPrice,
-        params.sizeUsd, params.leverage, params.collateralToken, params.collateralAmount,
-      ],
-    });
-    return waitForTx(hash);
+  /** Send the placeOrder calls of an order plan using deposited collateral. */
+  async function submitOrderPlan(calls: readonly PlaceOrderCall[]) {
+    return sendPlan(await planOrder(calls));
   }
 
-  async function placeStopLimitOrder(params: {
-    marketId: bigint;
-    isLong: boolean;
-    triggerPrice: bigint;
-    limitPrice: bigint;
-    sizeUsd: bigint;
-    leverage: bigint;
-    collateralToken: `0x${string}`;
-    collateralAmount: bigint;
-  }) {
-    const hash = await writeContract({
-      address: DIAMOND_ADDRESS,
-      abi: OrderBookFacetAbi,
-      functionName: "placeStopLimitOrder",
-      args: [
-        params.marketId, params.isLong, params.triggerPrice, params.limitPrice,
-        params.sizeUsd, params.leverage, params.collateralToken, params.collateralAmount,
-      ],
-    });
-    return waitForTx(hash);
+  async function placeLimitOrder(input: LimitOrderInput) {
+    return submitOrderPlan([buildPlaceLimitOrder(input)]);
+  }
+
+  async function placeStopLimitOrder(input: StopLimitOrderInput) {
+    return submitOrderPlan([buildPlaceStopLimitOrder(input)]);
+  }
+
+  /** One setPositionTpSl at 18 decimals; 0 clears a side. */
+  async function setPositionTpSl(input: SetPositionTpSlInput) {
+    return waitForTx(await writeContract(buildSetPositionTpSl(input)));
   }
 
   async function cancelOrder(orderId: bigint) {
-    const hash = await writeContract({
-      address: DIAMOND_ADDRESS,
-      abi: OrderBookFacetAbi,
-      functionName: "cancelOrder",
-      args: [orderId],
-    });
-    return waitForTx(hash);
+    return waitForTx(await writeContract(buildCancelOrder(orderId)));
   }
 
-  async function placeTakeProfitOrder(positionId: bigint, triggerPrice: bigint) {
-    const hash = await writeContract({
-      address: DIAMOND_ADDRESS,
-      abi: OrderBookFacetAbi,
-      functionName: "placeTakeProfitOrder",
-      args: [positionId, triggerPrice],
-    });
-    return waitForTx(hash);
+  async function cancelByCloid(marketId: bigint, cloid: Hex) {
+    return waitForTx(await writeContract(buildCancelByCloid(marketId, cloid)));
   }
 
-  async function placeStopLossOrder(positionId: bigint, triggerPrice: bigint) {
-    const hash = await writeContract({
-      address: DIAMOND_ADDRESS,
-      abi: OrderBookFacetAbi,
-      functionName: "placeStopLossOrder",
-      args: [positionId, triggerPrice],
-    });
-    return waitForTx(hash);
+  /** Cancel a scaled ladder rung by rung; returns the receipt of each rung in order. */
+  async function cancelLadder(
+    marketId: bigint,
+    cloids: readonly Hex[],
+  ): Promise<WaitForTxResult[]> {
+    const receipts: WaitForTxResult[] = [];
+    for (const cloid of cloids)
+      receipts.push(await cancelByCloid(marketId, cloid));
+    return receipts;
   }
 
   return {
-    getOrder, getUserOrderIds,
-    placeLimitOrder, placeStopLimitOrder,
-    placeTakeProfitOrder, placeStopLossOrder,
+    getOrder,
+    getUserOrderIds,
+    submitOrderPlan,
+    placeLimitOrder,
+    placeStopLimitOrder,
+    setPositionTpSl,
     cancelOrder,
+    cancelByCloid,
+    cancelLadder,
   };
 }

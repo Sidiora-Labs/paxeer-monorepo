@@ -33,6 +33,15 @@ for s in "${want[@]}"; do
 done
 awk 'NR > 1 {print $1}' "$tmp/plan" | sort -n -c || fail "plan is not in wave order"
 
+ROLLOUT_MANIFEST="$root/deploy/rollout.kvx" "$rollout" plan --sha "$sha" >"$tmp/current-plan"
+grep -qE "^ *1 redis-gateway +railway +redis-gateway " "$tmp/current-plan" ||
+	fail "current rollout misses redis-gateway"
+grep -qE "^ *5 gateway +railway +gateway " "$tmp/current-plan" ||
+	fail "current rollout misses gateway"
+if grep -qE "(^| )redis-router( |$)|(^| )router( |$)" "$tmp/current-plan"; then
+	fail "current rollout uses a retired gateway name"
+fi
+
 for s in identity gateway redis-router redis-internal internal-kms internal-journeys internal-payments \
 	internal-approvals internal-programs webhooks-public webhooks-ingress dashboard dashboard-web interop \
 	search-front ramp wallet-gateway wallet-postgres gas-station indexer ai-evaluator; do

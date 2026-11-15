@@ -1,7 +1,7 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────
-//  Enriched stats + paxeer-network-mirror hooks.
+//  Enriched stats + Orderly-mirror hooks.
 //
 //  Previously each of the six hooks in this file owned its own
 //  `setInterval(refetch, 15_000)`. With 30+ subscribers open on the
@@ -17,23 +17,23 @@ import { INDEXER_GRAPHQL } from "@paxeer-network/paxeer-backend/core/perps/confi
 import {
   ENRICHED_GLOBAL_STATS_QUERY,
   ENRICHED_MARKET_STATS_QUERY,
-  PAXEER_NETWORK_TICKERS_QUERY,
-  PAXEER_NETWORK_FUNDING_RATES_QUERY,
-  PAXEER_NETWORK_PRICE_CHANGES_QUERY,
-  PAXEER_NETWORK_OPEN_INTERESTS_QUERY,
+  ORDERLY_TICKERS_QUERY,
+  ORDERLY_FUNDING_RATES_QUERY,
+  ORDERLY_PRICE_CHANGES_QUERY,
+  ORDERLY_OPEN_INTERESTS_QUERY,
 } from "./useSubgraph";
 import type {
   EnrichedGlobalStats,
   EnrichedMarketStats,
-  PaxeerNetworkTicker,
-  PaxeerNetworkFundingRate,
-  PaxeerNetworkPriceChange,
-  PaxeerNetworkOpenInterest,
+  OrderlyTicker,
+  OrderlyFundingRate,
+  OrderlyPriceChange,
+  OrderlyOpenInterest,
 } from "@paxeer-network/paxeer-backend/types/perps";
 
 const POLL_INTERVAL = 15_000;
 
-// ── Global enriched stats (chain + paxeer-network aggregates) ───────────────
+// ── Global enriched stats (chain + Orderly aggregates) ───────────────
 export function useEnrichedGlobalStats() {
   return useSharedPolledQuery<
     { enrichedGlobalStats: EnrichedGlobalStats },
@@ -61,54 +61,54 @@ export function useEnrichedMarketStats(marketId: number | undefined) {
   });
 }
 
-// ── paxeer-network ticker table ─────────────────────────────────────────────
-export function usePaxeerNetworkTickers() {
+// ── Orderly ticker table ─────────────────────────────────────────────
+export function useOrderlyTickers() {
   return useSharedPolledQuery<
-    { paxeerNetworkTickers: PaxeerNetworkTicker[] },
-    PaxeerNetworkTicker[]
+    { orderlyTickers: OrderlyTicker[] },
+    OrderlyTicker[]
   >({
     endpoint: INDEXER_GRAPHQL,
-    query: PAXEER_NETWORK_TICKERS_QUERY,
+    query: ORDERLY_TICKERS_QUERY,
     intervalMs: POLL_INTERVAL,
-    pick: (res) => res.paxeerNetworkTickers,
+    pick: (res) => res.orderlyTickers,
   });
 }
 
-// ── paxeer-network funding rates ────────────────────────────────────────────
-export function usePaxeerNetworkFundingRates() {
+// ── Orderly funding rates ────────────────────────────────────────────
+export function useOrderlyFundingRates() {
   return useSharedPolledQuery<
-    { paxeerNetworkFundingRates: PaxeerNetworkFundingRate[] },
-    PaxeerNetworkFundingRate[]
+    { orderlyFundingRates: OrderlyFundingRate[] },
+    OrderlyFundingRate[]
   >({
     endpoint: INDEXER_GRAPHQL,
-    query: PAXEER_NETWORK_FUNDING_RATES_QUERY,
+    query: ORDERLY_FUNDING_RATES_QUERY,
     intervalMs: POLL_INTERVAL,
-    pick: (res) => res.paxeerNetworkFundingRates,
+    pick: (res) => res.orderlyFundingRates,
   });
 }
 
-// ── paxeer-network price changes ────────────────────────────────────────────
-export function usePaxeerNetworkPriceChanges() {
+// ── Orderly price changes ────────────────────────────────────────────
+export function useOrderlyPriceChanges() {
   return useSharedPolledQuery<
-    { paxeerNetworkPriceChanges: PaxeerNetworkPriceChange[] },
-    PaxeerNetworkPriceChange[]
+    { orderlyPriceChanges: OrderlyPriceChange[] },
+    OrderlyPriceChange[]
   >({
     endpoint: INDEXER_GRAPHQL,
-    query: PAXEER_NETWORK_PRICE_CHANGES_QUERY,
+    query: ORDERLY_PRICE_CHANGES_QUERY,
     intervalMs: POLL_INTERVAL,
-    pick: (res) => res.paxeerNetworkPriceChanges,
+    pick: (res) => res.orderlyPriceChanges,
   });
 }
 
-// ── paxeer-network open interests ───────────────────────────────────────────
-export function usePaxeerNetworkOpenInterests() {
+// ── Orderly open interests ───────────────────────────────────────────
+export function useOrderlyOpenInterests() {
   return useSharedPolledQuery<
-    { paxeerNetworkOpenInterests: PaxeerNetworkOpenInterest[] },
-    PaxeerNetworkOpenInterest[]
+    { orderlyOpenInterests: OrderlyOpenInterest[] },
+    OrderlyOpenInterest[]
   >({
     endpoint: INDEXER_GRAPHQL,
-    query: PAXEER_NETWORK_OPEN_INTERESTS_QUERY,
+    query: ORDERLY_OPEN_INTERESTS_QUERY,
     intervalMs: POLL_INTERVAL,
-    pick: (res) => res.paxeerNetworkOpenInterests,
+    pick: (res) => res.orderlyOpenInterests,
   });
 }

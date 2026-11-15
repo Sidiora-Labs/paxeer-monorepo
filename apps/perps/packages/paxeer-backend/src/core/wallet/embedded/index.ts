@@ -1,5 +1,5 @@
 /**
- * @paxeer/wallet integration — public surface for paxeer-network-UI.
+ * @paxeer/wallet integration — public surface for Hyperpax-UI.
  *
  * The new system is server-signing (Supabase auth + REST API at
  * `connect.paxportwallet.com`). Old iframe/postMessage Oko bridge is gone.
@@ -24,7 +24,10 @@ export {
 } from "./PaxeerProvider";
 export type { SignInProvider, EmbeddedSignInResult } from "./PaxeerProvider";
 
-export { paxeerEmbeddedConnector, PAXEER_CONNECTOR_ID } from "./paxeerConnector";
+export {
+  paxeerEmbeddedConnector,
+  PAXEER_CONNECTOR_ID,
+} from "./paxeerConnector";
 export type { PaxeerConnectorParams } from "./paxeerConnector";
 
 export {

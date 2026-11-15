@@ -1,13 +1,15 @@
 import type { ConfigStore, ConfigKey } from "@paxeer-network/core";
 import { ChainNamespace } from "@paxeer-network/types";
-import { REST_API_URL } from "@paxeer-network/paxeer-backend/core/perps/config";
+import { gatewayUrls } from "@paxeer-network/paxeer-backend/core/network/gateway";
+
+const gateway = gatewayUrls();
 export class NativeConfigStore implements ConfigStore {
   private values = new Map<string, unknown>(
     Object.entries({
-      apiBaseUrl: REST_API_URL,
-      klineDataUrl: REST_API_URL,
-      privateWsUrl: "",
-      publicWsUrl: "",
+      apiBaseUrl: gateway.restApiUrl,
+      klineDataUrl: gateway.restApiUrl,
+      privateWsUrl: gateway.spotUserWsUrl,
+      publicWsUrl: gateway.venueWsUrl,
       operatorUrl: "",
       domain: "paxeer-network",
       brokerId: "paxeer-network",
@@ -33,6 +35,6 @@ export class NativeConfigStore implements ConfigStore {
 
 export {
   erc20Abi,
-  DIAMOND_ADDRESS,
   COLLATERAL_TOKENS,
 } from "@paxeer-network/paxeer-backend/core/perps/config";
+export { PRECOMPILES } from "@paxeer-network/paxeer-backend/core/network/precompiles";

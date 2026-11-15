@@ -1,0 +1,82 @@
+[service.wallet-gateway]
+kind = "repo"
+dockerfile = "docker/wallet-gateway/Dockerfile"
+root = "."
+watch = ["docker/wallet-gateway/**", "docker/common/**", "services/wallet/**", "sdk/wallet/**"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 1
+public = 1
+order = 10
+needs = ["wallet-postgres"]
+
+[vars.wallet-gateway]
+RAILWAY_GIT_COMMIT_SHA = "env:WALLET_WALLET_GATEWAY_RAILWAY_GIT_COMMIT_SHA"
+SOURCE_REVISION = "${{RAILWAY_GIT_COMMIT_SHA}}"
+SOURCE_TREE = "env:WALLET_WALLET_GATEWAY_SOURCE_TREE"
+NODE_ENV = "production"
+PORT = "8080"
+DATABASE_URL = "${{wallet-postgres.DATABASE_URL}}"
+CORS_ORIGINS = "env:WALLET_WALLET_GATEWAY_CORS_ORIGINS"
+SUPABASE_URL = "env:WALLET_WALLET_GATEWAY_SUPABASE_URL"
+WALLET_MASTER_KEY = "env:WALLET_WALLET_GATEWAY_WALLET_MASTER_KEY"
+LAYERX_TRUSTED_PROXIES = "env:WALLET_WALLET_GATEWAY_LAYERX_TRUSTED_PROXIES"
+WALLET_IDENTITY_BINDING_TENANT = "env:WALLET_WALLET_GATEWAY_WALLET_IDENTITY_BINDING_TENANT"
+WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE = "/run/secrets/wallet_identity_binding_key"
+WALLET_IDENTITY_BINDING_KEY = "env:WALLET_WALLET_GATEWAY_WALLET_IDENTITY_BINDING_KEY"
+WALLET_CUSTODY_INVENTORY_FILE = "/run/secrets/wallet_custody_inventory.jwt"
+WALLET_CUSTODY_INVENTORY = "env:WALLET_WALLET_GATEWAY_WALLET_CUSTODY_INVENTORY"
+WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE = "/run/secrets/wallet_custody_inventory_authority.pem"
+WALLET_CUSTODY_INVENTORY_PUBLIC_KEY = "env:WALLET_WALLET_GATEWAY_WALLET_CUSTODY_INVENTORY_PUBLIC_KEY"
+ATTESTOR_ENDPOINTS = "env:WALLET_WALLET_GATEWAY_ATTESTOR_ENDPOINTS"
+ATTESTOR_CLIENT_CERT_FILE = "/run/secrets/attestor_client.crt"
+ATTESTOR_CLIENT_CERT = "env:WALLET_WALLET_GATEWAY_ATTESTOR_CLIENT_CERT"
+ATTESTOR_CLIENT_KEY_FILE = "/run/secrets/attestor_client.key"
+ATTESTOR_CLIENT_KEY = "env:WALLET_WALLET_GATEWAY_ATTESTOR_CLIENT_KEY"
+ATTESTOR_CA_FILE = "/run/secrets/attestor_ca.crt"
+ATTESTOR_CA = "env:WALLET_WALLET_GATEWAY_ATTESTOR_CA"
+SPONSOR_PRIVATE_KEY = "env:WALLET_WALLET_GATEWAY_SPONSOR_PRIVATE_KEY"
+WALLET_GAS_STATION_URL = "env:WALLET_WALLET_GATEWAY_WALLET_GAS_STATION_URL"
+PAXEER_GAS_STATION_PAYMASTER = "env:WALLET_WALLET_GATEWAY_PAXEER_GAS_STATION_PAYMASTER"
+PAXEER_GAS_STATION_GAS_LIMIT = "env:WALLET_WALLET_GATEWAY_PAXEER_GAS_STATION_GAS_LIMIT"
+PAXEER_GAS_STATION_MAX_TOKEN_AMOUNT = "env:WALLET_WALLET_GATEWAY_PAXEER_GAS_STATION_MAX_TOKEN_AMOUNT"
+
+[inputs.wallet-gateway]
+# Source commit of the selected repository branch, as 40 lowercase hexadecimal characters.
+WALLET_WALLET_GATEWAY_RAILWAY_GIT_COMMIT_SHA = "operator"
+# Source Git tree, as 40 lowercase hexadecimal characters.
+WALLET_WALLET_GATEWAY_SOURCE_TREE = "operator"
+# Allowed browser origins, as a comma-separated list of HTTP(S) origins or origin patterns.
+WALLET_WALLET_GATEWAY_CORS_ORIGINS = "operator"
+# Identity provider base URL, as an absolute HTTPS URL.
+WALLET_WALLET_GATEWAY_SUPABASE_URL = "operator"
+# Wallet envelope encryption key, as base64 encoding of exactly 32 random bytes.
+WALLET_WALLET_GATEWAY_WALLET_MASTER_KEY = "generated"
+# Trusted edge proxies, as a comma-separated list of IP addresses or CIDR ranges.
+WALLET_WALLET_GATEWAY_LAYERX_TRUSTED_PROXIES = "operator"
+# Identity-binding tenant, as a nonempty string of at most 1024 characters.
+WALLET_WALLET_GATEWAY_WALLET_IDENTITY_BINDING_TENANT = "operator"
+# Identity-binding P-256 private key, as base64 encoding of a PKCS#8 PEM file.
+WALLET_WALLET_GATEWAY_WALLET_IDENTITY_BINDING_KEY = "generated"
+# Approved signed custody inventory, as base64 encoding of its compact JWT file.
+WALLET_WALLET_GATEWAY_WALLET_CUSTODY_INVENTORY = "operator"
+# Inventory authority P-256 public key, as base64 encoding of an SPKI PEM file.
+WALLET_WALLET_GATEWAY_WALLET_CUSTODY_INVENTORY_PUBLIC_KEY = "operator"
+# Custody participants, as exactly five comma-separated HTTPS endpoint URLs.
+WALLET_WALLET_GATEWAY_ATTESTOR_ENDPOINTS = "operator"
+# Gateway client TLS certificate, as base64 encoding of a PEM certificate file.
+WALLET_WALLET_GATEWAY_ATTESTOR_CLIENT_CERT = "operator"
+# Gateway client TLS private key, as base64 encoding of a PEM private-key file.
+WALLET_WALLET_GATEWAY_ATTESTOR_CLIENT_KEY = "operator"
+# Attestor trust bundle, as base64 encoding of a PEM CA certificate file.
+WALLET_WALLET_GATEWAY_ATTESTOR_CA = "operator"
+# Sponsor private-key file, as base64 encoding of the chain account key material.
+WALLET_WALLET_GATEWAY_SPONSOR_PRIVATE_KEY = "chain"
+# Gas-station service base URL, as an absolute HTTP(S) URL without credentials or a query.
+WALLET_WALLET_GATEWAY_WALLET_GAS_STATION_URL = "operator"
+# Gas-station paymaster contract, as a nonzero 0x-prefixed 20-byte chain address.
+WALLET_WALLET_GATEWAY_PAXEER_GAS_STATION_PAYMASTER = "chain"
+# Provisioning gas limit, as a positive unsigned 256-bit decimal integer.
+WALLET_WALLET_GATEWAY_PAXEER_GAS_STATION_GAS_LIMIT = "operator"
+# Maximum sponsored token charge in base units, as a positive unsigned 256-bit decimal integer.
+WALLET_WALLET_GATEWAY_PAXEER_GAS_STATION_MAX_TOKEN_AMOUNT = "operator"

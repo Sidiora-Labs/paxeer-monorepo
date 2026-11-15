@@ -1,6 +1,7 @@
 defmodule Explorer.Repair.InteropMessageExportStateTest do
   use ExUnit.Case, async: false
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias Explorer.Chain.Import.Runner.Optimism.InteropMessages
   alias Explorer.Chain.Optimism.InteropMessage
   alias Explorer.Repo
@@ -20,6 +21,8 @@ defmodule Explorer.Repair.InteropMessageExportStateTest do
   @imported_at ~U[2023-11-14 22:13:20.000000Z]
 
   setup do
+    owner = Sandbox.start_owner!(Repo, shared: true, sandbox: false)
+    on_exit(fn -> Sandbox.stop_owner(owner) end)
     original_repo = Repo.get_dynamic_repo()
     schema = "repair_2233589_#{System.unique_integer([:positive])}"
     Repo.query!("CREATE SCHEMA #{schema}")

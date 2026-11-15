@@ -3,9 +3,22 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { env } from '../env.js';
 import { query } from '../db/pool.js';
+import { loadInventoryProvisioning } from '../db/custodyInventory.js';
 import { safeEqual } from '../crypto.js';
+import {
+  CustodyAuthorityError,
+  CustodyInventoryConflictError,
+  admitWalletInventory,
+  verifyWalletInventory,
+  findWalletInventoryKey,
+  loadWalletInventory,
+  type WalletInventoryKey,
+} from '../agent/authority.js';
+
+export const CUSTODY_INVENTORY_PATH = '/v1/admin/custody-inventory';
 
 export const LEGACY_IMPORT_PATH = '/v1/admin/legacy-import';
+export const CUSTODY_INVENTORY_REQUESTS_PATH = '/v1/admin/custody-inventory/requests';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -40,6 +53,10 @@ const LegacyImport = z
     'funded wallets are archived and only funded wallets are'
   );
 
+const InventoryRequestsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(1000).default(200),
+});
+
 function authorized(req: FastifyRequest): boolean {
   const header = req.headers.authorization;
   if (typeof header !== 'string' || !header.startsWith('Bearer ') || !env.GATEWAY_ADMIN_TOKEN)
@@ -72,6 +89,129 @@ function importReceipt(r: z.infer<typeof LegacyImport>) {
 }
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
+  app.post(CUSTODY_INVENTORY_PATH, { bodyLimit: 2_200_000 }, async (req, reply) => {
+    if (!authorized(req)) return reply.code(401).send({ error: 'unauthorized' });
+    const parsed = z
+      .object({ token: z.string().min(1).max(2_097_152) })
+      .strict()
+      .safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_inventory' });
+    try {
+      verifyWalletInventory(parsed.data.token);
+    } catch {
+      return reply.code(400).send({ error: 'invalid_inventory' });
+    }
+    try {
+      const result = await admitWalletInventory(parsed.data.token);
+      return reply.code(result.retained ? 200 : 502).send({
+        sequence: result.sequence,
+        members: result.members,
+      });
+    } catch (error) {
+      if (error instanceof CustodyAuthorityError || error instanceof CustodyInventoryConflictError)
+        return reply.code(error.statusCode).send({ error: error.code });
+      throw error;
+    }
+  });
+
+  app.get(CUSTODY_INVENTORY_REQUESTS_PATH, async (req, reply) => {
+    if (!authorized(req)) return reply.code(401).send({ error: 'unauthorized' });
+    const parsed = InventoryRequestsQuery.safeParse(req.query ?? {});
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ error: 'invalid_query', issues: parsed.error.issues.map((i) => i.message) });
+
+    let inventory;
+    try {
+      inventory = loadWalletInventory();
+    } catch (error) {
+      if (error instanceof CustodyAuthorityError)
+        return reply.code(error.statusCode).send({ error: error.code });
+      throw error;
+    }
+
+    const rows = await loadInventoryProvisioning();
+    const requests: WalletInventoryKey[] = [];
+    const seen = new Set<string>();
+
+    const admitted = (
+      keyId: string,
+      operation: WalletInventoryKey['operations'][number],
+      owner: string
+    ): boolean => findWalletInventoryKey(inventory, keyId, operation, owner) !== undefined;
+    const add = (entry: WalletInventoryKey): void => {
+      if (seen.has(entry.key_id) || requests.length >= parsed.data.limit) return;
+      seen.add(entry.key_id);
+      requests.push(entry);
+    };
+    const owner = (value: string | null, fallback: string): string => value ?? fallback;
+
+    // Pending generations are exported before signing requests so an owner can
+    // approve the key material in the order provisioning consumes it.
+    for (const row of rows) {
+      if (row.evm_key_id && !row.evm_public_key) {
+        const keyOwner = owner(row.evm_key_owner, row.user_id);
+        if (!admitted(row.evm_key_id, 'generate', keyOwner))
+          add({
+            key_id: row.evm_key_id,
+            epoch: 0,
+            curve: 'secp256k1',
+            public_key: '',
+            owner: keyOwner,
+            operations: ['generate'],
+          });
+      }
+      if (row.ed_key_id && !row.ed_public_key) {
+        const keyOwner = owner(row.ed_key_owner, row.user_id);
+        if (!admitted(row.ed_key_id, 'generate', keyOwner))
+          add({
+            key_id: row.ed_key_id,
+            epoch: 0,
+            curve: 'ed25519',
+            public_key: '',
+            owner: keyOwner,
+            operations: ['generate'],
+          });
+      }
+    }
+
+    // Generated keys are exported with the durable public material and epoch
+    // until the inventory admits both signing and refresh.
+    for (const row of rows) {
+      if (row.evm_key_id && row.evm_public_key && row.evm_key_epoch !== null) {
+        const keyOwner = owner(row.evm_key_owner, row.user_id);
+        if (!admitted(row.evm_key_id, 'sign', keyOwner))
+          add({
+            key_id: row.evm_key_id,
+            epoch: row.evm_key_epoch,
+            curve: 'secp256k1',
+            public_key: row.evm_public_key.toLowerCase().replace(/^0x/, ''),
+            owner: keyOwner,
+            operations: ['sign', 'refresh'],
+          });
+      }
+      if (row.ed_key_id && row.ed_public_key && row.ed_key_epoch !== null) {
+        const keyOwner = owner(row.ed_key_owner, row.user_id);
+        if (!admitted(row.ed_key_id, 'sign', keyOwner))
+          add({
+            key_id: row.ed_key_id,
+            epoch: row.ed_key_epoch,
+            curve: 'ed25519',
+            public_key: row.ed_public_key.toLowerCase().replace(/^0x/, ''),
+            owner: keyOwner,
+            operations: ['sign', 'refresh'],
+          });
+      }
+    }
+
+    return reply.send({
+      inventory_sequence: inventory.sequence,
+      count: requests.length,
+      inventory_requests: requests,
+    });
+  });
+
   app.post(LEGACY_IMPORT_PATH, async (req, reply) => {
     if (!authorized(req)) return reply.code(401).send({ error: 'unauthorized' });
     const parsed = LegacyImport.safeParse(req.body);

@@ -112,8 +112,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.Repair2233416Evidence do
     Bypass.expect(bypass, fn conn ->
       response =
         case {conn.method, conn.request_path} do
-          {"GET", "/cosmos/tx/v1beta1/txs/block/" <> height} ->
-            assert conn.query_string == "pagination.offset=0&pagination.limit=100"
+          {"GET", "/block"} ->
+            conn = Plug.Conn.fetch_query_params(conn)
+            height = conn.query_params["height"]
+            assert conn.query_string == "height=#{height}"
             send(owner, {:price_block_read, String.to_integer(height)})
             txs
 

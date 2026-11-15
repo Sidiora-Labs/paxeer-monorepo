@@ -1,19 +1,18 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Spot order pipeline for the PECOR engine.
+   Spot order pipeline on the spot precompiles.
 
    Each public function is a single high-level action the order form
    can invoke. They handle (in this order):
 
      1.  Preflight quote (where applicable) — confirm liquidity + freshness.
-     2.  Auto-wrap native PAX → WPAX9 when the base token is native and
-         the user lacks enough wrapped balance for the trade.
-     3.  ERC-20 approve (MaxUint256) against the rail-specific spender.
-     4.  Contract write to the appropriate PECOR contract:
-           · `PECOR.marketBuy / marketSell`         — market rail
-           · `PECOROrders.placeLimitBuy / Sell`     — limit rail
-           · `PECORStopOrders.placeStopLimit*`      — stop-limit rail
-           · `PECORStopOrders.placeStopLoss`        — stop-loss rail
-     5.  Wait for receipt (3 s finality + 7 s RPC lag tolerance, see
+     2.  ERC-20 approve of exactly the call amount to the rail that pulls
+         it (`SPOT_SPENDERS`); the PAX and SID pointers and native value
+         move by bank transfer and need none.
+     3.  Contract write built by `core/spot/calls`:
+           · 0x1021 `marketBuy / marketSell / swapExactInNative` — market rail
+           · 0x1022 `placeLimitBuy / Sell`                      — limit rail
+           · 0x1023 `placeStopLimit* / placeStopLoss`           — stop rails
+     4.  Wait for receipt (3 s finality + 7 s RPC lag tolerance, see
          `useContract.waitForTx`). Throws on revert or timeout.
 
    Every action returns a typed result containing the receipt and any
@@ -26,19 +25,32 @@
    is GTC-only and always escrows funds until execution.
    ══════════════════════════════════════════════════════════════════════ */
 
-import type { Address } from "viem";
+import { isAddress, zeroAddress, type Address } from "viem";
 
-import { pecorAbi } from "@paxeer-network/paxeer-backend/core/network/spot_abi/PECOR";
-import { pecorOrdersAbi } from "@paxeer-network/paxeer-backend/core/network/spot_abi/PECOROrders";
-import { pecorStopOrdersAbi } from "@paxeer-network/paxeer-backend/core/network/spot_abi/PECORStopOrders";
-
-import { PECOR_CONTRACTS, NATIVE_PAX_ADDRESS } from "@paxeer-network/paxeer-backend/core/spot/addresses";
+import { SPOT_SPENDERS } from "@paxeer-network/paxeer-backend/core/network/approvals";
+import { NATIVE_PAX_ADDRESS } from "@paxeer-network/paxeer-backend/core/spot/addresses";
 import {
-  WPAX9_ADDRESS,
-  wpax9MinimalAbi,
-  computeWrapShortfall,
-  shouldWrapBeforeSell,
-} from "@paxeer-network/paxeer-backend/core/spot/native";
+  WEI_PER_UHPX,
+  buildCancelLimitOrder,
+  buildCancelStopLimitOrder,
+  buildCancelStopLossOrder,
+  buildGetLimitOrder,
+  buildGetPaxPointer,
+  buildGetStopLimitOrder,
+  buildGetStopLossOrder,
+  buildGetUserLimitOrders,
+  buildGetUserStopLimitOrders,
+  buildGetUserStopLossOrders,
+  buildMarketBuy,
+  buildMarketSell,
+  buildModifyLimitOrder,
+  buildPlaceLimitBuy,
+  buildPlaceLimitSell,
+  buildPlaceStopLimitBuy,
+  buildPlaceStopLimitSell,
+  buildPlaceStopLoss,
+  buildSwapExactInNative,
+} from "@paxeer-network/paxeer-backend/core/spot/calls";
 import {
   applySlippageMinOut,
   buildDeadline,
@@ -70,8 +82,6 @@ export interface SpotOrderResult {
   receipt: WaitForTxResult;
   /** Approval receipt, if a fresh approval was issued in this pipeline. */
   approval?: EnsureAllowanceResult;
-  /** Wrap receipt, if native PAX was wrapped in this pipeline. */
-  wrap?: WaitForTxResult;
 }
 
 export interface MarketOrderResult extends SpotOrderResult {
@@ -106,13 +116,28 @@ function assertTradableQuote(quote: SpotQuoteResult, label: string): void {
   }
 }
 
+/* ── PAX token ─────────────────────────────────────────────────── */
+
+/** The uhpx pointer, the PAX token of the venue, as the market rail reports it. */
+export async function getPaxPointer(): Promise<Address> {
+  const pointer = await readContract(buildGetPaxPointer());
+  if (
+    typeof pointer !== "string" ||
+    !isAddress(pointer) ||
+    pointer.toLowerCase() === zeroAddress
+  ) {
+    throw new Error("getPaxPointer: market rail returned no uhpx pointer");
+  }
+  return pointer;
+}
+
 /* ══════════════════════════════════════════════════════════════════════
-   Market rail — PECOR.marketBuy / marketSell
+   Market rail — 0x1021 marketBuy / marketSell / swapExactInNative
    ══════════════════════════════════════════════════════════════════════ */
 
 export interface MarketBuyParams {
   stablecoin: Address;
-  /** ERC-20 the user wants to receive (resolve PAX → WPAX9 upstream). */
+  /** Token the user wants to receive. */
   token: Address;
   /** Amount of `stablecoin` to spend (token-native decimals). */
   stablecoinAmount: bigint;
@@ -126,7 +151,9 @@ export interface MarketBuyParams {
   deadlineSeconds?: number;
 }
 
-export async function marketBuy(params: MarketBuyParams): Promise<MarketOrderResult> {
+export async function marketBuy(
+  params: MarketBuyParams,
+): Promise<MarketOrderResult> {
   const {
     stablecoin,
     token,
@@ -147,54 +174,56 @@ export async function marketBuy(params: MarketBuyParams): Promise<MarketOrderRes
     (await quoteMarketBuy({ stablecoin, token, stablecoinAmount }));
   assertTradableQuote(quote, "marketBuy");
 
-  // 2. Approve stablecoin against the PECOR exchange.
+  // 2. Approve exactly the stablecoin amount to the market rail.
   const approval = await ensureAllowance({
     token: stablecoin,
     owner: user,
-    spender: PECOR_CONTRACTS.PECOR,
+    spender: SPOT_SPENDERS.market,
     amount: stablecoinAmount,
   });
 
-  // 3. Build slippage floor + deadline.
+  // 3. Build slippage floor + deadline, then execute marketBuy.
   const minOut = applySlippageMinOut(quote.amountOut, slippageBps);
-  const deadline = buildDeadline(deadlineSeconds);
-
-  // 4. Execute marketBuy.
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECOR,
-    abi: pecorAbi,
-    functionName: "marketBuy",
-    args: [stablecoin, token, stablecoinAmount, minOut, deadline],
-  });
+  const hash = await writeContract(
+    buildMarketBuy({
+      stablecoin,
+      token,
+      stablecoinAmount,
+      minOut,
+      deadline: buildDeadline(deadlineSeconds),
+    }),
+  );
   const receipt = await waitForTx(hash);
 
   return { receipt, approval, quote, minOut };
 }
 
 export interface MarketSellParams {
-  /** ERC-20 the user is selling (resolved to WPAX9 for the PAX market). */
+  /**
+   * Token the user is selling. `NATIVE_PAX_ADDRESS` sells PAX from native
+   * value through swapExactInNative.
+   */
   token: Address;
   stablecoin: Address;
-  /** Amount of `token` to sell (token-native decimals). */
+  /** Amount of `token` to sell (token-native decimals; uhpx units for PAX). */
   tokenAmount: bigint;
   slippageBps: number;
   user: Address;
   precomputedQuote?: SpotQuoteResult;
   deadlineSeconds?: number;
   /**
-   * Native-PAX auto-wrap inputs. Provide when selling on the PAX market
-   * so the pipeline can wrap shortfall native balance silently before
-   * the marketSell call. Omit on all other markets.
+   * Present on the PAX market: the sell moves bank uhpx through the uhpx
+   * pointer, so `token` is replaced by that pointer and no allowance is
+   * read or requested. `nativeBalance` is the user's PAX balance in wei.
    */
   native?: {
-    /** User's current WPAX9 ERC-20 balance. */
-    wpaxBalance: bigint;
-    /** User's current native PAX balance (wei). */
     nativeBalance: bigint;
   };
 }
 
-export async function marketSell(params: MarketSellParams): Promise<MarketOrderResult> {
+export async function marketSell(
+  params: MarketSellParams,
+): Promise<MarketOrderResult> {
   const {
     token,
     stablecoin,
@@ -210,59 +239,55 @@ export async function marketSell(params: MarketSellParams): Promise<MarketOrderR
     throw new Error("marketSell: tokenAmount must be positive");
   }
 
-  // 0. PAX auto-wrap: top up WPAX9 from native PAX if shortfall.
-  let wrapReceipt: WaitForTxResult | undefined;
-  if (native && token.toLowerCase() === WPAX9_ADDRESS.toLowerCase()) {
-    const plan = computeWrapShortfall(tokenAmount, native.wpaxBalance, native.nativeBalance);
-    if (!plan.feasible) {
-      throw new Error(
-        `marketSell: insufficient PAX (need ${tokenAmount}, have ${native.wpaxBalance + native.nativeBalance} combined)`,
-      );
-    }
-    if (shouldWrapBeforeSell(plan)) {
-      const wrapHash = await writeContract({
-        address: WPAX9_ADDRESS,
-        abi: wpax9MinimalAbi,
-        functionName: "deposit",
-        args: [],
-        value: plan.wrapAmount,
-      });
-      wrapReceipt = await waitForTx(wrapHash);
-    }
+  // 0. A PAX sell trades the uhpx pointer, from the bank balance or from native value.
+  const fromValue = token.toLowerCase() === NATIVE_PAX_ADDRESS;
+  const sellsPax = fromValue || native !== undefined;
+  if (native && native.nativeBalance < tokenAmount * WEI_PER_UHPX) {
+    throw new Error(
+      `marketSell: insufficient PAX (need ${tokenAmount * WEI_PER_UHPX} wei, have ${native.nativeBalance})`,
+    );
   }
+  const sellToken = sellsPax ? await getPaxPointer() : token;
 
   // 1. Preflight quote.
   const quote =
     precomputedQuote ??
-    (await quoteMarketSell({ token, stablecoin, tokenAmount }));
+    (await quoteMarketSell({ token: sellToken, stablecoin, tokenAmount }));
   assertTradableQuote(quote, "marketSell");
 
-  // 2. Approve token against the PECOR exchange.
-  const approval = await ensureAllowance({
-    token,
-    owner: user,
-    spender: PECOR_CONTRACTS.PECOR,
-    amount: tokenAmount,
-  });
+  // 2. Approve exactly the token amount to the market rail; PAX moves by bank transfer.
+  const approval = sellsPax
+    ? undefined
+    : await ensureAllowance({
+        token: sellToken,
+        owner: user,
+        spender: SPOT_SPENDERS.market,
+        amount: tokenAmount,
+      });
 
-  // 3. Build slippage floor + deadline.
+  // 3. Build slippage floor + deadline, then execute.
   const minOut = applySlippageMinOut(quote.amountOut, slippageBps);
   const deadline = buildDeadline(deadlineSeconds);
-
-  // 4. Execute marketSell.
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECOR,
-    abi: pecorAbi,
-    functionName: "marketSell",
-    args: [token, stablecoin, tokenAmount, minOut, deadline],
-  });
+  // Keep the native pointer explicit in the market rail call.
+  // prettier-ignore
+  const marketSellCall = buildMarketSell({ token: sellToken, stablecoin, tokenAmount, minOut, deadline });
+  const hash = await writeContract(
+    fromValue
+      ? buildSwapExactInNative({
+          tokenOut: stablecoin,
+          amount: tokenAmount,
+          amountOutMin: minOut,
+          deadline,
+        })
+      : marketSellCall,
+  );
   const receipt = await waitForTx(hash);
 
-  return { receipt, approval, quote, minOut, wrap: wrapReceipt };
+  return { receipt, approval, quote, minOut };
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Limit rail — PECOROrders.placeLimitBuy / placeLimitSell
+   Limit rail — 0x1022 placeLimitBuy / placeLimitSell
    ══════════════════════════════════════════════════════════════════════ */
 
 export interface PlaceLimitBuyParams {
@@ -280,25 +305,30 @@ export interface PlaceLimitBuyParams {
 export async function placeLimitBuy(
   params: PlaceLimitBuyParams,
 ): Promise<LimitOrderResult> {
-  const { stablecoin, token, stablecoinAmount, targetPrice, expiresAt, user } = params;
+  const { stablecoin, token, stablecoinAmount, targetPrice, expiresAt, user } =
+    params;
 
-  if (stablecoinAmount <= 0n) throw new Error("placeLimitBuy: amount must be positive");
-  if (targetPrice <= 0n) throw new Error("placeLimitBuy: targetPrice must be positive");
+  if (stablecoinAmount <= 0n)
+    throw new Error("placeLimitBuy: amount must be positive");
+  if (targetPrice <= 0n)
+    throw new Error("placeLimitBuy: targetPrice must be positive");
 
   const approval = await ensureAllowance({
     token: stablecoin,
     owner: user,
-    spender: PECOR_CONTRACTS.PECOROrders,
+    spender: SPOT_SPENDERS.limit,
     amount: stablecoinAmount,
   });
 
-  const expiry = expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS);
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECOROrders,
-    abi: pecorOrdersAbi,
-    functionName: "placeLimitBuy",
-    args: [stablecoin, token, stablecoinAmount, targetPrice, expiry],
-  });
+  const hash = await writeContract(
+    buildPlaceLimitBuy({
+      stablecoin,
+      token,
+      amount: stablecoinAmount,
+      targetPrice,
+      expiresAt: expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS),
+    }),
+  );
   const receipt = await waitForTx(hash);
   return { receipt, approval };
 }
@@ -315,37 +345,38 @@ export interface PlaceLimitSellParams {
 export async function placeLimitSell(
   params: PlaceLimitSellParams,
 ): Promise<LimitOrderResult> {
-  const { token, stablecoin, tokenAmount, targetPrice, expiresAt, user } = params;
+  const { token, stablecoin, tokenAmount, targetPrice, expiresAt, user } =
+    params;
 
-  if (tokenAmount <= 0n) throw new Error("placeLimitSell: amount must be positive");
-  if (targetPrice <= 0n) throw new Error("placeLimitSell: targetPrice must be positive");
+  if (tokenAmount <= 0n)
+    throw new Error("placeLimitSell: amount must be positive");
+  if (targetPrice <= 0n)
+    throw new Error("placeLimitSell: targetPrice must be positive");
 
   const approval = await ensureAllowance({
     token,
     owner: user,
-    spender: PECOR_CONTRACTS.PECOROrders,
+    spender: SPOT_SPENDERS.limit,
     amount: tokenAmount,
   });
 
-  const expiry = expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS);
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECOROrders,
-    abi: pecorOrdersAbi,
-    functionName: "placeLimitSell",
-    args: [token, stablecoin, tokenAmount, targetPrice, expiry],
-  });
+  const hash = await writeContract(
+    buildPlaceLimitSell({
+      token,
+      stablecoin,
+      amount: tokenAmount,
+      targetPrice,
+      expiresAt: expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS),
+    }),
+  );
   const receipt = await waitForTx(hash);
   return { receipt, approval };
 }
 
-export async function cancelLimitOrder(orderId: bigint): Promise<WaitForTxResult> {
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECOROrders,
-    abi: pecorOrdersAbi,
-    functionName: "cancelLimitOrder",
-    args: [orderId],
-  });
-  return waitForTx(hash);
+export async function cancelLimitOrder(
+  orderId: bigint,
+): Promise<WaitForTxResult> {
+  return waitForTx(await writeContract(buildCancelLimitOrder(orderId)));
 }
 
 export async function modifyLimitOrder(params: {
@@ -353,38 +384,24 @@ export async function modifyLimitOrder(params: {
   newTargetPrice: bigint;
   newExpiresAt: bigint;
 }): Promise<WaitForTxResult> {
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECOROrders,
-    abi: pecorOrdersAbi,
-    functionName: "modifyLimitOrder",
-    args: [params.orderId, params.newTargetPrice, params.newExpiresAt],
-  });
-  return waitForTx(hash);
+  return waitForTx(await writeContract(buildModifyLimitOrder(params)));
 }
 
 /* ── limit reads ───────────────────────────────────────────────── */
 
-export async function getUserLimitOrders(user: Address): Promise<readonly bigint[]> {
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECOROrders,
-    abi: pecorOrdersAbi,
-    functionName: "getUserLimitOrders",
-    args: [user],
-  });
+export async function getUserLimitOrders(
+  user: Address,
+): Promise<readonly bigint[]> {
+  const raw = await readContract(buildGetUserLimitOrders(user));
   return (raw as readonly bigint[]) ?? [];
 }
 
 export async function getLimitOrder(orderId: bigint) {
-  return readContract({
-    address: PECOR_CONTRACTS.PECOROrders,
-    abi: pecorOrdersAbi,
-    functionName: "getLimitOrder",
-    args: [orderId],
-  });
+  return readContract(buildGetLimitOrder(orderId));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Stop-limit rail — PECORStopOrders.placeStopLimitBuy / Sell
+   Stop-limit rail — 0x1023 placeStopLimitBuy / Sell
    ══════════════════════════════════════════════════════════════════════ */
 
 export interface PlaceStopLimitBuyParams {
@@ -402,10 +419,18 @@ export interface PlaceStopLimitBuyParams {
 export async function placeStopLimitBuy(
   params: PlaceStopLimitBuyParams,
 ): Promise<StopLimitOrderResult> {
-  const { stablecoin, token, stablecoinAmount, stopPrice, limitPrice, expiresAt, user } =
-    params;
+  const {
+    stablecoin,
+    token,
+    stablecoinAmount,
+    stopPrice,
+    limitPrice,
+    expiresAt,
+    user,
+  } = params;
 
-  if (stablecoinAmount <= 0n) throw new Error("placeStopLimitBuy: amount must be positive");
+  if (stablecoinAmount <= 0n)
+    throw new Error("placeStopLimitBuy: amount must be positive");
   if (stopPrice <= 0n || limitPrice <= 0n) {
     throw new Error("placeStopLimitBuy: prices must be positive");
   }
@@ -416,17 +441,20 @@ export async function placeStopLimitBuy(
   const approval = await ensureAllowance({
     token: stablecoin,
     owner: user,
-    spender: PECOR_CONTRACTS.PECORStopOrders,
+    spender: SPOT_SPENDERS.stop,
     amount: stablecoinAmount,
   });
 
-  const expiry = expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS);
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "placeStopLimitBuy",
-    args: [stablecoin, token, stablecoinAmount, stopPrice, limitPrice, expiry],
-  });
+  const hash = await writeContract(
+    buildPlaceStopLimitBuy({
+      stablecoin,
+      token,
+      amount: stablecoinAmount,
+      stopPrice,
+      limitPrice,
+      expiresAt: expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS),
+    }),
+  );
   const receipt = await waitForTx(hash);
   return { receipt, approval };
 }
@@ -445,9 +473,18 @@ export interface PlaceStopLimitSellParams {
 export async function placeStopLimitSell(
   params: PlaceStopLimitSellParams,
 ): Promise<StopLimitOrderResult> {
-  const { token, stablecoin, tokenAmount, stopPrice, limitPrice, expiresAt, user } = params;
+  const {
+    token,
+    stablecoin,
+    tokenAmount,
+    stopPrice,
+    limitPrice,
+    expiresAt,
+    user,
+  } = params;
 
-  if (tokenAmount <= 0n) throw new Error("placeStopLimitSell: amount must be positive");
+  if (tokenAmount <= 0n)
+    throw new Error("placeStopLimitSell: amount must be positive");
   if (stopPrice <= 0n || limitPrice <= 0n) {
     throw new Error("placeStopLimitSell: prices must be positive");
   }
@@ -458,33 +495,32 @@ export async function placeStopLimitSell(
   const approval = await ensureAllowance({
     token,
     owner: user,
-    spender: PECOR_CONTRACTS.PECORStopOrders,
+    spender: SPOT_SPENDERS.stop,
     amount: tokenAmount,
   });
 
-  const expiry = expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS);
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "placeStopLimitSell",
-    args: [token, stablecoin, tokenAmount, stopPrice, limitPrice, expiry],
-  });
+  const hash = await writeContract(
+    buildPlaceStopLimitSell({
+      token,
+      stablecoin,
+      amount: tokenAmount,
+      stopPrice,
+      limitPrice,
+      expiresAt: expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS),
+    }),
+  );
   const receipt = await waitForTx(hash);
   return { receipt, approval };
 }
 
-export async function cancelStopLimitOrder(orderId: bigint): Promise<WaitForTxResult> {
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "cancelStopLimitOrder",
-    args: [orderId],
-  });
-  return waitForTx(hash);
+export async function cancelStopLimitOrder(
+  orderId: bigint,
+): Promise<WaitForTxResult> {
+  return waitForTx(await writeContract(buildCancelStopLimitOrder(orderId)));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Stop-loss rail — PECORStopOrders.placeStopLoss
+   Stop-loss rail — 0x1023 placeStopLoss
    ══════════════════════════════════════════════════════════════════════ */
 
 export interface PlaceStopLossParams {
@@ -500,77 +536,62 @@ export interface PlaceStopLossParams {
 export async function placeStopLoss(
   params: PlaceStopLossParams,
 ): Promise<StopLossOrderResult> {
-  const { token, stablecoin, tokenAmount, triggerPrice, expiresAt, user } = params;
+  const { token, stablecoin, tokenAmount, triggerPrice, expiresAt, user } =
+    params;
 
-  if (tokenAmount <= 0n) throw new Error("placeStopLoss: amount must be positive");
-  if (triggerPrice <= 0n) throw new Error("placeStopLoss: triggerPrice must be positive");
+  if (tokenAmount <= 0n)
+    throw new Error("placeStopLoss: amount must be positive");
+  if (triggerPrice <= 0n)
+    throw new Error("placeStopLoss: triggerPrice must be positive");
 
   const approval = await ensureAllowance({
     token,
     owner: user,
-    spender: PECOR_CONTRACTS.PECORStopOrders,
+    spender: SPOT_SPENDERS.stop,
     amount: tokenAmount,
   });
 
-  const expiry = expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS);
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "placeStopLoss",
-    args: [token, stablecoin, tokenAmount, triggerPrice, expiry],
-  });
+  const hash = await writeContract(
+    buildPlaceStopLoss({
+      token,
+      stablecoin,
+      tokenAmount,
+      triggerPrice,
+      expiresAt: expiresAt ?? buildDeadline(DEFAULT_LIMIT_EXPIRY_SECONDS),
+    }),
+  );
   const receipt = await waitForTx(hash);
   return { receipt, approval };
 }
 
-export async function cancelStopLossOrder(orderId: bigint): Promise<WaitForTxResult> {
-  const hash = await writeContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "cancelStopLossOrder",
-    args: [orderId],
-  });
-  return waitForTx(hash);
+export async function cancelStopLossOrder(
+  orderId: bigint,
+): Promise<WaitForTxResult> {
+  return waitForTx(await writeContract(buildCancelStopLossOrder(orderId)));
 }
 
 /* ── stop reads ────────────────────────────────────────────────── */
 
-export async function getUserStopLimitOrders(user: Address): Promise<readonly bigint[]> {
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "getUserStopLimitOrders",
-    args: [user],
-  });
+export async function getUserStopLimitOrders(
+  user: Address,
+): Promise<readonly bigint[]> {
+  const raw = await readContract(buildGetUserStopLimitOrders(user));
   return (raw as readonly bigint[]) ?? [];
 }
 
-export async function getUserStopLossOrders(user: Address): Promise<readonly bigint[]> {
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "getUserStopLossOrders",
-    args: [user],
-  });
+export async function getUserStopLossOrders(
+  user: Address,
+): Promise<readonly bigint[]> {
+  const raw = await readContract(buildGetUserStopLossOrders(user));
   return (raw as readonly bigint[]) ?? [];
 }
 
 export async function getStopLimitOrder(orderId: bigint) {
-  return readContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "getStopLimitOrder",
-    args: [orderId],
-  });
+  return readContract(buildGetStopLimitOrder(orderId));
 }
 
 export async function getStopLossOrder(orderId: bigint) {
-  return readContract({
-    address: PECOR_CONTRACTS.PECORStopOrders,
-    abi: pecorStopOrdersAbi,
-    functionName: "getStopLossOrder",
-    args: [orderId],
-  });
+  return readContract(buildGetStopLossOrder(orderId));
 }
 
 /* ══════════════════════════════════════════════════════════════════════

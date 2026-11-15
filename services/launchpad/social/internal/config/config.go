@@ -300,8 +300,30 @@ func Load() (Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
+	if err := cfg.validateBoundDocuments(); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
 	cfg.registerInlineDocuments()
 	return cfg, nil
+}
+
+// validateBoundDocuments verifies every configured startup document before the
+// process begins wiring dependencies. Semantic checks remain with the package
+// that consumes each document.
+func (c *Config) validateBoundDocuments() error {
+	for _, document := range c.boundDocuments() {
+		if document[0] == "" && document[1] == "" && document[2] == "" {
+			continue
+		}
+		raw, err := boundBytes(document[0], document[1], document[2])
+		if err != nil {
+			return fmt.Errorf("%s_DOCUMENT: %w", document[3], err)
+		}
+		if !json.Valid(raw) {
+			return fmt.Errorf("%s_DOCUMENT: invalid JSON", document[3])
+		}
+	}
+	return nil
 }
 
 // Validate enforces field-level rules beyond presence.

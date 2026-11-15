@@ -18,15 +18,15 @@ export interface DrawerProps {
  * Right-side drawer — the desktop detail/education surface.
  * Esc + overlay dismiss, focus-trapped.
  */
-export function Drawer({ open, onOpenChange, children, portalContainer, width = 420 }: DrawerProps) {
+export function Drawer({ open, onOpenChange, children, portalContainer, width = "var(--drawer-width)" }: DrawerProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={portalContainer ?? undefined}>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay-subtle data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
         <Dialog.Content
           style={{ width: `min(${typeof width === "number" ? `${width}px` : width}, 100vw)` }}
           className={cn(
-            "fixed top-0 right-0 z-50 flex h-dvh flex-col overscroll-contain bg-surface pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-overlay outline-none",
+            "fixed top-0 right-0 z-50 flex h-dvh flex-col overscroll-contain bg-surface lx-safe-top lx-safe-bottom shadow-overlay outline-none",
             "data-[state=open]:animate-drawer-in data-[state=closed]:animate-drawer-out",
           )}
         >

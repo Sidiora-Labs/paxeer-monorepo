@@ -18,10 +18,10 @@ kind = "rollout-manifest"
 project = "layerx"
 environment = "beta"
 
-[service.redis-router]
+[service.redis-gateway]
 target = "railway"
 image = "redis"
-railway_service = "redis-router"
+railway_service = "redis-gateway"
 health = "tcp:6379"
 order = 1
 
@@ -69,10 +69,10 @@ box_unit = "paxeer-sequencer-standby.service"
 health = "tcp:8545"
 order = 4
 
-[service.router]
+[service.gateway]
 target = "railway"
 image = "layerx-gateway"
-railway_service = "router"
+railway_service = "gateway"
 health = "/healthz"
 order = 5
 

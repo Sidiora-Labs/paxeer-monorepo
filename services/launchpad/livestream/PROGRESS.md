@@ -7,7 +7,7 @@ provider workers.
 ## Current manifests and storage
 
 [go.mod](go.mod) declares Go 1.25.0 and pins goose v3.24.3. The
-supply-chain tools pin Go 1.26.4, Node 24.16.0 and pnpm 9.15.0; see the
+supply-chain tools pin Go 1.27.0, Node 24.16.0 and pnpm 9.15.0; see the
 [supply-chain notes](../security/supplychain/README.md). A module's `go` directive
 is distinct from that build-tool pin.
 

@@ -247,7 +247,7 @@ defmodule Explorer.Market.Source.Chainflow do
   defp multiply(_price, nil), do: nil
   defp multiply(price, supply), do: Decimal.mult(price, supply)
 
-  defp request(symbol, route, query \\ %{}) do
+  defp request(symbol, route, query) do
     if present?(symbol) do
       market =
         if symbol == config(:coin_symbol) and present?(config(:market)),
