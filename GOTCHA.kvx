@@ -22495,3 +22495,8 @@ fix = "Decision 3616. Task 22.44.52."
 title = "A row that scrolls sideways and a row of a list have a form the render check does not measure"
 symptom = "The tab row of the developer dashboard under services/platform/hosted/dashboard/web holds five tabs and scrolls sideways at a width that does not hold them. A row of the key list holds the id of the key, its quota line, the two actions or the mark of a revoked key, and the remaining count. The render check measures boxes, contrast, touch sizes and shifts. It does not tell whether a person sees that a row continues past the edge, whether the parts of a row sit on one line and end at the edge of their card, or whether a caption states something that still holds."
 fix = "Decision 3617. Task 22.44.44; tasks 22.44.38, 22.44.39, 22.44.40 and 22.44.44 require task 22.44.52."
+
+[gotcha.4535]
+title = "A page that listens for the unload event and a page that logs its error state report the kind load"
+symptom = "The page of apps/inference-peer registers its leave for three events in apps/inference-peer/src/page.mjs: pagehide, beforeunload and unload. A browser refuses the unload listener of a document by its permissions policy and writes a console line, and a page with an unload listener is kept out of the back and forward cache. The codebase map in tools/codebase-map/app.js shows a map it cannot read as an error state on the page and also writes the error to the console. The render check reports a console error as the kind load, and the paths of task 22.44.47 held the two documents and not these two scripts."
+fix = "Decision 3618. Task 22.44.47."

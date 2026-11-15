@@ -14818,6 +14818,12 @@ value = "A row that scrolls sideways shows at each end where content continues: 
 basis = "Gotcha 4534. Decisions 3587, 3591 and 3616."
 affects = []
 
+[decision.3618]
+title = "A page leaves on the pagehide event alone, and an error state a page shows is not written to the console as an error"
+value = "A page that has to act when a person leaves registers the pagehide event and no listener for unload or beforeunload, by the web platform guidance on the back and forward cache. A page that returns from that cache through the pageshow event takes up its work again where it ended it on pagehide. An error a page shows to the person as a state of the page with its message is not written to the console as an error; an error the page does not show stays a console error. The paths of task 22.44.47 hold apps/inference-peer/src/page.mjs with apps/inference-peer/test/page.test.mjs and tools/codebase-map/app.js."
+basis = "Gotcha 4535. Decisions 3587 and 3591."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -174132,7 +174138,7 @@ do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 76
 do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The pages keep working when opened as files."
 do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.47.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/inference-peer/index.html", "tools/wasm-tools/playground/pages", "tools/codebase-map/index.html", "tools/codebase-map/styles.css", "tools/wasm-tools/playground/src/parse.ts"]
+touches = ["apps/inference-peer/index.html", "tools/wasm-tools/playground/pages", "tools/codebase-map/index.html", "tools/codebase-map/styles.css", "tools/wasm-tools/playground/src/parse.ts", "apps/inference-peer/src/page.mjs", "apps/inference-peer/test/page.test.mjs", "tools/codebase-map/app.js"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/pages.json", "tools/ui-check/surfaces/pages", "spec/layerx-merge/programme/records/ui/22.44.47.kvx"]
 build_cmd = "test -s apps/inference-peer/index.html && test -s tools/codebase-map/index.html"
@@ -174148,6 +174154,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3618, gotcha 4535. The paths now hold apps/inference-peer/src/page.mjs, apps/inference-peer/test/page.test.mjs and tools/codebase-map/app.js. In apps/inference-peer/src/page.mjs the page registers its leave for the pagehide event alone, and a page shown again from the back and forward cache through the pageshow event with its persisted mark joins again as a fresh load does. Bring the case of apps/inference-peer/test/page.test.mjs that names the three events in line: the leave closes the socket once on pagehide, and the page registers no listener for unload or beforeunload. Add a case for the return through pageshow. No other case is removed or weakened. In tools/codebase-map/app.js the error state of a map that cannot be read stays on the page with its message and is not written to the console as an error. Run node --test test/page.test.mjs in apps/inference-peer by hand, then the render check command by hand until it reports nothing, then the build once and the counted verification once. The work of the earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.46]
 title = "Close the names application on the device list with the render check"
