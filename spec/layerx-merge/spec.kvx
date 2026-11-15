@@ -173327,7 +173327,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.34]
 title = "Bring the names application to the web platform guidance and close it on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
