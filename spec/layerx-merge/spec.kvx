@@ -247053,7 +247053,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.692]
 title = "Give the prefix purge of the keeper of the fast path the form of the keeper of the ordinary path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -382745,7 +382745,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.683]
 title = "Name the gateway tenant of the dashboard web in its definition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.682"]
