@@ -172366,7 +172366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.606]
 title = "Add the container file of the service names and define it in the project sites for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -457611,7 +457611,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.623]
 title = "Keep the indexed counters quiet where no endpoint runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -457702,7 +457702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.620]
 title = "Import a block whose receipts hold entries of the chain itself"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
