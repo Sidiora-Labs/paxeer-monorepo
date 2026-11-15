@@ -11,15 +11,20 @@ COPY services/wallet/gateway/package.json /src/services/wallet/gateway/
 COPY services/wallet/demo/package.json /src/services/wallet/demo/
 RUN npm exec --yes --package=pnpm@10.34.9 -- pnpm --dir /src/services/wallet install --frozen-lockfile --ignore-scripts --filter @paxeer/wallet
 RUN npm ci --ignore-scripts --no-audit --no-fund
-ARG LAYERX_HUMAN_SERVICE_URL=https://layerx-human.layerx-testnet.svc:9443
-RUN LAYERX_HUMAN_SERVICE_URL="$LAYERX_HUMAN_SERVICE_URL" npm run build
+ARG LAYERX_HUMAN_SERVICE_URL
+ARG NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL
+RUN : "${LAYERX_HUMAN_SERVICE_URL:?Human service HTTPS origin is required}" \
+    && : "${NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL:?Public explorer origin is required}" \
+    && LAYERX_HUMAN_SERVICE_URL="$LAYERX_HUMAN_SERVICE_URL" \
+       NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL="$NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL" npm run build
 
 FROM node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152
-RUN apt-get update && apt-get install -y --no-install-recommends socat \
+RUN apt-get update && apt-get install -y --no-install-recommends socat gosu \
     && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build /src/apps/web/.next/standalone ./
 COPY --from=build /src/apps/web/.next/static ./apps/web/.next/static
-USER 65532:65532
+COPY --chmod=0755 docker/web/entrypoint.sh /usr/local/bin/web-entrypoint
+ENTRYPOINT ["/usr/local/bin/web-entrypoint"]
 CMD ["node", "apps/web/server.js"]
