@@ -14584,6 +14584,12 @@ value = "A test of the node that calls a module entry point builds its call envi
 basis = "Gotcha 4497. Decision 3576 states the rule for a case whose input comes from a proof; decision 2501 names the cases whose inputs come from a producer."
 affects = []
 
+[decision.3579]
+title = "The custody inventory follows the keys of the wallet while the services run"
+value = "The attestor module has the command inventory, which signs the custody inventory with the key of its owner: it begins an inventory from the five member certificates, approves requests, renews the lifetime and shows what an inventory holds. A request for approval is a document with the field inventory_requests, a list of entries with the fields key_id, epoch, curve, public_key, owner and operations, the form the load test of the attestor module writes into its manifest. An attestor admits a newer signed inventory while it runs, through a route for the gateway and operator authorities, and retains it in its store; the inventory in force is the one with the higher sequence of the configured file and the retained one. The wallet gateway follows the same rule with its database, lists the requests that wait for approval for its administrator, takes a newer inventory from the administrator and passes it to the five attestors. The plan of the custody ceremony writes the requests that its delivery needs. The command has a mode that runs unattended beside the gateway: it reads the requests, approves within stated limits, signs, hands the result to the gateway and renews before the lifetime ends. The signing key of the inventory stays with the command and is held neither by the gateway nor by an attestor."
+basis = "Gotcha 4498."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44244,6 +44250,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.664]
+title = "Run the inventory command unattended beside the wallet gateway"
+reqs = ["22998.1"]
+touches = ["services/wallet/attestor/cmd", "tools/deploy/tests", "services/wallet/README.md"]
+tests = []
+verification_contract = "(cd services/wallet/attestor && go test -count=1 ./cmd/inventory/) && python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read the command under services/wallet/attestor/cmd/inventory from task 22.39.659, the two routes of the administrator in services/wallet/gateway/src/routes/admin.ts from tasks 22.39.661 and 22.39.662, docker/wallet-attestor/Dockerfile with docker/wallet-attestor/files.tsv, the definitions wallet-gateway.kvx, wallet-attestor.kvx and project.kvx under deploy/projects/wallet, tools/deploy/platform-project.py with tools/deploy/tests/test_platform_project.py, and docs/wallet/service/runbooks/refresh-cadence.md for the form of a runbook."
+symbols = []
+
+[capability.22.39.663]
+title = "Write the inventory requests of the custody ceremony with its plan"
+reqs = ["22998.1"]
+touches = ["services/wallet/ceremony/cmd/ceremony/main.go", "services/wallet/ceremony/internal", "docs/wallet/service/cutover.md"]
+tests = []
+verification_contract = "cd services/wallet/ceremony && go test -count=1 ./... -run TestPlanInventoryRequests"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read services/wallet/ceremony/cmd/ceremony/main.go with its subcommands and flags, the plan and the delivery in services/wallet/ceremony/internal/migrate/migrate.go with the key ids they use, the entries that services/wallet/ceremony/internal/ceremonyfixture/fixture.go approves for each wallet, the function PublishInventory in services/wallet/ceremony/internal/testsupport/ceremony_nodes.go, the field inventory_requests in services/wallet/attestor/cmd/loadtest/manifest.go, and docs/wallet/service/cutover.md."
+symbols = []
+
+[capability.22.39.662]
+title = "Take a newer signed inventory in the wallet gateway and pass it to the attestors"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/src/routes/admin.ts", "services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/attestor/client.ts", "services/wallet/gateway/src/env.ts", "services/wallet/gateway/src/db", "services/wallet/gateway/migrations"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/custody-inventory-admit.test.ts"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/gateway/src/agent/authority.ts the function loadWalletInventory with its sequence memory and the function publishCustodyAuthority; in services/wallet/gateway/src/attestor/client.ts the method that publishes the authority to the five endpoints; the route /v1/inventory of the attestor in services/wallet/attestor/internal/server/authority.go from task 22.39.660; the routes of the administrator in services/wallet/gateway/src/routes/admin.ts from task 22.39.661; and the table wallet_custody_authority with its column inventory_sequence in services/wallet/gateway/migrations."
+symbols = []
+
+[capability.22.39.661]
+title = "List the custody inventory requests of the wallet gateway for its administrator"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/src/routes/admin.ts", "services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/provision", "services/wallet/gateway/src/db", "services/wallet/gateway/migrations"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/custody-inventory-requests.test.ts"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/gateway/src/routes/admin.ts the import route with its bearer check; in services/wallet/gateway/src/agent/authority.ts the functions loadWalletInventory and requireInventoryKey; in services/wallet/gateway/src/provision/state.ts the function createEvmKey, its counterpart for the account key and the places that answer custody_inventory_pending; in services/wallet/gateway/src/attestor/client.ts the method generate and what its answer carries; in services/wallet/gateway/src/db/wallets.ts the columns that hold the key ids; and in services/wallet/attestor/cmd/loadtest/manifest.go the field inventory_requests."
+symbols = []
+
+[capability.22.39.660]
+title = "Admit a newer signed inventory on a running attestor"
+reqs = ["22998.1"]
+touches = ["services/wallet/attestor/internal/server/authority.go", "services/wallet/attestor/internal/server/server.go", "services/wallet/attestor/internal/auth/agent/authority.go", "services/wallet/attestor/cmd/attestor/main.go"]
+tests = []
+verification_contract = "cd services/wallet/attestor && go test -count=1 ./internal/server/ -run TestInventoryAdmit"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/attestor/internal/server/authority.go the type Inventory with NewInventory, load and Check and the handler HandleAuthority; in services/wallet/attestor/internal/server/server.go the routes and the functions requireAuthority, gatewayOnly and operatorOnly; in services/wallet/attestor/internal/auth/agent/authority.go the function PersistSigned, the type storedAuthority and the way NewAuthority restores its snapshot from the store; and in services/wallet/attestor/cmd/attestor/main.go the place that builds the inventory."
+symbols = []
+
+[capability.22.39.659]
+title = "Add the inventory command of the attestor module"
+reqs = ["22998.1"]
+touches = ["services/wallet/README.md"]
+tests = []
+verification_contract = "cd services/wallet/attestor && go test -count=1 ./cmd/inventory/"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/attestor/internal/server/authority.go the types WalletInventory, InventoryKey and InventoryMember, the method load and the function checkInventory; in services/wallet/attestor/internal/auth/agent/authority.go the types SignedClaims and SignedVerifier, the method Decode and the constant InventoryAudience; in services/wallet/attestor/cmd/loadtest/manifest.go the field inventory_requests and the function inventoryRequests; and in services/wallet/gateway/src/agent/authority.ts the function loadWalletInventory, for the header and the bounds that both readers hold an inventory to."
+symbols = []
 
 [capability.22.39.658]
 title = "Read the order interfaces of the wallet swap test from the present perps tree"
@@ -172675,6 +172735,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.662]
+title = "Take a newer signed inventory in the wallet gateway and pass it to the attestors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.660", "22.39.661"]
+reqs = ["22998.1"]
+capabilities = ["22.39.662"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/gateway/src/agent/authority.ts the function loadWalletInventory with its sequence memory and the function publishCustodyAuthority; in services/wallet/gateway/src/attestor/client.ts the method that publishes the authority to the five endpoints; the route /v1/inventory of the attestor in services/wallet/attestor/internal/server/authority.go from task 22.39.660; the routes of the administrator in services/wallet/gateway/src/routes/admin.ts from task 22.39.661; and the table wallet_custody_authority with its column inventory_sequence in services/wallet/gateway/migrations."
+do_2 = "do_2 The inventory in force in the gateway is the configured file or the token retained in the database, whichever has the higher sequence; both pass the same checks. The callers of loadWalletInventory stay as they are: the gateway keeps the retained token in memory and refreshes it at start, on an admission and on a short interval, so that every gateway process follows an admission made through another one."
+do_3 = "do_3 Add the route POST /v1/admin/custody-inventory under the bearer check of the administrator, with the field token. The gateway verifies the token with the checks of loadWalletInventory and requires a sequence above the one in force. It then sends the token to each of the five attestors through their inventory route with its client certificate. When all five hold the sequence it retains the token in the transaction that advances inventory_sequence and answers with the sequence and, for each member, the node id and the sequence. When fewer than five hold it, it retains nothing and answers with status 502 and the result of each member. A repeat of the same token is safe on both sides. The answer never carries the token."
+do_4 = "do_4 Tests in services/wallet/gateway/test/custody-inventory-admit.test.ts with loopback attestor peers in the form the tests of the package use: an admission reaches five peers and is retained; requireInventoryKey then admits a key of the newer inventory without a restart; a lower sequence is refused; with one peer refusing nothing is retained and the answer names that member; a call without the bearer is refused; a fresh import of the module with the older file reads the retained inventory."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/src/routes/admin.ts", "services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/attestor/client.ts", "services/wallet/gateway/src/env.ts", "services/wallet/gateway/src/db", "services/wallet/gateway/migrations"]
+tests = []
+planned_paths = ["services/wallet/gateway/test/custody-inventory-admit.test.ts"]
+build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/custody-inventory-admit.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.661]
+title = "List the custody inventory requests of the wallet gateway for its administrator"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.661"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/gateway/src/routes/admin.ts the import route with its bearer check; in services/wallet/gateway/src/agent/authority.ts the functions loadWalletInventory and requireInventoryKey; in services/wallet/gateway/src/provision/state.ts the function createEvmKey, its counterpart for the account key and the places that answer custody_inventory_pending; in services/wallet/gateway/src/attestor/client.ts the method generate and what its answer carries; in services/wallet/gateway/src/db/wallets.ts the columns that hold the key ids; and in services/wallet/attestor/cmd/loadtest/manifest.go the field inventory_requests."
+do_2 = "do_2 Add the route GET /v1/admin/custody-inventory/requests under the bearer check of the administrator. It answers a document with the field inventory_requests, a list of entries with the fields key_id, epoch, curve, public_key, owner and operations, the form the load test of the attestor module writes into its manifest, with the sequence of the inventory in force and the count beside it. The list holds, first, for each provisioning whose key id is set, whose key is not generated and for which the inventory does not admit generation, an entry that admits only generation, with an empty public key and epoch 0. It holds, second, for each generated wallet key for which the inventory does not admit signing, an entry with the public key in lower hex in the form the readers of the inventory expect for its curve, the epoch the attestors hold, and the operations sign and refresh. The owner of an entry is the owner the gateway passes to the attestors for that key. The list is ordered oldest first, holds no key id twice and is bounded by a limit parameter with a default of 200 and a maximum of 1000."
+do_3 = "do_3 Where the database does not hold a value an entry needs, retain it from the answer of the generation, with a migration file in services/wallet/gateway/migrations in the form of the present ones, and name the column in the final message. A provisioning that was answered as pending continues on the next call of its owner once the inventory admits it, as it does today; change nothing else in that path."
+do_4 = "do_4 Tests in services/wallet/gateway/test/custody-inventory-requests.test.ts with the supports that services/wallet/gateway/test/admin-legacy-import.test.ts uses: a call without the bearer is refused; a provisioning without approval appears once as a generation request; after an inventory that approves the generation and after the generation, the key appears as a signing request with public key and epoch; after an inventory that approves signing it leaves the list."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/src/routes/admin.ts", "services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/provision", "services/wallet/gateway/src/db", "services/wallet/gateway/migrations"]
+tests = []
+planned_paths = ["services/wallet/gateway/test/custody-inventory-requests.test.ts"]
+build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/custody-inventory-requests.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.658]
 title = "Read the order interfaces of the wallet swap test from the present perps tree"
 status = "pending"
@@ -197770,6 +197894,41 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.664]
+title = "Run the inventory command unattended beside the wallet gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.659", "22.39.662"]
+reqs = ["22998.1"]
+capabilities = ["22.39.664"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read the command under services/wallet/attestor/cmd/inventory from task 22.39.659, the two routes of the administrator in services/wallet/gateway/src/routes/admin.ts from tasks 22.39.661 and 22.39.662, docker/wallet-attestor/Dockerfile with docker/wallet-attestor/files.tsv, the definitions wallet-gateway.kvx, wallet-attestor.kvx and project.kvx under deploy/projects/wallet, tools/deploy/platform-project.py with tools/deploy/tests/test_platform_project.py, and docs/wallet/service/runbooks/refresh-cadence.md for the form of a runbook."
+do_2 = "do_2 Add the subcommand serve in services/wallet/attestor/cmd/inventory/serve.go. Its settings come from the environment: the address of the gateway, the file with the bearer of the administrator, the key file, issuer, tenant, a state directory, the interval and the limits. In each round it reads the requests from the gateway, takes the inventory in force from the state directory, approves by its rule, signs, and posts the result to the gateway. Only after the gateway answers that all members hold the sequence does it keep the result as the present inventory, through a temporary file that is renamed. For each approved entry it appends one line to a journal in the state directory with time, sequence, key id, owner, curve and operations."
+do_3 = "do_3 The rule. Only entries that the gateway lists are approved. A generation request is approved when its key id has one of the two forms the gateway gives a wallet key and an account key, within a limit of new generation approvals in an hour and a limit of key ids for one owner, both settings with defaults. A signing request is approved only when the inventory holds the generation entry of that key id with the same owner and curve. Every other request stays unapproved and is counted in the line of the round. When the inventory in force ends within a margin, ten days by default, it is renewed even without a request. A round whose post is not confirmed leaves the state as it was, and the next round repeats with the same sequence."
+do_4 = "do_4 The mode answers /healthz on the port of the environment with success while the last round that completed lies within three intervals."
+do_5 = "do_5 Add the image under docker/wallet-inventory in the form of docker/wallet-attestor: it builds only the command, runs as a user without privileges, and materialises the key and the bearer the way the attestor image materialises its files. Add the definition deploy/projects/wallet/wallet-inventory.kvx in the form of wallet-gateway.kvx: built from the repository with that Dockerfile, health /healthz, a volume for the state directory, its variables as inputs named by the convention of the folder, ordered after the gateway. The tests under tools/deploy/tests that read the wallet folder pass; change one only where it holds a fixed list of the definitions."
+do_6 = "do_6 Add the runbook docs/wallet/service/runbooks/inventory.md: what the inventory is, the subcommands, the unattended mode with its limits and its journal, renewal before the lifetime ends, replacing the signing key with the new public key given to the five attestors and the gateway, and what to do with a request that stays unapproved. State product behaviour only. Add one line for the mode to the entry in services/wallet/README.md."
+do_7 = "do_7 Tests in services/wallet/attestor/cmd/inventory/serve_test.go against a loopback peer in place of the gateway: a generation request is approved and posted; the signing request of that key follows; a signing request without a generation entry stays unapproved; the limit of an hour holds; an inventory inside the margin is renewed; a post that is not confirmed leaves the state unchanged and the next round carries the same sequence."
+do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/attestor/cmd", "tools/deploy/tests", "services/wallet/README.md"]
+tests = []
+planned_paths = ["services/wallet/attestor/cmd/inventory/serve.go", "services/wallet/attestor/cmd/inventory/serve_test.go", "docker/wallet-inventory/Dockerfile", "deploy/projects/wallet/wallet-inventory.kvx", "docs/wallet/service/runbooks/inventory.md"]
+build_cmd = "cd services/wallet/attestor && go build ./cmd/inventory/"
+verify_cmd = "(cd services/wallet/attestor && go test -count=1 ./cmd/inventory/) && python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -243769,6 +243928,104 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.663]
+title = "Write the inventory requests of the custody ceremony with its plan"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.663"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read services/wallet/ceremony/cmd/ceremony/main.go with its subcommands and flags, the plan and the delivery in services/wallet/ceremony/internal/migrate/migrate.go with the key ids they use, the entries that services/wallet/ceremony/internal/ceremonyfixture/fixture.go approves for each wallet, the function PublishInventory in services/wallet/ceremony/internal/testsupport/ceremony_nodes.go, the field inventory_requests in services/wallet/attestor/cmd/loadtest/manifest.go, and docs/wallet/service/cutover.md."
+do_2 = "do_2 The subcommand plan takes a flag with an absolute path for the requests. With it the plan writes a document with the field inventory_requests, a list of entries with the fields key_id, epoch, curve, public_key, owner and operations, the form the load test of the attestor module writes into its manifest, holding for every eligible wallet the entries its delivery needs: the key ids, owners, curves, public keys, epochs and operations that the fixture approves for a wallet of the same shape. The file has mode 0600 and is written through a temporary file that is renamed. The counts of the plan gain the count of requests. Without the flag the plan is as it is today. Where the fixture approves different entries on different members, the flag names a directory and the plan writes one document for each member id; state in the final message which of the two forms applies."
+do_3 = "do_3 Add a test whose name begins with TestPlanInventoryRequests in the package that holds the plan: the requests the plan writes for the wallets of the fixture, published through PublishInventory in place of the list the fixture builds by hand, let the delivery of the fixture pass, and a wallet that is not eligible has no entry."
+do_4 = "do_4 In docs/wallet/service/cutover.md state in the part on the plan that the plan writes the requests, and in the part on delivery that the owner of the inventory approves them with the inventory command of the attestor module and that the attestors hold the approved inventory before delivery begins. Name the command in words and add no link to a path that is absent from the tree."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/ceremony/cmd/ceremony/main.go", "services/wallet/ceremony/internal", "docs/wallet/service/cutover.md"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/ceremony && go build ./..."
+verify_cmd = "cd services/wallet/ceremony && go test -count=1 ./... -run TestPlanInventoryRequests"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.660]
+title = "Admit a newer signed inventory on a running attestor"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.660"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/attestor/internal/server/authority.go the type Inventory with NewInventory, load and Check and the handler HandleAuthority; in services/wallet/attestor/internal/server/server.go the routes and the functions requireAuthority, gatewayOnly and operatorOnly; in services/wallet/attestor/internal/auth/agent/authority.go the function PersistSigned, the type storedAuthority and the way NewAuthority restores its snapshot from the store; and in services/wallet/attestor/cmd/attestor/main.go the place that builds the inventory."
+do_2 = "do_2 The inventory in force is the configured file or the token retained in the store, whichever has the higher sequence. Both pass the same checks. A retained token that no longer verifies gives way to the file; when neither verifies the attestor refuses as it does today. An attestor that starts with a file whose sequence is below the retained one starts with the retained one."
+do_3 = "do_3 Add the route /v1/inventory beside the authority route: a POST with the field token, admitted for a client of the gateway authority or of the operator authority. The token is decoded with the checks of load, members against the pins included. Its sequence must be above the one in force. The same token at the same sequence is answered as held and changes nothing; a lower sequence, or another token at the same sequence, is refused. An admitted token is retained through PersistSigned and recorded in the audit log under the kind custody.inventory with its sequence. The answer carries the node id and the sequence. An inventory may be as large as its readers allow; where the request bound of the server is below that, widen it for this route alone."
+do_4 = "do_4 Every check after an admission, Check and checkAddShare included, reads the inventory in force without a restart."
+do_5 = "do_5 Tests in services/wallet/attestor/internal/server/inventory_admit_test.go, each name beginning with TestInventoryAdmit: an admission raises the sequence; a key that only the newer inventory approves is admitted for generation without a restart; a lower sequence is refused; the same token twice changes nothing; a token of another signer is refused; a token whose member pin differs is refused; a client with neither authority is refused; a restart with the older file starts with the retained inventory; a retained inventory past its lifetime gives way to a valid file."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/attestor/internal/server/authority.go", "services/wallet/attestor/internal/server/server.go", "services/wallet/attestor/internal/auth/agent/authority.go", "services/wallet/attestor/cmd/attestor/main.go"]
+tests = []
+planned_paths = ["services/wallet/attestor/internal/server/inventory_admit_test.go"]
+build_cmd = "cd services/wallet/attestor && go build ./..."
+verify_cmd = "cd services/wallet/attestor && go test -count=1 ./internal/server/ -run TestInventoryAdmit"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.659]
+title = "Add the inventory command of the attestor module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.659"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/attestor/internal/server/authority.go the types WalletInventory, InventoryKey and InventoryMember, the method load and the function checkInventory; in services/wallet/attestor/internal/auth/agent/authority.go the types SignedClaims and SignedVerifier, the method Decode and the constant InventoryAudience; in services/wallet/attestor/cmd/loadtest/manifest.go the field inventory_requests and the function inventoryRequests; and in services/wallet/gateway/src/agent/authority.ts the function loadWalletInventory, for the header and the bounds that both readers hold an inventory to."
+do_2 = "do_2 Add the command under services/wallet/attestor/cmd/inventory with the subcommands init, approve, renew and show. Common flags: the private key of the owner as a PEM file with a P-256 key, which must be a regular file of mode 0600 that belongs to the effective user; issuer; tenant; lifetime, at most 30 days; the present inventory file; the output path, written through a temporary file in the same directory that is synced and renamed. init takes five members as id and certificate file, computes each pin as the SHA-256 of the public key information of the certificate in lower hex, and writes sequence 1 with no keys, threshold 3, protocol wallet and version 1. approve takes the present inventory and a document with the field inventory_requests, a list of entries with the fields key_id, epoch, curve, public_key, owner and operations, the form the load test of the attestor module writes into its manifest. A key id that the inventory does not hold is added. An entry that admits only generation and has no public key is replaced by a request that carries the public key, the epoch and the operations. For an entry that has a public key the request must carry the same public key, owner and curve; its operations may change and its epoch must not go down. Any other difference refuses the whole document and names the key id. The sequence rises by one. renew keeps members and keys, raises the sequence by one and sets new times. show prints sequence, issue and expiry time, the count of members and the count of keys by operation, and with a flag one line for each key. The command never prints the private key, and a message on a refused input names the input and not its contents."
+do_3 = "do_3 The output is the token that Decode accepts for the inventory audience: the header with the algorithm ES256 and the type the readers expect, and the signature in the fixed width form. Use the types of the packages server and agent as they are. The encoder lives in the package of the command. Change nothing under services/wallet/attestor/internal."
+do_4 = "do_4 Tests in services/wallet/attestor/cmd/inventory/main_test.go. An inventory from init loads through NewInventory with a store in a temporary directory and the pins of the five certificates. After approve with a generation request the method Check admits generate for that key. After approve with the request that carries public key and epoch, Check admits sign against a share record of that key. Refused: a changed owner, a changed public key, a lower epoch, a sixth member, a lifetime above 30 days, a key file with a wider mode. After renew the store accepts the higher sequence and then refuses the earlier token."
+do_5 = "do_5 Add a short entry to services/wallet/README.md in the part on the attestors that names the command and its four subcommands."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/README.md"]
+tests = []
+planned_paths = ["services/wallet/attestor/cmd/inventory/main.go", "services/wallet/attestor/cmd/inventory/main_test.go"]
+build_cmd = "cd services/wallet/attestor && go build ./cmd/inventory/"
+verify_cmd = "cd services/wallet/attestor && go test -count=1 ./cmd/inventory/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.653]
 title = "Skip the wallet policy case of the web search application proof when the proof passes no calldata"
