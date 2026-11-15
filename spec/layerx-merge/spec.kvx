@@ -378095,7 +378095,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.597]
 title = "Define the service wallet-pwa of the project wallet for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378191,7 +378191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.594]
 title = "Define the service wallet-gateway of the project wallet for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378255,7 +378255,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.592]
 title = "Define the service human-web of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378287,7 +378287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.591]
 title = "Define the service human of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378543,7 +378543,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.582]
 title = "Define the service search-front of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378575,7 +378575,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.581]
 title = "Define the service indexer of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378703,7 +378703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.577]
 title = "Define the service webhooks-ingress of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378735,7 +378735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.576]
 title = "Define the service router of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378767,7 +378767,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.575]
 title = "Add the project tool that creates and updates services from a folder of definition files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
