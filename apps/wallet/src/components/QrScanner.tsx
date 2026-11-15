@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ImagePlus, RotateCcw, SwitchCamera } from 'lucide-react';
+import { ModalPanel } from '@/components/ui/primitives';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import { useLocale } from '@/providers/LocaleProvider';
 
@@ -15,8 +16,6 @@ export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
   const { p, t } = useLocale();
   const scannerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [error, setError] = useState('');
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [restartToken, setRestartToken] = useState(0);
@@ -25,8 +24,12 @@ export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
   // Stable refs so the useEffect never restarts due to callback identity changes
   const onScanRef = useRef(onScan);
   const onCloseRef = useRef(onClose);
-  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
@@ -42,29 +45,6 @@ export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
       scannerRef.current = null;
     }
   }, []);
-
-  // Focus management
-  useEffect(() => {
-    if (open) {
-      previousFocusRef.current = document.activeElement as HTMLElement;
-      requestAnimationFrame(() => {
-        dialogRef.current?.focus();
-      });
-    } else if (previousFocusRef.current) {
-      previousFocusRef.current.focus();
-      previousFocusRef.current = null;
-    }
-  }, [open]);
-
-  // Escape key
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -108,7 +88,7 @@ export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
           },
           () => {
             // QR code not found in frame
-          },
+          }
         );
         setError('');
       } catch (err: any) {
@@ -132,14 +112,7 @@ export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
       clearTimeout(timer);
       stopScanner();
     };
-  }, [
-    open,
-    facingMode,
-    restartToken,
-    stopScanner,
-    p.cameraDenied,
-    p.cameraMissing,
-  ]);
+  }, [open, facingMode, restartToken, stopScanner, p.cameraDenied, p.cameraMissing]);
 
   const handleFlipCamera = () => {
     setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
@@ -174,35 +147,39 @@ export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
   if (!open) return null;
 
   return (
-    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={p.scanQr} tabIndex={-1}
-      className="fixed inset-0 z-[60] bg-black flex flex-col outline-none">
+    <ModalPanel
+      onDismiss={onClose}
+      aria-label={p.scanQr}
+      tabIndex={-1}
+      className="pax-scanner fixed inset-0 z-[60] bg-pax-bg flex flex-col outline-none"
+    >
       {/* Hidden container for file-based QR scanning */}
       <div id="qr-file-scan" className="hidden" />
 
       {/* Header */}
-      <div className="relative z-10 flex items-center justify-between px-4 pt-4 safe-area-pt">
+      <div className="relative z-10 flex flex-wrap gap-2 items-center justify-between px-4 pt-4 safe-area-pt">
         <button
           onClick={onClose}
           aria-label={t.common.close}
-          className="p-2.5 rounded-full bg-white/10 backdrop-blur-sm press-scale"
+          className="p-2.5 rounded-full bg-pax-control backdrop-blur-sm press-scale"
         >
-          <SvgIcon name="x" className="w-5 h-5" style={{ filter: 'brightness(0) invert(1)' }} />
+          <SvgIcon name="x" className="w-5 h-5" />
         </button>
-        <h2 className="text-sm font-semibold text-white">{p.scanQr}</h2>
+        <h2 className="text-sm font-semibold text-pax-light">{p.scanQr}</h2>
         <div className="flex gap-2">
           <button
             onClick={handleFileImport}
             aria-label={p.importQr}
-            className="p-2.5 rounded-full bg-white/10 backdrop-blur-sm press-scale"
+            className="p-2.5 rounded-full bg-pax-control backdrop-blur-sm press-scale"
           >
-            <ImagePlus className="w-5 h-5 text-white" />
+            <ImagePlus className="w-5 h-5 text-pax-light" />
           </button>
           <button
             onClick={handleFlipCamera}
             aria-label={p.switchCamera}
-            className="p-2.5 rounded-full bg-white/10 backdrop-blur-sm press-scale"
+            className="p-2.5 rounded-full bg-pax-control backdrop-blur-sm press-scale"
           >
-            <SwitchCamera className="w-5 h-5 text-white" />
+            <SwitchCamera className="w-5 h-5 text-pax-light" />
           </button>
         </div>
       </div>
@@ -217,19 +194,20 @@ export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
       {/* Instructions / Error */}
       <div className="px-6 pb-8 safe-area-pb text-center">
         {error ? (
-          <div className="bg-red-500/10 rounded-xl px-4 py-3 space-y-2">
-            <p className="text-xs text-red-400">{error}</p>
-            <button onClick={handleRetry} className="inline-flex items-center gap-1.5 text-xs text-white/70 hover:text-white">
+          <div className="bg-pax-error-muted rounded-xl px-4 py-3 space-y-2">
+            <p className="text-xs text-pax-error">{error}</p>
+            <button
+              onClick={handleRetry}
+              className="inline-flex items-center gap-1.5 text-xs text-pax-light hover:text-pax-light"
+            >
               <RotateCcw className="w-3.5 h-3.5" />
               {t.common.retry}
             </button>
           </div>
         ) : (
-          <p className="text-xs text-white/50">
-            {p.scanInstruction}
-          </p>
+          <p className="text-xs text-pax-muted">{p.scanInstruction}</p>
         )}
       </div>
-    </div>
+    </ModalPanel>
   );
 }

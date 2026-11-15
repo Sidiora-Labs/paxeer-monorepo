@@ -105,7 +105,7 @@ export default function HolderRewardsTable({
 }: HolderRewardsTableProps) {
   const empty = !loading && rows.length === 0 && !filtered;
   return (
-    <div className={cn('flex flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
+    <div aria-busy={loading || loadingMore || undefined} className={cn('flex flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
       <table className="w-full table-fixed">
         <caption className="sr-only">Holder rewards coins ranked by {order.key === 'age' ? 'creation time' : order.key === 'mcap' ? 'market cap' : order.key === 'holders' ? 'holders paid' : 'rewards distributed'}, {order.direction === 'desc' ? 'highest first' : 'lowest first'}</caption>
         <thead>

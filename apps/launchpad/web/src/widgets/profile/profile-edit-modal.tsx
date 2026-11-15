@@ -256,7 +256,7 @@ function ImagePicker({ kind, currentAssetId, upload, disabled, autoFocus, onSele
       </div>
       <div className="flex items-center gap-3">
         <span className={cn('flex shrink-0 items-center justify-center overflow-hidden bg-surface-hover text-text-faint', kind === 'avatarAssetId' ? 'size-avatar-xl rounded-pill' : 'h-12 w-24 rounded-sm')}>
-          {preview ? <img src={preview} alt={`${label} preview`} className="size-full object-cover" /> : <ImagePlus aria-hidden="true" className="size-icon-lg" />}
+          {preview ? <img src={preview} alt={`${label} preview`} width={kind === 'avatarAssetId' ? 96 : 192} height={kind === 'avatarAssetId' ? 96 : 96} decoding="async" className="size-full object-cover" /> : <ImagePlus aria-hidden="true" className="size-icon-lg" />}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span role="status" className="truncate text-xs text-text-muted">{status}{upload ? ` · ${upload.file.name}` : ''}</span>
