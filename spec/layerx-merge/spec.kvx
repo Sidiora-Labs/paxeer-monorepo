@@ -458023,7 +458023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.631]
 title = "Let the release, database TLS and account migration cases of the explorer read files of the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458085,7 +458085,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.629]
 title = "Let the market and configuration cases of the explorer follow the present fetchers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
