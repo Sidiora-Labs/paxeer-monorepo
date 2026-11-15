@@ -14722,6 +14722,18 @@ value = "The session routes of the dashboard web accept a request whose Origin i
 basis = "Gotcha 4518. Decision 3584."
 affects = []
 
+[decision.3602]
+title = "Each app of the explorer backend has its suite task and one task runs the suite whole"
+value = "The verification of a suite task of the explorer backend names the test directories of the apps of its paths. Task 22.39.634 verifies the apps explorer and ethereum_jsonrpc. The apps indexer, block_scout_web and nft_media_handler each have a task of their own, and one closing task runs the suite with no path. Decision 3572 holds for the cases of every app under services/explorer/backend/apps. The test configuration of the app block_scout_web compiles the routers its cases address: the router of the pages, the admin panel, the API routers and the GraphQL routes. The default of each of these switches outside the test configuration stays as it is."
+basis = "Gotcha 4519. Decision 3572."
+affects = []
+
+[decision.3603]
+title = "The cases of the explorer theme follow the theme of the design brief and the presets follow the theme"
+value = "The theme under apps/explorer/toolkit/theme in the form the design brief gives is the source of the token values. A case under apps/explorer/toolkit/theme/foundations that states another value follows the theme; a case that states the order or the growth of a scale follows the scale the theme holds. The presets under apps/explorer/configs/envs declare every colour the theme declares with the value of the theme. A case of the toolkit that needs an observer of the browser the test environment lacks defines a stand-in of its own and imports no package the package file does not declare. No case is removed or skipped."
+basis = "Gotcha 4520. Decisions 3589 and 3572."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44382,6 +44394,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.688]
+title = "Let the suite of the explorer backend pass whole with no path in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test"
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test with no path once, the form .github/workflows/explorer-images.yml uses, and list every case that does not pass with app, file and first message."
+symbols = []
+
+[capability.22.39.687]
+title = "Let the suite of the media app of the explorer backend pass in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/nft_media_handler/lib", "services/explorer/backend/apps/nft_media_handler/README.md"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/nft_media_handler/test"
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Read services/explorer/backend/apps/nft_media_handler/test/repair/readme_resizing_test.exs, the section of services/explorer/backend/apps/nft_media_handler/README.md it compiles and the resizer under services/explorer/backend/apps/nft_media_handler/lib."
+symbols = []
+
+[capability.22.39.686]
+title = "Let the suite of the web app of the explorer backend pass whole in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/block_scout_web/lib", "services/explorer/backend/apps/block_scout_web/config/test.exs"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/router.ex with the switches it reads when it is compiled, services/explorer/backend/apps/block_scout_web/config/config.exs and services/explorer/backend/apps/block_scout_web/config/test.exs, and the test helper of the app with the endpoint and the browser driver it starts."
+symbols = []
+
+[capability.22.39.685]
+title = "Let the suite of the indexer app of the explorer backend pass whole in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/indexer/lib"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test"
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test once and list every case that does not pass with file and first message. Group the list by cause before changing anything: state a case shares with another case, such as the ownership mode of the database connections, application settings, named processes, caches and mock expectations of the JSON-RPC client; a prepared statement or a type of the database that another case replaced while a connection still held it; a value a case states that the source no longer gives; a wait that is too short for the builder."
+symbols = []
 
 [capability.22.39.684]
 title = "Accept the session requests of a browser behind a front and serve the icon of the app"
@@ -175282,7 +175330,7 @@ do_6 = "do_6 Tests of the paths that pin markup, class names or styles change to
 do_7 = "do_7 Write spec/layerx-merge/programme/records/ui/22.44.1.kvx in the form of the records beside its directory: a manifest with the task and the surface, one entry for each guide applied with its id and the directories it was applied in, and one entry for each view rendered with its route, the widths and the schemes. Present tense, no account of the work."
 do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/explorer/toolkit", "apps/explorer/nextjs"]
+touches = ["apps/explorer/toolkit", "apps/explorer/nextjs", "apps/explorer/configs/envs"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.1.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
@@ -462035,6 +462083,133 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.688]
+title = "Let the suite of the explorer backend pass whole with no path in the builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.634", "22.39.685", "22.39.686", "22.39.687"]
+reqs = ["22998.1"]
+capabilities = ["22.39.688"]
+interfaces = []
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test with no path once, the form .github/workflows/explorer-images.yml uses, and list every case that does not pass with app, file and first message."
+do_2 = "do_2 A case that passes when its app runs alone and fails in the whole run reads state another app left: the database, application settings, named processes or a compiled setting. Bring it in line where the state is left or where it is read, whichever decision 3572 names. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why."
+do_3 = "do_3 Run the whole suite once more by hand and repair what it shows."
+do_4 = "do_4 Give in the final message the count of cases of each app in the last whole run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.687]
+title = "Let the suite of the media app of the explorer backend pass in the builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.687"]
+interfaces = []
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Read services/explorer/backend/apps/nft_media_handler/test/repair/readme_resizing_test.exs, the section of services/explorer/backend/apps/nft_media_handler/README.md it compiles and the resizer under services/explorer/backend/apps/nft_media_handler/lib."
+do_2 = "do_2 The case compiles the example of the README with the names the example reads. Where the example reads a name the case does not bind, the case binds the name the README states, or the README names what the resizer takes, whichever the source of the resizer shows to be right. The example in the README stays a form a reader can run."
+do_3 = "do_3 Run services/explorer/deploy/tools/mix-in-builder.sh test apps/nft_media_handler/test and bring every case to pass. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why."
+do_4 = "do_4 Give in the final message the count of cases of the last run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/nft_media_handler/lib", "services/explorer/backend/apps/nft_media_handler/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/nft_media_handler/test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.686]
+title = "Let the suite of the web app of the explorer backend pass whole in the builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.686"]
+interfaces = []
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/router.ex with the switches it reads when it is compiled, services/explorer/backend/apps/block_scout_web/config/config.exs and services/explorer/backend/apps/block_scout_web/config/test.exs, and the test helper of the app with the endpoint and the browser driver it starts."
+do_2 = "do_2 In services/explorer/backend/apps/block_scout_web/config/test.exs the test configuration compiles the routers the cases address, by decision 3602: the router of the pages, the admin panel, the API routers and the GraphQL routes. The defaults in services/explorer/backend/apps/block_scout_web/config/config.exs stay as they are. A case that states a route the router of the pages does not hold in any configuration follows the router."
+do_3 = "do_3 Run services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test once and list every case that does not pass with file and first message, grouped by cause. A group of cases that finds no table of the endpoint has lost the endpoint to an earlier case: find the case that stops or replaces the endpoint and let it put the endpoint back, or start the endpoint for the group as the test helper does."
+do_4 = "do_4 Bring each listed case in line cause by cause. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. A case of a feature that drives a browser runs with the browser driver the builder holds; where the builder holds none the case is excluded by the tag the test helper already reads for it and by nothing else, and the final message names that tag and the count."
+do_5 = "do_5 Run the suite of the app twice more by hand with two different orders of the files and repair what the other order shows."
+do_6 = "do_6 Give in the final message the count of cases of the last run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/block_scout_web/lib", "services/explorer/backend/apps/block_scout_web/config/test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.685]
+title = "Let the suite of the indexer app of the explorer backend pass whole in the builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.685"]
+interfaces = []
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test once and list every case that does not pass with file and first message. Group the list by cause before changing anything: state a case shares with another case, such as the ownership mode of the database connections, application settings, named processes, caches and mock expectations of the JSON-RPC client; a prepared statement or a type of the database that another case replaced while a connection still held it; a value a case states that the source no longer gives; a wait that is too short for the builder."
+do_2 = "do_2 Bring each listed case in line cause by cause. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why."
+do_3 = "do_3 A case that waits for a process raises its wait only where the process is shown to finish; a time out is not answered by a longer wait alone. A case that reads the database after a migration or a type change of another case takes a fresh connection or runs apart from that case."
+do_4 = "do_4 Run the suite of the app twice more by hand with two different orders of the files and repair what the other order shows."
+do_5 = "do_5 Give in the final message the count of cases of the last run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/indexer/lib"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.637]
 title = "Let the apps of the explorer backend compile whole without a warning"
 status = "done"
@@ -462146,7 +462321,7 @@ touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/ba
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test apps/ethereum_jsonrpc/test"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -462158,6 +462333,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3602, gotcha 4519. The verification now names the test directories of the apps explorer and ethereum_jsonrpc. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.633]
 title = "Let the price acceptance cases of the explorer own their connections within the whole suite"
