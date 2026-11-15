@@ -174465,7 +174465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.19]
 title = "Bring the tokens, primitives, shell and global style of the launchpad to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
