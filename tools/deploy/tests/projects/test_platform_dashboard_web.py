@@ -132,7 +132,7 @@ def test_dashboard_web_variables_follow_source_and_build_inputs():
 
     assert arguments == {"DASHBOARD_API_ORIGIN"}
     assert arguments <= variables.keys()
-    assert variables.keys() <= reads | arguments | {"PORT", "DASHBOARD_GATEWAY_ORIGIN"}
+    assert variables.keys() == (reads | arguments | {"PORT"}) - {"NODE_ENV"}
     assert variables["PORT"] == runtime_env["PORT"] == "3000"
     assert variables["DASHBOARD_API_ORIGIN"] == (
         "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN"
@@ -168,6 +168,36 @@ def test_dashboard_web_gateway_origin_is_runtime_input():
     assert arguments == {"DASHBOARD_API_ORIGIN"}
 
 
+def test_dashboard_web_gateway_tenant_is_runtime_input():
+    data = definition()
+    variables = data["vars"]["dashboard-web"]
+    inputs = data["inputs"]["dashboard-web"]
+    _, arguments, runtime_env = docker_contract()
+
+    assert variables["DASHBOARD_GATEWAY_TENANT"] == (
+        "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT"
+    )
+    assert inputs["PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT"] == "operator"
+    assert "DASHBOARD_GATEWAY_TENANT" in source_environment()
+    assert "DASHBOARD_GATEWAY_TENANT" not in arguments
+    assert "DASHBOARD_GATEWAY_TENANT" not in runtime_env
+    page = (APPLICATION / "app/page.tsx").read_text()
+    assert 'export const dynamic = "force-dynamic"' in page
+    assert "readGatewayTenant(process.env.DASHBOARD_GATEWAY_TENANT)" in page
+
+    lines = DEFINITION.read_text().splitlines()
+    index = next(
+        i
+        for i, line in enumerate(lines)
+        if line.startswith("PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT =")
+    )
+    assert index > 0
+    assert lines[index - 1] == (
+        "# Hosted gateway tenant: one to 95 characters from lower case letters, "
+        "digits, dot, underscore and hyphen."
+    )
+
+
 def test_dashboard_web_inputs_are_named_classified_and_described():
     data = definition()
     variables = data["vars"]["dashboard-web"]
@@ -181,6 +211,7 @@ def test_dashboard_web_inputs_are_named_classified_and_described():
     assert inputs == {
         "PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN": "operator",
         "PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN": "operator",
+        "PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT": "operator",
     }
     lines = DEFINITION.read_text().splitlines()
     for name, category in inputs.items():
@@ -209,7 +240,9 @@ def test_dashboard_web_build_inventory_is_locked_and_static_checks_run():
     package = json.loads((ROOT / "apps/web/package.json").read_text())
     app_package = json.loads((APPLICATION / "package.json").read_text())
     assert package["name"]
-    assert app_package["scripts"]["build"] == "next build && node tests/built-style.mjs"
+    assert app_package["scripts"]["build"] == (
+        "node scripts/clean-dev-output.mjs && next build && node tests/built-style.mjs"
+    )
     recipe = "\n".join(docker_instructions())
     assert "npm --prefix /src/apps/web ci --ignore-scripts --no-audit --no-fund" in recipe
     assert "npm --prefix /src/apps/web run build:ui" in recipe
