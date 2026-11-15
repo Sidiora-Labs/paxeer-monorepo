@@ -174110,7 +174110,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.30]
 title = "Bring the routes and journeys of the human web application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.29"]
@@ -174460,7 +174460,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.20]
 title = "Bring the token, terminal, trading, live and swap views of the launchpad to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.19"]
