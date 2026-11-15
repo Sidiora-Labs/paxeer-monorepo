@@ -14590,6 +14590,12 @@ value = "The attestor module has the command inventory, which signs the custody 
 basis = "Gotcha 4498."
 affects = []
 
+[decision.3580]
+title = "The comparison on the local network covers contract creation and the sponsored batch"
+value = "The cases of the local network that compare the sequencing node with a node without sequencing include contract creation and the sponsored batch of the account contract BatchCallAndSponsor with a set-code authorization. Each case sends its transactions to the sequencing node and requires that the second node reaches the same block hash, application hash and receipt, and that code, nonce and storage read at that block are equal on both nodes. The contracts come from the compiled forms the tree already holds, so the cases compile nothing. A kind of transaction is used on a public network after its case in this comparison passes."
+basis = "Gotcha 4499."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44250,6 +44256,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.665]
+title = "Compare contract creation and the sponsored batch between the sequencing node and a node without sequencing"
+reqs = ["22998.1"]
+touches = ["tools/qualification/localnode"]
+tests = []
+verification_contract = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-follower.env && set -a && . /tmp/lx-localnode-follower.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run ^TestLocalNodeV6120FollowerCode"
+do_1 = "do_1 Gotcha 4499, decision 3580. Read in tools/qualification/localnode/v6120_follower_test.go the type followerNetwork with newFollowerNetwork, freshKey, sign, send, layout and compare, and the six present cases; in daemon/committed-fixture/vector_v6.go the functions v6LoadContracts, recordV6RPC, v6QuoteDigest and v6Sign for the way a contract is created from its creation code, the quote and the two signatures of executeSponsored are formed and the authorization is signed with SignSetCode; in daemon/committed-fixture/v6_contracts.json the entries delegate and token with abi, creationCode and runtimeCode; and in contracts/src/BatchCallAndSponsor.sol the constructor, setRate, executeSponsored and execute."
+symbols = []
 
 [capability.22.39.664]
 title = "Run the inventory command unattended beside the wallet gateway"
@@ -243928,6 +243943,42 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.665]
+title = "Compare contract creation and the sponsored batch between the sequencing node and a node without sequencing"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.665"]
+interfaces = []
+do_1 = "do_1 Gotcha 4499, decision 3580. Read in tools/qualification/localnode/v6120_follower_test.go the type followerNetwork with newFollowerNetwork, freshKey, sign, send, layout and compare, and the six present cases; in daemon/committed-fixture/vector_v6.go the functions v6LoadContracts, recordV6RPC, v6QuoteDigest and v6Sign for the way a contract is created from its creation code, the quote and the two signatures of executeSponsored are formed and the authorization is signed with SignSetCode; in daemon/committed-fixture/v6_contracts.json the entries delegate and token with abi, creationCode and runtimeCode; and in contracts/src/BatchCallAndSponsor.sol the constructor, setRate, executeSponsored and execute."
+do_2 = "do_2 Add tools/qualification/localnode/v6120_follower_code_test.go in the package of tools/qualification/localnode/v6120_follower_test.go with cases whose names begin with TestLocalNodeV6120FollowerCode. Each case uses newFollowerNetwork and the present helpers; helpers the cases need beside them, for a transaction without a destination, a set-code transaction and reads of code, nonce and storage at a block on both nodes, go into the new file. The compiled forms are read from daemon/committed-fixture/v6_contracts.json by its path from the root of the module; nothing is compiled and no present line of tools/qualification/localnode/v6120_follower_test.go that a present case reads changes its meaning. After every transaction a case requires what compare requires today and in addition that the receipt fields contract address, gas used, logs and the bloom are equal on both nodes."
+do_3 = "do_3 Case creation: a key that has not transacted creates the token contract from its creation code as its first transaction. Both nodes hold the runtime code at the address of the receipt, and a transfer on the new contract by the same key compares equal. Case creation by a key that has transacted: a key sends a transfer first and then creates the same contract; the address follows from its nonce and both nodes hold the code."
+do_4 = "do_4 Case failed creation: a creation whose code reverts has the failed status on both nodes, neither node holds code at the address, and the nonce of the key is equal on both. Case creation by a contract: a contract created in the case creates a further contract in a call; both nodes hold both codes."
+do_5 = "do_5 Case sponsored batch: the case creates the token and the account contract with an owner, a rate and a maximum age the constructor accepts, and gives the user tokens. The user is a key that has not transacted; it signs a set-code authorization for the account contract and the batch with its quote. A second key sends the set-code transaction to the address of the user with the input of executeSponsored. Both nodes hold the same receipt with its logs, the code of the user is the delegation to the account contract on both, the nonce of the user and of the sender are equal on both, and the token balances of user and sender after the batch are equal on both."
+do_6 = "do_6 Case later batch: after the case of do_5 the same user runs a further sponsored batch through a transaction without an authorization; the quote nonce is used on both nodes and a repeat of the same quote fails on both with the same receipt. Case authorization that does not apply: a set-code transaction whose authorization carries a nonce other than that of the signer is included, leaves the code of the signer empty on both nodes and compares equal. Case delegation removed: an authorization for the zero address after a delegation leaves the code of the user empty on both nodes."
+do_7 = "do_7 Case mixed block: two creations and one sponsored batch by three keys are handed in without waiting between them; every receipt compares equal and the order in the block is the same on both nodes. After the last case of the file the second node still answers and has reached the height of the sequencing node."
+do_8 = "do_8 Where the sequencing node refuses a transaction of a case on arrival by a rule of the product, the case asserts the refusal, asserts that neither node holds the transaction, and the final message names the rule with its file. Where the two nodes differ, or the second node stops, keep the case as written, change no code outside the paths, and give case, block height, the field that differs and both values in the final message."
+do_9 = "do_9 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/localnode"]
+tests = []
+planned_paths = ["tools/qualification/localnode/v6120_follower_code_test.go"]
+build_cmd = "make -f chain.mk install"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-follower.env && set -a && . /tmp/lx-localnode-follower.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run ^TestLocalNodeV6120FollowerCode"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.663]
 title = "Write the inventory requests of the custody ceremony with its plan"
