@@ -22250,3 +22250,18 @@ fix = "Task 22.39.620."
 title = "A changed migration does not reach a database that applied its first form"
 symptom = "The explorer migration 20261028000000 was published with the accepted column of paxeer_x_price_observations required and true by default and was later changed in place to an optional column without default. A database records a migration version once, so a database that applied the first form keeps the required column. The acceptance replay in services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs sets the column to unknown at the start of each block and needs the optional form. The replay also picks its next block by an order over the whole queue that no index of the table serves, and takes one block per step."
 fix = "Decision 3568 and tasks 22.39.621 and 22.39.622."
+
+[gotcha.4486]
+title = "The data of a block holds entries of more than one kind"
+symptom = "The data of a block begins with the sequence batch entry of the kernel, the text PAXEER/v1/sequence-batch and a zero byte followed by the batch (modules/sequencer/types/msgs.go, SequenceBatchDomain), and the transactions follow it. The consensus routes give the entries as they are: /block lists the raw entries and /block_results one result for each entry by position. The route /cosmos/tx/v1beta1/txs/block of the transaction service decodes every entry of the block as a transaction (sdk/x/auth/tx/service.go, GetBlockWithTxs). The price reader of the explorer in services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex takes the transactions of a block from that route."
+fix = "Decision 3569 and tasks 22.39.624 and 22.39.626."
+
+[gotcha.4487]
+title = "The backend image of the explorer states its sources from the repository root"
+symptom = "docker/explorer-backend/Dockerfile names its sources from the repository root, the form deploy/projects/explorer/backend.kvx builds with. The publish row of .github/workflows/explorer-images.yml passes services/explorer/backend as the build context and the ignore file beside the Dockerfile states its patterns from that directory. The test job of the same file installs a container runtime on every runner, also on one where a runtime answers."
+fix = "Task 22.39.625."
+
+[gotcha.4488]
+title = "The record of a done task lives in the spec file"
+symptom = "The spec tool writes the status of a task into spec/layerx-merge/spec.kvx when the task is recorded as done. A restore of that file from the index after the record removes the record, and the task counts as open although build and verification passed."
+fix = "Task texts say to leave the file as the spec tool wrote it."
