@@ -2,9 +2,22 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gatewayOriginConfigured, readGatewayTenant } from "../app/runtime-config.ts";
 
-const source = await readFile(
+assert.equal(readGatewayTenant("tenant-01.example"), "tenant-01.example");
+assert.equal(readGatewayTenant(undefined), undefined);
+assert.equal(readGatewayTenant("Tenant"), undefined);
+assert.equal(readGatewayTenant("a".repeat(96)), undefined);
+assert.equal(gatewayOriginConfigured("https://gateway.example"), true);
+assert.equal(gatewayOriginConfigured(""), false);
+assert.equal(gatewayOriginConfigured(undefined), false);
+
+const pageSource = await readFile(
   new URL("../app/page.tsx", import.meta.url),
+  "utf8",
+);
+const source = await readFile(
+  new URL("../app/dashboard-client.tsx", import.meta.url),
   "utf8",
 );
 for (const surface of [
@@ -114,10 +127,30 @@ assert.match(
   /aria-labelledby=\{`tab-\$\{active\}`\}/,
   "the selected tab names its panel",
 );
+assert.doesNotMatch(
+  pageSource,
+  /gateway-tenant/,
+  "the server page does not render a tenant field",
+);
+assert.doesNotMatch(
+  source,
+  /gateway-tenant|name="tenant"|Gateway tenant/,
+  "the sign-in view does not collect a tenant",
+);
+assert.match(
+  pageSource,
+  /dynamic\s*=\s*"force-dynamic"/,
+  "the page reads runtime settings for each request",
+);
+assert.match(
+  pageSource,
+  /DASHBOARD_GATEWAY_TENANT/,
+  "the page receives the gateway tenant from its runtime setting",
+);
 assert.match(
   source,
-  /name="tenant"\s+autoComplete="username"/,
-  "tenant sign-in supports identity autofill",
+  /registrationProof\(gatewayTenant\)[\s\S]*sessionProof\(gatewayTenant\)/,
+  "key proofs use the runtime gateway tenant",
 );
 assert.match(
   source,
@@ -126,12 +159,7 @@ assert.match(
 );
 assert.match(
   source,
-  /onInvalid=\{\(\) => setTenantInvalid\(true\)\}/,
-  "native tenant validation exposes an error after interaction",
-);
-assert.match(
-  source,
-  /onInvalid=\{\(\) => setTokenInvalid\(true\)\}/,
+  /onInvalid=\{\(event\) =>/,
   "native token validation exposes an error after interaction",
 );
 assert.match(
@@ -153,4 +181,37 @@ assert.doesNotMatch(
   globals,
   /#[0-9a-f]{3,8}\b|(?:rgb|hsl|oklch)\(/i,
   "dashboard colours come from shared roles",
+);
+
+const tokenSheet = await readFile(
+  new URL("../../../../../../apps/web/packages/layerx-ui/src/styles/tokens.css", import.meta.url),
+  "utf8",
+);
+function tokenPair(name) {
+  const match = tokenSheet.match(new RegExp(`--${name}:\\s*light-dark\\((#[0-9a-f]+),\\s*(#[0-9a-f]+)\\)`));
+  assert.ok(match, `token has light and dark values: ${name}`);
+  return [match[1], match[2]];
+}
+function luminance(hex) {
+  const channels = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset + 1, offset + 3), 16) / 255);
+  const linear = channels.map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+}
+function contrast(foreground, background) {
+  const light = luminance(foreground);
+  const dark = luminance(background);
+  return (Math.max(light, dark) + 0.05) / (Math.min(light, dark) + 0.05);
+}
+const [primaryLight, primaryDark] = tokenPair("primary");
+const [primaryForegroundLight, primaryForegroundDark] = tokenPair("primary-foreground");
+for (const [foreground, background, scheme] of [
+  [primaryForegroundLight, primaryLight, "light"],
+  [primaryForegroundDark, primaryDark, "dark"],
+]) {
+  assert.ok(contrast(foreground, background) >= 4.5, `busy control contrast holds in ${scheme} scheme`);
+}
+assert.match(
+  globals,
+  /dashboard-busy-control\[aria-busy="true"\][\s\S]*background-color: var\(--primary\)[\s\S]*color: var\(--primary-foreground\)[\s\S]*opacity: 1/,
+  "busy controls use opaque primary colours from the view class",
 );

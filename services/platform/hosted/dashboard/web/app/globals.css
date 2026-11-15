@@ -345,3 +345,10 @@
 .dashboard-card [role="listitem"] > span:first-child > span:not(:first-child) {
   font-size: var(--font-size-label);
 }
+
+.dashboard-sign-in .dashboard-busy-control[aria-busy="true"] {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  opacity: 1;
+}
