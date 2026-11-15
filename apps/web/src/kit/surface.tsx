@@ -98,7 +98,12 @@ export function InlineNotice({
   role = "status",
 }: Readonly<{ children: ReactNode; tone?: StateTone; role?: "alert" | "status" }>) {
   return (
-    <div role={role} className={cn("border-b px-4 py-2 text-sm font-medium", STATE_TONE_CLASS[tone])}>
+    <div
+      role={role}
+      aria-live={role === "alert" ? "assertive" : "polite"}
+      aria-atomic="true"
+      className={cn("border-b px-4 py-2 text-sm font-medium", STATE_TONE_CLASS[tone])}
+    >
       {children}
     </div>
   );
