@@ -1,0 +1,29 @@
+# Smart-contract verifier service for the explorer Railway project.
+
+[service.smart-contract-verifier]
+kind = "repo"
+repository = "https://github.com/Sidiora-Labs/paxeer-monorepo"
+branch = "main"
+container = "docker/explorer-smart-contract-verifier/Dockerfile"
+root = "."
+watch = [
+    "docker/explorer-smart-contract-verifier/**",
+    "docker/common/**",
+    "services/explorer/services/smart-contract-verifier/**",
+]
+health = "/health"
+restart = "ALWAYS"
+replicas = 1
+volume = "/tmp"
+public = 0
+order = 1
+needs = []
+
+[vars.smart-contract-verifier]
+SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR = "0.0.0.0:8050"
+SMART_CONTRACT_VERIFIER__SERVER__GRPC__ENABLED = "false"
+SMART_CONTRACT_VERIFIER__SOLIDITY__ENABLED = "true"
+SMART_CONTRACT_VERIFIER__SOLIDITY__COMPILERS_DIR = "/tmp/solidity-compilers"
+SMART_CONTRACT_VERIFIER__VYPER__ENABLED = "true"
+SMART_CONTRACT_VERIFIER__VYPER__COMPILERS_DIR = "/tmp/vyper-compilers"
+SMART_CONTRACT_VERIFIER__SOURCIFY__ENABLED = "false"
