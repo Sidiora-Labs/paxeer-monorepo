@@ -58,13 +58,13 @@ function CommandBar({
               <Command.Input
                 autoFocus
                 placeholder={placeholder}
-                className="h-14 w-full bg-transparent text-body-sm text-foreground outline-none placeholder:text-faint-foreground"
+                className="min-h-14 w-full bg-transparent py-3 text-body-sm text-foreground outline-none placeholder:text-faint-foreground"
               />
               <kbd className="shrink-0 rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-micro font-semibold text-muted-foreground">
                 ESC
               </kbd>
             </div>
-            <Command.List className="lx-scroll max-h-80 overflow-y-auto p-2">
+            <Command.List className="lx-scroll lx-search-list overflow-y-auto p-2">
               <Command.Empty className="py-10 text-center text-sm text-muted-foreground">
                 No results found.
               </Command.Empty>
@@ -153,7 +153,7 @@ function SearchScreen({
         <IconButton variant="outline" size="sm" onClick={() => onOpenChange(false)} aria-label="Back">
           <ArrowLeft />
         </IconButton>
-        <div className="flex h-10 flex-1 items-center gap-2.5 rounded-full border border-border bg-surface px-4 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+        <div className="flex min-h-10 flex-1 items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
           <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           <input
             autoFocus

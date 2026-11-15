@@ -151,7 +151,7 @@ export function BellPopover({
             <span className="text-xs font-semibold text-muted-foreground">{unread} unread</span>
           )}
         </div>
-        <div className="lx-scroll max-h-90 overflow-y-auto px-2 py-1">
+        <div className="lx-scroll lx-notification-list overflow-y-auto px-2 py-1">
           {recent.length > 0 ? (
             <List className="divide-border/50">
               {recent.map((n) => (
