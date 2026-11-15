@@ -174341,7 +174341,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.24]
 title = "Bring the theme, base components, navigation and global style of the wallet application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246582,7 +246582,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.680]
 title = "Copy the consensus stores in bounded writes in the preflight of the return command"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
