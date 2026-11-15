@@ -70,9 +70,15 @@ The web serves these routes beside the page:
 | `POST /session` | `signer_public_key`, canonical decimal `proof_time` and `session_signature`; calls `px_openSession`. Alternatively, `token` alone checks `GET /v1/dashboard/overview` with Bearer authorization. Success returns 204 with no body. |
 | `DELETE /session` | Empty body or `{}`; returns 204 and clears the cookie |
 
-Requests require `Content-Type: application/json` and an Origin matching the
-request URL. Bodies are bounded at 8192 bytes. Upstream calls have a five-second
-time limit. Refusals return only a `reason` name; rejected proofs return 401,
+Requests require an Origin matching either the parsed HTTPS origin of the Host
+header, including its port, or the origin of the request URL for direct access.
+An absent, multi-value or malformed Host header supplies no HTTPS origin.
+Missing or non-matching Origins return 403 with `origin_refused` before the
+body is read.
+
+Requests require `Content-Type: application/json`. Bodies are bounded at
+8192 bytes. Upstream calls have a five-second time limit. Refusals return only a
+`reason` name; rejected proofs return 401,
 gateway limits return 429 and other upstream failures return 502.
 
 `DASHBOARD_GATEWAY_ORIGIN` is a server runtime variable naming the gateway
