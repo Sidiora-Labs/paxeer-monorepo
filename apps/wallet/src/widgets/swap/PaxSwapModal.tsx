@@ -16,10 +16,11 @@ import { useSwapBalances } from './useSwapBalances';
 import type { UseSwapQuotesResult } from './useSwapQuotes';
 import { formatBalanceFull, parseAmountToWei } from './util';
 import { formatUsd } from '@/lib/format';
+import { motionDurations } from '@/theme/motion';
 
 function TokenIcon({ token }: { token: SwapToken }) {
   return (
-    <div className="relative size-8 rounded-full bg-[var(--color-surface-control)] flex items-center justify-center overflow-hidden shrink-0">
+    <div className="relative size-8 rounded-full bg-pax-control flex items-center justify-center overflow-hidden shrink-0">
       <Image
         src={token.iconUrl || '/wallet/default_icon.webp'}
         alt={token.symbol}
@@ -59,16 +60,17 @@ function TokenSelectorSheet({
   }, [tokens, query, selected]);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-pax-scrim backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative w-full max-w-[430px] bg-[var(--color-surface-raised)] rounded-t-3xl flex flex-col"
-        style={{ maxHeight: '70vh' }}
+        className="relative w-full max-w-[430px] bg-pax-surface rounded-t-3xl flex flex-col"
+        style={{ maxHeight: 'var(--size-modal-max-height)' }}
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3  ">
           <span className="text-sm font-semibold">{title}</span>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full bg-[var(--color-surface-control)] hover:bg-[var(--color-surface-overlay)]"
+            className="min-h-[var(--touch-target)] p-1.5 rounded-full bg-pax-control hover:bg-pax-overlay"
           >
             <X className="size-4 opacity-60" />
           </button>
@@ -76,12 +78,16 @@ function TokenSelectorSheet({
         {enableSearch && (
           <div className="px-4 pt-3">
             <input
+              id="pax-swap-token-search"
               type="text"
+              name="token-search"
+              autoComplete="off"
+              aria-label="Search tokens"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search..."
               autoFocus
-              className="w-full bg-[var(--color-surface-control)] rounded-xl px-3 py-2.5 text-sm outline-none placeholder:opacity-40"
+              className="w-full bg-pax-control rounded-xl px-3 py-2.5 text-sm outline-none placeholder:opacity-40"
             />
           </div>
         )}
@@ -91,9 +97,10 @@ function TokenSelectorSheet({
           )}
           {list.map((t) => (
             <button
+              type="button"
               key={t.address || 'native'}
               onClick={() => onSelect(t)}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-[var(--color-surface-card)] hover:bg-[var(--color-surface-control)] transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-pax-card hover:bg-pax-control transition-colors"
             >
               <TokenIcon token={t} />
               <div className="flex-1 text-left min-w-0">
@@ -101,17 +108,17 @@ function TokenSelectorSheet({
                 <p className="text-xs text-pax-muted truncate">{t.name}</p>
               </div>
               {t.isStablecoin && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-pax-info-muted text-pax-info">
                   Stable
                 </span>
               )}
               {t.isNative && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
                   Native
                 </span>
               )}
               {t.isLaunchpad && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
                   Launchpad
                 </span>
               )}
@@ -216,11 +223,12 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
           onClose={() => setSelectorTarget(null)}
         />
       )}
-      <div className="font-open-runde w-full text-white">
+      <div className="font-sans w-full text-pax-light">
         <div className="flex flex-col gap-3">
-          <div className="relative flex w-full flex-col items-center justify-center gap-5 rounded-3xl bg-[var(--color-surface-card)] px-3 py-3">
+          <div className="relative flex w-full flex-col items-center justify-center gap-5 rounded-3xl bg-pax-card px-3 py-3">
             <div className="flex w-full items-center justify-between">
               <button
+                type="button"
                 onClick={() => setSelectorTarget('from')}
                 className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
               >
@@ -236,9 +244,10 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
                 </div>
               </button>
               <button
+                type="button"
                 onClick={handleUseMax}
                 disabled={fromBalanceNum === 0}
-                className="flex items-center gap-1 rounded-full bg-[var(--color-surface-control)] px-3 py-1 text-sm font-semibold transition-colors hover:bg-[var(--color-surface-overlay)] disabled:opacity-30"
+                className="min-h-[var(--touch-target)] flex items-center gap-1 rounded-full bg-pax-control px-3 py-1 text-sm font-semibold transition-colors hover:bg-pax-overlay disabled:opacity-30"
               >
                 <motion.span animate={{ width: bounds.width > 0 ? bounds.width : 'auto' }}>
                   <span ref={ref} className="inline-flex overflow-hidden">
@@ -274,11 +283,14 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
             <div className="mb-6 flex w-full flex-col items-center justify-center gap-4">
               <div className="relative w-full overflow-hidden text-center">
                 <input
+                  id="pax-swap-amount"
                   ref={inputRef}
                   type="text"
+                  name="swap-amount"
                   autoComplete="off"
+                  aria-label={selectorTarget === 'from' ? 'Amount to pay' : 'Amount to receive'}
                   className={cn(
-                    'inset-0 w-full cursor-pointer bg-transparent text-center text-[45px] font-semibold tracking-tight text-transparent caret-white outline-none',
+                    'inset-0 w-full cursor-pointer bg-transparent text-center text-display font-semibold tracking-tight text-transparent caret-white outline-none',
                     inputValue === '' && 'caret-transparent'
                   )}
                   placeholder="0"
@@ -290,7 +302,7 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
                     {digits.map((digit, index) => (
                       <motion.span
                         key={`${digit}-${index}`}
-                        className="text-[45px] font-semibold tracking-tight"
+                        className="text-display font-semibold tracking-tight"
                         initial={{ y: '100%', opacity: 0 }}
                         animate={{ y: '0%', opacity: 1 }}
                         exit={{ y: '100%', opacity: 0 }}
@@ -312,11 +324,13 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
                         opacity: 1,
                         scale: 1,
                         x: [0, -5, 5, -3, 3, 0],
-                        transition: { x: { delay: 0.2, times: [0, 0.2, 0.4, 0.6, 0.8, 1] } },
+                        transition: {
+                          x: { delay: motionDurations.normal, times: [0, 0.2, 0.4, 0.6, 0.8, 1] },
+                        },
                       }}
                       exit={{ opacity: 0, scale: 0 }}
                       style={{ transformOrigin: 'bottom center' }}
-                      className="font-lg w-max text-center font-semibold tracking-tight text-red-500"
+                      className="font-lg w-max text-center font-semibold tracking-tight text-pax-error"
                     >
                       {errorMessage}
                     </motion.p>
@@ -338,7 +352,7 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
                       exit={{ opacity: 0, scale: 0 }}
                       className="flex items-center justify-center gap-2"
                     >
-                      <div className="rounded-full bg-[var(--color-surface-control)] p-1">
+                      <div className="rounded-full bg-pax-control p-1">
                         <Equal className="size-5" />
                       </div>
                       <motion.div
@@ -371,16 +385,17 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
             <button
               type="button"
               onClick={handleFlip}
-              className="absolute -bottom-6 rounded-full bg-[var(--color-surface-raised)] p-1.5 hover:bg-[var(--color-surface-control)] transition-colors"
+              className="min-h-[var(--touch-target)] absolute -bottom-6 rounded-full bg-pax-surface p-1.5 hover:bg-pax-control transition-colors"
               aria-label="Flip tokens"
             >
               <ChevronDown className="size-5 opacity-50" />
             </button>
           </div>
 
-          <div className="flex w-full flex-col items-start justify-start gap-5 rounded-3xl bg-[var(--color-surface-card)] px-3 py-3">
+          <div className="flex w-full flex-col items-start justify-start gap-5 rounded-3xl bg-pax-card px-3 py-3">
             <div className="flex w-full items-center justify-between">
               <button
+                type="button"
                 onClick={() => setSelectorTarget('to')}
                 className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
               >
@@ -409,8 +424,9 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
           </div>
           {inputValue && (
             <button
+              type="button"
               onClick={handleClear}
-              className="w-full rounded-full bg-white/5 py-2 text-white/40 text-sm transition-colors hover:bg-white/10"
+              className="min-h-[var(--touch-target)] w-full rounded-full bg-pax-control py-2 text-pax-muted text-sm transition-colors hover:bg-pax-overlay"
             >
               Clear
             </button>

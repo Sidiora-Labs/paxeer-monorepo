@@ -4,8 +4,10 @@ import BountiesHome, { BountiesHomeSkeleton } from '@/widgets/bounties/bounties-
 
 export default function BountiesPage() {
   return (
-    <Suspense fallback={<BountiesHomeSkeleton />}>
-      <BountiesHome />
-    </Suspense>
+    <div data-bounties-route className="min-w-0">
+      <Suspense fallback={<BountiesHomeSkeleton />}>
+        <BountiesHome />
+      </Suspense>
+    </div>
   );
 }

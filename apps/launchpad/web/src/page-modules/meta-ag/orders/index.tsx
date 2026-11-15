@@ -14,7 +14,7 @@ export default function MetaAgOrdersPage() {
   }, []);
 
   return (
-    <div className="min-h-[calc(100vh-64px)] px-4 pt-6 pb-20 max-w-[1100px] mx-auto">
+    <main className="mx-auto min-h-dvh max-w-content-narrow-max-width px-4 pb-20 pt-6">
       <div className="mb-5">
         <div className="flex items-baseline gap-3">
           <h1 className="text-lg font-bold text-text">Orders</h1>
@@ -25,7 +25,7 @@ export default function MetaAgOrdersPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <div>
           <OrderForm onPlaced={handlePlaced} />
           <KeeperHealthHint />
@@ -34,7 +34,7 @@ export default function MetaAgOrdersPage() {
           <OpenOrdersList refreshSignal={refreshCounter} />
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

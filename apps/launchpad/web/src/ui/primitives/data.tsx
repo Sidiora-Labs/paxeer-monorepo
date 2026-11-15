@@ -78,7 +78,7 @@ export function StatTile({
         aria-busy={loading || undefined}
       >
         {loading ? (
-          <span aria-hidden="true" className="sl-skeleton inline-block h-[1em] w-20 align-middle" />
+          <span aria-hidden="true" className="sl-skeleton inline-block h-[var(--sl-skeleton-text-height)] w-20 align-middle" />
         ) : masked ? (
           <span aria-label="Hidden">{MASK}</span>
         ) : empty ? (
@@ -531,12 +531,12 @@ export function KeyValueRow({
 }: KeyValueRowProps) {
   const empty = value === null || value === undefined;
   return (
-    <div className={cn('flex min-h-10 items-center justify-between gap-3 py-1', className)}>
-      <dt className="shrink-0 text-sm text-text-faint">{label}</dt>
+    <div className={cn('flex min-h-10 flex-wrap items-center justify-between gap-3 py-1', className)}>
+      <dt className="min-w-0 flex-1 basis-32 break-words text-sm text-text-faint">{label}</dt>
       <dd
         data-numeric
         className={cn(
-          'flex min-w-0 items-center justify-end gap-2 text-right text-num-md font-bold tabular-nums',
+          'flex min-w-0 max-w-full flex-1 basis-32 flex-wrap items-center justify-end gap-2 text-right text-num-md font-bold tabular-nums',
           empty ? 'text-text-faint' : 'text-text'
         )}
         aria-busy={loading || undefined}

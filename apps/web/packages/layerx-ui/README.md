@@ -23,6 +23,10 @@ That registers every token (`bg-primary`, `text-muted-foreground`, `rounded-shee
 variables you can override in `:root` to re-theme (e.g. swap `--accent` to a new
 brand color).
 
+`cn` registers the theme's font size and shadow names with the class merger so
+their utilities keep the accompanying text and shadow colours. When the theme
+gains a name, add it to the matching group in `src/lib/utils.ts`.
+
 ## The platform contract
 
 Components with a `platform` prop use its explicit value when supplied, otherwise

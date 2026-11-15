@@ -50,7 +50,7 @@ current request contract. See [Public JSON-RPC](PublicRpc.md) and
 
 The served schema and `ROUTER_METHODS` in
 [`src/lib.rs`](../../services/platform/hosted/gateway/src/lib.rs) declare
-17 method names: the following 16 `px_*` methods and `pax_sequencerReceipt`.
+18 method names: the following 17 `px_*` methods and `pax_sequencerReceipt`.
 This count excludes the EVM methods relayed to a configured node. The checked-in
 OpenRPC file also describes five `px_getInference*` node reads; the gateway
 schema omits those methods and its dispatcher returns method-not-found for them.
@@ -58,6 +58,7 @@ Parameters are positional; use `[]` explicitly for methods without arguments.
 
 | Method | Parameters | Result or dependency |
 | --- | --- | --- |
+| `px_openSession` | `[signer_public_key, proof_time, session_signature]` | Developer session from a fresh Ed25519 proof over the configured tenant, signer key and canonical decimal Unix time; returns tenant, sub, token, csrf_token and expires_at |
 | `px_register` | `[signer_public_key, registration_signature]` | Self-service identity principal after Ed25519 proof of key possession; both arguments are lowercase hex, 32 and 64 bytes respectively |
 | `px_requestFunds` | `[did, signer_public_key]` | Authenticated starter-credit claim through identity and faucet; requires a Bearer session that authorizes the signer |
 | `px_resolveAccount` | `[account]` | EVM address or `did:layerx:<64 hex>` resolution through the address precompile; unbound fields are null |
@@ -75,6 +76,14 @@ Parameters are positional; use `[]` explicitly for methods without arguments.
 | `px_getCapabilities` | `[]` | Seven precompile availability flags, their addresses, probe time and chain height |
 | `px_getRouteCatalogue` | `[]` | Authenticated product route catalogue with dependency readiness; requires `LayerX-Key` |
 | `pax_sequencerReceipt` | `[txHash]` | Node response relayed unchanged for a `0x`-prefixed 32-byte hash; unknown hashes return null |
+
+`px_openSession` signs the length-prefixed SHA-256 digest of
+`layerx-session-open-v1`, the configured tenant, the 32-byte signer key and
+`proof_time` in decimal seconds. The proof time may be exactly 120 seconds
+before or after the gateway clock. The gateway first asks identity to confirm
+the principal and then asks it to mint a session without choosing a lifetime;
+identity supplies the lifetime and the five returned fields. Each signer/time
+pair is accepted once while it remains in the bounded replay set.
 
 Asset-list cursors are canonical decimal strings; omit the cursor or use null
 for the first page. The optional integer limit is 1–16, default 16, and the
@@ -234,24 +243,53 @@ checked-in service hostname does not establish a public network endpoint.
 | `LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS` | Probe cache lifetime, 1–300 seconds; default 15 |
 | `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | Optional product upstream bindings; catalogue presence alone is insufficient |
 | `LAYERX_GATEWAY_TRUSTED_PROXIES` | Trusted proxy CIDRs for client-address attribution |
+| `LAYERX_GATEWAY_IDENTITY_URL`, `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | Identity service HTTPS address and outbound token file |
+| `LAYERX_GATEWAY_TENANT` | Trusted registration/session tenant, 1–95 lowercase letters, digits, dots, underscores or hyphens |
+| `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12`, `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | Paired outbound client identity bundle and password file |
 | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | Self-service registration authorization |
 | `LAYERX_GATEWAY_FAUCET_URL`, `LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE`, `LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT` | Faucet integration and expected starter-credit amount |
 | `LAYERX_GATEWAY_IDEMPOTENCY_SECONDS` | Retention 3,600–2,592,000 seconds; default 604,800 |
 
 Optional kernel backend integration is selected by
-`LAYERX_GATEWAY_COMPONENT_URL`. Its group comprises component, authority,
-identity and program-registry URLs and their respective `*_TOKEN_FILE`
-variables, `LAYERX_GATEWAY_PUBLIC_CORE_URL`,
-`LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12`,
-`LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE`,
-`LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` and
-`LAYERX_GATEWAY_MODULE_REGISTRY_FILE`. Setting members of this group without
-the component URL is a startup error. These are hosted backend configuration
-names retained in the implementation, not a second network topology.
+`LAYERX_GATEWAY_COMPONENT_URL`. Its required group comprises component,
+authority and program-registry URLs and their respective `*_TOKEN_FILE`
+variables, `LAYERX_GATEWAY_PUBLIC_CORE_URL`, a client identity and
+`LAYERX_GATEWAY_MODULE_REGISTRY_FILE`. Identity configuration can also be used
+independently for registration and sessions; the optional
+`LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` requires the identity URL.
+These are hosted backend configuration names retained in the implementation.
 
-Without that group, outbound service mTLS may use the paired
+Outbound service mTLS may alternatively use the paired
 `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12` and
-`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables.
+`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables. The two
+client-identity pairs cannot be configured together.
+
+### Native deployment identity inputs
+
+The [platform gateway definition](../../deploy/projects/platform/gateway.kvx)
+sets `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` and `LAYERX_ROLE=identity`.
+It reads `LAYERX_GATEWAY_IDENTITY_URL` from the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL`, an absolute HTTPS identity
+service address, and `LAYERX_GATEWAY_TENANT` from the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT` with the tenant format above.
+
+The [native file table](../../docker/platform-gateway/native-files.tsv) selects
+four additional rows for this role, each with mode `0600`. The project reads
+each file input from a launch input named `PLATFORM_GATEWAY_` followed by the
+file input name. The image stages the files for the gateway's runtime user.
+
+| File input | Destination | Gateway variable | Input category and format |
+| --- | --- | --- | --- |
+| `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of token text issued by the identity service |
+| `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by identity |
+| `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 bundle written by the launcher |
+| `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client password written by the launcher |
+
+The role selects eight rows including the four `*` rows for outbound CA,
+Redis username, Redis password and receipt keys. A native start without the
+role and identity settings selects only those four chain files and serves
+the chain methods; `px_register` and `px_openSession` answer
+`registration_not_configured`.
 
 `capabilities::chain_rpc` sends upstream node calls to the root path: a
 bare node origin gets the base path `/`.
@@ -273,8 +311,16 @@ replicas; do not clear that state to recover an uncertain operation.
 | `gateway:pending` | Pending operation references |
 | `gateway:activity:{id}`, `gateway:activity-operation:{id}` | Activity owner and operation pointer |
 | `gateway:audit`, `gateway:audit:head` | Hash-chained audit stream and head |
+| `gateway:principal:{digest}:audit` | Gateway-written principal audit stream with the common stream's IDs and fields; the dashboard reads absent entries and an absent version as empty history |
+| `gateway:principal:{digest}:audit:version` | Gateway-written index version `1`; other versions and entries without a version are refused by the dashboard |
+| `gateway:audit:principal-index:cursor` | Durable position for background recovery in pages of at most 256 common audit entries |
 | `gateway:tap:nonce:{scope}`, `gateway:tap:binding:{digest}` | TAP replay protection and credential binding |
 | `gateway:events:*` | Durable event outbox, observations and sequence tracking |
+
+The gateway writes each principal audit entry and version in the same script
+as the common audit entry. At startup it recovers principal indexes in the
+background from the stored cursor without delaying serving. Recovery reports
+its stage on failure and leaves serving available.
 
 Stored continuations are bounded at 2 MiB in at most 16 chunks. The presence
 of operation storage does not make the removed public submission routes
@@ -317,6 +363,9 @@ the response envelope.
 | HTTP | `502 state_proof_unverified` | State proof cannot be verified |
 | JSON-RPC | `-32601 Method not found` | Unknown or removed method, including all `lx_*` names |
 | JSON-RPC | `-32602 Invalid params` | Method's argument contract not met |
+| JSON-RPC | `-32002 Session refused` | `px_openSession` proof is outside the time span, has an invalid signature or was replayed; inspect `error.data.code` |
+| JSON-RPC | `-32005 Session unavailable` | `px_openSession` replay set is full; inspect `error.data.code` |
+| JSON-RPC | `-32603 Invalid upstream session response` | Identity did not return a complete session answer for the proven principal |
 | JSON-RPC | `-32001` | Chain/history/funding read unavailable; inspect message and data |
 | JSON-RPC | `-32002 Authentication required` | Product catalogue key authentication failed |
 | JSON-RPC | `-32003 Chain read unavailable` | Missing receipt keys, consensus evidence or invalid consensus response |
@@ -358,7 +407,10 @@ not certify successful execution of every product route.
 
 Redis readiness requires `PING` → `PONG`. Chain readiness requires
 `eth_chainId` → `0x7d`. Configured consensus readiness requires a valid
-`status` response with `catching_up=false`. With no hosted kernel backends,
+`status` response with `catching_up=false`. A configured indexer must report
+ready ingestion sources with fresh, reconciled observations and indexed cursors
+at their source heads. An absent indexer reports `not_configured` and does not
+prevent readiness. With no hosted kernel backends,
 the report omits their components, retains chain and consensus availability,
 and includes configured durable store/event producer dependencies. An
 unconfigured backend is not a serving failure, so HTTP 200 alone does not

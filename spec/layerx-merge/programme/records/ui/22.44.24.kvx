@@ -1,0 +1,448 @@
+[manifest]
+task = "22.44.24"
+surface = "apps/wallet"
+theme = "apps/wallet/src/theme and apps/wallet/src/app/globals.css"
+components = "apps/wallet/src/components and apps/wallet/src/providers"
+pwa = "apps/wallet/src/pwa"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+interaction = "keyboard"
+
+[guide.css]
+id = "css"
+directories = ["apps/wallet/src/theme", "apps/wallet/src/app/globals.css", "apps/wallet/tailwind.config.ts"]
+
+[guide.html]
+id = "html"
+directories = ["apps/wallet/src/components/ui", "apps/wallet/src/components/nav"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/wallet/src/components/ui", "apps/wallet/src/components/onboarding"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/wallet/src/components", "apps/wallet/src/pwa"]
+
+[guide.color]
+id = "color"
+directories = ["apps/wallet/src/theme", "apps/wallet/src/app/globals.css"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/wallet/src/theme", "apps/wallet/src/app/globals.css"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/wallet/src/theme", "apps/wallet/src/app/globals.css"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/wallet/src/theme", "apps/wallet/src/components", "apps/wallet/src/app"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/wallet/src/app/globals.css", "apps/wallet/src/components/ui", "apps/wallet/src/components/pwa"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/wallet/src/app/layout.tsx", "apps/wallet/src/pwa"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/wallet/src/components/ui/SvgIcon.tsx", "apps/wallet/src/components"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/wallet/src/components/ui/primitives.tsx"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/wallet/src/components/ui/primitives.tsx"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/wallet/src/components/nav"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/wallet/src/components/ui"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/wallet/src/components/ui", "apps/wallet/src/components/pwa"]
+
+[guide.toast]
+id = "persistent-toast-notifications"
+directories = ["apps/wallet/src/components/ui/toast.tsx", "apps/wallet/src/components/ui/toaster.tsx"]
+
+[guide.scrollbar]
+id = "customize-scrollbar-color-and-thickness"
+directories = ["apps/wallet/src/app/globals.css"]
+
+[guide.browser_ui]
+id = "browser-ui-theming"
+directories = ["apps/wallet/src/app/globals.css"]
+
+[guide.layout]
+id = "css-layout"
+directories = ["apps/wallet/src/app", "apps/wallet/src/components"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/wallet/src/components/ui/primitives.tsx"]
+
+[guide.theme_switch]
+id = "dark-mode-toggle"
+directories = ["apps/wallet/src/theme"]
+
+[guide.switch]
+id = "switch"
+directories = ["apps/wallet/src/components/ui/primitives.tsx"]
+
+[guide.font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/wallet/src/app/layout.tsx", "apps/wallet/src/app/globals.css"]
+
+[guide.install]
+id = "install-web-app"
+directories = ["apps/wallet/src/app/layout.tsx", "apps/wallet/src/pwa", "apps/wallet/src/components/pwa"]
+
+[view.welcome]
+route = "/wallet/"
+state = "Welcome"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.signin]
+route = "/wallet/"
+state = "Email sign-in"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.code]
+route = "/wallet/"
+state = "Email verification"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.announcement]
+route = "/wallet/"
+state = "What’s New"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.home]
+route = "/wallet/"
+state = "Wallet"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.account_menu]
+route = "/wallet/"
+state = "Account menu"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.activity]
+route = "/wallet/?screen=activity"
+state = "Activity"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.swap]
+route = "/wallet/?screen=swap"
+state = "Swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.discover]
+route = "/wallet/?screen=discover"
+state = "Discover"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.settings]
+route = "/wallet/?screen=settings"
+state = "Settings"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.appearance]
+route = "/wallet/?screen=settings"
+state = "Appearance"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.account]
+route = "/wallet/account/"
+state = "Account"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.account_history]
+route = "/wallet/account/history/"
+state = "Account history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.account_plan]
+route = "/wallet/account/plan/"
+state = "Account plan"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.privacy]
+route = "/wallet/privacy/"
+state = "Privacy"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.offline]
+route = "/wallet/offline/"
+state = "Offline"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.callback]
+route = "/wallet/auth/callback/"
+state = "Sign-in callback"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.bridge]
+route = "/wallet/surfaces/bridge/"
+state = "Bridge"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.exchange]
+route = "/wallet/surfaces/exchange/"
+state = "Exchange"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.fees]
+route = "/wallet/surfaces/fees/"
+state = "Fees"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.launchpad]
+route = "/wallet/surfaces/launchpad/"
+state = "Launchpad"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.web_data]
+route = "/wallet/surfaces/web-data/"
+state = "Web Data"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_controls]
+route = "/wallet/"
+state = "Base controls and validation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_menu]
+route = "/wallet/"
+state = "Menu"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_dialog]
+route = "/wallet/"
+state = "Dialog"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_confirm]
+route = "/wallet/"
+state = "ConfirmDrawer"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_slippage]
+route = "/wallet/"
+state = "SlippageDrawer"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_gas]
+route = "/wallet/"
+state = "InsufficientGasModal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_timeout]
+route = "/wallet/"
+state = "TxTimeoutModal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_ratelimit]
+route = "/wallet/"
+state = "RateLimitModal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_revert]
+route = "/wallet/"
+state = "ContractRevertModal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_qr]
+route = "/wallet/"
+state = "QrScanner"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_empty]
+route = "/wallet/"
+state = "EmptyState"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_error]
+route = "/wallet/"
+state = "NetworkErrorScreen"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_network]
+route = "/wallet/"
+state = "NetworkSwitcher"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_skeleton]
+route = "/wallet/"
+state = "Transaction, swap and contact skeletons"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_toast]
+route = "/wallet/"
+state = "ToastItem"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_swap_result]
+route = "/wallet/"
+state = "SwapSuccess"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_transfer_result]
+route = "/wallet/"
+state = "TransferSuccess"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_notifications]
+route = "/wallet/"
+state = "NotificationToggle"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_otp]
+route = "/wallet/"
+state = "InputOTP"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_install_ios]
+route = "/wallet/"
+state = "InstallPrompt"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_install_banner]
+route = "/wallet/"
+state = "InstallBanner"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_update_banner]
+route = "/wallet/"
+state = "UpdateBanner"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_notification_prompt]
+route = "/wallet/"
+state = "NotificationPrompt"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_floating_install]
+route = "/wallet/"
+state = "FloatingAppIcon"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_offline_indicator]
+route = "/wallet/"
+state = "OfflineIndicator"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_background]
+route = "/wallet/"
+state = "BackgroundStatus"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_error_state]
+route = "/wallet/"
+state = "ErrorState"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_portfolio_skeleton]
+route = "/wallet/"
+state = "PortfolioSkeleton"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_detail_skeleton]
+route = "/wallet/"
+state = "TokenDetailSkeleton"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_ranking_skeleton]
+route = "/wallet/"
+state = "DiscoverRankingSkeleton"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_setup]
+route = "/wallet/"
+state = "Wallet setup"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_error_boundary]
+route = "/wallet/"
+state = "ErrorBoundary"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_splash]
+route = "/wallet/"
+state = "SplashScreen"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.component_error_banner]
+route = "/wallet/"
+state = "ErrorBanner"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+

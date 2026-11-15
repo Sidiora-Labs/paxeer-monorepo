@@ -16,7 +16,7 @@ function Balances({ balances }: { balances: AssetBalance[] }) {
         <li key={denom} data-denom={denom} className="flex items-start justify-between gap-3 py-3">
           <div>
             <p className="text-sm font-semibold">{symbol}</p>
-            <p className="text-[11px] text-pax-muted">{denom}</p>
+            <p className="text-xs text-pax-muted">{denom}</p>
           </div>
           <div className="text-right text-xs">
             <AmountText
@@ -48,7 +48,7 @@ export function AssetList({ account }: { account: string }) {
   const unavailable = balances.status === 'error' ? kernelUnavailableFrom(balances.error) : null;
 
   return (
-    <section aria-label="Assets" className="space-y-3 rounded-[20px] bg-pax-surface p-4">
+    <section aria-label="Assets" className="space-y-3 rounded-xl bg-pax-surface p-4">
       <h2 className="text-sm font-bold">Assets</h2>
       {balances.status === 'loading' && <Skeleton className="h-24 w-full" />}
       {balances.status === 'ready' && <Balances balances={balances.value} />}

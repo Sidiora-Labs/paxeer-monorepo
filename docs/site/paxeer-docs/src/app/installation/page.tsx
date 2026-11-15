@@ -15,8 +15,8 @@ export default function Installation() {
         Build the Paxeer X node, deterministic LayerX kernel, hosted services, agent tools and Programs from the unified monorepo.
       </p>
 
-      <div className="bg-surface-high border border-outline-variant rounded-lg px-4 py-3 mb-6">
-        <strong className="text-on-surface">Source:</strong> <code>Makefile</code>, <code>chain.mk</code>, and <code>README.md</code> at the repository root
+      <div className="source-note">
+        <strong>Source:</strong> <code>Makefile</code>, <code>chain.mk</code>, and <code>README.md</code> at the repository root
       </div>
 
       <DocArt name="installation" />

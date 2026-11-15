@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <title>LayerX</title>
+  <rect width="32" height="32" rx="7" fill="#000000"/>
+  <path d="M6 9h3v11h6v3H6zm11 0h3l2.5 4.5L25 9h3l-4 7 4 7h-3l-2.5-4.5L20 23h-3l4-7z" fill="#ffffff"/>
+</svg>

@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing, launchpadGeometry } from '@/app/presentation-tokens';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { ArrowDownToLine, ChevronDown, CircleDollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -76,7 +77,7 @@ export function PortfolioBlock({ wallet, isOwner, className }: PortfolioBlockPro
         <div className="min-w-0">
           <h2 id="portfolio-value-title" className="text-xs font-normal text-text-faint">Portfolio value</h2>
           {portfolio.loadable.state === 'loading' ? (
-            <Skeleton width={180} height={40} label="Loading portfolio value" />
+            <Skeleton width={surfaceSpacing(45)} height={surfaceSpacing(10)} label="Loading portfolio value" />
           ) : amount ? (
             <p data-numeric className="flex items-baseline tabular-nums text-text">
               <MaskedAmount className="inline-flex items-baseline">
@@ -99,7 +100,7 @@ export function PortfolioBlock({ wallet, isOwner, className }: PortfolioBlockPro
           {partialValue && summary ? <p className="text-xs text-warning">{summary.unpricedAssetCount} {summary.unpricedAssetCount === 1 ? 'coin has' : 'coins have'} no price yet, so this total leaves them out.</p> : null}
           <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold">
             {owner && history.state === 'loading' ? (
-              <Skeleton width={140} height={16} label="Loading change" />
+              <Skeleton width={surfaceSpacing(35)} height={surfaceSpacing(4)} label="Loading change" />
             ) : delta ? (
               <>
                 <MaskedAmount className={cn('tabular-nums', deltaClass[delta.tone])}>
@@ -140,12 +141,12 @@ export function PortfolioBlock({ wallet, isOwner, className }: PortfolioBlockPro
 
       <div id={chartId} hidden={collapsed}>
         {collapsed ? null : history.state === 'loading' ? (
-          <Skeleton variant="block" height={200} label="Loading portfolio chart" className="w-full" />
+          <Skeleton variant="block" height={surfaceSpacing(50)} label="Loading portfolio chart" className="w-full" />
         ) : history.state === 'ready' ? (
           points.length === 0 ? (
             <p className="flex h-40 items-center justify-center rounded-md bg-surface-2 px-4 text-center text-sm text-text-faint">No history yet. The chart fills in once this wallet holds coins.</p>
           ) : (
-            <PortfolioChart points={points} tone={delta?.tone ?? 'flat'} height={180} />
+            <PortfolioChart points={points} tone={delta?.tone ?? 'flat'} height={launchpadGeometry.chart.portfolioCompactHeight} />
           )
         ) : historyIssue ? (
           <PortfolioIssueState issue={historyIssue} variant="inline" />

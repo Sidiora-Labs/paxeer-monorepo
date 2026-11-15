@@ -6,11 +6,11 @@ import { DOC_LINKS } from './doc-links';
 export default function DocsLayout({ children }: { children: ReactNode }) {
   return (
     <div className="bg-canvas">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <div className="@container/docs mx-auto w-full max-w-content-narrow-max-width px-4 py-8 sm:px-6">
         <div className="mb-7">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs text-text-faint hover:text-text transition"
+            className="inline-flex min-h-touch-target-min items-center gap-1.5 text-xs text-text-faint transition-colors duration-fast hover:text-text focus-visible:outline-2 focus-visible:outline-focus"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path
@@ -25,11 +25,11 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-          <aside className="lg:w-52 flex-shrink-0">
-            <nav className="lg:sticky lg:top-8">
+        <div className="flex flex-col @market-two/docs:flex-row gap-8">
+          <aside className="@market-two/docs:w-52 flex-shrink-0">
+            <nav className="@market-two/docs:sticky @market-two/docs:top-[calc(var(--shell-top)+var(--sl-space-4))]">
               <p className="text-2xs text-text-faint font-bold uppercase tracking-wider mb-3 px-2">
-                <Link href="/docs" className="hover:text-text">Documentation</Link>
+                <Link href="/docs" className="inline-flex items-center hover:text-text">Documentation</Link>
               </p>
               <div className="space-y-0.5">
                 {DOC_LINKS.map(({ label, href }) => (

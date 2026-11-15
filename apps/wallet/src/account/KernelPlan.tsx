@@ -128,7 +128,7 @@ function PlanSummary({ plan }: { plan: IntentPlan }) {
             <li
               key={leg.index}
               data-leg={leg.index}
-              className="rounded-xl bg-white/[0.04] p-3 text-xs"
+              className="rounded-xl bg-pax-control p-3 text-xs"
             >
               <p className="font-semibold">
                 {leg.index + 1}. {leg.mechanism.replace(/-/g, ' ')} on Paxeer
@@ -295,7 +295,7 @@ export function KernelPlan({
   const submitGate = stage.step === 'planned' ? gate : null;
 
   return (
-    <section aria-label="Kernel plan" className="space-y-3 rounded-[20px] bg-pax-surface p-4">
+    <section aria-label="Kernel plan" className="space-y-3 rounded-xl bg-pax-surface p-4">
       <h2 className="text-sm font-bold">Move value across the network</h2>
       <KernelNotice gate={gate} />
       {document.status === 'loading' && <Skeleton className="h-6 w-full" />}

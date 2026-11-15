@@ -21,8 +21,12 @@ defmodule Explorer.TestHelper do
   The connection stays checked out through cleanup and is released afterwards.
   """
   def start_migration_owner! do
+    Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo, :auto)
     owner = Ecto.Adapters.SQL.Sandbox.start_owner!(Explorer.Repo, shared: true, sandbox: false)
-    ExUnit.Callbacks.on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(owner) end)
+    ExUnit.Callbacks.on_exit(fn ->
+      Ecto.Adapters.SQL.Sandbox.stop_owner(owner)
+      Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo, :auto)
+    end)
     owner
   end
 
@@ -113,24 +117,30 @@ defmodule Explorer.TestHelper do
 
   # TODO: Execute this for all background migrations
   def run_necessary_background_migrations do
-    for background_migration <- [
-          Explorer.Migrator.HeavyDbIndexOperation.CreateInternalTransactionsBlockNumberTransactionIndexIndexUniqueIndex,
-          Explorer.Migrator.HeavyDbIndexOperation.UpdateInternalTransactionsPrimaryKey
-        ] do
-      case background_migration.db_index_operation_status() do
-        :completed ->
-          :ok
+    owner = Ecto.Adapters.SQL.Sandbox.start_owner!(Explorer.Repo, shared: true, sandbox: false)
 
-        _ ->
-          case background_migration.db_index_operation() do
-            :ok ->
-              background_migration.update_cache()
-              :ok
+    try do
+      for background_migration <- [
+            Explorer.Migrator.HeavyDbIndexOperation.CreateInternalTransactionsBlockNumberTransactionIndexIndexUniqueIndex,
+            Explorer.Migrator.HeavyDbIndexOperation.UpdateInternalTransactionsPrimaryKey
+          ] do
+        case background_migration.db_index_operation_status() do
+          :completed ->
+            :ok
 
-            :error ->
-              raise "Background migrations failed"
-          end
+          _ ->
+            case background_migration.db_index_operation() do
+              :ok ->
+                background_migration.update_cache()
+                :ok
+
+              :error ->
+                raise "Background migrations failed"
+            end
+        end
       end
+    after
+      Ecto.Adapters.SQL.Sandbox.stop_owner(owner)
     end
   end
 

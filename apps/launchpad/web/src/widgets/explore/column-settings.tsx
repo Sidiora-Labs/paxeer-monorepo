@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Button, SegmentedControl, Toggle } from '@/ui/primitives';
 import type { SortKey } from './sort';
@@ -24,17 +25,17 @@ export interface ColumnSpec {
 export const columnSpecs: readonly ColumnSpec[] = Object.freeze([
   // The rank sits inside the coin cell (pump.fun anatomy), so there is no separate "#" column.
   { id: 'coin', label: 'Coin', align: 'left', width: 'auto', responsive: '' },
-  { id: 'graph', label: 'Graph', hint: '24 hour price', align: 'left', width: 112, responsive: '' },
-  { id: 'mcap', label: 'MCAP', hint: 'Market cap', sortKey: 'mcap', align: 'right', width: 110, responsive: '' },
-  { id: 'ath', label: 'ATH', hint: 'All-time-high market cap', align: 'left', width: 120, responsive: '' },
-  { id: 'age', label: 'Age', sortKey: 'age', align: 'right', width: 70, responsive: '' },
-  { id: 'txns', label: 'TXNS', hint: 'Transactions in the last 24 hours', sortKey: 'txns', align: 'right', width: 90, responsive: '' },
-  { id: 'volume24h', label: '24H VOL', hint: 'Volume in the last 24 hours', sortKey: 'volume24h', align: 'right', width: 110, responsive: '' },
-  { id: 'traders', label: 'Traders', hint: 'Unique traders in the last 24 hours', sortKey: 'traders', align: 'right', width: 90, responsive: '' },
-  { id: 'change1h', label: '1H', hint: 'Price change over 1 hour', sortKey: 'change1h', align: 'right', width: 90, responsive: '' },
-  { id: 'change6h', label: '6H', hint: 'Price change over 6 hours', sortKey: 'change6h', align: 'right', width: 90, responsive: '' },
-  { id: 'change24h', label: '24H', hint: 'Price change over 24 hours', sortKey: 'change24h', align: 'right', width: 90, responsive: '' },
-  { id: 'star', label: 'Watchlist', align: 'center', width: 44, responsive: '' },
+  { id: 'graph', label: 'Graph', hint: '24 hour price', align: 'left', width: surfaceSpacing(28), responsive: '' },
+  { id: 'mcap', label: 'MCAP', hint: 'Market cap', sortKey: 'mcap', align: 'right', width: surfaceSpacing(27.5), responsive: '' },
+  { id: 'ath', label: 'ATH', hint: 'All-time-high market cap', align: 'left', width: surfaceSpacing(30), responsive: '' },
+  { id: 'age', label: 'Age', sortKey: 'age', align: 'right', width: surfaceSpacing(17.5), responsive: '' },
+  { id: 'txns', label: 'TXNS', hint: 'Transactions in the last 24 hours', sortKey: 'txns', align: 'right', width: surfaceSpacing(22.5), responsive: '' },
+  { id: 'volume24h', label: '24H VOL', hint: 'Volume in the last 24 hours', sortKey: 'volume24h', align: 'right', width: surfaceSpacing(27.5), responsive: '' },
+  { id: 'traders', label: 'Traders', hint: 'Unique traders in the last 24 hours', sortKey: 'traders', align: 'right', width: surfaceSpacing(22.5), responsive: '' },
+  { id: 'change1h', label: '1H', hint: 'Price change over 1 hour', sortKey: 'change1h', align: 'right', width: surfaceSpacing(22.5), responsive: '' },
+  { id: 'change6h', label: '6H', hint: 'Price change over 6 hours', sortKey: 'change6h', align: 'right', width: surfaceSpacing(22.5), responsive: '' },
+  { id: 'change24h', label: '24H', hint: 'Price change over 24 hours', sortKey: 'change24h', align: 'right', width: surfaceSpacing(22.5), responsive: '' },
+  { id: 'star', label: 'Watchlist', align: 'center', width: surfaceSpacing(11), responsive: '' },
 ]);
 
 const optionalColumns: readonly OptionalColumn[] = Object.freeze(['graph', 'ath', 'age', 'txns', 'volume24h', 'traders', 'change1h', 'change6h', 'change24h']);
@@ -108,22 +109,22 @@ export function ColumnSettings({ id, settings, onChange, onClose }: ColumnSettin
   const headingId = useId();
   const specs = columnSpecs.filter((spec): spec is ColumnSpec & { id: OptionalColumn } => (optionalColumns as readonly string[]).includes(spec.id));
   return (
-    <section id={id} aria-labelledby={headingId} className="flex flex-col gap-4 rounded-md bg-surface-2 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <section id={id} aria-labelledby={headingId} className="flex flex-col gap-4 rounded-md bg-surface-2 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-40">
           <h2 id={headingId} className="text-md font-bold text-text">Columns</h2>
           <p className="text-xs text-text-faint">Saved on this device</p>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>Done</Button>
       </div>
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))] gap-2">
         {specs.map(spec => {
           const labelId = `${id}-${spec.id}-label`;
           return (
-            <li key={spec.id} className="flex items-center justify-between gap-3 rounded-sm bg-surface-3 px-3 py-2">
-              <span id={labelId} className="text-sm font-bold text-text">
+            <li key={spec.id} className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-surface-3 px-3 py-2">
+              <span id={labelId} className="min-w-0 flex-1 basis-40 text-sm font-bold text-text">
                 {spec.label}
-                {spec.hint ? <span className="ml-1 font-semibold text-text-faint">{spec.hint}</span> : null}
+                {spec.hint ? <span className="mt-1 block text-xs font-semibold text-text-faint">{spec.hint}</span> : null}
               </span>
               <Toggle size="sm" checked={settings.columns[spec.id]} labelledBy={labelId} onChange={checked => onChange({ columns: { ...settings.columns, [spec.id]: checked } })} />
             </li>

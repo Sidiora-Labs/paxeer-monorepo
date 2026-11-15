@@ -1,14 +1,83 @@
 package keeper_test
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/testutil/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/xevm/types"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/mod/semver"
 )
+
+func TestStorageGasReaderWithoutValue(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
+	key := append([]byte(k.Paramstore.Name()+"/"), types.KeyPaxSstoreSetGasEIP2200...)
+	ctx.KVStore(k.GetStoreKey()).Delete(key)
+	require.False(t, k.Paramstore.Has(ctx, types.KeyPaxSstoreSetGasEIP2200))
+	require.Zero(t, k.GetParams(ctx).PaxSstoreSetGasEip2200)
+	require.Equal(t, uint64(20000), k.GetSstoreSetGasEIP2200(ctx))
+}
+
+func TestStorageGasReaderStoredValue(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
+	for _, value := range []uint64{72000, 10000, 0} {
+		t.Run(strconv.FormatUint(value, 10), func(t *testing.T) {
+			k.Paramstore.Set(ctx, types.KeyPaxSstoreSetGasEIP2200, value)
+			require.True(t, k.Paramstore.Has(ctx, types.KeyPaxSstoreSetGasEIP2200))
+			want := value
+			if want == 0 {
+				want = 20000
+			}
+			require.Equal(t, want, k.GetSstoreSetGasEIP2200(ctx))
+		})
+	}
+}
+
+func TestStorageGasReaderMatchesOrdinaryConstant(t *testing.T) {
+	_, source, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(filepath.Dir(source), "../../../../modules/evm/keeper/params.go"), nil, 0)
+	require.NoError(t, err)
+	var legacy uint64
+	found := false
+	for _, decl := range file.Decls {
+		constants, ok := decl.(*ast.GenDecl)
+		if !ok || constants.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range constants.Specs {
+			value := spec.(*ast.ValueSpec)
+			for i, name := range value.Names {
+				if name.Name != "LegacySstoreSetGasEIP2200" {
+					continue
+				}
+				cast, ok := value.Values[i].(*ast.CallExpr)
+				require.True(t, ok)
+				require.Equal(t, "uint64", cast.Fun.(*ast.Ident).Name)
+				require.Len(t, cast.Args, 1)
+				literal, ok := cast.Args[0].(*ast.BasicLit)
+				require.True(t, ok)
+				legacy, err = strconv.ParseUint(literal.Value, 0, 64)
+				require.NoError(t, err)
+				found = true
+			}
+		}
+	}
+	require.True(t, found)
+	k, ctx := newFeeAndReceiptKeeper(t)
+	ctx.KVStore(k.GetStoreKey()).Delete(append([]byte(k.Paramstore.Name()+"/"), types.KeyPaxSstoreSetGasEIP2200...))
+	require.False(t, k.Paramstore.Has(ctx, types.KeyPaxSstoreSetGasEIP2200))
+	require.Equal(t, legacy, k.GetSstoreSetGasEIP2200(ctx))
+}
 
 func TestParams(t *testing.T) {
 	k, ctx := testkeeper.MockEVMKeeper(t)
@@ -111,4 +180,58 @@ func TestParamGettersTracingVersions(t *testing.T) {
 	require.Equal(t, customTargetGas, k.GetTargetGasUsedPerBlock(ctxPost606))
 	require.Equal(t, customDeliverTxGasLimit, k.GetDeliverTxHookWasmGasLimit(ctxPost606))
 	require.Equal(t, customRegisterPointerDisabled, k.GetRegisterPointerDisabled(ctxPost606))
+}
+
+func TestDecimalParamDefaults(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
+	k.SetParams(ctx, types.DefaultParams())
+	defaults := evmtypes.DefaultParams()
+	for _, param := range []struct {
+		key          []byte
+		get          func(sdk.Context) sdk.Dec
+		defaultValue sdk.Dec
+		introduced   string
+	}{
+		{types.KeyPriorityNormalizer, k.GetPriorityNormalizer, defaults.PriorityNormalizer, "v0.0.0"},
+		{types.KeyBaseFeePerGas, k.GetBaseFeePerGas, defaults.BaseFeePerGas, "v0.0.0"},
+		{types.KeyMinFeePerGas, k.GetMinimumFeePerGas, defaults.MinimumFeePerGas, "v0.0.0"},
+		{types.KeyMaxFeePerGas, k.GetMaximumFeePerGas, defaults.MaximumFeePerGas, "v6.0.1"},
+		{types.KeyMaxDynamicBaseFeeUpwardAdjustment, k.GetMaxDynamicBaseFeeUpwardAdjustment, defaults.MaxDynamicBaseFeeUpwardAdjustment, "v6.0.0"},
+		{types.KeyMaxDynamicBaseFeeDownwardAdjustment, k.GetMaxDynamicBaseFeeDownwardAdjustment, defaults.MaxDynamicBaseFeeDownwardAdjustment, "v6.0.0"},
+	} {
+		t.Run(string(param.key), func(t *testing.T) {
+			for _, version := range []string{"current", "v5.7.0", "v5.8.0", "v6.0.0", "v6.0.1", "v6.0.6"} {
+				t.Run(version, func(t *testing.T) {
+					readCtx := ctx
+					if version != "current" {
+						readCtx = ctx.WithIsTracing(true).WithClosestUpgradeName(version)
+					}
+					t.Run("missing", func(t *testing.T) {
+						k.Paramstore.Set(ctx, param.key, sdk.MustNewDecFromStr("0.125"))
+						key := append([]byte(k.Paramstore.Name()+"/"), param.key...)
+						ctx.KVStore(k.GetStoreKey()).Delete(key)
+						require.False(t, k.Paramstore.Has(ctx, param.key))
+						value := param.get(readCtx)
+						if version != "current" && semver.Compare(version, "v6.0.6") < 0 && semver.Compare(version, param.introduced) >= 0 {
+							require.True(t, value.IsNil())
+						} else {
+							require.Equal(t, param.defaultValue, value)
+						}
+						require.False(t, k.Paramstore.Has(ctx, param.key))
+					})
+					for _, value := range []sdk.Dec{sdk.ZeroDec(), sdk.MustNewDecFromStr("0.125")} {
+						t.Run("stored_"+value.String(), func(t *testing.T) {
+							k.Paramstore.Set(ctx, param.key, value)
+							require.True(t, k.Paramstore.Has(ctx, param.key))
+							if version != "current" && semver.Compare(version, param.introduced) < 0 {
+								require.Equal(t, param.defaultValue, param.get(readCtx))
+							} else {
+								require.Equal(t, value, param.get(readCtx))
+							}
+						})
+					}
+				})
+			}
+		})
+	}
 }

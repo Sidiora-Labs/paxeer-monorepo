@@ -8,6 +8,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
+	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/mod/semver"
 )
 
@@ -83,9 +84,16 @@ func (k *Keeper) GetBaseDenom(ctx sdk.Context) string {
 	return BaseDenom
 }
 
+func decimalParamOrDefault(value, defaultValue sdk.Dec) sdk.Dec {
+	if value.IsNil() {
+		return defaultValue
+	}
+	return value
+}
+
 func (k *Keeper) GetPriorityNormalizer(ctx sdk.Context) sdk.Dec {
 	if !ctx.IsTracing() {
-		return k.GetParams(ctx).PriorityNormalizer
+		return decimalParamOrDefault(k.GetParams(ctx).PriorityNormalizer, types.DefaultPriorityNormalizer)
 	}
 	switch {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v5.8.0") < 0:
@@ -97,13 +105,13 @@ func (k *Keeper) GetPriorityNormalizer(ctx sdk.Context) sdk.Dec {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.6") < 0:
 		return k.GetParamsPreV606(ctx).PriorityNormalizer
 	default:
-		return k.GetParams(ctx).PriorityNormalizer
+		return decimalParamOrDefault(k.GetParams(ctx).PriorityNormalizer, types.DefaultPriorityNormalizer)
 	}
 }
 
 func (k *Keeper) GetBaseFeePerGas(ctx sdk.Context) sdk.Dec {
 	if !ctx.IsTracing() {
-		return k.GetParams(ctx).BaseFeePerGas
+		return decimalParamOrDefault(k.GetParams(ctx).BaseFeePerGas, types.DefaultBaseFeePerGas)
 	}
 	switch {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v5.8.0") < 0:
@@ -115,13 +123,13 @@ func (k *Keeper) GetBaseFeePerGas(ctx sdk.Context) sdk.Dec {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.6") < 0:
 		return k.GetParamsPreV606(ctx).BaseFeePerGas
 	default:
-		return k.GetParams(ctx).BaseFeePerGas
+		return decimalParamOrDefault(k.GetParams(ctx).BaseFeePerGas, types.DefaultBaseFeePerGas)
 	}
 }
 
 func (k *Keeper) GetMaxDynamicBaseFeeUpwardAdjustment(ctx sdk.Context) sdk.Dec {
 	if !ctx.IsTracing() {
-		return k.GetParams(ctx).MaxDynamicBaseFeeUpwardAdjustment
+		return decimalParamOrDefault(k.GetParams(ctx).MaxDynamicBaseFeeUpwardAdjustment, types.DefaultMaxDynamicBaseFeeUpwardAdjustment)
 	}
 	switch {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.0") < 0:
@@ -132,13 +140,13 @@ func (k *Keeper) GetMaxDynamicBaseFeeUpwardAdjustment(ctx sdk.Context) sdk.Dec {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.6") < 0:
 		return k.GetParamsPreV606(ctx).MaxDynamicBaseFeeUpwardAdjustment
 	default:
-		return k.GetParams(ctx).MaxDynamicBaseFeeUpwardAdjustment
+		return decimalParamOrDefault(k.GetParams(ctx).MaxDynamicBaseFeeUpwardAdjustment, types.DefaultMaxDynamicBaseFeeUpwardAdjustment)
 	}
 }
 
 func (k *Keeper) GetMaxDynamicBaseFeeDownwardAdjustment(ctx sdk.Context) sdk.Dec {
 	if !ctx.IsTracing() {
-		return k.GetParams(ctx).MaxDynamicBaseFeeDownwardAdjustment
+		return decimalParamOrDefault(k.GetParams(ctx).MaxDynamicBaseFeeDownwardAdjustment, types.DefaultMaxDynamicBaseFeeDownwardAdjustment)
 	}
 	switch {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.0") < 0:
@@ -149,13 +157,13 @@ func (k *Keeper) GetMaxDynamicBaseFeeDownwardAdjustment(ctx sdk.Context) sdk.Dec
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.6") < 0:
 		return k.GetParamsPreV606(ctx).MaxDynamicBaseFeeDownwardAdjustment
 	default:
-		return k.GetParams(ctx).MaxDynamicBaseFeeDownwardAdjustment
+		return decimalParamOrDefault(k.GetParams(ctx).MaxDynamicBaseFeeDownwardAdjustment, types.DefaultMaxDynamicBaseFeeDownwardAdjustment)
 	}
 }
 
 func (k *Keeper) GetMinimumFeePerGas(ctx sdk.Context) sdk.Dec {
 	if !ctx.IsTracing() {
-		return k.GetParams(ctx).MinimumFeePerGas
+		return decimalParamOrDefault(k.GetParams(ctx).MinimumFeePerGas, types.DefaultMinFeePerGas)
 	}
 	switch {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v5.8.0") < 0:
@@ -167,13 +175,13 @@ func (k *Keeper) GetMinimumFeePerGas(ctx sdk.Context) sdk.Dec {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.6") < 0:
 		return k.GetParamsPreV606(ctx).MinimumFeePerGas
 	default:
-		return k.GetParams(ctx).MinimumFeePerGas
+		return decimalParamOrDefault(k.GetParams(ctx).MinimumFeePerGas, types.DefaultMinFeePerGas)
 	}
 }
 
 func (k *Keeper) GetMaximumFeePerGas(ctx sdk.Context) sdk.Dec {
 	if !ctx.IsTracing() {
-		return k.GetParams(ctx).MaximumFeePerGas
+		return decimalParamOrDefault(k.GetParams(ctx).MaximumFeePerGas, types.DefaultMaxFeePerGas)
 	}
 	switch {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.1") < 0:
@@ -182,7 +190,7 @@ func (k *Keeper) GetMaximumFeePerGas(ctx sdk.Context) sdk.Dec {
 	case semver.Compare(ctx.ClosestUpgradeName(), "v6.0.6") < 0:
 		return k.GetParamsPreV606(ctx).MaximumFeePerGas
 	default:
-		return k.GetParams(ctx).MaximumFeePerGas
+		return decimalParamOrDefault(k.GetParams(ctx).MaximumFeePerGas, types.DefaultMaxFeePerGas)
 	}
 }
 
@@ -277,6 +285,11 @@ func (k *Keeper) GetSstoreSetGasEIP2200(ctx sdk.Context) uint64 {
 		return LegacySstoreSetGasEIP2200
 	}
 	return sstore
+}
+
+func (k *Keeper) GetEVMChainConfig(ctx sdk.Context) *params.ChainConfig {
+	sstore := k.GetSstoreSetGasEIP2200(ctx)
+	return types.DefaultChainConfig().EthereumConfigWithSstore(k.ChainID(ctx), &sstore)
 }
 
 func (k *Keeper) GetAllowedFeeDenoms(ctx sdk.Context) []types.AllowedFeeDenom {

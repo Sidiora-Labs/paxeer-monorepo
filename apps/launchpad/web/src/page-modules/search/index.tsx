@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { normalizeAddress } from '@/core/app-foundation/navigation';
@@ -99,7 +100,7 @@ export function SearchView({ initialQuery }: { initialQuery: string }) {
   const userCount = users.state === 'ready' ? users.items.length : 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6">
+    <div data-search-route className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6">
       <h1 className="text-xl font-extrabold text-text">Search</h1>
       <div className="flex flex-col gap-2 rounded-md bg-surface-1 p-2">
         <PaletteInput value={query} onChange={change} inputRef={inputRef} onKeyDown={onKeyDown} listId={listId} activeId={activeId}
@@ -157,7 +158,7 @@ function SearchFromParams() {
 
 export default function SearchModule() {
   return (
-    <Suspense fallback={<div className="mx-auto w-full max-w-3xl px-4 py-4 md:px-6"><Skeleton variant="block" height={56} label="search" /></div>}>
+    <Suspense fallback={<div className="mx-auto w-full max-w-3xl px-4 py-4 md:px-6"><Skeleton variant="block" height={surfaceSpacing(14)} label="search" /></div>}>
       <SearchFromParams />
     </Suspense>
   );

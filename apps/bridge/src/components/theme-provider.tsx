@@ -82,7 +82,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (!initialized) return;
     const root = document.documentElement;
     root.classList.toggle('dark', resolvedTheme === 'dark');
+    root.classList.toggle('light', resolvedTheme === 'light');
     root.classList.toggle('accent-dx-gradient', accent === 'dx-gradient');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(root).backgroundColor);
   }, [ initialized, resolvedTheme, accent ]);
 
   const setTheme = React.useCallback((t: Theme) => {

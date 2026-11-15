@@ -24,7 +24,7 @@ export function KernelNotice({ gate, className }: { gate: KernelGate; className?
     <p
       data-kernel="unavailable"
       role="status"
-      className={cn('rounded-xl bg-white/[0.06] px-3 py-2 text-xs text-pax-light', className)}
+      className={cn('rounded-xl bg-pax-control px-3 py-2 text-xs text-pax-light', className)}
     >
       {gate.reason}
     </p>

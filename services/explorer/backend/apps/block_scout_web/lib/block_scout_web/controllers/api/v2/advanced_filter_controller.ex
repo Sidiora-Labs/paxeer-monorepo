@@ -1,5 +1,6 @@
 defmodule BlockScoutWeb.API.V2.AdvancedFilterController do
   use BlockScoutWeb, :controller
+  use OpenApiSpex.ControllerSpecs
   use Utils.CompileTimeEnvHelper, chain_type: [:explorer, :chain_type]
 
   import BlockScoutWeb.Chain, only: [split_list_by_page: 1, next_page_params: 5, fetch_scam_token_toggle: 2]
@@ -10,6 +11,7 @@ defmodule BlockScoutWeb.API.V2.AdvancedFilterController do
   alias Explorer.Chain.{Address.Reputation, AdvancedFilter, ContractMethod, Data, Token, Transaction}
   alias Explorer.Chain.CsvExport.Helper, as: CsvHelper
   alias Plug.Conn
+  alias OpenApiSpex.Schema
 
   action_fallback(BlockScoutWeb.API.V2.FallbackController)
 
@@ -49,6 +51,53 @@ defmodule BlockScoutWeb.API.V2.AdvancedFilterController do
 
   @token_options [api?: true, necessity_by_association: %{Reputation.reputation_association() => :optional}]
 
+  tags(["advanced filters"])
+
+  operation :list,
+    summary: "Filter transactions, internal transactions and token transfers",
+    responses: [
+      ok:
+        {"Filtered activity with continuation and resolved search values", "application/json",
+         %Schema{
+           type: :object,
+           properties: %{
+             items: %Schema{type: :array, items: Schemas.AdvancedFilter},
+             next_page_params: %Schema{
+               type: :object,
+               nullable: true,
+               properties: %{
+                 block_number: %Schema{type: :integer, minimum: 0},
+                 transaction_index: %Schema{type: :integer, minimum: 0},
+                 internal_transaction_index: %Schema{type: :integer, minimum: 0, nullable: true},
+                 token_transfer_index: %Schema{type: :integer, minimum: 0, nullable: true},
+                 token_transfer_batch_index: %Schema{type: :integer, minimum: 0, nullable: true},
+                 items_count: %Schema{type: :integer, minimum: 0}
+               },
+               required: [
+                 :block_number,
+                 :transaction_index,
+                 :internal_transaction_index,
+                 :token_transfer_index,
+                 :token_transfer_batch_index,
+                 :items_count
+               ],
+               additionalProperties: false
+             },
+             search_params: %Schema{
+               type: :object,
+               properties: %{
+                 methods: %Schema{type: :object, additionalProperties: %Schema{type: :string}},
+                 tokens: %Schema{type: :object, additionalProperties: Schemas.Token}
+               },
+               required: [:methods, :tokens],
+               additionalProperties: false
+             }
+           },
+           required: [:items, :next_page_params, :search_params],
+           additionalProperties: false
+         }}
+    ]
+
   @doc """
   Function responsible for `api/v2/advanced-filters/` endpoint.
   """
@@ -84,6 +133,10 @@ defmodule BlockScoutWeb.API.V2.AdvancedFilterController do
     )
   end
 
+  operation :list_csv,
+    summary: "Export filtered activity as CSV",
+    responses: [ok: {"Filtered activity rows", "text/csv", %Schema{type: :string}}]
+
   @doc """
   Function responsible for `api/v2/advanced-filters/csv` endpoint.
   """
@@ -113,6 +166,25 @@ defmodule BlockScoutWeb.API.V2.AdvancedFilterController do
       end
     end)
   end
+
+  operation :list_methods,
+    summary: "Find contract methods by name or selector",
+    responses: [
+      ok:
+        {"Matching methods", "application/json",
+         %Schema{
+           type: :array,
+           items: %Schema{
+             type: :object,
+             properties: %{
+               method_id: %Schema{type: :string, pattern: ~r/^0x[0-9a-fA-F]{8}$/},
+               name: %Schema{type: :string}
+             },
+             required: [:method_id, :name],
+             additionalProperties: false
+           }
+         }}
+    ]
 
   @doc """
   Function responsible for `api/v2/advanced-filters/methods` endpoint,

@@ -102,7 +102,7 @@ export default function RewardsView({headingLevel=1}:RewardsViewProps){
  }
  const claimBlocked=!recoveryState.ready||operation.current||!!current&&['wallet','pending','uncertain'].includes(current.kind);
  if(!rewards.owner)return <section className="rounded-lg bg-surface-1"><EmptyState icon={Lock} title="Sign in to see your rewards" body="Your rewards are private. Sign in with your wallet to see them" action={<Button variant="primary" size="md" loading={auth.authenticating} onClick={()=>void auth.authenticate()}>{auth.authenticating?'Signing in...':'Sign in'}</Button>}/>{auth.error&&<p role="alert" className="px-8 pb-6 text-center text-sm text-danger">{humanErrorText(auth.error,"Couldn't sign in, try again")}</p>}</section>;
- return <section data-account-view="rewards" data-entitlement-revision={rewards.data?.revision??undefined} className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+ return <section data-account-view="rewards" data-entitlement-revision={rewards.data?.revision??undefined} aria-busy={rewards.isPending || undefined} className="mx-auto flex w-full max-w-3xl flex-col gap-4">
   <SectionHeader level={headingLevel} title="Rewards" description="Claim what you've earned. Network fees are paid in PAX"/>
   <DisclosureRow id="reward-programs" label="How rewards are paid" open={programsOpen} onToggle={setProgramsOpen} className="rounded-lg bg-surface-1 p-1">
    <RewardProgramList/>

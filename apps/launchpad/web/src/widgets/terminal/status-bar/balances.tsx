@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
 import { BookOpen, Coins, PieChart, Send, Wallet } from 'lucide-react';
 import Link from 'next/link';
@@ -16,7 +17,7 @@ function Amount({ icon, label, value, loading, title }: { icon: ReactNode; label
     <Tooltip content={title}>
       <span tabIndex={0} aria-label={`${label} ${value ?? 'not available yet'}`} className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-text" data-numeric>
         <span aria-hidden="true" className="inline-flex text-text-faint [&>svg]:size-icon-sm">{icon}</span>
-        {loading ? <Skeleton variant="text" width={40} className="h-3" /> : value === null ? <span className="text-text-faint">-</span> : <MaskedAmount>{value}</MaskedAmount>}
+        {loading ? <Skeleton variant="text" width={surfaceSpacing(10)} className="h-3" /> : value === null ? <span className="text-text-faint">-</span> : <MaskedAmount>{value}</MaskedAmount>}
       </span>
     </Tooltip>
   );

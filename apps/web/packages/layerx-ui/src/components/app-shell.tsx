@@ -24,6 +24,45 @@ const DEFAULT_ICONS: Record<string, React.ReactNode> = {
 
 /* ----------------------------------------------------------- BottomTabBar */
 
+function BottomTab({
+  item,
+  active,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  onNavigate?: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate?.(item.id)}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "relative flex min-w-16 flex-1 shrink-0 flex-col items-center gap-0.5 rounded-md py-1",
+        active ? "bg-accent text-accent-foreground" : undefined,
+      )}
+    >
+      <span className={cn("transition-colors", active ? "text-accent-foreground" : "text-faint-foreground")}>
+        {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-icon-md" />}
+      </span>
+      <span
+        className={cn(
+          "text-micro font-semibold transition-colors",
+          active ? "text-accent-foreground" : "text-faint-foreground",
+        )}
+      >
+        {item.label}
+      </span>
+      {!!item.badge && (
+        <span className="absolute -top-1 right-1/2 translate-x-4 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
+          {item.badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
 /**
  * Mobile navigation with a raised center action button at thumb reach.
  * All destinations remain available; long lists scroll horizontally.
@@ -47,35 +86,6 @@ export function BottomTabBar({
   const left = items.slice(0, middle);
   const right = items.slice(middle);
 
-  const Tab = ({ item }: { item: NavItem }) => {
-    const active = item.id === activeId;
-    return (
-      <button
-        type="button"
-        onClick={() => onNavigate?.(item.id)}
-        aria-current={active ? "page" : undefined}
-        className="relative flex min-w-16 flex-1 shrink-0 flex-col items-center gap-0.5 py-1 outline-none"
-      >
-        <span className={cn("transition-colors", active ? "text-accent" : "text-faint-foreground")}>
-          {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-icon-md" />}
-        </span>
-        <span
-          className={cn(
-            "text-micro font-semibold transition-colors",
-            active ? "text-accent" : "text-faint-foreground",
-          )}
-        >
-          {item.label}
-        </span>
-        {!!item.badge && (
-          <span className="absolute -top-1 right-1/2 translate-x-4 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
-            {item.badge}
-          </span>
-        )}
-      </button>
-    );
-  };
-
   return (
     <nav
       aria-label="Primary"
@@ -85,20 +95,20 @@ export function BottomTabBar({
       )}
     >
       {left.map((item) => (
-        <Tab key={item.id} item={item} />
+        <BottomTab key={item.id} item={item} active={item.id === activeId} onNavigate={onNavigate} />
       ))}
       <div className="flex min-w-16 flex-1 shrink-0 justify-center">
         <button
           type="button"
           onClick={onFab}
           aria-label="New action"
-          className="-mt-7 inline-flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-overlay transition-transform active:scale-95"
+          className="-mt-7 inline-flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-overlay transition-transform active:scale-95 focus-visible:bg-accent-strong focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:ring-offset-2"
         >
           {fabIcon ?? <Plus className="size-6" />}
         </button>
       </div>
       {right.map((item) => (
-        <Tab key={item.id} item={item} />
+        <BottomTab key={item.id} item={item} active={item.id === activeId} onNavigate={onNavigate} />
       ))}
     </nav>
   );
@@ -163,11 +173,11 @@ export function Sidebar({
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
                 active
-                  ? "bg-surface-sunken text-foreground"
+                  ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-surface-sunken/60 hover:text-foreground",
               )}
             >
-              <span className={cn("[&_svg]:size-5", active ? "text-accent" : "text-faint-foreground")}>
+              <span className={cn("[&_svg]:size-5", active ? "text-accent-foreground" : "text-faint-foreground")}>
                 {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-5" />}
               </span>
               <span className="flex-1 text-left">{item.label}</span>
@@ -281,7 +291,7 @@ export function AppShell({
           <button
             type="button"
             onClick={onSearch}
-            className="flex h-10 flex-1 items-center gap-2.5 rounded-full border border-border bg-surface px-4 text-body-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
+            className="flex min-h-10 flex-1 items-center gap-2.5 rounded-full border border-accent bg-surface px-4 py-2 text-body-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
           >
             <Search className="size-4" aria-hidden />
             Search
@@ -335,7 +345,7 @@ export function AppShell({
           <button
             type="button"
             onClick={onSearch}
-            className="flex h-10 w-64 items-center gap-2.5 rounded-full border border-border bg-surface px-4 text-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
+            className="flex min-h-10 w-64 items-center gap-2.5 rounded-full border border-accent bg-surface px-4 py-2 text-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
           >
             <Search className="size-4" aria-hidden />
             <span className="flex-1 text-left">Search</span>

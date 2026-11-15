@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clipped text</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  .hidden { position: absolute; margin-left: -10000px; width: 160px; height: 48px; }
+  #small-box { width: 1px; height: 1px; overflow: hidden; }
+  #rectangle { clip: rect(0, 0, 0, 0); }
+  #inset { clip-path: inset(50%); }
+  #circle { clip-path: circle(0); }
+  #ellipse { clip-path: ellipse(0 10px); }
+  #polygon { clip-path: polygon(0 0, 0 50%, 0 100%); }
+</style>
+<body>
+<p>Visible text</p>
+<span id="small-box" class="hidden"><span>Hidden text</span></span>
+<span id="rectangle" class="hidden"><span>Hidden text</span></span>
+<span id="inset" class="hidden"><span>Hidden text</span></span>
+<span id="circle" class="hidden"><span>Hidden text</span></span>
+<span id="ellipse" class="hidden"><span>Hidden text</span></span>
+<span id="polygon" class="hidden"><span>Hidden text</span></span>
+<script>
+  if (new URLSearchParams(location.search).has("visible")) {
+    document.getElementById("inset").style.clipPath = "inset(10%)";
+  }
+</script>
+</body>
+</html>

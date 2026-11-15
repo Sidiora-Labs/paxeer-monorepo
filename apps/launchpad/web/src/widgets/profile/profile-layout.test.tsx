@@ -31,19 +31,19 @@ const strokeClass = /^(?:[a-z0-9-]+:)*(?:border|ring|divide|outline|shadow)(?:-|
 const wallet = '0x1dae78b53c9f39930a2ff2b6b7aac12ec75fb154';
 
 describe('profile layout', () => {
-  it('is three flush columns: leaderboard rail from 2xl only, centre, top trades rail from lg', () => {
+  it('shows flush profile columns as the content width permits', () => {
     const container = mount(<ProfileLayout left={<p>board</p>} center={<p>centre</p>} right={<p>trades</p>} />);
     const grid = container.querySelector('[data-profile-layout]')!;
     const tokens = classTokens(grid);
     // No gutters between the columns: the rails start at the same top as the centre.
     expect(grid.className.split(/\s+/).some(token => /(?:^|:)(?:gap|space-[xy])-/.test(token))).toBe(false);
     expect(grid.className).toContain('items-stretch');
-    expect(grid.className).toContain('2xl:grid-cols-[minmax(300px,360px)_minmax(0,960px)_minmax(300px,360px)]');
-    // Below 2xl (1280, 1024) the grid is centre + right only, so the centre is never crushed by the leaderboard.
-    expect(grid.className).toContain('xl:max-2xl:grid-cols-[minmax(0,1fr)_360px]');
-    expect(grid.className).toContain('lg:max-xl:grid-cols-[minmax(0,1fr)_320px]');
+    expect(grid.className).toContain('@market-three/profile:grid-cols-[minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))_minmax(0,var(--sl-form-max-width))_minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))]');
+    // The two-column tier reserves the right rail and gives the centre the remaining width.
+    expect(grid.className).toContain('@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width)]');
+    expect(grid.parentElement!.className).toContain('@container/profile');
     const left = container.querySelector('aside[aria-label="Leaderboard"]')!;
-    expect(left.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', '2xl:block']));
+    expect(left.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', '@market-three/profile:block']));
     const right = container.querySelector('aside[aria-label="Top trades"]')!;
     expect(right.className).not.toMatch(/\bhidden\b/);
     // Columns are told apart by surface contrast only.
@@ -81,8 +81,8 @@ describe('profile header anatomy', () => {
     );
     const banner = container.querySelector('[data-profile-banner]')!;
     expect(banner).not.toBeNull();
-    expect(banner.className).toContain('xl:h-[240px]');
-    expect(banner.className).toContain('h-[100px]');
+    expect(banner.className).toContain('xl:h-60');
+    expect(banner.className).toContain('h-25');
     const avatar = container.querySelector('[data-profile-avatar]')!;
     // Overlaps the banner bottom and sits on the same row as the actions.
     expect(avatar.className).toMatch(/-mt-7/);

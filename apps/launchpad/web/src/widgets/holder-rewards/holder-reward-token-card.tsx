@@ -112,7 +112,7 @@ export default function HolderRewardTokenCard({
 
   if (loading) {
     return (
-      <div aria-busy="true" className={cn('flex h-full min-h-[188px] min-w-0 flex-col gap-3 rounded-md p-4', cardBg, className)}>
+      <div aria-busy="true" className={cn('flex h-full min-h-47 min-w-0 flex-col gap-3 rounded-md p-4', cardBg, className)}>
         <span className="sr-only">Loading coin</span>
         <div aria-hidden="true" className="flex items-center gap-3">
           <span className="sl-skeleton size-avatar-lg rounded-sm" />
@@ -145,7 +145,7 @@ export default function HolderRewardTokenCard({
   );
 
   return (
-    <article className={cn('group relative flex h-full min-h-[188px] min-w-0 flex-col gap-3 rounded-md p-4 transition-colors duration-fast', cardBg, href && 'hover:bg-surface-hover', top3 && 'bg-rank-1-soft', className)}>
+    <article className={cn('group relative flex h-full min-h-47 min-w-0 flex-col gap-3 rounded-md p-4 transition-colors duration-fast', cardBg, href && 'hover:bg-surface-hover', top3 && 'bg-rank-1-soft', className)}>
       <div className="flex items-start gap-3">
         <Avatar src={image} name={name} size="lg" shape="square" decorative />
         <div className="min-w-0 flex-1">
@@ -170,7 +170,7 @@ export default function HolderRewardTokenCard({
       </div>
       <dl className="flex flex-col gap-1">
         <div className="flex min-w-0 flex-col gap-1">
-          <dt className="text-2xs font-semibold uppercase tracking-[.1em] text-text-faint">Holder rewards</dt>
+          <dt className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Holder rewards</dt>
           <dd data-numeric className={cn('truncate text-xl font-bold [font-variant-numeric:proportional-nums]', distributedRaw === null ? 'text-text-faint' : 'text-success')}>
             {distributedRaw === null ? <span aria-label="Not available yet">{'—'}</span> : <>{usdlAmountText(distributedRaw)}<span className="ml-1 text-xs font-semibold text-text-faint">USDL</span></>}
           </dd>

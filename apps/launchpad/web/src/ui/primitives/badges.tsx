@@ -273,7 +273,7 @@ export function RankBadge({ rank, variant = 'inline', className }: RankBadgeProp
     return (
       <span
         className={cn(
-          'inline-flex h-5 items-center rounded-xs bg-media-overlay px-1.5 text-2xs font-bold text-text',
+          'inline-flex h-5 items-center rounded-xs bg-media-overlay px-1.5 text-2xs font-bold text-on-media',
           className
         )}
       >
@@ -470,7 +470,7 @@ export function ShortAddress({
         className
       )}
     >
-      <span title={address}>
+      <span title={address} className="max-w-full break-all">
         <span aria-hidden="true">{short}</span>
         <span className="sr-only">{address}</span>
       </span>

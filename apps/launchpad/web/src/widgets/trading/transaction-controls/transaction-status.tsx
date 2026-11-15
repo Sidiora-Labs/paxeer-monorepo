@@ -9,7 +9,7 @@ import type { TradeJourney, JourneyState } from './runtime';
 
 const TERMINAL = ['quarantined', 'cancelled', 'replaced', 'changed_action'];
 const PAGE_SIZE = 25;
-const inputClass = 'h-control-height-sm min-w-0 flex-1 rounded-sm bg-surface-3 px-2 text-xs text-text placeholder:text-text-faint outline-none focus-visible:outline-2 focus-visible:outline-focus';
+const inputClass = 'h-control-height-sm min-w-0 flex-1 basis-40 rounded-sm bg-surface-3 px-2 text-xs text-text placeholder:text-text-faint outline-none focus-visible:outline-2 focus-visible:outline-focus';
 const summaryClass = 'cursor-pointer select-none font-bold text-text-muted transition-colors duration-fast hover:text-text';
 
 function explorerLink(txHash: string) {
@@ -59,7 +59,7 @@ export function TransactionStatus({ journey, state }: { journey: TradeJourney | 
                     <Button size="sm" variant="secondary" onClick={() => journey?.retry(update.attempt.txHash)}>Check again</Button>
                     <details>
                       <summary className={summaryClass}>Sped up or cancelled in your wallet?</summary>
-                      <div className="mt-1.5 flex items-center gap-2">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <input aria-label="New transaction ID" value={replacement} onChange={event => setReplacement(event.target.value)} className={inputClass} placeholder="Transaction ID (0x...)" />
                         <Button size="sm" variant="secondary" onClick={() => { if (!/^0x[0-9a-fA-F]{64}$/.test(replacement)) { setError('Enter a valid transaction ID'); return; } void journey?.inspectReplacement(update.attempt.txHash, replacement as `0x${string}`).catch(caught => setError(plainTradeError(String(caught)))); }}>
                           Check

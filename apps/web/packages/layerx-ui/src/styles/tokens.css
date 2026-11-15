@@ -33,6 +33,15 @@
   --space-dialog-search: 35rem;
   --space-summary: 21.25rem;
   --drawer-width: 26.25rem;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --touch-target: 44px;
+  --scrollbar-radius: 999px;
+  --table-header-height: 2.5625rem;
+  --search-list-max-height: 20rem;
+  --notification-list-max-height: 22.5rem;
+  --modal-content-max-width: 27.5rem;
+  --search-content-max-width: 35rem;
 
   /* Fluid type steps. They remain readable when the browser text scale is doubled. */
   --font-size-nano: clamp(0.5625rem, 0.55rem + 0.03vw, 0.625rem);
@@ -281,14 +290,16 @@
   .lx-disclosure-grid { display: grid; transition: grid-template-rows var(--duration-slow) var(--ease-standard); }
   .lx-disclosure-open { grid-template-rows: 1fr; }
   .lx-disclosure-closed { grid-template-rows: 0fr; }
+  .lx-disclosure-closed > * { visibility: hidden; }
+  .lx-disclosure-open > * { visibility: visible; }
   .lx-sheet-content { max-height: calc(100dvh - env(safe-area-inset-top)); }
-  .lx-search-list { max-height: 20rem; }
-  .lx-notification-list { max-height: 22.5rem; }
+  .lx-search-list { max-height: var(--search-list-max-height); }
+  .lx-notification-list { max-height: var(--notification-list-max-height); }
   .lx-wizard-grid { grid-template-columns: minmax(0, 1fr) var(--space-summary); }
   .lx-primary-action-fade { background: linear-gradient(to top, var(--background) 60%, transparent); }
-  .lx-sticky-group { top: var(--table-header-height, 2.5625rem); }
-  .lx-modal-content { width: min(calc(100vw - var(--space-8)), 27.5rem); max-height: calc(100dvh - var(--space-8) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
-  .lx-search-content { top: 18%; width: min(calc(100vw - var(--space-8)), 35rem); }
+  .lx-sticky-group { top: var(--table-header-height); }
+  .lx-modal-content { width: min(calc(100vw - var(--space-8)), var(--modal-content-max-width)); max-height: calc(100dvh - var(--space-8) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .lx-search-content { top: 18%; width: min(calc(100vw - var(--space-8)), var(--search-content-max-width)); }
 }
 
 @layer base {
@@ -297,31 +308,37 @@
   :where(h1, h2, h3, h4, p) { text-wrap: pretty; }
   :where(table, [data-numeric], .tabular-nums) { font-variant-numeric: tabular-nums; }
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--accent-strong);
-    outline-offset: 2px;
+    outline: var(--focus-ring-width) solid var(--accent-strong);
+    outline-offset: var(--focus-ring-offset);
   }
   ::selection { background: var(--accent-soft); color: var(--foreground); }
   :where(input, select, textarea, button) { accent-color: var(--accent); }
   .lx-scroll { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
   .lx-scroll::-webkit-scrollbar { width: var(--space-2); height: var(--space-2); }
-  .lx-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+  .lx-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--scrollbar-radius); }
   .lx-scroll::-webkit-scrollbar-track { background: transparent; }
 }
 
 @media (pointer: coarse) {
   :where(a[href], button, input:not([type="hidden"]), select, textarea, [role="button"], [role="link"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"]) {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+  .lx-spin,
+  .lx-pulse,
+  [class*="animate-"] {
+    animation: none !important;
   }
+
+  .lx-disclosure-grid,
+  [class*="transition-"] {
+    transition: none !important;
+  }
+
+  html { scroll-behavior: auto; }
 }
 
 /* Fallback values for engines without light-dark(), while preserving the same roles. */
