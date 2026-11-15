@@ -31,6 +31,7 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
   @fixtures Path.expand("../support/fixture/paxeer_x/price_feed", __DIR__)
 
   setup do
+    Explorer.TestHelper.start_migration_owner!()
     assert :ok = Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
 
     body = fixture("block_txs.json")
@@ -83,7 +84,7 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
       assert Enum.all?(PriceFeed.latest_per_market(), fn {_market, observation} -> observation.accepted == true end)
       assert %{rows: [[nil, "YES"]]} = accepted_column()
 
-      {:ok, first} = PriceAcceptanceBackfill.start_link()
+      first = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
       assert :ok = PriceAcceptanceBackfill.retain(first, @height, context.transactions, results)
       assert {:ok, 9} = PriceAcceptanceBackfill.step(first, 9)
       assert cursor() == [[0, 8, false, nil]]
@@ -93,16 +94,16 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
       assert PriceFeed.market_updates(17, %PagingOptions{}) == []
       assert PriceFeed.total_update_count() == 1
 
-      assert :ok = GenServer.stop(first)
+      assert :ok = stop_supervised(PriceAcceptanceBackfill)
       refute Process.alive?(first)
 
-      {:ok, reopened} = PriceAcceptanceBackfill.start_link()
+      reopened = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
       assert cursor() == [[0, 8, false, nil]]
       assert unknown_count() == 9
       assert {:ok, 9} = PriceAcceptanceBackfill.step(reopened, 9)
       assert cursor() == [[0, 17, true, nil]]
       assert :complete = PriceAcceptanceBackfill.step(reopened, 9)
-      assert :ok = GenServer.stop(reopened)
+      assert :ok = stop_supervised(PriceAcceptanceBackfill)
       assert unknown_count() == 0
       assert PriceFeed.scanned_through(@height) == @height
       assert PriceFeed.total_update_count() == 1
@@ -139,12 +140,12 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
     assert %{rows: [[nil, "YES"]]} = accepted_column()
     assert :ok = Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
 
-    {:ok, worker} = PriceAcceptanceBackfill.start_link()
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     assert :ok = PriceAcceptanceBackfill.retain(worker, @height, context.transactions, context.results)
     assert {:ok, 18} = PriceAcceptanceBackfill.step(worker, 18)
     assert :complete = PriceAcceptanceBackfill.step(worker, 18)
     assert unknown_count() == 0
-    assert :ok = GenServer.stop(worker)
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
   end
 
   test "historical_price_acceptance_rejects_mismatched_retained_data", context do
@@ -155,7 +156,7 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
     assert {:ok, [update]} = decoded(context.transactions, context.results)
     import_before_upgrade(context.block, update)
     assert :ok = Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
-    {:ok, worker} = PriceAcceptanceBackfill.start_link()
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     assert {:error, {:malformed, _}} = PriceAcceptanceBackfill.retain(worker, @height, context.transactions, [])
     assert cursor() == [[-1, -1, false, nil]]
 
@@ -171,11 +172,11 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
     assert cursor() == [[-1, -1, false, ":retained_observation_mismatch"]]
     assert unknown_count() == 18
     assert PriceFeed.market_updates(0, %PagingOptions{}) == []
-    assert :ok = GenServer.stop(worker)
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
 
-    {:ok, reopened} = PriceAcceptanceBackfill.start_link()
+    _reopened = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     assert cursor() == [[-1, -1, false, ":retained_observation_mismatch"]]
-    assert :ok = GenServer.stop(reopened)
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
   end
 
   test "historical_price_acceptance_keeps_fetch_errors_retryable", context do
@@ -186,17 +187,17 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
     assert {:ok, [update]} = decoded(context.transactions, context.results)
     import_before_upgrade(context.block, update)
     assert :ok = Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
-    {:ok, worker} = PriceAcceptanceBackfill.start_link()
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     assert {:error, :no_urls} = PriceAcceptanceBackfill.step(worker, 18)
     assert cursor() == [[-1, -1, false, ":no_urls"]]
     assert unknown_count() == 18
-    assert :ok = GenServer.stop(worker)
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
 
-    {:ok, reopened} = PriceAcceptanceBackfill.start_link()
+    reopened = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     assert :ok = PriceAcceptanceBackfill.retain(reopened, @height, context.transactions, context.results)
     assert {:ok, 18} = PriceAcceptanceBackfill.step(reopened, 18)
     assert cursor() == [[0, 17, true, nil]]
-    assert :ok = GenServer.stop(reopened)
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
   end
 
   test "historical_price_acceptance_replays_failed_transactions", context do
@@ -207,7 +208,7 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
     PriceFeed.upsert_markets([%{market_id: 0, symbol: "BTC", chainflow_symbol: "BTC"}])
     assert :ok = Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
 
-    {:ok, worker} = PriceAcceptanceBackfill.start_link()
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     assert :ok = PriceAcceptanceBackfill.retain(worker, @height, context.transactions, results)
     assert {:ok, 18} = PriceAcceptanceBackfill.step(worker, 18)
     assert unknown_count() == 0
@@ -216,7 +217,7 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
     assert Enum.all?(observations, &(&1.accepted == false))
     assert PriceFeed.market_updates(0, %PagingOptions{}) == []
     assert [{%PriceMarket{market_id: 0}, nil}] = PriceFeed.latest_per_market()
-    assert :ok = GenServer.stop(worker)
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
   end
 
   defp import_before_upgrade(block, update) do

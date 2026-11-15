@@ -46,10 +46,10 @@ import { nativeChains } from "@paxeer-network/paxeer-backend/nativeMetadata";
 import {
   NativeConfigStore,
   erc20Abi,
-  DIAMOND_ADDRESS,
   COLLATERAL_TOKENS,
+  PRECOMPILES,
 } from "./config";
-import { TradingAccountABI } from "@paxeer-network/paxeer-backend/core/network/abi/TradingAccount";
+import { PerpsPrecompileABI } from "@paxeer-network/paxeer-backend/core/network/abi/PerpsPrecompile";
 import { BLUE_DARK_THEME_CSS_VARS } from "../theme/blueDarkTheme";
 import {
   nativeLayoutBindings,
@@ -61,10 +61,10 @@ const contracts = {
   getContractInfoByEnv: () => ({
     usdcAbi: erc20Abi,
     erc20Abi,
-    vaultAbi: TradingAccountABI,
-    verifyContractAddress: DIAMOND_ADDRESS,
+    vaultAbi: PerpsPrecompileABI,
+    verifyContractAddress: PRECOMPILES.perps,
     usdcAddress: COLLATERAL_TOKENS.usdc.address,
-    vaultAddress: DIAMOND_ADDRESS,
+    vaultAddress: PRECOMPILES.perps,
     solanaUSDCAddress: "",
     solanaVaultAddress: "",
   }),

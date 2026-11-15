@@ -1,95 +1,46 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { usePerpsWallet } from "./usePerpsWallet";
-import { getVaultAddress, getBalance } from "./useVault";
-import { COLLATERAL_TOKENS, COLLATERAL_OPTIONS } from "@paxeer-network/paxeer-backend/core/perps/config";
+import { useCallback } from "react";
+import type { Address } from "viem";
 
-const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as `0x${string}`;
-const ALL_TOKENS = Object.values(COLLATERAL_TOKENS);
+import { pickCollateral } from "@paxeer-network/paxeer-backend/core/perps/accountView";
+import { useAccount } from "./useAccount";
+import { usePerpsWallet } from "./usePerpsWallet";
+import { useSelectionRequest } from "./useSelectionRequest";
 
 export interface AutoCollateralResult {
-  selectedToken: string;
+  selectedToken: Address;
   selectedSymbol: string;
   selectedDecimals: number;
-  balances: Record<string, number>;
+  /** USDL base units (6 decimals) of getAccount(account).collateral. */
+  collateral: bigint;
   isLoading: boolean;
 }
 
 /**
- * Auto-selects the stablecoin with the highest vault balance.
- * Falls back to COLLATERAL_OPTIONS[0] if no vault or all balances are zero.
+ * Selects USDL, the single collateral of the cross-margin account at 0x1015, with the
+ * account collateral read through getAccount(account). Falls back to USDL at 6 decimals
+ * with zero collateral when no wallet is connected.
  */
 export function useAutoCollateral(): AutoCollateralResult {
   const { isConnected, address } = usePerpsWallet();
-  const [balances, setBalances] = useState<Record<string, number>>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const mountedRef = useRef(true);
+  const { getAccount } = useAccount();
+  const account =
+    isConnected && address ? (address.toLowerCase() as Address) : undefined;
+  const load = useCallback(async () => {
+    if (!account) throw new Error("Wallet not connected");
+    return pickCollateral(await getAccount(account)).collateral;
+  }, [account, getAccount]);
+  const { data, isLoading } = useSelectionRequest(account, load, 30_000);
+  const collateral = data ?? 0n;
 
-  const fetchBalances = useCallback(async () => {
-    if (!isConnected || !address) {
-      setBalances({});
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const vault = await getVaultAddress(address as `0x${string}`);
-      if (vault === ZERO_ADDR || !mountedRef.current) {
-        setIsLoading(false);
-        return;
-      }
-      const results = await Promise.allSettled(
-        ALL_TOKENS.map(async (tok) => {
-          const bal = await getBalance(vault, tok.address);
-          return {
-            address: tok.address,
-            balance: Number(bal) / 10 ** tok.decimals,
-          };
-        })
-      );
-      if (!mountedRef.current) return;
-      const map: Record<string, number> = {};
-      for (const r of results) {
-        if (r.status === "fulfilled") {
-          map[r.value.address] = r.value.balance;
-        }
-      }
-      setBalances(map);
-    } catch {
-      // Silently fail, keep existing balances
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  }, [isConnected, address]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    fetchBalances();
-    const id = setInterval(fetchBalances, 30_000);
-    return () => {
-      mountedRef.current = false;
-      clearInterval(id);
-    };
-  }, [fetchBalances]);
-
-  // Pick the token with the highest balance
-  let bestAddr = COLLATERAL_OPTIONS[0]?.value ?? "";
-  let bestBal = 0;
-  for (const tok of ALL_TOKENS) {
-    const bal = balances[tok.address] ?? 0;
-    if (bal > bestBal) {
-      bestBal = bal;
-      bestAddr = tok.address;
-    }
-  }
-
-  const tokenInfo = ALL_TOKENS.find((t) => t.address === bestAddr);
+  const picked = pickCollateral({ collateral });
 
   return {
-    selectedToken: bestAddr,
-    selectedSymbol: tokenInfo?.symbol ?? "USID",
-    selectedDecimals: tokenInfo?.decimals ?? 18,
-    balances,
+    selectedToken: picked.token,
+    selectedSymbol: picked.symbol,
+    selectedDecimals: picked.decimals,
+    collateral: picked.collateral,
     isLoading,
   };
 }

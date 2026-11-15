@@ -38,6 +38,14 @@ fn example_names_every_backfill_variable() {
         environment.get("LAYERX_INDEXER_PAXSCAN_CERT_SHA256"),
         Some(&"")
     );
+    assert_eq!(
+        environment.get("LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS"),
+        Some(&"50")
+    );
+    assert_eq!(
+        environment.get("LAYERX_INDEXER_BACKFILL_READERS"),
+        Some(&"8")
+    );
 
     let result = BackfillConfig::from_args(&["--cutover-height=1".to_owned()], &|name| {
         filled_lookup(&environment, name)

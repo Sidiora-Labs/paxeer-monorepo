@@ -132,7 +132,7 @@ def test_dashboard_web_variables_follow_source_and_build_inputs():
 
     assert arguments == {"DASHBOARD_API_ORIGIN"}
     assert arguments <= variables.keys()
-    assert variables.keys() <= reads | arguments | {"PORT"}
+    assert variables.keys() <= reads | arguments | {"PORT", "DASHBOARD_GATEWAY_ORIGIN"}
     assert variables["PORT"] == runtime_env["PORT"] == "3000"
     assert variables["DASHBOARD_API_ORIGIN"] == (
         "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN"
@@ -152,6 +152,22 @@ def test_dashboard_web_variables_follow_source_and_build_inputs():
         )
 
 
+def test_dashboard_web_gateway_origin_is_runtime_input():
+    data = definition()
+    variables = data["vars"]["dashboard-web"]
+    inputs = data["inputs"]["dashboard-web"]
+    _, arguments, _ = docker_contract()
+
+    assert variables["DASHBOARD_GATEWAY_ORIGIN"] == (
+        "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN"
+    )
+    assert inputs["PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN"] == "operator"
+    assert variables["DASHBOARD_API_ORIGIN"] == (
+        "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN"
+    )
+    assert arguments == {"DASHBOARD_API_ORIGIN"}
+
+
 def test_dashboard_web_inputs_are_named_classified_and_described():
     data = definition()
     variables = data["vars"]["dashboard-web"]
@@ -162,9 +178,12 @@ def test_dashboard_web_inputs_are_named_classified_and_described():
         if value.startswith("env:")
     }
     assert set(inputs) == expected
+    assert inputs == {
+        "PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN": "operator",
+        "PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN": "operator",
+    }
     lines = DEFINITION.read_text().splitlines()
     for name, category in inputs.items():
-        assert name == "PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN"
         assert category == "operator"
         index = next(i for i, line in enumerate(lines) if line.startswith(name + " ="))
         assert index > 0 and lines[index - 1].startswith("# ")
@@ -190,7 +209,7 @@ def test_dashboard_web_build_inventory_is_locked_and_static_checks_run():
     package = json.loads((ROOT / "apps/web/package.json").read_text())
     app_package = json.loads((APPLICATION / "package.json").read_text())
     assert package["name"]
-    assert app_package["scripts"]["build"] == "next build"
+    assert app_package["scripts"]["build"] == "next build && node tests/built-style.mjs"
     recipe = "\n".join(docker_instructions())
     assert "npm --prefix /src/apps/web ci --ignore-scripts --no-audit --no-fund" in recipe
     assert "npm --prefix /src/apps/web run build:ui" in recipe

@@ -29,7 +29,7 @@ export function PrimaryAction({
     return (
       <div
         className={cn(
-          "sticky bottom-0 z-20 -mx-4 mt-auto bg-[linear-gradient(to_top,var(--background)_60%,transparent)] px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]",
+          "sticky bottom-0 z-20 -mx-4 mt-auto lx-primary-action-fade px-4 pt-6 lx-safe-bottom-min",
         )}
       >
         <Button size="lg" fullWidth className={className} {...props}>
@@ -42,7 +42,7 @@ export function PrimaryAction({
   return (
     <Button
       size={position === "header" ? "md" : "lg"}
-      className={cn(position === "footer" && "min-w-[180px]", className)}
+      className={cn(position === "footer" && "min-w-40", className)}
       {...props}
     >
       {children}

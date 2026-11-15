@@ -23,7 +23,10 @@ import { COLLATERAL_TOKENS } from "./config";
 
 const SAFE_DECIMAL = /^\d*\.?\d*$/;
 
-export function safeParseUnits(value: string | undefined | null, decimals: number): bigint {
+export function safeParseUnits(
+  value: string | undefined | null,
+  decimals: number,
+): bigint {
   if (value === undefined || value === null) return 0n;
   const trimmed = String(value).trim();
   if (!trimmed || trimmed === "." || !SAFE_DECIMAL.test(trimmed)) return 0n;
@@ -42,7 +45,7 @@ export function getCollateralDecimals(tokenAddress: string): number {
   for (const meta of Object.values(COLLATERAL_TOKENS)) {
     if (meta.address.toLowerCase() === lower) return meta.decimals;
   }
-  return 18;
+  throw new Error(`unknown collateral token ${tokenAddress}`);
 }
 
 /**

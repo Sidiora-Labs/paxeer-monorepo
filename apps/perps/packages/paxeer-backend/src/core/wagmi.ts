@@ -3,31 +3,45 @@
 //   - injected wallets (EIP-6963 multi-injected discovery for MetaMask, Rabby,
 //     Paxport extension, etc.)
 //   - Paxeer Embedded Wallet — Supabase auth + REST signing via the
-//     @paxeer/wallet SDK (vendored at @paxeer-network/paxeer-backend/core/wallet/embedded/sdk).
+//     @paxeer/wallet SDK (vendored at @/core/wallet/embedded/sdk).
 //
 // No WalletConnect. No RainbowKit. The connect UI lives in
-// `@paxeer-network/paxeer-backend/app/modals/ConnectWalletModal` and the signed-in popover in
-// `@paxeer-network/paxeer-backend/app/modals/WalletControlPanel`.
+// `@/app/modals/ConnectWalletModal` and the signed-in popover in
+// `@/app/modals/WalletControlPanel`.
 
 import { createConfig, createStorage } from "wagmi";
-import { injected } from "@wagmi/core";
+import { injected } from "wagmi/connectors";
 
 import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
-import { getPaxeerWallet, paxeerEmbeddedConnector } from "@paxeer-network/paxeer-backend/core/wallet/embedded";
-import { buildPaxeerTransport, getPaxeerRpcUrls } from "@paxeer-network/paxeer-backend/core/rpc";
+import {
+  getPaxeerWallet,
+  paxeerEmbeddedConnector,
+} from "@paxeer-network/paxeer-backend/core/wallet/embedded";
+import {
+  buildPaxeerTransport,
+  getPaxeerRpcUrls,
+} from "@paxeer-network/paxeer-backend/core/rpc";
 
 // ─── Build connectors ─────────────────────────────────────────────────────────
 
 // Embedded SDK signs against a single REST endpoint; pick the highest-
 // ranked URL but keep the env override path so operators can pin a
 // specific node when debugging.
-const EMBEDDED_RPC_URL = getPaxeerRpcUrls()[0] ?? "https://api1.mainnet-beta.paxeer.network";
+function embeddedRpcUrl(): string {
+  const [url] = getPaxeerRpcUrls();
+  if (url === undefined)
+    throw new Error("getPaxeerRpcUrls returned no RPC URL");
+  return url;
+}
+
+const EMBEDDED_RPC_URL = embeddedRpcUrl();
 
 function buildConnectors(): Parameters<typeof createConfig>[0]["connectors"] {
   // The embedded connector requires a browser context (Supabase + localStorage).
   // On the server pass we ship just the injected list so the SSR config object
   // is identical between server and client at module-init time.
-  const embeddedWallet = typeof window !== "undefined" ? getPaxeerWallet() : null;
+  const embeddedWallet =
+    typeof window !== "undefined" ? getPaxeerWallet() : null;
   const embedded = embeddedWallet
     ? [
         paxeerEmbeddedConnector({

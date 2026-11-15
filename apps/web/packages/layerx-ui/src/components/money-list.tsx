@@ -189,7 +189,7 @@ function MoneyTable({
               <tr>
                 <td
                   colSpan={4}
-                  className="sticky top-[41px] z-10 border-b border-border bg-surface-sunken/70 px-4 py-1.5 backdrop-blur"
+                  className="sticky lx-sticky-group z-10 border-b border-border bg-surface-sunken/70 px-4 py-1.5 backdrop-blur"
                 >
                   <div className="flex items-baseline justify-between">
                     <span className="text-xs font-bold text-muted-foreground">{g.label}</span>

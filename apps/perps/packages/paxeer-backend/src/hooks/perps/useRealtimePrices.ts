@@ -1,16 +1,21 @@
 "use client";
 import { useMemo } from "react";
+import { usePriceFreshness, PRICE_FRESHNESS_MS } from "./usePriceFreshness";
 import { MARKET_DATA_URL } from "@paxeer-network/paxeer-backend/core/feeds";
 import { fetchJsonWithPolicy } from "@paxeer-network/paxeer-backend/core/net/fetch";
-import { useMarketsSnapshot } from "./useMarketsStream";
-interface TickerEntry {
-  symbol: string;         // "PERP_BTC_USDC"
-  paxeerSymbol: string;   // "BTC"
+import {
+  marketFundingHourly,
+  useMarketsSnapshot,
+  type MarketSnapshot,
+} from "./useMarketsStream";
+export interface TickerEntry {
+  symbol: string; // "PERP_BTC_USDC"
+  paxeerSymbol: string; // "BTC"
   mark_price: number;
   index_price: number;
   open_interest: number;
-  est_funding_rate: number;
-  last_funding_rate: number;
+  /** Last settled hourly funding rate at 18 decimals; null before the first settlement. */
+  last_funding_rate_hourly: bigint | null;
   "24h_open": number;
   "24h_close": number;
   "24h_high": number;
@@ -27,36 +32,84 @@ export interface RealtimePricesResult {
   tickers: TickerMap;
 }
 
+export function tickerFromSnapshot(row: MarketSnapshot): TickerEntry {
+  if (row.price === null) throw new Error("Market price unavailable");
+  return {
+    symbol: `PERP_${row.symbol}_USDC`,
+    paxeerSymbol: row.symbol,
+    mark_price: row.price,
+    index_price: row.price,
+    open_interest: row.reported_open_interest,
+    last_funding_rate_hourly: row.last_funding_rate_hourly,
+    "24h_open": row.price_24h,
+    "24h_close": row.price,
+    "24h_high": Math.max(row.high_24h, row.price),
+    "24h_low": row.low_24h,
+    "24h_amount": row.amount_24h,
+    "24h_volume": row.reported_volume_24h,
+  };
+}
 
-export function useRealtimePrices({ enabled = true }: { enabled?: boolean } = {}): RealtimePricesResult {
+/** One `/tickers` row as sent: `last_funding_rate_hourly` is the exact decimal string. */
+export type TickerWire = Omit<TickerEntry, "last_funding_rate_hourly"> & {
+  last_funding_rate_hourly: string | null;
+};
+
+export function tickerFromWire(row: TickerWire): TickerEntry {
+  return {
+    ...row,
+    last_funding_rate_hourly: marketFundingHourly(
+      row.paxeerSymbol,
+      "last_funding_rate_hourly",
+      row.last_funding_rate_hourly,
+    ),
+  };
+}
+
+/** The /tickers map; each row parses on its own, so one malformed row never rejects the map. */
+export function tickersFromWire(rows: TickerWire[]): TickerMap {
+  return Object.fromEntries(
+    rows.map((row) => [row.paxeerSymbol, tickerFromWire(row)]),
+  );
+}
+
+export function useRealtimePrices({
+  enabled = true,
+}: { enabled?: boolean } = {}): RealtimePricesResult {
   const rows = useMarketsSnapshot(enabled);
+  const now = usePriceFreshness(rows);
   return useMemo(() => {
     const prices: Record<string, number> = {};
     const tickers: TickerMap = {};
     for (const row of rows) {
-      if (row.price <= 0 || Date.now() - row.price_updated_at > 30000) continue;
+      if (
+        row.price === null ||
+        row.price <= 0 ||
+        !Number.isFinite(row.price_updated_at) ||
+        now - row.price_updated_at >= PRICE_FRESHNESS_MS
+      )
+        continue;
       prices[row.symbol] = row.price;
-      tickers[row.symbol] = {
-        symbol: `PERP_${row.symbol}_USDC`, paxeerSymbol: row.symbol,
-        mark_price: row.price, index_price: row.price,
-        open_interest: row.reported_open_interest, est_funding_rate: row.est_funding_rate,
-        last_funding_rate: row.funding_8h,
-        "24h_open": row.price_24h, "24h_close": row.price,
-        "24h_high": Math.max(row.high_24h, row.price), "24h_low": row.low_24h,
-        "24h_amount": row.amount_24h, "24h_volume": row.reported_volume_24h,
-      };
+      tickers[row.symbol] = tickerFromSnapshot(row);
     }
     return { prices, tickers };
-  }, [rows]);
+  }, [rows, now]);
 }
 // Imperative callers may request a bounded, deduplicated one-shot read.
 // No module-level polling and no connections without active subscribers.
 let inflight: Promise<TickerMap> | null = null;
 export function fetchTickers(): Promise<TickerMap> {
-  if (!inflight) inflight = fetchJsonWithPolicy<{ success: boolean; data: TickerEntry[] }>(`${MARKET_DATA_URL}/tickers`)
-    .then(body => {
-      if (!body.success || !Array.isArray(body.data)) throw new Error("Ticker feed unavailable");
-      return Object.fromEntries(body.data.map(row => [row.paxeerSymbol, row]));
-    }).finally(() => { inflight = null; });
+  if (!inflight)
+    inflight = fetchJsonWithPolicy<{ success: boolean; data: TickerWire[] }>(
+      `${MARKET_DATA_URL}/tickers`,
+    )
+      .then((body) => {
+        if (!body.success || !Array.isArray(body.data))
+          throw new Error("Ticker feed unavailable");
+        return tickersFromWire(body.data);
+      })
+      .finally(() => {
+        inflight = null;
+      });
   return inflight;
 }

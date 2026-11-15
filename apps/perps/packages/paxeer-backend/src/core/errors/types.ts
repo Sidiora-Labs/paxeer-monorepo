@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════════
-   paxeer-network error types
+   Hyperpax error types
 
    Single source of truth for the shape of every user-facing error in
    the app. The classifier (`./classify.ts`) takes any thrown thing
