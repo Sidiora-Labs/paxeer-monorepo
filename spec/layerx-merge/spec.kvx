@@ -14488,6 +14488,12 @@ value = "The task that holds the manifest of the workspace root makes the type c
 basis = "Gotcha 4477."
 affects = []
 
+[decision.3563]
+title = "The system map generator keeps the committed file where the inventory is not in reach"
+value = "Where docs/release/7.0.0-systems.kvx is present, docs/site/paxeer-docs/scripts/generate-systems.mjs reads it and writes src/lib/systems.json as before, with every check it has. Where the inventory file is absent, the script reads the committed src/lib/systems.json, requires it to parse and to hold at least one system with the fields the site reads, writes nothing, prints one line that names the committed file as its source and ends with success. Where neither is present the script ends with an error that names both paths. With the option --check the script writes nothing and ends with an error where the committed file differs from what the inventory gives; the static test command of the site runs it, so the committed file cannot fall behind the inventory in the repository."
+basis = "The image build copies only the two site folders, and the committed file is the output of the same script from the same inventory."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44148,6 +44154,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.609]
+title = "Let the system map generator of the documentation site run where the inventory is not in reach"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/scripts/generate-systems.mjs", "docs/site/paxeer-docs/package.json", "docs/site/paxeer-docs/README.md"]
+tests = []
+verification_contract = "node --test docs/site/paxeer-docs/scripts/generate-systems.test.mjs && npm --prefix docs/site/paxeer-docs run generate:systems && git diff --quiet -- docs/site/paxeer-docs/src/lib/systems.json && node docs/site/paxeer-docs/scripts/generate-systems.mjs --check"
+do_1 = "do_1 Gotcha 4478, decision 3563. Read docs/site/paxeer-docs/scripts/generate-systems.mjs, the scripts of docs/site/paxeer-docs/package.json, docs/site/paxeer-docs/Dockerfile, scripts/docs-content.mjs and src/components/SystemMap.tsx for the fields the site reads from src/lib/systems.json, and the workflow file .github/workflows/docs-site.yml."
+symbols = []
 
 [capability.22.39.608]
 title = "Define the service docs of the project sites for the hosting platform"
@@ -172125,6 +172140,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.609]
+title = "Let the system map generator of the documentation site run where the inventory is not in reach"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.609"]
+interfaces = []
+do_1 = "do_1 Gotcha 4478, decision 3563. Read docs/site/paxeer-docs/scripts/generate-systems.mjs, the scripts of docs/site/paxeer-docs/package.json, docs/site/paxeer-docs/Dockerfile, scripts/docs-content.mjs and src/components/SystemMap.tsx for the fields the site reads from src/lib/systems.json, and the workflow file .github/workflows/docs-site.yml."
+do_2 = "do_2 Change docs/site/paxeer-docs/scripts/generate-systems.mjs as decision 3563 states: inventory present, inventory absent with the committed file, neither present, and the option --check. The path of the inventory stays the one the script has now. Keep the output for a present inventory byte for byte as it is."
+do_3 = "do_3 Add docs/site/paxeer-docs/scripts/generate-systems.test.mjs for the node test runner. It runs the script in temporary copies of the folder and covers: a present inventory gives the committed file; an absent inventory leaves the committed file as it is, prints the line and ends with success; an absent inventory with a committed file that does not parse or holds no system ends with an error; neither present ends with an error; --check ends with an error after one field of the inventory copy is changed and with success before. The test changes nothing in the working tree."
+do_4 = "do_4 Let the script test:static of docs/site/paxeer-docs/package.json run the check option after the type check, and name the rule in one short paragraph of docs/site/paxeer-docs/README.md where the readme describes the build. Change no page, no component and not the container file."
+do_5 = "do_5 Run the build stage of the container file once by hand in a temporary copy that holds only the folders docs-assistant and paxeer-docs side by side: npm ci, then npm run build. Give the last lines of that run in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/scripts/generate-systems.mjs", "docs/site/paxeer-docs/package.json", "docs/site/paxeer-docs/README.md"]
+tests = []
+planned_paths = ["docs/site/paxeer-docs/scripts/generate-systems.test.mjs"]
+build_cmd = "node --check docs/site/paxeer-docs/scripts/generate-systems.mjs"
+verify_cmd = "node --test docs/site/paxeer-docs/scripts/generate-systems.test.mjs && npm --prefix docs/site/paxeer-docs run generate:systems && git diff --quiet -- docs/site/paxeer-docs/src/lib/systems.json && node docs/site/paxeer-docs/scripts/generate-systems.mjs --check"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
