@@ -1,0 +1,12 @@
+*
+!apps/names
+!sdk/names
+!services/wallet/tsconfig.base.json
+**/.git
+**/.next
+**/node_modules
+**/dist
+**/*.log
+**/*.tsbuildinfo
+**/.env
+**/.env.*

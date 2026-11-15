@@ -155,7 +155,7 @@ def test_wallet_gateway_build_context_and_watch_patterns_cover_copies():
     dockerfile = context / service["dockerfile"]
     assert dockerfile == CONTAINER / "Dockerfile"
     assert dockerfile.is_file()
-    patterns = service["watch"].split(",")
+    patterns = service["watch"]
     assert len(patterns) == len(set(patterns))
     for pattern in patterns:
         assert not pattern.startswith("/") and ".." not in Path(pattern).parts
@@ -205,7 +205,7 @@ def test_wallet_gateway_matches_rollout_and_database_dependency():
         for value in variables.values()
         for name in re.findall(r"\$\{\{([a-z0-9-]+)\.[A-Z0-9_]+\}\}", value)
     }
-    assert references == set(service["needs"].split(",")) == {"wallet-postgres"}
+    assert references == set(service["needs"]) == {"wallet-postgres"}
     for name in references:
         dependency = rollout[f"service.{name}"]
         assert dependency["railway_service"] == name

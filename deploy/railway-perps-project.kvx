@@ -4,7 +4,9 @@
 # [service.<name>] rows:
 #   kind = "database": Railway's postgres template image, used as-is (public image).
 #   kind = "image": ghcr.io/sidiora-labs/<image>@<digest> from the --digests map,
-#     pulled with registry credentials from $GHCR_USERNAME / $GHCR_TOKEN.
+#     pulled without credentials by default; credentials = 1 pulls it with
+#     $GHCR_USERNAME / $GHCR_TOKEN. The tool requires those variables only for
+#     rows that set credentials = 1.
 #     config names a services/platform/perps-data/deploy/railway/*.json file that
 #     supplies healthcheckPath, healthcheckTimeout, restartPolicyType, numReplicas
 #     and the exact variable name set; rows without config carry health, restart
@@ -44,7 +46,7 @@ DATABASE_URL = "postgresql://${{PGUSER}}:${{POSTGRES_PASSWORD}}@${{RAILWAY_PRIVA
 kind = "image"
 image = "perps-data-nats"
 railway_service = "nats"
-health = "/healthz"
+health = "/varz"
 restart = "ALWAYS"
 replicas = 1
 volume = "/data"
@@ -56,13 +58,14 @@ NATS_CLUSTER_PASSWORD = "env:PERPS_NATS_CLUSTER_PASSWORD"
 NATS_INDEXER_PASSWORD = "env:PERPS_NATS_INDEXER_PASSWORD"
 NATS_GATEWAY_PASSWORD = "env:PERPS_NATS_GATEWAY_PASSWORD"
 NATS_MAX_FILE_STORE = "8G"
-NATS_ROUTES = "nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:6222,nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:6222"
+NATS_ROUTES = "[nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:6222, nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:6222]"
+RAILWAY_RUN_UID = "0"
 
 [service.nats-2]
 kind = "image"
 image = "perps-data-nats"
 railway_service = "nats-2"
-health = "/healthz"
+health = "/varz"
 restart = "ALWAYS"
 replicas = 1
 volume = "/data"
@@ -74,13 +77,14 @@ NATS_CLUSTER_PASSWORD = "env:PERPS_NATS_CLUSTER_PASSWORD"
 NATS_INDEXER_PASSWORD = "env:PERPS_NATS_INDEXER_PASSWORD"
 NATS_GATEWAY_PASSWORD = "env:PERPS_NATS_GATEWAY_PASSWORD"
 NATS_MAX_FILE_STORE = "8G"
-NATS_ROUTES = "nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:6222,nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:6222"
+NATS_ROUTES = "[nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:6222, nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-3.RAILWAY_PRIVATE_DOMAIN}}:6222]"
+RAILWAY_RUN_UID = "0"
 
 [service.nats-3]
 kind = "image"
 image = "perps-data-nats"
 railway_service = "nats-3"
-health = "/healthz"
+health = "/varz"
 restart = "ALWAYS"
 replicas = 1
 volume = "/data"
@@ -92,7 +96,8 @@ NATS_CLUSTER_PASSWORD = "env:PERPS_NATS_CLUSTER_PASSWORD"
 NATS_INDEXER_PASSWORD = "env:PERPS_NATS_INDEXER_PASSWORD"
 NATS_GATEWAY_PASSWORD = "env:PERPS_NATS_GATEWAY_PASSWORD"
 NATS_MAX_FILE_STORE = "8G"
-NATS_ROUTES = "nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:6222,nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:6222"
+NATS_ROUTES = "[nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats.RAILWAY_PRIVATE_DOMAIN}}:6222, nats-route://perps-route:${{NATS_CLUSTER_PASSWORD}}@${{nats-2.RAILWAY_PRIVATE_DOMAIN}}:6222]"
+RAILWAY_RUN_UID = "0"
 
 [service.indexer]
 kind = "image"

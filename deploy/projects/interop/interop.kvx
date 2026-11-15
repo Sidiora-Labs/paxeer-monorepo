@@ -1,0 +1,87 @@
+# Interop gateway service for the paxeer-x-interop project.
+
+[service.interop]
+kind = "repo"
+dockerfile = "docker/interop-gateway/Dockerfile"
+root = "."
+watch = ["/docker/interop-gateway/**", "/docker/common/**", "/services/interop/**", "/services/agent/crates/layerx-agent-api/**", "/services/agent/crates/layerx-client/**", "/services/agent/crates/layerx-crypto/**", "/services/agent/crates/layerx-proof/**", "/services/agent/crates/layerx-types/**", "/services/agent/crates/layerx-wire/**", "/services/human/crates/layerx-intents/**"]
+health = "/readyz"
+restart = "ALWAYS"
+replicas = 1
+public = 1
+order = 11
+needs = ["router", "redis-internal", "sequencer-primary"]
+
+[vars.interop]
+LAYERX_INTEROP_CONFIG = "/run/layerx/interop/config.json"
+LAYERX_INTEROP_MODULE_REGISTRY_FILE = "/run/layerx/interop/registry.json"
+LAYERX_INTEROP_OUTBOUND_CA_DER = "/run/layerx/trust/ca.crt.der"
+LAYERX_INTEROP_CLIENT_IDENTITY_PKCS12 = "/run/layerx/client/client.p12"
+LAYERX_INTEROP_CLIENT_IDENTITY_PASSWORD_FILE = "/run/layerx/client/password"
+LAYERX_INTEROP_RECEIPT_KEYS_FILE = "/run/layerx/authority/receipt-keys.json"
+LAYERX_INTEROP_AP2_RECEIPT_SIGNERS_FILE = "/run/layerx/authority/ap2-receipt-signers.json"
+LAYERX_INTEROP_REDIS_USERNAME_FILE = "/run/layerx/redis/username"
+LAYERX_INTEROP_REDIS_PASSWORD_FILE = "/run/layerx/redis/password"
+LAYERX_INTEROP_REDIS_URL = "env:INTEROP_INTEROP_LAYERX_INTEROP_REDIS_URL"
+LAYERX_INTEROP_SEQUENCER_URL = "env:INTEROP_INTEROP_LAYERX_INTEROP_SEQUENCER_URL"
+LAYERX_INTEROP_NETWORK_ID = "eip155-125"
+LAYERX_INTEROP_WIRE_VERSION = "3"
+LAYERX_INTEROP_PROTOCOL_NETWORK_ID = "125"
+LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS = "60"
+LAYERX_INTEROP_CHAIN_ID = "125"
+LAYERX_INTEROP_READINESS_MAX_AGE_MS = "30000"
+LAYERX_INTEROP_IDEMPOTENCY_SECONDS = "604800"
+LAYERX_INTEROP_LISTENER = "plain"
+LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK = "1"
+LAYERX_INTEROP_LISTEN = "env:INTEROP_INTEROP_LAYERX_INTEROP_LISTEN"
+LAYERX_FILES_TABLE = "/etc/layerx/files.tsv"
+INTEROP_CONFIG = "env:INTEROP_INTEROP_INTEROP_CONFIG"
+INTEROP_MODULE_REGISTRY = "env:INTEROP_INTEROP_INTEROP_MODULE_REGISTRY"
+INTEROP_CLIENT_CA_DER = "env:INTEROP_INTEROP_INTEROP_CLIENT_CA_DER"
+INTEROP_CLIENT_P12 = "env:INTEROP_INTEROP_INTEROP_CLIENT_P12"
+INTEROP_CLIENT_PASSWORD = "env:INTEROP_INTEROP_INTEROP_CLIENT_PASSWORD"
+INTEROP_RECEIPT_KEYS = "env:INTEROP_INTEROP_INTEROP_RECEIPT_KEYS"
+INTEROP_AP2_RECEIPT_SIGNERS = "env:INTEROP_INTEROP_INTEROP_AP2_RECEIPT_SIGNERS"
+INTEROP_AUTHORITY_TOKEN = "env:INTEROP_INTEROP_INTEROP_AUTHORITY_TOKEN"
+INTEROP_SEQUENCER_PUBLIC_KEY = "env:INTEROP_INTEROP_INTEROP_SEQUENCER_PUBLIC_KEY"
+INTEROP_SEQUENCER_ID = "env:INTEROP_INTEROP_INTEROP_SEQUENCER_ID"
+INTEROP_SEQUENCER_FIRST_BATCH = "env:INTEROP_INTEROP_INTEROP_SEQUENCER_FIRST_BATCH"
+INTEROP_SEQUENCER_LAST_BATCH = "env:INTEROP_INTEROP_INTEROP_SEQUENCER_LAST_BATCH"
+INTEROP_REDIS_USERNAME = "env:INTEROP_INTEROP_INTEROP_REDIS_USERNAME"
+INTEROP_REDIS_PASSWORD = "env:INTEROP_INTEROP_INTEROP_REDIS_PASSWORD"
+
+[inputs.interop]
+# Base64-encoded rendered gateway manifest JSON.
+INTEROP_INTEROP_INTEROP_CONFIG = "operator"
+# Base64-encoded module registry JSON.
+INTEROP_INTEROP_INTEROP_MODULE_REGISTRY = "operator"
+# Base64-encoded DER certificate for outbound node and Redis TLS.
+INTEROP_INTEROP_INTEROP_CLIENT_CA_DER = "operator"
+# Base64-encoded PKCS#12 client identity.
+INTEROP_INTEROP_INTEROP_CLIENT_P12 = "operator"
+# Base64-encoded password for the PKCS#12 client identity.
+INTEROP_INTEROP_INTEROP_CLIENT_PASSWORD = "operator"
+# Base64-encoded receipt-key authorization JSON.
+INTEROP_INTEROP_INTEROP_RECEIPT_KEYS = "operator"
+# Base64-encoded protected AP2 receipt signer JSON.
+INTEROP_INTEROP_INTEROP_AP2_RECEIPT_SIGNERS = "operator"
+# Base64-encoded authority token material for the gateway file table.
+INTEROP_INTEROP_INTEROP_AUTHORITY_TOKEN = "operator"
+# Base64-encoded sequencer public key material for the gateway file table.
+INTEROP_INTEROP_INTEROP_SEQUENCER_PUBLIC_KEY = "operator"
+# Base64-encoded sequencer identifier for the gateway file table.
+INTEROP_INTEROP_INTEROP_SEQUENCER_ID = "operator"
+# Base64-encoded first sequencer batch marker for the gateway file table.
+INTEROP_INTEROP_INTEROP_SEQUENCER_FIRST_BATCH = "operator"
+# Base64-encoded last sequencer batch marker for the gateway file table.
+INTEROP_INTEROP_INTEROP_SEQUENCER_LAST_BATCH = "operator"
+# Base64-encoded Redis username.
+INTEROP_INTEROP_INTEROP_REDIS_USERNAME = "operator"
+# Base64-encoded Redis password.
+INTEROP_INTEROP_INTEROP_REDIS_PASSWORD = "operator"
+# HTTPS or Railway-private HTTP sequencer endpoint in host:port form.
+INTEROP_INTEROP_LAYERX_INTEROP_SEQUENCER_URL = "operator"
+# Bind address in host:port form; use the hosting platform port.
+INTEROP_INTEROP_LAYERX_INTEROP_LISTEN = "operator"
+# TLS Redis URL and database number in the deployment's private network.
+INTEROP_INTEROP_LAYERX_INTEROP_REDIS_URL = "operator"

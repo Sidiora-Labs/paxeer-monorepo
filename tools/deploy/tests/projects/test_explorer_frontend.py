@@ -19,7 +19,7 @@ REQUIRED_SCHEMA_SOURCES = (
     APP_SOURCES / "deploy/tools/envs-validator/schemas/chain.ts",
 )
 ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
-INPUT_NAME = re.compile(r"^PAXEER_X_EXPLORER_FRONTEND_[A-Z][A-Z0-9_]*$")
+INPUT_NAME = re.compile(r"^EXPLORER_FRONTEND_[A-Z][A-Z0-9_]*$")
 KV_HEAD = re.compile(r"^\[([a-z0-9_.-]+)\]$")
 KV_LINE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
 
@@ -89,9 +89,7 @@ def test_frontend_service_matches_container_and_deployment_sources():
     service = sections["service.frontend"]
     assert service == {
         "kind": "repo",
-        "repository": "https://github.com/Sidiora-Labs/paxeer-monorepo.git",
-        "branch": "main",
-        "container": "docker/explorer-frontend/Dockerfile",
+        "dockerfile": "docker/explorer-frontend/Dockerfile",
         "root": ".",
         "watch": ["docker/explorer-frontend/**", "docker/common/**", "apps/explorer/**", "docs/explorer/ENVS.md"],
         "health": "/explorer/api/healthz",
@@ -103,7 +101,7 @@ def test_frontend_service_matches_container_and_deployment_sources():
     }
     for pattern in service["watch"]:
         assert list(ROOT.glob(pattern)), pattern
-    assert (ROOT / service["container"]).is_file()
+    assert (ROOT / service["dockerfile"]).is_file()
     dockerfile = DOCKERFILE.read_text()
     assert "EXPOSE 3000" in dockerfile
     assert 'ENV PORT=3000' in dockerfile

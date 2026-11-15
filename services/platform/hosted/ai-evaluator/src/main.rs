@@ -17,7 +17,7 @@ use ed25519_dalek::{Signer, SigningKey};
 use layerx_oracle_feeder::{http_agent, Sequencer};
 use layerx_platform_internal::evm_sender::{Eip1559Call, EvmSender};
 use layerx_platform_internal::http::{
-    health_listen, ok, parse_client_request, refusal, write_response, Response, IO_TIMEOUT,
+    ok, parse_client_request, refusal, write_response, Response, IO_TIMEOUT,
 };
 use layerx_platform_internal::journal::Journal;
 use layerx_platform_internal::secret::{hex, read_secret_file, required_env, unhex};
@@ -864,6 +864,14 @@ fn now_ms() -> u64 {
         .map_or(0, |since| {
             u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
         })
+}
+
+fn health_listen() -> Result<std::net::SocketAddr, String> {
+    std::env::var("LAYERX_HEALTH_ADDR")
+        .or_else(|_| std::env::var("PORT").map(|port| format!("[::]:{port}")))
+        .unwrap_or_else(|_| "[::]:8080".to_owned())
+        .parse()
+        .map_err(|_| "invalid health listen address".to_owned())
 }
 
 fn serve_health(
