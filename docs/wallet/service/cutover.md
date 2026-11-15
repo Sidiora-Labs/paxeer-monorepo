@@ -74,15 +74,28 @@ through a read-only snapshot and checks per-table counts and digests. It applies
 the remaining gateway migrations. `move --delta` supports the command's checked
 final-delta path; it is not an unrestricted overwrite of gateway state.
 
-`plan` reports `wallets`, `eligible`, `funded` and `already_migrated`. Archive
-writes and verifies the funded rows under `CEREMONY_ARCHIVE_PASSPHRASE`.
+`plan` reports `wallets`, `eligible`, `funded` and `already_migrated`. Add
+`--inventory-requests /absolute/path/requests.json` to write the delivery's
+inventory requests and report their count as `inventory_requests`. This requires
+`CEREMONY_MASTER_KEY` to derive each eligible wallet's secp256k1 public key.
+The single JSON document contains `inventory_requests` with each key's `key_id`,
+`epoch`, `curve`, `public_key`, `owner` and `operations`: import, refresh and sign
+for the EVM key, and sign and refresh for the existing identity key, at epoch
+zero. Funded and already migrated wallets have no entries. The same requests
+apply to all five members. The file is written with mode `0600` through a
+temporary file and renamed into place. Requests carry no approval authority.
+
+Archive writes and verifies the funded rows under `CEREMONY_ARCHIVE_PASSPHRASE`.
 Delivery verifies that archive again before importing eligible keys. Preserve
 the archive and decryption material separately.
 
 ## Deliver and resume
 
-Enable `ATTESTOR_CEREMONY` on the intended attestors and ensure their current
-signed inventory admits each required key operation. With the same plan,
+The inventory owner approves the plan's requests with the inventory command of
+the attestor module and publishes the signed inventory to all five attestors.
+The attestors must hold the approved inventory before delivery begins. Enable
+`ATTESTOR_CEREMONY` on the intended attestors and ensure their current signed
+inventory admits each required key operation. With the same plan,
 ceremony identity, pins, journal and rehearsal receipt configured:
 
 ```sh
