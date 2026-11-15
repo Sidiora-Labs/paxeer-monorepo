@@ -26,6 +26,7 @@ LABEL org.opencontainers.image.revision="$SOURCE_REVISION" \
 RUN apt-get update && apt-get install -y --no-install-recommends gosu \
     && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
+ENV PORT=8080
 WORKDIR /app
 COPY --from=build --chown=node:node /app/services/wallet/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/services/wallet/gateway/node_modules ./gateway/node_modules
