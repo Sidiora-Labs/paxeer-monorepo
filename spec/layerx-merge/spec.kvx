@@ -174075,7 +174075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.31]
 title = "Close the human web application: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.30"]
