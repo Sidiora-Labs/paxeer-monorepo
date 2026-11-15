@@ -14530,6 +14530,12 @@ value = "A component outside the node that needs the transactions of a block rea
 basis = "Gotcha 4486. The consensus routes give every entry of a block in every kind."
 affects = []
 
+[decision.3570]
+title = "A verification of one crate without a node calls cargo for that crate"
+value = "Where the verification of a task tests one crate of the agent workspace and no test of it starts a node, it calls cargo test with the locked manifest of services/agent and the package, not the make target for the agent tests. The verification of task 22.39.617 takes this form; its build stays as it is."
+basis = "Gotcha 4489."
+affects = ["22.39.617"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197353,7 +197359,7 @@ touches = ["services/agent/crates/layerx-wire/tests/support/wallet_vectors", "se
 tests = []
 planned_paths = []
 build_cmd = "cd services/wallet/attestor && go build ./internal/lxwire/..."
-verify_cmd = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py -k test_other_intentional_copies_match_sources && (cd services/wallet/attestor && go test -count=1 ./internal/lxwire/) && make -s agent-test AGENT_TEST_SCOPE='-p layerx-wire'"
+verify_cmd = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py -k test_other_intentional_copies_match_sources && (cd services/wallet/attestor && go test -count=1 ./internal/lxwire/) && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-wire"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-wallet"
@@ -197366,6 +197372,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Gotcha 4483. tests/ci/data/intentional_copies.txt is in the paths. Remove from it every row whose source or whose copy is no longer in the tree, and no other row; give the count of removed rows in the final message. A file that was the copy of a removed source stays where it is. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3570, gotcha 4489. The verification now calls cargo for the wire crate. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.612]
 title = "Let the definitions of the project wallet load through the project tool"
@@ -197401,7 +197408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.583]
 title = "Add the container file of the service ai-evaluator and define it in the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -242830,7 +242837,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.626]
 title = "Answer the block route of the transaction service for a block with the sequence batch entry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378123,7 +378130,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.625]
 title = "Build the backend image of the explorer from the repository root in every caller"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378249,7 +378256,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.615]
 title = "Let the definitions of the project sites load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.606", "22.39.607", "22.39.608"]
@@ -378281,7 +378288,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.614]
 title = "Let the definitions of the project explorer load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.602", "22.39.603", "22.39.604", "22.39.605"]
@@ -457800,7 +457807,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.621]
 title = "Make the accepted column optional on every database and index the replay queue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

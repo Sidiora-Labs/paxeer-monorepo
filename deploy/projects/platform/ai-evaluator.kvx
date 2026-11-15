@@ -1,0 +1,53 @@
+# Railway service definition for the AI-market evaluator.
+
+[service.ai-evaluator]
+kind = "repo"
+dockerfile = "docker/ai-evaluator/Dockerfile"
+root = "."
+watch = ["docker/ai-evaluator/**", "docker/common/**", "services/platform/Cargo.toml", "services/platform/Cargo.lock", "services/platform/hosted/ai-evaluator/**", "services/platform/hosted/feeder/**", "services/platform/hosted/internal/**", "programs/crates/layerx-programs-ai-market/**", "services/agent/crates/**", "services/interop/crates/**"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 1
+volume = "/var/lib/layerx/ai-evaluator"
+order = 12
+needs = ["router"]
+
+[vars.ai-evaluator]
+LAYERX_AI_EVALUATOR_CONFIG = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_CONFIG"
+LAYERX_AI_EVALUATOR_KEY_FILE = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_KEY_FILE"
+LAYERX_AI_EVALUATOR_EVM_SENDER_KEY_FILE = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_KEY_FILE"
+LAYERX_AI_EVALUATOR_EVM_SENDER_KMS_KEY_ID = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_KMS_KEY_ID"
+LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CA_DER = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CA_DER"
+LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE"
+LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CLIENT_IDENTITY_PKCS12 = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CLIENT_IDENTITY_PKCS12"
+LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_COOKIE_FILE = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_COOKIE_FILE"
+LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_TOKEN_FILE = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_TOKEN_FILE"
+LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_URL = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_URL"
+LAYERX_HEALTH_ADDR = "env:PLATFORM_AI_EVALUATOR_LAYERX_HEALTH_ADDR"
+PORT = "env:PLATFORM_AI_EVALUATOR_PORT"
+
+[inputs.ai-evaluator]
+# JSON configuration file path for the evaluator identity and chain settings.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_CONFIG = "operator"
+# Ed25519 assessment key file path containing a lowercase hexadecimal seed.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_KEY_FILE = "chain"
+# EVM sender private key file path containing a hexadecimal scalar.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_KEY_FILE = "chain"
+# KMS signing key identifier for the evaluator's EVM sender.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_KMS_KEY_ID = "provider"
+# DER CA certificate file path for the EVM sender upstream.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CA_DER = "provider"
+# PKCS#12 client identity password file path for the EVM sender upstream.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE = "provider"
+# PKCS#12 client identity file path for the EVM sender upstream.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_CLIENT_IDENTITY_PKCS12 = "provider"
+# Upstream cookie file path for the EVM sender.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_COOKIE_FILE = "provider"
+# Upstream token file path for the EVM sender.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_TOKEN_FILE = "provider"
+# HTTPS origin of the EVM sender signing-key provider.
+PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_EVM_SENDER_UPSTREAM_URL = "provider"
+# Optional explicit health listener address in host:port form.
+PLATFORM_AI_EVALUATOR_LAYERX_HEALTH_ADDR = "operator"
+# HTTP port supplied to the service by the hosting platform.
+PLATFORM_AI_EVALUATOR_PORT = "operator"
