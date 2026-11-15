@@ -1,4 +1,5 @@
 *
+!docker/wallet-pwa
 !services/agent/sdk/typescript
 !apps/wallet
 !services/wallet
