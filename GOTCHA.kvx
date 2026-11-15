@@ -22315,3 +22315,8 @@ fix = "Decision 3578. Tasks 22.39.655 to 22.39.658."
 title = "An approval list that is fixed at start cannot follow keys that come into being later"
 symptom = "A signed approval list that a service reads from a path fixed at start changes only when that path is rewritten on every member, so a key that comes into being while the services run waits for that. A file that is materialised from the environment at each start returns to its first content at the next start, and a store that remembers a higher sequence then refuses it. A list has a lifetime, so it is signed again before the lifetime ends even when no key changes. A request for approval already has a form in the tree; a second form beside it leaves two readers to keep in line."
 fix = "Decision 3579. Tasks 22.39.659 to 22.39.664."
+
+[gotcha.4499]
+title = "A kind of transaction is shown for a node without sequencing only by a case that runs on such a node"
+symptom = "The node that sequences executes a transaction when it arrives and issues the receipt; a node without sequencing applies the same transaction from the block and must reach the same receipt, block hash and application hash. The two are different paths through the code, so a case on a single sequencing node speaks for the first path. The comparison on the local network with a second node holds cases for transfers, a revert, an identity bind and a ledger draw. The committed vector builds a contract creation and a sponsored batch with a set-code authorization on one node; the comparison takes the same kinds to the second node."
+fix = "Decision 3580. Task 22.39.665."
