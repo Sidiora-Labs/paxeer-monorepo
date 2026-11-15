@@ -64,7 +64,7 @@ defmodule NFTMediaHandler.ReadmeResizingTest do
         node -> node
       end)
 
-    {result, _bindings} = Code.eval_quoted(ast)
+    {result, _bindings} = Code.eval_quoted(ast, source_url: @url)
     result
   end
 end
