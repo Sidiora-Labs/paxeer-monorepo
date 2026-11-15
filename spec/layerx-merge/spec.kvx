@@ -14578,6 +14578,36 @@ value = "Where one case of a test file reads a tree that another task brings int
 basis = "Gotcha 4496."
 affects = ["22.39.651"]
 
+[decision.3578]
+title = "The node and wallet test cases take their inputs from the present producers"
+value = "A test of the node that calls a module entry point builds its call environment with the chain configuration the node serves; the entry points stay as they are. The tests of the wallet demo set JSX through the option that the transformer of their test runner version reads, without a new dependency where the runner has such an option. A case of the wallet package that takes its input through the environment from another test skips with its reason when the input is absent and runs unchanged when it is present. A case of the wallet package or the wallet application that states the names of a producer states the names the producer has today. The transport of the wallet package reports an answer whose status is outside the success range and whose body does not answer the request by its status, in the form HTTP and the number. A test of the wallet application that reads the order interfaces of the perps application reads them from the path where they are today."
+basis = "Gotcha 4497. Decision 3576 states the rule for a case whose input comes from a proof; decision 2501 names the cases whose inputs come from a producer."
+affects = []
+
+[decision.3579]
+title = "The custody inventory follows the keys of the wallet while the services run"
+value = "The attestor module has the command inventory, which signs the custody inventory with the key of its owner: it begins an inventory from the five member certificates, approves requests, renews the lifetime and shows what an inventory holds. A request for approval is a document with the field inventory_requests, a list of entries with the fields key_id, epoch, curve, public_key, owner and operations, the form the load test of the attestor module writes into its manifest. An attestor admits a newer signed inventory while it runs, through a route for the gateway and operator authorities, and retains it in its store; the inventory in force is the one with the higher sequence of the configured file and the retained one. The wallet gateway follows the same rule with its database, lists the requests that wait for approval for its administrator, takes a newer inventory from the administrator and passes it to the five attestors. The plan of the custody ceremony writes the requests that its delivery needs. The command has a mode that runs unattended beside the gateway: it reads the requests, approves within stated limits, signs, hands the result to the gateway and renews before the lifetime ends. The signing key of the inventory stays with the command and is held neither by the gateway nor by an attestor."
+basis = "Gotcha 4498."
+affects = []
+
+[decision.3580]
+title = "The comparison on the local network covers contract creation and the sponsored batch"
+value = "The cases of the local network that compare the sequencing node with a node without sequencing include contract creation and the sponsored batch of the account contract BatchCallAndSponsor with a set-code authorization. Each case sends its transactions to the sequencing node and requires that the second node reaches the same block hash, application hash and receipt, and that code, nonce and storage read at that block are equal on both nodes. The contracts come from the compiled forms the tree already holds, so the cases compile nothing. A kind of transaction is used on a public network after its case in this comparison passes."
+basis = "Gotcha 4499."
+affects = []
+
+[decision.3581]
+title = "The custody delivery takes the wallets whose identity is held and leaves the others as they are"
+value = "The plan of the custody ceremony divides the eligible wallets into three sets. Deliverable: the wallet row holds an identifier, so the checks of the original identity apply to it in full. Waiting for an identity: the wallet is not of the agent kind, the wallet row holds no identifier and no provisioning record of the wallet is in the active state. External identity: the wallet is of the agent kind. Delivery and rehearsal act on the deliverable set only. A wallet of the other two sets keeps its envelope, its row and its place in the gateway unchanged; no journal is written for it and no attestor is asked about it. A deliverable wallet whose identity record, signature or binding does not hold stops the run as before. The counts of plan, rehearsal and delivery name the three sets, and a run is complete when every deliverable wallet is matched and the three sets together are the eligible wallets. The rehearsal receipt binds the deliverable set, so a delivery whose deliverable set differs from the receipt is refused. A later run with its own ceremony identifier, rehearsal and receipt takes the wallets that have gained an identity since; the wallets delivered before are counted as already migrated."
+basis = "Gotcha 4500."
+affects = []
+
+[decision.3582]
+title = "A launchpad migration release is approved by the mode of the schema command that applies it to an empty database"
+value = "The schema command gains the mode approve. It takes the directory of the migrations and the administrator connection of an empty database, and it refuses a database that holds a schema of the release. It applies the sources of the earlier histories and the registrations in the order apply uses and writes into the registry and the aliases file: for every source of an earlier history the structural fingerprint of its schema after that source, in the aliases file and in every registration that names the source as a predecessor; for every registration the digest of the grants document as the interface digest, the reader version of the command as the lowest reader version, and the time its transaction took in whole milliseconds, at least one, as the lock estimate; a registration above the bound of the coordinator ends the mode with a refusal that names it. The registry records the major version of the server and the state approved. The approval digest is the checksum of the registry as the mode writes it with the approval digest and every approval manifest digest empty, and every registration carries it as its approval manifest digest. The mode then applies the grants, so a release whose grants name an object no registration creates is not approved. The mode apply refuses a server of another major version than the registry records, with that reason in one line. The mode region takes a region name and gives a database that holds the applied release and no recovery record its first one: epoch one, the region, revision one and the digest of the registry as the checkpoint. With a record of the same region it changes nothing and ends with 0; with a record of another region it refuses. The documents under migrations in the repository are the ones the mode approve wrote; a change to a registered migration, to the grants or to a source is followed by a new run of the mode."
+basis = "Gotcha 4501."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44238,6 +44268,123 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.667]
+title = "Approve the launchpad migration release through a mode of the schema command"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/db/production", "migrations"]
+tests = []
+verification_contract = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go vet ./db/production/cmd/launchpad-schema && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production/cmd/launchpad-schema -count=1 -timeout 30m)"
+do_1 = "do_1 Gotcha 4501, decision 3582. Read sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go in full, with loadBundle, apply, importHistory and expected; in sdk/launchpad/shared/db/production/migrations.go the functions Validate, ValidateOrder, LoadMigrationRegistry, CatalogFingerprint, ImportLegacyBaseline, ApplyRegisteredMigration, RecordRuntimeReadiness and CheckReadiness; in sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go the function Bootstrap, for the recovery record it writes; migrations/registry.json with its fields state, approval_digest and qualification_required, migrations/grants.json and migrations/legacy-history-aliases.json; and in services/launchpad/user/internal/account/proof_launchpad_user_test.go the way a test of the launchpad starts a temporary PostgreSQL from the binaries of the environment."
+symbols = []
+
+[capability.22.39.666]
+title = "Divide the eligible wallets of the custody ceremony by the state of their identity"
+reqs = ["22998.1"]
+touches = ["services/wallet/ceremony/cmd/ceremony", "services/wallet/ceremony/internal", "docs/wallet/service/cutover.md"]
+tests = []
+verification_contract = "cd services/wallet/ceremony && go test -count=1 ./... -run TestWaitingIdentity && go test -count=1 ./internal/migrate/ ./cmd/ceremony/"
+do_1 = "do_1 Gotcha 4500, decision 3581. Read in services/wallet/ceremony/internal/migrate/migrate.go the types Plan and Report, the functions ReadWallets, PlanMigration, Deliver, deliverOne, loadOriginalIdentity, verifyOriginalBinding, completeCounts and WriteRehearsalReceipt and the check of the receipt in the delivery; in services/wallet/ceremony/internal/migrate/inventory.go the function WriteInventoryRequests; in services/wallet/ceremony/internal/rehearsal/rehearsal.go the function Rehearse and the type Report; in services/wallet/ceremony/cmd/ceremony/main.go the functions runPlan, runDeliver, runDeliverCounts and runRehearse; and in services/wallet/gateway/src/routes/sign.ts and services/wallet/gateway/src/routes/wallet.ts the function usesAttestorCustody and the route of provisioning, for the way the gateway serves a wallet with an envelope before it is migrated."
+symbols = []
+
+[capability.22.39.665]
+title = "Compare contract creation and the sponsored batch between the sequencing node and a node without sequencing"
+reqs = ["22998.1"]
+touches = ["tools/qualification/localnode"]
+tests = []
+verification_contract = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-follower.env && set -a && . /tmp/lx-localnode-follower.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run ^TestLocalNodeV6120FollowerCode"
+do_1 = "do_1 Gotcha 4499, decision 3580. Read in tools/qualification/localnode/v6120_follower_test.go the type followerNetwork with newFollowerNetwork, freshKey, sign, send, layout and compare, and the six present cases; in daemon/committed-fixture/vector_v6.go the functions v6LoadContracts, recordV6RPC, v6QuoteDigest and v6Sign for the way a contract is created from its creation code, the quote and the two signatures of executeSponsored are formed and the authorization is signed with SignSetCode; in daemon/committed-fixture/v6_contracts.json the entries delegate and token with abi, creationCode and runtimeCode; and in contracts/src/BatchCallAndSponsor.sol the constructor, setRate, executeSponsored and execute."
+symbols = []
+
+[capability.22.39.664]
+title = "Run the inventory command unattended beside the wallet gateway"
+reqs = ["22998.1"]
+touches = ["services/wallet/attestor/cmd", "tools/deploy/tests", "services/wallet/README.md"]
+tests = []
+verification_contract = "(cd services/wallet/attestor && go test -count=1 ./cmd/inventory/) && python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read the command under services/wallet/attestor/cmd/inventory from task 22.39.659, the two routes of the administrator in services/wallet/gateway/src/routes/admin.ts from tasks 22.39.661 and 22.39.662, docker/wallet-attestor/Dockerfile with docker/wallet-attestor/files.tsv, the definitions wallet-gateway.kvx, wallet-attestor.kvx and project.kvx under deploy/projects/wallet, tools/deploy/platform-project.py with tools/deploy/tests/test_platform_project.py, and docs/wallet/service/runbooks/refresh-cadence.md for the form of a runbook."
+symbols = []
+
+[capability.22.39.663]
+title = "Write the inventory requests of the custody ceremony with its plan"
+reqs = ["22998.1"]
+touches = ["services/wallet/ceremony/cmd/ceremony/main.go", "services/wallet/ceremony/internal", "docs/wallet/service/cutover.md"]
+tests = []
+verification_contract = "cd services/wallet/ceremony && go test -count=1 ./... -run TestPlanInventoryRequests"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read services/wallet/ceremony/cmd/ceremony/main.go with its subcommands and flags, the plan and the delivery in services/wallet/ceremony/internal/migrate/migrate.go with the key ids they use, the entries that services/wallet/ceremony/internal/ceremonyfixture/fixture.go approves for each wallet, the function PublishInventory in services/wallet/ceremony/internal/testsupport/ceremony_nodes.go, the field inventory_requests in services/wallet/attestor/cmd/loadtest/manifest.go, and docs/wallet/service/cutover.md."
+symbols = []
+
+[capability.22.39.662]
+title = "Take a newer signed inventory in the wallet gateway and pass it to the attestors"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/src/routes/admin.ts", "services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/attestor/client.ts", "services/wallet/gateway/src/env.ts", "services/wallet/gateway/src/db", "services/wallet/gateway/migrations"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/custody-inventory-admit.test.ts"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/gateway/src/agent/authority.ts the function loadWalletInventory with its sequence memory and the function publishCustodyAuthority; in services/wallet/gateway/src/attestor/client.ts the method that publishes the authority to the five endpoints; the route /v1/inventory of the attestor in services/wallet/attestor/internal/server/authority.go from task 22.39.660; the routes of the administrator in services/wallet/gateway/src/routes/admin.ts from task 22.39.661; and the table wallet_custody_authority with its column inventory_sequence in services/wallet/gateway/migrations."
+symbols = []
+
+[capability.22.39.661]
+title = "List the custody inventory requests of the wallet gateway for its administrator"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/src/routes/admin.ts", "services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/provision", "services/wallet/gateway/src/db", "services/wallet/gateway/migrations"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/custody-inventory-requests.test.ts"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/gateway/src/routes/admin.ts the import route with its bearer check; in services/wallet/gateway/src/agent/authority.ts the functions loadWalletInventory and requireInventoryKey; in services/wallet/gateway/src/provision/state.ts the function createEvmKey, its counterpart for the account key and the places that answer custody_inventory_pending; in services/wallet/gateway/src/attestor/client.ts the method generate and what its answer carries; in services/wallet/gateway/src/db/wallets.ts the columns that hold the key ids; and in services/wallet/attestor/cmd/loadtest/manifest.go the field inventory_requests."
+symbols = []
+
+[capability.22.39.660]
+title = "Admit a newer signed inventory on a running attestor"
+reqs = ["22998.1"]
+touches = ["services/wallet/attestor/internal/server/authority.go", "services/wallet/attestor/internal/server/server.go", "services/wallet/attestor/internal/auth/agent/authority.go", "services/wallet/attestor/cmd/attestor/main.go"]
+tests = []
+verification_contract = "cd services/wallet/attestor && go test -count=1 ./internal/server/ -run TestInventoryAdmit"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/attestor/internal/server/authority.go the type Inventory with NewInventory, load and Check and the handler HandleAuthority; in services/wallet/attestor/internal/server/server.go the routes and the functions requireAuthority, gatewayOnly and operatorOnly; in services/wallet/attestor/internal/auth/agent/authority.go the function PersistSigned, the type storedAuthority and the way NewAuthority restores its snapshot from the store; and in services/wallet/attestor/cmd/attestor/main.go the place that builds the inventory."
+symbols = []
+
+[capability.22.39.659]
+title = "Add the inventory command of the attestor module"
+reqs = ["22998.1"]
+touches = ["services/wallet/README.md"]
+tests = []
+verification_contract = "cd services/wallet/attestor && go test -count=1 ./cmd/inventory/"
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/attestor/internal/server/authority.go the types WalletInventory, InventoryKey and InventoryMember, the method load and the function checkInventory; in services/wallet/attestor/internal/auth/agent/authority.go the types SignedClaims and SignedVerifier, the method Decode and the constant InventoryAudience; in services/wallet/attestor/cmd/loadtest/manifest.go the field inventory_requests and the function inventoryRequests; and in services/wallet/gateway/src/agent/authority.ts the function loadWalletInventory, for the header and the bounds that both readers hold an inventory to."
+symbols = []
+
+[capability.22.39.658]
+title = "Read the order interfaces of the wallet swap test from the present perps tree"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src/lib/swap/sdk/swap-confirmation-and-order-records.test.ts", "apps/wallet/src/components/transaction-receipt-recovery.test.ts", "apps/wallet/src/proof_wallet_app.test.ts"]
+tests = []
+verification_contract = "cd apps/wallet && pnpm exec vitest run src/lib/swap/sdk/swap-confirmation-and-order-records.test.ts src/components/transaction-receipt-recovery.test.ts src/proof_wallet_app.test.ts"
+do_1 = "do_1 Gotcha 4497, decision 3578. Read the imports of apps/wallet/src/lib/swap/sdk/swap-confirmation-and-order-records.test.ts, the files PECOROrders.ts and PECORStopOrders.ts under apps/perps/packages/paxeer-backend/src/core/network/spot_abi, the case transfer_origin_is_saved_before_an_offline_observation_and_recovered in apps/wallet/src/components/transaction-receipt-recovery.test.ts with the loopback peer of that file, and the case of apps/wallet/src/proof_wallet_app.test.ts that expects the message on the request identifier."
+symbols = []
+
+[capability.22.39.657]
+title = "Bring the journey evidence and node catalogue cases of the wallet package in line with their producers and report an error status by its number"
+reqs = ["22998.1"]
+touches = ["sdk/wallet/test/human-binding.test.ts", "sdk/wallet/test/node-route-catalogue.test.ts", "sdk/wallet/src"]
+tests = []
+verification_contract = "cd sdk/wallet && pnpm exec vitest run test/human-binding.test.ts test/node-route-catalogue.test.ts test/rpc-error-status.test.ts"
+do_1 = "do_1 Gotcha 4497, decision 3578. Read the case journey_evidence_carries_an_optional_transaction_hash in sdk/wallet/test/human-binding.test.ts with the decoder of journey evidence under sdk/wallet/src, the case of sdk/wallet/test/node-route-catalogue.test.ts with the Go test rpc/px_node_catalogue_wallet_sdk_test.go that runs it, the method that sends a request and the function decodeResponse in sdk/wallet/src/rpc.ts, and the entry of the matrix for sdk/wallet in .github/workflows/wallet-test.yml with tools/ci/run_wallet_vitest.py."
+symbols = []
+
+[capability.22.39.656]
+title = "Give the wallet demo tests the JSX setting their present transformer reads"
+reqs = ["22998.1"]
+touches = ["services/wallet/demo/vitest.config.ts", "services/wallet/demo/src/components/FundedAccountPanel.test.tsx", "services/wallet/demo/package.json"]
+tests = []
+verification_contract = "cd services/wallet/demo && pnpm test"
+do_1 = "do_1 Gotcha 4497, decision 3578. Read services/wallet/demo/vitest.config.ts, services/wallet/demo/src/components/FundedAccountPanel.test.tsx, the scripts and the dependency versions of services/wallet/demo/package.json, and the job named demo in .github/workflows/wallet-test.yml."
+symbols = []
+
+[capability.22.39.655]
+title = "Build the call environment of the upgrade lifecycle test with the chain configuration of the node"
+reqs = ["22998.1"]
+touches = ["node/merge_precompile_upgrade_lifecycle_test.go"]
+tests = []
+verification_contract = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 ./node/ -run TestMergeUpgradeLifecycleActivationDependencies"
+do_1 = "do_1 Gotcha 4497, decision 3578. Read the function requireMergeUpgradeRestoredCalls in node/merge_precompile_upgrade_lifecycle_test.go, its callers in that file and in node/upgrades_activation_test.go, and the first lines of the method run in precompiles/launchpad/run.go up to the call that resolves the executor."
+symbols = []
 
 [capability.22.39.654]
 title = "Call the load test command of the wallet attestor proof with the options the command requires"
@@ -172633,6 +172780,167 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.662]
+title = "Take a newer signed inventory in the wallet gateway and pass it to the attestors"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.660", "22.39.661"]
+reqs = ["22998.1"]
+capabilities = ["22.39.662"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/gateway/src/agent/authority.ts the function loadWalletInventory with its sequence memory and the function publishCustodyAuthority; in services/wallet/gateway/src/attestor/client.ts the method that publishes the authority to the five endpoints; the route /v1/inventory of the attestor in services/wallet/attestor/internal/server/authority.go from task 22.39.660; the routes of the administrator in services/wallet/gateway/src/routes/admin.ts from task 22.39.661; and the table wallet_custody_authority with its column inventory_sequence in services/wallet/gateway/migrations."
+do_2 = "do_2 The inventory in force in the gateway is the configured file or the token retained in the database, whichever has the higher sequence; both pass the same checks. The callers of loadWalletInventory stay as they are: the gateway keeps the retained token in memory and refreshes it at start, on an admission and on a short interval, so that every gateway process follows an admission made through another one."
+do_3 = "do_3 Add the route POST /v1/admin/custody-inventory under the bearer check of the administrator, with the field token. The gateway verifies the token with the checks of loadWalletInventory and requires a sequence above the one in force. It then sends the token to each of the five attestors through their inventory route with its client certificate. When all five hold the sequence it retains the token in the transaction that advances inventory_sequence and answers with the sequence and, for each member, the node id and the sequence. When fewer than five hold it, it retains nothing and answers with status 502 and the result of each member. A repeat of the same token is safe on both sides. The answer never carries the token."
+do_4 = "do_4 Tests in services/wallet/gateway/test/custody-inventory-admit.test.ts with loopback attestor peers in the form the tests of the package use: an admission reaches five peers and is retained; requireInventoryKey then admits a key of the newer inventory without a restart; a lower sequence is refused; with one peer refusing nothing is retained and the answer names that member; a call without the bearer is refused; a fresh import of the module with the older file reads the retained inventory."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/src/routes/admin.ts", "services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/attestor/client.ts", "services/wallet/gateway/src/env.ts", "services/wallet/gateway/src/db", "services/wallet/gateway/migrations"]
+tests = []
+planned_paths = ["services/wallet/gateway/test/custody-inventory-admit.test.ts"]
+build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/custody-inventory-admit.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.661]
+title = "List the custody inventory requests of the wallet gateway for its administrator"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.661"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/gateway/src/routes/admin.ts the import route with its bearer check; in services/wallet/gateway/src/agent/authority.ts the functions loadWalletInventory and requireInventoryKey; in services/wallet/gateway/src/provision/state.ts the function createEvmKey, its counterpart for the account key and the places that answer custody_inventory_pending; in services/wallet/gateway/src/attestor/client.ts the method generate and what its answer carries; in services/wallet/gateway/src/db/wallets.ts the columns that hold the key ids; and in services/wallet/attestor/cmd/loadtest/manifest.go the field inventory_requests."
+do_2 = "do_2 Add the route GET /v1/admin/custody-inventory/requests under the bearer check of the administrator. It answers a document with the field inventory_requests, a list of entries with the fields key_id, epoch, curve, public_key, owner and operations, the form the load test of the attestor module writes into its manifest, with the sequence of the inventory in force and the count beside it. The list holds, first, for each provisioning whose key id is set, whose key is not generated and for which the inventory does not admit generation, an entry that admits only generation, with an empty public key and epoch 0. It holds, second, for each generated wallet key for which the inventory does not admit signing, an entry with the public key in lower hex in the form the readers of the inventory expect for its curve, the epoch the attestors hold, and the operations sign and refresh. The owner of an entry is the owner the gateway passes to the attestors for that key. The list is ordered oldest first, holds no key id twice and is bounded by a limit parameter with a default of 200 and a maximum of 1000."
+do_3 = "do_3 Where the database does not hold a value an entry needs, retain it from the answer of the generation, with a migration file in services/wallet/gateway/migrations in the form of the present ones, and name the column in the final message. A provisioning that was answered as pending continues on the next call of its owner once the inventory admits it, as it does today; change nothing else in that path."
+do_4 = "do_4 Tests in services/wallet/gateway/test/custody-inventory-requests.test.ts with the supports that services/wallet/gateway/test/admin-legacy-import.test.ts uses: a call without the bearer is refused; a provisioning without approval appears once as a generation request; after an inventory that approves the generation and after the generation, the key appears as a signing request with public key and epoch; after an inventory that approves signing it leaves the list."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/src/routes/admin.ts", "services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/provision", "services/wallet/gateway/src/db", "services/wallet/gateway/migrations"]
+tests = []
+planned_paths = ["services/wallet/gateway/test/custody-inventory-requests.test.ts"]
+build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/custody-inventory-requests.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.658]
+title = "Read the order interfaces of the wallet swap test from the present perps tree"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.657"]
+reqs = ["22998.1"]
+capabilities = ["22.39.658"]
+interfaces = []
+do_1 = "do_1 Gotcha 4497, decision 3578. Read the imports of apps/wallet/src/lib/swap/sdk/swap-confirmation-and-order-records.test.ts, the files PECOROrders.ts and PECORStopOrders.ts under apps/perps/packages/paxeer-backend/src/core/network/spot_abi, the case transfer_origin_is_saved_before_an_offline_observation_and_recovered in apps/wallet/src/components/transaction-receipt-recovery.test.ts with the loopback peer of that file, and the case of apps/wallet/src/proof_wallet_app.test.ts that expects the message on the request identifier."
+do_2 = "do_2 apps/wallet/src/lib/swap/sdk/swap-confirmation-and-order-records.test.ts imports the two order interfaces from a directory of the perps application that is no longer in the tree. Import them from apps/perps/packages/paxeer-backend/src/core/network/spot_abi, where they are today, under the names those files export. Where an exported name or the shape of an interface differs, the case follows the producer file; the files of the wallet under apps/wallet/src/lib/swap/sdk/abis stay as they are unless the case then shows a difference from the producer, which you name in the final message without changing either side."
+do_3 = "do_3 Task 22.39.657 makes the transport report an answer with a status outside the success range that does not answer the request as HTTP and the status number. Run the case of apps/wallet/src/components/transaction-receipt-recovery.test.ts and the cases of apps/wallet/src/proof_wallet_app.test.ts against that transport. A case whose peer answers with such a status expects the status message; a case whose peer answers with a success status and a wrong identifier keeps its expectation. Change only expectations and peers of the two test files, no product file."
+do_4 = "do_4 Before the build install what the job installs before its test step for the entry apps/wallet, in the order of the job. After the change run the whole suite of the application once the way the job does and give the count of files and cases in the final message."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/wallet/src/lib/swap/sdk/swap-confirmation-and-order-records.test.ts", "apps/wallet/src/components/transaction-receipt-recovery.test.ts", "apps/wallet/src/proof_wallet_app.test.ts"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd apps/wallet && pnpm install --frozen-lockfile)"
+verify_cmd = "cd apps/wallet && pnpm exec vitest run src/lib/swap/sdk/swap-confirmation-and-order-records.test.ts src/components/transaction-receipt-recovery.test.ts src/proof_wallet_app.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.657]
+title = "Bring the journey evidence and node catalogue cases of the wallet package in line with their producers and report an error status by its number"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.657"]
+interfaces = []
+do_1 = "do_1 Gotcha 4497, decision 3578. Read the case journey_evidence_carries_an_optional_transaction_hash in sdk/wallet/test/human-binding.test.ts with the decoder of journey evidence under sdk/wallet/src, the case of sdk/wallet/test/node-route-catalogue.test.ts with the Go test rpc/px_node_catalogue_wallet_sdk_test.go that runs it, the method that sends a request and the function decodeResponse in sdk/wallet/src/rpc.ts, and the entry of the matrix for sdk/wallet in .github/workflows/wallet-test.yml with tools/ci/run_wallet_vitest.py."
+do_2 = "do_2 The evidence case expects the field settlement_domain on each evidence entry and the decoder returns entries without it. Find the producer of journey evidence, its schema or its Go type under services, and follow it: where the producer carries the field, the decoder keeps it, with its type in the exported types; where the producer has no such field, the expectation of the case drops it. State in the final message which side moved and the producer file."
+do_3 = "do_3 The catalogue case takes the address of a node and the expected method list through two environment variables that only the Go test sets. When the address variable is absent the case ends as skipped with a reason that names the variable and the Go test; when it is present the case runs as it does today. Change nothing in rpc/px_node_catalogue_wallet_sdk_test.go."
+do_4 = "do_4 In sdk/wallet/src/rpc.ts an answer whose status is outside the success range passes to the caller when its body is any JSON object or array, and the caller then reports that the answer does not match the request identifier. Such an answer whose body is not a well-formed answer to the request, a single answer or a batch, is reported by the transport error with the message HTTP and the status number and with the status as its second argument, as the transport already does for a body that is not JSON. An answer with a success status and a wrong identifier keeps the present message. Add the test file sdk/wallet/test/rpc-error-status.test.ts with one case for each of the two, against a loopback server."
+do_5 = "do_5 Before the build install what the job installs before its test step for the entry sdk/wallet, in the order of the job, as far as the tools are present. Run the command of that entry once where its tools are present and give its last lines in the final message; it is not part of the verification."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/wallet/test/human-binding.test.ts", "sdk/wallet/test/node-route-catalogue.test.ts", "sdk/wallet/src"]
+tests = []
+planned_paths = ["sdk/wallet/test/rpc-error-status.test.ts"]
+build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd sdk/wallet && pnpm exec tsc --noEmit)"
+verify_cmd = "cd sdk/wallet && pnpm exec vitest run test/human-binding.test.ts test/node-route-catalogue.test.ts test/rpc-error-status.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.656]
+title = "Give the wallet demo tests the JSX setting their present transformer reads"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.656"]
+interfaces = []
+do_1 = "do_1 Gotcha 4497, decision 3578. Read services/wallet/demo/vitest.config.ts, services/wallet/demo/src/components/FundedAccountPanel.test.tsx, the scripts and the dependency versions of services/wallet/demo/package.json, and the job named demo in .github/workflows/wallet-test.yml."
+do_2 = "do_2 The configuration sets JSX through an option named after one transformer, and the version of the test runner in the lock file transforms test files with another one, so the JSX of services/wallet/demo/src/components/FundedAccountPanel.test.tsx does not parse. Find in the installed version of the test runner which option its transformer reads for the automatic JSX runtime and set that option in services/wallet/demo/vitest.config.ts. Add no dependency where the runner has such an option; where it has none, state the reason in the final message and add the one plugin the runner documents, in services/wallet/demo/package.json and the lock file of the wallet workspace."
+do_3 = "do_3 Every case of services/wallet/demo/src/components/FundedAccountPanel.test.tsx must then run and pass with the script test of the package, the way the job runs it. A case that fails after the file parses is repaired in the test file only when its expectation is stale against the product component under services/wallet/demo/src/components; change no product file."
+do_4 = "do_4 Before the build install what the job installs before its test step, in the order of the job."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/demo/vitest.config.ts", "services/wallet/demo/src/components/FundedAccountPanel.test.tsx", "services/wallet/demo/package.json"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile)"
+verify_cmd = "cd services/wallet/demo && pnpm test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.609]
 title = "Let the system map generator of the documentation site run where the inventory is not in reach"
 status = "done"
@@ -197635,9 +197943,80 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.667]
+title = "Approve the launchpad migration release through a mode of the schema command"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.667"]
+interfaces = []
+do_1 = "do_1 Gotcha 4501, decision 3582. Read sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go in full, with loadBundle, apply, importHistory and expected; in sdk/launchpad/shared/db/production/migrations.go the functions Validate, ValidateOrder, LoadMigrationRegistry, CatalogFingerprint, ImportLegacyBaseline, ApplyRegisteredMigration, RecordRuntimeReadiness and CheckReadiness; in sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go the function Bootstrap, for the recovery record it writes; migrations/registry.json with its fields state, approval_digest and qualification_required, migrations/grants.json and migrations/legacy-history-aliases.json; and in services/launchpad/user/internal/account/proof_launchpad_user_test.go the way a test of the launchpad starts a temporary PostgreSQL from the binaries of the environment."
+do_2 = "do_2 Bring migrations/grants.json to the objects the registrations create. The entries to settle are the sequences chart_pool_fences_id_seq, chart_inbox_id_seq, chart_exact_id_seq and chart_traders_id_seq of the schema candles, reaction_pools_id_seq, reaction_wallets_id_seq, reaction_votes_id_seq and reaction_nonces_id_seq of the schema stats, operation_ledger_id_seq of the schemas users and metadata, objects_seq_seq of the schema pnl, and the columns document, asset_id, moderation_revision and blocked in the update grant on the table documents of the schema stats_search. For each one read the registered migrations of the schema and the statements of the service that runs under the role: an entry whose object no registration creates and no statement uses is removed; an update grant names the columns the statements of the service update. Where a statement of a service names an object or column no registration creates, leave the code of the service as it is and give service, file and statement in the final message. After the release is applied, every pair of service and runtime role of the grants document passes the mode expected with its own check, the pair of the recovery service with the role recovery_runtime among them."
+do_3 = "do_3 Add the mode approve by decision 3582, sharing with apply the order of calls and the code that applies a source and a registration, so that one path applies the release. The mode writes each document through a temporary file beside it and a rename. A run that ends with a refusal leaves both documents as they were. The usage line and the exit codes follow the present modes: 0, 1 with the reason in one line, 2 for a usage error."
+do_4 = "do_4 The registry gains the field for the major version of the server, and the mode apply refuses a server of another major version before it changes the database. The loader keeps its present refusals for an empty approval digest, an approval manifest digest that differs, an interface digest that differs from the grants document, a reader version and a lock estimate outside their bounds, and a source or registration whose bytes differ."
+do_5 = "do_5 Add the mode region by decision 3582. It takes the administrator connection and --region, holds the coordinator lock for its work, refuses a database in which the registered migrations are not all applied, and prints nothing but a refusal."
+do_6 = "do_6 Run the mode approve on an empty database of a temporary PostgreSQL of the environment and commit the two documents it wrote. In migrations/registry.json the list qualification_required gives way to what the mode recorded. State the major version of that server in the final message."
+do_7 = "do_7 Tests in sdk/launchpad/shared/db/production/cmd/launchpad-schema/main_test.go whose names begin with TestRelease. Each starts a temporary PostgreSQL the way services/launchpad/user/internal/account/proof_launchpad_user_test.go does and fails, without a skip, when the binaries are absent. With the documents of the repository: apply on an empty database ends with 0 and a second apply changes nothing; region gives the first record, a second run with the same region changes nothing and another region is refused; expected ends with 0 for every pair of service and runtime role of the grants document and check passes for each document under its runtime role; check refuses after a table of a service changed. The mode approve, run on an empty database over a copy of the directory whose approval values were emptied, writes fingerprints, interface digest and reader version equal to those of the repository, and its registry loads; approve refuses a database that holds a schema of the release and leaves the copy unchanged; apply refuses a registry whose recorded major version differs from the server. The present case on a registry without approval keeps its refusal on a copy with the approval digest emptied and asserts in addition that the registry of the repository loads."
+do_8 = "do_8 In sdk/launchpad/shared/db/production/cmd/launchpad-schema/README.md describe the five modes with their variables and exit codes, and the order approve on an empty database, then on the database of a deployment apply, region and expected per service. In migrations/README.md the section on the launchpad states that the documents carry the approval the mode wrote, the major version they hold for, and that a change to a migration, the grants or a source is followed by a new run of the mode. Neutral words, present tense."
+do_9 = "do_9 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/db/production", "migrations"]
+tests = []
+planned_paths = []
+build_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go vet ./db/production/cmd/launchpad-schema && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production/cmd/launchpad-schema -count=1 -timeout 30m)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.664]
+title = "Run the inventory command unattended beside the wallet gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.659", "22.39.662"]
+reqs = ["22998.1"]
+capabilities = ["22.39.664"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read the command under services/wallet/attestor/cmd/inventory from task 22.39.659, the two routes of the administrator in services/wallet/gateway/src/routes/admin.ts from tasks 22.39.661 and 22.39.662, docker/wallet-attestor/Dockerfile with docker/wallet-attestor/files.tsv, the definitions wallet-gateway.kvx, wallet-attestor.kvx and project.kvx under deploy/projects/wallet, tools/deploy/platform-project.py with tools/deploy/tests/test_platform_project.py, and docs/wallet/service/runbooks/refresh-cadence.md for the form of a runbook."
+do_2 = "do_2 Add the subcommand serve in services/wallet/attestor/cmd/inventory/serve.go. Its settings come from the environment: the address of the gateway, the file with the bearer of the administrator, the key file, issuer, tenant, a state directory, the interval and the limits. In each round it reads the requests from the gateway, takes the inventory in force from the state directory, approves by its rule, signs, and posts the result to the gateway. Only after the gateway answers that all members hold the sequence does it keep the result as the present inventory, through a temporary file that is renamed. For each approved entry it appends one line to a journal in the state directory with time, sequence, key id, owner, curve and operations."
+do_3 = "do_3 The rule. Only entries that the gateway lists are approved. A generation request is approved when its key id has one of the two forms the gateway gives a wallet key and an account key, within a limit of new generation approvals in an hour and a limit of key ids for one owner, both settings with defaults. A signing request is approved only when the inventory holds the generation entry of that key id with the same owner and curve. Every other request stays unapproved and is counted in the line of the round. When the inventory in force ends within a margin, ten days by default, it is renewed even without a request. A round whose post is not confirmed leaves the state as it was, and the next round repeats with the same sequence."
+do_4 = "do_4 The mode answers /healthz on the port of the environment with success while the last round that completed lies within three intervals."
+do_5 = "do_5 Add the image under docker/wallet-inventory in the form of docker/wallet-attestor: it builds only the command, runs as a user without privileges, and materialises the key and the bearer the way the attestor image materialises its files. Add the definition deploy/projects/wallet/wallet-inventory.kvx in the form of wallet-gateway.kvx: built from the repository with that Dockerfile, health /healthz, a volume for the state directory, its variables as inputs named by the convention of the folder, ordered after the gateway. The tests under tools/deploy/tests that read the wallet folder pass; change one only where it holds a fixed list of the definitions."
+do_6 = "do_6 Add the runbook docs/wallet/service/runbooks/inventory.md: what the inventory is, the subcommands, the unattended mode with its limits and its journal, renewal before the lifetime ends, replacing the signing key with the new public key given to the five attestors and the gateway, and what to do with a request that stays unapproved. State product behaviour only. Add one line for the mode to the entry in services/wallet/README.md."
+do_7 = "do_7 Tests in services/wallet/attestor/cmd/inventory/serve_test.go against a loopback peer in place of the gateway: a generation request is approved and posted; the signing request of that key follows; a signing request without a generation entry stays unapproved; the limit of an hour holds; an inventory inside the margin is renewed; a post that is not confirmed leaves the state unchanged and the next round carries the same sequence."
+do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/attestor/cmd", "tools/deploy/tests", "services/wallet/README.md"]
+tests = []
+planned_paths = ["services/wallet/attestor/cmd/inventory/serve.go", "services/wallet/attestor/cmd/inventory/serve_test.go", "docker/wallet-inventory/Dockerfile", "deploy/projects/wallet/wallet-inventory.kvx", "docs/wallet/service/runbooks/inventory.md"]
+build_cmd = "cd services/wallet/attestor && go build ./cmd/inventory/"
+verify_cmd = "(cd services/wallet/attestor && go test -count=1 ./cmd/inventory/) && python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.654]
 title = "Call the load test command of the wallet attestor proof with the options the command requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197701,7 +198080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.651]
 title = "Write the service health commands and the package selection of the launchpad test workflow in the form their tools read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197734,7 +198113,7 @@ do_6 = "do_6 Decision 3577, gotcha 4496. The verification now runs the four file
 
 [task.22.39.650]
 title = "Compose the startup documents of the launchpad livestream service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197765,7 +198144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.649]
 title = "Compose the startup documents of the launchpad metadata service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197796,7 +198175,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.648]
 title = "Compose the startup documents of the launchpad social service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197827,7 +198206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.647]
 title = "Compose the startup documents of the launchpad user service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197858,7 +198237,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.646]
 title = "Compose the startup documents of the launchpad media gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197889,7 +198268,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.645]
 title = "Compose the startup documents of the launchpad ranking service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197920,7 +198299,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.644]
 title = "Compose the startup documents of the launchpad profit and loss service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197951,7 +198330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.643]
 title = "Compose the startup documents of the launchpad stats service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197982,7 +198361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.642]
 title = "Compose the startup documents of the launchpad charts service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -198013,7 +198392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.641]
 title = "Compose the startup documents of the launchpad indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -198044,7 +198423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.640]
 title = "Compose the startup documents of the launchpad API in both roles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -243630,6 +244009,176 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.666]
+title = "Divide the eligible wallets of the custody ceremony by the state of their identity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.666"]
+interfaces = []
+do_1 = "do_1 Gotcha 4500, decision 3581. Read in services/wallet/ceremony/internal/migrate/migrate.go the types Plan and Report, the functions ReadWallets, PlanMigration, Deliver, deliverOne, loadOriginalIdentity, verifyOriginalBinding, completeCounts and WriteRehearsalReceipt and the check of the receipt in the delivery; in services/wallet/ceremony/internal/migrate/inventory.go the function WriteInventoryRequests; in services/wallet/ceremony/internal/rehearsal/rehearsal.go the function Rehearse and the type Report; in services/wallet/ceremony/cmd/ceremony/main.go the functions runPlan, runDeliver, runDeliverCounts and runRehearse; and in services/wallet/gateway/src/routes/sign.ts and services/wallet/gateway/src/routes/wallet.ts the function usesAttestorCustody and the route of provisioning, for the way the gateway serves a wallet with an envelope before it is migrated."
+do_2 = "do_2 PlanMigration divides the eligible wallets by the rule of decision 3581 into the fields Deliverable, WaitingIdentity and ExternalIdentity of the plan, in the order of the present list; the field Eligible keeps its content. The read of the provisioning records for the rule is one query over the wallets, not one per wallet. A wallet of the standard kind with an identifier on its row is deliverable whatever its record holds, so that a record that does not hold is found by the checks of the delivery and not passed over."
+do_3 = "do_3 Deliver takes the deliverable wallets only. For a wallet of the other two sets it writes no journal and no lock file, sends no request to an attestor and changes no row. The report counts WaitingIdentity and ExternalIdentity from the plan; the count ExternalIdentity is no longer reached through an error of a wallet. completeCounts holds when Read, Verified, Imported, Refreshed, TestSigned, Matched and HeldIdentity equal the number of deliverable wallets and the three sets together equal the eligible wallets. A deliverable wallet that fails a check of its identity, its binding or its key stops the run with the present error."
+do_4 = "do_4 The line of the plan command gains deliverable, waiting_identity and external_identity after already_migrated; the present fields keep their names, order and meaning. The inventory requests the plan writes cover the deliverable wallets only. The count lines of rehearsal and delivery gain waiting_identity and external_identity in the same way."
+do_5 = "do_5 The rehearsal passes when every deliverable wallet is matched. The rehearsal receipt binds the deliverable set in the way it binds its plan today, and a delivery whose deliverable set differs from that of the receipt is refused with the present error of a receipt that does not fit. A rehearsal or delivery with no deliverable wallet ends with its counts and without a request to an attestor."
+do_6 = "do_6 Tests whose names begin with TestWaitingIdentity, in the packages of services/wallet/ceremony/internal/migrate/migrate.go, services/wallet/ceremony/internal/rehearsal/rehearsal.go and services/wallet/ceremony/cmd/ceremony/main.go, with the present fixtures: a plan over wallets of the three sets with a funded and a migrated one gives the five counts; a delivery over that plan delivers the deliverable wallets and leaves each wallet of the other two sets with the same row as before, no journal file and no request at any attestor; a standard wallet with an identifier whose record is not active stops the delivery; a counts-only rehearsal over the three sets passes and writes its receipt; a delivery after one more wallet gained an identity is refused under the earlier receipt; a second run with a new ceremony identifier after that delivers the new wallet and counts the earlier ones as already migrated."
+do_7 = "do_7 Present cases of the three packages whose expectation decision 3581 changes are brought to it in place; no case is removed, skipped or tagged out."
+do_8 = "do_8 In docs/wallet/service/cutover.md the sections on rehearsal, plan and delivery state the three sets, the counts, that a wallet waiting for an identity stays served from its envelope by the gateway until a later run, and that a later run has its own ceremony identifier, rehearsal and receipt."
+do_9 = "do_9 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/ceremony/cmd/ceremony", "services/wallet/ceremony/internal", "docs/wallet/service/cutover.md"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/ceremony && go build ./..."
+verify_cmd = "cd services/wallet/ceremony && go test -count=1 ./... -run TestWaitingIdentity && go test -count=1 ./internal/migrate/ ./cmd/ceremony/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.665]
+title = "Compare contract creation and the sponsored batch between the sequencing node and a node without sequencing"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.665"]
+interfaces = []
+do_1 = "do_1 Gotcha 4499, decision 3580. Read in tools/qualification/localnode/v6120_follower_test.go the type followerNetwork with newFollowerNetwork, freshKey, sign, send, layout and compare, and the six present cases; in daemon/committed-fixture/vector_v6.go the functions v6LoadContracts, recordV6RPC, v6QuoteDigest and v6Sign for the way a contract is created from its creation code, the quote and the two signatures of executeSponsored are formed and the authorization is signed with SignSetCode; in daemon/committed-fixture/v6_contracts.json the entries delegate and token with abi, creationCode and runtimeCode; and in contracts/src/BatchCallAndSponsor.sol the constructor, setRate, executeSponsored and execute."
+do_2 = "do_2 Add tools/qualification/localnode/v6120_follower_code_test.go in the package of tools/qualification/localnode/v6120_follower_test.go with cases whose names begin with TestLocalNodeV6120FollowerCode. Each case uses newFollowerNetwork and the present helpers; helpers the cases need beside them, for a transaction without a destination, a set-code transaction and reads of code, nonce and storage at a block on both nodes, go into the new file. The compiled forms are read from daemon/committed-fixture/v6_contracts.json by its path from the root of the module; nothing is compiled and no present line of tools/qualification/localnode/v6120_follower_test.go that a present case reads changes its meaning. After every transaction a case requires what compare requires today and in addition that the receipt fields contract address, gas used, logs and the bloom are equal on both nodes."
+do_3 = "do_3 Case creation: a key that has not transacted creates the token contract from its creation code as its first transaction. Both nodes hold the runtime code at the address of the receipt, and a transfer on the new contract by the same key compares equal. Case creation by a key that has transacted: a key sends a transfer first and then creates the same contract; the address follows from its nonce and both nodes hold the code."
+do_4 = "do_4 Case failed creation: a creation whose code reverts has the failed status on both nodes, neither node holds code at the address, and the nonce of the key is equal on both. Case creation by a contract: a contract created in the case creates a further contract in a call; both nodes hold both codes."
+do_5 = "do_5 Case sponsored batch: the case creates the token and the account contract with an owner, a rate and a maximum age the constructor accepts, and gives the user tokens. The user is a key that has not transacted; it signs a set-code authorization for the account contract and the batch with its quote. A second key sends the set-code transaction to the address of the user with the input of executeSponsored. Both nodes hold the same receipt with its logs, the code of the user is the delegation to the account contract on both, the nonce of the user and of the sender are equal on both, and the token balances of user and sender after the batch are equal on both."
+do_6 = "do_6 Case later batch: after the case of do_5 the same user runs a further sponsored batch through a transaction without an authorization; the quote nonce is used on both nodes and a repeat of the same quote fails on both with the same receipt. Case authorization that does not apply: a set-code transaction whose authorization carries a nonce other than that of the signer is included, leaves the code of the signer empty on both nodes and compares equal. Case delegation removed: an authorization for the zero address after a delegation leaves the code of the user empty on both nodes."
+do_7 = "do_7 Case mixed block: two creations and one sponsored batch by three keys are handed in without waiting between them; every receipt compares equal and the order in the block is the same on both nodes. After the last case of the file the second node still answers and has reached the height of the sequencing node."
+do_8 = "do_8 Where the sequencing node refuses a transaction of a case on arrival by a rule of the product, the case asserts the refusal, asserts that neither node holds the transaction, and the final message names the rule with its file. Where the two nodes differ, or the second node stops, keep the case as written, change no code outside the paths, and give case, block height, the field that differs and both values in the final message."
+do_9 = "do_9 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/localnode"]
+tests = []
+planned_paths = ["tools/qualification/localnode/v6120_follower_code_test.go"]
+build_cmd = "make -f chain.mk install"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --follower --env-out /tmp/lx-localnode-follower.env && set -a && . /tmp/lx-localnode-follower.env && set +a && go test -count=1 -timeout 40m ./tools/qualification/localnode/ -run ^TestLocalNodeV6120FollowerCode"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.663]
+title = "Write the inventory requests of the custody ceremony with its plan"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.663"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read services/wallet/ceremony/cmd/ceremony/main.go with its subcommands and flags, the plan and the delivery in services/wallet/ceremony/internal/migrate/migrate.go with the key ids they use, the entries that services/wallet/ceremony/internal/ceremonyfixture/fixture.go approves for each wallet, the function PublishInventory in services/wallet/ceremony/internal/testsupport/ceremony_nodes.go, the field inventory_requests in services/wallet/attestor/cmd/loadtest/manifest.go, and docs/wallet/service/cutover.md."
+do_2 = "do_2 The subcommand plan takes a flag with an absolute path for the requests. With it the plan writes a document with the field inventory_requests, a list of entries with the fields key_id, epoch, curve, public_key, owner and operations, the form the load test of the attestor module writes into its manifest, holding for every eligible wallet the entries its delivery needs: the key ids, owners, curves, public keys, epochs and operations that the fixture approves for a wallet of the same shape. The file has mode 0600 and is written through a temporary file that is renamed. The counts of the plan gain the count of requests. Without the flag the plan is as it is today. Where the fixture approves different entries on different members, the flag names a directory and the plan writes one document for each member id; state in the final message which of the two forms applies."
+do_3 = "do_3 Add a test whose name begins with TestPlanInventoryRequests in the package that holds the plan: the requests the plan writes for the wallets of the fixture, published through PublishInventory in place of the list the fixture builds by hand, let the delivery of the fixture pass, and a wallet that is not eligible has no entry."
+do_4 = "do_4 In docs/wallet/service/cutover.md state in the part on the plan that the plan writes the requests, and in the part on delivery that the owner of the inventory approves them with the inventory command of the attestor module and that the attestors hold the approved inventory before delivery begins. Name the command in words and add no link to a path that is absent from the tree."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/ceremony/cmd/ceremony/main.go", "services/wallet/ceremony/internal", "docs/wallet/service/cutover.md"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/ceremony && go build ./..."
+verify_cmd = "cd services/wallet/ceremony && go test -count=1 ./... -run TestPlanInventoryRequests"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.660]
+title = "Admit a newer signed inventory on a running attestor"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.660"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/attestor/internal/server/authority.go the type Inventory with NewInventory, load and Check and the handler HandleAuthority; in services/wallet/attestor/internal/server/server.go the routes and the functions requireAuthority, gatewayOnly and operatorOnly; in services/wallet/attestor/internal/auth/agent/authority.go the function PersistSigned, the type storedAuthority and the way NewAuthority restores its snapshot from the store; and in services/wallet/attestor/cmd/attestor/main.go the place that builds the inventory."
+do_2 = "do_2 The inventory in force is the configured file or the token retained in the store, whichever has the higher sequence. Both pass the same checks. A retained token that no longer verifies gives way to the file; when neither verifies the attestor refuses as it does today. An attestor that starts with a file whose sequence is below the retained one starts with the retained one."
+do_3 = "do_3 Add the route /v1/inventory beside the authority route: a POST with the field token, admitted for a client of the gateway authority or of the operator authority. The token is decoded with the checks of load, members against the pins included. Its sequence must be above the one in force. The same token at the same sequence is answered as held and changes nothing; a lower sequence, or another token at the same sequence, is refused. An admitted token is retained through PersistSigned and recorded in the audit log under the kind custody.inventory with its sequence. The answer carries the node id and the sequence. An inventory may be as large as its readers allow; where the request bound of the server is below that, widen it for this route alone."
+do_4 = "do_4 Every check after an admission, Check and checkAddShare included, reads the inventory in force without a restart."
+do_5 = "do_5 Tests in services/wallet/attestor/internal/server/inventory_admit_test.go, each name beginning with TestInventoryAdmit: an admission raises the sequence; a key that only the newer inventory approves is admitted for generation without a restart; a lower sequence is refused; the same token twice changes nothing; a token of another signer is refused; a token whose member pin differs is refused; a client with neither authority is refused; a restart with the older file starts with the retained inventory; a retained inventory past its lifetime gives way to a valid file."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/attestor/internal/server/authority.go", "services/wallet/attestor/internal/server/server.go", "services/wallet/attestor/internal/auth/agent/authority.go", "services/wallet/attestor/cmd/attestor/main.go"]
+tests = []
+planned_paths = ["services/wallet/attestor/internal/server/inventory_admit_test.go"]
+build_cmd = "cd services/wallet/attestor && go build ./..."
+verify_cmd = "cd services/wallet/attestor && go test -count=1 ./internal/server/ -run TestInventoryAdmit"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.659]
+title = "Add the inventory command of the attestor module"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.659"]
+interfaces = []
+do_1 = "do_1 Gotcha 4498, decision 3579. Read in services/wallet/attestor/internal/server/authority.go the types WalletInventory, InventoryKey and InventoryMember, the method load and the function checkInventory; in services/wallet/attestor/internal/auth/agent/authority.go the types SignedClaims and SignedVerifier, the method Decode and the constant InventoryAudience; in services/wallet/attestor/cmd/loadtest/manifest.go the field inventory_requests and the function inventoryRequests; and in services/wallet/gateway/src/agent/authority.ts the function loadWalletInventory, for the header and the bounds that both readers hold an inventory to."
+do_2 = "do_2 Add the command under services/wallet/attestor/cmd/inventory with the subcommands init, approve, renew and show. Common flags: the private key of the owner as a PEM file with a P-256 key, which must be a regular file of mode 0600 that belongs to the effective user; issuer; tenant; lifetime, at most 30 days; the present inventory file; the output path, written through a temporary file in the same directory that is synced and renamed. init takes five members as id and certificate file, computes each pin as the SHA-256 of the public key information of the certificate in lower hex, and writes sequence 1 with no keys, threshold 3, protocol wallet and version 1. approve takes the present inventory and a document with the field inventory_requests, a list of entries with the fields key_id, epoch, curve, public_key, owner and operations, the form the load test of the attestor module writes into its manifest. A key id that the inventory does not hold is added. An entry that admits only generation and has no public key is replaced by a request that carries the public key, the epoch and the operations. For an entry that has a public key the request must carry the same public key, owner and curve; its operations may change and its epoch must not go down. Any other difference refuses the whole document and names the key id. The sequence rises by one. renew keeps members and keys, raises the sequence by one and sets new times. show prints sequence, issue and expiry time, the count of members and the count of keys by operation, and with a flag one line for each key. The command never prints the private key, and a message on a refused input names the input and not its contents."
+do_3 = "do_3 The output is the token that Decode accepts for the inventory audience: the header with the algorithm ES256 and the type the readers expect, and the signature in the fixed width form. Use the types of the packages server and agent as they are. The encoder lives in the package of the command. Change nothing under services/wallet/attestor/internal."
+do_4 = "do_4 Tests in services/wallet/attestor/cmd/inventory/main_test.go. An inventory from init loads through NewInventory with a store in a temporary directory and the pins of the five certificates. After approve with a generation request the method Check admits generate for that key. After approve with the request that carries public key and epoch, Check admits sign against a share record of that key. Refused: a changed owner, a changed public key, a lower epoch, a sixth member, a lifetime above 30 days, a key file with a wider mode. After renew the store accepts the higher sequence and then refuses the earlier token."
+do_5 = "do_5 Add a short entry to services/wallet/README.md in the part on the attestors that names the command and its four subcommands."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/README.md"]
+tests = []
+planned_paths = ["services/wallet/attestor/cmd/inventory/main.go", "services/wallet/attestor/cmd/inventory/main_test.go"]
+build_cmd = "cd services/wallet/attestor && go build ./cmd/inventory/"
+verify_cmd = "cd services/wallet/attestor && go test -count=1 ./cmd/inventory/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.653]
 title = "Skip the wallet policy case of the web search application proof when the proof passes no calldata"
@@ -331536,6 +332085,38 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.655]
+title = "Build the call environment of the upgrade lifecycle test with the chain configuration of the node"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.655"]
+interfaces = []
+do_1 = "do_1 Gotcha 4497, decision 3578. Read the function requireMergeUpgradeRestoredCalls in node/merge_precompile_upgrade_lifecycle_test.go, its callers in that file and in node/upgrades_activation_test.go, and the first lines of the method run in precompiles/launchpad/run.go up to the call that resolves the executor."
+do_2 = "do_2 The helper builds its environment with a state database alone, and the entry point of the launchpad module reads the chain identifier from the chain configuration of the environment, so the case TestMergeUpgradeLifecycleActivationDependencies ends in the entry point. Build the environment in the helper with the chain configuration the application under test serves, through the helper of the tree that the keeper itself uses where one fits. Change nothing in precompiles/launchpad/run.go and nothing in the expectations of the cases."
+do_3 = "do_3 Look in the test files of the package node for other places that call a module entry point with an environment built by hand and bring those in this file in line the same way. Places in other files: change nothing there and name them in the final message."
+do_4 = "do_4 After the change run the whole package once with the options of the verification and without the run filter. A further case that does not pass for the same cause in this file is part of this task; any other case is reported in the final message with test, file and first message and stays as it is."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/merge_precompile_upgrade_lifecycle_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/"
+verify_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 ./node/ -run TestMergeUpgradeLifecycleActivationDependencies"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.555]
 title = "Answer the tracing methods for blocks built by the sequencing node"
@@ -458696,7 +459277,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.632]
 title = "Let the websocket recovery cases of the JSON-RPC client hold within the whole suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458758,7 +459339,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.630]
 title = "Let the contract and import cases of the explorer state the calls the source makes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458820,7 +459401,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.628]
 title = "Let the receipt and committed status cases of the explorer hold within the whole suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

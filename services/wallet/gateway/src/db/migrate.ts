@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import { env } from '../env.js';
+import { startWalletInventoryRefresh } from '../agent/authority.js';
 import { getPool } from './pool.js';
 import { SIGNATURE_ACCOUNTING_MIGRATION } from './signatureAccounting.js';
 
@@ -76,7 +78,7 @@ export async function runMigrations(): Promise<void> {
       for (const { filename: file, sql } of files) {
         const already = await client.query<{ filename: string }>(
           'select filename from _migrations where filename = $1',
-          [file],
+          [file]
         );
         if (already.rowCount && already.rowCount > 0) continue;
 
@@ -104,6 +106,7 @@ export async function runMigrations(): Promise<void> {
   } finally {
     client.release();
   }
+  if (env.WALLET_CUSTODY_INVENTORY_FILE) await startWalletInventoryRefresh();
 }
 
 /**

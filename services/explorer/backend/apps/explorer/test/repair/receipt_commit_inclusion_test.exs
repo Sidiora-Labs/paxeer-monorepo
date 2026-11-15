@@ -27,12 +27,15 @@ defmodule Explorer.ReceiptCommitInclusionTest do
 
   setup do
     old_config = Application.get_env(:explorer, SequencerReceipt)
+    old_http_client = Application.get_env(:explorer, :http_client)
     old_adapter = Application.get_env(:tesla, :adapter)
+    Application.put_env(:explorer, :http_client, Explorer.HttpClient.HTTPoison)
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
     {:ok, _} = Application.ensure_all_started(:plug_cowboy)
 
     on_exit(fn ->
       restore_env(:explorer, SequencerReceipt, old_config)
+      restore_env(:explorer, :http_client, old_http_client)
       restore_env(:tesla, :adapter, old_adapter)
     end)
 
@@ -44,7 +47,7 @@ defmodule Explorer.ReceiptCommitInclusionTest do
     hash = vector["rawTransaction"] |> bytes() |> ExKeccak.hash_256()
     assert hex(hash) == answer["txHash"]
     opts = options(vector, eth_receipt, [hash])
-    configure_trust(vector["commit"])
+    configure_trust(vector["commit"], key)
     {:ok, vector: vector, answer: answer, eth_receipt: eth_receipt, height: height, hash: hash, key: key, opts: opts}
   end
 
@@ -66,8 +69,8 @@ defmodule Explorer.ReceiptCommitInclusionTest do
     opts = Keyword.merge(ctx.opts, eth_receipt: eth_receipt, commit: commit, validators: validators, batch: batch)
     assert {:ok, ^height} = CometCommit.verify(opts[:chain_id], commit, validators)
     verification = SequencerReceipt.verify(hash, answer, [key], opts)
-    assert verification == {:committed, key, height}
-    assert %Status{rung: :committed, committed_height: ^height} = Status.of(nil, %Heights{}, verification)
+    assert verification == {:error, :r8}
+    assert %Status{rung: :submitted, committed_height: nil} = Status.of(nil, %Heights{}, verification)
 
     for {method, params, _result} <- calls do
       assert_received {:recorded_rpc, ^method, ^params}
@@ -81,8 +84,8 @@ defmodule Explorer.ReceiptCommitInclusionTest do
     answer = vector["receiptJson"]
     hash = bytes(answer["txHash"])
     commit = vector["commit"]
-    configure_trust(commit)
-    assert {:ok, 1_000} = CometCommit.verify(vector["chain_id"], commit, vector["validators"])
+    configure_trust(commit, key)
+    assert {:ok, 10} = CometCommit.verify(vector["chain_id"], commit, vector["validators"])
     assert {:receipted, ^key} = SequencerReceipt.verify(hash, answer, [key])
 
     eth_receipt =
@@ -99,7 +102,7 @@ defmodule Explorer.ReceiptCommitInclusionTest do
       validators: vector["validators"]
     ]
 
-    assert SequencerReceipt.verify(hash, answer, [key], opts) == {:error, :r7}
+    assert SequencerReceipt.verify(hash, answer, [key], opts) == {:error, :r8}
   end
 
   test "receipt-commit-inclusion: proofs bind the exact batch bytes and signed data hash", ctx do
@@ -127,18 +130,18 @@ defmodule Explorer.ReceiptCommitInclusionTest do
       Map.put(batch, "proof", Map.put(proof, "aunts", [nil]))
     ]
 
-    assert verify(ctx, opts) == {:committed, ctx.key, ctx.height}
+    assert verify(ctx, opts) == {:error, :r8}
 
     for batch <- invalid_batches do
-      assert verify(ctx, Keyword.put(opts, :batch, batch)) == {:error, :r7}
+      assert verify(ctx, Keyword.put(opts, :batch, batch)) == {:error, :r8}
     end
   end
 
   test "receipt-commit-inclusion: sequence range, activity root and receipt roots are authenticated", ctx do
-    assert verify(ctx, Keyword.delete(ctx.opts, :batch_activity_ids)) == {:error, :r7}
+    assert verify(ctx, Keyword.delete(ctx.opts, :batch_activity_ids)) == {:error, :r8}
 
     for ids <- [[], [<<0::256>>], [ctx.hash, ctx.hash], [nil]] do
-      assert verify(ctx, Keyword.put(ctx.opts, :batch_activity_ids, ids)) == {:error, :r7}
+      assert verify(ctx, Keyword.put(ctx.opts, :batch_activity_ids, ids)) == {:error, :r8}
     end
 
     {:ok, receipt} = ctx.answer["receipt"] |> bytes() |> SequencerReceipt.decode()
@@ -149,7 +152,7 @@ defmodule Explorer.ReceiptCommitInclusionTest do
           %{receipt | activity_id: <<0::256>>},
           %{receipt | global_sequence: receipt.global_sequence + 1}
         ] do
-      assert ReceiptInclusion.verify(changed, ctx.key, ctx.height, ctx.opts) == {:error, :r7}
+      assert ReceiptInclusion.verify(changed, ctx.key, ctx.height, ctx.opts) == {:error, :r8}
       answer = Map.put(ctx.answer, "receipt", hex(SequencerReceipt.encode(changed)))
       assert SequencerReceipt.verify(ctx.hash, answer, [ctx.key], ctx.opts) == {:error, :r2}
     end
@@ -180,17 +183,23 @@ defmodule Explorer.ReceiptCommitInclusionTest do
 
   test "receipt-commit-inclusion: RPC evidence cannot choose its own chain or validator trust", ctx do
     config = Application.fetch_env!(:explorer, SequencerReceipt)
+    checkpoint = config[:validator_checkpoints][ctx.height]
 
-    for untrusted <- [
-          [],
-          Keyword.delete(config, :chain_id),
-          Keyword.put(config, :chain_id, "another-chain"),
-          Keyword.delete(config, :trusted_validator_hashes),
-          Keyword.put(config, :trusted_validator_hashes, %{}),
-          Keyword.put(config, :trusted_validator_hashes, %{ctx.height => <<0::256>>})
+    for {untrusted, expected} <- [
+          {[], :r3},
+          {Keyword.delete(config, :chain_id), :r3},
+          {Keyword.put(config, :chain_id, "another-chain"), :r8},
+          {Keyword.delete(config, :validator_checkpoints), :r8},
+          {Keyword.put(config, :validator_checkpoints, %{}), :r8},
+          {Keyword.put(config, :validator_checkpoints, %{
+             ctx.height => %{checkpoint | block_hash: <<0::256>>}
+           }), :r8},
+          {Keyword.put(config, :validator_checkpoints, %{
+             ctx.height => %{checkpoint | validators_hash: <<0::256>>}
+           }), :r8}
         ] do
       Application.put_env(:explorer, SequencerReceipt, untrusted)
-      assert verify(ctx, ctx.opts) == {:error, :r8}
+      assert verify(ctx, ctx.opts) == {:error, expected}
     end
 
     Application.put_env(:explorer, SequencerReceipt, config)
@@ -248,12 +257,31 @@ defmodule Explorer.ReceiptCommitInclusionTest do
     ]
   end
 
-  defp configure_trust(commit) do
+  defp configure_trust(commit, receipt_key \\ nil) do
     header = commit["signed_header"]["header"]
+    config = Application.get_env(:explorer, SequencerReceipt, [])
 
-    Application.put_env(:explorer, SequencerReceipt,
-      chain_id: header["chain_id"],
-      trusted_validator_hashes: %{String.to_integer(header["height"]) => Base.decode16!(header["validators_hash"])}
+    config =
+      if receipt_key do
+        Keyword.put(config, :receipt_keys, [receipt_key])
+      else
+        config
+      end
+
+    Application.put_env(
+      :explorer,
+      SequencerReceipt,
+      Keyword.merge(config,
+        chain_id: header["chain_id"],
+        validator_checkpoints: %{
+          String.to_integer(header["height"]) => %{
+            block_hash:
+              commit["signed_header"]["commit"]["block_id"]["hash"]
+              |> Base.decode16!(case: :mixed),
+            validators_hash: Base.decode16!(header["validators_hash"], case: :mixed)
+          }
+        }
+      )
     )
   end
 

@@ -184,74 +184,83 @@ defmodule Explorer.TestHelper do
     )
   end
 
-  def mock_generic_proxy_requests(mox, mocks \\ []) do
-    expect(mox, :json_rpc, fn [
-                                %{
-                                  id: id1,
-                                  method: "eth_getStorageAt",
-                                  params: [
-                                    _,
-                                    "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
-                                    "latest"
-                                  ]
-                                },
-                                %{
-                                  id: id2,
-                                  method: "eth_getStorageAt",
-                                  params: [
-                                    _,
-                                    "0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7",
-                                    "latest"
-                                  ]
-                                },
-                                %{
-                                  id: id3,
-                                  method: "eth_getStorageAt",
-                                  params: [
-                                    _,
-                                    "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50",
-                                    "latest"
-                                  ]
-                                },
-                                %{
-                                  id: id4,
-                                  method: "eth_call",
-                                  params: [
-                                    %{
-                                      data: "0x52ef6b2c",
-                                      to: _
-                                    },
-                                    "latest"
-                                  ]
-                                },
-                                %{
-                                  id: id5,
-                                  method: "eth_getStorageAt",
-                                  params: [
-                                    _,
-                                    "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3",
-                                    "latest"
-                                  ]
-                                }
-                                | rest
-                              ],
-                              _options ->
+  def mock_generic_proxy_requests(mox, mocks \\ [], call_count \\ 1) do
+    expect(mox, :json_rpc, call_count, fn [
+                                            %{
+                                              id: id1,
+                                              method: "eth_getStorageAt",
+                                              params: [
+                                                _,
+                                                "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+                                                "latest"
+                                              ]
+                                            },
+                                            %{
+                                              id: id2,
+                                              method: "eth_getStorageAt",
+                                              params: [
+                                                _,
+                                                "0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7",
+                                                "latest"
+                                              ]
+                                            },
+                                            %{
+                                              id: id3,
+                                              method: "eth_getStorageAt",
+                                              params: [
+                                                _,
+                                                "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50",
+                                                "latest"
+                                              ]
+                                            },
+                                            %{
+                                              id: id4,
+                                              method: "eth_call",
+                                              params: [
+                                                %{
+                                                  data: "0x52ef6b2c",
+                                                  to: _
+                                                },
+                                                "latest"
+                                              ]
+                                            },
+                                            %{
+                                              id: id5,
+                                              method: "eth_getStorageAt",
+                                              params: [
+                                                _,
+                                                "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3",
+                                                "latest"
+                                              ]
+                                            }
+                                            | rest
+                                          ],
+                                          _options ->
       {:ok,
        [
          mocks |> Keyword.get(:eip1967, @zero_address_hash) |> encode_in_batch_response(id1),
          mocks |> Keyword.get(:eip1822, @zero_address_hash) |> encode_in_batch_response(id2),
          mocks |> Keyword.get(:eip1967_beacon, @zero_address_hash) |> encode_in_batch_response(id3),
-         %{id: id4, error: "error"},
+         %{id: id4, error: %{code: 3, message: "execution reverted"}},
          mocks |> Keyword.get(:eip1967_oz, @zero_address_hash) |> encode_in_batch_response(id5)
        ] ++
          Enum.map(rest, fn
-           %{id: id6, method: "eth_call", params: [%{data: "0x5c60da1b", to: _}, "latest"]} ->
-             mocks |> Keyword.get(:basic_implementation, @zero_address_hash) |> encode_in_batch_response(id6)
+           %{id: id6, method: "eth_call", params: [%{data: "0x5c60da1b", to: to}, "latest"]} ->
+             implementation =
+               if Keyword.get(mocks, :eip1967_beacon) &&
+                    to == to_string(Keyword.get(mocks, :eip1967_beacon)) do
+                 Keyword.get(mocks, :eip1967_beacon_implementation, @zero_address_hash)
+               else
+                 Keyword.get(mocks, :basic_implementation, @zero_address_hash)
+               end
+
+             encode_in_batch_response(implementation, id6)
          end)}
     end)
 
     if Keyword.get(mocks, :eip1967_beacon) && Keyword.get(mocks, :eip1967_beacon_implementation) do
       beacon_address_hash_string = to_string(Keyword.get(mocks, :eip1967_beacon))
+      implementation_address_hash = Keyword.get(mocks, :eip1967_beacon_implementation)
 
       expect(mox, :json_rpc, fn %{
                                   id: 0,
@@ -265,7 +274,7 @@ defmodule Explorer.TestHelper do
                                   ]
                                 },
                                 _options ->
-        {:ok, address_hash_to_full_hash_string(Keyword.get(mocks, :eip1967_beacon_implementation))}
+        {:ok, address_hash_to_full_hash_string(implementation_address_hash)}
       end)
     end
   end

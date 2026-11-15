@@ -43,16 +43,23 @@ export function parseTrustedProxies(value: string): string[] {
 export const RPC_URLS = z
   .string()
   .default('https://api-mainnet-beta.paxeer.network')
-  .transform((s) => s.split(',').map((url) => url.trim()).filter(Boolean))
+  .transform((s) =>
+    s
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean)
+  )
   .refine(
-    (urls) => urls.length > 0 && urls.every((value) => {
-      try {
-        const url = new URL(value);
-        return ['http:', 'https:'].includes(url.protocol) && !/\s/.test(value);
-      } catch {
-        return false;
-      }
-    }),
+    (urls) =>
+      urls.length > 0 &&
+      urls.every((value) => {
+        try {
+          const url = new URL(value);
+          return ['http:', 'https:'].includes(url.protocol) && !/\s/.test(value);
+        } catch {
+          return false;
+        }
+      }),
     'RPC_URLS must be a non-empty comma-separated list of http(s) URLs'
   );
 
@@ -208,6 +215,12 @@ export const EnvSchema = z
     GATEWAY_ADMIN_TOKEN: z.string().min(32, 'GATEWAY_ADMIN_TOKEN must be >=32 chars').optional(),
 
     WALLET_CUSTODY_INVENTORY_FILE: z.string().min(1).optional(),
+    WALLET_CUSTODY_INVENTORY_REFRESH_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(100)
+      .max(30_000)
+      .default(5_000),
     WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE: z.string().min(1).optional(),
     WALLET_AUTHORIZATION_DELEGATES,
     ATTESTOR_ENDPOINTS: z

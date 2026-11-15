@@ -17,7 +17,12 @@ defmodule EthereumJSONRPC.WebSocket.Supervisor do
         do: Indexer.Block.Realtime.WebSocketCopy,
         else: ws_state.web_socket
 
-    Supervisor.start_child(__MODULE__, client_spec(web_socket_module, name, ws_state.url, nil, ws_state))
+    spec =
+      web_socket_module
+      |> client_spec(name, ws_state.url, nil, ws_state)
+      |> Map.put(:id, make_ref())
+
+    Supervisor.start_child(__MODULE__, spec)
   end
 
   def stop_other_client(pid, name \\ Indexer.Block.Realtime.WebSocket) do
@@ -36,7 +41,21 @@ defmodule EthereumJSONRPC.WebSocket.Supervisor do
   end
 
   @doc "Stops a socket through its system callback so subscribers receive the termination envelope."
-  def stop_client(pid) when is_pid(pid), do: :sys.terminate(pid, :shutdown)
+  def stop_client(pid) when is_pid(pid) do
+    monitor = Process.monitor(pid)
+
+    try do
+      :ok = :sys.terminate(pid, :shutdown)
+
+      receive do
+        {:DOWN, ^monitor, :process, ^pid, _reason} -> :ok
+      after
+        5_000 -> exit({:timeout, {__MODULE__, :stop_client, [pid]}})
+      end
+    after
+      Process.demonitor(monitor, [:flush])
+    end
+  end
 
   def init(%{
         url: url,
