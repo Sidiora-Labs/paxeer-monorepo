@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import { act, createElement, useRef, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
@@ -10,6 +11,7 @@ import { DisclosureRow } from './states';
 import { useMounted, usePopoverPosition } from './use-popover';
 
 beforeAll(() => {
+  applySurfaceTestStyle();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
@@ -34,7 +36,9 @@ function mount(node: ReactElement) {
   act(() => root.render(node));
   return {
     container,
-    render(next: ReactElement) { act(() => root.render(next)); },
+    render(next: ReactElement) {
+      act(() => root.render(next));
+    },
     stop,
   };
 }
@@ -48,7 +52,8 @@ function required<T extends Element>(container: ParentNode, selector: string): T
 
 function avatar_recovery() {
   const failedUrl = 'data:image/png;base64,broken';
-  const successfulUrl = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/%3E';
+  const successfulUrl =
+    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/%3E';
   const view = mount(createElement(Avatar, { src: failedUrl, name: 'Ada Lovelace' }));
   act(() => required<HTMLImageElement>(view.container, 'img').dispatchEvent(new Event('error')));
   expect(view.container.querySelector('img')).toBeNull();
@@ -63,7 +68,9 @@ function avatar_recovery() {
 
   view.stop();
   const reopened = mount(createElement(Avatar, { src: successfulUrl, name: 'Ada Lovelace' }));
-  expect(required<HTMLImageElement>(reopened.container, 'img').getAttribute('src')).toBe(successfulUrl);
+  expect(required<HTMLImageElement>(reopened.container, 'img').getAttribute('src')).toBe(
+    successfulUrl
+  );
 }
 
 function pointerActivate(element: HTMLElement) {
@@ -100,7 +107,13 @@ function navigationConsumer() {
 function disabled_button_link() {
   const destinations = navigationConsumer();
   let activations = 0;
-  const props = { href: '/explore', children: 'Explore', onClick: () => { activations += 1; } };
+  const props = {
+    href: '/explore',
+    children: 'Explore',
+    onClick: () => {
+      activations += 1;
+    },
+  };
   const view = mount(createElement(Button, { ...props, disabled: true }));
   const disabled = required<HTMLButtonElement>(view.container, 'button:disabled');
   expect(disabled.type).toBe('button');
@@ -126,7 +139,14 @@ function disabled_button_link() {
 function disabled_disclosure_link() {
   const destinations = navigationConsumer();
   let toggles = 0;
-  const props = { id: 'rules', href: '/docs/terms', label: 'Rules', onToggle: () => { toggles += 1; } };
+  const props = {
+    id: 'rules',
+    href: '/docs/terms',
+    label: 'Rules',
+    onToggle: () => {
+      toggles += 1;
+    },
+  };
   const view = mount(createElement(DisclosureRow, { ...props, disabled: true }));
   const disabled = required<HTMLButtonElement>(view.container, 'button:disabled');
   expect(disabled.type).toBe('button');
@@ -148,25 +168,54 @@ function disabled_disclosure_link() {
 }
 
 function SegmentFixture({ options }: { options: SegmentOption<string>[] }) {
-  const [value, setValue] = useState(options.find(option => !option.disabled)!.value);
-  return createElement(SegmentedControl<string>, { options, value, onChange: setValue, label: 'Window' });
+  const [value, setValue] = useState(options.find((option) => !option.disabled)!.value);
+  return createElement(SegmentedControl<string>, {
+    options,
+    value,
+    onChange: setValue,
+    label: 'Window',
+  });
 }
 
 function segmented_end() {
   const cases: SegmentOption<string>[][] = [
     [{ value: 'one', label: 'One' }],
-    [{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }],
-    [{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }, { value: 'three', label: 'Three' }],
-    [{ value: 'one', label: 'One' }, { value: 'two', label: 'Two', disabled: true }],
-    [{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }, { value: 'three', label: 'Three', disabled: true }],
-    [{ value: 'one', label: 'One', disabled: true }, { value: 'two', label: 'Two' }, { value: 'three', label: 'Three', disabled: true }, { value: 'four', label: 'Four' }, { value: 'five', label: 'Five', disabled: true }],
+    [
+      { value: 'one', label: 'One' },
+      { value: 'two', label: 'Two' },
+    ],
+    [
+      { value: 'one', label: 'One' },
+      { value: 'two', label: 'Two' },
+      { value: 'three', label: 'Three' },
+    ],
+    [
+      { value: 'one', label: 'One' },
+      { value: 'two', label: 'Two', disabled: true },
+    ],
+    [
+      { value: 'one', label: 'One' },
+      { value: 'two', label: 'Two' },
+      { value: 'three', label: 'Three', disabled: true },
+    ],
+    [
+      { value: 'one', label: 'One', disabled: true },
+      { value: 'two', label: 'Two' },
+      { value: 'three', label: 'Three', disabled: true },
+      { value: 'four', label: 'Four' },
+      { value: 'five', label: 'Five', disabled: true },
+    ],
   ];
   for (const options of cases) {
     const view = mount(createElement(SegmentFixture, { options }));
-    const enabled = Array.from(view.container.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+    const enabled = Array.from(
+      view.container.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')
+    );
     act(() => {
       enabled[0].focus();
-      enabled[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+      enabled[0].dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true })
+      );
     });
     const last = enabled[enabled.length - 1];
     expect(document.activeElement).toBe(last);
@@ -186,14 +235,23 @@ class GeometryAnchor extends HTMLElement {
 }
 
 class GeometryLayer extends HTMLElement {
-  get offsetWidth() { return Number(this.getAttribute('data-width')); }
-  get offsetHeight() { return Number(this.getAttribute('data-height')); }
+  get offsetWidth() {
+    return Number(this.getAttribute('data-width'));
+  }
+  get offsetHeight() {
+    return Number(this.getAttribute('data-height'));
+  }
 }
 
 customElements.define('repair-popover-anchor', GeometryAnchor);
 customElements.define('repair-popover-layer', GeometryLayer);
 
-function PopoverFixture({ open, width = 240, height = 120, align = 'start' }: {
+function PopoverFixture({
+  open,
+  width = 240,
+  height = 120,
+  align = 'start',
+}: {
   open: boolean;
   width?: number;
   height?: number;
@@ -203,24 +261,36 @@ function PopoverFixture({ open, width = 240, height = 120, align = 'start' }: {
   const layerRef = useRef<HTMLElement | null>(null);
   const mounted = useMounted();
   const position = usePopoverPosition(anchorRef, layerRef, open, align);
-  return createElement('div', null,
+  return createElement(
+    'div',
+    null,
     createElement('repair-popover-anchor', { ref: anchorRef }),
-    mounted && open && position ? createPortal(createElement('repair-popover-layer', {
-      ref: layerRef,
-      'data-width': width,
-      'data-height': height,
-      style: { position: 'fixed', top: position.top, left: position.left, minWidth: position.minWidth },
-    }), document.body) : null,
+    mounted && open && position
+      ? createPortal(
+          createElement('repair-popover-layer', {
+            ref: layerRef,
+            'data-width': width,
+            'data-height': height,
+            style: {
+              position: 'fixed',
+              top: position.top,
+              left: position.left,
+              minWidth: position.minWidth,
+            },
+          }),
+          document.body
+        )
+      : null
   );
 }
 
 function expectPlacement(width: number, height: number) {
   const layer = required<HTMLElement>(document, 'repair-popover-layer');
   expect(layer.parentElement).toBe(document.body);
-  expect(layer.style.left).toBe(`${window.innerWidth - width - 8}px`);
+  expect(layer.style.left).toBe(`${window.innerWidth - width - 12}px`);
   expect(layer.style.top).toBe(`${window.innerHeight - 36 - 4 - height}px`);
   expect(layer.style.minWidth).toBe('32px');
-  expect(parseFloat(layer.style.left) + width).toBeLessThanOrEqual(window.innerWidth - 8);
+  expect(parseFloat(layer.style.left) + width).toBeLessThanOrEqual(window.innerWidth - 12);
   expect(parseFloat(layer.style.top) + height).toBeLessThan(window.innerHeight - 36);
   return layer;
 }

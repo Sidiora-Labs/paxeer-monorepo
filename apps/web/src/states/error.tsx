@@ -17,6 +17,7 @@ import { DesktopConfirmation, MobileConfirmation } from "../kit/confirm";
 import { DesktopDetail, MobileDetail } from "../kit/pattern-detail";
 import { InlineNotice, StateFrame } from "../kit/surface";
 import { KitButton } from "../kit/control";
+import { ShellSelector } from "../shell/selector";
 import type { ErrorReporter } from "./report";
 import { useSupportReportOutbox } from "./report-session.tsx";
 import { supportReportRoute } from "./report-routes.ts";
@@ -96,14 +97,15 @@ function useResolvedPlatform(platform?: "mobile" | "desktop"): "mobile" | "deskt
     }
     const update = () => {
       const shell = document.querySelector<HTMLElement>("[data-shell]")?.dataset.shell;
-      setResolved(shell === "mobile" || shell === "desktop"
-        ? shell
-        : window.matchMedia("(max-width: 767px)").matches ? "mobile" : "desktop");
+      if (shell === "mobile" || shell === "desktop") {
+        setResolved(shell);
+        return;
+      }
+      setResolved(ShellSelector.client({ viewportWidth: window.innerWidth, pointer: "none" }).shell);
     };
     update();
-    const media = window.matchMedia("(max-width: 767px)");
-    media.addEventListener("change", update);
-    return () => { media.removeEventListener("change", update); };
+    window.addEventListener("resize", update, { passive: true });
+    return () => { window.removeEventListener("resize", update); };
   }, [platform]);
   return resolved;
 }

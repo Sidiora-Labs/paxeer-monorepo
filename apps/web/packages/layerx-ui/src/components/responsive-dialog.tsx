@@ -127,7 +127,7 @@ export function ConfirmDialog({
           {icon}
         </span>
       )}
-      <p className="text-[15px] leading-relaxed text-foreground-secondary">{consequence}</p>
+      <p className="text-body-sm leading-relaxed text-foreground-secondary">{consequence}</p>
     </div>
   );
 

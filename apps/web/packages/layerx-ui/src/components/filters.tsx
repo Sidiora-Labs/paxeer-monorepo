@@ -97,7 +97,7 @@ export function FilterBar({
           <SheetBody className="flex flex-col gap-6">
             {filters.map((def) => (
               <section key={def.id} className="flex flex-col gap-1">
-                <h4 className="pb-1 text-[15px] font-bold text-foreground">{def.label}</h4>
+                <h4 className="pb-1 text-body-sm font-bold text-foreground">{def.label}</h4>
                 {def.type === "options" ? (
                   <OptionList
                     aria-label={def.label}
@@ -184,7 +184,7 @@ export function FilterBar({
                 <ChevronDown className="size-4 opacity-60" aria-hidden />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-[240px] p-2">
+            <PopoverContent className="w-filter p-2">
               <OptionList
                 aria-label={def.label}
                 items={def.options ?? []}

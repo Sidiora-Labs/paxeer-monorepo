@@ -4,9 +4,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import CookieBanner, { COOKIE_BANNER_PHONE_BOTTOM_CLASS } from './cookie-banner';
 import { RULES_AGREED_KEY } from './platform-rules-modal';
-import { BOTTOM_NAV_BREAKPOINT_PX, BOTTOM_NAV_HEIGHT_PX } from '@/shell/mobile-bottom-nav';
+import { BOTTOM_NAV_BREAKPOINT_PX } from '@/shell/mobile-bottom-nav';
 
-beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
+beforeAll(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 /** jsdom has no layout or matchMedia: evaluate min/max-width queries against a fake viewport width. */
 function setViewportWidth(width: number) {
@@ -15,7 +17,16 @@ function setViewportWidth(width: number) {
     const max = /max-width:\s*([\d.]+)px/.exec(query);
     const min = /min-width:\s*([\d.]+)px/.exec(query);
     const matches = (!max || width <= Number(max[1])) && (!min || width >= Number(min[1]));
-    return { matches, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false } as MediaQueryList;
+    return {
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => false,
+    } as MediaQueryList;
   };
 }
 
@@ -34,7 +45,10 @@ beforeEach(() => {
   window.localStorage.setItem(RULES_AGREED_KEY, Date.now().toString());
 });
 afterEach(() => {
-  for (const { root, container } of mounted.splice(0)) { act(() => root.unmount()); container.remove(); }
+  for (const { root, container } of mounted.splice(0)) {
+    act(() => root.unmount());
+    container.remove();
+  }
   window.localStorage.clear();
 });
 
@@ -45,9 +59,13 @@ describe('cookie banner placement', () => {
     const el = banner()!;
     expect(el).not.toBeNull();
     expect(el.dataset.placement).toBe('above-bottom-nav');
-    expect(COOKIE_BANNER_PHONE_BOTTOM_CLASS).toBe(`bottom-[calc(${BOTTOM_NAV_HEIGHT_PX}px+env(safe-area-inset-bottom,0px))]`);
+    expect(COOKIE_BANNER_PHONE_BOTTOM_CLASS).toBe(
+      'bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem))]'
+    );
     expect(el.classList).toContain('fixed');
-    expect(el.classList).toContain('bottom-[calc(56px+env(safe-area-inset-bottom,0px))]');
+    expect(el.classList).toContain(
+      'bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem))]'
+    );
     expect(el.classList).not.toContain('bottom-0');
   });
 

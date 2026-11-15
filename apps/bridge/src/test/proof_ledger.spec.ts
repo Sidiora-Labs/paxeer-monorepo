@@ -9,8 +9,6 @@
  */
 // @vitest-environment jsdom
 
-import { ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification } from './bridge-lifecycle.proofs';
-
 import { ImportTransfer, importTransferReceipt } from '@/components/bridge/import-transfer';
 import { bridgeChainByKey, buildBridgeChains, type BridgeChain } from '@/lib/bridge/chains';
 import { readConfig } from '@/lib/bridge/config';
@@ -28,6 +26,8 @@ import { encodeAbiParameters, encodeEventTopics, getAddress, zeroAddress, zeroHa
 import { WagmiProvider } from 'wagmi';
 
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+
+import { ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification } from './bridge-lifecycle.proofs';
 
 const storageKey = 'paxeer-bridge:transfers:v1';
 const account: Address = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -121,8 +121,8 @@ afterEach(() => {
 async function submittedProducersCrossTheLedgerAndSurviveReopening(): Promise<void> {
   for (const direction of [ 'in', 'out' ] as const) {
     const record = submitted(direction);
-    expect(record.id).toBe(`${ hash.toLowerCase() }:${ direction }`);
-    expect(transferIdOf(direction, hash)).toBe(record.id);
+    expect(record.id).toBe(transferIdOf(direction, hash, '8453'));
+    expect(record.id).toBe(`${ 8453 }:${ hash.toLowerCase() }:${ direction }:pending`);
     expect(record.amount).toBe('9007199254740993');
     expect(record.foreignChainId).toBe('8453');
     expect(record.requiredConfirmations).toBe(direction === 'in' ? 1800 : 1);
@@ -152,7 +152,7 @@ async function receiptProducersReachTheComponentsRealConsumerTwice(): Promise<vo
     const chain = direction === 'in' ? configuredBase() : undefined;
     const produced = chain ? importDeposit(chain, receipt) : importWithdrawal(receipt);
     expect(produced).toMatchObject({
-      id: transferIdOf(direction, hash), direction, account: direction === 'in' ? getAddress(account) : account, recipient: getAddress(recipient),
+      id: transferIdOf(direction, hash, '8453', direction === 'in' ? '7' : '9'), direction, account: direction === 'in' ? getAddress(account) : account, recipient: getAddress(recipient),
       assetId: zeroAddress, amount: amount.toString(), foreignChainKey: 'base', foreignChainId: '8453',
     });
     expect(direction === 'in' ? produced.nonce : produced.bridgeOutNonce).toBe('9');

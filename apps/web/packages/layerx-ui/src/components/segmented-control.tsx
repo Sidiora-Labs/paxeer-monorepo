@@ -50,9 +50,9 @@ export function SegmentedControl({
             onClick={() => onValueChange(opt.value)}
             className={cn(
               "flex h-full flex-1 items-center justify-center rounded-full font-semibold whitespace-nowrap transition-all outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
-              size === "sm" ? "px-3 text-[13px]" : "px-4 text-sm",
+              size === "sm" ? "px-3 text-label" : "px-4 text-sm",
               active
-                ? "bg-surface text-foreground shadow-[0_1px_4px_rgb(0_0_0/0.10)]"
+                ? "bg-surface text-foreground shadow-sm"
                 : "text-faint-foreground hover:text-muted-foreground",
             )}
           >
