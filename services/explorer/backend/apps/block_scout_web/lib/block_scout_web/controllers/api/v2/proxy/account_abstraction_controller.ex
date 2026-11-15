@@ -42,6 +42,14 @@ defmodule BlockScoutWeb.API.V2.Proxy.AccountAbstractionController do
     description: "Retrieves a human-readable summary of what a user operation did, presented in natural language.",
     parameters: base_params() ++ [operation_hash_param(), just_request_body_param()],
     responses: [
+      forbidden:
+        {"Restricted access", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"Human-readable summary of the specified user operation.", "application/json",
          %Schema{

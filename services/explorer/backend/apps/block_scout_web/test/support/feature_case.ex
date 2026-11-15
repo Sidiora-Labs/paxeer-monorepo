@@ -21,10 +21,10 @@ defmodule BlockScoutWeb.FeatureCase do
   end
 
   @doc false
-  def setup_cache_fixture, do: BlockScoutWeb.CacheFixture.checkout!()
+  def setup_cache_fixture(cleanup? \\ false), do: BlockScoutWeb.CacheFixture.checkout!(cleanup?)
 
   setup tags do
-    :ok = setup_cache_fixture()
+    :ok = setup_cache_fixture(true)
 
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo)
 

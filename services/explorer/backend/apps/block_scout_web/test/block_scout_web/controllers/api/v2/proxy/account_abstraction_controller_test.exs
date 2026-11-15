@@ -183,6 +183,10 @@ defmodule BlockScoutWeb.API.V2.Proxy.AccountAbstractionControllerTest do
         end
       )
 
+      previous_chain_id = Application.get_env(:block_scout_web, :chain_id)
+      Application.put_env(:block_scout_web, :chain_id, 125)
+      on_exit(fn -> Application.put_env(:block_scout_web, :chain_id, previous_chain_id) end)
+
       request =
         get(conn, "/api/v2/proxy/account-abstraction/operations/#{operation_hash}/summary?just_request_body=true")
 
