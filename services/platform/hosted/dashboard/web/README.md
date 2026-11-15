@@ -123,9 +123,14 @@ the same attributes and `Max-Age=0`. The cookie requires HTTPS. Session and CSRF
 tokens stay out of response bodies and error text; the session token is sent to
 the browser only in the HttpOnly cookie.
 
-The Keys section issues a gateway key using the Ed25519 public key held by this
-browser, offers all six labelled gateway scopes and bounded quota fields, and
-provides rotate and confirmation-protected revoke controls for active keys.
+The Keys section signs an issue request with the Ed25519 public key held by the
+browser key of the current session, offers all six labelled gateway scopes and
+bounded quota fields, and provides rotate and confirmation-protected revoke
+controls for active keys. When this browser has no developer key, the view
+explains that it cannot sign issuance and keeps the Issue key control disabled.
+Creating a key during sign-in updates the view immediately, without a page
+reload. Refusals are shown in words from the gateway reason so the developer
+can correct the request or try again.
 Each write uses a fresh idempotency key and refreshes the dashboard after
 success. An issued or rotated secret is held only in page memory and shown once
 in a dialog with a copy control; closing the dialog removes it from the page.
