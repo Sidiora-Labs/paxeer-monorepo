@@ -331678,7 +331678,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.655]
 title = "Build the call environment of the upgrade lifecycle test with the chain configuration of the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
