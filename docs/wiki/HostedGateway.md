@@ -311,8 +311,16 @@ replicas; do not clear that state to recover an uncertain operation.
 | `gateway:pending` | Pending operation references |
 | `gateway:activity:{id}`, `gateway:activity-operation:{id}` | Activity owner and operation pointer |
 | `gateway:audit`, `gateway:audit:head` | Hash-chained audit stream and head |
+| `gateway:principal:{digest}:audit` | Gateway-written principal audit stream with the common stream's IDs and fields; the dashboard reads absent entries and an absent version as empty history |
+| `gateway:principal:{digest}:audit:version` | Gateway-written index version `1`; other versions and entries without a version are refused by the dashboard |
+| `gateway:audit:principal-index:cursor` | Durable position for background recovery in pages of at most 256 common audit entries |
 | `gateway:tap:nonce:{scope}`, `gateway:tap:binding:{digest}` | TAP replay protection and credential binding |
 | `gateway:events:*` | Durable event outbox, observations and sequence tracking |
+
+The gateway writes each principal audit entry and version in the same script
+as the common audit entry. At startup it recovers principal indexes in the
+background from the stored cursor without delaying serving. Recovery reports
+its stage on failure and leaves serving available.
 
 Stored continuations are bounded at 2 MiB in at most 16 chunks. The presence
 of operation storage does not make the removed public submission routes
