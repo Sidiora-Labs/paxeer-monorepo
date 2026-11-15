@@ -328,21 +328,32 @@ func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) err
 	if c.NodeEnv != runtimeProduction {
 		return pool.Ping(ctx)
 	}
+	want, err := c.runtimeExpectedSchema()
+	if err != nil {
+		return err
+	}
+	return dbproduction.CheckReadiness(ctx, pool, want)
+}
+
+func (c *Config) runtimeExpectedSchema() (dbproduction.ExpectedSchema, error) {
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
-		return fmt.Errorf("runtime_schema_configuration_missing")
+		return dbproduction.ExpectedSchema{}, fmt.Errorf("runtime_schema_configuration_missing")
 	}
 	data, err := boundBytes(c.ExpectedSchemaFile, c.ExpectedSchemaDocument, c.ExpectedSchemaSHA256)
 	if err != nil {
-		return err
+		return dbproduction.ExpectedSchema{}, err
 	}
 	want, err := dbproduction.LoadExpectedSchema(data, c.ExpectedSchemaSHA256)
 	if err != nil {
-		return err
+		return dbproduction.ExpectedSchema{}, err
+	}
+	if want.Service == "pnl" {
+		want.Service = "core/pnl-tracker"
 	}
 	if want.Service != "core/pnl-tracker" {
-		return fmt.Errorf("runtime_schema_service_mismatch")
+		return dbproduction.ExpectedSchema{}, fmt.Errorf("runtime_schema_service_mismatch")
 	}
-	return dbproduction.CheckReadiness(ctx, pool, want)
+	return want, nil
 }
 
 // inlineDocuments holds the inline *_DOCUMENT values of the last Load, keyed
@@ -371,7 +382,10 @@ func (c *Config) registerInlineDocuments() error {
 		if p.file != "" && p.inline != "" {
 			return fmt.Errorf("%s_FILE and %s_DOCUMENT are both set", p.name, p.name)
 		}
-		if p.inline != "" {
+		if p.file == "" && (p.inline != "" || p.digest != "") {
+			if _, err := boundBytes("", p.inline, p.digest); err != nil {
+				return fmt.Errorf("%s_DOCUMENT: %w", p.name, err)
+			}
 			documents[p.digest] = p.inline
 		}
 	}

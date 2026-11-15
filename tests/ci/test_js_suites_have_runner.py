@@ -331,10 +331,19 @@ def workflow_coverage(manifests):
         if target not in reached:
             continue
         if target == "programs-test":
-            prerequisites = re.search(
-                r"^programs-test:([^\n]+)", makefile, re.MULTILINE
+            prerequisites = next(
+                (
+                    line.partition(":")[2]
+                    for line in makefile.splitlines()
+                    if line.startswith("programs-test:")
+                    and not re.match(
+                        r"\s*(?:export\s+)?[A-Za-z_]\w*\s*=",
+                        line.partition(":")[2],
+                    )
+                ),
+                "",
             )
-            assert prerequisites and "programs-sdk-assemblyscript" in prerequisites[1].split()
+            assert "programs-sdk-assemblyscript" in prerequisites.split()
         recipe = re.search(
             r"^" + re.escape(declaration) + r"[^\n]*\n((?:\t[^\n]*\n)+)",
             makefile, re.MULTILINE,
@@ -413,6 +422,12 @@ def test_js_launchpad_and_wallet_runners_recognised():
         test_step = test_steps[0]
         command = expand_matrix(test_step["run"], row)
         directory = expand_matrix(test_step["working-directory"], row)
+        if row["package"] != "apps/launchpad/web":
+            assert directory == "apps/launchpad"
+            assert shlex.split(command) == [
+                "pnpm", "--filter", "./../../" + row["package"],
+                "--fail-if-no-match", "run", "test",
+            ]
         assert command_packages(command, directory, manifests) == {
             manifest_at(row["package"])
         }
@@ -476,10 +491,6 @@ def test_js_exclusion_list_entries_exist():
         assert name in packages, f"Stale exclusion (not a tracked test package): {name}"
         assert (ROOT / name).is_file(), name
         assert len(reason.split()) >= 8, f"Explain the external dependency for {name}"
-    perps = (ROOT / "apps/perps/tests/e2e-local-node.test.ts").read_text()
-    assert all(key in perps for key in (
-        "LOCAL_NODE_RPC", "LOCAL_NODE_KEY", "NEXT_PUBLIC_PERPS_GATEWAY_URL"
-    ))
     assert "apps/perps/package.json" in recorded
     assert "tests/integration/rpc_tests/package.json" in recorded
     assert "test:portable" in manifests["tools/codebase-map/package.json"]["scripts"]

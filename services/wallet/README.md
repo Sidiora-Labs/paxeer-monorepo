@@ -88,6 +88,8 @@ Attestors, read by `attestor/internal/config/config.go` and `attestor/internal/r
 
 Attestors load policy JSON, signed authority and inventory documents, agent configuration, keys and TLS material from the configured files. `deploy/attestor-policy.json` and `deploy/attestor-kernel-policy.json` provide policy documents; `deploy/attestor-policy.md` describes signing policy.
 
+From `attestor/`, run `go run ./cmd/inventory/` with `init` to create the five-member inventory, `approve` to apply a manifest's `inventory_requests`, `renew` to extend its lifetime, `show` to inspect it (`-keys` lists individual keys), or `serve` to sweep the gateway and publish confirmed inventory updates. Supply `-private-key`, `-issuer` and `-tenant`; the owner's P-256 PEM key must be an owned regular file with mode `0600`. `init` takes five `-member id=certificate.pem` flags; `approve` takes `-requests manifest.json`. `approve`, `renew` and `show` read `-inventory`; signing commands write `-output` atomically and accept `-lifetime` up to `720h` (30 days).
+
 Ceremony tools, read by the loaders under `ceremony/internal/`:
 
 - `CEREMONY_SOURCE_DATABASE_URL`, `CEREMONY_DATABASE_URL`, `CEREMONY_GATEWAY_MIGRATIONS_DIR`

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[4]
 DEFINITION = ROOT / "deploy/projects/platform/dashboard.kvx"
 DOCKERFILE = ROOT / "docker/platform-dashboard/Dockerfile"
 FILES_TABLE = ROOT / "docker/platform-dashboard/files.tsv"
-PROJECT_PREFIX = "PAXEER_X_PLATFORM_DASHBOARD_"
+PROJECT_PREFIX = "PLATFORM_DASHBOARD_"
 INPUT_WORDS = {"generated", "provider", "chain", "operator"}
 
 
@@ -148,7 +148,7 @@ def test_platform_dashboard_definition() -> None:
     sections = parse_kvx(DEFINITION)
     service = sections["service.dashboard"]
     variables = sections["vars.dashboard"]
-    inputs = {name.removeprefix("inputs."): values for name, values in sections.items() if name.startswith("inputs.")}
+    inputs = sections["inputs.dashboard"]
 
     assert service["kind"] == "repo"
     dockerfile = ROOT / str(service["dockerfile"])
@@ -178,11 +178,11 @@ def test_platform_dashboard_definition() -> None:
     assert env_rows <= set(inputs)
     assert all(name.startswith(PROJECT_PREFIX) for name in env_rows)
     assert all(re.fullmatch(r"[A-Z][A-Z0-9_]*", name) for name in env_rows)
-    assert all(values and set(values) <= INPUT_WORDS for values in inputs.values())
+    assert all(value in INPUT_WORDS for value in inputs.values())
 
     definition_text = DEFINITION.read_text().splitlines()
     for index, line in enumerate(definition_text):
-        if line.startswith("[inputs."):
+        if any(line.startswith(name + " =") for name in inputs):
             assert index and definition_text[index - 1].lstrip().startswith("#")
 
     patterns = [str(pattern).lstrip("/") for pattern in watch]

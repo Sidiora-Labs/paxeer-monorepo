@@ -44,3 +44,8 @@ when deploying from the repository root, keeping the repository as build context
 fly deploy . --config services/platform/hosted/dashboard/web/fly.toml \
   --build-arg DASHBOARD_API_ORIGIN="$DASHBOARD_API_ORIGIN"
 ```
+
+## Styles
+
+The style sheet is built from the dashboard app files and the `src` directory
+of the UI package. The build checks the generated sheet for the UI classes.

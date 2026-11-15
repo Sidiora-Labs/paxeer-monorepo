@@ -16,7 +16,7 @@
 //  1-line swap.
 // ─────────────────────────────────────────────────────────────────────
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   subscribeQuery,
   gqlQuery,
@@ -65,55 +65,96 @@ export function useSharedPolledQuery<TRaw = unknown, TPicked = TRaw>(
 ): SharedPolledQueryResult<TPicked> {
   const { endpoint, query, variables, intervalMs, enabled = true, pick } = opts;
 
-  const [data, setData] = useState<TPicked | undefined>();
-  const [isLoading, setIsLoading] = useState<boolean>(enabled);
-  const [error, setError] = useState<Error | null>(null);
-
-  // Keep pick / variables in refs so consumers don't have to memoize.
-  const pickRef = useRef(pick);
-  pickRef.current = pick;
-  const variablesRef = useRef(variables);
-  variablesRef.current = variables;
-
-  // Serialize variables so the effect's dep array is string-stable.
   const variablesKey = JSON.stringify(variables ?? null);
+  const generation = useMemo(
+    () => ({}),
+    [endpoint, query, variablesKey, enabled],
+  );
+  const inputs = useRef({ variables, pick });
+  inputs.current = { variables, pick };
+  const scope = useRef<{
+    generation: object;
+    active: boolean;
+    request: number;
+  }>();
+  const [state, setState] = useState<{
+    generation: object;
+    data: TPicked | undefined;
+    isLoading: boolean;
+    error: Error | null;
+  }>({ generation, data: undefined, isLoading: enabled, error: null });
 
   const refetch = useCallback(() => {
-    if (!enabled) return;
-    setIsLoading(true);
-    gqlQuery<TRaw>(endpoint, query, variablesRef.current)
+    const current = scope.current;
+    if (!enabled || !current?.active || current.generation !== generation)
+      return;
+    const request = ++current.request;
+    const picker = inputs.current.pick;
+    const requestVariables = inputs.current.variables;
+    const matches = () => current.active && current.request === request;
+    setState((previous) => ({ ...previous, isLoading: true, error: null }));
+    void gqlQuery<TRaw>(endpoint, query, requestVariables)
       .then((res) => {
-        setData(pickRef.current(res));
-        setError(null);
+        if (matches()) {
+          setState({
+            generation,
+            data: picker(res),
+            isLoading: false,
+            error: null,
+          });
+        }
       })
-      .catch((e) => setError(e instanceof Error ? e : new Error(String(e))))
-      .finally(() => setIsLoading(false));
-  }, [endpoint, query, enabled]);
+      .catch((error) => {
+        if (matches()) {
+          setState((previous) => ({
+            ...previous,
+            isLoading: false,
+            error: error instanceof Error ? error : new Error(String(error)),
+          }));
+        }
+      });
+  }, [endpoint, query, enabled, generation]);
 
   useEffect(() => {
-    if (!enabled) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
+    const current = { generation, active: true, request: 0 };
+    scope.current = current;
+    setState({ generation, data: undefined, isLoading: enabled, error: null });
+    if (!enabled)
+      return () => {
+        current.active = false;
+      };
     const unsubscribe = subscribeQuery<TRaw>({
       endpoint,
       query,
-      variables: variablesRef.current,
+      variables: inputs.current.variables,
       intervalMs,
       onData: (res) => {
-        setData(pickRef.current(res));
-        setError(null);
-        setIsLoading(false);
+        if (current.active) {
+          setState({
+            generation,
+            data: inputs.current.pick(res),
+            isLoading: false,
+            error: null,
+          });
+        }
       },
-      onError: (err) => {
-        setError(err);
-        setIsLoading(false);
+      onError: (error) => {
+        if (current.active) {
+          setState((previous) => ({ ...previous, error, isLoading: false }));
+        }
       },
     });
-    return unsubscribe;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint, query, variablesKey, intervalMs, enabled]);
+    return () => {
+      current.active = false;
+      unsubscribe();
+    };
+  }, [endpoint, query, generation, intervalMs, enabled]);
 
-  return { data, isLoading, error, refetch };
+  const visible = enabled && state.generation === generation;
+  return {
+    data: visible ? state.data : undefined,
+    error: visible ? state.error : null,
+    isLoading: enabled && (!visible || state.isLoading),
+    refetch,
+  };
 }

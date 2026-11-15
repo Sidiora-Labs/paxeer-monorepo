@@ -6,9 +6,9 @@
  * JS clean.
  */
 
-export { buildUrl } from './buildUrl';
-export { paxscanFetch, PaxscanError } from './fetch';
-export { RESOURCES } from './resources';
+export { buildUrl } from "./buildUrl";
+export { paxscanFetch, PaxscanError } from "./fetch";
+export { RESOURCES } from "./resources";
 export type {
   ApiResource,
   PaginatedResourceName,
@@ -16,4 +16,4 @@ export type {
   QueryParams,
   ResourceName,
   ResourcePayload,
-} from './resources';
+} from "./resources";

@@ -74,7 +74,7 @@ def test_platform_hpx_registry_definition_matches_sources() -> None:
     inputs = sections["inputs.hpx-registry"]
 
     assert service["kind"] == "repo"
-    assert service["container"] == "docker/hpx-registry/Dockerfile"
+    assert service["dockerfile"] == "docker/hpx-registry/Dockerfile"
     assert service["root"] == "."
     assert service["health"] == "/healthz"
     assert service["restart"] == "ALWAYS"

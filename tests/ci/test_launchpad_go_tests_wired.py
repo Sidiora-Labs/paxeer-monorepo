@@ -1210,8 +1210,9 @@ def test_launchpad_go_jobs_install_the_reward_schema_fixture():
         (install,) = [step for step in steps
                       if step.get("name") == "Install reward schema fixture dependencies"]
         assert install["working-directory"] == (
-            "services/launchpad/pnl-tracker/internal/app/testdata/repair29"
+            "services/launchpad/pnl-tracker/internal/app/testdata/reward_schema"
         )
+        assert (ROOT / install["working-directory"] / "package.json").is_file()
         assert install["run"] == "pnpm install --ignore-workspace --frozen-lockfile"
         (contracts,) = [step for step in steps
                         if step.get("name") == "Compile launchpad contracts for API authority proofs"]

@@ -220,6 +220,32 @@ func PersistSigned(st *store.Store, purpose, sequence, token string) error {
 	})
 }
 
+// ReadPersisted returns a retained signed token and its sequence. A missing
+// record is reported as store.ErrNotFound; callers may decide whether an
+// unavailable or expired token can be replaced by their configured source.
+func ReadPersisted(st *store.Store, purpose string) (uint64, string, error) {
+	if st == nil || purpose == "" {
+		return 0, "", ErrAuthority
+	}
+	var saved storedAuthority
+	err := st.WithRecord(store.RecordKind("custody-authority"), purpose, func(raw []byte) error {
+		if strictJSON(raw, &saved) != nil {
+			return ErrAuthority
+		}
+		if saved.Sequence == 0 {
+			return ErrAuthority
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, "", err
+	}
+	if saved.Token == "" || saved.Sequence == 0 {
+		return 0, "", ErrAuthority
+	}
+	return saved.Sequence, saved.Token, nil
+}
+
 type Authority struct {
 	mu         sync.RWMutex
 	config     AuthorityConfig

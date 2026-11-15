@@ -1,5 +1,12 @@
 "use client";
-import { isPageActive, scheduleActive, watchSocket, type CancelTask } from "@paxeer-network/paxeer-backend/core/net/realtime";
+import {
+  isPageActive,
+  scheduleActive,
+  sequenceGuard,
+  watchSocket,
+  type CancelTask,
+} from "@paxeer-network/paxeer-backend/core/net/realtime";
+import { FEED_ORIGIN } from "@paxeer-network/paxeer-backend/core/feeds";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -23,16 +30,15 @@ import { useEffect, useRef, useState } from "react";
    within ~200 ms of connection, keeping the page never empty.
    ══════════════════════════════════════════════════════════════════════ */
 
+// The gateway permits the Hyperpax browser origin; no client secret is shipped.
 
-// The gateway permits the paxeer-network browser origin; no client secret is shipped.
+export const EXPLORER_WS_URL = `${FEED_ORIGIN.replace(/^http/, "ws")}/ws/explorer`;
 
-const EXPLORER_WS_URL = `wss://data.feed.chainflowtrading.com/ws/explorer`;
-
-const MAX_BLOCKS        = 50;
-const MAX_TXS           = 100;
+const MAX_BLOCKS = 50;
+const MAX_TXS = 100;
 const RECONNECT_INITIAL = 500;
-const RECONNECT_MAX     = 60_000;
-const PING_INTERVAL     = 25_000;
+const RECONNECT_MAX = 60_000;
+const PING_INTERVAL = 25_000;
 
 // ── Public types ───────────────────────────────────────────────────────
 
@@ -89,8 +95,8 @@ function normalizeBlock(d: any): ExplorerBlock | null {
   if (!hash) return null;
   return {
     block_number: Number(d.block_number ?? d.height ?? 0),
-    time:         parseTime(d.time ?? d.timestamp),
-    proposer:     String(d.proposer ?? ""),
+    time: parseTime(d.time ?? d.timestamp),
+    proposer: String(d.proposer ?? ""),
     hash,
     transactions: Number(d.transactions ?? d.transactions_count ?? 0),
   };
@@ -101,53 +107,72 @@ function normalizeTx(d: any): ExplorerTx | null {
   if (!hash) return null;
   return {
     hash,
-    action:  String(d.action ?? ""),
-    block:   Number(d.block  ?? 0),
-    time:    parseTime(d.time ?? d.timestamp),
-    user:    String(d.user   ?? ""),
-    symbol:  d.symbol != null ? String(d.symbol) : undefined,
-    side:    d.side   != null ? String(d.side)   : undefined,
-    price:   d.price  != null ? Number(d.price)  : undefined,
-    size:    d.size   != null ? Number(d.size)   : undefined,
+    action: String(d.action ?? ""),
+    block: Number(d.block ?? 0),
+    time: parseTime(d.time ?? d.timestamp),
+    user: String(d.user ?? ""),
+    symbol: d.symbol != null ? String(d.symbol) : undefined,
+    side: d.side != null ? String(d.side) : undefined,
+    price: d.price != null ? Number(d.price) : undefined,
+    size: d.size != null ? Number(d.size) : undefined,
   };
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────
 
 export function useExplorerStream(): UseExplorerStreamResult {
-  const [blocks, setBlocks]           = useState<ExplorerBlock[]>([]);
-  const [txs, setTxs]                 = useState<ExplorerTx[]>([]);
-  const [connected, setConnected]     = useState(false);
+  const [blocks, setBlocks] = useState<ExplorerBlock[]>([]);
+  const [txs, setTxs] = useState<ExplorerTx[]>([]);
+  const [connected, setConnected] = useState(false);
   const [seedLoading, setSeedLoading] = useState(true);
 
-  const wsRef             = useRef<WebSocket | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<CancelTask | null>(null);
-  const pingTimerRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectDelayRef = useRef(RECONNECT_INITIAL);
-  const mountedRef        = useRef(true);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
 
     function cleanup() {
-      if (pingTimerRef.current)      { clearInterval(pingTimerRef.current);  pingTimerRef.current = null; }
-      if (reconnectTimerRef.current) { reconnectTimerRef.current(); reconnectTimerRef.current = null; }
-      if (wsRef.current)             { wsRef.current.close(); wsRef.current = null; }
+      if (pingTimerRef.current) {
+        clearInterval(pingTimerRef.current);
+        pingTimerRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        reconnectTimerRef.current();
+        reconnectTimerRef.current = null;
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     }
 
     function scheduleReconnect() {
       if (reconnectTimerRef.current || !mountedRef.current) return;
       const delay = reconnectDelayRef.current;
-      reconnectTimerRef.current = scheduleActive(() => {
-        reconnectTimerRef.current = null;
-        reconnectDelayRef.current = Math.min(RECONNECT_MAX, reconnectDelayRef.current * 2);
-        connect();
-      }, delay, EXPLORER_WS_URL);
+      reconnectTimerRef.current = scheduleActive(
+        () => {
+          reconnectTimerRef.current = null;
+          reconnectDelayRef.current = Math.min(
+            RECONNECT_MAX,
+            reconnectDelayRef.current * 2,
+          );
+          connect();
+        },
+        delay,
+        EXPLORER_WS_URL,
+      );
     }
 
     function connect() {
       if (!mountedRef.current) return;
-      if (!isPageActive()) { scheduleReconnect(); return; }
+      if (!isPageActive()) {
+        scheduleReconnect();
+        return;
+      }
       let ws: WebSocket;
       try {
         ws = new WebSocket(EXPLORER_WS_URL);
@@ -156,33 +181,59 @@ export function useExplorerStream(): UseExplorerStreamResult {
         return;
       }
       wsRef.current = ws;
-      watchSocket(ws, () => { reconnectDelayRef.current = RECONNECT_INITIAL; });
+      watchSocket(ws, () => {
+        reconnectDelayRef.current = RECONNECT_INITIAL;
+      });
 
       ws.addEventListener("open", () => {
-        if (!mountedRef.current) { ws.close(); return; }
+        if (!mountedRef.current) {
+          ws.close();
+          return;
+        }
         setConnected(true);
         try {
-          ws.send(JSON.stringify({ event: "subscribe", topic: "chain@blocks" }));
-          ws.send(JSON.stringify({ event: "subscribe", topic: "chain@transactions" }));
-        } catch { /* socket may have closed between open and first send */ }
+          ws.send(
+            JSON.stringify({ event: "subscribe", topic: "chain@blocks" }),
+          );
+          ws.send(
+            JSON.stringify({ event: "subscribe", topic: "chain@transactions" }),
+          );
+        } catch {
+          /* socket may have closed between open and first send */
+        }
 
         pingTimerRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
-            try { ws.send(JSON.stringify({ event: "ping" })); } catch { /* ignore */ }
+            try {
+              ws.send(JSON.stringify({ event: "ping" }));
+            } catch {
+              /* ignore */
+            }
           }
         }, PING_INTERVAL);
       });
 
+      const acceptSequence = sequenceGuard();
       ws.addEventListener("message", (ev) => {
         if (!mountedRef.current) return;
         let msg: any;
-        try { msg = JSON.parse(ev.data as string); } catch { return; }
+        try {
+          msg = JSON.parse(ev.data as string);
+        } catch {
+          return;
+        }
+        if (!acceptSequence(msg)) {
+          ws.close(4000, "sequence-gap");
+          return;
+        }
         if (!msg || !msg.topic || !msg.data) return;
 
         if (msg.topic === "chain@blocks") {
           if (Array.isArray(msg.data)) {
             // Snapshot frame — bulk-insert; sort descending by block_number.
-            const items = (msg.data as any[]).map(normalizeBlock).filter(Boolean) as ExplorerBlock[];
+            const items = (msg.data as any[])
+              .map(normalizeBlock)
+              .filter(Boolean) as ExplorerBlock[];
             items.sort((a, b) => b.block_number - a.block_number);
             setBlocks(items.slice(0, MAX_BLOCKS));
             if (mountedRef.current) setSeedLoading(false);
@@ -191,7 +242,14 @@ export function useExplorerStream(): UseExplorerStreamResult {
             const block = normalizeBlock(msg.data);
             if (!block) return;
             setBlocks((prev) => {
-              if (prev.some((b) => b.hash === block.hash || b.block_number === block.block_number)) return prev;
+              if (
+                prev.some(
+                  (b) =>
+                    b.hash === block.hash ||
+                    b.block_number === block.block_number,
+                )
+              )
+                return prev;
               return [block, ...prev].slice(0, MAX_BLOCKS);
             });
             if (mountedRef.current) setSeedLoading(false);
@@ -201,7 +259,9 @@ export function useExplorerStream(): UseExplorerStreamResult {
         if (msg.topic === "chain@transactions") {
           if (Array.isArray(msg.data)) {
             // Snapshot frame.
-            const items = (msg.data as any[]).map(normalizeTx).filter(Boolean) as ExplorerTx[];
+            const items = (msg.data as any[])
+              .map(normalizeTx)
+              .filter(Boolean) as ExplorerTx[];
             setTxs(items.slice(0, MAX_TXS));
           } else {
             // Live single-tx frame.
@@ -216,13 +276,18 @@ export function useExplorerStream(): UseExplorerStreamResult {
       });
 
       const onDisconnect = () => {
-        if (pingTimerRef.current) { clearInterval(pingTimerRef.current); pingTimerRef.current = null; }
+        if (pingTimerRef.current) {
+          clearInterval(pingTimerRef.current);
+          pingTimerRef.current = null;
+        }
         setConnected(false);
         if (wsRef.current === ws) wsRef.current = null;
         scheduleReconnect();
       };
       ws.addEventListener("close", onDisconnect);
-      ws.addEventListener("error", () => { /* close will fire too */ });
+      ws.addEventListener("error", () => {
+        /* close will fire too */
+      });
     }
 
     connect();

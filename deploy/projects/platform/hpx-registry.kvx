@@ -2,8 +2,7 @@
 
 [service.hpx-registry]
 kind = "repo"
-repository = "https://github.com/Sidiora-Labs/paxeer-monorepo"
-container = "docker/hpx-registry/Dockerfile"
+dockerfile = "docker/hpx-registry/Dockerfile"
 root = "."
 watch = ["docker/hpx-registry/**", "docker/common/**", "docker/search-front/**", "tools/hpx/registry/**", "tools/hpx/hosting/**"]
 health = "/healthz"

@@ -18,8 +18,17 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import type { Address } from "viem";
-import { pecorQuoterAbi } from "@paxeer-network/paxeer-backend/core/network/spot_abi/PECORQuoter";
-import { PECOR_CONTRACTS } from "@paxeer-network/paxeer-backend/core/spot/addresses";
+import {
+  buildBatchQuote,
+  buildGetAllLiquidityInfo,
+  buildGetLiquidityInfo,
+  buildGetTWAP,
+  buildGetTokenPrice,
+  buildQuoteExactIn,
+  buildQuoteExactOut,
+  buildQuoteMarketBuy,
+  buildQuoteMarketSell,
+} from "@paxeer-network/paxeer-backend/core/spot/quoterCalls";
 import { readContract } from "@paxeer-network/paxeer-backend/hooks/perps/useContract";
 
 /* ── typed quote result ────────────────────────────────────────── */
@@ -135,12 +144,9 @@ export async function quoteMarketBuy(params: {
   stablecoinAmount: bigint;
 }): Promise<SpotQuoteResult> {
   const { stablecoin, token, stablecoinAmount } = params;
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "quoteMarketBuy",
-    args: [stablecoin, token, stablecoinAmount],
-  });
+  const raw = await readContract(
+    buildQuoteMarketBuy(stablecoin, token, stablecoinAmount),
+  );
   return parseQuoteResult(raw);
 }
 
@@ -154,12 +160,9 @@ export async function quoteMarketSell(params: {
   tokenAmount: bigint;
 }): Promise<SpotQuoteResult> {
   const { token, stablecoin, tokenAmount } = params;
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "quoteMarketSell",
-    args: [token, stablecoin, tokenAmount],
-  });
+  const raw = await readContract(
+    buildQuoteMarketSell(token, stablecoin, tokenAmount),
+  );
   return parseQuoteResult(raw);
 }
 
@@ -172,12 +175,9 @@ export async function quoteExactIn(params: {
   amountIn: bigint;
 }): Promise<SpotQuoteResult> {
   const { tokenIn, tokenOut, amountIn } = params;
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "quoteExactIn",
-    args: [tokenIn, tokenOut, amountIn],
-  });
+  const raw = await readContract(
+    buildQuoteExactIn(tokenIn, tokenOut, amountIn),
+  );
   return parseQuoteResult(raw);
 }
 
@@ -188,12 +188,9 @@ export async function quoteExactOut(params: {
   amountOut: bigint;
 }): Promise<SpotQuoteResult> {
   const { tokenIn, tokenOut, amountOut } = params;
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "quoteExactOut",
-    args: [tokenIn, tokenOut, amountOut],
-  });
+  const raw = await readContract(
+    buildQuoteExactOut(tokenIn, tokenOut, amountOut),
+  );
   return parseQuoteResult(raw);
 }
 
@@ -211,12 +208,7 @@ export async function batchQuote(
   requests: ReadonlyArray<BatchQuoteRequest>,
 ): Promise<SpotQuoteResult[]> {
   if (requests.length === 0) return [];
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "batchQuote",
-    args: [requests],
-  });
+  const raw = await readContract(buildBatchQuote(requests));
   const list = Array.isArray(raw) ? raw : [];
   return list.map(parseQuoteResult);
 }
@@ -225,12 +217,11 @@ export async function batchQuote(
 
 /** Read the oracle price + staleness for a single token. */
 export async function getTokenPrice(token: Address): Promise<SpotTokenPrice> {
-  const raw = (await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "getTokenPrice",
-    args: [token],
-  })) as readonly [bigint, bigint, boolean];
+  const raw = (await readContract(buildGetTokenPrice(token))) as readonly [
+    bigint,
+    bigint,
+    boolean,
+  ];
   return {
     price: raw?.[0] ?? 0n,
     timestamp: raw?.[1] ?? 0n,
@@ -239,13 +230,14 @@ export async function getTokenPrice(token: Address): Promise<SpotTokenPrice> {
 }
 
 /** Read pool liquidity + price for a single token. */
-export async function getLiquidityInfo(token: Address): Promise<SpotLiquidityInfo> {
-  const raw = (await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "getLiquidityInfo",
-    args: [token],
-  })) as readonly [bigint, bigint, boolean];
+export async function getLiquidityInfo(
+  token: Address,
+): Promise<SpotLiquidityInfo> {
+  const raw = (await readContract(buildGetLiquidityInfo(token))) as readonly [
+    bigint,
+    bigint,
+    boolean,
+  ];
   return {
     available: raw?.[0] ?? 0n,
     tokenPrice: raw?.[1] ?? 0n,
@@ -258,12 +250,12 @@ export async function getLiquidityInfo(token: Address): Promise<SpotLiquidityInf
  * stable selector to rank vault depth on the SELL side.
  */
 export async function getAllLiquidityInfo(): Promise<SpotAllLiquidityRow[]> {
-  const raw = (await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "getAllLiquidityInfo",
-    args: [],
-  })) as readonly [readonly Address[], readonly bigint[], readonly bigint[], readonly boolean[]];
+  const raw = (await readContract(buildGetAllLiquidityInfo())) as readonly [
+    readonly Address[],
+    readonly bigint[],
+    readonly bigint[],
+    readonly boolean[],
+  ];
 
   const tokens = raw?.[0] ?? [];
   const reserves = raw?.[1] ?? [];
@@ -280,13 +272,12 @@ export async function getAllLiquidityInfo(): Promise<SpotAllLiquidityRow[]> {
 
 /** Read TWAP price for a token over `period` seconds. */
 export async function getTWAP(token: Address, period: bigint): Promise<bigint> {
-  const raw = await readContract({
-    address: PECOR_CONTRACTS.PECORQuoter,
-    abi: pecorQuoterAbi,
-    functionName: "getTWAP",
-    args: [token, period],
-  });
-  return typeof raw === "bigint" ? raw : raw == null ? 0n : BigInt(raw as string | number);
+  const raw = await readContract(buildGetTWAP(token, period));
+  return typeof raw === "bigint"
+    ? raw
+    : raw == null
+      ? 0n
+      : BigInt(raw as string | number);
 }
 
 /* ── hook surface ──────────────────────────────────────────────── */

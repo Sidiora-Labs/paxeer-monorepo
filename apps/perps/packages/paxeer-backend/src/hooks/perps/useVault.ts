@@ -1,100 +1,116 @@
-import { VaultFactoryFacetABI as VaultFactoryFacetAbi } from "@paxeer-network/paxeer-backend/core/network/abi/VaultFactoryFacet";
-import { TradingAccountABI as UserVaultAbi } from "@paxeer-network/paxeer-backend/core/network/abi/TradingAccount";
-import { DIAMOND_ADDRESS, erc20Abi } from "@paxeer-network/paxeer-backend/core/perps/config";
+import type { Address } from "viem";
+import { erc20Abi } from "@paxeer-network/paxeer-backend/core/perps/config";
+import {
+  buildGetBalance,
+  buildGetLockedBalance,
+} from "@paxeer-network/paxeer-backend/core/perps/calls";
+import { getConnectedAddress } from "@paxeer-network/paxeer-backend/core/viem/clients";
 import { readContract, writeContract, waitForTx } from "./useContract";
+import {
+  deposit as depositAccount,
+  withdraw as withdrawAccount,
+  getWalletBalance as getAccountWalletBalance,
+} from "./useAccount";
 
-// ── Stable module-level functions (no React state, no hook needed) ──
-
-export async function getVaultAddress(user: `0x${string}`): Promise<`0x${string}`> {
-  return readContract({
-    address: DIAMOND_ADDRESS,
-    abi: VaultFactoryFacetAbi,
-    functionName: "getVault",
-    args: [user],
-  }) as Promise<`0x${string}`>;
+/** Native accounts live at the connected wallet address; no venue vault is created. */
+export async function getVaultAddress(user: Address): Promise<Address> {
+  return user;
 }
 
 export async function createVault() {
-  const hash = await writeContract({
-    address: DIAMOND_ADDRESS,
-    abi: VaultFactoryFacetAbi,
-    functionName: "createVault",
-  });
-  return waitForTx(hash);
+  throw new Error(
+    "Native accounts are opened by the first collateral deposit.",
+  );
 }
 
-export async function getBalance(vaultAddress: `0x${string}`, token: `0x${string}`): Promise<bigint> {
-  return readContract({
-    address: vaultAddress,
-    abi: UserVaultAbi,
-    functionName: "getBalance",
-    args: [token],
-  }) as Promise<bigint>;
+export async function getBalance(
+  account: Address,
+  token: Address,
+): Promise<bigint> {
+  return (await readContract(buildGetBalance(account, token))) as bigint;
 }
 
-export async function getLockedBalance(vaultAddress: `0x${string}`, token: `0x${string}`): Promise<bigint> {
-  return readContract({
-    address: vaultAddress,
-    abi: UserVaultAbi,
-    functionName: "getLockedBalance",
-    args: [token],
-  }) as Promise<bigint>;
+export async function getLockedBalance(
+  account: Address,
+  token: Address,
+): Promise<bigint> {
+  return (await readContract(buildGetLockedBalance(account, token))) as bigint;
 }
 
-export async function deposit(vaultAddress: `0x${string}`, token: `0x${string}`, amount: bigint) {
-  const hash = await writeContract({
-    address: vaultAddress,
-    abi: UserVaultAbi,
-    functionName: "deposit",
-    args: [token, amount],
-  });
-  return waitForTx(hash);
+export async function deposit(
+  account: Address,
+  token: Address,
+  amount: bigint,
+) {
+  const connected = getConnectedAddress();
+  if (!connected || connected.toLowerCase() !== account.toLowerCase())
+    throw new Error("Connect the requested wallet first.");
+  return depositAccount(account, amount);
 }
 
-export async function withdraw(vaultAddress: `0x${string}`, token: `0x${string}`, amount: bigint) {
-  const hash = await writeContract({
-    address: vaultAddress,
-    abi: UserVaultAbi,
-    functionName: "withdraw",
-    args: [token, amount],
-  });
-  return waitForTx(hash);
+export async function withdraw(
+  account: Address,
+  _token: Address,
+  amount: bigint,
+) {
+  const connected = getConnectedAddress();
+  if (!connected || connected.toLowerCase() !== account.toLowerCase())
+    throw new Error("Connect the requested wallet first.");
+  return withdrawAccount(amount, account);
 }
 
-export async function approveToken(token: `0x${string}`, spender: `0x${string}`, amount: bigint) {
-  const hash = await writeContract({
-    address: token,
-    abi: erc20Abi,
-    functionName: "approve",
-    args: [spender, amount],
-  });
-  return waitForTx(hash);
+export async function approveToken(
+  token: Address,
+  spender: Address,
+  amount: bigint,
+) {
+  return waitForTx(
+    await writeContract({
+      address: token,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [spender, amount],
+    }),
+  );
 }
 
-export async function getAllowance(token: `0x${string}`, owner: `0x${string}`, spender: `0x${string}`): Promise<bigint> {
-  return readContract({
+export async function getAllowance(
+  token: Address,
+  owner: Address,
+  spender: Address,
+): Promise<bigint> {
+  return (await readContract({
     address: token,
     abi: erc20Abi,
     functionName: "allowance",
     args: [owner, spender],
-  }) as Promise<bigint>;
+  })) as bigint;
 }
 
-export async function getWalletBalance(token: `0x${string}`, user: `0x${string}`): Promise<bigint> {
-  return readContract({
+export async function getWalletBalance(
+  token: Address,
+  user: Address,
+): Promise<bigint> {
+  if (token.toLowerCase() === "0x0000000000000000000000000000000000000000")
+    return getAccountWalletBalance(user);
+  return (await readContract({
     address: token,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: [user],
-  }) as Promise<bigint>;
+  })) as bigint;
 }
 
-// Legacy hook wrapper — returns the same stable references
 export function useVault() {
   return {
-    getVaultAddress, createVault,
-    getBalance, getLockedBalance,
-    deposit, withdraw,
-    approveToken, getAllowance, getWalletBalance,
+    getVaultAddress,
+    createVault,
+    getBalance,
+    getLockedBalance,
+    deposit,
+    withdraw,
+    approveToken,
+    getAllowance,
+    getWalletBalance,
   };
 }

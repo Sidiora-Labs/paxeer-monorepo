@@ -11,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ALLOWLIST_PATH = Path(__file__).parent / "data" / "large_file_allowlist.txt"
 MAX_FILE_BYTES = 2_000_000
 NO_GROWTH_BUDGET_MARKER = "[no-growth-budget]"
+TRADING_WORKSPACE_ROOTS = ("apps/perps/apps/web/", "apps/perps/packages/")
 
 
 @pytest.fixture(scope="module")
@@ -76,6 +77,14 @@ def test_no_unlisted_tracked_file_over_2mb(
     assert not offenders, (
         f"Tracked files over {MAX_FILE_BYTES} bytes need an allowlist entry "
         "with a recorded byte size and reason:\n" + "\n".join(offenders)
+    )
+
+
+def test_trading_workspace_files_are_tracked(tracked_paths: set[str]):
+    assert any(
+        name.startswith(root)
+        for root in TRADING_WORKSPACE_ROOTS
+        for name in tracked_paths
     )
 
 

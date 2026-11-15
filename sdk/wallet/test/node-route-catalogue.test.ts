@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test, type TestContext } from 'vitest';
 import {
   EndpointClient,
   decodeNodeRouteCatalogue,
@@ -16,8 +16,11 @@ type MutableCatalogue = {
   readiness: Record<string, Record<string, unknown>>;
 };
 
-async function nodeRouteCatalogueDecodesAndValidates(): Promise<void> {
+async function nodeRouteCatalogueDecodesAndValidates({ skip }: TestContext): Promise<void> {
   const url = process.env.PX_NODE_CATALOGUE_URL;
+  if (url === undefined) {
+    skip('PX_NODE_CATALOGUE_URL is supplied by TestPxNodeCatalogueWalletSDK in rpc/px_node_catalogue_wallet_sdk_test.go');
+  }
   expect(url, 'the Go test must supply its real node HTTP root server').toBeTruthy();
   const expectedMethods = JSON.parse(process.env.PX_NODE_CATALOGUE_METHODS!);
   expect(Array.isArray(expectedMethods)).toBe(true);

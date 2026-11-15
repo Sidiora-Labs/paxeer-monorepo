@@ -43,7 +43,10 @@ export function useOiSnapshots(marketId: number | undefined, limit = 100) {
 
 // ── Mark-price history ───────────────────────────────────────────────
 export function useMarkPriceHistory(marketId: number | undefined, limit = 100) {
-  return useSharedPolledQuery<{ markPriceHistory: MarkPriceRecord[] }, MarkPriceRecord[]>({
+  return useSharedPolledQuery<
+    { markPriceHistory: MarkPriceRecord[] },
+    MarkPriceRecord[]
+  >({
     endpoint: INDEXER_GRAPHQL,
     query: MARK_PRICE_HISTORY_QUERY,
     variables: marketId !== undefined ? { marketId, limit } : undefined,
@@ -59,7 +62,10 @@ export function useVaultBalanceHistory(
   vaultType?: number,
   limit = 100,
 ) {
-  return useSharedPolledQuery<{ vaultBalanceHistory: VaultBalanceRecord[] }, VaultBalanceRecord[]>({
+  return useSharedPolledQuery<
+    { vaultBalanceHistory: VaultBalanceRecord[] },
+    VaultBalanceRecord[]
+  >({
     endpoint: INDEXER_GRAPHQL,
     query: VAULT_BALANCE_HISTORY_QUERY,
     variables: { tokenAddress, vaultType, limit },
@@ -70,7 +76,10 @@ export function useVaultBalanceHistory(
 
 // ── Market snapshots ─────────────────────────────────────────────────
 export function useMarketSnapshots(marketId: number | undefined, limit = 100) {
-  return useSharedPolledQuery<{ marketSnapshots: MarketSnapshotRecord[] }, MarketSnapshotRecord[]>({
+  return useSharedPolledQuery<
+    { marketSnapshots: MarketSnapshotRecord[] },
+    MarketSnapshotRecord[]
+  >({
     endpoint: INDEXER_GRAPHQL,
     query: MARKET_SNAPSHOTS_QUERY,
     variables: marketId !== undefined ? { marketId, limit } : undefined,
@@ -82,7 +91,10 @@ export function useMarketSnapshots(marketId: number | undefined, limit = 100) {
 
 // ── Protocol snapshots ───────────────────────────────────────────────
 export function useProtocolSnapshots(limit = 100) {
-  return useSharedPolledQuery<{ protocolSnapshots: ProtocolSnapshotRecord[] }, ProtocolSnapshotRecord[]>({
+  return useSharedPolledQuery<
+    { protocolSnapshots: ProtocolSnapshotRecord[] },
+    ProtocolSnapshotRecord[]
+  >({
     endpoint: INDEXER_GRAPHQL,
     query: PROTOCOL_SNAPSHOTS_QUERY,
     variables: { limit },
@@ -104,7 +116,10 @@ export function useTradeSettlements(params?: {
   limit?: number;
   offset?: number;
 }) {
-  return useSharedPolledQuery<{ tradeSettlements: TradeSettlement[] }, TradeSettlement[]>({
+  return useSharedPolledQuery<
+    { tradeSettlements: TradeSettlement[] },
+    TradeSettlement[]
+  >({
     endpoint: INDEXER_GRAPHQL,
     query: TRADE_SETTLEMENTS_QUERY,
     variables: {

@@ -237,14 +237,18 @@ def test_listener_and_health_match_web_deployment():
 def test_dependencies_use_rollout_names_and_order():
     service = definition()["service"]["human-web"]
     rollout = tomllib.loads((ROOT / "deploy/rollout.kvx").read_text())["service"]
-    assert set(service["needs"]) == {"human-service", "router"}
+    assert set(service["needs"]) == {"human", "router"}
     assert len(service["needs"]) == len(set(service["needs"]))
     for name in service["needs"]:
         if name in rollout:
             assert rollout[name]["railway_service"] == name
             assert service["order"] > rollout[name]["order"]
         else:
-            assert (ROOT / "docker" / name / "Dockerfile").is_file()
+            dependency = tomllib.loads(
+                DEFINITION.with_name(f"{name}.kvx").read_text()
+            )["service"][name]
+            assert service["order"] > dependency["order"]
+            assert (ROOT / dependency["dockerfile"]).is_file()
     for value in definition()["vars"]["human-web"].values():
         for reference in re.findall(r"\$\{\{([^}]+)\}\}", value):
             if "." in reference:

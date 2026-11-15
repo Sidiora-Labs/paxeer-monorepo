@@ -1,5 +1,5 @@
 defmodule Explorer.Market.Fetcher.CoinTest do
-  use Explorer.DataCase
+  use Explorer.DataCase, async: false
 
   import Mox
 
@@ -24,7 +24,15 @@ defmodule Explorer.Market.Fetcher.CoinTest do
       secondary_coin_source: TestSource
     )
 
-    Application.put_env(:explorer, Coin, Keyword.merge(fetcher_configuration, table_name: :rates, enabled: true))
+    Application.put_env(
+      :explorer,
+      Coin,
+      Keyword.merge(fetcher_configuration,
+        table_name: :coin_fetcher_test_rates,
+        enabled: true,
+        enable_consolidation: false
+      )
+    )
 
     on_exit(fn ->
       Application.put_env(:explorer, Explorer.Market.Source, source_configuration)
@@ -55,8 +63,10 @@ defmodule Explorer.Market.Fetcher.CoinTest do
     expect(TestSource, :fetch_native_coin, fn -> {:ok, Token.null()} end)
     set_mox_global()
 
-    assert {:noreply, ^state} = Coin.handle_info({:update, false}, state)
-    assert_receive {_, {{:ok, %Token{}}, false}}
+    assert {:noreply, fetching_state} = Coin.handle_info({:update, false}, state)
+    assert_receive {ref, {{:ok, %Token{}}, false}} = reply
+    assert fetching_state == %{state | tasks: %{ref => false}}
+    assert {:noreply, ^state} = Coin.handle_info(reply, fetching_state)
   end
 
   describe "ticker fetch task" do
@@ -80,7 +90,9 @@ defmodule Explorer.Market.Fetcher.CoinTest do
         image_url: nil
       }
 
-      assert {:noreply, ^state} = Coin.handle_info({nil, {{:ok, expected_token}, false}}, state)
+      ref = make_ref()
+      fetching_state = %{state | tasks: %{ref => false}}
+      assert {:noreply, ^state} = Coin.handle_info({ref, {{:ok, expected_token}, false}}, fetching_state)
 
       assert [false: ^expected_token] = :ets.lookup(Coin.table_name(), false)
     end
@@ -89,12 +101,20 @@ defmodule Explorer.Market.Fetcher.CoinTest do
       expect(TestSource, :fetch_native_coin, fn -> {:ok, Token.null()} end)
       set_mox_global()
 
-      assert {:noreply, ^state} = Coin.handle_info({nil, {{:error, "some error"}, false}}, state)
+      ref = make_ref()
+      fetching_state = %{state | tasks: %{ref => false}}
+      failed_state = %{state | failures: %{false => %{attempts: 1, reason: "some error"}}}
 
+      assert {:noreply, ^failed_state} = Coin.handle_info({ref, {{:error, "some error"}, false}}, fetching_state)
+      assert failed_state.tasks == %{}
       assert_received {:update, false}
+      assert_received {:update, true}
+      assert_receive {:update, false}, 1_000
 
-      assert {:noreply, ^state} = Coin.handle_info({:update, false}, state)
-      assert_receive {_, {{:ok, %Token{}}, false}}
+      assert {:noreply, retrying_state} = Coin.handle_info({:update, false}, failed_state)
+      assert_receive {retry_ref, {{:ok, %Token{}}, false}} = reply
+      assert retrying_state == %{failed_state | tasks: %{retry_ref => false}}
+      assert {:noreply, ^state} = Coin.handle_info(reply, retrying_state)
     end
   end
 end

@@ -97,8 +97,8 @@ def test_smart_contract_verifier_definition() -> None:
     variables = definition["vars"]["smart-contract-verifier"]
 
     assert service["kind"] == "repo"
-    assert service["branch"] == "main"
-    assert (ROOT / service["container"]).is_file()
+    assert "branch" not in service
+    assert (ROOT / service["dockerfile"]).is_file()
     assert (ROOT / service["root"]).is_dir()
     for watch in service["watch"]:
         prefix = re.split(r"[*?\[]", watch, maxsplit=1)[0].rstrip("/")

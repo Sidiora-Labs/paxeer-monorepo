@@ -2,61 +2,108 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePerpsWallet } from "./usePerpsWallet";
-import { useRealtimePrices } from "./useRealtimePrices";
-import { subgraphQuery, POSITIONS_QUERY } from "./useSubgraph";
-import { computePositionPnl, type ParsedPosition } from "@paxeer-network/paxeer-backend/core/perps/pnlHelpers";
-import { getVaultAddress } from "./useVault";
+import { subgraphQuery, POSITIONS_QUERY, rawUint256 } from "./useSubgraph";
+import { z } from "zod";
+import {
+  buildGetAccount,
+  type AccountState,
+} from "@paxeer-network/paxeer-backend/core/perps/calls";
+import { portfolioFromAccount } from "@paxeer-network/paxeer-backend/core/perps/portfolio";
 import { getPublicClient } from "@paxeer-network/paxeer-backend/core/viem/clients";
-import { TradingAccountABI as UserVaultAbi } from "@paxeer-network/paxeer-backend/core/network/abi/TradingAccount";
-import { PERPS_MARKETS, COLLATERAL_TOKENS, INDEXER_GRAPHQL } from "@paxeer-network/paxeer-backend/core/perps/config";
+import { INDEXER_GRAPHQL } from "@paxeer-network/paxeer-backend/core/perps/config";
 import { subscribeStream } from "@paxeer-network/paxeer-backend/core/graphql/client";
-import { activePoll, isPageActive, onStreamResync, type CancelTask } from "@paxeer-network/paxeer-backend/core/net/realtime";
+import {
+  activePoll,
+  isPageActive,
+  onStreamResync,
+  type CancelTask,
+} from "@paxeer-network/paxeer-backend/core/net/realtime";
 
-const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as `0x${string}`;
-const MULTICALL3 = "0xCc4a067A6B7fD2cdeFB354A26Ff5d9b336bbE0AF" as `0x${string}`;
+type AccountTotals = Pick<
+  AccountState,
+  "collateral" | "equityUsd" | "withdrawable"
+>;
 
-// Vault address is immutable once created — cache indefinitely per user address
-const _vaultAddrCache = new Map<string, `0x${string}`>();
+const EMPTY_ACCOUNT: AccountTotals = {
+  collateral: 0n,
+  equityUsd: 0n,
+  withdrawable: 0n,
+};
 
-const ALL_TOKENS = Object.values(COLLATERAL_TOKENS);
+const portfolioPositionsSchema = z.object({
+  positions: z.array(
+    z.object({
+      positionId: rawUint256,
+      userAddress: z.string(),
+      marketId: z.number().int().nonnegative(),
+      isLong: z.boolean(),
+      sizeUsd: rawUint256,
+      leverage: rawUint256,
+      entryPrice: rawUint256,
+      collateralToken: z.string().nullable(),
+      collateralAmount: rawUint256,
+      collateralUsd: rawUint256,
+      status: z.literal("open"),
+      openedAt: z.string().nullable(),
+      openTxHash: z.string().nullable(),
+      market: z.object({ symbol: z.string() }).nullable(),
+    }),
+  ),
+});
+
+export function decodePortfolioPositions(data: unknown) {
+  return portfolioPositionsSchema.parse(data).positions;
+}
+
+export async function fetchPortfolioPositions(addr: string) {
+  return subgraphQuery(
+    POSITIONS_QUERY,
+    { userAddress: addr },
+    decodePortfolioPositions,
+  );
+}
 
 export interface PortfolioStats {
   totalVaultUsd: number;
   freeCollateral: number;
   unrealizedPnl: number;
   totalLeverage: number;
+  maintenanceMarginUsd: AccountState["maintenanceMarginUsd"] | null;
   isLoading: boolean;
   positions: any[];
 }
 
-function parse18(val: string | null | undefined): number {
-  if (!val) return 0;
-  return parseFloat(val) / 1e18;
-}
-
 /* ══════════════════════════════════════════════════════════════════════
-   Module-level singleton — one vault poller (15s) + one positions poller
-   (5s) per connected address, shared by all subscribers.
+   Module-level singleton — one account poller (15s) + one positions
+   stream per connected address, shared by all subscribers.
    ══════════════════════════════════════════════════════════════════════ */
 
 interface RawSnapshot {
   positions: any[];
-  vaultUsd: number;
-  lockedUsd: number;
+  account: AccountTotals;
+  accountAddress: string | null;
+  maintenanceMarginUsd: AccountState["maintenanceMarginUsd"] | null;
   isLoading: boolean;
 }
 
 const EMPTY_RAW: RawSnapshot = {
   positions: [],
-  vaultUsd: 0,
-  lockedUsd: 0,
+  account: EMPTY_ACCOUNT,
+  accountAddress: null,
+  maintenanceMarginUsd: null,
   isLoading: false,
 };
 
 let _raw: RawSnapshot = EMPTY_RAW;
 const _subs = new Set<(s: RawSnapshot) => void>();
 let _activeAddress: string | null = null;
-let _vaultTimer: CancelTask | null = null;
+interface PortfolioSession {
+  address: string;
+  liveVersion: number;
+  snapshotRequest: number;
+}
+let _session: PortfolioSession | null = null;
+let _accountTimer: CancelTask | null = null;
 let _resyncCleanup: CancelTask | null = null;
 let _posUnsubscribe: (() => void) | null = null;
 
@@ -77,14 +124,18 @@ const _LOCAL_CLOSED_SS_KEY = "perps.locallyClosed.v1";
 if (typeof window !== "undefined") {
   try {
     const saved = sessionStorage.getItem(_LOCAL_CLOSED_SS_KEY);
-    if (saved) JSON.parse(saved).forEach((id: string) => _locallyClosed.add(String(id)));
+    if (saved)
+      JSON.parse(saved).forEach((id: string) => _locallyClosed.add(String(id)));
   } catch {}
 }
 
 function _persistLocallyClosed() {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(_LOCAL_CLOSED_SS_KEY, JSON.stringify([..._locallyClosed]));
+    sessionStorage.setItem(
+      _LOCAL_CLOSED_SS_KEY,
+      JSON.stringify([..._locallyClosed]),
+    );
   } catch {}
 }
 
@@ -135,59 +186,60 @@ function _setRaw(patch: Partial<RawSnapshot>) {
   _notify();
 }
 
-async function _fetchVault(addr: string) {
+async function _fetchAccount(session: PortfolioSession) {
+  const addr = session.address;
   if (!isPageActive()) return;
   try {
-    // Vault address never changes — use module-level cache after first lookup
-    let vault = _vaultAddrCache.get(addr);
-    if (!vault) {
-      vault = await getVaultAddress(addr as `0x${string}`);
-      if (_activeAddress !== addr) return;
-      if (vault === ZERO_ADDR) return;
-      _vaultAddrCache.set(addr, vault);
-    }
-    if (_activeAddress !== addr) return;
-
-    // Batch all getBalance + getLockedBalance calls into a single multicall
-    const client = getPublicClient();
-    const calls = ALL_TOKENS.flatMap((tok) => [
-      { address: vault as `0x${string}`, abi: UserVaultAbi as any, functionName: "getBalance",       args: [tok.address] },
-      { address: vault as `0x${string}`, abi: UserVaultAbi as any, functionName: "getLockedBalance", args: [tok.address] },
-    ]);
-    const results = await client.multicall({
-      multicallAddress: MULTICALL3,
-      contracts: calls as any,
-      allowFailure: true,
+    const account = await getPublicClient().readContract(
+      buildGetAccount(addr as `0x${string}`),
+    );
+    if (_session !== session) return;
+    _setRaw({
+      account,
+      accountAddress: addr,
+      maintenanceMarginUsd: account.maintenanceMarginUsd,
     });
-
-    if (_activeAddress !== addr) return;
-    let totalBal = 0, totalLocked = 0;
-    for (let i = 0; i < ALL_TOKENS.length; i++) {
-      const tok = ALL_TOKENS[i];
-      const balRes  = results[i * 2];
-      const lockRes = results[i * 2 + 1];
-      if (balRes.status  === "success") totalBal    += Number(balRes.result  as bigint) / 10 ** tok.decimals;
-      if (lockRes.status === "success") totalLocked += Number(lockRes.result as bigint) / 10 ** tok.decimals;
-    }
-    _setRaw({ vaultUsd: totalBal, lockedUsd: totalLocked });
-  } catch {}
+  } catch {
+    if (_session === session) _setRaw({ maintenanceMarginUsd: null });
+  }
 }
 
 const POSITION_CHANGED_QUERY = /* GraphQL */ `
   subscription PositionChanged($userAddress: String!) {
     positionChanged(userAddress: $userAddress) {
-      positionId marketId isLong sizeUsd leverage entryPrice
-      collateralToken collateralAmount collateralUsd status openedAt openTxHash
-      market { symbol }
+      positionId
+      marketId
+      isLong
+      sizeUsd
+      leverage
+      entryPrice
+      collateralToken
+      collateralAmount
+      collateralUsd
+      status
+      openedAt
+      openTxHash
+      market {
+        symbol
+      }
     }
   }
 `;
 
-async function _fetchPositionsOnce(addr: string) {
+async function _fetchPositionsOnce(session: PortfolioSession) {
+  const addr = session.address;
+  const liveVersion = session.liveVersion;
+  const request = ++session.snapshotRequest;
   try {
-    const res = await subgraphQuery<{ positions: any[] }>(POSITIONS_QUERY, { userAddress: addr });
-    if (_activeAddress !== addr) return;
-    const positions = res.positions ?? [];
+    const positions = await fetchPortfolioPositions(addr);
+    // A full-list push supersedes every snapshot already in flight. Session
+    // identity also invalidates requests across a stop/reopen of the same account.
+    if (
+      _session !== session ||
+      session.liveVersion !== liveVersion ||
+      session.snapshotRequest !== request
+    )
+      return;
     _reconcileLocallyClosed(positions);
     _setRaw({ positions });
   } catch {}
@@ -203,36 +255,56 @@ async function _fetchPositionsOnce(addr: string) {
  * processed the on-chain event, even if it lagged behind our first
  * fetch. Silent: no spinner, no UI signal.
  *
- * Reads from `_activeAddress` snapshot at call time so unmounting or
+ * Captures the active account session at call time so unmounting or
  * switching accounts mid-flight cancels remaining retries cleanly.
  */
 export function refreshPositions() {
-  const addr = _activeAddress;
-  if (!addr) return;
-  _fetchPositionsOnce(addr);
+  const session = _session;
+  if (!session) return;
+  _fetchPositionsOnce(session);
   for (const delay of [2_000, 6_000]) {
     setTimeout(() => {
-      if (_activeAddress === addr) _fetchPositionsOnce(addr);
+      if (_session === session) _fetchPositionsOnce(session);
     }, delay);
   }
 }
 
 function _stopPolling() {
-  if (_vaultTimer)    { _vaultTimer(); _vaultTimer = null; }
-  _resyncCleanup?.(); _resyncCleanup = null;
-  if (_posUnsubscribe) { _posUnsubscribe(); _posUnsubscribe = null; }
+  _session = null;
+  if (_accountTimer) {
+    _accountTimer();
+    _accountTimer = null;
+  }
+  _resyncCleanup?.();
+  _resyncCleanup = null;
+  if (_posUnsubscribe) {
+    _posUnsubscribe();
+    _posUnsubscribe = null;
+  }
 }
 
 function _startPolling(addr: string) {
   _stopPolling();
   _activeAddress = addr;
-  _setRaw({ isLoading: true });
-  Promise.all([_fetchVault(addr), _fetchPositionsOnce(addr)]).finally(() => {
-    if (_activeAddress === addr) _setRaw({ isLoading: false });
-  });
-  _vaultTimer = activePoll(() => _fetchVault(addr), 15_000, false);
-  _resyncCleanup = onStreamResync(url => {
-    if (url === INDEXER_GRAPHQL.wsUrl && _activeAddress === addr) { void _fetchPositionsOnce(addr); void _fetchVault(addr); }
+  const session: PortfolioSession = {
+    address: addr,
+    liveVersion: 0,
+    snapshotRequest: 0,
+  };
+  _session = session;
+  _raw = { ...EMPTY_RAW, isLoading: true };
+  _notify();
+  Promise.all([_fetchAccount(session), _fetchPositionsOnce(session)]).finally(
+    () => {
+      if (_session === session) _setRaw({ isLoading: false });
+    },
+  );
+  _accountTimer = activePoll(() => _fetchAccount(session), 15_000, false);
+  _resyncCleanup = onStreamResync((url) => {
+    if (url === INDEXER_GRAPHQL.wsUrl && _session === session) {
+      void _fetchPositionsOnce(session);
+      void _fetchAccount(session);
+    }
   });
   // Subscribe to positionChanged — server pushes full position list on each change.
   // The initial query above fills the gap while the WS handshake completes.
@@ -241,7 +313,8 @@ function _startPolling(addr: string) {
     query: POSITION_CHANGED_QUERY,
     variables: { userAddress: addr },
     onData: (data) => {
-      if (_activeAddress !== addr) return;
+      if (_session !== session) return;
+      session.liveVersion++;
       const positions = data.positionChanged ?? [];
       _reconcileLocallyClosed(positions);
       _setRaw({ positions });
@@ -258,14 +331,12 @@ function _reset() {
 
 /**
  * Lightweight portfolio stats hook — shared singleton pollers.
- * - Positions fetched from subgraph (no RPC), 5s interval, shared
- * - Vault balance: 2 RPC reads every 15s, shared
- * - Mark prices from REST tickers via useRealtimePrices (also singleton)
+ * - Positions from the indexer stream (no RPC), shared
+ * - Account totals: one getAccount(account) read at 0x1015 every 15s, shared
  */
 export function usePortfolioStats(): PortfolioStats {
   const { isConnected, address } = usePerpsWallet();
   const [raw, setRaw] = useState<RawSnapshot>(_raw);
-  const { tickers } = useRealtimePrices({ enabled: isConnected && raw.positions.length > 0 });
 
   const wantedAddress = isConnected && address ? address : null;
 
@@ -292,50 +363,24 @@ export function usePortfolioStats(): PortfolioStats {
   // indexer response intact for reconciliation, while consumers see only
   // positions that should still be open from the user's perspective.
   const visiblePositions = useMemo(
-    () => raw.positions.filter((p: any) => !_locallyClosed.has(String(p.positionId))),
+    () =>
+      raw.positions.filter(
+        (p: any) => !_locallyClosed.has(String(p.positionId)),
+      ),
     [raw],
   );
 
-  const { unrealizedPnl, totalLeverage } = useMemo(() => {
-    if (visiblePositions.length === 0) return { unrealizedPnl: 0, totalLeverage: 0 };
-    let totalPnl = 0;
-    let weightedLev = 0;
-    let totalSize = 0;
-    for (const pos of visiblePositions) {
-      const sym = PERPS_MARKETS.find((m) => m.marketId === Number(pos.marketId))?.symbol ?? "";
-      const markPrice = tickers[sym]?.mark_price ?? 0;
-      const parsed: ParsedPosition = {
-        positionId: BigInt(pos.positionId),
-        marketId: Number(pos.marketId),
-        symbol: sym,
-        isLong: pos.isLong,
-        size: parse18(pos.sizeUsd),
-        collateral: parse18(pos.collateralUsd),
-        leverage: parse18(pos.leverage),
-        entryPrice: parse18(pos.entryPrice),
-        collateralToken: pos.collateralToken ?? "",
-        collateralAmount: parse18(pos.collateralAmount),
-        openedAt: pos.openedAt,
-        openTxHash: pos.openTxHash,
-      };
-      if (markPrice > 0) {
-        const pnlData = computePositionPnl(parsed, markPrice);
-        totalPnl += pnlData.unrealizedPnl;
-      }
-      weightedLev += parsed.leverage * parsed.size;
-      totalSize += parsed.size;
-    }
-    return {
-      unrealizedPnl: totalPnl,
-      totalLeverage: totalSize > 0 ? weightedLev / totalSize : 0,
-    };
-  }, [visiblePositions, tickers]);
+  const totals = useMemo(
+    () => portfolioFromAccount(raw.account, visiblePositions),
+    [raw.account, visiblePositions],
+  );
 
   return {
-    totalVaultUsd: raw.vaultUsd,
-    freeCollateral: Math.max(0, raw.vaultUsd - raw.lockedUsd),
-    unrealizedPnl,
-    totalLeverage,
+    ...totals,
+    maintenanceMarginUsd:
+      wantedAddress !== null && raw.accountAddress === wantedAddress
+        ? raw.maintenanceMarginUsd
+        : null,
     isLoading: raw.isLoading,
     positions: visiblePositions,
   };

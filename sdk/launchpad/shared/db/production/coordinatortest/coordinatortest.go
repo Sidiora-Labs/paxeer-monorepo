@@ -1,4 +1,5 @@
-// Package coordinatortest bootstraps a private PostgreSQL database the way the
+// Package coordinatortest shares migration source and owner interface helpers
+// with launchpad-schema and bootstraps a private PostgreSQL database the way the
 // production migration coordinator does (spec/production-system/integration
 // postgres-contracts.go -action bootstrap, fixtureBoot, as run by
 // kindle-migrate), scoped to the registered migrations a set of runtime roles
@@ -21,7 +22,7 @@
 // reviewed sha256 is verified. The database and every role it created are
 // dropped when the test ends. It never starts containers: the caller passes
 // the DSN of an already running server whose role may CREATE DATABASE and
-// CREATE ROLE. It is imported only by tests.
+// CREATE ROLE.
 package coordinatortest
 
 import (
@@ -37,8 +38,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 
 	"github.com/jackc/pgx/v5"
 
@@ -132,21 +131,9 @@ func RepositoryRoot(t testing.TB) string {
 
 func readBound(t testing.TB, root, relative, want string) []byte {
 	t.Helper()
-	if strings.HasPrefix(relative, "spec/production-system/") {
-		relative = "launchpad/" + relative
-	}
-	for _, prefix := range []string{"core/", "media/"} {
-		if strings.HasPrefix(relative, prefix) {
-			relative = "services/launchpad/" + strings.TrimPrefix(relative, prefix)
-			break
-		}
-	}
-	raw, err := util.ReadFilePath(filepath.Join(root, relative))
+	raw, err := ReadMigrationSource(root, relative, want)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if want != "" && production.Checksum(raw) != want {
-		t.Fatalf("%s differs from its reviewed sha256", relative)
 	}
 	return raw
 }
@@ -491,11 +478,7 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 
 	// Owner interfaces (owner_read_grants) of every planned owner, rendered
 	// by the reviewed GrantSQL; each is granted once its source exists.
-	type ownerRead struct {
-		manifest production.RoleManifest
-		grant    production.Grant
-	}
-	ownerReads := []ownerRead{}
+	ownerReads := []production.RoleManifest{}
 	for _, m := range roleDoc.Roles {
 		if !roleCreated[rename(m.OwnerRole)] {
 			continue
@@ -503,32 +486,17 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 		for _, g := range m.OwnerReadGrants {
 			if schemas[g.Schema] {
 				scoped := production.RoleManifest{Service: m.Service, Schema: m.Schema, OwnerRole: rename(m.OwnerRole), RuntimeRole: rename(m.RuntimeRole), OwnerReadGrants: []production.Grant{g}}
-				ownerReads = append(ownerReads, ownerRead{scoped, g})
+				ownerReads = append(ownerReads, scoped)
 			}
 		}
 	}
 	grantOwnerReads := func(tx pgx.Tx, owner string) {
 		t.Helper()
-		for _, read := range ownerReads {
-			if owner != "" && read.manifest.OwnerRole != rename(owner) {
-				continue
-			}
-			var present bool
-			if err := tx.QueryRow(ctx, "SELECT to_regclass($1) IS NOT NULL", pgx.Identifier{read.grant.Schema, read.grant.Object}.Sanitize()).Scan(&present); err != nil {
-				t.Fatal(err)
-			}
-			if !present {
-				continue
-			}
-			statements, err := read.manifest.GrantSQL()
-			if err != nil {
-				t.Fatalf("owner interface %s.%s: %v", read.grant.Schema, read.grant.Object, err)
-			}
-			for _, statement := range statements {
-				if _, err = tx.Exec(ctx, statement); err != nil {
-					t.Fatalf("owner interface %s.%s: %v", read.grant.Schema, read.grant.Object, err)
-				}
-			}
+		if owner != "" {
+			owner = rename(owner)
+		}
+		if err := GrantPresentOwnerInterfaces(ctx, tx, ownerReads, owner); err != nil {
+			t.Fatalf("owner interfaces: %v", err)
 		}
 	}
 

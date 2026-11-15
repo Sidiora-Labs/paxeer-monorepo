@@ -1,0 +1,49 @@
+# Wallet inventory admission service definition.
+
+[service.wallet-inventory]
+kind = "repo"
+dockerfile = "docker/wallet-inventory/Dockerfile"
+root = "."
+watch = ["docker/wallet-inventory/**", "docker/common/**", "services/wallet/attestor/**", "go.mod", "go.sum"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 1
+volume = "/data"
+order = 20
+needs = ["wallet-gateway"]
+
+[vars.wallet-inventory]
+WALLET_INVENTORY_GATEWAY_URL = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_GATEWAY_URL"
+WALLET_INVENTORY_ADMIN_TOKEN_FILE = "/run/secrets/admin.token"
+WALLET_INVENTORY_ADMIN_TOKEN = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_ADMIN_TOKEN"
+WALLET_INVENTORY_PRIVATE_KEY_FILE = "/run/secrets/inventory.key"
+WALLET_INVENTORY_PRIVATE_KEY = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_PRIVATE_KEY"
+WALLET_INVENTORY_ISSUER = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_ISSUER"
+WALLET_INVENTORY_TENANT = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_TENANT"
+WALLET_INVENTORY_STATE_DIR = "/data"
+WALLET_INVENTORY_INTERVAL = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_INTERVAL"
+WALLET_INVENTORY_RENEWAL_MARGIN = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_RENEWAL_MARGIN"
+WALLET_INVENTORY_MAX_GENERATIONS_PER_HOUR = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_MAX_GENERATIONS_PER_HOUR"
+WALLET_INVENTORY_MAX_KEYS_PER_OWNER = "env:WALLET_WALLET_INVENTORY_WALLET_INVENTORY_MAX_KEYS_PER_OWNER"
+WALLET_INVENTORY_LISTEN_ADDR = ":8080"
+PORT = "8080"
+
+[inputs.wallet-inventory]
+# Gateway administrator URL, including its HTTP(S) scheme.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_GATEWAY_URL = "operator"
+# Base64-encoded gateway administrator bearer.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_ADMIN_TOKEN = "operator"
+# Base64-encoded P-256 inventory signing key.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_PRIVATE_KEY = "generated"
+# Signed inventory issuer.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_ISSUER = "operator"
+# Signed inventory tenant.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_TENANT = "operator"
+# Sweep interval as a Go duration.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_INTERVAL = "operator"
+# Renewal margin as a Go duration.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_RENEWAL_MARGIN = "operator"
+# Maximum new generation approvals in one hour.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_MAX_GENERATIONS_PER_HOUR = "operator"
+# Maximum admitted key IDs for one owner.
+WALLET_WALLET_INVENTORY_WALLET_INVENTORY_MAX_KEYS_PER_OWNER = "operator"
