@@ -263,7 +263,18 @@ defmodule Explorer.Repair.KeycloakOtpAndProxyConfigurationTest do
     if previous_redix, do: Process.unregister(:redix)
 
     on_exit(fn ->
-      if redix = Process.whereis(:redix), do: GenServer.stop(redix)
+      case Process.whereis(:redix) do
+        pid when is_pid(pid) ->
+          try do
+            GenServer.stop(pid, :normal, 5_000)
+          catch
+            :exit, _ -> :ok
+          end
+
+        _ ->
+          :ok
+      end
+
       if previous_redix && Process.alive?(previous_redix), do: Process.register(previous_redix, :redix)
     end)
 

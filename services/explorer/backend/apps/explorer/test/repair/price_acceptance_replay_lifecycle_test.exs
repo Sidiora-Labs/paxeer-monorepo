@@ -74,6 +74,8 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     previous = Enum.map(keys, &{&1, Application.fetch_env(:indexer, &1)})
 
     on_exit(fn ->
+      Ecto.Adapters.SQL.Sandbox.mode(Repo, :auto)
+
       for {key, value} <- previous do
         case value do
           {:ok, config} -> Application.put_env(:indexer, key, config)
