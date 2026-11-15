@@ -174027,7 +174027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.43]
 title = "Close the human web application on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.31", "22.44.37"]
