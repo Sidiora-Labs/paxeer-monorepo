@@ -173292,7 +173292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.35]
 title = "Bring the page of the inference peer, the playground pages and the codebase map to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
