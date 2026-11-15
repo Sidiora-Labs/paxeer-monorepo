@@ -173616,7 +173616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.51]
 title = "Tell the class merge of the wallet application the names of its theme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173678,7 +173678,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.49]
 title = "Tell the class merge of the interface package of the human web application the names of its theme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
