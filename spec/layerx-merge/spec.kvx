@@ -172801,7 +172801,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.658]
 title = "Read the order interfaces of the wallet swap test from the present perps tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.657"]
