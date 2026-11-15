@@ -12,8 +12,8 @@ const signature = "cd".repeat(64);
 const registration = { signer_public_key: key, registration_signature: signature };
 const proof = { signer_public_key: key, proof_time: "1700000000", session_signature: signature };
 
-function request(body, { path = "/session", method = "POST", origin = browserOrigin, contentType = "application/json", raw, headers = {} } = {}) {
-  return new Request(`${browserOrigin}${path}`, {
+function request(body, { path = "/session", method = "POST", origin = browserOrigin, address = browserOrigin, contentType = "application/json", raw, headers = {} } = {}) {
+  return new Request(`${address}${path}`, {
     method,
     headers: { ...(origin === null ? {} : { Origin: origin }), "Content-Type": contentType, ...headers },
     body: raw ?? JSON.stringify(body),
@@ -198,6 +198,125 @@ async function request_guards_refuse_before_contacting_either_origin(t) {
 }
 
 test(request_guards_refuse_before_contacting_either_origin);
+
+async function public_https_origin_accepts_session_requests_behind_a_front(t) {
+  const upstream = await peer(t, (call) => {
+    if (call.path === "/v1/dashboard/overview") {
+      assert.equal(call.headers.authorization, `Bearer ${token}`);
+      return { body: {} };
+    }
+    const rpc = JSON.parse(call.body);
+    if (rpc.method === "px_register") {
+      assert.deepEqual(rpc.params, [key, signature]);
+      return rpcResult({ tenant: "beta", sub: "beta.developer", allowed_signer_public_keys: [key] });
+    }
+    assert.equal(rpc.method, "px_openSession");
+    assert.deepEqual(rpc.params, [key, proof.proof_time, signature]);
+    return rpcResult({ token, expires_at: Math.floor(Date.now() / 1000) + 3600 });
+  });
+  const origins = { apiOrigin: upstream.origin, gatewayOrigin: upstream.origin };
+  for (const [host, origin] of [
+    ["dashboard.example", browserOrigin],
+    ["DASHBOARD.EXAMPLE:443", browserOrigin],
+    ["dashboard.example:8443", "https://DASHBOARD.EXAMPLE:8443"],
+    ["[2001:db8::1]:8443", "https://[2001:db8::1]:8443"],
+  ]) {
+    for (const [body, path, method, status] of [
+      [{ token }, "/session", "POST", 204],
+      [proof, "/session", "POST", 204],
+      [registration, "/session/registration", "POST", 200],
+      [{}, "/session", "DELETE", 204],
+    ]) {
+      const incoming = request(body, { address: "http://0.0.0.0:3000", origin, path, method, headers: { Host: host } });
+      const result = await handleSessionRequest(incoming, origins);
+      assert.equal(result.status, status);
+      assert.equal(incoming.bodyUsed, true);
+      if (method === "DELETE") assertCookie(result, "", 0);
+      else if (path === "/session/registration") {
+        assert.deepEqual(await result.json(), { tenant: "beta", sub: "beta.developer", allowed_signer_public_keys: [key] });
+        assert.equal(result.headers.get("set-cookie"), null);
+      } else {
+        assert.ok(result.headers.get("set-cookie").startsWith(`__Host-layerx-session=${token};`));
+        assert.equal(await assertPrivateResponse(result), "");
+      }
+    }
+  }
+  assert.equal(upstream.calls.length, 12);
+}
+
+test(public_https_origin_accepts_session_requests_behind_a_front);
+
+async function assertRefusedOrigin(origin, host = "dashboard.example:8443") {
+  for (const [path, method] of [["/session", "POST"], ["/session/registration", "POST"], ["/session", "DELETE"]]) {
+    const incoming = request({}, {
+      address: "http://0.0.0.0:3000", origin, path, method, raw: "invalid json",
+      headers: host === null ? {} : { Host: host },
+    });
+    const result = await handleSessionRequest(incoming, { apiOrigin: "http://127.0.0.1:9445" });
+    assert.equal(result.status, 403);
+    assert.deepEqual(await result.json(), { reason: "origin_refused" });
+    assert.equal(result.headers.get("set-cookie"), null);
+    assert.equal(incoming.bodyUsed, false);
+  }
+}
+
+async function public_http_origin_is_refused_before_the_body_is_read() {
+  await assertRefusedOrigin("http://dashboard.example:8443");
+}
+
+test(public_http_origin_is_refused_before_the_body_is_read);
+
+async function another_public_host_is_refused_before_the_body_is_read() {
+  await assertRefusedOrigin("https://other.example:8443");
+}
+
+test(another_public_host_is_refused_before_the_body_is_read);
+
+async function another_public_port_is_refused_before_the_body_is_read() {
+  await assertRefusedOrigin("https://dashboard.example:9443");
+  await assertRefusedOrigin(browserOrigin);
+}
+
+test(another_public_port_is_refused_before_the_body_is_read);
+
+async function missing_origin_is_refused_before_the_body_is_read() {
+  await assertRefusedOrigin(null);
+}
+
+test(missing_origin_is_refused_before_the_body_is_read);
+
+async function malformed_host_headers_supply_no_public_origin() {
+  for (const host of [
+    null, "", "dashboard.example, other.example", "dashboard.example, dashboard.example",
+    "dashboard.example/path", "dashboard.example?query", "dashboard.example#fragment",
+    "user@dashboard.example", "dashboard.example\\path", "dashboard.example:",
+    "dashboard.example:not-a-port", "dashboard.example:65536", "[not-ipv6]",
+    "dashboard.example other.example", "https://dashboard.example", "%64ashboard.example",
+  ]) {
+    await assertRefusedOrigin(browserOrigin, host);
+  }
+  for (const origin of ["null", "invalid", "https://dashboard.example, https://other.example", "https://user@dashboard.example", "https://dashboard.example/path"]) {
+    await assertRefusedOrigin(origin, "dashboard.example");
+  }
+}
+
+test(malformed_host_headers_supply_no_public_origin);
+
+async function direct_request_origin_is_accepted_without_a_public_host() {
+  for (const host of [null, "dashboard.example", "dashboard.example, other.example"]) {
+    const incoming = request({}, {
+      method: "DELETE", address: "http://127.0.0.1:3000", origin: "http://127.0.0.1:3000",
+      headers: host === null ? {} : { Host: host },
+    });
+    const result = await handleSessionRequest(incoming, { apiOrigin: "http://127.0.0.1:9445" });
+    assert.equal(result.status, 204);
+    assertCookie(result, "", 0);
+    assert.equal(await assertPrivateResponse(result), "");
+    assert.equal(incoming.bodyUsed, true);
+  }
+}
+
+test(direct_request_origin_is_accepted_without_a_public_host);
 
 async function missing_gateway_refuses_proofs_and_keeps_token_sign_in_and_sign_out(t) {
   const api = await peer(t, () => ({ body: {} }));

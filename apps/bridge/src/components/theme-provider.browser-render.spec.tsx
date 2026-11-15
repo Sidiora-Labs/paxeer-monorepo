@@ -45,25 +45,25 @@ afterEach(() => {
 });
 
 test.each([
-  ["light", "ink"],
-  ["dark", "dx-gradient"],
-  ["system", "dx-gradient"],
-  ["invalid-theme", "invalid-accent"],
+  [ 'light', 'ink' ],
+  [ 'dark', 'dx-gradient' ],
+  [ 'system', 'dx-gradient' ],
+  [ 'invalid-theme', 'invalid-accent' ],
 ])(
-  "initial browser-environment markup matches SSR with stored %s / %s",
+  'initial browser-environment markup matches SSR with stored %s / %s',
   (theme, accent) => {
-    window.localStorage.setItem("dx-theme", theme);
-    window.localStorage.setItem("dx-accent", accent);
+    window.localStorage.setItem('dx-theme', theme);
+    window.localStorage.setItem('dx-accent', accent);
 
     expect(
       renderToString(
         <ThemeProvider>
-          <ThemeValue />
+          <ThemeValue/>
         </ThemeProvider>,
       ),
-    ).toBe("<output>system:light:ink</output>");
-    expect(window.localStorage.getItem("dx-theme")).toBe(theme);
-    expect(window.localStorage.getItem("dx-accent")).toBe(accent);
+    ).toBe('<output>system:light:ink</output>');
+    expect(window.localStorage.getItem('dx-theme')).toBe(theme);
+    expect(window.localStorage.getItem('dx-accent')).toBe(accent);
   },
 );
 
@@ -129,6 +129,7 @@ async function mounted_provider_applies_validated_stored_preferences() {
 
       expect(container.querySelector('output')?.textContent).toBe(expectedValue);
       expect(document.documentElement.classList.contains('dark')).toBe(false);
+      expect(document.documentElement.classList.contains('light')).toBe(true);
       expect(
         document.documentElement.classList.contains('accent-dx-gradient'),
       ).toBe(false);

@@ -1,0 +1,350 @@
+[manifest]
+task = "22.44.33"
+surface = "apps/bridge/src"
+route = "/"
+description = "Paxeer Bridge transfers assets between Paxeer and registered source chains."
+
+[guide.1]
+id = "responsive-design"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components/bridge"]
+
+[guide.2]
+id = "css-layout"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components/bridge", "apps/bridge/src/components/trading"]
+
+[guide.3]
+id = "form-factor-adaptation"
+directories = ["apps/bridge/src/components/bridge", "apps/bridge/src/components/trading"]
+
+[guide.4]
+id = "responsive-table"
+directories = ["apps/bridge/src/components/trading", "apps/bridge/src/components/ui"]
+
+[guide.5]
+id = "dialog"
+directories = ["apps/bridge/src/components/ui", "apps/bridge/src/components/bridge", "apps/bridge/src/components/trading"]
+
+[guide.6]
+id = "forms"
+directories = ["apps/bridge/src/components/bridge", "apps/bridge/src/components/ui"]
+
+[guide.7]
+id = "validate-input-after-interaction"
+directories = ["apps/bridge/src/components/bridge"]
+
+[guide.8]
+id = "select-menu-interaction"
+directories = ["apps/bridge/src/components/bridge", "apps/bridge/src/components/trading"]
+
+[guide.9]
+id = "persistent-toast-notifications"
+directories = ["apps/bridge/src/components/ui", "apps/bridge/src/components/bridge"]
+
+[guide.10]
+id = "spinner"
+directories = ["apps/bridge/src/components/ui", "apps/bridge/src/components/trading"]
+
+[guide.11]
+id = "scrollability-affordance-hints"
+directories = ["apps/bridge/src/components/ui", "apps/bridge/src/components/trading"]
+
+[guide.12]
+id = "dark-mode"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components/dx", "apps/bridge/src/components/ui"]
+
+[guide.13]
+id = "color"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components"]
+
+[guide.14]
+id = "icons"
+directories = ["apps/bridge/src/components/bridge", "apps/bridge/src/components/trading", "apps/bridge/src/components/ui"]
+
+[guide.15]
+id = "typography"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components"]
+
+[guide.16]
+id = "respect-os-text-scale"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components"]
+
+[guide.17]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/bridge/src/app"]
+
+[guide.18]
+id = "motion"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components/dx", "apps/bridge/src/components/ui", "apps/bridge/src/components/trading"]
+
+[guide.19]
+id = "accessibility"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components"]
+
+[guide.20]
+id = "html"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components/bridge", "apps/bridge/src/components/ui"]
+
+[guide.21]
+id = "css"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components/ui"]
+
+[guide.22]
+id = "performance"
+directories = ["apps/bridge/src/app", "apps/bridge/src/components/trading"]
+
+[guide.23]
+id = "tabs"
+directories = ["apps/bridge/src/components/ui", "apps/bridge/src/components/trading"]
+
+[guide.24]
+id = "accordion"
+directories = ["apps/bridge/src/components/ui", "apps/bridge/src/components/trading"]
+
+[guide.25]
+id = "menu"
+directories = ["apps/bridge/src/components/ui"]
+
+[guide.26]
+id = "progress"
+directories = ["apps/bridge/src/components/ui", "apps/bridge/src/components/trading"]
+
+[guide.27]
+id = "dark-mode-toggle"
+directories = ["apps/bridge/src/components/dx"]
+
+[guide.28]
+id = "browser-ui-theming"
+directories = ["apps/bridge/src/app"]
+
+[guide.29]
+id = "viewport-aware-dropdowns"
+directories = ["apps/bridge/src/components/ui"]
+
+[guide.30]
+id = "declarative-dialog-popover-control"
+directories = ["apps/bridge/src/components/ui"]
+
+[guide.31]
+id = "interest-triggered-tooltips"
+directories = ["apps/bridge/src/components/ui"]
+
+[guide.32]
+id = "hovercard"
+directories = ["apps/bridge/src/components/ui"]
+
+[view.1]
+name = "Header"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.2]
+name = "Bridge introduction"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.3]
+name = "Deposit"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.4]
+name = "Disconnected transfers"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.5]
+name = "How it works and route contracts"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.6]
+name = "Footer"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.7]
+name = "Source chain dialog"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.8]
+name = "Destination chain dialog"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.9]
+name = "Withdrawal"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.10]
+name = "Solana withdrawal"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.11]
+name = "Asset picker"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.12]
+name = "Solana deposit"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.13]
+name = "Connected header"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.14]
+name = "Empty transfer history and import form"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.15]
+name = "Wallet details"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.16]
+name = "Wallet network dialog"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.17]
+name = "Import validation"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.18]
+name = "Transfer progress and history"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.19]
+name = "Empty withdrawals"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.20]
+name = "Connected deposit"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.21]
+name = "Capacity tooltip"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.22]
+name = "Amount validation"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.23]
+name = "Destination validation"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.24]
+name = "Wallet notification"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+

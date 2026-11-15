@@ -45,10 +45,27 @@ fly deploy . --config services/platform/hosted/dashboard/web/fly.toml \
   --build-arg DASHBOARD_API_ORIGIN="$DASHBOARD_API_ORIGIN"
 ```
 
+## Local dashboard
+
+Start the dashboard from the repository root after installing its dependencies:
+
+```sh
+npm --prefix services/platform/hosted/dashboard/web run dev
+```
+
+For a production build, set `DASHBOARD_API_ORIGIN` and run the dashboard's
+`build` script, then its `start` script. The production build clears generated
+development output before generating production route types.
+
 ## Styles
 
 The style sheet is built from the dashboard app files and the `src` directory
-of the UI package. The build checks the generated sheet for the UI classes.
+of the UI package. The build checks the generated sheet for the UI classes. The dashboard uses
+shared colour, spacing, type and motion tokens, follows the system colour
+scheme and respects reduced motion and browser text scaling. Section tabs
+scroll within their track and support arrow keys, Home and End. Log rows wrap
+identifiers and adapt to their card's width. Sign-in forms use native constraints
+and show field errors after interaction.
 
 ## Browser sign-in
 
@@ -56,30 +73,44 @@ The page presents sign-in when a dashboard read returns 401. A developer can
 create an Ed25519 key in this browser and sign in, use the key this browser
 holds, or enter a session token. The key pair lives under one fixed name in
 IndexedDB; its private key is non-exportable. The public key has a copy control.
-The gateway tenant field takes the tenant configured by the gateway operator;
-the registration binding and session digest include that exact tenant.
-Browsers without Ed25519 offer the session token path with an explanation.
+When key sign-in is configured, the page shows one primary action: it creates a
+key and signs in when this browser has no key, or signs in with the held key.
+Browsers without Ed25519 offer the session token path with an explanation. If
+the gateway tenant or origin is absent, the page says that key sign-in is not
+configured. The session token field and action remain available in every state.
 A successful sign-in reads the dashboard again. The shell's sign-out control
 returns to the sign-in view.
 
 The web serves these routes beside the page:
 
-| Route | JSON input and result |
-| --- | --- |
-| `POST /session/registration` | `signer_public_key` and `registration_signature`; calls `px_register` and returns the confirmed public tenant, subject and signer key |
-| `POST /session` | `signer_public_key`, canonical decimal `proof_time` and `session_signature`; calls `px_openSession`. Alternatively, `token` alone checks `GET /v1/dashboard/overview` with Bearer authorization. Success returns 204 with no body. |
-| `DELETE /session` | Empty body or `{}`; returns 204 and clears the cookie |
+| Route                        | JSON input and result                                                                                                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /session/registration` | `signer_public_key` and `registration_signature`; calls `px_register` and returns the confirmed public tenant, subject and signer key                                                                                              |
+| `POST /session`              | `signer_public_key`, canonical decimal `proof_time` and `session_signature`; calls `px_openSession`. Alternatively, `token` alone checks `GET /v1/dashboard/overview` with Bearer authorization. Success returns 204 with no body. |
+| `DELETE /session`            | Empty body or `{}`; returns 204 and clears the cookie                                                                                                                                                                              |
 
-Requests require `Content-Type: application/json` and an Origin matching the
-request URL. Bodies are bounded at 8192 bytes. Upstream calls have a five-second
-time limit. Refusals return only a `reason` name; rejected proofs return 401,
+Requests require an Origin matching either the parsed HTTPS origin of the Host
+header, including its port, or the origin of the request URL for direct access.
+An absent, multi-value or malformed Host header supplies no HTTPS origin.
+Missing or non-matching Origins return 403 with `origin_refused` before the
+body is read.
+
+Requests require `Content-Type: application/json`. Bodies are bounded at
+8192 bytes. Upstream calls have a five-second time limit. Refusals return only a
+`reason` name; rejected proofs return 401,
 gateway limits return 429 and other upstream failures return 502.
 
 `DASHBOARD_GATEWAY_ORIGIN` is a server runtime variable naming the gateway
-origin. Without it, proof sign-in and registration return 503 with
-`sign_in_not_configured`; the view explains that key sign-in is not configured.
-Token sign-in and sign-out remain available. The API origin is the same
-build-time `DASHBOARD_API_ORIGIN` used by the dashboard rewrite.
+origin. `DASHBOARD_GATEWAY_TENANT` is also read by the server at request time;
+a value is accepted only when it has 1 to 95 characters from `a-z`, `0-9`, `.`,
+`_` and `-`. Invalid or absent values are treated as unset. The tenant is not
+compiled into the build, so a process started with a new value serves that value
+without rebuilding. Registration bindings and session digests include that runtime
+tenant. Without either runtime setting, proof sign-in and
+registration return 503 with `sign_in_not_configured`; the view explains that
+key sign-in is not configured. Token sign-in and sign-out remain available. The
+API origin is the same build-time `DASHBOARD_API_ORIGIN` used by the dashboard
+rewrite.
 
 Successful sign-in sets `__Host-layerx-session` with `Secure`, `HttpOnly`,
 `SameSite=Strict`, `Path=/` and `Max-Age`, without a Domain attribute.
