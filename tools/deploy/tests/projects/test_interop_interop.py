@@ -163,7 +163,7 @@ def test_interop_definition_matches_sources() -> None:
         assert isinstance(value, str)
         if value.startswith("env:"):
             env_name = value[4:]
-            assert env_name == f"PAXEER_X_INTEROP_{name}"
+            assert env_name == f"INTEROP_INTEROP_{name}"
             assert env_name in inputs
         elif name in entrypoint_names:
             assert value

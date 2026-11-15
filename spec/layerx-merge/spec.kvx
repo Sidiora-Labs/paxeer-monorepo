@@ -197357,7 +197357,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.574]
 title = "Send registry credentials only where a row asks and follow a replaced deployment in the perps project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378751,7 +378751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.590]
 title = "Define the service paxeer-boundary of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -379039,7 +379039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.580]
 title = "Define the service dashboard-web of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
