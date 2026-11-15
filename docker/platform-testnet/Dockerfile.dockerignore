@@ -20,7 +20,9 @@ tools/benchmark
 consensus
 custodyproof
 daemon
-docker
+docker/*
+!docker/common
+!docker/platform-testnet
 engine
 tests/fixtures/example
 hpx
