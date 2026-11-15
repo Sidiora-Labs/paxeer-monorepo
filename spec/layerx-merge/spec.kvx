@@ -458875,7 +458875,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.624]
 title = "Read the price submissions of a block from the consensus block route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.622"]
