@@ -12,8 +12,10 @@ import (
 
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/testutil/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/xevm/types"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/mod/semver"
 )
 
 func TestStorageGasReaderWithoutValue(t *testing.T) {
@@ -178,4 +180,58 @@ func TestParamGettersTracingVersions(t *testing.T) {
 	require.Equal(t, customTargetGas, k.GetTargetGasUsedPerBlock(ctxPost606))
 	require.Equal(t, customDeliverTxGasLimit, k.GetDeliverTxHookWasmGasLimit(ctxPost606))
 	require.Equal(t, customRegisterPointerDisabled, k.GetRegisterPointerDisabled(ctxPost606))
+}
+
+func TestDecimalParamDefaults(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
+	k.SetParams(ctx, types.DefaultParams())
+	defaults := evmtypes.DefaultParams()
+	for _, param := range []struct {
+		key          []byte
+		get          func(sdk.Context) sdk.Dec
+		defaultValue sdk.Dec
+		introduced   string
+	}{
+		{types.KeyPriorityNormalizer, k.GetPriorityNormalizer, defaults.PriorityNormalizer, "v0.0.0"},
+		{types.KeyBaseFeePerGas, k.GetBaseFeePerGas, defaults.BaseFeePerGas, "v0.0.0"},
+		{types.KeyMinFeePerGas, k.GetMinimumFeePerGas, defaults.MinimumFeePerGas, "v0.0.0"},
+		{types.KeyMaxFeePerGas, k.GetMaximumFeePerGas, defaults.MaximumFeePerGas, "v6.0.1"},
+		{types.KeyMaxDynamicBaseFeeUpwardAdjustment, k.GetMaxDynamicBaseFeeUpwardAdjustment, defaults.MaxDynamicBaseFeeUpwardAdjustment, "v6.0.0"},
+		{types.KeyMaxDynamicBaseFeeDownwardAdjustment, k.GetMaxDynamicBaseFeeDownwardAdjustment, defaults.MaxDynamicBaseFeeDownwardAdjustment, "v6.0.0"},
+	} {
+		t.Run(string(param.key), func(t *testing.T) {
+			for _, version := range []string{"current", "v5.7.0", "v5.8.0", "v6.0.0", "v6.0.1", "v6.0.6"} {
+				t.Run(version, func(t *testing.T) {
+					readCtx := ctx
+					if version != "current" {
+						readCtx = ctx.WithIsTracing(true).WithClosestUpgradeName(version)
+					}
+					t.Run("missing", func(t *testing.T) {
+						k.Paramstore.Set(ctx, param.key, sdk.MustNewDecFromStr("0.125"))
+						key := append([]byte(k.Paramstore.Name()+"/"), param.key...)
+						ctx.KVStore(k.GetStoreKey()).Delete(key)
+						require.False(t, k.Paramstore.Has(ctx, param.key))
+						value := param.get(readCtx)
+						if version != "current" && semver.Compare(version, "v6.0.6") < 0 && semver.Compare(version, param.introduced) >= 0 {
+							require.True(t, value.IsNil())
+						} else {
+							require.Equal(t, param.defaultValue, value)
+						}
+						require.False(t, k.Paramstore.Has(ctx, param.key))
+					})
+					for _, value := range []sdk.Dec{sdk.ZeroDec(), sdk.MustNewDecFromStr("0.125")} {
+						t.Run("stored_"+value.String(), func(t *testing.T) {
+							k.Paramstore.Set(ctx, param.key, value)
+							require.True(t, k.Paramstore.Has(ctx, param.key))
+							if version != "current" && semver.Compare(version, param.introduced) < 0 {
+								require.Equal(t, param.defaultValue, param.get(readCtx))
+							} else {
+								require.Equal(t, value, param.get(readCtx))
+							}
+						})
+					}
+				})
+			}
+		})
+	}
 }

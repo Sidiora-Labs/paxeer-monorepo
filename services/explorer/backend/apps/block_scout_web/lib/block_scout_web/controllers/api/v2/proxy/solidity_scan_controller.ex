@@ -1,5 +1,45 @@
 defmodule BlockScoutWeb.API.V2.Proxy.SolidityScanController do
   use BlockScoutWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  operation :solidityscan_report,
+    summary: "Retrieve the SolidityScan report for a verified Solidity contract",
+    parameters: [address_hash_param()],
+    responses: [
+      ok: {"SolidityScan report", "application/json", %OpenApiSpex.Schema{type: :object}},
+      forbidden:
+        {"Restricted access", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
+      not_found:
+        {"Contract unavailable or unsupported", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
+      unprocessable_entity:
+        {"Invalid address", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
+      internal_server_error:
+        {"Empty upstream response", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }}
+    ]
 
   alias BlockScoutWeb.AccessHelper
   alias Explorer.Chain

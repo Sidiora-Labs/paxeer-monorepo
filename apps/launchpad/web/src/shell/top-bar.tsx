@@ -107,7 +107,7 @@ export default function TopBar() {
       )}
       <div
         data-search-field=""
-        className={cn('hidden min-w-0 flex-1 lg:block lg:max-w-search-max', searchField)}
+        className={cn('hidden min-w-60 flex-1 lg:block lg:max-w-search-max', searchField)}
       >
         <ErrorBoundary area="global-search">
           <GlobalSearch />

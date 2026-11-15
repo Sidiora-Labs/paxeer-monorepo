@@ -1,4 +1,5 @@
 'use client';
+import { launchpadMotion } from '@/app/presentation-tokens';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Check, Copy, Eye, EyeOff, KeyRound, Radio, RefreshCw, RotateCcw, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -210,7 +211,7 @@ function CredentialPanel({ credential, onHide }: { credential: PrivateIngestKey;
   const remaining = credentialRemainingMs(credential, now);
   useEffect(() => {
     if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(null), 1800);
+    const timer = window.setTimeout(() => setCopied(null), launchpadMotion.copyConfirmation);
     return () => window.clearTimeout(timer);
   }, [copied]);
   const copy = async (target: CopyTarget) => {

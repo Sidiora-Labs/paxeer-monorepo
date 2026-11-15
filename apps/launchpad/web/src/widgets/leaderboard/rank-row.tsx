@@ -62,16 +62,16 @@ export function RankRow({ rank, wallet, identity, metricSigned, metricLabel = 'P
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href={profileHref(address)}
-            className="truncate text-md font-bold leading-5 text-text after:absolute after:inset-0 after:content-['']"
+            className="truncate text-md font-bold leading-[var(--sl-leading-base)] text-text after:absolute after:inset-0 after:content-['']"
           >
             {handle ?? short}
           </Link>
           {self ? <span className="inline-flex h-5 shrink-0 items-center rounded-xs bg-surface-3 px-1.5 text-2xs font-bold uppercase tracking-wide text-text-muted">You</span> : null}
         </div>
-        {handle ? <p className="truncate font-mono text-xs leading-4 text-text-muted">{short}</p> : null}
+        {handle ? <p className="truncate font-mono text-xs leading-[var(--sl-leading-base)] text-text-muted">{short}</p> : null}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-        <span className={cn('text-md font-bold leading-5 tabular-nums', toneClass[tone])} data-numeric>
+        <span className={cn('text-md font-bold leading-[var(--sl-leading-base)] tabular-nums', toneClass[tone])} data-numeric>
           <span className="sr-only">{metricLabel} </span>
           {metricSigned === null ? <span aria-label="no data yet">&mdash;</span> : formatUsdl(metricSigned, { signed: true })}
         </span>

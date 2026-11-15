@@ -5,7 +5,7 @@ export default function MetaAgSwapModule() {
   return (
     <main className="min-h-dvh flex flex-col items-center gap-6 px-4 pb-20 pt-6">
       <div className="w-full max-w-lg">
-        <div className="flex items-baseline justify-between mb-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
           <h1 className="text-lg font-bold text-text">Swap</h1>
           <Link
             href="/swap"
@@ -20,7 +20,7 @@ export default function MetaAgSwapModule() {
       </div>
       <BestRouteSwapPanel />
       <div className="w-full max-w-lg space-y-1 text-2xs text-text-faint">
-        <div className="flex justify-between">
+        <div className="flex flex-wrap justify-between gap-2">
           <span>Swap contract</span>
           <span className="font-bold text-text">0x732A…6449</span>
         </div>

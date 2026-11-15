@@ -38,7 +38,7 @@ export interface OpticalPresetPickerProps {
 }
 
 const cardClass = (selected: boolean, blocked: boolean, nested = false) => cn(
-  'flex w-full items-start gap-3 rounded-md p-3 text-left transition-colors duration-fast',
+  'flex w-full flex-wrap items-start gap-3 rounded-md p-3 text-left transition-colors duration-fast',
   selected ? 'bg-accent-soft' : nested ? 'bg-surface-3' : 'bg-surface-2',
   !selected && !blocked && 'hover:bg-surface-hover',
   blocked && 'cursor-not-allowed',
@@ -61,7 +61,7 @@ function RegisteredOpticalCard({ address, reason, selected, disabled, onSelect }
       <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-text-faint">
         <Lock className="size-icon-md" />
       </span>
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 basis-40">
         <span className="block text-sm font-bold text-text-disabled">
           {meta ? meta.name : isPending ? 'Loading...' : 'Custom rules'}
         </span>
@@ -105,7 +105,7 @@ export function OpticalPresetPicker({ value, onChange, registered, registry, rea
           <span aria-hidden="true" className={cn('flex size-8 shrink-0 items-center justify-center rounded-pill', standardSelected ? 'bg-accent-soft-strong text-accent' : 'bg-surface-3 text-text-muted')}>
             <ShieldCheck className="size-icon-md" />
           </span>
-          <span className="min-w-0">
+          <span className="min-w-0 flex-1 basis-40">
             <span className={cn('block text-sm font-bold', disabled ? 'text-text-disabled' : 'text-text')}>Standard</span>
             <span className={cn('block text-xs', disabled ? 'text-text-disabled' : 'text-text-muted')}>No taxes, cooldowns, wallet limits or anti-snipe rules.</span>
           </span>

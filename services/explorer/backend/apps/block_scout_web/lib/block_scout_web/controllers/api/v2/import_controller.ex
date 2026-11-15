@@ -1,5 +1,65 @@
 defmodule BlockScoutWeb.API.V2.ImportController do
   use BlockScoutWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  @message_schema %OpenApiSpex.Schema{
+    type: :object,
+    properties: %{message: %OpenApiSpex.Schema{type: :string}},
+    required: [:message],
+    additionalProperties: false
+  }
+
+  @import_responses [
+    ok: {"Import result", "application/json", @message_schema},
+    bad_request: {"Invalid record", "application/json", @message_schema},
+    unauthorized: {"Wrong API key", "application/json", @message_schema},
+    forbidden: {"API key not configured", "application/json", @message_schema},
+    not_found: {"Record not found", "application/json", @message_schema},
+    unprocessable_entity: {"Invalid address", "application/json", @message_schema}
+  ]
+  @api_key_header %OpenApiSpex.Parameter{
+    name: "x-api-key",
+    in: :header,
+    required: true,
+    schema: %OpenApiSpex.Schema{type: :string}
+  }
+
+  operation :import_token_info,
+    summary: "Import token information",
+    parameters: [@api_key_header],
+    responses: @import_responses
+
+  operation :delete_token_info,
+    summary: "Delete token information",
+    parameters: [@api_key_header],
+    responses: @import_responses
+
+  operation :try_to_search_contract,
+    summary: "Search verified contract sources",
+    parameters: [address_hash_param(), @api_key_header],
+    responses: @import_responses
+
+  operation :import_audit_report,
+    summary: "Import a smart-contract audit report",
+    parameters: [address_hash_param(), @api_key_header],
+    responses:
+      Keyword.put(
+        @import_responses,
+        :bad_request,
+        {"Invalid audit report", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{
+             message: %OpenApiSpex.Schema{type: :string},
+             errors: %OpenApiSpex.Schema{
+               type: :object,
+               additionalProperties: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}}
+             }
+           },
+           required: [:message, :errors],
+           additionalProperties: false
+         }}
+      )
 
   alias BlockScoutWeb.API.V2.ApiView
   alias BlockScoutWeb.AuthenticationHelper

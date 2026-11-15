@@ -237,12 +237,12 @@ export function TabStrip<T extends string>({
   }
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    <div className={cn('flex flex-wrap items-center gap-2', className)}>
       <div
         role="tablist"
         aria-label={label}
         className={cn(
-          'flex min-w-0 flex-1 items-end overflow-x-auto p-1',
+          'flex min-w-0 flex-1 basis-40 items-end overflow-x-auto p-1',
           variant === 'filled' && 'gap-1'
         )}
       >
@@ -300,7 +300,7 @@ export function TabStrip<T extends string>({
           );
         })}
       </div>
-      {trailing ? <div className="shrink-0">{trailing}</div> : null}
+      {trailing ? <div className="max-w-full shrink-0">{trailing}</div> : null}
     </div>
   );
 }
@@ -390,7 +390,7 @@ export function SelectPill<T extends string>({
             if (option && !option.disabled) onChange(option.value);
           }}
           className={cn(
-            'sl-native-select min-w-[min(var(--sl-select-min-width),100%)] max-w-full flex-1 cursor-pointer rounded-sm bg-transparent py-1 text-md font-bold text-text disabled:cursor-not-allowed disabled:text-text-disabled',
+            'sl-native-select min-w-[min(var(--sl-select-min-width),max(100%,var(--sl-touch-target-min)))] max-w-full flex-1 cursor-pointer rounded-sm bg-transparent py-1 text-md font-bold text-text disabled:cursor-not-allowed disabled:text-text-disabled',
             compact && 'px-0',
             size === 'md' && 'min-h-control-height-md'
           )}
@@ -681,7 +681,7 @@ export function FormField({
         : 'text-text-faint'
     : '';
   const shell = cn(
-    'sl-field flex items-center gap-2 rounded-sm px-3 transition-colors duration-fast',
+    'sl-field flex min-w-0 items-center gap-2 rounded-sm px-3 transition-colors duration-fast',
     error
       ? 'bg-danger-soft'
       : readOnly
@@ -705,10 +705,10 @@ export function FormField({
   );
 
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
+    <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
       <label htmlFor={id} className="text-sm font-bold text-text">
         {label}
-        {optional ? <span className="ml-1 font-semibold text-text-faint">(Optional)</span> : null}
+        {optional ? <span className="ml-1 inline-block font-semibold text-text-faint">(Optional)</span> : null}
       </label>
       <div className={shell}>
         {leading ? (
@@ -839,7 +839,7 @@ export function SortHeader({
           type="button"
           onClick={onSort}
           className={cn(
-            'flex h-full w-full items-center rounded-xs uppercase tracking-[var(--sl-tracking-label)] transition-colors hover:text-text',
+            'flex h-full w-full scroll-mx-3 items-center rounded-xs uppercase tracking-[var(--sl-tracking-label)] transition-colors hover:text-text',
             alignClass
           )}
         >

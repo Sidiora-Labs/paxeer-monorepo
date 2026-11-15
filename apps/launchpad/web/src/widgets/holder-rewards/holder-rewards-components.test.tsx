@@ -40,10 +40,10 @@ describe('holder rewards components', () => {
     const out = html(<HolderRewardsHeader><p>stats slot</p></HolderRewardsHeader>);
     expect(out).toContain('Holder rewards coins');
     expect(out).toMatch(/<header class="[^"]*bg-surface-1/);
-    expect(out).toContain('sm:text-[40px]');
-    expect(out).toContain('text-[28px]');
+    expect(out).toContain('sm:text-2xl');
+    expect(out).toContain('text-xl');
     expect(out).not.toMatch(/font-(extrabold|black)/);
-    expect(out).toContain('font-medium');
+    expect(out).toMatch(/<h1 class="[^"]*font-bold/);
     expect(out).toContain('stats slot');
     expect(out).toContain('paid in USDL');
     const copy = /<p class="[^"]*">([^<]+)<\/p>/.exec(out)?.[1] ?? '';
@@ -62,8 +62,8 @@ describe('holder rewards components', () => {
     expect(ready.match(/>18,627,546<\/span><span[^>]*>USDL</g)).toHaveLength(2);
     expect(ready).toContain('Valued in USDL');
     expect(ready).toContain('445,691');
-    expect(ready).toContain('sm:text-[44px]');
-    expect(ready).toContain('lg:grid-cols-3');
+    expect(ready).toContain('text-2xl');
+    expect(ready).toContain('grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))]');
     expect(ready).not.toContain('aria-label="No data"');
     expect(ready).not.toContain('not available yet');
     const loading = html(<StatsRow stats={{ state: 'loading' }} />);
@@ -80,7 +80,7 @@ describe('holder rewards components', () => {
     expect(unavailable).not.toMatch(/\d{2,} USDL/);
     expect(unavailable).not.toMatch(/>\d[\d,]*</);
     expect(unavailable.match(/aria-label="Not available yet"/g)).toHaveLength(3);
-    expect(unavailable).toContain('sm:text-[44px]');
+    expect(unavailable).toContain('text-2xl');
     expect(unavailable).not.toContain('Failed to fetch');
     expect(unavailable).not.toMatch(BORDER);
     const failed = html(<StatsRow stats={{ state: 'error', error: new TypeError('Failed to fetch'), retry: noop }} />);
@@ -167,7 +167,7 @@ describe('holder rewards components', () => {
     expect(ranked).toContain('61K USDL');
     expect(ranked).toContain('Holders paid');
     expect(ranked).toContain('875');
-    expect(ranked).toContain('min-h-[188px]');
+    expect(ranked).toContain('min-h-47');
     expect(ranked).toContain('title="Rewards are paid in USDL"');
   });
 

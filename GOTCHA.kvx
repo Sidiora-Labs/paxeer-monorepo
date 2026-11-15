@@ -22470,3 +22470,18 @@ fix = "Decision 3611. Task 22.39.695; the verification of task 22.39.686."
 title = "The public role of the webhooks service is reached through the front of the hosting platform, which ends TLS"
 symptom = "The definition deploy/projects/platform/webhooks-public.kvx marks the service public, sets the TLS form of the listener on port 9444 and names the health listener on port 9442 as PORT. The front of the hosting platform ends TLS and passes plain HTTP to the port PORT names, so the public name of the service reaches the health listener, and the routes under /v1/webhooks are served by the other listener. The binary holds a plain form of the listener for the public role, and the init script services/platform/hosted/webhooks/env-init.sh selects the TLS form for both roles. The definitions of the gateway and of the dashboard API take the plain form."
 fix = "Decision 3612. Task 22.39.696."
+
+[gotcha.4530]
+title = "The build script of the types crate reads files of the repository root, and an image that copies chosen directories holds them"
+symptom = "The build script services/agent/crates/layerx-types/build.rs reads include/layerx/lxp_result.h, include/layerx/programs.h and spec/layerx-merge/contracts/address-table.md. The build stages of docker/platform-webhooks/Dockerfile and docker/platform-core/Dockerfile copy the directories services and programs and then build a binary whose crates depend on the types crate. The image of the gateway copies the whole context. A build stage that copies chosen directories copies each file a build script of its crates reads."
+fix = "Decision 3613. Task 22.39.697."
+
+[gotcha.4531]
+title = "The receipt verifier of the webhooks ingress and the consensus route of the node front name the consensus calls each on its own"
+symptom = "The receipt verifier in services/platform/hosted/webhooks/src/trusted.rs posts to its consensus origin the calls status, commit with a height, block with a height, and a proved abci_query for the path /store/sequencer/key with the key 0x03. A consensus origin given with a path is addressed at that path. The consensus route of the node front in services/platform/hosted/paxeer/src/comet.rs admits status, commit, validators and a proved abci_query for /store/evm/key and for two key forms of /store/lxphost/key. The definition deploy/projects/platform/paxeer-boundary.kvx names no consensus origin for the node front. A reader and the front it reads through name the same calls."
+fix = "Decision 3614. Task 22.39.698."
+
+[gotcha.4532]
+title = "The key routes of the gateway derive a key from a provisioning key, and the keys view of the dashboard web signs with the browser key of the session"
+symptom = "The gateway in services/platform/hosted/gateway/src/main.rs issues and rotates a developer key only with the setting LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE, a file of 64 hexadecimal characters, and answers a key request without it as an unavailable identity backend. The file table docker/platform-gateway/files.tsv holds the row ENDPOINT_KEY_PROVISIONING_KEY for that file. The definition deploy/projects/platform/gateway.kvx selects the file table docker/platform-gateway/native-files.tsv, which holds no such row, and names neither the setting nor an input for it. The shell of the dashboard web in services/platform/hosted/dashboard/web/app/dashboard-client.tsx reads the state of the browser key once when it is mounted and passes it to the keys view, while the sign-in view creates the browser key later. A view that offers a control and the settings and state the control needs are stated together."
+fix = "Decision 3615. Tasks 22.39.699 and 22.39.700."

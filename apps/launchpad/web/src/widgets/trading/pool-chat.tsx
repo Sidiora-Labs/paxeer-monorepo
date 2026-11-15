@@ -93,7 +93,7 @@ export default function PoolChat({ poolAddress }: PoolChatProps) {
   return (
     <div className="flex flex-col overflow-hidden rounded-md bg-surface-2">
       <div role="status" aria-live="polite" className={cn('px-3 text-xs text-warning', status ? 'py-2' : 'sr-only')}>{status}</div>
-      <div ref={containerRef} role="log" aria-label="Coin chat" tabIndex={0} onScroll={handleScroll} className="overflow-y-auto p-1 outline-none focus-visible:outline-2 focus-visible:outline-focus" style={{ maxHeight: 420 }}>
+      <div ref={containerRef} role="log" aria-label="Coin chat" tabIndex={0} onScroll={handleScroll} className="overflow-y-auto p-1 outline-none focus-visible:outline-2 focus-visible:outline-focus" style={{ maxHeight: 'var(--sl-chat-max-height)' }}>
         {loading ? (
           <div role="status" aria-busy="true" className="p-6 text-center text-xs text-text-faint">Loading messages...</div>
         ) : error ? (

@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { formatCount } from '@/utils/format';
@@ -35,8 +36,8 @@ export default function ProfileStats({ wallet, createdAt, className }: ProfileSt
     <dl className={cn('flex min-h-10 flex-wrap items-start gap-x-8 gap-y-2', className)}>
       {stats.state === 'loading' ? (
         <>
-          <Skeleton width={96} height={16} />
-          <Skeleton width={96} height={16} />
+          <Skeleton width={surfaceSpacing(24)} height={surfaceSpacing(4)} />
+          <Skeleton width={surfaceSpacing(24)} height={surfaceSpacing(4)} />
         </>
       ) : stats.state === 'ready' ? (
         <>

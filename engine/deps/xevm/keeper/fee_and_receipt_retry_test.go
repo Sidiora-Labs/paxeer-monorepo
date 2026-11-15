@@ -43,7 +43,8 @@ func clearMinimumFeeParameter(t *testing.T, k *evmkeeper.Keeper, ctx sdk.Context
 	key := append([]byte(k.Paramstore.Name()+"/"), types.KeyMinFeePerGas...)
 	ctx.KVStore(k.GetStoreKey()).Delete(key)
 	require.False(t, k.Paramstore.Has(ctx, types.KeyMinFeePerGas))
-	require.True(t, k.GetMinimumFeePerGas(ctx).IsNil())
+	require.True(t, k.GetParams(ctx).MinimumFeePerGas.IsNil())
+	require.Equal(t, evmtypes.DefaultMinFeePerGas, k.GetMinimumFeePerGas(ctx))
 }
 
 func TestKeeperNilMinimumFeeFixtures(t *testing.T) {
