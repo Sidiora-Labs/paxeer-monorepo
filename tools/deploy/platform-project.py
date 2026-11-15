@@ -235,7 +235,8 @@ def http_transport(token):
     def call(query, variables):
         request = urllib.request.Request(
             API, data=json.dumps({"query": query, "variables": variables}).encode(),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}",
+                     "User-Agent": "platform-project"})
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
                 body = json.load(response)
@@ -330,8 +331,8 @@ def current_state(gql, meta, services):
             continue
         instance = gql(
             "query Instance($s: String!, $e: String!) { serviceInstance(serviceId: $s, environmentId: $e) { "
-            "source { image repo } branch builder dockerfilePath rootDirectory watchPatterns "
-            "healthcheckPath healthcheckTimeout restartPolicyType numReplicas latestDeployment { id status } } }",
+            "source { image repo } dockerfilePath rootDirectory watchPatterns "
+            "healthcheckPath healthcheckTimeout restartPolicyType numReplicas latestDeployment { id status meta } } }",
             {"s": sid, "e": env["id"]})["serviceInstance"] or {}
         variables = gql(
             "query Variables($p: String!, $e: String!, $s: String!) { "
@@ -360,10 +361,9 @@ def load_digests(path):
     return digests
 
 
-def desired_instance(svc, digests, branch):
+def desired_instance(svc, digests):
     if svc["kind"] == "repo":
-        want = {"source": {"repo": svc["repo"]}, "branch": branch, "builder": "DOCKERFILE",
-                "dockerfilePath": svc["dockerfile"], "rootDirectory": svc["root"], "watchPatterns": svc["watch"]}
+        want = {"dockerfilePath": svc["dockerfile"], "rootDirectory": svc["root"], "watchPatterns": svc["watch"]}
     else:
         image = svc["image"]
         if svc["kind"] == "image" and image in digests:
@@ -378,13 +378,20 @@ def desired_instance(svc, digests, branch):
 
 
 def plan_service(svc, cur, digests, branch):
-    want = desired_instance(svc, digests, branch)
+    want = desired_instance(svc, digests)
+    connection = {"repo": svc["repo"], "branch": branch} if svc["kind"] == "repo" else None
     have = (cur or {}).get("instance") or {}
     diff = {key: value for key, value in want.items() if have.get(key) != value}
     if "source" in diff and {key: (have.get("source") or {}).get(key) for key in want["source"]} == want["source"]:
         diff.pop("source")
     steps = [("create", svc["railway_service"])] if cur is None else []
     steps.extend(("setting", key) for key in sorted(diff))
+    if connection:
+        repository = (have.get("source") or {}).get("repo")
+        metadata = (have.get("latestDeployment") or {}).get("meta") or {}
+        if (repository is None or repository.casefold() != connection["repo"].casefold()
+                or metadata.get("branch") != connection["branch"]):
+            steps.append(("connect", f"{connection['repo']} {connection['branch']}"))
     if svc.get("credentials") and (cur is None or "source" in diff):
         steps.append(("registry", "GHCR_USERNAME GHCR_TOKEN"))
     volume = (cur or {}).get("volume")
@@ -408,10 +415,10 @@ def plan_service(svc, cur, digests, branch):
         latest = have.get("latestDeployment") or {}
         if not latest.get("id") or latest.get("status") in FAILED | REPLACED:
             steps.append(("redeploy", svc["railway_service"]))
-    return want, diff, steps, upsert, missing
+    return want, connection, diff, steps, upsert, missing
 
 
-def apply_service(gql, svc, state, want, diff, steps, upsert):
+def apply_service(gql, svc, state, want, connection, diff, steps, upsert):
     project, env = state["project"]["id"], state["env"]["id"]
     cur = state["services"].get(svc["railway_service"])
 
@@ -421,9 +428,16 @@ def apply_service(gql, svc, state, want, diff, steps, upsert):
         say(f"applied {svc['railway_service']} {operation}")
         return data
 
-    sid = cur["id"] if cur else write(
-        "mutation ServiceCreate($i: ServiceCreateInput!) { serviceCreate(input: $i) { id } }",
-        {"i": {"projectId": project, "name": svc["railway_service"], "source": want["source"]}})["serviceCreate"]["id"]
+    if cur:
+        sid = cur["id"]
+    else:
+        create = {"projectId": project, "name": svc["railway_service"]}
+        if connection:
+            create.update(source={"repo": connection["repo"]}, branch=connection["branch"])
+        else:
+            create["source"] = want["source"]
+        sid = write("mutation ServiceCreate($i: ServiceCreateInput!) { serviceCreate(input: $i) { id } }",
+                    {"i": create})["serviceCreate"]["id"]
     ids = {"s": sid, "e": env}
     update = dict(want) if cur is None else dict(diff)
     kinds = {kind for kind, _ in steps}
@@ -432,6 +446,9 @@ def apply_service(gql, svc, state, want, diff, steps, upsert):
     if update:
         write("mutation InstanceUpdate($s: String!, $e: String!, $i: ServiceInstanceUpdateInput!) { "
               "serviceInstanceUpdate(serviceId: $s, environmentId: $e, input: $i) }", dict(ids, i=update))
+    if "connect" in kinds:
+        write("mutation ServiceConnect($s: String!, $i: ServiceConnectInput!) { "
+              "serviceConnect(id: $s, input: $i) { id } }", {"s": sid, "i": connection})
     if "volume" in kinds:
         write("mutation VolumeCreate($i: VolumeCreateInput!) { volumeCreate(input: $i) { id } }",
               {"i": {"projectId": project, "environmentId": env, "serviceId": sid, "mountPath": svc["volume"]}})
@@ -536,7 +553,7 @@ def main(argv, transport=None):
                 say(f"service {svc['order']} {svc['railway_service']} {svc['kind']} target=other")
                 continue
             cur = state["services"].get(svc["railway_service"])
-            want, diff, steps, upsert, unset = plan_service(svc, cur, digests, args.branch)
+            want, connection, diff, steps, upsert, unset = plan_service(svc, cur, digests, args.branch)
             missing.update(unset)
             status = "create" if cur is None else "update" if steps else "unchanged"
             say(f"service {svc['order']} {svc['railway_service']} {svc['kind']} {status}")
@@ -544,7 +561,7 @@ def main(argv, transport=None):
                 say(f"  repo {svc['repo']}")
             for kind, detail in steps:
                 say(f"  {kind} {detail}")
-            rows.append((svc, want, diff, steps, upsert))
+            rows.append((svc, want, connection, diff, steps, upsert))
         say(f"services={len(services)}")
         if args.plan:
             if missing:

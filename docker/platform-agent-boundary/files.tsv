@@ -1,0 +1,7 @@
+# Values are supplied as padded base64 and become files before the service starts.
+AGENT_BOUNDARY_TLS_CERT_DER	/data/tls/agent-boundary/cert.der	0400	*
+AGENT_BOUNDARY_TLS_KEY_DER	/data/tls/agent-boundary/key.der	0400	*
+AGENT_BOUNDARY_GATEWAY_TOKEN	/run/layerx/agent-boundary/gateway-token	0400	*
+AGENT_BOUNDARY_REGISTRY_TOKEN	/run/layerx/agent-boundary/registry-token	0400	*
+AGENT_BOUNDARY_WEBHOOK_TOKEN	/run/layerx/agent-boundary/webhook-token	0400	*
+AGENT_BOUNDARY_RECEIPT_KEYS	/data/agent-boundary/receipt-keys.json	0400	*

@@ -4,6 +4,48 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
 tool="$root/tools/deploy/railway-perps-project.py"
+python3 - "$tool" <<'PY2'
+import json
+import runpy
+import sys
+
+
+def test_http_transport_user_agent():
+    tool = runpy.run_path(sys.argv[1])
+    captured = []
+
+    class RequestCaptured(Exception):
+        pass
+
+    def capture_request(event, args):
+        if event == "urllib.Request":
+            captured.append(args)
+            raise RequestCaptured
+
+    sys.addaudithook(capture_request)
+    query = "query Project($id: String!) { project(id: $id) { id } }"
+    variables = {"id": "p1"}
+    try:
+        tool["http_transport"]("test-token")(query, variables)
+    except RequestCaptured:
+        pass
+    else:
+        raise AssertionError("HTTP request was not captured")
+
+    assert len(captured) == 1, "expected one HTTP request"
+    url, data, headers, method = captured[0]
+    assert url == tool["API"], "request URL differs"
+    assert method == "POST", "request method differs"
+    assert data == json.dumps({"query": query, "variables": variables}).encode(), "request body differs"
+    assert {k.lower(): v for k, v in headers.items()} == {
+        "content-type": "application/json",
+        "authorization": "Bearer test-token",
+        "user-agent": "perps-project",
+    }, "request headers must include User-Agent: perps-project"
+
+
+test_http_transport_user_agent()
+PY2
 python3 "$here/railway-perps-readiness.test.py"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

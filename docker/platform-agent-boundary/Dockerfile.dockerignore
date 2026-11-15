@@ -21,6 +21,11 @@ consensus
 custodyproof
 daemon
 docker
+!docker/platform-agent-boundary/
+!docker/platform-agent-boundary/files.tsv
+!docker/platform-agent-boundary/init.sh
+!docker/common/
+!docker/common/env-files.sh
 engine
 tests/fixtures/example
 hpx
