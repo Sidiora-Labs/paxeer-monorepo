@@ -10,11 +10,11 @@ needs = ["store"]
 [vars.worker]
 PORT = "8080"
 DATABASE_URL = "${{store.DATABASE_URL}}"
-PROVIDER_KEY = "env:PAXEER_X_PLATFORM_WORKER_PROVIDER_KEY"
-SIGNING_KEY = "env:PAXEER_X_PLATFORM_WORKER_SIGNING_KEY"
+PROVIDER_KEY = "env:PLATFORM_WORKER_PROVIDER_KEY"
+SIGNING_KEY = "env:PLATFORM_WORKER_SIGNING_KEY"
 
 [inputs.worker]
 # Provider API key: a string issued by the provider.
-PAXEER_X_PLATFORM_WORKER_PROVIDER_KEY = "provider"
+PLATFORM_WORKER_PROVIDER_KEY = "provider"
 # Chain signing key: a hexadecimal private key.
-PAXEER_X_PLATFORM_WORKER_SIGNING_KEY = "chain"
+PLATFORM_WORKER_SIGNING_KEY = "chain"

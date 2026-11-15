@@ -19,10 +19,10 @@ FIXTURES = Path(__file__).parent / "fixtures/platform-project"
 DIGEST = "sha256:" + "a" * 64
 SECRETS = {
     "RAILWAY_API_TOKEN": 'example-api-token-"quoted"',
-    "PAXEER_X_PLATFORM_STORE_POSTGRES_PASSWORD": 'example-db-password-"quoted"\\slash',
-    "PAXEER_X_PLATFORM_WORKER_PROVIDER_KEY": "example-provider-key",
-    "PAXEER_X_PLATFORM_WORKER_SIGNING_KEY": "example-chain-key",
-    "PAXEER_X_PLATFORM_API_AUTH_SECRET": 'example-auth-secret-"quoted"\nsecond-line',
+    "PLATFORM_STORE_POSTGRES_PASSWORD": 'example-db-password-"quoted"\\slash',
+    "PLATFORM_WORKER_PROVIDER_KEY": "example-provider-key",
+    "PLATFORM_WORKER_SIGNING_KEY": "example-chain-key",
+    "PLATFORM_API_AUTH_SECRET": 'example-auth-secret-"quoted"\nsecond-line',
 }
 NAMES = ("store", "worker", "api")
 INSTANCES = {
@@ -41,14 +41,14 @@ INSTANCES = {
     },
 }
 VARIABLES = {
-    "store": {"POSTGRES_DB": "platform", "POSTGRES_PASSWORD": SECRETS["PAXEER_X_PLATFORM_STORE_POSTGRES_PASSWORD"]},
+    "store": {"POSTGRES_DB": "platform", "POSTGRES_PASSWORD": SECRETS["PLATFORM_STORE_POSTGRES_PASSWORD"]},
     "worker": {
         "PORT": "8080", "DATABASE_URL": "${{store.DATABASE_URL}}",
-        "PROVIDER_KEY": SECRETS["PAXEER_X_PLATFORM_WORKER_PROVIDER_KEY"],
-        "SIGNING_KEY": SECRETS["PAXEER_X_PLATFORM_WORKER_SIGNING_KEY"],
+        "PROVIDER_KEY": SECRETS["PLATFORM_WORKER_PROVIDER_KEY"],
+        "SIGNING_KEY": SECRETS["PLATFORM_WORKER_SIGNING_KEY"],
     },
     "api": {
-        "PORT": "8080", "AUTH_SECRET": SECRETS["PAXEER_X_PLATFORM_API_AUTH_SECRET"],
+        "PORT": "8080", "AUTH_SECRET": SECRETS["PLATFORM_API_AUTH_SECRET"],
         "DATABASE_URL": "${{store.DATABASE_URL}}",
     },
 }
@@ -231,7 +231,7 @@ def test_plan_three_definition_kinds(client):
     assert "service 3 api repo create\n" in result[1]
     assert "services=3\n" in result[1]
     for name in SECRETS:
-        if name.startswith("PAXEER_"):
+        if name.startswith("PLATFORM_"):
             assert "env:" + name in result[1]
     assert '"8080"' not in result[1]
     assert "setting watchPatterns\n" in result[1]
@@ -333,11 +333,11 @@ def test_existing_service_is_reused_in_new_environment(client):
     ("api.kvx", 'needs = ["worker", "identity"]', 'needs = ["missing"]', "needs names unknown service missing"),
     ("api.kvx", "order = 3", "order = 1", "order is below needed service worker"),
     ("api.kvx", 'needs = ["worker", "identity"]', 'needs = ["archive"]', "order is below needed service archive"),
-    ("api.kvx", 'PAXEER_X_PLATFORM_API_AUTH_SECRET = "operator"', "", "has no inputs row"),
-    ("api.kvx", 'AUTH_SECRET = "env:PAXEER_X_PLATFORM_API_AUTH_SECRET"', 'AUTH_SECRET = "literal"', "has no use"),
-    ("api.kvx", 'AUTH_SECRET = "env:PAXEER_X_PLATFORM_API_AUTH_SECRET"', 'AUTH_SECRET = "env:WRONG_NAME"',
-     "env name must be PAXEER_X_PLATFORM_API_AUTH_SECRET"),
-    ("api.kvx", 'PAXEER_X_PLATFORM_API_AUTH_SECRET = "operator"', 'PAXEER_X_PLATFORM_API_AUTH_SECRET = "secret"',
+    ("api.kvx", 'PLATFORM_API_AUTH_SECRET = "operator"', "", "has no inputs row"),
+    ("api.kvx", 'AUTH_SECRET = "env:PLATFORM_API_AUTH_SECRET"', 'AUTH_SECRET = "literal"', "has no use"),
+    ("api.kvx", 'AUTH_SECRET = "env:PLATFORM_API_AUTH_SECRET"', 'AUTH_SECRET = "env:WRONG_NAME"',
+     "env name must be PLATFORM_API_AUTH_SECRET"),
+    ("api.kvx", 'PLATFORM_API_AUTH_SECRET = "operator"', 'PLATFORM_API_AUTH_SECRET = "secret"',
      "input must be generated, provider, chain or operator"),
     ("api.kvx", "replicas = 1", "replicas = 0", "replicas must be a positive integer"),
     ("api.kvx", 'watch = ["/docker/platform-gateway/**", "/docker/common/**", "/services/platform/**"]',
@@ -375,7 +375,7 @@ def test_definition_can_include_private_database_row(client):
 
 
 def test_plan_missing_input_and_apply_refuses_before_writes(client, monkeypatch):
-    name = "PAXEER_X_PLATFORM_API_AUTH_SECRET"
+    name = "PLATFORM_API_AUTH_SECRET"
     monkeypatch.delenv(name)
     for mode, code in (("--plan", 3), ("--apply", 2)):
         result, transport = invoke(client, [projects_entry()], mode=mode)
@@ -474,7 +474,7 @@ def test_unchanged_failed_service_is_redeployed(client):
 def test_target_other_is_planned_and_never_queried_or_applied(client, monkeypatch):
     _, folder, _ = client
     replace(folder, "worker.kvx", 'kind = "image"', 'kind = "image"\ntarget = "other"\ncredentials = 1')
-    for name in ("PAXEER_X_PLATFORM_WORKER_PROVIDER_KEY", "PAXEER_X_PLATFORM_WORKER_SIGNING_KEY"):
+    for name in ("PLATFORM_WORKER_PROVIDER_KEY", "PLATFORM_WORKER_SIGNING_KEY"):
         monkeypatch.delenv(name)
     result, transport = invoke(client, [projects_entry()], mode="--plan")
     assert result[0] == 0 and result[2] == ""
@@ -507,6 +507,66 @@ def test_destination_overrides_keep_definition_input_names(client):
     result, transport = invoke(client, records, extra=("--project", "paxeer-x-preview", "--environment", "preview"))
     assert result[0] == 0 and result[2] == ""
     assert "project=paxeer-x-preview env=preview" in result[1]
+    assert "env:PLATFORM_API_AUTH_SECRET" in result[1]
+    assert "env:PAXEER_X_PREVIEW_API_AUTH_SECRET" not in result[1]
+    transport.exhausted()
+
+
+def test_input_names_use_folder_name_and_project_name_is_refused(client):
+    tool, folder, _ = client
+    meta, services = tool.load(folder)
+    api = next(service for service in services if service["name"] == "api")
+    assert api["vars"]["AUTH_SECRET"] == "env:PLATFORM_API_AUTH_SECRET"
+    replace(folder, "api.kvx", "env:PLATFORM_API_AUTH_SECRET", "env:PAXEER_X_PLATFORM_API_AUTH_SECRET")
+    result, transport = invoke(client, [], mode="--plan")
+    assert result[0] == 2
+    assert "env name must be PLATFORM_API_AUTH_SECRET" in result[2]
+    transport.exhausted()
+
+
+def test_repo_row_inherits_project_repository_and_plan_shows_it(client):
+    _, folder, _ = client
+    replace(folder, "api.kvx", 'repo = "sidiora-labs/paxeer-monorepo"\n', "")
+    (folder / "project.kvx").write_text(
+        (folder / "project.kvx").read_text() + 'repo = "sidiora-labs/paxeer-monorepo"\n'
+    )
+    result, transport = invoke(client, [projects_entry()], mode="--plan")
+    assert result[0] == 0 and result[2] == ""
+    assert "repo sidiora-labs/paxeer-monorepo" in result[1]
+    transport.exhausted()
+
+
+def test_repo_row_without_project_repository_is_refused(client):
+    _, folder, _ = client
+    replace(folder, "api.kvx", 'repo = "sidiora-labs/paxeer-monorepo"\n', "")
+    result, transport = invoke(client, [], mode="--plan")
+    assert result[0] == 2
+    assert re.search(re.escape(str(folder / "api.kvx")) + r":\d+:", result[2])
+    assert "repo must be stated on the service or project" in result[2]
+    transport.exhausted()
+
+
+def test_other_target_requires_only_kind_and_order(client):
+    _, folder, _ = client
+    (folder / "other.kvx").write_text(
+        "[service.other]\nkind = \"image\"\ntarget = \"other\"\norder = 4\n"
+    )
+    tool, _, _ = client
+    _, services = tool.load(folder)
+    other = next(service for service in services if service["name"] == "other")
+    assert other["target"] == "other"
+
+
+def test_other_target_rejects_non_path_non_tcp_health(client):
+    _, folder, _ = client
+    (folder / "other.kvx").write_text(
+        "[service.other]\nkind = \"image\"\ntarget = \"other\"\n"
+        "order = 4\nhealth = \"http://localhost/health\"\n"
+    )
+    result, transport = invoke(client, [], mode="--plan")
+    assert result[0] == 2
+    assert re.search(re.escape(str(folder / "other.kvx")) + r":\d+:", result[2])
+    assert "health must be an HTTP path (or tcp:<port> for target other)" in result[2]
     transport.exhausted()
 
 
