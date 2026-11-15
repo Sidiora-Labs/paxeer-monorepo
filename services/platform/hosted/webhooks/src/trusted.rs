@@ -101,6 +101,15 @@ impl IngressRole {
 pub struct TrustedEvent(ProtocolEvent);
 
 impl TrustedEvent {
+    /// Wraps an already validated event for an authenticated producer path.
+    ///
+    /// Callers must obtain the event from a trusted source adapter before
+    /// publishing it.
+    pub fn from_validated(event: ProtocolEvent) -> Result<Self, WebhookError> {
+        event.validate()?;
+        Ok(Self(event))
+    }
+
     pub(crate) fn from_market(event: ProtocolEvent) -> Result<Self, WebhookError> {
         event.validate()?;
         if event.kind() != EventKind::Program

@@ -50,7 +50,7 @@ export function InfoCard({
       <div className="col-span-2 px-1 pt-1">
         <SectionLabel text="Info" />
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-xl  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         <InfoRow label="Name" value={<span className="font-semibold">{tokenName}</span>} />
         <InfoRow label="Symbol" value={<span className="font-semibold">{tokenSymbol}</span>} />
         <InfoRow label="Network" value={<span className="font-semibold">Paxeer</span>} />

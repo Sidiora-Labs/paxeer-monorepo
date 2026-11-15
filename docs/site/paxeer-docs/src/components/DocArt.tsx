@@ -50,7 +50,7 @@ export function ArtGrid({ id, eyebrow, title, rows }: { id: string; eyebrow: str
     {rows.map((row, index) => <div className={`art-row art-row--${row.length}`} key={index}>
       {row.map(card => <Link href={card.href} className="art-card" key={card.art}>
         <span className="art-card-media"><img src={`/art/docs/${card.art}.webp`} alt={art[card.art]} width={1536} height={1024} loading="lazy" decoding="async" /></span>
-        <span className="art-card-body"><strong>{card.title}</strong><span>{card.text}</span></span>
+        <div className="art-card-body"><h3>{card.title}</h3><span>{card.text}</span></div>
       </Link>)}
     </div>)}
   </section>

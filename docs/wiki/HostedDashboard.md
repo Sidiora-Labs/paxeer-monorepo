@@ -76,17 +76,23 @@ Failed authentication is `401 session_required`. The dashboard API is GET-only.
 The browser UI presents sign-in after a 401. A developer creates and keeps a
 non-exportable Ed25519 private key in this browser's IndexedDB, uses the key
 already held here, or enters a session token. The public key has a copy control.
-The tenant for key proofs is the tenant configured by the gateway operator.
-A browser without Ed25519 offers the token path.
+When key sign-in is configured, one primary action creates and uses a key when
+none is held, or signs in with the held key. A browser without Ed25519 offers
+the token path. Without the runtime tenant or gateway origin, the view says that
+key sign-in is not configured while the session token path remains available.
 
 On the browser UI host, `POST /session/registration` forwards a registration
 proof to `px_register`. `POST /session` forwards a fresh key proof to
 `px_openSession`, or checks a supplied token against the dashboard API overview
 with Bearer authorization. The gateway origin comes from the server runtime
-variable `DASHBOARD_GATEWAY_ORIGIN`; the API origin matches the build-time
-`DASHBOARD_API_ORIGIN` rewrite. Without the gateway origin, key registration and
-proof sign-in return 503 with `sign_in_not_configured`; token sign-in remains
-available. The page explains this refusal.
+variable `DASHBOARD_GATEWAY_ORIGIN`. The tenant comes from the server runtime
+variable `DASHBOARD_GATEWAY_TENANT` and must contain 1 to 95 lower case letters,
+digits, dots, underscores or hyphens. The tenant is read for each request, so it
+is not compiled into the build. Registration bindings and session digests include
+that runtime tenant. Invalid or absent tenant values are treated as unset. The API origin matches the build-time `DASHBOARD_API_ORIGIN` rewrite.
+Without the gateway origin or a valid tenant, key registration and proof sign-in
+return 503 with `sign_in_not_configured`; token sign-in remains available. The
+page explains this refusal.
 
 A successful sign-in returns 204 and sets `__Host-layerx-session` with `Secure`,
 `HttpOnly`, `SameSite=Strict`, `Path=/` and no Domain. Its `Max-Age` ends at the
@@ -131,6 +137,24 @@ owned routes are `404 not_found`.
 `rate-limited`, and `refused`. A request line never presents above
 `unverified` because the gateway audit trail records digests rather
 than receipts (`services/platform/hosted/dashboard/src/model.rs`).
+
+The gateway writes the principal request index in the same script as each
+common audit entry and recovers retained entries in the background at startup.
+`DIGEST` is the principal's audit digest, before the first colon in the event.
+
+| Store key | Writer and dashboard reading |
+| --- | --- |
+| `gateway:principal:DIGEST:audit` | Gateway stream containing the common audit IDs and fields for this principal |
+| `gateway:principal:DIGEST:audit:version` | Gateway sets `1`; the dashboard accepts version `1` and refuses other values or entries without a version |
+
+A principal with neither a version nor index entries has an empty request list.
+Its overview has empty key and recent-request lists when it has no keys.
+
+Receipt lookups read `webhooks:principal:DIGEST:activities` and its
+`webhooks:principal:DIGEST:activities:version` key. Webhooks writes both as one
+index update; version `1` is the supported format. A principal with neither a
+version nor the requested activity field receives `receipt_not_found`, while an
+activity field without version metadata is refused as unavailable.
 
 A payment's `settled` flag is true only when the `state` fact equals
 `settled`, that fact is at least `receipt-verified`, and a receipt

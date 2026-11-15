@@ -1,6 +1,20 @@
 defmodule BlockScoutWeb.API.V2.ImportControllerTest do
   use BlockScoutWeb.ConnCase
 
+  setup do
+    previous = Application.fetch_env(:block_scout_web, :sensitive_endpoints_api_key)
+    Application.delete_env(:block_scout_web, :sensitive_endpoints_api_key)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, value} -> Application.put_env(:block_scout_web, :sensitive_endpoints_api_key, value)
+        :error -> Application.delete_env(:block_scout_web, :sensitive_endpoints_api_key)
+      end
+    end)
+
+    :ok
+  end
+
   import Mox
 
   describe "POST /import/token-info" do
@@ -19,7 +33,7 @@ defmodule BlockScoutWeb.API.V2.ImportControllerTest do
     test "return error on wrong api key", %{conn: conn} do
       Application.put_env(:block_scout_web, :sensitive_endpoints_api_key, "abc")
       body = %{"iconUrl" => "abc", "tokenAddress" => build(:address).hash, "tokenSymbol" => "", "tokenName" => ""}
-      request = post(conn, "/api/v2/import/token-info", Map.merge(body, %{"api_key" => "123"}))
+      request = post(put_req_header(conn, "x-api-key", "123"), "/api/v2/import/token-info", body)
 
       assert %{"message" => "Wrong API key"} = json_response(request, 401)
 
@@ -37,7 +51,7 @@ defmodule BlockScoutWeb.API.V2.ImportControllerTest do
 
       body = %{"iconUrl" => icon_url, "tokenAddress" => token_address, "tokenSymbol" => "", "tokenName" => ""}
 
-      request = post(conn, "/api/v2/import/token-info", Map.merge(body, %{"api_key" => api_key}))
+      request = post(put_req_header(conn, "x-api-key", api_key), "/api/v2/import/token-info", body)
       assert %{"message" => "Success"} = json_response(request, 200)
 
       request = get(conn, "/api/v2/tokens/#{token_address}")
@@ -66,7 +80,7 @@ defmodule BlockScoutWeb.API.V2.ImportControllerTest do
         "tokenName" => token_name
       }
 
-      request = post(conn, "/api/v2/import/token-info", Map.merge(body, %{"api_key" => api_key}))
+      request = post(put_req_header(conn, "x-api-key", api_key), "/api/v2/import/token-info", body)
       assert %{"message" => "Success"} = json_response(request, 200)
 
       request = get(conn, "/api/v2/tokens/#{token_address}")
@@ -89,7 +103,7 @@ defmodule BlockScoutWeb.API.V2.ImportControllerTest do
     test "return error on wrong api key", %{conn: conn} do
       Application.put_env(:block_scout_web, :sensitive_endpoints_api_key, "abc")
       body = %{"token_address_hash" => build(:address).hash}
-      request = delete(conn, "/api/v2/import/token-info", Map.merge(body, %{"api_key" => "123"}))
+      request = delete(put_req_header(conn, "x-api-key", "123"), "/api/v2/import/token-info", body)
 
       assert %{"message" => "Wrong API key"} = json_response(request, 401)
 
@@ -154,7 +168,7 @@ defmodule BlockScoutWeb.API.V2.ImportControllerTest do
         "token_address_hash" => token_address
       }
 
-      request = delete(conn, "/api/v2/import/token-info", Map.merge(body, %{"api_key" => api_key}))
+      request = delete(put_req_header(conn, "x-api-key", api_key), "/api/v2/import/token-info", body)
       assert %{"message" => "Success"} = json_response(request, 200)
 
       request = get(conn, "/api/v2/tokens/#{token_address}")

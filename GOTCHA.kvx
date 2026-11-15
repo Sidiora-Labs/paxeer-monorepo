@@ -22425,3 +22425,43 @@ fix = "Decision 3602. Tasks 22.39.685 to 22.39.688; the verification of task 22.
 title = "Cases of the explorer theme pin token values and read the presets of the product"
 symptom = "The cases under apps/explorer/toolkit/theme/foundations state the values of the colour, radius and shadow tokens and the routes of the semantic tokens, and they read the presets apps/explorer/configs/envs/paxeer-x.env and apps/explorer/configs/envs/paxeer-x-dev.env, which declare each colour the theme declares. A task that changes the form of the tokens changes these cases and the presets with it. The case apps/explorer/toolkit/components/forms/fields/colorAndRadioFields.spec.ts imports a package for the intersection observer that the package file of the explorer does not declare."
 fix = "Decision 3603. Task 22.44.1 holds the presets in its paths."
+
+[gotcha.4521]
+title = "A decimal parameter of the virtual machine without a stored value is an empty decimal"
+symptom = "The readers of the decimal parameters in modules/evm/keeper/params.go return the stored field as it is: the priority normalizer, the base fee, the minimum and the maximum fee for a unit of gas and the two adjustments of the dynamic base fee. Without a stored value the field is an empty decimal, a computation with it does not end, and the block is refused. The ordinary path and the fast path report a refused block through different layers, so the texts of the two refusals differ while the outcome is the same."
+fix = "Decision 3604. Tasks 22.39.679 and 22.39.689."
+
+[gotcha.4522]
+title = "The dashboard API reads an index of each principal, and the writer of the entries keeps that index"
+symptom = "The dashboard API reads the requests of a principal from the stream gateway:principal:DIGEST:audit and the receipt of an activity from the hash webhooks:principal:DIGEST:activities, where DIGEST is the audit digest of the principal, and beside each key a key of the same name followed by :version with the value 1. The gateway appends its audit entries to the common stream gateway:audit, and the webhooks service stores the events of a principal in the document of the principal. A reader and the writer of its entries name the same keys, and a case of the reader that fills the keys by itself does not show that the writer fills them."
+fix = "Decision 3605. Tasks 22.39.690 and 22.39.691."
+
+[gotcha.4523]
+title = "The two keepers of the virtual machine purge the state of an account in two forms"
+symptom = "The keeper of the ordinary path in modules/evm/keeper/keeper.go purges a prefix by the range key listing of the store, meters the scan over a copy of the range and then deletes each key. The keeper of the fast path in engine/deps/xevm/keeper/keeper.go purges a prefix through the range deletion of its store. The case TestPurgePrefixNotHang of engine/deps/xevm/keeper/keeper_test.go purges a prefix under fifty stacked cache stores, and a verification that runs the package whole holds that case."
+fix = "Decision 3606. Task 22.39.692; the verifications of tasks 22.39.679 and 22.39.689."
+
+[gotcha.4524]
+title = "A class merge that is not told the names of a theme takes a font size of the theme for a colour"
+symptom = "The helper cn of a surface joins class names and lets the last of two classes of one kind stand. The merge library sorts a class with the prefix text- into the font sizes only for the sizes it knows, and every other name of that prefix counts as a colour. A theme that names font sizes of its own, such as text-body-sm, then loses the colour class that stands before the size class, or the size class that stands before the colour class, and a control keeps the colour of the text around it. The same holds for each other prefix a theme uses for two kinds of value, such as shadow- and border-. The helper in apps/bridge/src/lib/utils.ts tells the merge the font sizes of its theme."
+fix = "Decision 3607. Tasks 22.44.49 to 22.44.51."
+
+[gotcha.4525]
+title = "A surface that renders the components of a package shows what that package holds"
+symptom = "The developer dashboard under services/platform/hosted/dashboard/web renders the components of the interface package under apps/web/packages/layerx-ui, and its paths do not hold that package. A render check of the dashboard measures the controls of the package as the package gives them."
+fix = "Decision 3608. The order of tasks 22.44.44 and 22.44.40."
+
+[gotcha.4526]
+title = "Cases of the fast path state chain ids of chain names the product does not hold"
+symptom = "The chain id of the virtual machine comes from one table in modules/evm/config/config.go, which holds the chain name of the product, and every other chain name takes the default chain id. The package engine/deps/xevm/config reads that same table. The case TestGetChainID of engine/deps/xevm/keeper/keeper_test.go and cases of engine/deps/xevm/config/config_test.go state chain ids for chain names the table does not hold, and a verification that runs the package engine/deps/xevm/keeper whole holds the first of them."
+fix = "Decision 3609. Task 22.39.693; the verifications of tasks 22.39.679 and 22.39.689."
+
+[gotcha.4527]
+title = "The dashboard web lists the keys of a developer and the gateway issues them"
+symptom = "The gateway issues, lists, rotates and revokes the keys of a developer at /v1/keys for a caller whose session authorizes the signer: POST /v1/keys with an idempotency key header and the fields signer_public_key, scopes, quota_requests and quota_window_seconds, POST /v1/keys/ID/rotate, and DELETE /v1/keys/ID. The dashboard web keeps the session of the developer in a cookie the page cannot read, and its Keys view lists the keys the dashboard API returns. A control of the page reaches the gateway only through a route of the web that reads that cookie."
+fix = "Decision 3610. Task 22.39.694."
+
+[gotcha.4528]
+title = "Cases of the web app of the explorer backend call tools the builder holds"
+symptom = "The cases of the web app under services/explorer/backend/apps/block_scout_web/test/block_scout_web/features drive a browser against pages whose lists and controls are rendered by the scripts built from services/explorer/backend/apps/block_scout_web/assets. The cases of the sign-in by wallet call the native library of the sign-in message package that services/explorer/backend/apps/explorer/mix.exs names. The cases of contract verification call the compiler tools the script services/explorer/deploy/tools/mix-in-builder.sh checks for and the adapter services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/sourcify.ex. A run of these cases passes where the builder holds the built page assets, the native library and the compiler tools, and these lie outside the paths of a task of the app alone."
+fix = "Decision 3611. Task 22.39.695; the verification of task 22.39.686."

@@ -18,7 +18,7 @@ function Band() {
 function MediaCard({ art, alt, kicker, title, text, href, linkLabel, media = '', width = 1536, height = 1024 }: { art: DocArtName; alt: string; kicker: string; title: string; text: string; href: string; linkLabel: string; media?: string; width?: number; height?: number }) {
   return <Link href={href} className="cd-media-card">
     <span className={`cd-media${media ? ` ${media}` : ''}`}><img src={`/art/docs/${art}.webp`} alt={alt} width={width} height={height} loading="lazy" decoding="async" /></span>
-    <span className="cd-media-card-body"><span className="cd-kicker">{kicker}</span><strong>{title}</strong><span>{text}</span><span className="cd-card-link">{linkLabel} <Icon name="arrow" size={15} /></span></span>
+    <div className="cd-media-card-body"><span className="cd-kicker">{kicker}</span><h3>{title}</h3><span>{text}</span><span className="cd-card-link">{linkLabel} <Icon name="arrow" size="sm" /></span></div>
   </Link>
 }
 
@@ -30,12 +30,12 @@ export default function Home() {
         <p className="eyebrow">PAXEER X / NETWORK DOCUMENTATION</p>
         <h1>Applications. Payments. Programs.<br /><span>Build on Paxeer.</span></h1>
         <p className="page-description">The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.</p>
-        <div className="hero-actions"><Link className="pill-button primary-button" href="/unified-network">Explore the network <Icon name="arrow" size={16} /></Link><Link className="pill-button" href="/xdk">Start with the XDK</Link></div>
+        <div className="hero-actions"><Link className="pill-button primary-button" href="/unified-network">Explore the network <Icon name="arrow" size="sm" /></Link><Link className="pill-button" href="/xdk">Start with the XDK</Link></div>
         <div className="hero-network"><span>LayerX kernel</span><i /><span>EVM chain ID <code>125</code></span><i /><span>Native token <code>PAX</code></span></div>
       </section>
       <Band />
       <figure className="cd-hero-panel">
-        <img src="/art/docs/system-overview.webp" alt="Paxeer Docs: explore the connected system" width={1536} height={1024} decoding="async" />
+        <img src="/art/docs/system-overview.webp" fetchPriority="high" alt="Paxeer Docs: explore the connected system" width={1536} height={1024} decoding="async" />
         <figcaption><span>The LayerX kernel executes, orders and receipts every transaction; EVM applications run on the same sequence.</span><span>EVM 125 · PAX</span></figcaption>
       </figure>
       <p>On arrival, the kernel gives each transaction a position in one global sequence and returns a signed execution receipt. Validators check and commit each block it builds.</p>
@@ -86,9 +86,9 @@ export default function Home() {
       <section id="benefits" aria-labelledby="benefits-title">
         <SectionHead id="benefits-title" eyebrow="EXECUTION" title={"Authority, receipts\nand committed state"} />
         <div className="cd-grid-3">
-          <Link href="/layerx-kernel" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="node" size={44} /></span><span className="cd-media-card-body"><strong>Execution you can reproduce</strong><span>The node orders native activities and commits their state with BFT blocks. Deterministic execution supports replay with the required state and artifacts.</span></span></Link>
-          <Link href="/identity" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="layers" size={44} /></span><span className="cd-media-card-body"><strong>Authority with clear boundaries</strong><span>Identity keys, scoped capabilities, delegated spending limits and revocation constrain authorized actions.</span></span></Link>
-          <Link href="/evm" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="code" size={44} /></span><span className="cd-media-card-body"><strong>Tools you already know</strong><span>Deploy Solidity, connect wallets and call native precompiles through standard EVM tooling and JSON-RPC on chain 125.</span></span></Link>
+          <Link href="/layerx-kernel" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="node" size="lg" /></span><span className="cd-media-card-body"><strong role="heading" aria-level={3}>Execution you can reproduce</strong><span>The node orders native activities and commits their state with BFT blocks. Deterministic execution supports replay with the required state and artifacts.</span></span></Link>
+          <Link href="/identity" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="layers" size="lg" /></span><span className="cd-media-card-body"><strong role="heading" aria-level={3}>Authority with clear boundaries</strong><span>Identity keys, scoped capabilities, delegated spending limits and revocation constrain authorized actions.</span></span></Link>
+          <Link href="/evm" className="cd-benefit"><span className="cd-benefit-visual"><Icon name="code" size="lg" /></span><span className="cd-media-card-body"><strong role="heading" aria-level={3}>Tools you already know</strong><span>Deploy Solidity, connect wallets and call native precompiles through standard EVM tooling and JSON-RPC on chain 125.</span></span></Link>
         </div>
       </section>
       <Band />
@@ -167,7 +167,7 @@ export default function Home() {
           <MediaCard art="service-payment" alt="Service payment: an application pays through 402LXP and receives a receipt" kicker="STEP 2" title="Fund and authorize" text="Fund the account, bind identities and set the budgets and mandates that bound what can be spent." href="/payments-quickstart" linkLabel="Make your first payment" />
           <MediaCard art="payment-receipt" alt="Payment receipt: protocol 402LXP, service Compute, status Settled" kicker="STEP 3" title="Execute and verify" text="Submit a signed transaction, verify its execution receipt and confirm its covering block is committed." href="/receipts" linkLabel="Verify a receipt" />
         </div>
-        <div className="cd-center-cta"><Link className="pill-button primary-button" href="/xdk">Start with the XDK <Icon name="arrow" size={16} /></Link></div>
+        <div className="cd-center-cta"><Link className="pill-button primary-button" href="/xdk">Start with the XDK <Icon name="arrow" size="sm" /></Link></div>
         <div className="cd-inset"><DeveloperQuickstart /></div>
       </section>
       <Band />
@@ -186,7 +186,7 @@ export default function Home() {
                 <li>Scoped MCP tools</li>
                 <li>Agent-to-agent tasks</li>
               </ul>
-              <Link href="/agents" className="pill-button cd-path-cta">Build an agent <Icon name="arrow" size={14} /></Link>
+              <Link href="/agents" className="pill-button cd-path-cta">Build an agent <Icon name="arrow" size="sm" /></Link>
             </div>
           </article>
           <article className="cd-path">
@@ -201,7 +201,7 @@ export default function Home() {
                 <li>Payment streams and budgets</li>
                 <li>Receipts and settlement proof</li>
               </ul>
-              <Link href="/payments-quickstart" className="pill-button primary-button cd-path-cta">Make your first payment <Icon name="arrow" size={14} /></Link>
+              <Link href="/payments-quickstart" className="pill-button primary-button cd-path-cta">Make your first payment <Icon name="arrow" size="sm" /></Link>
             </div>
           </article>
           <article className="cd-path">
@@ -216,7 +216,7 @@ export default function Home() {
                 <li>Native precompiles</li>
                 <li>Assets, launchpad and markets</li>
               </ul>
-              <Link href="/evm" className="pill-button cd-path-cta">Build on the EVM <Icon name="arrow" size={14} /></Link>
+              <Link href="/evm" className="pill-button cd-path-cta">Build on the EVM <Icon name="arrow" size="sm" /></Link>
             </div>
           </article>
         </div>
@@ -235,10 +235,10 @@ export default function Home() {
       </section>
       <Band />
       <section className="reference-section cd-inset" aria-labelledby="reference-title"><div className="section-heading"><div><p className="eyebrow">BUILD WITH THE FULL SYSTEM</p><h2 id="reference-title">Find your interface.<br />Follow it deeper.</h2></div><p>Architecture, integration guides and operational reference for Paxeer X.</p></div><div className="reference-grid">
-        <Link href="/layerx-kernel" className="reference-card"><h3>LayerX kernel</h3><p>Canonical sequencing, accounting, modules and deterministic execution.</p><Icon name="arrow" size={16} /></Link>
-        <Link href="/platform-api" className="reference-card"><h3>Platform APIs</h3><p>Application gateways, hosted services, webhooks and integration surfaces.</p><Icon name="arrow" size={16} /></Link>
-        <Link href="/json-rpc" className="reference-card"><h3>EVM JSON-RPC</h3><p>Wallet integration, chain requests, contracts and transaction inspection.</p><Icon name="arrow" size={16} /></Link>
-        <Link href="/operators" className="reference-card"><h3>Operator guides</h3><p>Nodes, configuration, network services and settlement infrastructure.</p><Icon name="arrow" size={16} /></Link>
+        <Link href="/layerx-kernel" className="reference-card"><h3>LayerX kernel</h3><p>Canonical sequencing, accounting, modules and deterministic execution.</p><Icon name="arrow" size="sm" /></Link>
+        <Link href="/platform-api" className="reference-card"><h3>Platform APIs</h3><p>Application gateways, hosted services, webhooks and integration surfaces.</p><Icon name="arrow" size="sm" /></Link>
+        <Link href="/json-rpc" className="reference-card"><h3>EVM JSON-RPC</h3><p>Wallet integration, chain requests, contracts and transaction inspection.</p><Icon name="arrow" size="sm" /></Link>
+        <Link href="/operators" className="reference-card"><h3>Operator guides</h3><p>Nodes, configuration, network services and settlement infrastructure.</p><Icon name="arrow" size="sm" /></Link>
       </div></section>
       <Band />
       <section id="faqs" aria-labelledby="faq-title">
@@ -255,7 +255,7 @@ export default function Home() {
       <Band />
       <section className="cd-cta">
         <img className="cd-cta-bg" src="/art/docs/system-overview.webp" alt="" aria-hidden="true" width={1536} height={1024} loading="lazy" decoding="async" />
-        <div className="cd-cta-inner"><PaxeerMark /><h2>Build an application.<br />Connect to Paxeer.</h2><p>Choose a domain, integrate an interface and follow the evidence through the network.</p><div className="hero-actions"><Link href="/xdk" className="pill-button primary-button">Open the developer toolkit <Icon name="arrow" size={16} /></Link><Link href="/unified-network" className="pill-button cd-cta-ghost">Explore the network</Link></div></div>
+        <div className="cd-cta-inner"><PaxeerMark /><h2>Build an application.<br />Connect to Paxeer.</h2><p>Choose a domain, integrate an interface and follow the evidence through the network.</p><div className="hero-actions"><Link href="/xdk" className="pill-button primary-button">Open the developer toolkit <Icon name="arrow" size="sm" /></Link><Link href="/unified-network" className="pill-button cd-cta-ghost">Explore the network</Link></div></div>
       </section>
     </div>
     <footer className="site-footer"><div className="landing-col cd-footer-col"><div className="cd-footer-top"><div className="footer-intro"><Link href="/" className="brand"><PaxeerMark />Paxeer X Docs</Link><p>The chain, agent economy and developer platform in one reference.</p></div><div className="footer-links"><div><span>BUILD</span><Link href="/xdk">Developer toolkit</Link><Link href="/agents">Agents</Link><Link href="/programs">Programs</Link></div><div><span>USE</span><Link href="/payments-quickstart">Payments</Link><Link href="/spot-exchange">Markets</Link><Link href="/human-interface">Human interface</Link></div><div><span>UNDERSTAND</span><Link href="/unified-network">Unified network</Link><Link href="/proofs">Proofs</Link><Link href="/operators">Operations</Link></div></div></div><nav className="cd-footer-quick" aria-label="Landing sections"><span>ON THIS PAGE:</span><a href="#solution">Applications</a><a href="#benefits">Execution</a><a href="#comparison">Integration map</a><a href="#how-it-works">How it works</a><a href="#paths">Build paths</a><a href="#faqs">FAQs</a></nav><div className="footer-bottom"><span>Paxeer X Network</span><span>EVM 125 · hyperpax_125-1 · LayerX</span></div></div></footer>

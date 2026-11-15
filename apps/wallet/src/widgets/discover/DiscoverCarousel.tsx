@@ -106,14 +106,9 @@ export function DiscoverCarousel({
               type="button"
               key={i}
               onClick={() => goTo(i)}
-              className="press-scale transition-all duration-300"
-              style={{
-                width: i === active ? 18 : 6,
-                height: 6,
-                borderRadius: 3,
-                background:
-                  i === active ? 'var(--color-action-primary)' : 'var(--color-surface-control)',
-              }}
+              className={`press-scale h-1.5 rounded-full transition-all duration-normal ${
+                i === active ? 'w-[var(--space-4)] bg-pax-accent' : 'w-1.5 bg-pax-control'
+              }`}
             />
           ))}
         </div>

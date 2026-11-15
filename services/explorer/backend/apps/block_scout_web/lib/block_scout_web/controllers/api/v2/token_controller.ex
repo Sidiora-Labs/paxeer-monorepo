@@ -54,6 +54,14 @@ defmodule BlockScoutWeb.API.V2.TokenController do
     description: "Retrieves detailed information for a specific token identified by its contract address.",
     parameters: [address_hash_param() | base_params()],
     responses: [
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok: {"Detailed information about the specified token.", "application/json", Schemas.Token.Response},
       unprocessable_entity: JsonErrorResponse.response(),
       not_found: NotFoundResponse.response()
@@ -104,6 +112,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
     description: "Retrieves count statistics for a specific token, including holders count and transfers count.",
     parameters: [address_hash_param() | base_params()],
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok: {"Count statistics for the specified token.", "application/json", Schemas.Token.Counters},
       unprocessable_entity: JsonErrorResponse.response(),
       not_found: NotFoundResponse.response()
@@ -138,6 +147,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
           "index_in_batch"
         ]),
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Transfers of the specified token, with pagination.", "application/json",
          paginated_response(
@@ -197,6 +207,14 @@ defmodule BlockScoutWeb.API.V2.TokenController do
         [address_hash_param()] ++
         define_paging_params(["address_hash_param", "value", "items_count"]),
     responses: [
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"Holders of the specified token, with pagination.", "application/json",
          paginated_response(
@@ -244,6 +262,14 @@ defmodule BlockScoutWeb.API.V2.TokenController do
         [address_hash_param(), holder_address_hash_param()] ++
         define_paging_params(["unique_token"]),
     responses: [
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"NFT instances for the specified token contract, with pagination.", "application/json",
          paginated_response(
@@ -344,6 +370,14 @@ defmodule BlockScoutWeb.API.V2.TokenController do
           token_id_param()
         ],
     responses: [
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok: {"Detailed information about the specified NFT instance.", "application/json", Schemas.TokenInstance},
       unprocessable_entity: JsonErrorResponse.response(),
       not_found: NotFoundResponse.response()
@@ -395,6 +429,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
         [address_hash_param(), token_id_param()] ++
         define_paging_params(["index", "block_number", "token_id"]),
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Transfer history for the specified NFT instance, with pagination.", "application/json",
          paginated_response(
@@ -455,6 +490,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
         [address_hash_param(), token_id_param()] ++
         define_paging_params(["address_hash_param", "items_count", "token_id", "value"]),
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Current holders of the specified NFT instance, with pagination.", "application/json",
          paginated_response(
@@ -515,6 +551,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
           token_id_param()
         ],
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
       ok:
         {"Total number of transfers for the specified NFT instance.", "application/json",
          %Schema{type: :object, properties: %{transfers_count: %Schema{type: :integer}}}},
@@ -680,6 +717,15 @@ defmodule BlockScoutWeb.API.V2.TokenController do
           recaptcha_response_param()
         ],
     responses: [
+      forbidden: BlockScoutWeb.Schemas.API.V2.ErrorResponses.ForbiddenResponse.response(),
+      too_many_requests:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"Metadata refresh has been successfully initiated.", "application/json",
          %Schema{type: :object, properties: %{message: %Schema{type: :string}}}},
@@ -724,6 +770,22 @@ defmodule BlockScoutWeb.API.V2.TokenController do
     description: "Triggers a metadata refetch for a token's NFT collection (by token address). Requires API key.",
     parameters: base_params() ++ [address_hash_param(), admin_api_key_param(), admin_api_key_param_query()],
     responses: [
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
+      unauthorized:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"NFT collection metadata refetch triggered.", "application/json",
          %Schema{type: :object, properties: %{message: %Schema{type: :string}}}},

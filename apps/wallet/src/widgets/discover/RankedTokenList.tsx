@@ -83,7 +83,7 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
             type="button"
             key={token.poolAddress}
             onClick={() => onTokenTrade?.(token.poolAddress, token.symbol)}
-            className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-[110px]"
+            className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-token"
           >
             <div className="flex items-center gap-2.5">
               <div className="relative w-8 h-8 rounded-full bg-pax-control overflow-hidden shrink-0">
@@ -117,7 +117,7 @@ export function RankedTokenList({ ranked, loading, onTokenTrade }: RankedTokenLi
       })}
 
       {ranked.length > 3 && (
-        <div className="col-span-2 bg-pax-surface rounded-xl  divide-white/[0.04] overflow-hidden">
+        <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
           {ranked.slice(3).map((token) => {
             const positive = token.priceChange24h >= 0;
             return (

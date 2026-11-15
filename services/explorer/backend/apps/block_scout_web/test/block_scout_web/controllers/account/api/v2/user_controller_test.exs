@@ -12,6 +12,13 @@ defmodule BlockScoutWeb.Account.Api.V2.UserControllerTest do
   alias Explorer.Chain.Address
   alias Explorer.Repo
 
+  setup do
+    previous = Application.get_env(:explorer, Explorer.Account)
+    Application.put_env(:explorer, Explorer.Account, Keyword.put(previous, :enabled, true))
+    on_exit(fn -> Application.put_env(:explorer, Explorer.Account, previous) end)
+    :ok
+  end
+
   setup %{conn: conn} do
     auth = build(:auth)
 

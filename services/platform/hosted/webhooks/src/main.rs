@@ -621,6 +621,20 @@ fn serve(config: Config) -> Result<(), String> {
     if config.dispatch_interval.is_zero() {
         return Err("webhook dispatch interval must be positive".to_owned());
     }
+    let index_config = Arc::clone(&config);
+    thread::Builder::new()
+        .name("webhook-activity-index".to_owned())
+        .spawn(move || {
+            let result = index_config.service.reconcile_activity_indexes_report();
+            report_worker_result(
+                &index_config.service,
+                "activity_index",
+                result
+                    .as_ref()
+                    .map_or(true, |report| report.failure_count != 0),
+            );
+        })
+        .map_err(|error| format!("webhook activity index thread: {error}"))?;
     let worker_config = Arc::clone(&config);
     thread::spawn(move || loop {
         thread::sleep(worker_config.dispatch_interval);

@@ -80,7 +80,7 @@ export function TransactionsWidget({ onTxDetail }: TransactionsWidgetProps) {
           subtitle={EMPTY_CONFIG[tab].subtitle}
         />
       ) : (
-        <div className="glass-card  divide-white/5">
+        <div className="glass-card  divide-pax-line">
           {rows.map((row, i) => (
             <TransactionRow
               key={row.hash + i}
