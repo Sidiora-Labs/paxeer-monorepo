@@ -197293,7 +197293,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.612]
 title = "Let the definitions of the project wallet load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.594", "22.39.595", "22.39.596", "22.39.597"]
@@ -379071,7 +379071,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.579]
 title = "Define the service dashboard of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
