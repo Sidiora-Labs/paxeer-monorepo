@@ -1,0 +1,19 @@
+[service.dashboard-web]
+kind = "repo"
+dockerfile = "docker/platform-dashboard-web/Dockerfile"
+root = "/"
+watch = ["/docker/platform-dashboard-web/**", "/apps/web/**", "/services/platform/hosted/dashboard/web/**", "/scripts/ci/developer-dashboard-lock.mjs"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 2
+public = 1
+order = 8
+needs = []
+
+[vars.dashboard-web]
+PORT = "3000"
+DASHBOARD_API_ORIGIN = "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN"
+
+[inputs.dashboard-web]
+# Dashboard API origin compiled into the production rewrite as an absolute HTTP(S) origin.
+PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN = "operator"
