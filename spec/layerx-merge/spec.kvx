@@ -172782,7 +172782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.662]
 title = "Take a newer signed inventory in the wallet gateway and pass it to the attestors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.660", "22.39.661"]
