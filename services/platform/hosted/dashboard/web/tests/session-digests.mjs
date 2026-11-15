@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { registrationBinding, sessionDigest, lowercaseHex, generateDeveloperKey } from "../app/browser-key.ts";
 
-async function registration_binding_matches_the_gateway_digest() {
+async function runtime_tenant_reaches_registration_binding_and_session_digest() {
   const digest = await registrationBinding("beta", "ab".repeat(32));
   assert.equal(lowercaseHex(digest), "425fa6c5988efc16bce8a7931f1efbc039b75d10f0ffa617c3c2d3de2366e128");
   assert.notDeepEqual(digest, await registrationBinding("gamma", "ab".repeat(32)));
 }
 
-test(registration_binding_matches_the_gateway_digest);
+test(runtime_tenant_reaches_registration_binding_and_session_digest);
 
 async function session_digest_matches_the_gateway_digest_and_binds_the_time() {
   const digest = await sessionDigest("beta", "ab".repeat(32), "1700000000");
