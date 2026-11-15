@@ -14596,6 +14596,12 @@ value = "The cases of the local network that compare the sequencing node with a 
 basis = "Gotcha 4499."
 affects = []
 
+[decision.3581]
+title = "The custody delivery takes the wallets whose identity is held and leaves the others as they are"
+value = "The plan of the custody ceremony divides the eligible wallets into three sets. Deliverable: the wallet row holds an identifier, so the checks of the original identity apply to it in full. Waiting for an identity: the wallet is not of the agent kind, the wallet row holds no identifier and no provisioning record of the wallet is in the active state. External identity: the wallet is of the agent kind. Delivery and rehearsal act on the deliverable set only. A wallet of the other two sets keeps its envelope, its row and its place in the gateway unchanged; no journal is written for it and no attestor is asked about it. A deliverable wallet whose identity record, signature or binding does not hold stops the run as before. The counts of plan, rehearsal and delivery name the three sets, and a run is complete when every deliverable wallet is matched and the three sets together are the eligible wallets. The rehearsal receipt binds the deliverable set, so a delivery whose deliverable set differs from the receipt is refused. A later run with its own ceremony identifier, rehearsal and receipt takes the wallets that have gained an identity since; the wallets delivered before are counted as already migrated."
+basis = "Gotcha 4500."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44256,6 +44262,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.666]
+title = "Divide the eligible wallets of the custody ceremony by the state of their identity"
+reqs = ["22998.1"]
+touches = ["services/wallet/ceremony/cmd/ceremony", "services/wallet/ceremony/internal", "docs/wallet/service/cutover.md"]
+tests = []
+verification_contract = "cd services/wallet/ceremony && go test -count=1 ./... -run TestWaitingIdentity && go test -count=1 ./internal/migrate/ ./cmd/ceremony/"
+do_1 = "do_1 Gotcha 4500, decision 3581. Read in services/wallet/ceremony/internal/migrate/migrate.go the types Plan and Report, the functions ReadWallets, PlanMigration, Deliver, deliverOne, loadOriginalIdentity, verifyOriginalBinding, completeCounts and WriteRehearsalReceipt and the check of the receipt in the delivery; in services/wallet/ceremony/internal/migrate/inventory.go the function WriteInventoryRequests; in services/wallet/ceremony/internal/rehearsal/rehearsal.go the function Rehearse and the type Report; in services/wallet/ceremony/cmd/ceremony/main.go the functions runPlan, runDeliver, runDeliverCounts and runRehearse; and in services/wallet/gateway/src/routes/sign.ts and services/wallet/gateway/src/routes/wallet.ts the function usesAttestorCustody and the route of provisioning, for the way the gateway serves a wallet with an envelope before it is migrated."
+symbols = []
 
 [capability.22.39.665]
 title = "Compare contract creation and the sponsored batch between the sequencing node and a node without sequencing"
@@ -243943,6 +243958,42 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.666]
+title = "Divide the eligible wallets of the custody ceremony by the state of their identity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.666"]
+interfaces = []
+do_1 = "do_1 Gotcha 4500, decision 3581. Read in services/wallet/ceremony/internal/migrate/migrate.go the types Plan and Report, the functions ReadWallets, PlanMigration, Deliver, deliverOne, loadOriginalIdentity, verifyOriginalBinding, completeCounts and WriteRehearsalReceipt and the check of the receipt in the delivery; in services/wallet/ceremony/internal/migrate/inventory.go the function WriteInventoryRequests; in services/wallet/ceremony/internal/rehearsal/rehearsal.go the function Rehearse and the type Report; in services/wallet/ceremony/cmd/ceremony/main.go the functions runPlan, runDeliver, runDeliverCounts and runRehearse; and in services/wallet/gateway/src/routes/sign.ts and services/wallet/gateway/src/routes/wallet.ts the function usesAttestorCustody and the route of provisioning, for the way the gateway serves a wallet with an envelope before it is migrated."
+do_2 = "do_2 PlanMigration divides the eligible wallets by the rule of decision 3581 into the fields Deliverable, WaitingIdentity and ExternalIdentity of the plan, in the order of the present list; the field Eligible keeps its content. The read of the provisioning records for the rule is one query over the wallets, not one per wallet. A wallet of the standard kind with an identifier on its row is deliverable whatever its record holds, so that a record that does not hold is found by the checks of the delivery and not passed over."
+do_3 = "do_3 Deliver takes the deliverable wallets only. For a wallet of the other two sets it writes no journal and no lock file, sends no request to an attestor and changes no row. The report counts WaitingIdentity and ExternalIdentity from the plan; the count ExternalIdentity is no longer reached through an error of a wallet. completeCounts holds when Read, Verified, Imported, Refreshed, TestSigned, Matched and HeldIdentity equal the number of deliverable wallets and the three sets together equal the eligible wallets. A deliverable wallet that fails a check of its identity, its binding or its key stops the run with the present error."
+do_4 = "do_4 The line of the plan command gains deliverable, waiting_identity and external_identity after already_migrated; the present fields keep their names, order and meaning. The inventory requests the plan writes cover the deliverable wallets only. The count lines of rehearsal and delivery gain waiting_identity and external_identity in the same way."
+do_5 = "do_5 The rehearsal passes when every deliverable wallet is matched. The rehearsal receipt binds the deliverable set in the way it binds its plan today, and a delivery whose deliverable set differs from that of the receipt is refused with the present error of a receipt that does not fit. A rehearsal or delivery with no deliverable wallet ends with its counts and without a request to an attestor."
+do_6 = "do_6 Tests whose names begin with TestWaitingIdentity, in the packages of services/wallet/ceremony/internal/migrate/migrate.go, services/wallet/ceremony/internal/rehearsal/rehearsal.go and services/wallet/ceremony/cmd/ceremony/main.go, with the present fixtures: a plan over wallets of the three sets with a funded and a migrated one gives the five counts; a delivery over that plan delivers the deliverable wallets and leaves each wallet of the other two sets with the same row as before, no journal file and no request at any attestor; a standard wallet with an identifier whose record is not active stops the delivery; a counts-only rehearsal over the three sets passes and writes its receipt; a delivery after one more wallet gained an identity is refused under the earlier receipt; a second run with a new ceremony identifier after that delivers the new wallet and counts the earlier ones as already migrated."
+do_7 = "do_7 Present cases of the three packages whose expectation decision 3581 changes are brought to it in place; no case is removed, skipped or tagged out."
+do_8 = "do_8 In docs/wallet/service/cutover.md the sections on rehearsal, plan and delivery state the three sets, the counts, that a wallet waiting for an identity stays served from its envelope by the gateway until a later run, and that a later run has its own ceremony identifier, rehearsal and receipt."
+do_9 = "do_9 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/ceremony/cmd/ceremony", "services/wallet/ceremony/internal", "docs/wallet/service/cutover.md"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/ceremony && go build ./..."
+verify_cmd = "cd services/wallet/ceremony && go test -count=1 ./... -run TestWaitingIdentity && go test -count=1 ./internal/migrate/ ./cmd/ceremony/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.665]
 title = "Compare contract creation and the sponsored batch between the sequencing node and a node without sequencing"
