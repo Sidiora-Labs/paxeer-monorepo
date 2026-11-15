@@ -152,6 +152,7 @@ export interface GeneratedKey {
   keyId: string;
   curve: 'secp256k1' | 'ed25519';
   publicKey: string;
+  epoch: number;
   address: `0x${string}` | null;
   did: string | null;
 }
@@ -224,12 +225,12 @@ export class AttestorDaemonClient {
       const address = publicKeyToAddress(`0x${pub}`);
       if (generated.address && getAddress(generated.address) !== address)
         throw new AttestorUnavailable('attestor address does not match the public key');
-      return { keyId, curve, publicKey: pub, address, did: null };
+      return { keyId, curve, publicKey: pub, epoch: generated.epoch, address, did: null };
     }
     const did = didFromPublicKey(pub);
     if (generated.did && generated.did !== did)
       throw new AttestorUnavailable('attestor DID does not match the public key');
-    return { keyId, curve, publicKey: pub, address: null, did };
+    return { keyId, curve, publicKey: pub, epoch: generated.epoch, address: null, did };
   }
   async sign(keyId: string, body: SignBody, bearerToken: string): Promise<SignedPayload> {
     return this.signAuthorized(keyId, body, {

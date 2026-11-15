@@ -201,17 +201,27 @@ export function loadWalletInventory(): WalletInventory {
   }
 }
 
+export function findWalletInventoryKey(
+  inventory: WalletInventory,
+  keyId: string,
+  operation: WalletInventoryKey['operations'][number],
+  owner?: string
+): WalletInventoryKey | undefined {
+  const entry = inventory.keys.find((key) => key.key_id === keyId);
+  return entry &&
+    entry.operations.includes(operation) &&
+    (owner === undefined || entry.owner === owner)
+    ? entry
+    : undefined;
+}
+
 export function requireInventoryKey(
   keyId: string,
   operation: WalletInventoryKey['operations'][number],
   owner?: string
 ): WalletInventoryKey {
-  const entry = loadWalletInventory().keys.find((key) => key.key_id === keyId);
-  if (
-    !entry ||
-    !entry.operations.includes(operation) ||
-    (owner !== undefined && entry.owner !== owner)
-  )
+  const entry = findWalletInventoryKey(loadWalletInventory(), keyId, operation, owner);
+  if (!entry)
     throw new CustodyAuthorityError(
       `owner-approved wallet inventory does not admit ${operation} for ${keyId}`
     );
