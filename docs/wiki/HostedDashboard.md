@@ -92,8 +92,15 @@ A successful sign-in returns 204 and sets `__Host-layerx-session` with `Secure`,
 `HttpOnly`, `SameSite=Strict`, `Path=/` and no Domain. Its `Max-Age` ends at the
 proof session's `expires_at`, or twelve hours after a token is accepted.
 `DELETE /session` returns 204 and clears the cookie with the same attributes
-and `Max-Age=0`. The shell's sign-out control returns to sign-in. These web
-routes require same-origin JSON requests with a body bound of 8192 bytes;
+and `Max-Age=0`. The shell's sign-out control returns to sign-in.
+
+These web routes require an Origin matching either the parsed HTTPS origin of
+the Host header, including its port, or the origin of the request URL for direct
+access. An absent, multi-value or malformed Host header supplies no HTTPS origin.
+Missing or non-matching Origins return 403 with `origin_refused` before the body
+is read.
+
+Requests require `Content-Type: application/json` with a body bound of 8192 bytes;
 upstream calls have a five-second time limit. Response bodies and error text
 contain no session token.
 
