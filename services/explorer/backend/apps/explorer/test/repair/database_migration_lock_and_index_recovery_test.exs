@@ -9,6 +9,7 @@ end
 defmodule Explorer.Repair.DatabaseMigrationLockAndIndexRecoveryTest do
   use ExUnit.Case, async: false
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias Explorer.Chain.{Block, InternalTransaction}
   alias Explorer.Repo
 
@@ -26,6 +27,8 @@ defmodule Explorer.Repair.DatabaseMigrationLockAndIndexRecoveryTest do
   @fixtures Path.expand("../../../ethereum_jsonrpc/test/support/fixture/paxeer_x", __DIR__)
 
   setup do
+    owner = Sandbox.start_owner!(Repo, shared: true, sandbox: false)
+    on_exit(fn -> Sandbox.stop_owner(owner) end)
     schema = "repair_2233518_#{System.unique_integer([:positive])}"
     original_repo = Repo.get_dynamic_repo()
     Repo.query!("CREATE SCHEMA #{schema}")

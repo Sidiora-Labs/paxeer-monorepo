@@ -38,6 +38,7 @@ defmodule Explorer.Repair.MigrationCacheRecoveryTest do
 
   use Explorer.DataCase, async: false
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias Ecto.{Changeset, Multi}
   alias EthereumJSONRPC.Log
   alias Explorer.Chain
@@ -77,7 +78,8 @@ defmodule Explorer.Repair.MigrationCacheRecoveryTest do
   end
 
   setup do
-    :ok = Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok = Sandbox.mode(Repo, {:shared, self()})
+    on_exit(fn -> Sandbox.mode(Repo, :auto) end)
 
     cache = Enum.map(BackgroundMigrations.cache_keys(), &{&1, ConCache.get(BackgroundMigrations.cache_name(), &1)})
 
@@ -114,6 +116,13 @@ defmodule Explorer.Repair.MigrationCacheRecoveryTest do
 
   test "repaired gap advances the persisted frontier across scanner restarts" do
     configure(:explorer, MinMissingBlockNumber, batch_size: 1)
+
+    configure(:explorer, BlockNumber,
+      enabled: true,
+      ttl_check_interval: :timer.seconds(1),
+      global_ttl: :timer.minutes(10)
+    )
+
     assert :ok = Supervisor.terminate_child(Explorer.Supervisor, BlockNumber.child_id())
     start_supervised!(BlockNumber)
     on_exit(fn -> Supervisor.restart_child(Explorer.Supervisor, BlockNumber.child_id()) end)
