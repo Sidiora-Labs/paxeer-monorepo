@@ -1,0 +1,33 @@
+{
+  "$comment": "Small Paxeer mainnet-beta livestream deployment; EVM chain 125.",
+  "network": {
+    "name": "paxeer-mainnet-beta",
+    "evm_chain_id": 125,
+    "rpc_url": "https://api5.mainnet-beta.paxeer.network/"
+  },
+  "endpoints": {
+    "livepeer_api_url": "https://livepeer.studio/api",
+    "public_url": "https://live.sidiora.fun"
+  },
+  "addresses": {
+    "bind": "0.0.0.0",
+    "port": 8080
+  },
+  "names": {
+    "service": "livestream",
+    "runtime": "livestreamd",
+    "zone": "mainnet-beta-a"
+  },
+  "limits": {
+    "max_streams_per_wallet": 3,
+    "max_global_streams": 100
+  },
+  "periods": {
+    "secrets_refresh_seconds": 30,
+    "webhook_timestamp_unit": "seconds"
+  },
+  "credentials": {
+    "livepeer_api_key": "test",
+    "is_test": true
+  }
+}
