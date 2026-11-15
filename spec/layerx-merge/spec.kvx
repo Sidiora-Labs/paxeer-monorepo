@@ -14602,6 +14602,12 @@ value = "The plan of the custody ceremony divides the eligible wallets into thre
 basis = "Gotcha 4500."
 affects = []
 
+[decision.3582]
+title = "A launchpad migration release is approved by the mode of the schema command that applies it to an empty database"
+value = "The schema command gains the mode approve. It takes the directory of the migrations and the administrator connection of an empty database, and it refuses a database that holds a schema of the release. It applies the sources of the earlier histories and the registrations in the order apply uses and writes into the registry and the aliases file: for every source of an earlier history the structural fingerprint of its schema after that source, in the aliases file and in every registration that names the source as a predecessor; for every registration the digest of the grants document as the interface digest, the reader version of the command as the lowest reader version, and the time its transaction took in whole milliseconds, at least one, as the lock estimate; a registration above the bound of the coordinator ends the mode with a refusal that names it. The registry records the major version of the server and the state approved. The approval digest is the checksum of the registry as the mode writes it with the approval digest and every approval manifest digest empty, and every registration carries it as its approval manifest digest. The mode then applies the grants, so a release whose grants name an object no registration creates is not approved. The mode apply refuses a server of another major version than the registry records, with that reason in one line. The mode region takes a region name and gives a database that holds the applied release and no recovery record its first one: epoch one, the region, revision one and the digest of the registry as the checkpoint. With a record of the same region it changes nothing and ends with 0; with a record of another region it refuses. The documents under migrations in the repository are the ones the mode approve wrote; a change to a registered migration, to the grants or to a source is followed by a new run of the mode."
+basis = "Gotcha 4501."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44262,6 +44268,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.667]
+title = "Approve the launchpad migration release through a mode of the schema command"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/db/production", "migrations"]
+tests = []
+verification_contract = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go vet ./db/production/cmd/launchpad-schema && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production/cmd/launchpad-schema -count=1 -timeout 30m)"
+do_1 = "do_1 Gotcha 4501, decision 3582. Read sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go in full, with loadBundle, apply, importHistory and expected; in sdk/launchpad/shared/db/production/migrations.go the functions Validate, ValidateOrder, LoadMigrationRegistry, CatalogFingerprint, ImportLegacyBaseline, ApplyRegisteredMigration, RecordRuntimeReadiness and CheckReadiness; in sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go the function Bootstrap, for the recovery record it writes; migrations/registry.json with its fields state, approval_digest and qualification_required, migrations/grants.json and migrations/legacy-history-aliases.json; and in services/launchpad/user/internal/account/proof_launchpad_user_test.go the way a test of the launchpad starts a temporary PostgreSQL from the binaries of the environment."
+symbols = []
 
 [capability.22.39.666]
 title = "Divide the eligible wallets of the custody ceremony by the state of their identity"
@@ -197924,6 +197939,42 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.667]
+title = "Approve the launchpad migration release through a mode of the schema command"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.667"]
+interfaces = []
+do_1 = "do_1 Gotcha 4501, decision 3582. Read sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go in full, with loadBundle, apply, importHistory and expected; in sdk/launchpad/shared/db/production/migrations.go the functions Validate, ValidateOrder, LoadMigrationRegistry, CatalogFingerprint, ImportLegacyBaseline, ApplyRegisteredMigration, RecordRuntimeReadiness and CheckReadiness; in sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go the function Bootstrap, for the recovery record it writes; migrations/registry.json with its fields state, approval_digest and qualification_required, migrations/grants.json and migrations/legacy-history-aliases.json; and in services/launchpad/user/internal/account/proof_launchpad_user_test.go the way a test of the launchpad starts a temporary PostgreSQL from the binaries of the environment."
+do_2 = "do_2 Bring migrations/grants.json to the objects the registrations create. The entries to settle are the sequences chart_pool_fences_id_seq, chart_inbox_id_seq, chart_exact_id_seq and chart_traders_id_seq of the schema candles, reaction_pools_id_seq, reaction_wallets_id_seq, reaction_votes_id_seq and reaction_nonces_id_seq of the schema stats, operation_ledger_id_seq of the schemas users and metadata, objects_seq_seq of the schema pnl, and the columns document, asset_id, moderation_revision and blocked in the update grant on the table documents of the schema stats_search. For each one read the registered migrations of the schema and the statements of the service that runs under the role: an entry whose object no registration creates and no statement uses is removed; an update grant names the columns the statements of the service update. Where a statement of a service names an object or column no registration creates, leave the code of the service as it is and give service, file and statement in the final message. After the release is applied, every pair of service and runtime role of the grants document passes the mode expected with its own check, the pair of the recovery service with the role recovery_runtime among them."
+do_3 = "do_3 Add the mode approve by decision 3582, sharing with apply the order of calls and the code that applies a source and a registration, so that one path applies the release. The mode writes each document through a temporary file beside it and a rename. A run that ends with a refusal leaves both documents as they were. The usage line and the exit codes follow the present modes: 0, 1 with the reason in one line, 2 for a usage error."
+do_4 = "do_4 The registry gains the field for the major version of the server, and the mode apply refuses a server of another major version before it changes the database. The loader keeps its present refusals for an empty approval digest, an approval manifest digest that differs, an interface digest that differs from the grants document, a reader version and a lock estimate outside their bounds, and a source or registration whose bytes differ."
+do_5 = "do_5 Add the mode region by decision 3582. It takes the administrator connection and --region, holds the coordinator lock for its work, refuses a database in which the registered migrations are not all applied, and prints nothing but a refusal."
+do_6 = "do_6 Run the mode approve on an empty database of a temporary PostgreSQL of the environment and commit the two documents it wrote. In migrations/registry.json the list qualification_required gives way to what the mode recorded. State the major version of that server in the final message."
+do_7 = "do_7 Tests in sdk/launchpad/shared/db/production/cmd/launchpad-schema/main_test.go whose names begin with TestRelease. Each starts a temporary PostgreSQL the way services/launchpad/user/internal/account/proof_launchpad_user_test.go does and fails, without a skip, when the binaries are absent. With the documents of the repository: apply on an empty database ends with 0 and a second apply changes nothing; region gives the first record, a second run with the same region changes nothing and another region is refused; expected ends with 0 for every pair of service and runtime role of the grants document and check passes for each document under its runtime role; check refuses after a table of a service changed. The mode approve, run on an empty database over a copy of the directory whose approval values were emptied, writes fingerprints, interface digest and reader version equal to those of the repository, and its registry loads; approve refuses a database that holds a schema of the release and leaves the copy unchanged; apply refuses a registry whose recorded major version differs from the server. The present case on a registry without approval keeps its refusal on a copy with the approval digest emptied and asserts in addition that the registry of the repository loads."
+do_8 = "do_8 In sdk/launchpad/shared/db/production/cmd/launchpad-schema/README.md describe the five modes with their variables and exit codes, and the order approve on an empty database, then on the database of a deployment apply, region and expected per service. In migrations/README.md the section on the launchpad states that the documents carry the approval the mode wrote, the major version they hold for, and that a change to a migration, the grants or a source is followed by a new run of the mode. Neutral words, present tense."
+do_9 = "do_9 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/db/production", "migrations"]
+tests = []
+planned_paths = []
+build_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go vet ./db/production/cmd/launchpad-schema && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production/cmd/launchpad-schema -count=1 -timeout 30m)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
