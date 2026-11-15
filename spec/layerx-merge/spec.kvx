@@ -197408,7 +197408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.583]
 title = "Add the container file of the service ai-evaluator and define it in the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378130,7 +378130,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.625]
 title = "Build the backend image of the explorer from the repository root in every caller"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
