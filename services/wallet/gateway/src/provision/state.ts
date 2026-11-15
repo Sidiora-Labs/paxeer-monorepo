@@ -113,8 +113,13 @@ interface ProvisionRow {
   evm_key_generation: number;
   ed_key_generation: number;
   evm_key_id: string | null;
+  evm_public_key: string | null;
+  evm_key_epoch: number | null;
+  evm_key_owner: string | null;
   ed_key_id: string | null;
   ed_public_key: string | null;
+  ed_key_epoch: number | null;
+  ed_key_owner: string | null;
   did: string | null;
   main_account_id: string | null;
   bind_nonce: string | null;
@@ -272,7 +277,8 @@ async function loadRow(pool: Pool, userId: string, kind: WalletKind): Promise<Pr
   );
   const { rows } = await pool.query<ProvisionRow>(
     `select id::text, user_id, kind, wallet_id, state, evm_key_generation, ed_key_generation, evm_key_id, ed_key_id,
-            ed_public_key, did, main_account_id, bind_nonce::text, bind_signature, topup_raw_tx, topup_tx_hash,
+            evm_public_key, evm_key_epoch, evm_key_owner, ed_public_key, ed_key_epoch, ed_key_owner,
+            did, main_account_id, bind_nonce::text, bind_signature, topup_raw_tx, topup_tx_hash,
             topup_value_wei::text, bind_gas::text, bind_max_fee_wei::text, bind_raw_tx, bind_tx_hash, refusal_reason,
             station_quote_nonce::text, station_batch_nonce::text, station_request
        from account_provisioning where user_id = $1 and kind = $2`,
@@ -447,6 +453,16 @@ async function createEvmKey(
       );
     throw err;
   }
+  await updateRow(deps.pool, row.id, {
+    evm_public_key: key.publicKey,
+    evm_key_epoch: key.epoch,
+    evm_key_owner: owner,
+  });
+  Object.assign(row, {
+    evm_public_key: key.publicKey,
+    evm_key_epoch: key.epoch,
+    evm_key_owner: owner,
+  });
   const { rows } = await deps.pool.query<WalletRecord>(
     `insert into wallets (user_id, address, encrypted_private_key, key_version, chain_id, kind, migrated_at, attestor_key_id, binding_state)
      values ($1, $2, null, 1, $3, $4, now(), $5, 'pending')
@@ -464,7 +480,9 @@ async function storeIdentity(
   row: ProvisionRow,
   wallet: WalletRecord,
   publicKey: string,
-  edKeyId: string | null
+  edKeyId: string | null,
+  epoch?: number,
+  owner?: string
 ): Promise<void> {
   const did = didFromPublicKey(publicKey);
   const main = mainAccountId(did);
@@ -472,19 +490,24 @@ async function storeIdentity(
     `update wallets set did = $2, main_account_id = $3, layerx_key_id = $4, binding_state = 'pending' where id = $1`,
     [wallet.id, did, main, edKeyId]
   );
-  await updateRow(deps.pool, row.id, {
+  const fields: Partial<Record<keyof ProvisionRow, unknown>> = {
     state: 'identity',
     ed_key_id: edKeyId,
     ed_public_key: publicKey,
     did,
     main_account_id: main,
-  });
+  };
+  if (epoch !== undefined) fields.ed_key_epoch = epoch;
+  if (owner !== undefined) fields.ed_key_owner = owner;
+  await updateRow(deps.pool, row.id, fields);
   Object.assign(row, {
     state: 'identity',
     ed_key_id: edKeyId,
     ed_public_key: publicKey,
     did,
     main_account_id: main,
+    ...(epoch === undefined ? {} : { ed_key_epoch: epoch }),
+    ...(owner === undefined ? {} : { ed_key_owner: owner }),
   });
 }
 
@@ -626,6 +649,8 @@ export async function provisionAccount(
       } else {
         const attestors = requireAttestors(deps);
         const keyId = `account:${userId}:${kind}:ed25519:${row.ed_key_generation}`;
+        await updateRow(deps.pool, row.id, { ed_key_id: keyId, ed_key_owner: userId });
+        Object.assign(row, { ed_key_id: keyId, ed_key_owner: userId });
         let key;
         try {
           key = await attestors.generate(keyId, 'ed25519', userId, address);
@@ -638,7 +663,7 @@ export async function provisionAccount(
             );
           throw err;
         }
-        await storeIdentity(deps, row, wallet, key.publicKey, keyId);
+        await storeIdentity(deps, row, wallet, key.publicKey, keyId, key.epoch, userId);
       }
     }
 

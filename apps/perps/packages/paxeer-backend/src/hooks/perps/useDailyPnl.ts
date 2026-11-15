@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { perfdbQuery, perfdbRest } from "@paxeer-network/paxeer-backend/core/perfdb/client";
+import { useState, useEffect } from "react";
+import {
+  perfdbQuery,
+  perfdbRest,
+} from "@paxeer-network/paxeer-backend/core/perfdb/client";
+import { parseWei } from "@paxeer-network/paxeer-backend/ui/utils/format";
+
+export const DAILY_PNL_LIMIT = 90;
 
 // ── Types ────────────────────────────────────────────────────────────
 export interface DailyPnl {
@@ -23,85 +29,138 @@ const USER_DAILY_PNL_QUERY = /* GraphQL */ `
   }
 `;
 
+/** Every gateway DailyPnl field is nullable. */
+type GatewayDailyPnl = { [K in keyof DailyPnl]: DailyPnl[K] | null };
+
 interface DailyPnlQueryResponse {
-  userDailyPnl: DailyPnl[];
+  userDailyPnl: (GatewayDailyPnl | null)[] | null;
 }
 
 interface DailyPnlRestResponse {
-  dailyPnl?: DailyPnl[];
-  data?: DailyPnl[];
+  dailyPnl?: (GatewayDailyPnl | null)[] | null;
+  data?: (GatewayDailyPnl | null)[] | null;
+}
+
+export interface DailyPnlResult {
+  /** Complete rows, ascending by date. */
+  rows: DailyPnl[];
+  /** Rows dropped for a missing date or a null/unparseable pnl, volume or trades. */
+  skippedDays: number;
+  historyCapped: boolean;
+}
+
+function isExactWei(v: unknown): v is string {
+  if (typeof v !== "string") return false;
+  try {
+    parseWei(v);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isComplete(r: GatewayDailyPnl | null): r is DailyPnl {
+  return (
+    typeof r?.date === "string" &&
+    isExactWei(r.pnl) &&
+    isExactWei(r.volume) &&
+    typeof r.trades === "number" &&
+    Number.isFinite(r.trades)
+  );
+}
+
+/** A null or missing list is a failed read, not an empty history. */
+function completeAscending(
+  list: (GatewayDailyPnl | null)[] | null | undefined,
+  source: string,
+): DailyPnlResult {
+  if (!Array.isArray(list))
+    throw new Error(`PerfDB ${source} returned no daily PnL list`);
+  const rows = list
+    .filter(isComplete)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return {
+    rows,
+    skippedDays: list.length - rows.length,
+    historyCapped: source === "GraphQL" && list.length >= DAILY_PNL_LIMIT,
+  };
 }
 
 /**
  * Fetches a trader's daily PnL history from PerfDB.
- * Tries GraphQL first; falls back to REST if GraphQL fails.
- * No polling — refetches only when address changes.
+ * Tries GraphQL first; falls back to REST if GraphQL fails or returns no list; throws when both fail.
  */
+export async function fetchDailyPnl(addr: string): Promise<DailyPnlResult> {
+  try {
+    const gqlRes = await perfdbQuery<DailyPnlQueryResponse>(
+      USER_DAILY_PNL_QUERY,
+      {
+        address: addr,
+        limit: DAILY_PNL_LIMIT,
+      },
+    );
+    return completeAscending(gqlRes?.userDailyPnl, "GraphQL");
+  } catch {
+    const restRes = await perfdbRest<
+      DailyPnlRestResponse | (GatewayDailyPnl | null)[] | null
+    >(`/v2/user/${addr}/daily-pnl`);
+    return completeAscending(
+      Array.isArray(restRes) ? restRes : (restRes?.dailyPnl ?? restRes?.data),
+      "REST",
+    );
+  }
+}
+
+/** Daily PnL for an address. No polling — refetches only when address changes. */
 export function useDailyPnl(address: string | undefined): {
   dailyPnl: DailyPnl[];
+  skippedDays: number;
+  historyCapped: boolean;
   isLoading: boolean;
   error: Error | null;
 } {
   const [dailyPnl, setDailyPnl] = useState<DailyPnl[]>([]);
+  const [skippedDays, setSkippedDays] = useState(0);
+  const [historyCapped, setHistoryCapped] = useState(false);
   const [isLoading, setIsLoading] = useState<boolean>(Boolean(address));
   const [error, setError] = useState<Error | null>(null);
-  const mountedRef = useRef<boolean>(true);
-
-  const fetchDailyPnl = useCallback(async (addr: string): Promise<void> => {
-    try {
-      // Try GraphQL first
-      const gqlRes = await perfdbQuery<DailyPnlQueryResponse>(
-        USER_DAILY_PNL_QUERY,
-        { address: addr, limit: 90 }
-      );
-      if (!mountedRef.current) return;
-      // Sort ascending by date so .slice(-7) gives the most recent 7 days
-      const sorted = [...(gqlRes.userDailyPnl ?? [])].sort((a, b) =>
-        a.date.localeCompare(b.date)
-      );
-      setDailyPnl(sorted);
-      setError(null);
-    } catch (gqlErr) {
-      // Fall back to REST
-      try {
-        const restRes = await perfdbRest<DailyPnlRestResponse | DailyPnl[]>(
-          `/v2/user/${addr}/daily-pnl`
-        );
-        if (!mountedRef.current) return;
-        const list: DailyPnl[] = Array.isArray(restRes)
-          ? restRes
-          : (restRes.dailyPnl ?? restRes.data ?? []);
-        const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date));
-        setDailyPnl(sorted);
-        setError(null);
-      } catch (restErr) {
-        if (!mountedRef.current) return;
-        const err =
-          restErr instanceof Error ? restErr : new Error(String(restErr));
-        setError(err);
-        setDailyPnl([]);
-      }
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
-    mountedRef.current = true;
     if (!address) {
       setDailyPnl([]);
+      setSkippedDays(0);
+      setHistoryCapped(false);
       setIsLoading(false);
       setError(null);
-      return () => {
-        mountedRef.current = false;
-      };
+      return;
     }
+    // A superseded address's late response must not overwrite the current one.
+    let cancelled = false;
     setIsLoading(true);
-    fetchDailyPnl(address);
+    fetchDailyPnl(address)
+      .then(
+        (result) => {
+          if (cancelled) return;
+          setDailyPnl(result.rows);
+          setSkippedDays(result.skippedDays);
+          setHistoryCapped(result.historyCapped);
+          setError(null);
+        },
+        (err: unknown) => {
+          if (cancelled) return;
+          setError(err instanceof Error ? err : new Error(String(err)));
+          setDailyPnl([]);
+          setSkippedDays(0);
+          setHistoryCapped(false);
+        },
+      )
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
     return () => {
-      mountedRef.current = false;
+      cancelled = true;
     };
-  }, [address, fetchDailyPnl]);
+  }, [address]);
 
-  return { dailyPnl, isLoading, error };
+  return { dailyPnl, skippedDays, historyCapped, isLoading, error };
 }

@@ -1,7 +1,11 @@
-import type { Address } from "viem";
-import { getPublicClient, getWalletClient } from "@paxeer-network/paxeer-backend/core/viem/clients";
+import { isAddress, type Address, type Hash } from "viem";
+import {
+  getPublicClient,
+  getWalletClient,
+} from "@paxeer-network/paxeer-backend/core/viem/clients";
 import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { createLogger } from "@paxeer-network/paxeer-backend/core/log/logger";
+import { gasWithMargin } from "@paxeer-network/paxeer-backend/core/network/gas";
 
 const log = createLogger("perps:contract");
 
@@ -32,14 +36,19 @@ async function estimateClampedFees(): Promise<{
     if (est.maxFeePerGas && est.maxFeePerGas > maxFeePerGas) {
       maxFeePerGas = est.maxFeePerGas;
     }
-    if (est.maxPriorityFeePerGas && est.maxPriorityFeePerGas > maxPriorityFeePerGas) {
+    if (
+      est.maxPriorityFeePerGas &&
+      est.maxPriorityFeePerGas > maxPriorityFeePerGas
+    ) {
       maxPriorityFeePerGas = est.maxPriorityFeePerGas;
     }
   } catch (err) {
     // Estimation failing is not fatal — the floor alone is a valid fee
     // on this chain. Log so a broken fee endpoint is still visible.
     const msg = err instanceof Error ? err.message : String(err);
-    log.warn(`estimateFeesPerGas failed, using ${MIN_FEE_PER_GAS_WEI} wei floor: ${msg}`);
+    log.warn(
+      `estimateFeesPerGas failed, using ${MIN_FEE_PER_GAS_WEI} wei floor: ${msg}`,
+    );
   }
   // maxFee must always cover the priority tip.
   if (maxPriorityFeePerGas > maxFeePerGas) maxFeePerGas = maxPriorityFeePerGas;
@@ -70,34 +79,39 @@ export async function writeContract(params: {
   // wallet backend simulates server-side and a revert comes back as an
   // opaque `request failed: 500` that the UI mislabels; injected
   // wallets would burn gas on a doomed tx instead.
-  await getPublicClient().simulateContract({
+  const call = {
     account: account.address,
     address: params.address,
     abi: params.abi,
     functionName: params.functionName,
     args: params.args ?? [],
     ...(params.value ? { value: params.value } : {}),
-  } as any);
+  } as any;
+  const publicClient = getPublicClient();
+  await publicClient.simulateContract(call);
 
-  // Send directly via the injected wallet provider. The chain is a
-  // standard Sei-EVM fork with working eth_estimateGas, so we let
-  // viem/the wallet estimate the gas limit per-transaction instead of
-  // pinning a hardcoded limit. Fees are estimated here and clamped to
-  // the chain's 10 wei minimum gas price — wallet-side estimation was
-  // producing sub-floor fees the chain silently never included.
+  // Gas limit: eth_estimateGas on the public client plus a 20% margin,
+  // which covers log gas of a fill the simulation did not see. Fees are
+  // estimated here and clamped to the chain's 10 wei minimum gas price —
+  // wallet-side estimation was producing sub-floor fees the chain
+  // silently never included.
+  const gas = gasWithMargin(await publicClient.estimateContractGas(call));
   const { maxFeePerGas, maxPriorityFeePerGas } = await estimateClampedFees();
 
-  return walletClient.writeContract({
+  const hash = await walletClient.writeContract({
     chain: paxeerChain,
     account,
     address: params.address,
     abi: params.abi,
     functionName: params.functionName,
     args: params.args ?? [],
+    gas,
     maxFeePerGas,
     maxPriorityFeePerGas,
     ...(params.value ? { value: params.value } : {}),
   } as any);
+  recordTransactionBroadcast(hash);
+  return hash;
 }
 
 // Transaction confirmation.
@@ -143,33 +157,194 @@ function isReceiptPendingError(err: unknown): boolean {
   return /not\s*(be\s*)?found|does not exist|indexing|not indexed/i.test(msg);
 }
 
-export async function waitForTx(hash: `0x${string}`): Promise<WaitForTxResult> {
-  const client = getPublicClient();
-  const deadline = Date.now() + RECEIPT_TIMEOUT_MS;
+export interface PendingTransaction {
+  readonly chainId: number;
+  /** Null until the node indexes the broadcast's sender; it blocks every account meanwhile. */
+  readonly account: Address | null;
+  readonly hash: Hash;
+}
 
+export const PENDING_TRANSACTIONS_KEY = "paxeer:pending-transactions:v1";
+let pendingTransactions: readonly PendingTransaction[] = [];
+const transactionListeners = new Set<() => void>();
+const receiptWaits = new Map<Hash, Promise<WaitForTxResult>>();
+
+export function subscribePendingTransactions(listener: () => void) {
+  transactionListeners.add(listener);
+  return () => {
+    transactionListeners.delete(listener);
+  };
+}
+
+export function getPendingTransactions(): readonly PendingTransaction[] {
+  return pendingTransactions;
+}
+
+function decodePendingTransactions(raw: string | null): PendingTransaction[] {
+  if (raw === null) return [];
+  const records: unknown = JSON.parse(raw);
+  if (!Array.isArray(records))
+    throw new Error("Invalid pending transaction journal");
+  return records.map((record: unknown) => {
+    if (
+      typeof record !== "object" ||
+      record === null ||
+      !("chainId" in record) ||
+      record.chainId !== paxeerChain.id ||
+      !("account" in record) ||
+      !(
+        record.account === null ||
+        (typeof record.account === "string" && isAddress(record.account))
+      ) ||
+      !("hash" in record) ||
+      typeof record.hash !== "string" ||
+      !/^0x[0-9a-fA-F]{64}$/.test(record.hash)
+    ) {
+      throw new Error("Invalid pending transaction journal entry");
+    }
+    return {
+      chainId: record.chainId,
+      account: record.account,
+      hash: record.hash as Hash,
+    };
+  });
+}
+
+function notifyTransactions() {
+  for (const listener of transactionListeners) listener();
+}
+
+/** Called before allowing a financial operation. Storage errors must remain visible. */
+export function hydratePendingTransactions() {
+  if (typeof window === "undefined")
+    throw new Error("Transaction recovery requires browser storage");
+  const stored = decodePendingTransactions(
+    window.localStorage.getItem(PENDING_TRANSACTIONS_KEY),
+  );
+  const merged = new Map(stored.map((record) => [record.hash, record]));
+  for (const record of pendingTransactions) merged.set(record.hash, record);
+  pendingTransactions = [...merged.values()];
+  window.localStorage.setItem(
+    PENDING_TRANSACTIONS_KEY,
+    JSON.stringify(pendingTransactions),
+  );
+  notifyTransactions();
+}
+
+function persistTransactions() {
+  // Keep the in-memory hash even if durable storage fails after a broadcast.
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        PENDING_TRANSACTIONS_KEY,
+        JSON.stringify(pendingTransactions),
+      );
+    }
+  } finally {
+    notifyTransactions();
+  }
+}
+
+/** Exposes the hash synchronously, before any receipt RPC or transaction lookup. */
+export function recordTransactionBroadcast(hash: Hash) {
+  if (pendingTransactions.some((record) => record.hash === hash)) return;
+  pendingTransactions = [
+    ...pendingTransactions,
+    { chainId: paxeerChain.id, account: null, hash },
+  ];
+  if (typeof window !== "undefined") {
+    try {
+      hydratePendingTransactions();
+    } finally {
+      notifyTransactions();
+    }
+  } else {
+    notifyTransactions();
+  }
+}
+
+function forgetTransaction(hash: Hash) {
+  pendingTransactions = pendingTransactions.filter(
+    (record) => record.hash !== hash,
+  );
+  persistTransactions();
+}
+
+export class TransactionRevertedError extends Error {
+  constructor(readonly hash: Hash) {
+    super(`Transaction reverted (hash: ${hash})`);
+    this.name = "TransactionRevertedError";
+  }
+}
+
+async function reconcileTransaction(hash: Hash): Promise<WaitForTxResult> {
+  const client = getPublicClient();
+  if ((await client.getChainId()) !== paxeerChain.id) {
+    throw new Error("Wrong network for pending transaction recovery");
+  }
+  // Sender indexing is optional: receipt polling must not wait for it on
+  // nodes whose transaction index trails committed receipts.
+  void client
+    .getTransaction({ hash })
+    .then((transaction) => {
+      if (!pendingTransactions.some((record) => record.hash === hash)) return;
+      pendingTransactions = pendingTransactions.map((record) =>
+        record.hash === hash
+          ? { ...record, account: transaction.from }
+          : record,
+      );
+      persistTransactions();
+    })
+    .catch((error: unknown) => {
+      if (!isReceiptPendingError(error)) {
+        log.warn(
+          `Pending transaction sender lookup failed for ${hash}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+  const deadline = Date.now() + RECEIPT_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    let receipt: Awaited<ReturnType<typeof client.getTransactionReceipt>> | null = null;
+    let receipt: Awaited<
+      ReturnType<typeof client.getTransactionReceipt>
+    > | null = null;
     try {
       receipt = await client.getTransactionReceipt({ hash });
-    } catch (err: unknown) {
-      if (!isReceiptPendingError(err)) throw err;
+    } catch (error: unknown) {
+      if (!isReceiptPendingError(error)) throw error;
     }
-
     if (receipt) {
-      if (receipt.status === "reverted") {
-        throw new Error(`Transaction reverted (hash: ${hash})`);
+      if (receipt.transactionHash.toLowerCase() !== hash.toLowerCase()) {
+        throw new Error("Pending transaction receipt hash mismatch");
       }
+      if (receipt.status === "reverted") {
+        forgetTransaction(hash);
+        throw new TransactionRevertedError(hash);
+      }
+      if (receipt.status !== "success")
+        throw new Error("Invalid transaction receipt status");
+      forgetTransaction(hash);
       return {
         status: "success",
         transactionHash: hash,
         blockNumber: receipt.blockNumber,
       };
     }
-
-    await new Promise((resolve) => setTimeout(resolve, RECEIPT_POLL_INTERVAL_MS));
+    await new Promise((resolve) =>
+      setTimeout(resolve, RECEIPT_POLL_INTERVAL_MS),
+    );
   }
-
   throw new Error(
     `Transaction timed out — not confirmed within ${RECEIPT_TIMEOUT_MS}ms (hash: ${hash})`,
   );
+}
+
+export function waitForTx(hash: Hash): Promise<WaitForTxResult> {
+  recordTransactionBroadcast(hash);
+  const existing = receiptWaits.get(hash);
+  if (existing) return existing;
+  const waiting = reconcileTransaction(hash).finally(() => {
+    receiptWaits.delete(hash);
+  });
+  receiptWaits.set(hash, waiting);
+  return waiting;
 }

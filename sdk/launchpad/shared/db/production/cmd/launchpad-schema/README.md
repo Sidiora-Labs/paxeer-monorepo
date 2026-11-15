@@ -1,13 +1,22 @@
 # launchpad-schema
 
-`launchpad-schema` applies a reviewed launchpad PostgreSQL migration release,
-writes service expected schema documents, and checks runtime readiness.
+`launchpad-schema` approves and applies a reviewed launchpad PostgreSQL migration
+release, records the recovery region, writes service expected schema documents,
+and checks runtime readiness.
 
 ```sh
+launchpad-schema approve --migrations migrations
 launchpad-schema apply --migrations migrations
+launchpad-schema region --migrations migrations --region deployment-region
 launchpad-schema expected --migrations migrations --service core/ranking-algo --runtime-role ranking_runtime --region deployment-region --out expected-schema.json
 launchpad-schema check --expected expected-schema.json --sha256 DOCUMENT_DIGEST
 ```
+
+`approve` reads `LAUNCHPAD_ADMIN_DATABASE_URL`, requires an empty release
+database, applies the release while holding the coordinator lock, records the
+server major version, interface digest, reader version and catalog evidence,
+and atomically publishes `registry.json` and `grants.json` beside their source
+files. A refusal leaves both documents unchanged.
 
 `apply` reads `LAUNCHPAD_ADMIN_DATABASE_URL`, a direct administrator PostgreSQL
 connection. The migration directory contains `registry.json`, `grants.json` and
@@ -28,6 +37,11 @@ legacy evidence are refused. Empty service schemas receive their reviewed legacy
 up SQL and original history before baseline import; an existing service schema
 must already have its per-service version proof in the alias's named history.
 
+`region` reads `LAUNCHPAD_ADMIN_DATABASE_URL` and `--region`. It holds the
+coordinator lock, requires every registered migration to be applied, and
+records the first recovery epoch and region. Repeating the same region is a
+no-op; a different region is refused.
+
 `expected` reads `LAUNCHPAD_ADMIN_DATABASE_URL` and the same migration release
 (`--migrations` defaults to `migrations`). `--service` and `--runtime-role` must
 match one manifest in `grants.json`. The command reads applied migration
@@ -47,6 +61,11 @@ when using `check` with a delegated login.
 `--sha256`, and runs the production readiness check with that runtime connection.
 Successful `apply` and `check` commands produce no output. Diagnostics never
 include connection strings, passwords, server error details or SQL parameters.
+
+The deployment order is `approve` on an empty database. On a deployment
+database run `apply`, then `region`, then `expected` once for each service and
+runtime role in `grants.json`; give each expected document to its runtime role
+and run `check` with that role's connection.
 
 Exit codes are `0` for success, `1` for a refusal with one reason line on stderr,
 and `2` for invalid usage or a missing connection variable.

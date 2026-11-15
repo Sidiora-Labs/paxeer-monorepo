@@ -22310,3 +22310,58 @@ fix = "Decision 3577. The verification of the launchpad task selects the other c
 title = "A case keeps its input only while it follows the side that produces it"
 symptom = "A test that builds a call environment by hand holds only the fields it sets, and an entry point that reads the chain configuration of the environment needs one. A setting of a test configuration that is named after one transformer is read only by that transformer; when the version of the test runner brings another transformer the setting has no effect and a file with JSX no longer parses. A case whose input comes from another test through the environment has no input in a plain run of its package. A relative import into the tree of another application ends when that tree is replaced. An answer with a status outside the success range can carry a JSON object, and it is still not an answer to the request."
 fix = "Decision 3578. Tasks 22.39.655 to 22.39.658."
+
+[gotcha.4498]
+title = "An approval list that is fixed at start cannot follow keys that come into being later"
+symptom = "A signed approval list that a service reads from a path fixed at start changes only when that path is rewritten on every member, so a key that comes into being while the services run waits for that. A file that is materialised from the environment at each start returns to its first content at the next start, and a store that remembers a higher sequence then refuses it. A list has a lifetime, so it is signed again before the lifetime ends even when no key changes. A request for approval already has a form in the tree; a second form beside it leaves two readers to keep in line."
+fix = "Decision 3579. Tasks 22.39.659 to 22.39.664."
+
+[gotcha.4499]
+title = "A kind of transaction is shown for a node without sequencing only by a case that runs on such a node"
+symptom = "The node that sequences executes a transaction when it arrives and issues the receipt; a node without sequencing applies the same transaction from the block and must reach the same receipt, block hash and application hash. The two are different paths through the code, so a case on a single sequencing node speaks for the first path. The comparison on the local network with a second node holds cases for transfers, a revert, an identity bind and a ledger draw. The committed vector builds a contract creation and a sponsored batch with a set-code authorization on one node; the comparison takes the same kinds to the second node."
+fix = "Decision 3580. Task 22.39.665."
+
+[gotcha.4500]
+title = "A delivery over every eligible wallet needs every one of them to hold an identity"
+symptom = "The plan of the custody ceremony counts as eligible every wallet that is neither funded nor migrated. The delivery of a wallet begins with its bound identity: the identifier on the wallet row, the provisioning record in the active state and the binding on the chain. A wallet whose owner has not yet provisioned an identity through the gateway holds an envelope and no identity, and a wallet of the agent kind has an identity whose key is held outside the attestors. The gateway signs for a wallet with an envelope from that envelope until the wallet is migrated, so such a wallet stays in use while it waits. A ceremony that takes the eligible wallets as one set therefore covers a database in which every owner has provisioned; a database with wallets of the three kinds needs the set divided."
+fix = "Decision 3581. Task 22.39.666."
+
+[gotcha.4501]
+title = "The values that approve a migration release come from applying it"
+symptom = "The registry of the launchpad migrations names for every registration an approval digest, the digest of the grants document, the lowest reader version and an estimate of its lock, and the aliases file names for every source of an earlier per-service history the structural fingerprint of its schema after that source. The schema command refuses a registry in which one of these is empty, and it compares each fingerprint with the catalog of the database it applies to. Each of these values is a fact about the release applied to a database: a fingerprint is the catalog after a source ran, a lock estimate is the time a migration held its transaction, and the grants can only be applied when every object they name has been created by a registration. A fingerprint also depends on the way the server renders a definition, so it belongs to one major version of PostgreSQL. Values written by hand can agree with the command and still differ from the database; values taken from one run on an empty database agree with both."
+fix = "Decision 3582. Task 22.39.667."
+
+[gotcha.4502]
+title = "A style sheet holds rules only for the class names found in its sources"
+symptom = "The utility compiler of the web apps writes a rule for a class name only when it finds the name in a source it reads. It reads the files of the app itself and leaves out what is installed as a dependency. The components of the package at apps/web/packages/layerx-ui carry their class names in the package, and an app receives the package as a dependency. An app that imports the tokens of the package and does not name the directory src of the package as a source builds a sheet with the tokens and the few rules of its own files, and its build and its static test pass. The app under apps/web names the directory; every other app that renders components of the package names it too, and a check of the built sheet keeps it so."
+fix = "Task 22.39.668."
+
+[gotcha.4503]
+title = "A registered developer key is not yet a session"
+symptom = "The routes that issue and rotate keys, the funds request and every route of the dashboard take a session of the identity service, as a Bearer value or as the session cookie of the host. The identity service opens a session only for a caller that holds its provisioning token. The hosted gateway holds that token and uses it for the registration of a developer key. The proof a developer gives for the registration covers the tenant and the key and no time, so it stays valid for ever and cannot open a session. A session for a developer therefore comes from a method of its own that asks for a proof of the key bound to the present time and accepts each proof once."
+fix = "Decisions 3583 and 3584. Tasks 22.39.669 and 22.39.670."
+
+[gotcha.4504]
+title = "A health path is asked from the first second of a deployment"
+symptom = "A platform that starts a service asks its health path on the port named by the variable PORT and ends the deployment when no answer comes within its wait. A definition that gives a listener and no PORT leaves the port to the platform, and the listener is not asked. An image that does long first work before it serves, such as the first backfill of the indexer, has no listener in that time; the work can take longer than any wait. A definition names the port its health path answers on, and an image answers its health path while the first work runs."
+fix = "Decision 3585. Tasks 22.39.671 and 22.39.672."
+
+[gotcha.4505]
+title = "A backfill that reads one height per connection spends its time on connections"
+symptom = "The backfill of the indexer checks every height of a range against the node: it reads the block of the height and the receipt of each of its transactions, one request after the other, and the transport opens a connection for every request. A history holds many heights without a transaction, and for each of them the cost is the connection and the wait for one answer. The node answers several requests in one JSON-RPC batch and serves several connections at once, so the reads of a range can run side by side while the checks and the order of the commits stay as they are."
+fix = "Decision 3586. Task 22.39.673."
+
+[gotcha.4506]
+title = "An interface written from habit uses the web of some years ago"
+symptom = "Much interface code is written in the patterns that were common some years ago: script where the platform now has an element or a style rule, fixed breakpoints where a component can ask its own container, colour pairs written twice where one function serves both schemes, a library where a few lines of style do the work. The web platform guidance published by the browser vendors gives the present form of each pattern with its support data and its fallback, and its tool finds the earlier forms in a tree. An interface is brought to the present form by reading the guide of each pattern it holds, not from memory."
+fix = "Decisions 3587 and 3589. Tasks 22.44.1 to 22.44.36."
+
+[gotcha.4507]
+title = "A view that is right at one width is checked at none of the others"
+symptom = "A view is usually built and looked at in one window size and one colour scheme. Its defects sit elsewhere: a table that leaves the screen on a phone, a heading that wraps badly on a tablet, a pale label in the light scheme, a control too small for a finger, a distance that follows no step of the spacing scale, a number column that does not align. Only a render of every view at every width of a fixed list, in both schemes, shows them."
+fix = "Decision 3588. Tasks 22.44.1 to 22.44.36."
+
+[gotcha.4508]
+title = "A test at the root of a workspace resolves only what the root declares"
+symptom = "A test file under the tests directory of the trading workspace is started from the workspace root, and a package it imports is resolved from that directory upward. A package that only an application or a package of the workspace declares is not found there, and the test stops before its first case. A proof that another component starts in the workspace needs its file in the workspace as well: a reader that names a test file the workspace does not hold cannot pass."
+fix = "Decision 3590. Tasks 22.39.674 and 22.39.675."

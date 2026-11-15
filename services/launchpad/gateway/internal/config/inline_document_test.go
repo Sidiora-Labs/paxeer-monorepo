@@ -31,10 +31,7 @@ func TestInlineBoundDocuments(t *testing.T) {
 	}
 
 	t.Setenv("GATEWAY_RUNTIME_SHA256", wrong)
-	if cfg, err = Load(); err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if err = ReadBoundDocument(cfg.GatewayRuntimeFile, cfg.GatewayRuntimeSHA256, &split); err == nil || err.Error() != "runtime_document_binding_mismatch" {
+	if _, err = Load(); err == nil || !strings.Contains(err.Error(), "GATEWAY_RUNTIME_DOCUMENT binding invalid") {
 		t.Fatalf("wrong digest accepted: %v", err)
 	}
 	if _, err = boundBytes("", inline, wrong); err == nil {

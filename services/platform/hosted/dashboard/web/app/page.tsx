@@ -25,13 +25,25 @@ const tabs = [
   { value: "payments", label: "Payments" },
 ];
 
+class DashboardReadError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Dashboard dependency returned ${status}`);
+    this.name = "DashboardReadError";
+    this.status = status;
+  }
+}
+
+type DashboardError = { title: string; description: string };
+
 function verificationBadge(level: Verification) {
   return <Badge size="sm" variant={level === "unverified" ? "warning" : "success"}>{level}</Badge>;
 }
 
 async function read<T>(path: string, decode: (value: unknown) => T, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`/v1/dashboard${path}`, { credentials: "include", cache: "no-store", signal });
-  if (!response.ok) throw new Error(`Dashboard dependency returned ${response.status}`);
+  if (!response.ok) throw new DashboardReadError(response.status);
   return decode(await response.json());
 }
 
@@ -40,7 +52,7 @@ export default function DeveloperDashboard() {
   const [overview, setOverview] = useState<Overview>();
   const [requests, setRequests] = useState<RequestRecord[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<DashboardError>();
   const [receipt, setReceipt] = useState<Receipt>();
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
@@ -55,7 +67,16 @@ export default function DeveloperDashboard() {
       setDeliveries(webhookLog);
       setError(undefined);
     } catch (cause) {
-      if ((cause as Error).name !== "AbortError") { setError((cause as Error).message); setOverview(undefined); setRequests([]); setDeliveries([]); setReceipt(undefined); }
+      if ((cause as Error).name !== "AbortError") {
+        const readError = cause instanceof DashboardReadError ? cause : undefined;
+        setError(readError?.status === 401
+          ? { title: "Sign in required", description: "A developer session is needed to read this dashboard." }
+          : { title: "Dashboard unavailable", description: (cause as Error).message });
+        setOverview(undefined);
+        setRequests([]);
+        setDeliveries([]);
+        setReceipt(undefined);
+      }
     }
   }, []);
 
@@ -82,7 +103,7 @@ export default function DeveloperDashboard() {
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 md:p-6">
         <SegmentedControl aria-label="Dashboard section" options={tabs} value={active} onValueChange={setActive} />
-        {error ? <Card elevation="outline"><EmptyState title="Dashboard unavailable" description={error} /></Card> : null}
+        {error ? <Card elevation="outline"><EmptyState title={error.title} description={error.description} /></Card> : null}
         {!overview && !error ? <Card><SkeletonRow /><SkeletonRow /><SkeletonRow /></Card> : null}
         {overview && active === "overview" ? <OverviewPanel value={overview} /> : null}
         {overview && active === "keys" ? <KeysPanel keys={overview.keys} /> : null}
@@ -94,7 +115,13 @@ export default function DeveloperDashboard() {
             if (value.activity_id !== activity) throw new Error("Receipt activity mismatch");
             setReceipt(value);
             setError(undefined);
-          } catch (cause) { setReceipt(undefined); setError((cause as Error).message); }
+          } catch (cause) {
+            setReceipt(undefined);
+            const readError = cause instanceof DashboardReadError ? cause : undefined;
+            setError(readError?.status === 401
+              ? { title: "Sign in required", description: "A developer session is needed to read this dashboard." }
+              : { title: "Dashboard unavailable", description: (cause as Error).message });
+          }
         }} /> : null}
         {receipt && active === "payments" ? <Card><SectionHeader title="Verified receipt" /><List><ListItem title={receipt.activity_id} subtitle={`${receipt.event} · ${receipt.receipt_digest}`} trailing={verificationBadge(receipt.verification)} /></List></Card> : null}
       </div>

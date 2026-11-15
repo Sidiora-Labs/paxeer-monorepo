@@ -11,7 +11,7 @@
 
 import { classifyError } from "./classify";
 import { reportError } from "./report";
-import { showErrorToast } from "@paxeer-network/paxeer-backend/errors/ErrorToast";
+import { showErrorToast } from "@paxeer-network/paxeer-backend/widgets/errors/ErrorToast";
 
 let installed = false;
 
@@ -36,7 +36,8 @@ export function installGlobalErrorHandlers(): () => void {
 
   const onError = (event: ErrorEvent) => {
     const raw = event.error ?? event.message;
-    const message = typeof event.message === "string" ? event.message : String(raw ?? "");
+    const message =
+      typeof event.message === "string" ? event.message : String(raw ?? "");
     if (shouldSuppress(raw, message)) return;
     const ufe = classifyError(raw, "window.onerror");
     showErrorToast(ufe);
@@ -45,9 +46,10 @@ export function installGlobalErrorHandlers(): () => void {
 
   const onUnhandledRejection = (event: PromiseRejectionEvent) => {
     const raw = event.reason;
-    const message = (raw && typeof raw === "object" && "message" in raw)
-      ? String((raw as { message: unknown }).message)
-      : String(raw ?? "");
+    const message =
+      raw && typeof raw === "object" && "message" in raw
+        ? String((raw as { message: unknown }).message)
+        : String(raw ?? "");
     if (shouldSuppress(raw, message)) return;
     const ufe = classifyError(raw, "unhandledrejection");
     showErrorToast(ufe);
@@ -60,13 +62,15 @@ export function installGlobalErrorHandlers(): () => void {
   // Also bridge the `__reportErrorBoundary` hook the legacy
   // `ErrorBoundary` already calls into, so any boundary-caught error
   // routes through the same pipeline.
-  (window as unknown as {
-    __reportErrorBoundary?: (info: {
-      label: string;
-      error: Error;
-      componentStack?: string | null;
-    }) => void;
-  }).__reportErrorBoundary = (info) => {
+  (
+    window as unknown as {
+      __reportErrorBoundary?: (info: {
+        label: string;
+        error: Error;
+        componentStack?: string | null;
+      }) => void;
+    }
+  ).__reportErrorBoundary = (info) => {
     const ufe = classifyError(info.error, `boundary:${info.label}`);
     void reportError(ufe, { extra: { componentStack: info.componentStack } });
   };
@@ -74,7 +78,8 @@ export function installGlobalErrorHandlers(): () => void {
   return () => {
     window.removeEventListener("error", onError);
     window.removeEventListener("unhandledrejection", onUnhandledRejection);
-    delete (window as unknown as { __reportErrorBoundary?: unknown }).__reportErrorBoundary;
+    delete (window as unknown as { __reportErrorBoundary?: unknown })
+      .__reportErrorBoundary;
     installed = false;
   };
 }

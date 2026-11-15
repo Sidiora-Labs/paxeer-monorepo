@@ -23,7 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const usage = "usage: launchpad-schema apply --migrations DIR | expected --service SERVICE --runtime-role ROLE --region REGION --out FILE [--migrations DIR] | check --expected FILE --sha256 DIGEST"
+const usage = "usage: launchpad-schema approve --migrations DIR | apply --migrations DIR | region --region REGION [--migrations DIR] | expected --service SERVICE --runtime-role ROLE --region REGION --out FILE [--migrations DIR] | check --expected FILE --sha256 DIGEST"
 const readerVersion int64 = 1
 
 var identifier = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
@@ -31,9 +31,14 @@ var regionName = regexp.MustCompile(`^[a-z][a-z0-9-]{1,62}$`)
 
 type registryDocument struct {
 	production.MigrationRegistry
-	Extensions []struct {
-		Extension string `json:"extension"`
-		Schema    string `json:"schema"`
+	State                 string   `json:"state"`
+	QualificationRequired []string `json:"qualification_required"`
+	PathBase              string   `json:"path_base"`
+	Extensions            []struct {
+		Extension      string  `json:"extension"`
+		Schema         string  `json:"schema"`
+		Version        *string `json:"version"`
+		RuntimeInstall bool    `json:"runtime_install"`
 	} `json:"extension_prerequisites"`
 }
 
@@ -66,6 +71,8 @@ type migrationBundle struct {
 	owners          map[string]string
 	registryDigest  string
 	interfaceDigest string
+	grantsRaw       []byte
+	legacyRaw       []byte
 }
 
 func validDigest(value string) bool {
@@ -89,7 +96,38 @@ func failure(reason string, err error) error {
 	return errors.New(reason)
 }
 
+func validateRegistryShape(r production.MigrationRegistry) (map[int64]production.MigrationManifest, error) {
+	if r.SchemaVersion != 2 || len(r.ApplicationOrder) == 0 || len(r.ApplicationOrder) != len(r.Registrations) {
+		return nil, errors.New("invalid migration registry")
+	}
+	catalog := map[int64]production.MigrationManifest{}
+	for _, m := range r.Registrations {
+		if _, exists := catalog[m.MigrationID]; exists {
+			return nil, errors.New("duplicate migration")
+		}
+		catalog[m.MigrationID] = m
+	}
+	seen := map[int64]bool{}
+	for _, id := range r.ApplicationOrder {
+		m, ok := catalog[id]
+		if !ok || seen[id] {
+			return nil, errors.New("invalid application order")
+		}
+		for _, predecessor := range m.PredecessorIDs {
+			if !seen[predecessor] {
+				return nil, fmt.Errorf("unapplied DAG predecessor %d", predecessor)
+			}
+		}
+		seen[id] = true
+	}
+	return catalog, nil
+}
+
 func loadBundle(directory string) (*migrationBundle, error) {
+	return loadBundleMode(directory, false)
+}
+
+func loadBundleMode(directory string, approval bool) (*migrationBundle, error) {
 	abs, err := filepath.Abs(directory)
 	if err != nil {
 		return nil, failure("migrations directory is invalid", err)
@@ -110,12 +148,23 @@ func loadBundle(directory string) (*migrationBundle, error) {
 		return nil, err
 	}
 	b.registryDigest = production.Checksum(raw)
-	if _, err := production.LoadMigrationRegistry(raw, b.registryDigest); err != nil {
+	if !approval {
+		if _, err := production.LoadMigrationRegistry(raw, b.registryDigest); err != nil {
+			return nil, failure("registry.json requires an approved digest and complete dependency order", err)
+		}
+	} else if _, err := validateRegistryShape(b.registry.MigrationRegistry); err != nil {
 		return nil, failure("registry.json requires an approved digest and complete dependency order", err)
 	}
-	b.catalog, err = b.registry.ValidateOrder()
+	if approval {
+		b.catalog, err = validateRegistryShape(b.registry.MigrationRegistry)
+	} else {
+		b.catalog, err = b.registry.ValidateOrder()
+	}
 	if err != nil {
 		return nil, failure("migration registry order is invalid", err)
+	}
+	if !approval && b.registry.State == "approved" && approvalManifestDigest(b.registry) != b.registry.ApprovalDigest {
+		return nil, failure("registry.json approval digest differs from its registrations", nil)
 	}
 	var grants struct {
 		SchemaVersion int                       `json:"schema_version"`
@@ -129,6 +178,7 @@ func loadBundle(directory string) (*migrationBundle, error) {
 		return nil, failure("grants.json requires version 2 and runtime roles", nil)
 	}
 	b.roles, b.interfaceDigest = grants.Roles, production.Checksum(raw)
+	b.grantsRaw = append([]byte(nil), raw...)
 	if _, err := production.ProvisionRolesSQL(b.roles); err != nil {
 		return nil, failure("grants.json contains invalid roles or ownership", err)
 	}
@@ -142,7 +192,8 @@ func loadBundle(directory string) (*migrationBundle, error) {
 		SchemaVersion int             `json:"schema_version"`
 		Histories     []legacyHistory `json:"histories"`
 	}
-	if _, err := readJSON("legacy-history-aliases.json", &legacy); err != nil {
+	b.legacyRaw, err = readJSON("legacy-history-aliases.json", &legacy)
+	if err != nil {
 		return nil, err
 	}
 	if legacy.SchemaVersion != 2 {
@@ -159,7 +210,10 @@ func loadBundle(directory string) (*migrationBundle, error) {
 		for _, s := range h.Sources {
 			a := h.alias(s)
 			key, err := a.Key()
-			if err != nil || s.OriginalVersion <= previous {
+			if approval {
+				key = fmt.Sprintf("%s:%d", a.Service, a.OriginalVersion)
+			}
+			if (!approval && err != nil) || s.OriginalVersion <= previous {
 				return nil, failure("legacy aliases require exact reviewed fingerprints and ordered versions", err)
 			}
 			if _, exists := aliases[key]; exists {
@@ -187,15 +241,20 @@ func loadBundle(directory string) (*migrationBundle, error) {
 		if err != nil {
 			return nil, failure(fmt.Sprintf("migration %d source is unavailable or its checksum differs", id), err)
 		}
-		if err := m.Validate(raw, b.catalog, applied, b.interfaceDigest, b.registry.ApprovalDigest, readerVersion); err != nil {
-			return nil, failure(fmt.Sprintf("migration %d requires matching approval, interface, reader and safety metadata", id), err)
+		if !approval {
+			if err := m.Validate(raw, b.catalog, applied, b.interfaceDigest, b.registry.ApprovalDigest, readerVersion); err != nil {
+				return nil, failure(fmt.Sprintf("migration %d requires matching approval, interface, reader and safety metadata", id), err)
+			}
 		}
-		if m.TransactionMode != "transactional" {
+		if !approval && m.TransactionMode != "transactional" {
 			return nil, failure("registered migration requires a separately reviewed nontransactional runner", nil)
+		}
+		if approval && (m.Path == "" || !validDigest(m.SHA256) || len(raw) == 0 || production.Checksum(raw) != m.SHA256) {
+			return nil, failure(fmt.Sprintf("migration %d source is unavailable or its checksum differs", id), nil)
 		}
 		for _, a := range m.LegacyPredecessors {
 			key, err := a.Key()
-			if err != nil || aliases[key] != a {
+			if (!approval && err != nil) || (!approval && aliases[key] != a) {
 				return nil, failure("registered legacy predecessor differs from aliases", err)
 			}
 		}
@@ -225,8 +284,11 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	flags.SetOutput(io.Discard)
 	var migrations, service, role, region, out, expected, digest string
 	switch args[0] {
-	case "apply":
-		flags.StringVar(&migrations, "migrations", "", "migration directory")
+	case "approve", "apply":
+		flags.StringVar(&migrations, "migrations", "migrations", "migration directory")
+	case "region":
+		flags.StringVar(&migrations, "migrations", "migrations", "migration directory")
+		flags.StringVar(&region, "region", "", "recovery region")
 	case "expected":
 		flags.StringVar(&migrations, "migrations", "migrations", "migration directory")
 		flags.StringVar(&service, "service", "", "service")
@@ -242,7 +304,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 {
 		return badUsage()
 	}
-	if args[0] == "apply" && migrations == "" || args[0] == "expected" && (migrations == "" || service == "" || len(service) > 128 || !identifier.MatchString(role) || !regionName.MatchString(region) || out == "") || args[0] == "check" && (expected == "" || !validDigest(digest)) {
+	if (args[0] == "approve" || args[0] == "apply" || args[0] == "region") && migrations == "" || args[0] == "region" && !regionName.MatchString(region) || args[0] == "expected" && (migrations == "" || service == "" || len(service) > 128 || !identifier.MatchString(role) || !regionName.MatchString(region) || out == "") || args[0] == "check" && (expected == "" || !validDigest(digest)) {
 		return badUsage()
 	}
 	env := "LAUNCHPAD_ADMIN_DATABASE_URL"
@@ -259,7 +321,11 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		err = check(ctx, dsn, expected, digest)
 	} else {
 		var bundle *migrationBundle
-		bundle, err = loadBundle(migrations)
+		if args[0] == "approve" {
+			bundle, err = loadBundleMode(migrations, true)
+		} else {
+			bundle, err = loadBundle(migrations)
+		}
 		if err == nil {
 			var conn *pgx.Conn
 			conn, err = pgx.Connect(ctx, dsn)
@@ -267,8 +333,12 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 				err = failure("administrator connection failed", err)
 			} else {
 				defer conn.Close(context.Background())
-				if args[0] == "apply" {
+				if args[0] == "approve" {
+					err = bundle.approve(ctx, conn, migrations)
+				} else if args[0] == "apply" {
 					err = bundle.apply(ctx, conn)
+				} else if args[0] == "region" {
+					err = bundle.region(ctx, conn, region)
 				} else {
 					var sum string
 					sum, err = bundle.expected(ctx, conn, service, role, region, out)
@@ -344,6 +414,14 @@ func execute(ctx context.Context, conn *pgx.Conn, step, sql string, args ...any)
 		return failure(step, err)
 	}
 	return nil
+}
+
+func serverMajorVersion(ctx context.Context, conn *pgx.Conn) (int, error) {
+	var number int64
+	if err := conn.QueryRow(ctx, "SELECT current_setting('server_version_num')::bigint").Scan(&number); err != nil || number < 10000 {
+		return 0, failure("server version lookup failed", err)
+	}
+	return int(number / 10000), nil
 }
 
 func ensureRole(ctx context.Context, conn *pgx.Conn, role string, owner bool) error {
@@ -431,7 +509,41 @@ func (b *migrationBundle) ownerInterfaces(ctx context.Context, conn *pgx.Conn, o
 }
 
 func (b *migrationBundle) apply(ctx context.Context, conn *pgx.Conn) error {
+	major, err := serverMajorVersion(ctx, conn)
+	if err != nil {
+		return err
+	}
+	if b.registry.ServerMajorVersion > 0 && major != b.registry.ServerMajorVersion {
+		return failure("database server major version differs from the approved registry", nil)
+	}
+	return b.applyInternal(ctx, conn, false)
+}
+
+func (b *migrationBundle) applyInternal(ctx context.Context, conn *pgx.Conn, approving bool) error {
+	if !approving {
+		major, err := serverMajorVersion(ctx, conn)
+		if err != nil {
+			return err
+		}
+		if b.registry.ServerMajorVersion > 0 && major != b.registry.ServerMajorVersion {
+			return failure("database server major version differs from the approved registry", nil)
+		}
+	}
 	return withCoordinator(ctx, conn, func() error {
+		if approving {
+			names := make([]string, 0, len(b.owners)+1)
+			for schema := range b.owners {
+				names = append(names, schema)
+			}
+			names = append(names, "recovery", "migration_control")
+			var present bool
+			if err := conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname=ANY($1::text[]))", names).Scan(&present); err != nil {
+				return failure("release schema lookup failed", err)
+			}
+			if present {
+				return failure("approval requires an empty release database", nil)
+			}
+		}
 		if err := execute(ctx, conn, "public schema revocation failed", "REVOKE CREATE ON SCHEMA public FROM PUBLIC"); err != nil {
 			return err
 		}
@@ -467,11 +579,17 @@ func (b *migrationBundle) apply(ctx context.Context, conn *pgx.Conn) error {
 				return err
 			}
 		}
-		for _, h := range b.legacy {
+		for i := range b.legacy {
+			h := &b.legacy[i]
 			if err := ensureHistory(ctx, conn, h.Service, h.Schema); err != nil {
 				return err
 			}
-			if err := b.importHistory(ctx, conn, h); err != nil {
+			if err := b.importHistory(ctx, conn, h, approving); err != nil {
+				return err
+			}
+		}
+		if approving {
+			if err := b.finalizeApproval(ctx, conn); err != nil {
 				return err
 			}
 		}
@@ -542,7 +660,36 @@ func (b *migrationBundle) apply(ctx context.Context, conn *pgx.Conn) error {
 	})
 }
 
-func (b *migrationBundle) importHistory(ctx context.Context, conn *pgx.Conn, h legacyHistory) error {
+func (b *migrationBundle) region(ctx context.Context, conn *pgx.Conn, region string) error {
+	return withCoordinator(ctx, conn, func() error {
+		if _, err := b.applied(ctx, conn, true); err != nil {
+			return err
+		}
+		tx, err := conn.Begin(ctx)
+		if err != nil {
+			return failure("recovery region transaction failed", err)
+		}
+		defer tx.Rollback(context.Background())
+		var epoch int64
+		var current string
+		err = tx.QueryRow(ctx, "SELECT epoch,region FROM recovery.recovery_control WHERE singleton FOR UPDATE").Scan(&epoch, &current)
+		if errors.Is(err, pgx.ErrNoRows) {
+			if _, err := tx.Exec(ctx, "INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,$1,1,$2)", region, b.registryDigest); err != nil {
+				return failure("recovery region recording failed", err)
+			}
+			return tx.Commit(ctx)
+		}
+		if err != nil {
+			return failure("recovery region lookup failed", err)
+		}
+		if current != region || epoch < 1 {
+			return failure("recovery region differs from the recorded authority", nil)
+		}
+		return tx.Commit(ctx)
+	})
+}
+
+func (b *migrationBundle) importHistory(ctx context.Context, conn *pgx.Conn, h *legacyHistory, discovering bool) error {
 	for index, s := range h.Sources {
 		a := h.alias(s)
 		var source, up, fingerprint string
@@ -601,11 +748,135 @@ func (b *migrationBundle) importHistory(ctx context.Context, conn *pgx.Conn, h l
 				return failure("legacy initialization refused", err)
 			}
 		}
+		if discovering && s.StructuralFingerprint == "" {
+			tx, err := conn.Begin(ctx)
+			if err != nil {
+				return failure("legacy structure fingerprint transaction failed", err)
+			}
+			actual, err := production.CatalogFingerprint(ctx, tx, h.Schema)
+			_ = tx.Rollback(context.Background())
+			if err != nil {
+				return failure("legacy structure fingerprint unavailable", err)
+			}
+			s.StructuralFingerprint = actual
+			h.Sources[index].StructuralFingerprint = actual
+			a.StructuralFingerprint = actual
+		}
 		if err := production.ImportLegacyBaseline(ctx, conn, a, h.Schema, raw, upSQL); err != nil {
 			return failure("legacy baseline import refused", err)
 		}
 	}
 	return nil
+}
+
+func approvalManifestDigest(doc registryDocument) string {
+	copy := doc
+	copy.ApprovalDigest = ""
+	copy.ServerMajorVersion = 0
+	copy.Registrations = append([]production.MigrationManifest(nil), doc.Registrations...)
+	for i := range copy.Registrations {
+		copy.Registrations[i].ApprovalManifestDigest = ""
+	}
+	raw, err := json.Marshal(copy)
+	if err != nil {
+		return ""
+	}
+	return production.Checksum(raw)
+}
+
+func (b *migrationBundle) finalizeApproval(ctx context.Context, conn *pgx.Conn) error {
+	major, err := serverMajorVersion(ctx, conn)
+	if err != nil {
+		return err
+	}
+	b.registry.ServerMajorVersion = major
+	b.registry.State = "approved"
+	b.registry.QualificationRequired = []string{}
+	byAlias := map[string]string{}
+	for _, history := range b.legacy {
+		for _, source := range history.Sources {
+			byAlias[fmt.Sprintf("%s:%d", history.Service, source.OriginalVersion)] = source.StructuralFingerprint
+		}
+	}
+	for i := range b.registry.Registrations {
+		m := &b.registry.Registrations[i]
+		m.InterfaceDigest = b.interfaceDigest
+		m.ReaderMinVersion = readerVersion
+		m.EstimatedLockMS = 2000
+		for j := range m.LegacyPredecessors {
+			key := fmt.Sprintf("%s:%d", m.LegacyPredecessors[j].Service, m.LegacyPredecessors[j].OriginalVersion)
+			fingerprint, ok := byAlias[key]
+			if !ok || !validDigest(fingerprint) {
+				return failure("legacy structure fingerprint unavailable", nil)
+			}
+			m.LegacyPredecessors[j].StructuralFingerprint = fingerprint
+		}
+	}
+	b.registry.ApprovalDigest = approvalManifestDigest(b.registry)
+	if !validDigest(b.registry.ApprovalDigest) {
+		return failure("approval manifest encoding failed", nil)
+	}
+	for i := range b.registry.Registrations {
+		b.registry.Registrations[i].ApprovalManifestDigest = b.registry.ApprovalDigest
+	}
+	b.catalog, err = validateRegistryShape(b.registry.MigrationRegistry)
+	if err != nil {
+		return failure("approved migration registry order is invalid", err)
+	}
+	raw, err := json.Marshal(b.registry)
+	if err != nil {
+		return failure("approved registry encoding failed", err)
+	}
+	b.registryDigest = production.Checksum(raw)
+	return nil
+}
+
+func (b *migrationBundle) approve(ctx context.Context, conn *pgx.Conn, directory string) error {
+	if err := b.applyInternal(ctx, conn, true); err != nil {
+		return err
+	}
+	registryRaw, err := json.MarshalIndent(b.registry, "", "  ")
+	if err != nil {
+		return failure("approved registry encoding failed", err)
+	}
+	registryRaw = append(registryRaw, '\n')
+	var aliases map[string]json.RawMessage
+	var histories []map[string]json.RawMessage
+	if err := json.Unmarshal(b.legacyRaw, &aliases); err != nil {
+		return failure("legacy aliases encoding failed", err)
+	}
+	if err := json.Unmarshal(aliases["histories"], &histories); err != nil {
+		return failure("legacy aliases encoding failed", err)
+	}
+	for i, history := range b.legacy {
+		var sources []map[string]json.RawMessage
+		if err := json.Unmarshal(histories[i]["sources"], &sources); err != nil {
+			return failure("legacy aliases encoding failed", err)
+		}
+		for j, source := range history.Sources {
+			sources[j]["structural_fingerprint"], err = json.Marshal(source.StructuralFingerprint)
+			if err != nil {
+				return failure("legacy aliases encoding failed", err)
+			}
+		}
+		histories[i]["sources"], err = json.Marshal(sources)
+		if err != nil {
+			return failure("legacy aliases encoding failed", err)
+		}
+	}
+	aliases["histories"], err = json.Marshal(histories)
+	if err != nil {
+		return failure("legacy aliases encoding failed", err)
+	}
+	legacyRaw, err := json.MarshalIndent(aliases, "", "  ")
+	if err != nil {
+		return failure("legacy aliases encoding failed", err)
+	}
+	legacyRaw = append(legacyRaw, '\n')
+	return writeDocumentsAtomically([]struct {
+		path string
+		raw  []byte
+	}{{filepath.Join(directory, "registry.json"), registryRaw}, {filepath.Join(directory, "grants.json"), b.grantsRaw}, {filepath.Join(directory, "legacy-history-aliases.json"), legacyRaw}})
 }
 
 func (b *migrationBundle) expected(ctx context.Context, conn *pgx.Conn, service, role, region, out string) (string, error) {
@@ -711,6 +982,46 @@ func writeDocument(path string, raw []byte) error {
 	}
 	if err := os.Rename(file.Name(), path); err != nil {
 		return failure("expected schema output publication failed", err)
+	}
+	return nil
+}
+
+func writeDocumentsAtomically(documents []struct {
+	path string
+	raw  []byte
+}) error {
+	type pending struct{ path, temp string }
+	created := make([]pending, 0, len(documents))
+	for _, document := range documents {
+		file, err := os.CreateTemp(filepath.Dir(document.path), ".launchpad-schema-*")
+		if err != nil {
+			for _, item := range created {
+				_ = os.Remove(item.temp)
+			}
+			return failure("schema document output cannot be created", err)
+		}
+		name := file.Name()
+		if _, err = file.Write(document.raw); err == nil {
+			err = file.Close()
+		} else {
+			_ = file.Close()
+		}
+		if err != nil {
+			_ = os.Remove(name)
+			for _, item := range created {
+				_ = os.Remove(item.temp)
+			}
+			return failure("schema document output failed", err)
+		}
+		created = append(created, pending{document.path, name})
+	}
+	for _, item := range created {
+		if err := os.Rename(item.temp, item.path); err != nil {
+			for _, rest := range created {
+				_ = os.Remove(rest.temp)
+			}
+			return failure("schema document publication failed", err)
+		}
 	}
 	return nil
 }

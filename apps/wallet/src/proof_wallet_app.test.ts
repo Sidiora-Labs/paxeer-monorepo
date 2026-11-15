@@ -377,7 +377,7 @@ async function wallet_app_production_http_refusal_reaches_caps_and_history_on_ev
       h(AccountProvider, { config, children: h(HistoryView, { account: ADDRESS }) })
     );
     await view.until(() => view.query('[role="alert"]') !== null);
-    expect(view.text('[role="alert"]')).toContain('response does not answer the request id');
+    expect(view.text('[role="alert"]')).toContain('HTTP 405');
     expect(view.all('[data-item]')).toHaveLength(0);
     expect(requests).toBe(at + 1);
     expect(httpRequests.at(-1)).toMatchObject({

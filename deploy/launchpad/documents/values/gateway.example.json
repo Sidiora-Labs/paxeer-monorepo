@@ -1,0 +1,103 @@
+{
+  "credentials": {
+    "assertionKey": {"reference": "GATEWAY_ASSERTION_KEY", "test": true},
+    "auditKey": {"reference": "GATEWAY_AUDIT_KEY", "test": true},
+    "clientKey": {"reference": "GATEWAY_CLIENT_KEY", "test": true},
+    "controlDatabase": {"reference": "GATEWAY_CONTROL_DATABASE_URL", "test": true},
+    "deleteOriginalAccess": {"reference": "GATEWAY_DELETE_ORIGINAL_ACCESS", "test": true},
+    "deleteOriginalSecret": {"reference": "GATEWAY_DELETE_ORIGINAL_SECRET", "test": true},
+    "deleteTemporaryAccess": {"reference": "GATEWAY_DELETE_TEMPORARY_ACCESS", "test": true},
+    "deleteTemporarySecret": {"reference": "GATEWAY_DELETE_TEMPORARY_SECRET", "test": true},
+    "deleteVariantAccess": {"reference": "GATEWAY_DELETE_VARIANT_ACCESS", "test": true},
+    "deleteVariantSecret": {"reference": "GATEWAY_DELETE_VARIANT_SECRET", "test": true},
+    "identityKey": {"reference": "GATEWAY_IDENTITY_KEY", "test": true},
+    "incident": {"reference": "GATEWAY_INCIDENT_CREDENTIAL", "test": true},
+    "inventoryOriginalAccess": {"reference": "GATEWAY_INVENTORY_ORIGINAL_ACCESS", "test": true},
+    "inventoryOriginalSecret": {"reference": "GATEWAY_INVENTORY_ORIGINAL_SECRET", "test": true},
+    "inventoryTemporaryAccess": {"reference": "GATEWAY_INVENTORY_TEMPORARY_ACCESS", "test": true},
+    "inventoryTemporarySecret": {"reference": "GATEWAY_INVENTORY_TEMPORARY_SECRET", "test": true},
+    "inventoryVariantAccess": {"reference": "GATEWAY_INVENTORY_VARIANT_ACCESS", "test": true},
+    "inventoryVariantSecret": {"reference": "GATEWAY_INVENTORY_VARIANT_SECRET", "test": true},
+    "nats": {"reference": "GATEWAY_NATS_CREDENTIALS", "test": true},
+    "purge": {"reference": "GATEWAY_PURGE_TOKEN", "test": true},
+    "revocation": {"reference": "GATEWAY_REVOCATION_TOKEN", "test": true},
+    "serverKey": {"reference": "GATEWAY_SERVER_KEY", "test": true}
+  },
+  "identity": {
+    "activeKey": "gateway-2026-01",
+    "allowedOrigins": ["https://app.kindlelaunch.example"],
+    "audience": "identity",
+    "domain": "app.kindlelaunch.example",
+    "issuer": "gateway",
+    "keys": [
+      {"activeAt": "2026-01-01T00:00:00Z", "credential": "identityKey", "id": "gateway-2026-01", "retireAt": "2027-01-01T00:00:00Z"}
+    ],
+    "uri": "https://app.kindlelaunch.example/auth"
+  },
+  "runtime": {
+    "approvedBucket": "media-approved",
+    "assertionKeyCredential": "assertionKey",
+    "audit": {
+      "deliverySchema": "gateway_audit_source",
+      "durable": "gateway-audit-consumer",
+      "eventType": "gateway.audit.revision",
+      "keyCredential": "auditKey",
+      "sinkDeliverySchema": "gateway_audit_delivery",
+      "sinkSchema": "gateway_audit_sink",
+      "stream": "GATEWAY_AUDIT",
+      "subject": "gateway.audit.v1"
+    },
+    "caFile": "/run/kindle/gateway/ca.pem",
+    "caSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "clientCertFile": "/run/kindle/gateway/client-cert.pem",
+    "clientCertSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "clientKeyCredential": "clientKey",
+    "consumerGeneration": "gateway-generation-1",
+    "control": {
+      "authoritySchema": "pnl",
+      "incidentCredential": "incident",
+      "revocationCredential": "revocation",
+      "revocationEndpoint": "https://control.kindlelaunch.example/v1/revocations",
+      "schema": "pnl"
+    },
+    "durable": "gateway-identity-consumer",
+    "identityEndpoint": "https://identity.kindlelaunch.example",
+    "identityListenAddress": "10.0.1.10:9443",
+    "identityPeers": [
+      {"issuer": "metadata", "peerCertSha256": "0000000000000000000000000000000000000000000000000000000000000000", "publicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
+    ],
+    "identityServerPeerCertSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "mediaSchema": "gateway",
+    "metadataSchema": "metadata",
+    "natsCredential": "nats",
+    "natsUrl": "tls://nats.kindlelaunch.example:4222",
+    "objectWorkers": [
+      {"bucket": "media-approved", "deleteAccessKeyCredential": "deleteVariantAccess", "deleteSecretKeyCredential": "deleteVariantSecret", "inventoryAccessKeyCredential": "inventoryVariantAccess", "inventoryLimit": 1000, "inventorySecretKeyCredential": "inventoryVariantSecret", "kind": "variant", "prefix": "approved/"},
+      {"bucket": "media-approved", "deleteAccessKeyCredential": "deleteOriginalAccess", "deleteSecretKeyCredential": "deleteOriginalSecret", "inventoryAccessKeyCredential": "inventoryOriginalAccess", "inventoryLimit": 1000, "inventorySecretKeyCredential": "inventoryOriginalSecret", "kind": "original", "prefix": "quarantine/"},
+      {"bucket": "media-approved", "deleteAccessKeyCredential": "deleteTemporaryAccess", "deleteSecretKeyCredential": "deleteTemporarySecret", "inventoryAccessKeyCredential": "inventoryTemporaryAccess", "inventoryLimit": 1000, "inventorySecretKeyCredential": "inventoryTemporarySecret", "kind": "temporary", "prefix": "temporary/"}
+    ],
+    "pool": "unused",
+    "pools": {"controlCredential": "controlDatabase", "controlMaxConnections": 4, "controlPoolId": "gateway_control_pool", "identityMaxConnections": 8, "identityPoolId": "mediagatewayd_pool"},
+    "purgeCredential": "purge",
+    "purgeEndpoint": "https://cdn.kindlelaunch.example",
+    "purgeMode": "http",
+    "recoveryEpoch": 1,
+    "recoveryRegion": "mainnet-beta-eu",
+    "recoverySchema": "users",
+    "safetySchema": "safety",
+    "serverCertFile": "/run/kindle/gateway/server-cert.pem",
+    "serverCertSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "serverKeyCredential": "serverKey",
+    "stream": "GATEWAY_IDENTITY",
+    "trustedProxies": ["10.0.0.0/8"],
+    "uploadBytesPerSecond": 1048576,
+    "uploadConcurrent": 8,
+    "uploadNamespace": "gateway-upload",
+    "upstreams": [
+      {"name": "user", "routes": [{"method": "GET", "template": "/v2/me/profile"}], "url": "https://user.kindlelaunch.example"},
+      {"name": "metadata", "routes": [{"method": "GET", "template": "/v2/tokens/{tokenAddress}/metadata"}], "url": "https://metadata.kindlelaunch.example"},
+      {"name": "social", "routes": [{"method": "GET", "template": "/v2/profiles/{wallet}/followers"}], "url": "https://social.kindlelaunch.example"},
+      {"name": "livestream", "routes": [{"method": "GET", "template": "/v2/streams"}], "url": "https://livestream.kindlelaunch.example"}
+    ]
+  }
+}

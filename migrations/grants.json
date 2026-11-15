@@ -1078,33 +1078,11 @@
         },
         {
           "schema": "candles",
-          "object": "chart_pool_fences_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "candles",
           "object": "chart_inbox",
           "object_kind": "table",
           "privileges": [
             "SELECT",
             "INSERT"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "candles",
-          "object": "chart_inbox_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
           ],
           "columns": [],
           "argument_types": [],
@@ -1137,33 +1115,11 @@
         },
         {
           "schema": "candles",
-          "object": "chart_exact_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "candles",
           "object": "chart_traders",
           "object_kind": "table",
           "privileges": [
             "SELECT",
             "INSERT"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "candles",
-          "object": "chart_traders_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
           ],
           "columns": [],
           "argument_types": [],
@@ -2039,17 +1995,6 @@
         },
         {
           "schema": "stats",
-          "object": "reaction_pools_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "stats",
           "object": "reaction_wallets",
           "object_kind": "table",
           "privileges": [
@@ -2070,17 +2015,6 @@
           "columns": [
             "last_change"
           ],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "stats",
-          "object": "reaction_wallets_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
           "argument_types": [],
           "grant_option": false
         },
@@ -2123,33 +2057,11 @@
         },
         {
           "schema": "stats",
-          "object": "reaction_votes_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "stats",
           "object": "reaction_nonces",
           "object_kind": "table",
           "privileges": [
             "SELECT",
             "INSERT"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "stats",
-          "object": "reaction_nonces_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
           ],
           "columns": [],
           "argument_types": [],
@@ -4716,17 +4628,6 @@
         },
         {
           "schema": "users",
-          "object": "operation_ledger_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "users",
           "object": "security_audit_outbox",
           "object_kind": "table",
           "privileges": [
@@ -7023,17 +6924,6 @@
         },
         {
           "schema": "metadata",
-          "object": "operation_ledger_id_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "metadata",
           "object": "security_audit_outbox",
           "object_kind": "table",
           "privileges": [
@@ -8079,11 +7969,7 @@
             "UPDATE"
           ],
           "columns": [
-            "revision",
-            "document",
-            "asset_id",
-            "moderation_revision",
-            "blocked"
+            "revision"
           ],
           "argument_types": [],
           "grant_option": false
@@ -9282,17 +9168,6 @@
           "columns": [
             "body"
           ],
-          "argument_types": [],
-          "grant_option": false
-        },
-        {
-          "schema": "pnl",
-          "object": "objects_seq_seq",
-          "object_kind": "sequence",
-          "privileges": [
-            "USAGE"
-          ],
-          "columns": [],
           "argument_types": [],
           "grant_option": false
         },

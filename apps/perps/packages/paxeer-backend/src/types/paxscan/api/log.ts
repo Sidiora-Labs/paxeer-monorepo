@@ -1,5 +1,5 @@
-import type { AddressParam } from './addressParams';
-import type { DecodedInput } from './decodedInput';
+import type { AddressParam } from "./addressParams";
+import type { DecodedInput } from "./decodedInput";
 
 export interface Log {
   address: AddressParam;

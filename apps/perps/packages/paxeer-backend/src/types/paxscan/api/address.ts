@@ -1,12 +1,22 @@
 // @coord dropped ./contract (SmartContractCreationStatus, SmartContractProxyType) — out of trading-app scope
 // @coord dropped ./epochs (CeloEpochRewardsType) — out of trading-app scope
 // @coord dropped ./mudWorlds (MudWorldSchema, MudWorldTable) — out of trading-app scope
-import type { UserTags, AddressImplementation, AddressParam, AddressFilecoinParams } from './addressParams';
-import type { Block } from './block';
-import type { InternalTransaction } from './internalTransaction';
-import type { NFTTokenType, TokenInfo, TokenInstance, TokenType } from './token';
-import type { TokenTransfer, TokenTransferPagination } from './tokenTransfer';
-import type { Transaction } from './transaction';
+import type {
+  UserTags,
+  AddressImplementation,
+  AddressParam,
+  AddressFilecoinParams,
+} from "./addressParams";
+import type { Block } from "./block";
+import type { InternalTransaction } from "./internalTransaction";
+import type {
+  NFTTokenType,
+  TokenInfo,
+  TokenInstance,
+  TokenType,
+} from "./token";
+import type { TokenTransfer, TokenTransferPagination } from "./tokenTransfer";
+import type { Transaction } from "./transaction";
 
 export interface Address extends UserTags {
   block_number_balance_updated_at: number | null;
@@ -72,14 +82,14 @@ export type AddressTokenBalancesResponse = Array<AddressTokenBalance>;
 
 export type AddressNFT = TokenInstance & {
   token: TokenInfo;
-  token_type: Omit<TokenType, 'ERC-20'>;
+  token_type: Omit<TokenType, "ERC-20">;
   value: string;
 };
 
 export type AddressCollection = {
   token: TokenInfo;
   amount: string;
-  token_instances: Array<Omit<AddressNFT, 'token'>>;
+  token_instances: Array<Omit<AddressNFT, "token">>;
 };
 
 export interface AddressTokensResponse {
@@ -125,9 +135,11 @@ export interface AddressTransactionsResponse {
   } | null;
 }
 
-export const AddressFromToFilterValues = [ 'from', 'to' ] as const;
+export const AddressFromToFilterValues = ["from", "to"] as const;
 
-export type AddressFromToFilter = typeof AddressFromToFilterValues[number] | undefined;
+export type AddressFromToFilter =
+  | (typeof AddressFromToFilterValues)[number]
+  | undefined;
 
 export type AddressTxsFilters = {
   filter: AddressFromToFilter;
@@ -268,8 +280,8 @@ export type AddressMudRecordsFilter = {
 };
 
 export type AddressMudRecordsSorting = {
-  sort: 'key0' | 'key1';
-  order: 'asc' | 'desc' | undefined;
+  sort: "key0" | "key1";
+  order: "asc" | "desc" | undefined;
 };
 
 export type AddressMudRecord = {
