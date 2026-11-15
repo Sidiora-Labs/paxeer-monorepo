@@ -69,73 +69,93 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   defp run_step(batch_size, options) do
-    case next_job() do
-      nil ->
+    concurrency = Keyword.get(options, :acceptance_backfill_concurrency, 4)
+
+    case next_jobs(concurrency) do
+      [] ->
         case Repo.query!("SELECT EXISTS (SELECT 1 FROM #{@table} WHERE completed = false)").rows do
           [[true]] -> :deferred
           [[false]] -> :complete
         end
 
-      job ->
-        run_jobs(job, Keyword.get(options, :acceptance_backfill_concurrency, 4), batch_size, options, 0, nil)
+      jobs ->
+        jobs
+        |> read_jobs(options, concurrency)
+        |> apply_jobs(batch_size)
     end
   rescue
     error -> {:error, {:replay_failed, Exception.message(error)}}
   end
 
-  defp run_jobs(_job, 0, _batch_size, _options, count, nil), do: {:ok, count}
-  defp run_jobs(_job, 0, _batch_size, _options, _count, reason), do: {:error, reason}
+  defp read_jobs(jobs, options, concurrency) do
+    results =
+      Task.async_stream(jobs, &read_job(&1, options),
+        max_concurrency: concurrency,
+        ordered: true,
+        timeout: :infinity
+      )
 
-  defp run_jobs(job, remaining, batch_size, options, count, reason) do
-    result = replay(job, batch_size, options)
-
-    {count, reason} =
+    jobs
+    |> Enum.zip(results)
+    |> Enum.map(fn {job, result} ->
       case result do
-        {:ok, completed} -> {count + completed, reason}
-        {:error, failure} -> {count, reason || failure}
-        :deferred -> {count, reason || :deferred}
+        {:ok, read_result} -> {job, read_result}
+        {:exit, reason} -> {job, {:error, {:replay_failed, inspect(reason)}}}
       end
+    end)
+    |> Enum.sort_by(fn {[hash, number, _transactions, _results], _result} -> {number, hash} end)
+  end
 
-    case {remaining - 1, next_job(), reason} do
-      {_remaining, _next, :deferred} -> :deferred
-      {0, _next, _reason} -> finalize_step(count, reason)
-      {_remaining, nil, _reason} -> finalize_step(count, reason)
-      {left, next, _reason} -> run_jobs(next, left, batch_size, options, count, reason)
+  defp apply_jobs(reads, batch_size) do
+    {count, reason} =
+      Enum.reduce(reads, {0, nil}, fn {[_hash, _number, _transactions, _results] = job, result}, {count, reason} ->
+        case apply_job(job, result, batch_size) do
+          {:ok, completed} -> {count + completed, reason}
+          {:error, failure} -> {count, reason || failure}
+          :deferred -> {count, reason || :deferred}
+        end
+      end)
+
+    finalize_step(count, reason)
+  end
+
+  defp apply_job([hash, _number, _transactions, _results], {:ok, updates}, batch_size) do
+    case apply_batch(hash, updates, batch_size) do
+      {:error, reason} -> hold_job(hash, reason)
+      result -> result
     end
+  rescue
+    error -> hold_job(hash, {:replay_failed, Exception.message(error)})
+  end
+
+  defp apply_job([hash, _number, _transactions, _results], {:error, reason}, _batch_size),
+    do: hold_job(hash, reason)
+
+  defp read_job([hash, number, transactions, results], options) do
+    with {:ok, transactions, results} <- retained(hash, transactions, results, number, options),
+         {:ok, updates} <- decode(transactions, results) do
+      {:ok, updates}
+    end
+  rescue
+    error -> {:error, {:replay_failed, Exception.message(error)}}
   end
 
   defp finalize_step(_count, :deferred), do: :deferred
   defp finalize_step(_count, reason) when not is_nil(reason), do: {:error, reason}
   defp finalize_step(count, nil), do: {:ok, count}
 
-  defp next_job do
-    case Repo.query!("""
-         SELECT j.block_hash, j.block_number, j.transactions, j.results
-         FROM #{@table} j JOIN blocks b ON b.hash = j.block_hash
-         WHERE j.completed = false AND b.consensus = true
-         ORDER BY (j.error IS NOT NULL), j.block_number, j.block_hash LIMIT 1
-         """).rows do
-      [] -> nil
-      [job] -> job
+  defp next_jobs(limit) do
+    case Repo.query!(
+           """
+           SELECT j.block_hash, j.block_number, j.transactions, j.results
+           FROM #{@table} j JOIN blocks b ON b.hash = j.block_hash
+           WHERE j.completed = false AND b.consensus = true
+           ORDER BY (j.error IS NOT NULL), j.block_number, j.block_hash LIMIT $1
+           """,
+           [limit]
+         ).rows do
+      jobs -> jobs
     end
-  end
-
-  defp replay([hash, number, transactions, results], batch_size, options) do
-    result =
-      with {:ok, transactions, results} <- retained(hash, transactions, results, number, options),
-           {:ok, updates} <- decode(transactions, results) do
-        apply_batch(hash, updates, batch_size)
-      end
-
-    case result do
-      {:error, reason} ->
-        hold_job(hash, reason)
-
-      _ ->
-        result
-    end
-  rescue
-    error -> hold_job(hash, {:replay_failed, Exception.message(error)})
   end
 
   defp hold_job(hash, reason) do
