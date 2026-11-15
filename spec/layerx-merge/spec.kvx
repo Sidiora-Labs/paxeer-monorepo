@@ -14674,6 +14674,12 @@ value = "The contrast reader evaluates every pair of its list once for the light
 basis = "Gotcha 4511. Decision 3588."
 affects = []
 
+[decision.3594]
+title = "The build of a task that verifies with the consumer proof of the gateway installs the packages of the TypeScript SDK"
+value = "A task whose verification runs the proof of the JSON-RPC methods of the hosted gateway installs the packages of services/agent/sdk/typescript from its lockfile in its build, without the scripts of the packages. The proof and the SDK stay as they are. The build of task 22.39.669 takes this form; its verification is unchanged."
+basis = "Gotcha 4512."
+affects = ["22.39.669"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -211617,7 +211623,7 @@ symbols = []
 touches = ["services/platform/hosted/gateway", "docs/wiki/HostedGateway.md", "tests/ci/test_sdk_quickstart_rpc_methods.py"]
 tests = []
 planned_paths = ["services/platform/hosted/gateway/src/rpc_session.rs", "services/platform/hosted/gateway/tests/session_open.rs"]
-build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund && cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
 verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway rpc_session && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway rpc_register && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test session_open --test registration_tenant_boundary --test openrpc_methods --test proof_gateway_jsonrpc_methods --test router_surface --test documented_rpc_examples"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -211630,6 +211636,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "do_8 Decision 3594, gotcha 4512. The build now installs the packages of the TypeScript SDK before the check. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.562]
 title = "Offer payment in the web search service only for assets the ledger reports as registered"
