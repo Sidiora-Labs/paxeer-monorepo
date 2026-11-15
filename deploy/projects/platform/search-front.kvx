@@ -1,0 +1,22 @@
+[service.search-front]
+kind = "repo"
+dockerfile = "docker/search-front/Dockerfile"
+root = "."
+watch = ["docker/search-front/**", "docker/common/**", "services/interop/deploy/search-front/**"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 2
+public = 1
+order = 14
+needs = []
+
+[vars.search-front]
+PORT = "8080"
+LAYERX_TRUSTED_PROXIES = "env:PLATFORM_SEARCH_FRONT_LAYERX_TRUSTED_PROXIES"
+SEARCH_FRONT_UPSTREAMS = "env:PLATFORM_SEARCH_FRONT_SEARCH_FRONT_UPSTREAMS"
+
+[inputs.search-front]
+# Trusted HTTP proxy IP addresses or CIDRs, separated by commas or spaces.
+PLATFORM_SEARCH_FRONT_LAYERX_TRUSTED_PROXIES = "operator"
+# Base64-encoded nginx split_clients configuration defining xweb_node and xweb_eligible.
+PLATFORM_SEARCH_FRONT_SEARCH_FRONT_UPSTREAMS = "operator"

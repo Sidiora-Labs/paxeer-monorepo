@@ -1,0 +1,4 @@
+ENDPOINT_OUTBOUND_CA	/run/secrets/ca.crt.der	0600	*
+ENDPOINT_REDIS_USERNAME	/run/secrets/redis-username	0600	*
+ENDPOINT_REDIS_PASSWORD	/run/secrets/redis-password	0600	*
+ENDPOINT_RECEIPT_KEYS	/run/secrets/receipt-keys.json	0600	*
