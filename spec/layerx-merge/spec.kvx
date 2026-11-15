@@ -14668,6 +14668,12 @@ value = "Task 22.39.676 reads each case of the bridge suite that differs from th
 basis = "Gotcha 4510. Decision 3562."
 affects = []
 
+[decision.3593]
+title = "The semantic pairs of the human web application hold text contrast in each scheme, and the foundation suite states the present browser configuration"
+value = "The contrast reader evaluates every pair of its list once for the light scheme and once for the dark scheme, from the values the token file states for that scheme, and each result names its scheme. Every pair holds the text limit of 4.5 in both schemes; a token value that does not is moved by the smallest step in lightness that holds it, the same value at every place the file states it for that scheme. No pair leaves the list and the limit does not move. The foundation case on the browser suite asserts the match list and the tablet project as apps/web/playwright.config.ts states them; the configuration is not changed for the case. The kit task of the series waits for this."
+basis = "Gotcha 4511. Decision 3588."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44328,6 +44334,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.677]
+title = "Hold the semantic pairs of the human web application in both schemes and state the present browser configuration in the foundation suite"
+reqs = ["22998.1"]
+touches = ["apps/web/e2e/a11y.spec.ts", "apps/web/src/kit/a11y.ts", "apps/web/packages/layerx-ui/src/styles/tokens.css"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation"
+do_1 = "do_1 Gotcha 4511, decisions 3593 and 3588. Read apps/web/src/kit/a11y.ts, the list of pairs in it and the function that takes the token values; apps/web/packages/layerx-ui/src/styles/tokens.css, the places where a token has a value for each scheme; apps/web/e2e/a11y.spec.ts and apps/web/playwright.config.ts."
+symbols = []
 
 [capability.22.39.676]
 title = "Bring the cases of the bridge application suite and the code they test into line"
@@ -173353,6 +173368,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.677]
+title = "Hold the semantic pairs of the human web application in both schemes and state the present browser configuration in the foundation suite"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.28"]
+reqs = ["22998.1"]
+capabilities = ["22.39.677"]
+interfaces = []
+do_1 = "do_1 Gotcha 4511, decisions 3593 and 3588. Read apps/web/src/kit/a11y.ts, the list of pairs in it and the function that takes the token values; apps/web/packages/layerx-ui/src/styles/tokens.css, the places where a token has a value for each scheme; apps/web/e2e/a11y.spec.ts and apps/web/playwright.config.ts."
+do_2 = "do_2 In apps/web/src/kit/a11y.ts the function that takes the token values returns the values of the light scheme and the values of the dark scheme: from the two-value form of the scheme function its first and second value, from an explicit block of a scheme the values of that block, and a token with a single value holds it in both. The results of the pairs carry the scheme, and the assertion of the reader names token pair, scheme and ratio. The names the application imports from the file keep their form; a new name is added where a caller needs the scheme."
+do_3 = "do_3 In apps/web/e2e/a11y.spec.ts the case on the semantic pairs asserts every pair in both schemes at the limit of the reader. Where a pair is below the limit in a scheme, change the token value in apps/web/packages/layerx-ui/src/styles/tokens.css by the smallest step in lightness that holds the limit with every pair the token takes part in, and write the same value at every place the file states that token for that scheme. No pair is taken off the list, the limit stays 4.5, and no value of a scheme that already holds is moved."
+do_4 = "do_4 In apps/web/e2e/a11y.spec.ts the case on the browser suite asserts what apps/web/playwright.config.ts states at present: that the match list holds the pattern of the browser directory, that the tablet project with the coarse pointer exists and that it selects the accessibility file of the browser directory. apps/web/playwright.config.ts and the workflow file stay as they are."
+do_5 = "do_5 A test under apps/web/e2e that states one of the changed token values follows the new value in the same commit, and only there. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/web/e2e/a11y.spec.ts", "apps/web/src/kit/a11y.ts", "apps/web/packages/layerx-ui/src/styles/tokens.css"]
+tests = []
+planned_paths = []
+build_cmd = "make human-js-install && make agent-sdk-ts-build"
+verify_cmd = "npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.676]
 title = "Bring the cases of the bridge application suite and the code they test into line"
 status = "pending"
@@ -174065,7 +174112,7 @@ title = "Bring the kit, shell, states and global style of the human web applicat
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.28"]
+requires = ["22.44.28", "22.39.677"]
 reqs = ["22998.1"]
 capabilities = ["22.44.29"]
 interfaces = []

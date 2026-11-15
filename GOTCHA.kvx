@@ -22375,3 +22375,8 @@ fix = "Decision 3591. Tasks 22.44.37 to 22.44.48."
 title = "A case and the code it tests move apart when one of them changes alone"
 symptom = "A suite states what its code does: the form of an id, the fields of a row, the directives of a policy, the phases a component shows. When one side changes alone the two no longer say the same, and a task on another part of the application cannot tell which side states the product. The difference is decided once, per case, by a task on the suite."
 fix = "Decision 3592. Task 22.39.676."
+
+[gotcha.4511]
+title = "A token file with two schemes needs a contrast reader that knows the schemes"
+symptom = "The contrast reader of the human web application takes one value for each token of the token file. A token file that states a value for the light scheme and a value for the dark scheme, in the two-value form of the scheme function and in explicit blocks, holds more than one value for a token, and a reader that takes one of them measures a single scheme without naming it. A foundation case that states the form of the browser configuration follows that configuration: the configuration is the product side, the case is its reader."
+fix = "Decision 3593. Task 22.39.677."
