@@ -167,10 +167,10 @@ the shape of the explorer:
 | runtime | `DISABLE_FILE_LOGGING`, `HEART_BEAT_TIMEOUT`, `TXS_STATS_DAYS_TO_COMPILE_AT_INIT`, `COIN_BALANCE_HISTORY_DAYS` |
 
 Price feed — off by default; once `PAXEER_X_PRICE_FEED_ENABLED` is `true`,
-`PAXEER_X_COSMOS_REST_URLS`, `PAXEER_X_COMETBFT_RPC_URLS` and
+`PAXEER_X_COMETBFT_RPC_URLS` and
 `PAXEER_X_PRICE_FEED_START_BLOCK` must be set as well or the release refuses to
 boot. Nodes prune old heights, so the start block must lie within the history
-the configured nodes still serve, for both `txs/block` and `block_results`; a
+the configured nodes still serve, for both `block` and `block_results`; a
 height every node reports as no longer available is recorded as unavailable and
 not retried, and a height above a lagging node's head is tried on the next node
 and then retried with a growing delay for as long as no node serves it or no node
@@ -184,8 +184,8 @@ acceptance replay and preserves source submissions needed by incomplete jobs.
 | Name | What it selects |
 | --- | --- |
 | `PAXEER_X_PRICE_FEED_ENABLED` | scan blocks for native price-feed submissions, `false` by default |
-| `PAXEER_X_COSMOS_REST_URLS` | comma list of node Cosmos REST base URLs, read for `txs/block` |
-| `PAXEER_X_COMETBFT_RPC_URLS` | comma list of node CometBFT RPC base URLs, read for `block_results` |
+| `PAXEER_X_COSMOS_REST_URLS` | optional comma list of http(s) Cosmos REST base URLs; may be empty, unused by price scanning and acceptance replay |
+| `PAXEER_X_COMETBFT_RPC_URLS` | comma list of node CometBFT RPC base URLs, read for `block` and `block_results` |
 | `PAXEER_X_PRICE_FEED_START_BLOCK` | first height scanned, no default |
 | `PAXEER_X_PRICE_FEED_CONCURRENCY` | blocks scanned in parallel, `4` by default |
 | `PAXEER_X_PRICE_FEED_MARKETS_REFRESH_SECONDS` | age after which the market list is read again, `300` by default |

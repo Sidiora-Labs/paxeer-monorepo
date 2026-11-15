@@ -1,6 +1,8 @@
 defmodule Explorer.Repair.PriceFeedUnsignedObservationTest do
   use Explorer.DataCase
 
+  import Bitwise
+
   alias Explorer.Chain.PaxeerX.{PriceFeed, PriceObservation}
   alias Explorer.PaxeerX.CosmosRest
 
@@ -156,13 +158,47 @@ defmodule Explorer.Repair.PriceFeedUnsignedObservationTest do
   defp decode(body),
     do: CosmosRest.decode_block_txs(%{"txs" => body["txs"], "raw" => body["block"]["data"]["txs"]})
 
+  defp wire_block(body) do
+    entries =
+      Enum.map(body["txs"], fn tx ->
+        messages =
+          Enum.map_join(tx["body"]["messages"], fn message ->
+            observations =
+              Enum.map_join(message["observations"], fn observation ->
+                value =
+                  wire_number(1, observation["market_id"]) <>
+                    wire_number(2, observation["sequence"]) <>
+                    wire_bytes(3, observation["index_price"]) <>
+                    wire_bytes(4, observation["mark_price"]) <>
+                    wire_number(5, observation["source_timestamp_ms"])
+
+                wire_bytes(2, value)
+              end)
+
+            value = wire_bytes(1, message["feeder"]) <> observations
+            wire_bytes(1, wire_bytes(1, message["@type"]) <> wire_bytes(2, value))
+          end)
+
+        fee = wire_number(2, tx["auth_info"]["fee"]["gas_limit"])
+        Base.encode64(wire_bytes(1, messages) <> wire_bytes(2, wire_bytes(2, fee)))
+      end)
+
+    %{"block" => %{"data" => %{"txs" => entries}}}
+  end
+
+  defp wire_bytes(field, bytes), do: wire_varint(field <<< 3 ||| 2) <> wire_varint(byte_size(bytes)) <> bytes
+  defp wire_number(field, value) when is_binary(value), do: wire_number(field, String.to_integer(value))
+  defp wire_number(field, value), do: wire_varint(field <<< 3) <> wire_varint(value)
+  defp wire_varint(value) when value < 128, do: <<value>>
+  defp wire_varint(value), do: <<(value &&& 127) ||| 128>> <> wire_varint(value >>> 7)
+
   defp read_block(body, results, height) do
     server = Bypass.open()
 
-    Bypass.expect_once(server, "GET", "/cosmos/tx/v1beta1/txs/block/#{height}", fn conn ->
+    Bypass.expect_once(server, "GET", "/block", fn conn ->
       conn = Plug.Conn.fetch_query_params(conn)
-      assert conn.query_params == %{"pagination.offset" => "0", "pagination.limit" => "100"}
-      Plug.Conn.resp(conn, 200, Jason.encode!(body))
+      assert conn.query_params == %{"height" => to_string(height)}
+      Plug.Conn.resp(conn, 200, Jason.encode!(wire_block(body)))
     end)
 
     Bypass.expect_once(server, "GET", "/block_results", fn conn ->

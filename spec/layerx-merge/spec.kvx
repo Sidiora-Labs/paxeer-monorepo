@@ -14560,6 +14560,12 @@ value = "Every source file under the lib directories of the apps explorer, ether
 basis = "Gotcha 4493. The apps state warnings as errors in their compile alias."
 affects = []
 
+[decision.3575]
+title = "The startup documents of the launchpad services come from one composer and the registered migrations from one command"
+value = "The command launchpad-schema under sdk/launchpad/shared/db/production/cmd applies the registered migrations to a database through the migration coordinator, writes the expected schema document of a service from the migrated database and checks a database against such a document. The composer deploy/launchpad/documents/compose.py reads one values directory and writes for each service of the contract one file with exactly the document variables and digest variables the contract requires of it. A values directory holds common.json, one file named by the service and the expected schema document of each service under expected-schema; the examples under deploy/launchpad/documents/values carry the same names with .example before .json and the option --examples reads them. Each service has one module of the composer, named by the service name of the contract with a hyphen written as an underscore, and one test inside the service that proves its loader accepts the composed documents. A values file states what differs between deployments; a composed document never appears in the output of a command."
+basis = "Gotcha 4494. The loaders of the services and of sdk/launchpad/shared/db/production are the authority for the form of each document."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44220,6 +44226,123 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.650]
+title = "Compose the startup documents of the launchpad livestream service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/livestream/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/livestream && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of livestream in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/livestream/internal/config in services/launchpad/livestream and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.649]
+title = "Compose the startup documents of the launchpad metadata service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/metadata && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of metadata in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/metadata/internal/config in services/launchpad/metadata and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.648]
+title = "Compose the startup documents of the launchpad social service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/social && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of social in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/social/internal/config in services/launchpad/social and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.647]
+title = "Compose the startup documents of the launchpad user service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/user/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/user && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of user in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/user/internal/config in services/launchpad/user and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.646]
+title = "Compose the startup documents of the launchpad media gateway"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/gateway && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of gateway in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/gateway/internal/config in services/launchpad/gateway and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.645]
+title = "Compose the startup documents of the launchpad ranking service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/ranking-algo && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of ranking in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/ranking-algo/internal/config in services/launchpad/ranking-algo and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.644]
+title = "Compose the startup documents of the launchpad profit and loss service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/pnl-tracker && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of pnl in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/pnl-tracker/internal/config in services/launchpad/pnl-tracker and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.643]
+title = "Compose the startup documents of the launchpad stats service"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "(cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of stats in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of its package internal/config in the directory of the stats service under services/launchpad, whose binary is statsd and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.642]
+title = "Compose the startup documents of the launchpad charts service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/trading-charts && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of charts in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/trading-charts/internal/config in services/launchpad/trading-charts and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.641]
+title = "Compose the startup documents of the launchpad indexer"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/indexer && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of indexer in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/indexer/internal/config in services/launchpad/indexer and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.640]
+title = "Compose the startup documents of the launchpad API in both roles"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/api && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entries of api and api-sockets in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/api/internal/config in services/launchpad/api and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.639]
+title = "Add the composer of the launchpad startup documents with the budget and expected schema documents"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/README.md"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the functions ParseConnectionBudget and LoadConnectionBudget of sdk/launchpad/shared/db/production/allocation.go with the rules they check, LoadExpectedSchema of sdk/launchpad/shared/db/production/migrations.go, and how one service, for example services/launchpad/api/internal/config/config.go, reads a document variable and its digest variable."
+symbols = []
+
+[capability.22.39.638]
+title = "Add the command that applies the registered launchpad migrations and writes the expected schema document"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/db/production/coordinatortest"]
+tests = []
+verification_contract = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go vet ./db/production/cmd/launchpad-schema && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production/cmd/launchpad-schema -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read sdk/launchpad/shared/db/production/migrations.go, roles.go and allocation.go, the function Bootstrap of sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go, and under migrations the files registry.json, grants.json, legacy-history-aliases.json and readiness.json with the section on the launchpad in migrations/README.md."
+symbols = []
 
 [capability.22.39.637]
 title = "Let the apps of the explorer backend compile whole without a warning"
@@ -197460,6 +197583,411 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.650]
+title = "Compose the startup documents of the launchpad livestream service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.650"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of livestream in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/livestream/internal/config in services/launchpad/livestream and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/livestream.py so that the composer writes for the service livestream no document beyond the budget and the expected schema. Add deploy/launchpad/documents/values/livestream.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/livestream/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/livestream/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/livestream/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/livestream.py", "deploy/launchpad/documents/values/livestream.example.json", "services/launchpad/livestream/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/livestream && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/livestream && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.649]
+title = "Compose the startup documents of the launchpad metadata service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.649"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of metadata in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/metadata/internal/config in services/launchpad/metadata and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/metadata.py so that the composer writes for the service metadata the document METADATA_PUBLICATION_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/metadata.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/metadata/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/metadata/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/metadata.py", "deploy/launchpad/documents/values/metadata.example.json", "services/launchpad/metadata/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/metadata && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/metadata && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.648]
+title = "Compose the startup documents of the launchpad social service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.648"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of social in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/social/internal/config in services/launchpad/social and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/social.py so that the composer writes for the service social the document SOCIAL_RUNTIME_DOCUMENT. Add deploy/launchpad/documents/values/social.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/social/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/social/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/social.py", "deploy/launchpad/documents/values/social.example.json", "services/launchpad/social/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/social && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/social && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.647]
+title = "Compose the startup documents of the launchpad user service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.647"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of user in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/user/internal/config in services/launchpad/user and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/user.py so that the composer writes for the service user the document ACCOUNT_SUBJECTS_DOCUMENT. Add deploy/launchpad/documents/values/user.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/user/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/user/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/user/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/user.py", "deploy/launchpad/documents/values/user.example.json", "services/launchpad/user/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/user && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/user && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.646]
+title = "Compose the startup documents of the launchpad media gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.646"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of gateway in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/gateway/internal/config in services/launchpad/gateway and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/gateway.py so that the composer writes for the service gateway the documents GATEWAY_RUNTIME_DOCUMENT and IDENTITY_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/gateway.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/gateway/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/gateway/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/gateway.py", "deploy/launchpad/documents/values/gateway.example.json", "services/launchpad/gateway/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/gateway && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/gateway && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.645]
+title = "Compose the startup documents of the launchpad ranking service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.645"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of ranking in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/ranking-algo/internal/config in services/launchpad/ranking-algo and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/ranking.py so that the composer writes for the service ranking the document RANKING_RUNTIME_DOCUMENT. Add deploy/launchpad/documents/values/ranking.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/ranking-algo/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/ranking-algo/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/ranking.py", "deploy/launchpad/documents/values/ranking.example.json", "services/launchpad/ranking-algo/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/ranking-algo && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/ranking-algo && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.644]
+title = "Compose the startup documents of the launchpad profit and loss service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.644"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of pnl in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/pnl-tracker/internal/config in services/launchpad/pnl-tracker and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/pnl.py so that the composer writes for the service pnl the document DELIVERY_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/pnl.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/pnl-tracker/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/pnl-tracker/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/pnl.py", "deploy/launchpad/documents/values/pnl.example.json", "services/launchpad/pnl-tracker/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/pnl-tracker && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/pnl-tracker && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.643]
+title = "Compose the startup documents of the launchpad stats service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.643"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of stats in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of its package internal/config in the directory of the stats service under services/launchpad, whose binary is statsd and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/stats.py so that the composer writes for the service stats the document DELIVERY_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/stats.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in its package internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within its package internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/stats.py", "deploy/launchpad/documents/values/stats.example.json"]
+build_cmd = "(cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.642]
+title = "Compose the startup documents of the launchpad charts service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.642"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of charts in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/trading-charts/internal/config in services/launchpad/trading-charts and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/charts.py so that the composer writes for the service charts the documents CHART_FEATURES_CONFIG_DOCUMENT and DELIVERY_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/charts.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/trading-charts/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/trading-charts/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/charts.py", "deploy/launchpad/documents/values/charts.example.json", "services/launchpad/trading-charts/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/trading-charts && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/trading-charts && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.641]
+title = "Compose the startup documents of the launchpad indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.641"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of indexer in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/indexer/internal/config in services/launchpad/indexer and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/indexer.py so that the composer writes for the service indexer the documents DELIVERY_CONFIG_DOCUMENT, INDEXER_LIFECYCLE_CONFIG_DOCUMENT and INDEXER_RECEIPT_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/indexer.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/indexer/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/indexer/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/indexer.py", "deploy/launchpad/documents/values/indexer.example.json", "services/launchpad/indexer/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/indexer && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/indexer && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.640]
+title = "Compose the startup documents of the launchpad API in both roles"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.640"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entries of api and api-sockets in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/api/internal/config in services/launchpad/api and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/api.py and deploy/launchpad/documents/api_sockets.py so that the composer writes for the service api the document ACCOUNTING_READ_CONFIG_DOCUMENT; for the service api-sockets the document STREAM_CONSUMER_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/api.example.json and deploy/launchpad/documents/values/api-sockets.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/api/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error, once for each of the two services. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/api/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/api.py", "deploy/launchpad/documents/api_sockets.py", "deploy/launchpad/documents/values/api.example.json", "deploy/launchpad/documents/values/api-sockets.example.json", "services/launchpad/api/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/api && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/api && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.639]
+title = "Add the composer of the launchpad startup documents with the budget and expected schema documents"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.639"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the functions ParseConnectionBudget and LoadConnectionBudget of sdk/launchpad/shared/db/production/allocation.go with the rules they check, LoadExpectedSchema of sdk/launchpad/shared/db/production/migrations.go, and how one service, for example services/launchpad/api/internal/config/config.go, reads a document variable and its digest variable."
+do_2 = "do_2 Add deploy/launchpad/documents/compose.py with the options --values or --examples, --out and --service, which may repeat. It reads the contract for the names of the services and of the document variables each requires. For a service it loads the module of that name beside it, when present, and asks it for the documents of the service; the module common.py gives DB_BUDGET and EXPECTED_SCHEMA for every service. It writes each document as JSON bytes in one stable form, and to the file of the service under --out, with mode 600, the variable ending in _DOCUMENT with the standard base64 of the bytes and the variable ending in _SHA256 with their digest in the form the loaders compare. It refuses, with the service and the name, a required document no module gives, a document the contract does not require, an unknown service and a missing values file, and prints names and digests only."
+do_3 = "do_3 Add deploy/launchpad/documents/common.py: the connection budget is composed from common.json, which states the limits of the database, the poolers and one entry for each of the twelve services, so that LoadConnectionBudget accepts it; every service receives the same budget document. The expected schema document of a service is taken as it stands from expected-schema in the values directory, after a check that it is one JSON object naming that service. Add deploy/launchpad/documents/values/common.example.json with values of a small deployment and no credential, deploy/launchpad/documents/test_compose.py for the refusals, the digests, the file mode and the equal budget of all services, and deploy/launchpad/documents/README.md with the use of the composer and the form of a values directory. Name the composer in deploy/launchpad/README.md in one line of its layout."
+do_4 = "do_4 Add sdk/launchpad/shared/db/production/platform_documents_test.go: it writes an expected schema document for each service into a temporary values directory beside the example values, runs the composer with python3, and requires that LoadConnectionBudget and LoadExpectedSchema accept the composed variables of every service with their digests, and refuse them after one byte of a document changed."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/README.md"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/compose.py", "deploy/launchpad/documents/common.py", "deploy/launchpad/documents/values/common.example.json", "deploy/launchpad/documents/test_compose.py", "deploy/launchpad/documents/README.md", "sdk/launchpad/shared/db/production/platform_documents_test.go"]
+build_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.638]
+title = "Add the command that applies the registered launchpad migrations and writes the expected schema document"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.638"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read sdk/launchpad/shared/db/production/migrations.go, roles.go and allocation.go, the function Bootstrap of sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go, and under migrations the files registry.json, grants.json, legacy-history-aliases.json and readiness.json with the section on the launchpad in migrations/README.md."
+do_2 = "do_2 Add the command sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go with three modes. apply reads the administrator connection string from LAUNCHPAD_ADMIN_DATABASE_URL and the directory of the migrations from --migrations, creates the control objects, applies every registered migration that is not recorded yet in the order of the registry through ApplyRegisteredMigration, creates the runtime roles and applies the grants of grants.json, in the order of calls Bootstrap uses; a second run changes nothing. For a database that holds the history of the migrations a service carried itself it records the baseline through ImportLegacyBaseline as the aliases file states. expected takes --service, --runtime-role, --region and --out, reads the migrated database and writes the expected schema document of the service, a document LoadExpectedSchema accepts and CheckReadiness passes on that database, and prints only its digest. check takes --expected and --sha256, reads the runtime connection string from LAUNCHPAD_RUNTIME_DATABASE_URL and runs CheckReadiness."
+do_3 = "do_3 The command never prints a connection string or a password. It ends with 0 on success, 1 on a refusal with the reason in one line, and 2 on a usage error. Share code with Bootstrap where that keeps one order of calls; the behaviour of Bootstrap for its present callers stays."
+do_4 = "do_4 Add sdk/launchpad/shared/db/production/cmd/launchpad-schema/main_test.go: on the database the tests of the package use, with the same rule for its absence, apply on an empty database, expected for two services and check pass; a second apply changes nothing; check refuses after a table of the service changed; and without a database the usage errors end with 2. Add sdk/launchpad/shared/db/production/cmd/launchpad-schema/README.md with the three modes, their variables and exit codes in neutral words."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/db/production/coordinatortest"]
+tests = []
+planned_paths = ["sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go", "sdk/launchpad/shared/db/production/cmd/launchpad-schema/main_test.go", "sdk/launchpad/shared/db/production/cmd/launchpad-schema/README.md"]
+build_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go vet ./db/production/cmd/launchpad-schema && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production/cmd/launchpad-schema -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -458023,7 +458551,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.631]
 title = "Let the release, database TLS and account migration cases of the explorer read files of the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458085,7 +458613,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.629]
 title = "Let the market and configuration cases of the explorer follow the present fetchers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
