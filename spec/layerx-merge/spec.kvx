@@ -14734,6 +14734,18 @@ value = "The theme under apps/explorer/toolkit/theme in the form the design brie
 basis = "Gotcha 4520. Decisions 3589 and 3572."
 affects = []
 
+[decision.3604]
+title = "A refused block is compared by its refusal, and a decimal parameter without a stored value takes the default of the parameter set"
+value = "A comparison of the ordinary path and the fast path over one state holds a refused block when both paths refuse it; the texts of the refusals are not part of the comparison. The readers of the decimal parameters of the virtual machine give the default of the parameter set in modules/evm/types/params.go when the store holds no value for the key, outside the reads of a trace at an earlier version, and the readers of the keeper of the fast path give the same value. A block over a state without these values is then applied by both paths with equal results."
+basis = "Gotcha 4521. Decision 3596."
+affects = []
+
+[decision.3605]
+title = "The writer of an entry keeps the index of its principal, and a principal without entries reads as empty"
+value = "The gateway writes each audit entry that names a principal to the stream gateway:principal:DIGEST:audit under the id and with the fields of the entry of the common stream, and sets the version of the index to 1, in the script that appends the entry. The webhooks service writes each payment event that states an activity to the hash webhooks:principal:DIGEST:activities under the id of the activity, and sets the version of the index to 1, in the script that stores the document of the principal. Each service brings the indexes in line with the entries its store already holds, outside the path of a request. The dashboard API reads a principal that has neither an index nor a version as a principal without entries: an empty list of requests, and no receipt for an activity. A version of another value, or entries without a version, stay a refusal."
+basis = "Gotcha 4522. Decision 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44394,6 +44406,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.691]
+title = "Let the webhooks service keep the index of the receipts of each principal that the dashboard API reads"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/webhooks/src", "services/platform/hosted/webhooks/tests", "services/platform/hosted/dashboard/src", "services/platform/hosted/dashboard/tests", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test activity_index --test hosted_delivery_lifecycle && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard"
+do_1 = "do_1 Gotcha 4522, decision 3605. Read services/platform/hosted/dashboard/src/receipts.rs with what it checks of an event, the cases of services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs on receipts, in services/platform/hosted/webhooks/src/hosted.rs the functions publish and compare_and_set with the script that stores the document of a principal, the removal of events by retention, and the facts of a payment event in services/platform/hosted/webhooks/src/events.rs."
+symbols = []
+
+[capability.22.39.690]
+title = "Let the gateway keep the index of the requests of each principal that the dashboard API reads"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/src", "services/platform/hosted/gateway/tests", "services/platform/hosted/dashboard/src", "services/platform/hosted/dashboard/tests", "docs/wiki/HostedGateway.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test principal_audit_index --test producer_paths && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard"
+do_1 = "do_1 Gotcha 4522, decision 3605. Read in services/platform/hosted/dashboard/src/gateway.rs the functions requests_page, requests and snapshot, the cases of services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs, in services/platform/hosted/gateway/src/store.rs every script that appends an entry to gateway:audit with the function audit_values, in services/platform/hosted/gateway/src/lib.rs the function gateway_audit_event, and how services/platform/hosted/gateway/tests/producer_paths.rs and services/platform/hosted/gateway/tests/key-store.py read the scripts."
+symbols = []
+
+[capability.22.39.689]
+title = "Give the decimal parameters of the virtual machine the default of the parameter set when no value is stored"
+reqs = ["22998.1"]
+touches = ["modules/evm/keeper", "engine/deps/xevm/keeper", "node", "engine/executor"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run '^(TestGigaParamsParity|TestGigaStorageGas)' && go test -count=1 ./engine/deps/xevm/keeper/ && go test -count=1 ./modules/evm/keeper/ -run 'Param|Fee'"
+do_1 = "do_1 Gotcha 4521, decisions 3604 and 3596. Read the readers of the decimal parameters in modules/evm/keeper/params.go, the defaults in modules/evm/types/params.go, every place under modules/evm/keeper that computes with one of these values, the readers of the keeper of the fast path in engine/deps/xevm/keeper/params.go, and node/giga_params_parity_test.go."
+symbols = []
 
 [capability.22.39.688]
 title = "Let the suite of the explorer backend pass whole with no path in the builder"
@@ -174089,7 +174128,7 @@ do_5 = "do_5 Decision 3562. The type check script of apps/perps/package.json fir
 
 [task.22.44.36]
 title = "Bring the documentation site to the web platform guidance and close it on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174194,7 +174233,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.33]
 title = "Bring the bridge application to the web platform guidance and close it on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.676"]
@@ -174439,7 +174478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.26]
 title = "Close the wallet application: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.25"]
@@ -211788,6 +211827,75 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.691]
+title = "Let the webhooks service keep the index of the receipts of each principal that the dashboard API reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.690"]
+reqs = ["22998.1"]
+capabilities = ["22.39.691"]
+interfaces = []
+do_1 = "do_1 Gotcha 4522, decision 3605. Read services/platform/hosted/dashboard/src/receipts.rs with what it checks of an event, the cases of services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs on receipts, in services/platform/hosted/webhooks/src/hosted.rs the functions publish and compare_and_set with the script that stores the document of a principal, the removal of events by retention, and the facts of a payment event in services/platform/hosted/webhooks/src/events.rs."
+do_2 = "do_2 In services/platform/hosted/webhooks/src/hosted.rs the script that stores the document of a principal also writes, for each payment event of the change that states a fact activity_id, the field of that activity in the hash webhooks:principal:DIGEST:activities with the JSON of the event, and sets the key of the same name followed by :version to 1. The two keys are passed among the keys of the script. A later payment event of the same activity takes the place of the field. An event stored again unchanged changes nothing. Where retention removes an event, the field that holds that event is removed in the same script."
+do_3 = "do_3 The webhooks service brings the index in line for each principal of the set webhooks:principals whose index has no version: the fields of the payment events of its document are written and the version is set, in one script for each principal. The step runs at the start outside the path of a request, a start does not wait for it, a second run changes nothing, and a failure of the step is reported with its stage and leaves serving as it is."
+do_4 = "do_4 In services/platform/hosted/dashboard/src/receipts.rs a principal that has no version and no field of the activity gets the answer of an unknown receipt. A version of the value 1 is read as now. A version of another value, or a field without a version, is refused as now."
+do_5 = "do_5 Add services/platform/hosted/webhooks/tests/activity_index.rs with a store process as services/platform/hosted/webhooks/tests/hosted_delivery_lifecycle.rs starts one: a settled payment event with a receipt verified activity is published and the hash holds the field with the event and the version 1; an event of another kind writes no field; a second principal has its own hash; an event published twice leaves one field; retention removes the field with its event; a document stored without the index gets its fields by the step of do_3. In services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs add cases: a principal without version and index gets the answer of an unknown receipt; a field without a version is refused. No present case is removed or weakened."
+do_6 = "do_6 State the two keys, the writer and the reading of a principal without entries in docs/wiki/HostedWebhooks.md and docs/wiki/HostedDashboard.md."
+do_7 = "do_7 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/webhooks/src", "services/platform/hosted/webhooks/tests", "services/platform/hosted/dashboard/src", "services/platform/hosted/dashboard/tests", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+planned_paths = ["services/platform/hosted/webhooks/tests/activity_index.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks -p layerx-platform-dashboard --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test activity_index --test hosted_delivery_lifecycle && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.690]
+title = "Let the gateway keep the index of the requests of each principal that the dashboard API reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.690"]
+interfaces = []
+do_1 = "do_1 Gotcha 4522, decision 3605. Read in services/platform/hosted/dashboard/src/gateway.rs the functions requests_page, requests and snapshot, the cases of services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs, in services/platform/hosted/gateway/src/store.rs every script that appends an entry to gateway:audit with the function audit_values, in services/platform/hosted/gateway/src/lib.rs the function gateway_audit_event, and how services/platform/hosted/gateway/tests/producer_paths.rs and services/platform/hosted/gateway/tests/key-store.py read the scripts."
+do_2 = "do_2 In services/platform/hosted/gateway/src/store.rs every script that appends an entry to gateway:audit appends the same fields under the id of that entry to the stream gateway:principal:DIGEST:audit, where DIGEST is the part of the event before its first colon, and sets the key of the same name followed by :version to 1, all in the same script. The two keys are passed among the keys of the script. The chain of the common stream with its head stays as it is, and an entry that is retried is written to the index once."
+do_3 = "do_3 The gateway brings the indexes in line with the entries the common stream already holds: from a position it keeps in the store it reads gateway:audit in pages of at most 256 entries and appends each entry to the index of its principal under the same id unless the last id of the index is not below it, then sets the version. The step runs at the start outside the path of a request, a start does not wait for it, a second run adds nothing, and a failure of the step is reported with its stage and leaves serving as it is."
+do_4 = "do_4 In services/platform/hosted/dashboard/src/gateway.rs the function requests_page gives an empty page for a principal that has no version and whose index holds no entry. A version of the value 1 is read as now. A version of another value, or an index with entries and no version, is refused as now. The overview of such a principal then holds empty lists."
+do_5 = "do_5 Add services/platform/hosted/gateway/tests/principal_audit_index.rs with a store process as services/platform/hosted/gateway/tests/tap_nonce.rs starts one: a key is issued, rotated and revoked, a request is reserved and completed, and one request is limited; the index of the principal then holds the ids and the fields of the entries of the common stream that name it and the version 1; the entries of a second principal are not in it; entries put into the common stream alone are in the index after the step of do_3, once, also after a second run. Bring services/platform/hosted/gateway/tests/fixtures/producer_paths/redis-scripts.json, services/platform/hosted/gateway/tests/key-store.py and every case that passes keys to these scripts in line with the new keys."
+do_6 = "do_6 In services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs add cases: a principal without version and index gets an empty list of requests and an overview with empty lists; an index with entries and no version is refused; a version of another value is refused. No present case is removed or weakened."
+do_7 = "do_7 State the two keys, the writer and the reading of a principal without entries in the table of keys of docs/wiki/HostedGateway.md and in docs/wiki/HostedDashboard.md."
+do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/src", "services/platform/hosted/gateway/tests", "services/platform/hosted/dashboard/src", "services/platform/hosted/dashboard/tests", "docs/wiki/HostedGateway.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/tests/principal_audit_index.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway -p layerx-platform-dashboard --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test principal_audit_index --test producer_paths && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.673]
 title = "Read the blocks of a backfill range through several readers and in batches"
 status = "done"
@@ -246748,6 +246856,39 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.689]
+title = "Give the decimal parameters of the virtual machine the default of the parameter set when no value is stored"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.679"]
+reqs = ["22998.1"]
+capabilities = ["22.39.689"]
+interfaces = []
+do_1 = "do_1 Gotcha 4521, decisions 3604 and 3596. Read the readers of the decimal parameters in modules/evm/keeper/params.go, the defaults in modules/evm/types/params.go, every place under modules/evm/keeper that computes with one of these values, the readers of the keeper of the fast path in engine/deps/xevm/keeper/params.go, and node/giga_params_parity_test.go."
+do_2 = "do_2 In modules/evm/keeper/params.go each reader of a decimal parameter gives the default of the parameter set when the stored field is an empty decimal: the priority normalizer, the base fee, the minimum fee and the maximum fee for a unit of gas, and the upward and the downward adjustment of the dynamic base fee. The reads of a trace at an earlier version keep their present rule. A stored value, also a stored zero, is returned as it is."
+do_3 = "do_3 In engine/deps/xevm/keeper/params.go the readers of the fast path give the same values by the same rule, and every place of the fast path that reads one of these parameters uses them."
+do_4 = "do_4 Add cases to modules/evm/keeper/params_test.go and engine/deps/xevm/keeper/params_test.go: for each of these keys the stored value is removed and the reader gives the default; a stored zero stays zero; a stored value stays as it is."
+do_5 = "do_5 In node/giga_params_parity_test.go the runs of these keys and the run of all keys now apply the block through both paths: every result is equal in status, gas used, logs and contract address, the base fee read after the block is equal, and both applications reach the same application hash. No run of a key of the parameter set ends in a refusal any more; where one still does, name the key, the place of the refusal and its text in the final message and change nothing outside the paths."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/evm/keeper", "engine/deps/xevm/keeper", "node", "engine/executor"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./engine/... ./modules/evm/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run '^(TestGigaParamsParity|TestGigaStorageGas)' && go test -count=1 ./engine/deps/xevm/keeper/ && go test -count=1 ./modules/evm/keeper/ -run 'Param|Fee'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.680]
 title = "Copy the consensus stores in bounded writes in the preflight of the return command"
 status = "done"
@@ -246812,6 +246953,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3604, gotcha 4521. Where both paths refuse the block for a key without a value, the case asserts that both refuse it; the texts of the two refusals are not compared and the final message gives them. This takes the place of the sentence on the same message in the step of the test. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.678]
 title = "Take the storage gas value of the ordinary path in the fast execution path when the parameter holds no value"
@@ -462116,7 +462258,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.687]
 title = "Let the suite of the media app of the explorer backend pass in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

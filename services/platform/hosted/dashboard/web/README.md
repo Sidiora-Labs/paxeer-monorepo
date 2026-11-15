@@ -73,9 +73,11 @@ The page presents sign-in when a dashboard read returns 401. A developer can
 create an Ed25519 key in this browser and sign in, use the key this browser
 holds, or enter a session token. The key pair lives under one fixed name in
 IndexedDB; its private key is non-exportable. The public key has a copy control.
-The gateway tenant field takes the tenant configured by the gateway operator;
-the registration binding and session digest include that exact tenant.
-Browsers without Ed25519 offer the session token path with an explanation.
+When key sign-in is configured, the page shows one primary action: it creates a
+key and signs in when this browser has no key, or signs in with the held key.
+Browsers without Ed25519 offer the session token path with an explanation. If
+the gateway tenant or origin is absent, the page says that key sign-in is not
+configured. The session token field and action remain available in every state.
 A successful sign-in reads the dashboard again. The shell's sign-out control
 returns to the sign-in view.
 
@@ -99,10 +101,16 @@ Requests require `Content-Type: application/json`. Bodies are bounded at
 gateway limits return 429 and other upstream failures return 502.
 
 `DASHBOARD_GATEWAY_ORIGIN` is a server runtime variable naming the gateway
-origin. Without it, proof sign-in and registration return 503 with
-`sign_in_not_configured`; the view explains that key sign-in is not configured.
-Token sign-in and sign-out remain available. The API origin is the same
-build-time `DASHBOARD_API_ORIGIN` used by the dashboard rewrite.
+origin. `DASHBOARD_GATEWAY_TENANT` is also read by the server at request time;
+a value is accepted only when it has 1 to 95 characters from `a-z`, `0-9`, `.`,
+`_` and `-`. Invalid or absent values are treated as unset. The tenant is not
+compiled into the build, so a process started with a new value serves that value
+without rebuilding. Registration bindings and session digests include that runtime
+tenant. Without either runtime setting, proof sign-in and
+registration return 503 with `sign_in_not_configured`; the view explains that
+key sign-in is not configured. Token sign-in and sign-out remain available. The
+API origin is the same build-time `DASHBOARD_API_ORIGIN` used by the dashboard
+rewrite.
 
 Successful sign-in sets `__Host-layerx-session` with `Secure`, `HttpOnly`,
 `SameSite=Strict`, `Path=/` and `Max-Age`, without a Domain attribute.

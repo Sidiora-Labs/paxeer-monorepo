@@ -95,7 +95,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
           {t.settings.addressBook}
         </p>
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-xl  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         <SettingsRow
           icon={<SvgIcon name="user" className="w-4.5 h-4.5" />}
           label={t.nav.contacts}
@@ -109,7 +109,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
           {t.account.title}
         </p>
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-xl  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         {wallet.identity?.email && (
           <div className="px-4 py-3 text-sm">
             <p className="text-xs text-pax-muted uppercase tracking-wider">
@@ -144,7 +144,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
           {t.settings.general}
         </p>
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-xl  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         <SettingsRow
           icon={<SvgIcon name="settings" className="w-4.5 h-4.5" />}
           label={t.settings.displayPreferences}
@@ -241,7 +241,7 @@ function PreferencesView({ onBack }: { onBack: () => void }) {
           <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
             {t.settings.currency}
           </p>
-          <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-white/[0.04]">
+          <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-pax-line">
             {FIAT_CURRENCIES.map((c) => (
               <button
                 type="button"
@@ -274,7 +274,7 @@ function PreferencesView({ onBack }: { onBack: () => void }) {
           <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
             {t.settings.language}
           </p>
-          <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-white/[0.04]">
+          <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-pax-line">
             {SUPPORTED_LOCALES.map((l) => (
               <button
                 type="button"
@@ -482,7 +482,7 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
   return (
     <SettingsSubPage title={t.settings.advanced} onBack={onBack}>
       <div className="space-y-4">
-        <div className="bg-pax-surface rounded-2xl  divide-white/[0.04] overflow-hidden">
+        <div className="bg-pax-surface rounded-2xl  divide-pax-line overflow-hidden">
           <div className="px-4 py-2">
             <Switch
               checked={devMode}
@@ -643,7 +643,7 @@ function NotificationsView({ onBack }: { onBack: () => void }) {
 
   return (
     <SettingsSubPage title={t.settings.notifications} onBack={onBack}>
-      <div className="bg-pax-surface rounded-2xl  divide-white/[0.04] overflow-hidden">
+      <div className="bg-pax-surface rounded-2xl  divide-pax-line overflow-hidden">
         {prefs.map((p) => (
           <div key={p.key} className="px-4 py-2">
             <Switch

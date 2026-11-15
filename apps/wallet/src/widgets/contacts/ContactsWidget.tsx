@@ -8,6 +8,7 @@ import { useContacts } from '@/hooks/useContacts';
 import type { Contact } from '@/lib/contacts';
 import { ContactFormView } from './ContactFormView';
 import { useLocale } from '@/providers/LocaleProvider';
+import { motionDurations } from '@/theme/motion';
 import Image from 'next/image';
 
 interface ContactsWidgetProps {
@@ -140,7 +141,7 @@ export function ContactsWidget({ onBack }: ContactsWidgetProps) {
             initial={{ opacity: 0, y: -12, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: motionDurations.normal }}
             className="fixed top-[calc(env(safe-area-inset-top,0px)+70px)] left-1/2 -translate-x-1/2 z-50"
           >
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-pax-card   shadow-2xl">

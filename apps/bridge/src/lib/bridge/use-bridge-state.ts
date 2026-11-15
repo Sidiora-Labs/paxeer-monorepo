@@ -12,16 +12,17 @@
  * returns — never a client-computed denom.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useAccount, useBalance, useReadContract, type UseReadContractReturnType } from 'wagmi';
 import type { Address } from 'viem';
+import { useBalance, useReadContract, type UseReadContractReturnType } from 'wagmi';
 
-import { bankAbi, BANK_ADDRESS, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from './contracts';
-import { bridgeConfig } from './config';
-import { paxeer as paxeerChain, type BridgeChain } from './chains';
 import { attestationPollInterval, fetchDepositAttestation, fetchReleaseAttestation } from './attestation-api';
-import type { BridgeTransfer } from './transfers';
-import { readSolanaCustodyState } from './solana-custody';
+import { paxeer as paxeerChain, type BridgeChain } from './chains';
+import { bridgeConfig } from './config';
+import { bankAbi, BANK_ADDRESS, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from './contracts';
 import { recipientRecordFromResponse, recipientRecordRequest, solanaRecipientHandle } from './solana';
+import { readSolanaCustodyState } from './solana-custody';
+import type { BridgeTransfer } from './transfers';
+import { useHydratedAccount } from './use-hydrated-account';
 
 export const paxeerConfigured = bridgeConfig.paxeerRpcUrl !== undefined;
 export const attestationApiConfigured = bridgeConfig.attestationApiUrl !== undefined;
@@ -39,7 +40,7 @@ export type PaxeerPairState = {
   maxInFlight: bigint;
   maxPerTx: bigint;
   inFlight: bigint;
-  attestors: readonly Address[];
+  attestors: ReadonlyArray<Address>;
   threshold: number | undefined;
   loaded: boolean;
   error: boolean;
@@ -85,7 +86,7 @@ export function usePaxeerPairState(chain: BridgeChain, assetId: Address): Paxeer
     | readonly [string, bigint, bigint, bigint] |
     undefined;
   const attestorData = attestors.data as
-    | readonly [readonly Address[], readonly bigint[], number] |
+    | readonly [ReadonlyArray<Address>, ReadonlyArray<bigint>, number] |
     undefined;
 
   const loaded =
@@ -116,7 +117,7 @@ export type VaultState = {
   perTx: bigint;
   total: bigint;
   outstanding: bigint;
-  attestors: readonly Address[];
+  attestors: ReadonlyArray<Address>;
   threshold: number | undefined;
   loaded: boolean;
   error: boolean;
@@ -214,7 +215,7 @@ export function useVaultState(chain: BridgeChain, assetAddress: Address): VaultS
 
 /** Foreign-chain wallet balance of an asset (native coin or ERC-20). */
 export function useForeignBalance(chain: BridgeChain, assetAddress: Address, isNative: boolean) {
-  const { address } = useAccount();
+  const { address } = useHydratedAccount();
   return useBalance({
     address,
     chainId: chain.viemChain?.id,
@@ -225,7 +226,7 @@ export function useForeignBalance(chain: BridgeChain, assetAddress: Address, isN
 
 /** Paxeer-side bridged balance of a denom, via the Bank precompile. */
 export function useBridgedBalance(denom: string | undefined): UseReadContractReturnType<typeof bankAbi, 'balance'> {
-  const { address } = useAccount();
+  const { address } = useHydratedAccount();
   return useReadContract({
     abi: bankAbi,
     address: BANK_ADDRESS,
