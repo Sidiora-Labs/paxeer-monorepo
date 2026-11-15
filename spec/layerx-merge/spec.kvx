@@ -173438,7 +173438,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.676]
 title = "Bring the cases of the bridge application suite and the code they test into line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
