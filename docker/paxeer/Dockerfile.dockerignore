@@ -21,6 +21,12 @@ consensus
 custodyproof
 daemon
 docker
+!docker/
+!docker/common/
+!docker/common/env-files.sh
+!docker/paxeer/
+!docker/paxeer/files.tsv
+!docker/paxeer/entrypoint.sh
 engine
 tests/fixtures/example
 hpx

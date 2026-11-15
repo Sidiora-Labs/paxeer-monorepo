@@ -4,9 +4,9 @@ IMAGE_NAMES=(layerx-testnet-control layerx-gateway layerx-faucet layerx-program-
     layerx-internal layerx-human layerx-human-web layerx-agent-boundary layerx-identity layerx-paxeer-boundary
     layerx-mirror layerx-interop-gateway layerx-reference-ramp
     paxd-node paxd
-    bridge-relayer explorer-backend explorer-elixir-builder explorer-frontend explorer-sig-provider explorer-smart-contract-verifier flyci-controller flyci-runner
+    bridge-relayer bridge-web explorer-backend explorer-elixir-builder explorer-frontend explorer-sig-provider explorer-smart-contract-verifier flyci-controller flyci-runner
     gas-station hpx-registry kernel layerx localnode platform-indexer platform-registry-builder rpcnode
-    search-front wallet-attestor wallet-gateway wallet-pwa x-websearch redis feeder inference-peer-web ai-evaluator)
+    search-front wallet-attestor wallet-gateway wallet-pwa names-web x-websearch redis feeder inference-peer-web ai-evaluator)
 
 core_image_version() {
     jq -er .version "${REPO_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)}/tools/release/version.json"
@@ -36,6 +36,7 @@ image_source() {
         layerx-reference-ramp) printf 'ghcr.io/sidiora-labs/layerx-reference-ramp:0.1.0 docker/ramps/Dockerfile' ;;
         paxd-node) printf 'ghcr.io/sidiora-labs/paxd-node:%s docker/paxeer/Dockerfile.paxd-node' "$core_version" ;;
         paxd) printf 'ghcr.io/sidiora-labs/paxd:%s docker/paxeer/Dockerfile.paxd' "$core_version" ;;
+        bridge-web) printf 'ghcr.io/sidiora-labs/bridge-web:0.1.0 docker/bridge-web/Dockerfile' ;;
         bridge-relayer) printf 'ghcr.io/sidiora-labs/bridge-relayer:0.1.0 docker/bridge-relayer/Dockerfile' ;;
         explorer-backend) printf 'ghcr.io/sidiora-labs/explorer-backend:0.1.0 docker/explorer-backend/Dockerfile' ;;
         explorer-elixir-builder) printf 'ghcr.io/sidiora-labs/explorer-elixir-builder:0.1.0 docker/explorer-elixir-builder/Dockerfile' ;;
@@ -57,6 +58,7 @@ image_source() {
         wallet-attestor) printf 'ghcr.io/sidiora-labs/wallet-attestor:0.1.0 docker/wallet-attestor/Dockerfile' ;;
         wallet-gateway) printf 'ghcr.io/sidiora-labs/wallet-gateway:0.1.0 docker/wallet-gateway/Dockerfile' ;;
         wallet-pwa) printf 'ghcr.io/sidiora-labs/wallet-pwa:0.1.0 docker/wallet-pwa/Dockerfile' ;;
+        names-web) printf 'ghcr.io/sidiora-labs/names-web:0.1.0 docker/names-web/Dockerfile' ;;
         x-websearch) printf 'ghcr.io/sidiora-labs/x-websearch:0.1.0 docker/x-websearch/Dockerfile' ;;
         redis) printf 'ghcr.io/sidiora-labs/redis:0.1.0 docker/redis/Dockerfile' ;;
         feeder) printf 'ghcr.io/sidiora-labs/feeder:0.1.0 services/platform/hosted/feeder/Dockerfile' ;;
@@ -68,6 +70,20 @@ image_source() {
 
 image_build_args() {
     case "$1" in
+        bridge-web)
+            local name value recipe
+            recipe="${REPO_ROOT:-.}/docker/bridge-web/Dockerfile"
+            while read -r name; do
+                value=${!name-}
+                if [[ $value == *[[:space:]]* ]]; then
+                    printf '%s must contain no whitespace for bridge-web\n' "$name" >&2
+                    return 1
+                fi
+                if [[ -n $value ]]; then
+                    printf -- '--build-arg %s=%s ' "$name" "$value"
+                fi
+            done < <(awk '$1 == "ARG" {split($2, parts, "="); print parts[1]}' "$recipe")
+            ;;
         layerx-dashboard-web)
             if [[ -z ${DASHBOARD_API_ORIGIN:-} || ${DASHBOARD_API_ORIGIN:-} == *[[:space:]]* ]]; then
                 printf 'DASHBOARD_API_ORIGIN must be set and contain no whitespace for layerx-dashboard-web\n' >&2

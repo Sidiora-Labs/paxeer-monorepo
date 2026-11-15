@@ -22210,3 +22210,63 @@ fix = "Decision 3561. Tasks 22.39.583, 22.39.601, 22.39.606 and 22.39.607 add th
 title = "The type check of the trading workspace needs the build output of one of its packages"
 symptom = "The web application under apps/perps/apps/web imports @sidioralabs/chainflow-data-gateway from the package under apps/perps/packages/chainflow. The scripts dev and build of the workspace build that package first; the type check script of the workspace root does not, and then reports the import."
 fix = "Decision 3562. Task 22.39.567 waits for task 22.39.563, which holds the manifest of the workspace root."
+
+[gotcha.4478]
+title = "The image build of the documentation site does not hold the systems inventory"
+symptom = "The container file under docs/site/paxeer-docs builds with the folder docs/site as its context and copies docs-assistant and paxeer-docs from it. The build of the site runs docs/site/paxeer-docs/scripts/generate-systems.mjs first, and that script reads docs/release/7.0.0-systems.kvx by a path above the site folder. The file it writes, src/lib/systems.json, is committed and is copied into the image with the sources."
+fix = "Decision 3563 and task 22.39.609: the script reads the inventory where it is present and keeps the committed file where it is not."
+
+[gotcha.4479]
+title = "The project tool and the definitions state the env name and the repository in two ways"
+symptom = "Decision 3560 names the env name of an input as the project name, the service name and the variable name. The definitions under deploy/projects read the project name as the name of their folder; tools/deploy/platform-project.py reads it as the project key of project.kvx. The definitions state no repository in a repo row; the tool asks for one in each row. A health path with a query and a list written as one string are further forms the tool does not take."
+fix = "Decision 3564 and tasks 22.39.610 to 22.39.615: the tool follows the folder name and the project file, and each folder has a test that loads it through the tool."
+
+[gotcha.4480]
+title = "The hosting platform takes the repository of a service through its connect call"
+symptom = "The interface of the hosting platform has no branch on a service instance and no builder value for a build from a Dockerfile: a service builds from a Dockerfile where its Dockerfile path is set. The repository and the branch of a service are set where the service is created and through the connect call of the service afterwards; the branch of a running service is read from the record of its latest deployment. The platform returns a repository name in the case its owner wrote it. Its edge takes a request only with a header that names the client."
+fix = "Decision 3565 and tasks 22.39.616 and 22.39.618."
+
+[gotcha.4481]
+title = "A wire vector file and its copy change in one commit"
+symptom = "The copy inventory tests/ci/data/intentional_copies.txt pairs the wallet vectors under services/agent/crates/layerx-wire/tests/support/wallet_vectors with their copies under services/wallet/attestor/internal/lxwire/testdata and compares each pair by bytes. A change to one file of a pair without the other leaves the pair apart, and every verification that runs the copy test stops on it."
+fix = "Decision 3566 and task 22.39.617."
+
+[gotcha.4482]
+title = "The certificate roster and the definitions name the hosted gateway in two ways"
+symptom = "The certificate roster tools/bringup/ca-services.tsv names the hosted gateway service gateway and its store redis-gateway, and the bring-up tools take those names alone. The definition deploy/projects/platform/router.kvx, the rows of deploy/rollout.kvx and their tests name the same two services router and redis-router. A certificate of the roster is issued to a service by its roster name, so a service created under the other name receives none."
+fix = "Decision 3567 and task 22.39.619."
+
+[gotcha.4483]
+title = "The copy inventory names files that left the tree"
+symptom = "Rows of tests/ci/data/intentional_copies.txt name a source or a copy under apps/perps/public that is no longer in the tree since apps/perps holds the Xtrades workspace. The copy check reads every row and requires both files of a row."
+fix = "Task 22.39.617 removes the rows whose source or copy left the tree."
+
+[gotcha.4484]
+title = "The receipts of a block can hold more entries than its transaction list"
+symptom = "The node answers eth_getBlockReceipts with one receipt for every transaction of the block and with the receipts the chain writes itself. Those carry the type 0xffffffff and a transaction hash that eth_getBlockByNumber does not list and eth_getTransactionByHash does not return. The explorer indexer in services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex requires every receipt of a block range to belong to a listed transaction, so with receipts read by block a range that holds such a receipt is not imported."
+fix = "Task 22.39.620."
+
+[gotcha.4485]
+title = "A changed migration does not reach a database that applied its first form"
+symptom = "The explorer migration 20261028000000 was published with the accepted column of paxeer_x_price_observations required and true by default and was later changed in place to an optional column without default. A database records a migration version once, so a database that applied the first form keeps the required column. The acceptance replay in services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs sets the column to unknown at the start of each block and needs the optional form. The replay also picks its next block by an order over the whole queue that no index of the table serves, and takes one block per step."
+fix = "Decision 3568 and tasks 22.39.621 and 22.39.622."
+
+[gotcha.4486]
+title = "The data of a block holds entries of more than one kind"
+symptom = "The data of a block begins with the sequence batch entry of the kernel, the text PAXEER/v1/sequence-batch and a zero byte followed by the batch (modules/sequencer/types/msgs.go, SequenceBatchDomain), and the transactions follow it. The consensus routes give the entries as they are: /block lists the raw entries and /block_results one result for each entry by position. The route /cosmos/tx/v1beta1/txs/block of the transaction service decodes every entry of the block as a transaction (sdk/x/auth/tx/service.go, GetBlockWithTxs). The price reader of the explorer in services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex takes the transactions of a block from that route."
+fix = "Decision 3569 and tasks 22.39.624 and 22.39.626."
+
+[gotcha.4487]
+title = "The backend image of the explorer states its sources from the repository root"
+symptom = "docker/explorer-backend/Dockerfile names its sources from the repository root, the form deploy/projects/explorer/backend.kvx builds with. The publish row of .github/workflows/explorer-images.yml passes services/explorer/backend as the build context and the ignore file beside the Dockerfile states its patterns from that directory. The test job of the same file installs a container runtime on every runner, also on one where a runtime answers."
+fix = "Task 22.39.625."
+
+[gotcha.4488]
+title = "The record of a done task lives in the spec file"
+symptom = "The spec tool writes the status of a task into spec/layerx-merge/spec.kvx when the task is recorded as done. A restore of that file from the index after the record removes the record, and the task counts as open although build and verification passed."
+fix = "Task texts say to leave the file as the spec tool wrote it."
+
+[gotcha.4489]
+title = "The make target for the agent tests prepares the tests against a real node first"
+symptom = "The make target agent-test runs the prepare step of services/agent/tools/run-real-node-tests.sh before any crate, whatever the scope, and that step needs the contract tools. A verification that tests one crate without a node needs none of them."
+fix = "Decision 3570. The verification of such a task calls cargo for the crate."

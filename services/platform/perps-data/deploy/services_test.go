@@ -84,7 +84,7 @@ var (
 	serviceOrder  = []string{"perps-data-indexer", "perps-gateway", "perps-explorer", "perps-portal", "perps-replay", "postgres", "nats"}
 	publicOrder   = []string{"perps-gateway", "perps-explorer", "perps-portal"}
 	natsMembers   = []string{"nats-1", "nats-2", "nats-3"}
-	natsVariables = []string{"NATS_CLUSTER_PASSWORD", "NATS_GATEWAY_PASSWORD", "NATS_INDEXER_PASSWORD", "NATS_MAX_FILE_STORE", "NATS_ROUTES", "PORT"}
+	natsVariables = []string{"NATS_CLUSTER_PASSWORD", "NATS_GATEWAY_PASSWORD", "NATS_INDEXER_PASSWORD", "NATS_MAX_FILE_STORE", "NATS_ROUTES", "PORT", "RAILWAY_RUN_UID"}
 	imageInputs   = []string{"BUILD_IMAGE", "RUNTIME_IMAGE"}
 
 	schemePattern     = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://`)
@@ -220,11 +220,16 @@ func checkValues(byName map[string]Service) error {
 	return nil
 }
 
+var natsPlatformVariables = map[string]bool{
+	"PORT":            true,
+	"RAILWAY_RUN_UID": true,
+}
+
 // checkNATSConfVariables requires the $NAME references of nats.conf to be the
-// declared nats variables except PORT, the healthcheck port of the monitoring
-// endpoint. Quoted strings are skipped because NATS does not substitute
-// variables inside them ("$JS.API.>" is a subject), and RAILWAY_SERVICE_NAME is
-// provided by the platform.
+// declared nats variables except those read by the monitoring and hosting
+// platforms. Quoted strings are skipped because
+// NATS does not substitute variables inside them ("$JS.API.>" is a subject),
+// and RAILWAY_SERVICE_NAME is provided by the platform.
 func checkNATSConfVariables(s *Services, conf []byte) error {
 	byName, err := s.byName()
 	if err != nil {
@@ -243,7 +248,7 @@ func checkNATSConfVariables(s *Services, conf []byte) error {
 	slices.Sort(refs)
 	var declared []string
 	for k := range byName["nats"].Variables {
-		if k != "PORT" {
+		if !natsPlatformVariables[k] {
 			declared = append(declared, k)
 		}
 	}
@@ -521,7 +526,7 @@ func TestServices(t *testing.T) {
 		{"scheme", `"mount": "/data"`, `"mount": "file:///data"`, `"file:///data" contains a scheme`},
 		{"dotted_host", `"provider": "railway-postgres"`, `"provider": "db.internal"`, `"db.internal" contains a dotted host`},
 		{"address", `"provider": "railway-postgres"`, `"provider": "10.0.0.1"`, `"10.0.0.1" contains a dotted host`},
-		{"port", `"path": "/healthz"`, `"path": "nats-1:8222"`, `"nats-1:8222" contains a port`},
+		{"port", `"path": "/varz"`, `"path": "nats-1:8222"`, `"nats-1:8222" contains a port`},
 	}
 	for _, tc := range hostRefusals {
 		t.Run("refuse_"+tc.name, func(t *testing.T) {
@@ -538,7 +543,17 @@ func TestServices(t *testing.T) {
         },
 `, ""))
 		err := checkNATSConfVariables(s, natsConf)
-		want := "nats.conf references [NATS_CLUSTER_PASSWORD NATS_GATEWAY_PASSWORD NATS_INDEXER_PASSWORD NATS_MAX_FILE_STORE NATS_ROUTES], nats declares [NATS_CLUSTER_PASSWORD NATS_INDEXER_PASSWORD NATS_MAX_FILE_STORE NATS_ROUTES]"
+		var refs, declared []string
+		for _, name := range natsVariables {
+			if natsPlatformVariables[name] {
+				continue
+			}
+			refs = append(refs, name)
+			if name != "NATS_GATEWAY_PASSWORD" {
+				declared = append(declared, name)
+			}
+		}
+		want := fmt.Sprintf("nats.conf references %v, nats declares %v", refs, declared)
 		if err == nil || err.Error() != want {
 			t.Fatalf("checkNATSConfVariables error %v, want %q", err, want)
 		}
