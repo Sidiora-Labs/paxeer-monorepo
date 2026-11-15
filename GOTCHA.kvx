@@ -22330,3 +22330,18 @@ fix = "Decision 3581. Task 22.39.666."
 title = "The values that approve a migration release come from applying it"
 symptom = "The registry of the launchpad migrations names for every registration an approval digest, the digest of the grants document, the lowest reader version and an estimate of its lock, and the aliases file names for every source of an earlier per-service history the structural fingerprint of its schema after that source. The schema command refuses a registry in which one of these is empty, and it compares each fingerprint with the catalog of the database it applies to. Each of these values is a fact about the release applied to a database: a fingerprint is the catalog after a source ran, a lock estimate is the time a migration held its transaction, and the grants can only be applied when every object they name has been created by a registration. A fingerprint also depends on the way the server renders a definition, so it belongs to one major version of PostgreSQL. Values written by hand can agree with the command and still differ from the database; values taken from one run on an empty database agree with both."
 fix = "Decision 3582. Task 22.39.667."
+
+[gotcha.4502]
+title = "A style sheet holds rules only for the class names found in its sources"
+symptom = "The utility compiler of the web apps writes a rule for a class name only when it finds the name in a source it reads. It reads the files of the app itself and leaves out what is installed as a dependency. The components of the package at apps/web/packages/layerx-ui carry their class names in the package, and an app receives the package as a dependency. An app that imports the tokens of the package and does not name the directory src of the package as a source builds a sheet with the tokens and the few rules of its own files, and its build and its static test pass. The app under apps/web names the directory; every other app that renders components of the package names it too, and a check of the built sheet keeps it so."
+fix = "Task 22.39.668."
+
+[gotcha.4503]
+title = "A registered developer key is not yet a session"
+symptom = "The routes that issue and rotate keys, the funds request and every route of the dashboard take a session of the identity service, as a Bearer value or as the session cookie of the host. The identity service opens a session only for a caller that holds its provisioning token. The hosted gateway holds that token and uses it for the registration of a developer key. The proof a developer gives for the registration covers the tenant and the key and no time, so it stays valid for ever and cannot open a session. A session for a developer therefore comes from a method of its own that asks for a proof of the key bound to the present time and accepts each proof once."
+fix = "Decisions 3583 and 3584. Tasks 22.39.669 and 22.39.670."
+
+[gotcha.4504]
+title = "A health path is asked from the first second of a deployment"
+symptom = "A platform that starts a service asks its health path on the port named by the variable PORT and ends the deployment when no answer comes within its wait. A definition that gives a listener and no PORT leaves the port to the platform, and the listener is not asked. An image that does long first work before it serves, such as the first backfill of the indexer, has no listener in that time; the work can take longer than any wait. A definition names the port its health path answers on, and an image answers its health path while the first work runs."
+fix = "Decision 3585. Tasks 22.39.671 and 22.39.672."

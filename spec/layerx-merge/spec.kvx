@@ -14608,6 +14608,24 @@ value = "The schema command gains the mode approve. It takes the directory of th
 basis = "Gotcha 4501."
 affects = []
 
+[decision.3583]
+title = "A developer opens a session by a fresh proof of the registered key"
+value = "The hosted gateway serves the method px_openSession beside px_register, under the same configuration: without a provisioning token it refuses as the registration does. Its parameters are the signer public key, a time in whole Unix seconds and an Ed25519 signature, the key and the signature in lowercase hexadecimal of 32 and 64 bytes. The signature covers a digest built the way the registration binding is built, with a domain of its own, over the tenant, the key and the time in decimal. The gateway accepts a time within 120 seconds of its clock and accepts each pair of key and time once; it keeps the accepted pairs for the length of that span beside the count of the registration limit, and the method shares that limit. After the proof the gateway sends identity the principal request of the registration and applies the checks of the registration to the answer, so a session is opened only for the subject the key is bound to; it then opens a session for that subject and tenant with the provisioning token and returns tenant, subject, session token, CSRF value and expiry as identity gave them. Every refusal carries a reason name and no detail of the upstream answer. The session token is written to no log."
+basis = "Gotcha 4503."
+affects = []
+
+[decision.3584]
+title = "The dashboard signs a developer in on its own host"
+value = "The session cookie of the dashboard is bound to its host, so the web of the dashboard sets it. The web serves three routes of its own beside the page. POST /session takes either a proof for px_openSession or a session token. With a proof the server calls the method at the gateway origin; with a token it reads the overview route of the dashboard API with the token as Bearer. On success it answers 204 and sets the cookie __Host-layerx-session with the token, with the attributes Secure, HttpOnly, SameSite Strict and Path /, and a lifetime that ends with the session. No answer of the web carries the token. POST /session/registration passes a registration proof to px_register and returns its outcome. DELETE /session removes the cookie. The three routes take JSON only, bound the size of the body, and refuse a request whose Origin header is absent or names another origin than the request host. The gateway origin is the runtime variable DASHBOARD_GATEWAY_ORIGIN of the web; without it the three routes answer 503 with a reason name and the page says that sign-in is not configured. The page shows a sign-in view when the API answers 401. The view creates a key pair in the browser whose private key cannot be exported and stays in the storage of the browser, shows the public key, registers it and signs in with it; it signs in again with a key the browser already holds; and it takes a session token from a developer who keeps the key elsewhere. A browser without Ed25519 in its cryptography interface is offered the token only. The shell carries a sign-out control."
+basis = "Gotcha 4503. Decision 3583."
+affects = []
+
+[decision.3585]
+title = "The indexer image answers its health path during the first backfill"
+value = "The entry of the indexer image starts its health front before the first backfill. While the backfill runs the front answers GET /healthz with 200 and the one word backfill, and every other path with 404. When the backfill has ended the entry stops that front and starts the present one, which passes /healthz to the TLS listener of the service. A backfill that ends with an error ends the entry with that error as today. The definition of the dashboard API names PORT with the port of its listener. The definition of the dashboard web names the gateway origin as an input."
+basis = "Gotcha 4504."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44268,6 +44286,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.672]
+title = "Answer the health path of the indexer image during the first backfill"
+reqs = ["22998.1"]
+touches = ["docker/platform-indexer"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/test_indexer_health_front.py"
+do_1 = "do_1 Gotcha 4504, decision 3585. Read docker/platform-indexer/init.sh and docker/platform-indexer/health-config.sh in full, and the Dockerfile of the directory for the names under which the two scripts are installed."
+symbols = []
+
+[capability.22.39.671]
+title = "Name the health port of the dashboard API and the gateway origin of the dashboard web in their definitions"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform/dashboard.kvx", "deploy/projects/platform/dashboard-web.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py", "tools/deploy/tests/projects/test_platform_dashboard_web.py", "tools/deploy/tests/projects/test_platform_folder.py", "deploy/projects/README.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_dashboard_web.py tools/deploy/tests/projects/test_platform_folder.py"
+do_1 = "do_1 Gotcha 4504, decisions 3584 and 3585. Read deploy/projects/platform/dashboard.kvx, deploy/projects/platform/dashboard-web.kvx, tools/deploy/tests/projects/test_platform_dashboard.py, tools/deploy/tests/projects/test_platform_dashboard_web.py and one definition of the folder that names PORT and an input of its own."
+symbols = []
+
+[capability.22.39.670]
+title = "Sign a developer in on the dashboard"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard/web", "docs/wiki/HostedDashboard.md"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+do_1 = "do_1 Gotcha 4503, decisions 3583 and 3584. Read services/platform/hosted/dashboard/web/app/page.tsx, services/platform/hosted/dashboard/web/app/data.ts, services/platform/hosted/dashboard/web/next.config.ts, services/platform/hosted/dashboard/web/app/layout.tsx and the tests under services/platform/hosted/dashboard/web/tests with the way they reach the code of the app; in services/platform/hosted/gateway/src/rpc_register.rs and services/platform/hosted/gateway/src/rpc_session.rs the two digests, the parameters and the results; in docs/wiki/HostedGateway.md the transport of the two methods and where a client takes the tenant from; and in services/platform/hosted/dashboard/src/main.rs the session check and the route of the overview."
+symbols = []
+
+[capability.22.39.669]
+title = "Open a developer session at the hosted gateway by a fresh proof of the registered key"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway", "docs/wiki/HostedGateway.md", "tests/ci/test_sdk_quickstart_rpc_methods.py"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway rpc_session && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway rpc_register && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test session_open --test registration_tenant_boundary --test openrpc_methods --test proof_gateway_jsonrpc_methods --test router_surface --test documented_rpc_examples"
+do_1 = "do_1 Gotcha 4503, decision 3583. Read services/platform/hosted/gateway/src/rpc_register.rs in full, with the binding, the subject, the registration limit, the principal request and the checks of its answer; the place in services/platform/hosted/gateway/src/rpc.rs and in src/main.rs where the method is admitted and routed; in docs/wiki/HostedIdentity.md the rows of POST /v1/principals and POST /v1/sessions; services/platform/hosted/gateway/tests/registration_tenant_boundary.rs for the way a test stands in for identity; and services/platform/hosted/gateway/openrpc.json with the tests of the package that read it."
+symbols = []
+
+[capability.22.39.668]
+title = "Build the dashboard style sheet from the classes of the UI package"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard/web"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+do_1 = "do_1 Gotcha 4502. Read services/platform/hosted/dashboard/web/app/globals.css, apps/web/src/app/globals.css as the model, services/platform/hosted/dashboard/web/package.json, services/platform/hosted/dashboard/web/app/page.tsx, services/platform/hosted/dashboard/web/tests/ui-contract.mjs and docker/platform-dashboard-web/Dockerfile. The image copies the package to the same place relative to the app as the checkout holds it."
+symbols = []
 
 [capability.22.39.667]
 title = "Approve the launchpad migration release through a mode of the schema command"
@@ -172780,6 +172843,75 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.670]
+title = "Sign a developer in on the dashboard"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.668", "22.39.669"]
+reqs = ["22998.1"]
+capabilities = ["22.39.670"]
+interfaces = []
+do_1 = "do_1 Gotcha 4503, decisions 3583 and 3584. Read services/platform/hosted/dashboard/web/app/page.tsx, services/platform/hosted/dashboard/web/app/data.ts, services/platform/hosted/dashboard/web/next.config.ts, services/platform/hosted/dashboard/web/app/layout.tsx and the tests under services/platform/hosted/dashboard/web/tests with the way they reach the code of the app; in services/platform/hosted/gateway/src/rpc_register.rs and services/platform/hosted/gateway/src/rpc_session.rs the two digests, the parameters and the results; in docs/wiki/HostedGateway.md the transport of the two methods and where a client takes the tenant from; and in services/platform/hosted/dashboard/src/main.rs the session check and the route of the overview."
+do_2 = "do_2 Add the three routes of decision 3584 as route handlers of the app, with their logic in one module that takes the request values and the two origins as arguments, so that a test drives it without the framework. The API origin of the routes is the one the rewrite uses; the gateway origin is read at run time from DASHBOARD_GATEWAY_ORIGIN. A call to an origin has a time limit, and its failure answers 502 with a reason name. A refusal of the gateway answers 401 for a proof that was not accepted, 429 for the limit and 502 for the rest, each with the reason name of the gateway and nothing else of its answer."
+do_3 = "do_3 The cookie: name __Host-layerx-session, the attributes of decision 3584, the lifetime from expires_at of the method; for a token that the API accepted, a lifetime of twelve hours. DELETE /session answers 204 and sets the cookie empty with a lifetime of zero and the same attributes."
+do_4 = "do_4 Add the browser module for the key: it creates an Ed25519 key pair through the cryptography interface of the browser with a private key that cannot be exported, keeps the pair in the indexed storage of the browser under one fixed name, returns the public key in lowercase hexadecimal, and signs the registration binding and the session digest. The two digests are built as the gateway builds them; the tenant comes from where docs/wiki/HostedGateway.md tells a client to take it. The module reports whether the browser has Ed25519 and whether a key is held."
+do_5 = "do_5 The sign-in view by decision 3584, built from the components of the UI package, shown in place of the panels when a read answers 401 and replacing the card of that case. It offers: create a developer key in this browser and sign in; sign in with the key this browser holds; sign in with a session token. It shows the public key with a copy control and one sentence that the key stays in this browser. After a sign-in the page reads again. A refusal is shown by its reason in plain words. The shell gains a sign-out control that calls DELETE /session and returns to the view. Without Ed25519 the view offers the token only, with one sentence."
+do_6 = "do_6 Tests run by the script test:static. For the module of the routes, against stand-ins for the gateway and the API on loopback: a proof that the gateway accepts gives 204 and a cookie with the name and every attribute, and no body; a token the API accepts gives the same; a token the API answers with 401 gives 401 and no cookie; a refusal of the gateway gives the mapped status and the reason name only; a request without Origin, with another origin, with another content type or with a body above the bound is refused before any call; without the gateway origin a proof answers 503 and a token still signs in; DELETE gives the empty cookie; no answer and no error text holds the token. For the digests: the registration binding and the session digest for the fixed tenant, key and time of the tests of the gateway equal the hexadecimal values pinned there. In services/platform/hosted/dashboard/web/tests/ui-contract.mjs assert that the page names the three ways of the view and the sign-out control."
+do_7 = "do_7 In services/platform/hosted/dashboard/web/README.md describe the three routes, the cookie, the runtime variable and the view in one section; in docs/wiki/HostedDashboard.md state where the session of the browser comes from, with the routes and the variable. Neutral words, present tense. The definitions under deploy are not part of this task."
+do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard/web", "docs/wiki/HostedDashboard.md"]
+tests = []
+planned_paths = []
+build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.668]
+title = "Build the dashboard style sheet from the classes of the UI package"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.668"]
+interfaces = []
+do_1 = "do_1 Gotcha 4502. Read services/platform/hosted/dashboard/web/app/globals.css, apps/web/src/app/globals.css as the model, services/platform/hosted/dashboard/web/package.json, services/platform/hosted/dashboard/web/app/page.tsx, services/platform/hosted/dashboard/web/tests/ui-contract.mjs and docker/platform-dashboard-web/Dockerfile. The image copies the package to the same place relative to the app as the checkout holds it."
+do_2 = "do_2 In services/platform/hosted/dashboard/web/app/globals.css name the directory src of the package at apps/web/packages/layerx-ui as a source of the utility compiler, by a path relative to the file, after the two imports. Keep the two imports and the rules of the file."
+do_3 = "do_3 Add services/platform/hosted/dashboard/web/tests/built-style.mjs. It reads every style sheet under .next/static of the app and fails with the missing names unless the sheets hold a rule for each of these classes, which the shell and the controls of the package use: bg-background, bg-surface, bg-surface-sunken, border-border, text-foreground, text-muted-foreground, rounded-md, h-dvh, shrink-0, items-center, justify-center, font-semibold, px-3 and transition-colors. It fails when no sheet is found. The script build of services/platform/hosted/dashboard/web/package.json runs it after the build of the framework, so a build whose sheet lacks the rules of the package ends with an error in the checkout and in the image."
+do_4 = "do_4 In services/platform/hosted/dashboard/web/tests/ui-contract.mjs assert that services/platform/hosted/dashboard/web/app/globals.css names a source, that the path resolves from the file to a directory, and that the directory holds components/app-shell.tsx."
+do_5 = "do_5 In services/platform/hosted/dashboard/web/app/page.tsx a read that answers 401 gives the card the title Sign in required and the description A developer session is needed to read this dashboard. Every other failed read keeps the present card. Keep the surfaces the static test names."
+do_6 = "do_6 In services/platform/hosted/dashboard/web/README.md add one short section: the style sheet is built from the files of the app and from the directory src of the UI package, and the build checks the sheet. Neutral words, present tense."
+do_7 = "do_7 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard/web"]
+tests = []
+planned_paths = ["services/platform/hosted/dashboard/web/tests/built-style.mjs"]
+build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.662]
 title = "Take a newer signed inventory in the wallet gateway and pass it to the attestors"
 status = "done"
@@ -209115,6 +209247,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.669]
+title = "Open a developer session at the hosted gateway by a fresh proof of the registered key"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.669"]
+interfaces = []
+do_1 = "do_1 Gotcha 4503, decision 3583. Read services/platform/hosted/gateway/src/rpc_register.rs in full, with the binding, the subject, the registration limit, the principal request and the checks of its answer; the place in services/platform/hosted/gateway/src/rpc.rs and in src/main.rs where the method is admitted and routed; in docs/wiki/HostedIdentity.md the rows of POST /v1/principals and POST /v1/sessions; services/platform/hosted/gateway/tests/registration_tenant_boundary.rs for the way a test stands in for identity; and services/platform/hosted/gateway/openrpc.json with the tests of the package that read it."
+do_2 = "do_2 Add the method px_openSession by decision 3583 in services/platform/hosted/gateway/src/rpc_session.rs, reusing the functions of the registration for the parameters, the tagged digest, the subject, the trusted client address, the limit and the principal request, so that one implementation of each exists. The domain of the session digest is layerx-session-open-v1. The parts of the digest are the domain, the tenant, the key and the time in decimal, joined the way the registration joins its parts."
+do_3 = "do_3 The refusals, each with its reason name in the data of the error as the registration gives it: malformed parameters; a time outside the span; a pair of key and time already accepted; a signature that does not verify; the limit reached; no provisioning token configured; a principal answer that fails the checks of the registration; an answer of the session route that is not a success or lacks a field. The set of accepted pairs is bounded: a pair leaves it when its time has left the span, and a full set refuses as the limit does."
+do_4 = "do_4 The result carries tenant, sub, token, csrf_token and expires_at from the answer of identity and nothing else. The request to identity names the subject and the tenant and leaves the lifetime to identity. No log line and no error text holds the token, the CSRF value or the signature."
+do_5 = "do_5 Unit tests in the new module: the session digest for a fixed tenant, key and time is pinned as a hexadecimal value, and differs from the registration binding of the same tenant and key; the span at both edges; a second use of a pair; the bound of the set. Tests in services/platform/hosted/gateway/tests/session_open.rs that drive the method over the HTTP transport of the gateway against a stand-in for identity, the way services/platform/hosted/gateway/tests/registration_tenant_boundary.rs does: a valid proof returns the five fields and identity saw one principal request and one session request with the provisioning token; a replay of the same request is refused and identity saw nothing more; a registration signature of the same key is refused; a time 121 seconds off is refused; an identity answer for another subject is refused; without the token the method refuses as px_register does."
+do_6 = "do_6 Bring along what names the methods of the gateway inside the paths: services/platform/hosted/gateway/openrpc.json with a description, the parameters, the result and the errors of the method; the tests of the package that pin the set of methods; services/platform/hosted/gateway/README.md; in docs/wiki/HostedGateway.md the row of the method beside px_register, the proof in one paragraph and the refusals in the table of errors; and tests/ci/test_sdk_quickstart_rpc_methods.py where it pins the set. The client libraries are not part of this task: give in the final message every file outside the paths that enumerates the methods of the gateway and would name the new one."
+do_7 = "do_7 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway", "docs/wiki/HostedGateway.md", "tests/ci/test_sdk_quickstart_rpc_methods.py"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/src/rpc_session.rs", "services/platform/hosted/gateway/tests/session_open.rs"]
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway rpc_session && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway rpc_register && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test session_open --test registration_tenant_boundary --test openrpc_methods --test proof_gateway_jsonrpc_methods --test router_surface --test documented_rpc_examples"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -379535,6 +379701,69 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.672]
+title = "Answer the health path of the indexer image during the first backfill"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.672"]
+interfaces = []
+do_1 = "do_1 Gotcha 4504, decision 3585. Read docker/platform-indexer/init.sh and docker/platform-indexer/health-config.sh in full, and the Dockerfile of the directory for the names under which the two scripts are installed."
+do_2 = "do_2 docker/platform-indexer/health-config.sh takes one optional argument. Without it, it prints the present configuration. With the argument backfill it prints a configuration with the same process settings and the same listener on PORT whose location /healthz answers 200 with the body backfill and a plain text type and whose other paths answer 404; it needs PORT only and checks it as today. Any other argument ends with a usage line and 2."
+do_3 = "do_3 In docker/platform-indexer/init.sh the mode serve, when the first backfill is to run, writes the backfill configuration, starts the health front with it under the same user and settings as the present front, runs the backfill, and stops the front and waits for it before it writes the present configuration and starts the service and the present front. The cleanup stops whichever front runs. A backfill that ends with an error ends the entry with that status and stops the front. With the marker of a finished backfill present nothing changes. The mode backfill of the entry is unchanged."
+do_4 = "do_4 Add tools/deploy/tests/test_indexer_health_front.py. It runs docker/platform-indexer/health-config.sh with sh: with the argument backfill and a valid PORT the output holds the listener on that port, the answer 200 with the body backfill and no proxy line; without an argument the output equals the output of the script at the base revision for the same variables, read with git show; an invalid PORT and an unknown argument end with 2. It checks in the text of docker/platform-indexer/init.sh that the backfill configuration is written and the front started before the line that runs the backfill, and that the front is stopped before the service starts. It runs sh -n on both scripts."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-indexer"]
+tests = []
+planned_paths = ["tools/deploy/tests/test_indexer_health_front.py"]
+build_cmd = "sh -n docker/platform-indexer/init.sh && sh -n docker/platform-indexer/health-config.sh"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/test_indexer_health_front.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.671]
+title = "Name the health port of the dashboard API and the gateway origin of the dashboard web in their definitions"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.671"]
+interfaces = []
+do_1 = "do_1 Gotcha 4504, decisions 3584 and 3585. Read deploy/projects/platform/dashboard.kvx, deploy/projects/platform/dashboard-web.kvx, tools/deploy/tests/projects/test_platform_dashboard.py, tools/deploy/tests/projects/test_platform_dashboard_web.py and one definition of the folder that names PORT and an input of its own."
+do_2 = "do_2 In deploy/projects/platform/dashboard.kvx add the variable PORT with the port of LAYERX_DASHBOARD_LISTEN, 9445. In tools/deploy/tests/projects/test_platform_dashboard.py assert that PORT is present and equals the port of the listener."
+do_3 = "do_3 In deploy/projects/platform/dashboard-web.kvx add the runtime variable DASHBOARD_GATEWAY_ORIGIN as an input of the service, in the form the folder uses for an input without a default, with one line that it is the origin of the hosted gateway the web calls for sign-in. In tools/deploy/tests/projects/test_platform_dashboard_web.py assert that the variable is present as an input and that the build argument of the API origin is unchanged. Where the folder keeps a list of the inputs of the project or a count of them in a test or a document under the paths, bring it along."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform/dashboard.kvx", "deploy/projects/platform/dashboard-web.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py", "tools/deploy/tests/projects/test_platform_dashboard_web.py", "tools/deploy/tests/projects/test_platform_folder.py", "deploy/projects/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_dashboard_web.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_dashboard_web.py tools/deploy/tests/projects/test_platform_folder.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.625]
 title = "Build the backend image of the explorer from the repository root in every caller"
