@@ -324,7 +324,7 @@ func run(ctx context.Context, getenv func(string) string, ready func(listening))
 		Clients:      clients,
 		Tokens:       tokens,
 		Agents:       agents,
-		Authority:    authority, Inventory: inventory,
+		Authority:    authority, Inventory: inventory, InventoryRequestBytes: server.DefaultInventoryRequestBytes,
 		Activities: registry,
 		PeerProbe:  server.TCPPeerProbe(probe),
 		Replica:    replicaState,

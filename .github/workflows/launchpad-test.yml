@@ -112,8 +112,8 @@ jobs:
         run: python3 scripts/prepare-test-environment.py -- pnpm exec vitest run
       - name: Test package
         if: matrix.package != 'apps/launchpad/web'
-        working-directory: .
-        run: pnpm --dir apps/launchpad --filter "./../../${{ matrix.package }}" --fail-if-no-match run test
+        working-directory: apps/launchpad
+        run: pnpm --filter "./../../${{ matrix.package }}" --fail-if-no-match run test
 
   launchpad-go-test:
     name: Go test ${{ matrix.module }}
@@ -261,13 +261,13 @@ jobs:
           POSTGRES_DB: kindle_fixture
         ports: ["25432:5432"]
         options: >-
-          --health-cmd 'pg_isready -U kindle_fixture -d kindle_fixture' --health-interval 10s
+          --health-cmd "pg_isready -U kindle_fixture -d kindle_fixture" --health-interval 10s
           --health-timeout 5s --health-retries 5
       redis:
         image: redis:7
         ports: ["26379:6379"]
         options: >-
-          --health-cmd 'redis-cli ping' --health-interval 10s
+          --health-cmd "redis-cli ping" --health-interval 10s
           --health-timeout 5s --health-retries 5
     steps:
       - &launchpad_go_checkout

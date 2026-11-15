@@ -140,6 +140,9 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
 	cfg.registerInlineDocuments()
+	if err := cfg.validateInlineDocuments(); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
 	return cfg, nil
 }
 
@@ -437,6 +440,21 @@ func (c *Config) registerInlineDocuments() {
 			inlineDocuments.Store(d[2], d[1])
 		}
 	}
+}
+
+// validateInlineDocuments verifies every inline document before startup. File
+// sources remain checked by the operation that consumes them, while inline
+// values are already available to Load and can be bound immediately.
+func (c *Config) validateInlineDocuments() error {
+	for _, d := range c.boundDocuments() {
+		if d[1] == "" {
+			continue
+		}
+		if _, err := boundBytes(d[0], d[1], d[2]); err != nil {
+			return fmt.Errorf("%s_DOCUMENT binding invalid: %w", d[3], err)
+		}
+	}
+	return nil
 }
 
 // boundBytes returns the exact bytes of a digest-bound runtime document,

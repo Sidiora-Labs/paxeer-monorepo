@@ -14,7 +14,8 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
   import Explorer.Factory
 
   alias Explorer.Chain.Block
-  alias Explorer.Chain.PaxeerX.{PriceFeed, PriceObservation}
+  alias Explorer.Chain.Cache.Counters.LastFetchedCounter
+  alias Explorer.Chain.PaxeerX.{PriceFeed, PriceFeedScannedBlock, PriceObservation}
   alias Explorer.PaxeerX.CosmosRest
   alias Explorer.Repo
 
@@ -31,6 +32,7 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
   @index "paxeer_x_price_acceptance_backfill_next_job_index"
 
   setup do
+    Explorer.TestHelper.start_migration_owner!()
     assert :ok = Ecto.Migrator.down(Repo, @version, RelaxPaxeerXPriceObservationAccepted, log: false)
     assert :ok = Ecto.Migrator.down(Repo, @queue_version, BackfillPaxeerXPriceAcceptance, log: false)
 
@@ -46,6 +48,8 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
 
     on_exit(fn ->
       Repo.delete_all(from(b in Block, where: b.hash == ^block.hash))
+      Repo.delete_all(from(s in PriceFeedScannedBlock, where: s.block_number == @height))
+      LastFetchedCounter.delete("paxeer_x_price_update_total")
       Ecto.Migrator.up(Repo, @version, RelaxPaxeerXPriceObservationAccepted, log: false)
       Ecto.Migrator.up(Repo, @queue_version, BackfillPaxeerXPriceAcceptance, log: false)
     end)
@@ -84,10 +88,10 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
     assert :already_up = Ecto.Migrator.up(Repo, @version, RelaxPaxeerXPriceObservationAccepted, log: false)
     assert {accepted_column(), index_state()} == state
 
-    {:ok, worker} = PriceAcceptanceBackfill.start_link()
+    worker = start_supervised!({PriceAcceptanceBackfill, []})
     assert :ok = PriceAcceptanceBackfill.retain(worker, @height, context.transactions, context.results)
     assert {:ok, 18} = PriceAcceptanceBackfill.step(worker, 18)
-    assert :ok = GenServer.stop(worker)
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
 
     assert %{rows: [[true]]} =
              Repo.query!("SELECT completed FROM paxeer_x_price_acceptance_backfill WHERE block_number = $1", [@height])
