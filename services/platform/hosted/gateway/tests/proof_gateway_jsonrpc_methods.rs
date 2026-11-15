@@ -401,7 +401,7 @@ fn px_getReceiptKeys() {
         changed["keys"][0][field] = value;
         malformed.push(changed);
     }
-    malformed.push(json!({"keys": []}));
+    assert_eq!(decode_receipt_keys(&json!({"keys": []})), Ok(Vec::new()));
     malformed.push(document["keys"].clone());
     for value in &malformed {
         assert_eq!(
@@ -540,10 +540,12 @@ fn sdk_consumers(gateway: &Gateway, directory: &Path, document: &Value) {
             "-c",
             r"
 import json, sys
+from layerx_sdk.px import PxClient, PxRpcError
 from layerx_sdk.x402_rpc import PaymentRpc, PaymentRpcError, decode_receipt_keys
-rpc = PaymentRpc(sys.argv[1])
+rpc = PxClient(sys.argv[1])
+payment = PaymentRpc(sys.argv[1])
 for _ in range(2):
-    keys = rpc.receipt_keys()
+    keys = decode_receipt_keys(rpc.call('px_getReceiptKeys', []))
     assert len(keys) == 1 and keys[0].key_id == bytes([7])*32
     assert keys[0].first_height == 1 and keys[0].last_height == 999
 raw = json.load(open(sys.argv[2]))
@@ -557,8 +559,10 @@ for method, params, code in [
     ('px_getCommit', ['5'], -32003), ('px_getValidators', ['5'], -32003),
     ('px_getSequenceBatch', ['5'], -32003), ('px_requestFunds', [], -32010)]:
     for _ in range(2):
-        try: rpc.call(method, params)
-        except PaymentRpcError as error: assert error.code == code
+        try:
+            if method == 'pax_sequencerReceipt': payment.call(method, params)
+            else: rpc.call(method, params)
+        except (PxRpcError, PaymentRpcError) as error: assert error.code == code
         else: raise AssertionError(method + ' manufactured evidence')
 ",
             &url,

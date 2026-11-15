@@ -7,14 +7,14 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-pax-bg text-white">
+    <main className="min-h-screen bg-pax-bg text-pax-light">
       <div className="max-w-2xl mx-auto px-6 py-16">
         <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-        <p className="text-sm text-gray-400 mb-10">Last updated: November 1, 2026</p>
+        <p className="text-sm text-pax-muted mb-10">Last updated: November 1, 2026</p>
 
-        <div className="space-y-8 text-sm leading-relaxed text-gray-300">
+        <div className="space-y-8 text-sm leading-relaxed text-pax-light">
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">1. Introduction</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">1. Introduction</h2>
             <p>
               Paxport (&quot;we&quot; or &quot;our&quot;) is an installable web wallet for Paxeer
               Network. The app uses the wallet SDK to hold an embedded wallet or connect an injected
@@ -24,12 +24,12 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">2. Data We Collect</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">2. Data We Collect</h2>
             <p className="mb-3">
               The data handled depends on your wallet provider and the features you use, including
               sign-in, blockchain access, push notifications, and assistant chat.
             </p>
-            <h3 className="text-base font-medium text-white mb-2">
+            <h3 className="text-base font-medium text-pax-light mb-2">
               2.1 Data Stored Locally on Your Device
             </h3>
             <ul className="list-disc list-inside space-y-1.5 ml-2">
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
               </li>
             </ul>
 
-            <h3 className="text-base font-medium text-white mb-2 mt-4">
+            <h3 className="text-base font-medium text-pax-light mb-2 mt-4">
               2.2 Data Transmitted to External Services
             </h3>
             <ul className="list-disc list-inside space-y-1.5 ml-2">
@@ -105,7 +105,7 @@ export default function PrivacyPage() {
               </li>
             </ul>
 
-            <h3 className="text-base font-medium text-white mb-2 mt-4">
+            <h3 className="text-base font-medium text-pax-light mb-2 mt-4">
               2.3 Keep Your Wallet Secrets Private
             </h3>
             <ul className="list-disc list-inside space-y-1.5 ml-2">
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">3. How Your Data Is Used</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">3. How Your Data Is Used</h2>
             <ul className="list-disc list-inside space-y-1.5 ml-2">
               <li>
                 Encrypted wallet data is used solely to derive signing keys when you authorize a
@@ -146,7 +146,9 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">4. Data Storage and Security</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">
+              4. Data Storage and Security
+            </h2>
             <ul className="list-disc list-inside space-y-1.5 ml-2">
               <li>
                 The self-custody embedded wallet encrypts its vault with AES-256 and derives
@@ -174,23 +176,34 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">5. Third-Party Services</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">5. Third-Party Services</h2>
             <p>
               The installable web wallet communicates with network services and external providers.
               Supabase handles sign-in, the wallet SDK accesses the embedded wallet or your chosen
               injected wallet provider, the wallet server stores push subscription records with your
               wallet address, and OpenAI processes assistant chat messages.
             </p>
-            <div className="mt-3 rounded-xl bg-white/5 overflow-hidden">
-              <table className="w-full text-xs">
+            <div
+              className="mt-3 overflow-x-auto rounded-xl bg-pax-control"
+              role="region"
+              tabIndex={0}
+              aria-label="Third-party services"
+            >
+              <table className="min-w-table w-full text-xs">
                 <thead>
                   <tr className=" ">
-                    <th className="text-left px-4 py-2.5 text-gray-400 font-medium">Service</th>
-                    <th className="text-left px-4 py-2.5 text-gray-400 font-medium">Purpose</th>
-                    <th className="text-left px-4 py-2.5 text-gray-400 font-medium">Data Sent</th>
+                    <th scope="col" className="text-left px-4 py-2.5 text-pax-muted font-medium">
+                      Service
+                    </th>
+                    <th scope="col" className="text-left px-4 py-2.5 text-pax-muted font-medium">
+                      Purpose
+                    </th>
+                    <th scope="col" className="text-left px-4 py-2.5 text-pax-muted font-medium">
+                      Data Sent
+                    </th>
                   </tr>
                 </thead>
-                <tbody className=" divide-white/5">
+                <tbody className="divide-pax-line">
                   <tr>
                     <td className="px-4 py-2.5">Supabase</td>
                     <td className="px-4 py-2.5">Sign-in and authentication sessions</td>
@@ -257,7 +270,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">
+            <h2 className="text-lg font-semibold text-pax-light mb-3">
               6. Installation and Browser Permissions
             </h2>
             <ul className="list-disc list-inside space-y-1.5 ml-2">
@@ -279,7 +292,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">7. Your Rights</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">7. Your Rights</h2>
             <ul className="list-disc list-inside space-y-1.5 ml-2">
               <li>
                 <strong>Wallet control</strong> — Self-custody wallet secrets are managed in the
@@ -303,7 +316,9 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">8. Children&apos;s Privacy</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">
+              8. Children&apos;s Privacy
+            </h2>
             <p>
               The web wallet is not directed at children under the age of 13. We do not knowingly
               collect personal information from children.
@@ -311,7 +326,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">9. Changes to This Policy</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">9. Changes to This Policy</h2>
             <p>
               We may update this privacy policy from time to time. Changes will be reflected by
               updating the &quot;Last updated&quot; date at the top of this page. Continued use of
@@ -320,7 +335,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">10. Contact</h2>
+            <h2 className="text-lg font-semibold text-pax-light mb-3">10. Contact</h2>
             <p>
               If you have questions about this privacy policy or the web wallet&apos;s data
               practices, contact us at{' '}
@@ -333,9 +348,9 @@ export default function PrivacyPage() {
         </div>
 
         <div className="mt-16 pt-8   text-center">
-          <p className="text-xs text-gray-500">Paxport v1.0.0 — Paxeer Network</p>
+          <p className="text-xs text-pax-muted">Paxport v1.0.0 — Paxeer Network</p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

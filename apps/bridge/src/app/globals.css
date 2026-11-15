@@ -16,8 +16,22 @@
 
 body {
   font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
   text-rendering: optimizeLegibility;
+  font-size-adjust: from-font;
+  font-variant-numeric: tabular-nums;
 }
+
+main {
+  container: bridge-page / inline-size;
+}
+
+::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
 
 ::selection {
   background: var(--primary);
@@ -25,12 +39,5 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  html { scroll-behavior: auto; }
 }

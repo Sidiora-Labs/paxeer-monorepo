@@ -57,10 +57,7 @@ const PWAContext = createContext<PWAContextValue | null>(null);
 const INSTALL_DISMISS_DAYS = 7;
 const NOTIF_DISMISS_DAYS = 3;
 
-function isDismissed(
-  kind: 'installAt' | 'notificationAt',
-  days: number,
-): boolean {
+function isDismissed(kind: 'installAt' | 'notificationAt', days: number): boolean {
   const timestamp = pwaDismissalsRepository.read()[kind];
   if (timestamp === null) return false;
   return Date.now() - timestamp < days * 24 * 60 * 60 * 1000;
@@ -82,7 +79,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
   const [isInstallable, setIsInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >('unsupported');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
 
@@ -185,10 +184,11 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     const prompt = deferredPromptRef.current;
     if (!prompt) return false;
 
+    deferredPromptRef.current = null;
+    setIsInstallable(false);
+    setShowInstallPrompt(false);
     await prompt.prompt();
     const { outcome } = await prompt.userChoice;
-    deferredPromptRef.current = null;
-    setShowInstallPrompt(false);
 
     if (outcome === 'accepted') {
       setIsInstalled(true);
