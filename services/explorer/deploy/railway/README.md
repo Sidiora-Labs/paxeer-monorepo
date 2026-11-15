@@ -105,7 +105,7 @@ Use a Railway Postgres service and give the backend its connection string in
 `DATABASE_URL`. `ECTO_USE_SSL` defaults to `true`. Database TLS verifies the
 server certificate and hostname. Set `DATABASE_SSL_CA_CERT_FILE` to an absolute PEM CA bundle path
 when the database uses a private CA; otherwise the system CA bundle supplies
-trust roots. See the [database TLS guide](../../backend/apps/explorer/config/repair_22_33_471/README.md).
+trust roots. See the [database TLS guide](../../backend/apps/explorer/config/database_tls/README.md).
 
 ## Microservices
 

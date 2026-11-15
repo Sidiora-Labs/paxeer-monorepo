@@ -14536,6 +14536,42 @@ value = "Where the verification of a task tests one crate of the agent workspace
 basis = "Gotcha 4489."
 affects = ["22.39.617"]
 
+[decision.3571]
+title = "A definition the project tool refuses for its env names takes the names of decision 3564"
+value = "Where the load function of the project tool refuses a definition for an env name, the definition takes the name of decision 3564 for that key, in the vars section and in the inputs section alike, with the word and the comment of the input kept. Where two keys read one input, each key takes its own name by the rule, or the key whose value the container fixes states that value plainly. A variable of a definition that no file of the service, its container or its start script reads is left out of the definition with its input. The tests of the definition under tools/deploy/tests/projects follow the definition."
+basis = "Gotcha 4490. Decision 3564."
+affects = ["22.39.611"]
+
+[decision.3572]
+title = "A case of the explorer backend holds alone and within the whole suite"
+value = "A test case of the apps explorer and ethereum_jsonrpc passes when its file runs alone and when the suite runs whole in the builder, in any order of the files. A case sets the state it reads and puts back the state it changes: application settings, the ownership mode of the database connections, named processes and caches it starts, and mock expectations. A process a case starts that reads the database is allowed by the case. A file a case reads is part of the tree the builder mounts and is named by its present path. Where a case states a value the source no longer gives and the source is right by the task that changed it, the case follows the source; where the source is wrong, the source is repaired. A case is not removed, skipped or tagged out to hold."
+basis = "Gotcha 4491. The workflow runs the suite whole."
+affects = []
+
+[decision.3573]
+title = "The total of stored price submissions takes its first value once and the acceptance replay reads its blocks side by side"
+value = "The store of the price submissions of a block adds its difference to the counter row without reading the table of submissions. The number of stored submissions is read only when the counter row does not exist, once, and two stores that meet at that moment end with one row that holds the right total. The acceptance replay reads the blocks of one step from the nodes side by side, up to the number the setting PAXEER_X_PRICE_FEED_REPLAY_CONCURRENCY gives, and applies them in the order of their heights; the default is 4 and a value below 1 is refused when the settings are read."
+basis = "Gotcha 4492. The cost of a store does not grow with the number of stored submissions."
+affects = []
+
+[decision.3574]
+title = "A source file of the explorer backend compiles without a warning when its app is compiled whole"
+value = "Every source file under the lib directories of the apps explorer, ethereum_jsonrpc, indexer and block_scout_web compiles without a compiler warning when the app is compiled whole in the builder. A warning is removed by a repair of the source; no compiler option, alias or annotation is changed to hide it."
+basis = "Gotcha 4493. The apps state warnings as errors in their compile alias."
+affects = []
+
+[decision.3575]
+title = "The startup documents of the launchpad services come from one composer and the registered migrations from one command"
+value = "The command launchpad-schema under sdk/launchpad/shared/db/production/cmd applies the registered migrations to a database through the migration coordinator, writes the expected schema document of a service from the migrated database and checks a database against such a document. The composer deploy/launchpad/documents/compose.py reads one values directory and writes for each service of the contract one file with exactly the document variables and digest variables the contract requires of it. A values directory holds common.json, one file named by the service and the expected schema document of each service under expected-schema; the examples under deploy/launchpad/documents/values carry the same names with .example before .json and the option --examples reads them. Each service has one module of the composer, named by the service name of the contract with a hyphen written as an underscore, and one test inside the service that proves its loader accepts the composed documents. A values file states what differs between deployments; a composed document never appears in the output of a command."
+basis = "Gotcha 4494. The loaders of the services and of sdk/launchpad/shared/db/production are the authority for the form of each document."
+affects = []
+
+[decision.3576]
+title = "The launchpad and wallet test jobs call each tool in its present form"
+value = "In .github/workflows/launchpad-test.yml the health commands of the service containers are written in a form the container tool reads as one command, the package step selects exactly one project of the workspace for each entry of its matrix, and the tests under tests/ci name the fixture directories that are in the tree. Every Go build of the joined services fixture of the launchpad web tests runs with the workspace off, and a fixture step that ends with a status other than zero reports the last lines of its log in its message. A case that takes its input through a flag from a proof skips with its reason when the flag is empty and runs unchanged when the proof passes it. A proof step that runs a command calls it with its present options and asserts an answer that comes from the parties of the proof, not from the reading of the options."
+basis = "Gotcha 4495. Decision 2501 names the cases whose inputs come from a producer."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44196,6 +44232,258 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.654]
+title = "Call the load test command of the wallet attestor proof with the options the command requires"
+reqs = ["22998.1"]
+touches = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go"]
+tests = []
+verification_contract = "cd services/wallet/attestor && CGO_ENABLED=1 go test -count=1 ./internal/server/ -run TestProofS28WalletAttestorsTss"
+do_1 = "do_1 Gotcha 4495, decision 3576. Read the function proofS28Loadtest and its caller in services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go, the files main.go and manifest.go of services/wallet/attestor/cmd/loadtest with the tests beside them, and the attestor job of .github/workflows/wallet-go-test.yml."
+symbols = []
+
+[capability.22.39.653]
+title = "Skip the wallet policy case of the web search application proof when the proof passes no calldata"
+reqs = ["22998.1"]
+touches = ["services/wallet/attestor/internal/policy/policy_test.go"]
+tests = []
+verification_contract = "cd services/wallet/attestor && go test -count=1 ./internal/policy/"
+do_1 = "do_1 Gotcha 4495, decisions 3576 and 2501. Read the case TestXweb0x1019ApplicationPolicy and the flag xweb-proof-calldata in services/wallet/attestor/internal/policy/policy_test.go, and in precompiles/xweb/proof_xweb_0x1019_test.go the call that runs this case with the flag."
+symbols = []
+
+[capability.22.39.652]
+title = "Run every Go build of the joined services fixture of the launchpad web tests with the workspace off"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading/run-joined-services.py", "apps/launchpad/web/scripts/prepare-test-environment.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_joined_builds.py && (cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go build -o /dev/null ./cmd/stats-migrate)"
+do_1 = "do_1 Gotcha 4495, decision 3576. Read apps/launchpad/web/src/widgets/trading/run-joined-services.py from the loop that builds the five services to the step that builds and runs the migration command of the stats service, the method run of the fixture owner in apps/launchpad/web/scripts/prepare-test-environment.py, and the Go version lines of services/launchpad/go.work and of the go.mod of the stats service."
+symbols = []
+
+[capability.22.39.651]
+title = "Write the service health commands and the package selection of the launchpad test workflow in the form their tools read"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci/test_launchpad_go_tests_wired.py", "tests/ci/test_launchpad_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py", "tests/ci/test_js_suites_have_runner.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py"
+do_1 = "do_1 Gotcha 4495, decision 3576. Read .github/workflows/launchpad-test.yml whole, the cases of tests/ci/test_launchpad_go_tests_wired.py, tests/ci/test_launchpad_test_workflow.py, tests/ci/test_pnpm_workspace_roots.py and tests/ci/test_js_suites_have_runner.py that read it, and apps/launchpad/pnpm-workspace.yaml with the field packageManager of apps/launchpad/package.json."
+symbols = []
+
+[capability.22.39.650]
+title = "Compose the startup documents of the launchpad livestream service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/livestream/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/livestream && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of livestream in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/livestream/internal/config in services/launchpad/livestream and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.649]
+title = "Compose the startup documents of the launchpad metadata service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/metadata && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of metadata in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/metadata/internal/config in services/launchpad/metadata and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.648]
+title = "Compose the startup documents of the launchpad social service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/social && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of social in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/social/internal/config in services/launchpad/social and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.647]
+title = "Compose the startup documents of the launchpad user service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/user/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/user && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of user in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/user/internal/config in services/launchpad/user and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.646]
+title = "Compose the startup documents of the launchpad media gateway"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/gateway && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of gateway in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/gateway/internal/config in services/launchpad/gateway and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.645]
+title = "Compose the startup documents of the launchpad ranking service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/ranking-algo && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of ranking in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/ranking-algo/internal/config in services/launchpad/ranking-algo and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.644]
+title = "Compose the startup documents of the launchpad profit and loss service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/pnl-tracker && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of pnl in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/pnl-tracker/internal/config in services/launchpad/pnl-tracker and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.643]
+title = "Compose the startup documents of the launchpad stats service"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "(cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of stats in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of its package internal/config in the directory of the stats service under services/launchpad, whose binary is statsd and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.642]
+title = "Compose the startup documents of the launchpad charts service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/trading-charts && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of charts in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/trading-charts/internal/config in services/launchpad/trading-charts and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.641]
+title = "Compose the startup documents of the launchpad indexer"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/indexer && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of indexer in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/indexer/internal/config in services/launchpad/indexer and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.640]
+title = "Compose the startup documents of the launchpad API in both roles"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/config"]
+tests = []
+verification_contract = "(cd services/launchpad/api && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entries of api and api-sockets in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/api/internal/config in services/launchpad/api and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+symbols = []
+
+[capability.22.39.639]
+title = "Add the composer of the launchpad startup documents with the budget and expected schema documents"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/README.md"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production -run PlatformDocuments -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the functions ParseConnectionBudget and LoadConnectionBudget of sdk/launchpad/shared/db/production/allocation.go with the rules they check, LoadExpectedSchema of sdk/launchpad/shared/db/production/migrations.go, and how one service, for example services/launchpad/api/internal/config/config.go, reads a document variable and its digest variable."
+symbols = []
+
+[capability.22.39.638]
+title = "Add the command that applies the registered launchpad migrations and writes the expected schema document"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/db/production/coordinatortest"]
+tests = []
+verification_contract = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go vet ./db/production/cmd/launchpad-schema && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production/cmd/launchpad-schema -count=1)"
+do_1 = "do_1 Gotcha 4494, decision 3575. Read sdk/launchpad/shared/db/production/migrations.go, roles.go and allocation.go, the function Bootstrap of sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go, and under migrations the files registry.json, grants.json, legacy-history-aliases.json and readiness.json with the section on the launchpad in migrations/README.md."
+symbols = []
+
+[capability.22.39.637]
+title = "Let the apps of the explorer backend compile whole without a warning"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib", "services/explorer/backend/apps/ethereum_jsonrpc/lib", "services/explorer/backend/apps/indexer/lib", "services/explorer/backend/apps/block_scout_web/lib"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs"
+do_1 = "do_1 Gotcha 4493, decision 3574. In services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex let the private request function take its query without a default, since every call gives it."
+symbols = []
+
+[capability.22.39.636]
+title = "Let the acceptance replay of the explorer read the blocks of one step side by side"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/test/repair", "services/explorer/backend/config", "services/explorer/backend/README.md"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_pace_test.exs apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs"
+do_1 = "do_1 Gotcha 4492, decision 3573. Read services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, its step and the option acceptance_backfill_concurrency, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex and the settings of the price feed in services/explorer/backend/config/runtime.exs."
+symbols = []
+
+[capability.22.39.635]
+title = "Let the store of the price submissions of a block add to the total without counting the table"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+do_1 = "do_1 Gotcha 4492, decision 3573. Read services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex, the function that stores the submissions of a block and the function that adds to the total counter, and the cases of services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs on the total."
+symbols = []
+
+[capability.22.39.634]
+title = "Let the suite of the explorer and JSON-RPC apps pass whole in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/ethereum_jsonrpc/lib"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test"
+do_1 = "do_1 Gotcha 4491, decision 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test with no path once, the form .github/workflows/explorer-images.yml uses, and list every case that does not pass with file and first message."
+symbols = []
+
+[capability.22.39.633]
+title = "Let the price acceptance cases of the explorer own their connections within the whole suite"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs apps/explorer/test/repair/historical_price_acceptance_replay_test.exs apps/explorer/test/repair/price_acceptance_node_failover_test.exs apps/explorer/test/repair/price_acceptance_column_test.exs apps/explorer/test/explorer/repo/tune_paxeer_x_price_feed_tables_test.exs"
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs, services/explorer/backend/apps/explorer/test/repair/historical_price_acceptance_replay_test.exs, services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs, services/explorer/backend/apps/explorer/test/repair/price_acceptance_column_test.exs, services/explorer/backend/apps/explorer/test/explorer/repo/tune_paxeer_x_price_feed_tables_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+symbols = []
+
+[capability.22.39.632]
+title = "Let the websocket recovery cases of the JSON-RPC client hold within the whole suite"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/ethereum_jsonrpc/lib"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/ethereum_jsonrpc/test/repair/websocket_tls_reconnect_test.exs apps/ethereum_jsonrpc/test/repair/websocket_subscription_failback_test.exs apps/ethereum_jsonrpc/test/repair/websocket_recovery_test.exs"
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_tls_reconnect_test.exs, services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_subscription_failback_test.exs, services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_recovery_test.exs, with services/explorer/backend/apps/ethereum_jsonrpc/test/test_helper.exs and the support files they use."
+symbols = []
+
+[capability.22.39.631]
+title = "Let the release, database TLS and account migration cases of the explorer read files of the tree"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib", "services/explorer/backend/apps/explorer/config", "services/explorer/deploy"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/production_database_tls_test.exs apps/explorer/test/repair/production_release_configuration_test.exs apps/explorer/test/repair/account_migration_cli_options_test.exs apps/explorer/test/repair/account_migration_preview_test.exs"
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/repair/production_database_tls_test.exs, services/explorer/backend/apps/explorer/test/repair/production_release_configuration_test.exs, services/explorer/backend/apps/explorer/test/repair/account_migration_cli_options_test.exs, services/explorer/backend/apps/explorer/test/repair/account_migration_preview_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+symbols = []
+
+[capability.22.39.630]
+title = "Let the contract and import cases of the explorer state the calls the source makes"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/import/runner/internal_transactions_test.exs apps/explorer/test/explorer/chain/smart_contract/proxy_test.exs apps/explorer/test/explorer/chain/smart_contract/proxy/models/implementation_test.exs apps/explorer/test/explorer/smart_contract/helper_test.exs apps/explorer/test/repair/compiler_version_configuration_restoration_test.exs apps/explorer/test/explorer/chain/import/runner/address/current_token_balances_test.exs apps/explorer/test/explorer/microservice_interfaces/metadata_test.exs apps/explorer/test/repair/contract_metadata_scam_badge_and_token_pagination_test.exs"
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/internal_transactions_test.exs, services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy_test.exs, services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy/models/implementation_test.exs, services/explorer/backend/apps/explorer/test/explorer/smart_contract/helper_test.exs, services/explorer/backend/apps/explorer/test/repair/compiler_version_configuration_restoration_test.exs, services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/address/current_token_balances_test.exs, services/explorer/backend/apps/explorer/test/explorer/microservice_interfaces/metadata_test.exs, services/explorer/backend/apps/explorer/test/repair/contract_metadata_scam_badge_and_token_pagination_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+symbols = []
+
+[capability.22.39.629]
+title = "Let the market and configuration cases of the explorer follow the present fetchers"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib", "services/explorer/backend/config"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/fetcher/history_test.exs apps/explorer/test/explorer/market/fetcher/coin_test.exs apps/explorer/test/explorer/market/source/coin_market_cap_test.exs apps/explorer/test/repair/token_btc_conversion_and_task_recovery_test.exs apps/explorer/test/explorer/chain/supply/rsk_test.exs apps/explorer/test/explorer/config_helper_test.exs"
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/explorer/market/fetcher/history_test.exs, services/explorer/backend/apps/explorer/test/explorer/market/fetcher/coin_test.exs, services/explorer/backend/apps/explorer/test/explorer/market/source/coin_market_cap_test.exs, services/explorer/backend/apps/explorer/test/repair/token_btc_conversion_and_task_recovery_test.exs, services/explorer/backend/apps/explorer/test/explorer/chain/supply/rsk_test.exs, services/explorer/backend/apps/explorer/test/explorer/config_helper_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+symbols = []
+
+[capability.22.39.628]
+title = "Let the receipt and committed status cases of the explorer hold within the whole suite"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib", "services/explorer/backend/README.md"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/committed_status_evidence_test.exs apps/explorer/test/repair/receipt_commit_inclusion_test.exs apps/explorer/test/repair/receipt_endpoint_configuration_test.exs apps/explorer/test/repair/archive_receipt_and_live_signature_test.exs apps/explorer/test/repair/capability_snapshot_and_feed_health_test.exs"
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/repair/committed_status_evidence_test.exs, services/explorer/backend/apps/explorer/test/repair/receipt_commit_inclusion_test.exs, services/explorer/backend/apps/explorer/test/repair/receipt_endpoint_configuration_test.exs, services/explorer/backend/apps/explorer/test/repair/archive_receipt_and_live_signature_test.exs, services/explorer/backend/apps/explorer/test/repair/capability_snapshot_and_feed_health_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+symbols = []
+
+[capability.22.39.627]
+title = "Let the repair cases of the explorer that use the database own their connections within the whole suite"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/validator_block_count_reconciliation_test.exs apps/explorer/test/repair/database_migration_lock_and_index_recovery_test.exs apps/explorer/test/repair/missing_block_range_replacement_test.exs apps/explorer/test/repair/interop_message_export_state_test.exs apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs apps/explorer/test/repair/migration_cache_recovery_test.exs"
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/repair/validator_block_count_reconciliation_test.exs, services/explorer/backend/apps/explorer/test/repair/database_migration_lock_and_index_recovery_test.exs, services/explorer/backend/apps/explorer/test/repair/missing_block_range_replacement_test.exs, services/explorer/backend/apps/explorer/test/repair/interop_message_export_state_test.exs, services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs, services/explorer/backend/apps/explorer/test/repair/migration_cache_recovery_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+symbols = []
 
 [capability.22.39.626]
 title = "Answer the block route of the transaction service for a block with the sequence batch entry"
@@ -197341,9 +197629,510 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.654]
+title = "Call the load test command of the wallet attestor proof with the options the command requires"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.654"]
+interfaces = []
+do_1 = "do_1 Gotcha 4495, decision 3576. Read the function proofS28Loadtest and its caller in services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go, the files main.go and manifest.go of services/wallet/attestor/cmd/loadtest with the tests beside them, and the attestor job of .github/workflows/wallet-go-test.yml."
+do_2 = "do_2 The command requires a manifest path and one of the phases export, generate and sign, and the proof step still calls it without them, so the command ends while it reads its options. Write the step so that it calls the command in its present form with the attestors of the proof and asserts an answer that comes from those attestors: the inventory refusal with the code the step names today where the phases reach it. Where the number of attestors of the proof cannot satisfy a rule of the command, bring the proof to the number the command requires if the helpers of the file allow it; if they do not, assert the exact refusal of that rule by its message and state the reason in one comment line. An assertion that any error at all satisfies is not enough."
+do_3 = "do_3 Change only the test file. If the command itself is wrong, change nothing there and give file, function and first message in the final message."
+do_4 = "do_4 Before the verification install what the attestor job installs before its test step, in the order of the job, and set the variables its test step sets."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/attestor && go vet ./internal/server/ ./cmd/loadtest/"
+verify_cmd = "cd services/wallet/attestor && CGO_ENABLED=1 go test -count=1 ./internal/server/ -run TestProofS28WalletAttestorsTss"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.652]
+title = "Run every Go build of the joined services fixture of the launchpad web tests with the workspace off"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.652"]
+interfaces = []
+do_1 = "do_1 Gotcha 4495, decision 3576. Read apps/launchpad/web/src/widgets/trading/run-joined-services.py from the loop that builds the five services to the step that builds and runs the migration command of the stats service, the method run of the fixture owner in apps/launchpad/web/scripts/prepare-test-environment.py, and the Go version lines of services/launchpad/go.work and of the go.mod of the stats service."
+do_2 = "do_2 The five service builds run with the environment that turns the workspace off; the build named joined-build-stats-migrate runs with the environment of the owner, in which the workspace file decides the Go version. Give that build the same build environment as the service builds, through one helper both use, so that no Go build of the file can run with the workspace on."
+do_3 = "do_3 In apps/launchpad/web/scripts/prepare-test-environment.py the method run raises an error that names only the step, the status and the log path. Add the last 40 lines of the log to the message, the way the migration step of apps/launchpad/web/src/widgets/trading/run-joined-services.py already reports its own log. The lines of a log can hold a connection string: replace in the message every word that holds :// by the word URL."
+do_4 = "do_4 Add tests/ci/test_launchpad_joined_builds.py: it loads apps/launchpad/web/scripts/prepare-test-environment.py by path, runs the method run with a command that prints two lines and ends with status 3 and expects both lines, the status and no :// in the message; and it reads apps/launchpad/web/src/widgets/trading/run-joined-services.py as a syntax tree and fails when a call that runs go build is outside the helper of do_2 or when the helper does not set GOWORK to off."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading/run-joined-services.py", "apps/launchpad/web/scripts/prepare-test-environment.py"]
+tests = []
+planned_paths = ["tests/ci/test_launchpad_joined_builds.py"]
+build_cmd = "python3 -m py_compile apps/launchpad/web/src/widgets/trading/run-joined-services.py apps/launchpad/web/scripts/prepare-test-environment.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_joined_builds.py && (cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go build -o /dev/null ./cmd/stats-migrate)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.651]
+title = "Write the service health commands and the package selection of the launchpad test workflow in the form their tools read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.651"]
+interfaces = []
+do_1 = "do_1 Gotcha 4495, decision 3576. Read .github/workflows/launchpad-test.yml whole, the cases of tests/ci/test_launchpad_go_tests_wired.py, tests/ci/test_launchpad_test_workflow.py, tests/ci/test_pnpm_workspace_roots.py and tests/ci/test_js_suites_have_runner.py that read it, and apps/launchpad/pnpm-workspace.yaml with the field packageManager of apps/launchpad/package.json."
+do_2 = "do_2 In the shared service definition of the Go jobs write the health command of the database container and of the store container in a form the container tool reads as one command: double quotes around the command, or a command of one word. The tool receives the options as words without a shell, so single quotes do not group. The other options and both jobs that use the definition stay."
+do_3 = "do_3 The step Test package must select exactly one project for every entry of its matrix other than the web entry. Find with the package manager itself why the present selector matches no project: run the manager with the options of the step and the subcommand list at depth -1 for one entry under sdk/launchpad/packages and for apps/launchpad/mobile, from the working directory the step states. Where the manager is absent install the version apps/launchpad/package.json names with npm install --global. Write the step so that each entry selects its one project, by a selector or a working directory the manager resolves, and keep --fail-if-no-match."
+do_4 = "do_4 In tests/ci/test_launchpad_go_tests_wired.py the case on the reward schema fixture names the directory that is in the tree, testdata/reward_schema under the application package of the profit and loss service; the workflow already names it. Bring the cases of tests/ci/test_launchpad_test_workflow.py, tests/ci/test_pnpm_workspace_roots.py and tests/ci/test_js_suites_have_runner.py that state the form of the package step and of the service options in line with the forms of do_2 and do_3, and add to tests/ci/test_launchpad_test_workflow.py one case that fails when a health command of a service container of this workflow holds a single quote."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci/test_launchpad_go_tests_wired.py", "tests/ci/test_launchpad_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py", "tests/ci/test_js_suites_have_runner.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.650]
+title = "Compose the startup documents of the launchpad livestream service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.650"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of livestream in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/livestream/internal/config in services/launchpad/livestream and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/livestream.py so that the composer writes for the service livestream no document beyond the budget and the expected schema. Add deploy/launchpad/documents/values/livestream.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/livestream/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/livestream/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/livestream/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/livestream.py", "deploy/launchpad/documents/values/livestream.example.json", "services/launchpad/livestream/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/livestream && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/livestream && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.649]
+title = "Compose the startup documents of the launchpad metadata service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.649"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of metadata in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/metadata/internal/config in services/launchpad/metadata and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/metadata.py so that the composer writes for the service metadata the document METADATA_PUBLICATION_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/metadata.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/metadata/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/metadata/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/metadata.py", "deploy/launchpad/documents/values/metadata.example.json", "services/launchpad/metadata/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/metadata && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/metadata && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.648]
+title = "Compose the startup documents of the launchpad social service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.648"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of social in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/social/internal/config in services/launchpad/social and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/social.py so that the composer writes for the service social the document SOCIAL_RUNTIME_DOCUMENT. Add deploy/launchpad/documents/values/social.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/social/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/social/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/social.py", "deploy/launchpad/documents/values/social.example.json", "services/launchpad/social/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/social && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/social && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.647]
+title = "Compose the startup documents of the launchpad user service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.647"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of user in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/user/internal/config in services/launchpad/user and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/user.py so that the composer writes for the service user the document ACCOUNT_SUBJECTS_DOCUMENT. Add deploy/launchpad/documents/values/user.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/user/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/user/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/user/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/user.py", "deploy/launchpad/documents/values/user.example.json", "services/launchpad/user/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/user && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/user && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.646]
+title = "Compose the startup documents of the launchpad media gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.646"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of gateway in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/gateway/internal/config in services/launchpad/gateway and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/gateway.py so that the composer writes for the service gateway the documents GATEWAY_RUNTIME_DOCUMENT and IDENTITY_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/gateway.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/gateway/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/gateway/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/gateway.py", "deploy/launchpad/documents/values/gateway.example.json", "services/launchpad/gateway/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/gateway && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/gateway && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.645]
+title = "Compose the startup documents of the launchpad ranking service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.645"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of ranking in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/ranking-algo/internal/config in services/launchpad/ranking-algo and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/ranking.py so that the composer writes for the service ranking the document RANKING_RUNTIME_DOCUMENT. Add deploy/launchpad/documents/values/ranking.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/ranking-algo/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/ranking-algo/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/ranking.py", "deploy/launchpad/documents/values/ranking.example.json", "services/launchpad/ranking-algo/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/ranking-algo && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/ranking-algo && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.644]
+title = "Compose the startup documents of the launchpad profit and loss service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.644"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of pnl in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/pnl-tracker/internal/config in services/launchpad/pnl-tracker and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/pnl.py so that the composer writes for the service pnl the document DELIVERY_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/pnl.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/pnl-tracker/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/pnl-tracker/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/pnl.py", "deploy/launchpad/documents/values/pnl.example.json", "services/launchpad/pnl-tracker/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/pnl-tracker && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/pnl-tracker && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.643]
+title = "Compose the startup documents of the launchpad stats service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.643"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of stats in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of its package internal/config in the directory of the stats service under services/launchpad, whose binary is statsd and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/stats.py so that the composer writes for the service stats the document DELIVERY_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/stats.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in its package internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within its package internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/stats.py", "deploy/launchpad/documents/values/stats.example.json"]
+build_cmd = "(cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.642]
+title = "Compose the startup documents of the launchpad charts service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.642"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of charts in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/trading-charts/internal/config in services/launchpad/trading-charts and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/charts.py so that the composer writes for the service charts the documents CHART_FEATURES_CONFIG_DOCUMENT and DELIVERY_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/charts.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/trading-charts/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/trading-charts/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/charts.py", "deploy/launchpad/documents/values/charts.example.json", "services/launchpad/trading-charts/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/trading-charts && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/trading-charts && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.641]
+title = "Compose the startup documents of the launchpad indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.641"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entry of indexer in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/indexer/internal/config in services/launchpad/indexer and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/indexer.py so that the composer writes for the service indexer the documents DELIVERY_CONFIG_DOCUMENT, INDEXER_LIFECYCLE_CONFIG_DOCUMENT and INDEXER_RECEIPT_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/indexer.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/indexer/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/indexer/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/indexer.py", "deploy/launchpad/documents/values/indexer.example.json", "services/launchpad/indexer/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/indexer && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/indexer && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.640]
+title = "Compose the startup documents of the launchpad API in both roles"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.639"]
+reqs = ["22998.1"]
+capabilities = ["22.39.640"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the entries of api and api-sockets in the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the function Load of services/launchpad/api/internal/config in services/launchpad/api and every package it calls to read a startup document. Note for each document every field the loader requires and every rule it checks, and which other variables of the entry the loader reads together with it."
+do_2 = "do_2 Add deploy/launchpad/documents/api.py and deploy/launchpad/documents/api_sockets.py so that the composer writes for the service api the document ACCOUNTING_READ_CONFIG_DOCUMENT; for the service api-sockets the document STREAM_CONSUMER_CONFIG_DOCUMENT. Add deploy/launchpad/documents/values/api.example.json and deploy/launchpad/documents/values/api-sockets.example.json with what differs between deployments: endpoints, addresses, names, limits and periods, with values of a small deployment on Paxeer mainnet-beta, EVM chain 125. A field that holds a credential takes its value from the values file and the example carries a test value marked as one. A module refuses a missing or malformed value with the name of its key."
+do_3 = "do_3 Add the test platform_documents_test.go in services/launchpad/api/internal/config: it writes an expected schema document for the service into a temporary values directory beside the example values, runs the composer with python3, sets every fixed value and every required variable of the entry, the document and digest variables from the composed file and the others from test values and files the test makes, calls Load and requires no error, once for each of the two services. One more case changes one byte of each document in turn and requires Load to refuse it. The test needs python3 and skips nothing."
+do_4 = "do_4 Where Load cannot accept a variable in the form the contract states, repair the loader within services/launchpad/api/internal/config and say so in the final message; change no other behaviour of the service. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/config"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/api.py", "deploy/launchpad/documents/api_sockets.py", "deploy/launchpad/documents/values/api.example.json", "deploy/launchpad/documents/values/api-sockets.example.json", "services/launchpad/api/internal/config/platform_documents_test.go"]
+build_cmd = "(cd services/launchpad/api && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd services/launchpad/api && GOWORK=off GOFLAGS=-mod=readonly go test ./internal/config -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.639]
+title = "Add the composer of the launchpad startup documents with the budget and expected schema documents"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.639"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read the variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad), the functions ParseConnectionBudget and LoadConnectionBudget of sdk/launchpad/shared/db/production/allocation.go with the rules they check, LoadExpectedSchema of sdk/launchpad/shared/db/production/migrations.go, and how one service, for example services/launchpad/api/internal/config/config.go, reads a document variable and its digest variable."
+do_2 = "do_2 Add deploy/launchpad/documents/compose.py with the options --values or --examples, --out and --service, which may repeat. It reads the contract for the names of the services and of the document variables each requires. For a service it loads the module of that name beside it, when present, and asks it for the documents of the service; the module common.py gives DB_BUDGET and EXPECTED_SCHEMA for every service. It writes each document as JSON bytes in one stable form, and to the file of the service under --out, with mode 600, the variable ending in _DOCUMENT with the standard base64 of the bytes and the variable ending in _SHA256 with their digest in the form the loaders compare. It refuses, with the service and the name, a required document no module gives, a document the contract does not require, an unknown service and a missing values file, and prints names and digests only."
+do_3 = "do_3 Add deploy/launchpad/documents/common.py: the connection budget is composed from common.json, which states the limits of the database, the poolers and one entry for each of the twelve services, so that LoadConnectionBudget accepts it; every service receives the same budget document. The expected schema document of a service is taken as it stands from expected-schema in the values directory, after a check that it is one JSON object naming that service. Add deploy/launchpad/documents/values/common.example.json with values of a small deployment and no credential, deploy/launchpad/documents/test_compose.py for the refusals, the digests, the file mode and the equal budget of all services, and deploy/launchpad/documents/README.md with the use of the composer and the form of a values directory. Name the composer in deploy/launchpad/README.md in one line of its layout."
+do_4 = "do_4 Add sdk/launchpad/shared/db/production/platform_documents_test.go: it writes an expected schema document for each service into a temporary values directory beside the example values, runs the composer with python3, and requires that LoadConnectionBudget and LoadExpectedSchema accept the composed variables of every service with their digests, and refuse them after one byte of a document changed."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/README.md"]
+tests = []
+planned_paths = ["deploy/launchpad/documents/compose.py", "deploy/launchpad/documents/common.py", "deploy/launchpad/documents/values/common.example.json", "deploy/launchpad/documents/test_compose.py", "deploy/launchpad/documents/README.md", "sdk/launchpad/shared/db/production/platform_documents_test.go"]
+build_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production -run PlatformDocuments -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.638]
+title = "Add the command that applies the registered launchpad migrations and writes the expected schema document"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.638"]
+interfaces = []
+do_1 = "do_1 Gotcha 4494, decision 3575. Read sdk/launchpad/shared/db/production/migrations.go, roles.go and allocation.go, the function Bootstrap of sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go, and under migrations the files registry.json, grants.json, legacy-history-aliases.json and readiness.json with the section on the launchpad in migrations/README.md."
+do_2 = "do_2 Add the command sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go with three modes. apply reads the administrator connection string from LAUNCHPAD_ADMIN_DATABASE_URL and the directory of the migrations from --migrations, creates the control objects, applies every registered migration that is not recorded yet in the order of the registry through ApplyRegisteredMigration, creates the runtime roles and applies the grants of grants.json, in the order of calls Bootstrap uses; a second run changes nothing. For a database that holds the history of the migrations a service carried itself it records the baseline through ImportLegacyBaseline as the aliases file states. expected takes --service, --runtime-role, --region and --out, reads the migrated database and writes the expected schema document of the service, a document LoadExpectedSchema accepts and CheckReadiness passes on that database, and prints only its digest. check takes --expected and --sha256, reads the runtime connection string from LAUNCHPAD_RUNTIME_DATABASE_URL and runs CheckReadiness."
+do_3 = "do_3 The command never prints a connection string or a password. It ends with 0 on success, 1 on a refusal with the reason in one line, and 2 on a usage error. Share code with Bootstrap where that keeps one order of calls; the behaviour of Bootstrap for its present callers stays."
+do_4 = "do_4 Add sdk/launchpad/shared/db/production/cmd/launchpad-schema/main_test.go: on the database the tests of the package use, with the same rule for its absence, apply on an empty database, expected for two services and check pass; a second apply changes nothing; check refuses after a table of the service changed; and without a database the usage errors end with 2. Add sdk/launchpad/shared/db/production/cmd/launchpad-schema/README.md with the three modes, their variables and exit codes in neutral words."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/db/production/coordinatortest"]
+tests = []
+planned_paths = ["sdk/launchpad/shared/db/production/cmd/launchpad-schema/main.go", "sdk/launchpad/shared/db/production/cmd/launchpad-schema/main_test.go", "sdk/launchpad/shared/db/production/cmd/launchpad-schema/README.md"]
+build_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "(cd sdk/launchpad/shared && GOWORK=off GOFLAGS=-mod=readonly go vet ./db/production/cmd/launchpad-schema && GOWORK=off GOFLAGS=-mod=readonly go test ./db/production/cmd/launchpad-schema -count=1)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.617]
 title = "Bring the wallet wire vectors and their copies into one form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197408,7 +198197,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.583]
 title = "Add the container file of the service ai-evaluator and define it in the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -242835,9 +243624,40 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.653]
+title = "Skip the wallet policy case of the web search application proof when the proof passes no calldata"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.653"]
+interfaces = []
+do_1 = "do_1 Gotcha 4495, decisions 3576 and 2501. Read the case TestXweb0x1019ApplicationPolicy and the flag xweb-proof-calldata in services/wallet/attestor/internal/policy/policy_test.go, and in precompiles/xweb/proof_xweb_0x1019_test.go the call that runs this case with the flag."
+do_2 = "do_2 When the flag is empty the case ends as skipped, with a reason that names the flag and the proof that passes it. When the flag holds a value the case runs as it does today, and a value shorter than a selector still fails. Change nothing in the proof and nothing else in the case."
+do_3 = "do_3 Add beside the case one case named TestXweb0x1019ApplicationPolicyNeedsProofInput that runs the test binary of the package again for the first case alone, once without the flag and once with a value of two bytes, and expects the word SKIP in the first output and a failure in the second. Use the path of the running test binary; where it cannot be run again the new case fails."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/attestor/internal/policy/policy_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/attestor && go vet ./internal/policy/"
+verify_cmd = "cd services/wallet/attestor && go test -count=1 ./internal/policy/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.626]
 title = "Answer the block route of the transaction service for a block with the sequence batch entry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378130,7 +378950,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.625]
 title = "Build the backend image of the explorer from the repository root in every caller"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378256,7 +379076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.615]
 title = "Let the definitions of the project sites load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.606", "22.39.607", "22.39.608"]
@@ -378352,7 +379172,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.611]
 title = "Let the definitions of the project platform load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.576", "22.39.577", "22.39.578", "22.39.579", "22.39.580", "22.39.581", "22.39.582", "22.39.583", "22.39.584", "22.39.585", "22.39.586", "22.39.587", "22.39.588", "22.39.589", "22.39.590", "22.39.591", "22.39.592", "22.39.593"]
@@ -378381,6 +379201,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3571, gotcha 4490. This replaces the sentence of do_2 that the env names stay as they are, for the definitions the tool refuses. In agent-boundary, dashboard and webhooks-public and in any other definition of the folder the load function refuses for an env name, give each key the name of decision 3564 in the vars section and in the inputs section, keep word and comment of each input, and give each of two keys that read one input its own name or state the value plainly where the container fixes it. In webhooks-public leave out the two certificate variables in PEM form that no file of the service reads, with their inputs, so the test of that definition passes without a change to its check of readers. Bring the tests of the changed definitions under tools/deploy/tests/projects in line with the names and change nothing else of them. The work of the earlier candidate stays where it agrees with this. Run the whole verify command locally before the counted verification. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.610]
 title = "Let the project tool name inputs by the folder and take the repository from the project file"
@@ -379438,7 +380259,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.566]
 title = "Point the asset and hygiene checks at the files of the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.617"]
@@ -457711,6 +458532,347 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.637]
+title = "Let the apps of the explorer backend compile whole without a warning"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.637"]
+interfaces = []
+do_1 = "do_1 Gotcha 4493, decision 3574. In services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex let the private request function take its query without a default, since every call gives it."
+do_2 = "do_2 Run services/explorer/deploy/tools/mix-in-builder.sh compile --force once. Where the compile of an app stops on a warning of a source file under its lib directory, repair the source so the warning is gone and run it again until all four apps compile. Change no compiler option, alias or annotation, and no behaviour of a function."
+do_3 = "do_3 Give in the final message each file changed with its warning. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib", "services/explorer/backend/apps/ethereum_jsonrpc/lib", "services/explorer/backend/apps/indexer/lib", "services/explorer/backend/apps/block_scout_web/lib"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile --force"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.636]
+title = "Let the acceptance replay of the explorer read the blocks of one step side by side"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.624"]
+reqs = ["22998.1"]
+capabilities = ["22.39.636"]
+interfaces = []
+do_1 = "do_1 Gotcha 4492, decision 3573. Read services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, its step and the option acceptance_backfill_concurrency, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex and the settings of the price feed in services/explorer/backend/config/runtime.exs."
+do_2 = "do_2 Let one step read the retained or node-served contents of its blocks side by side, up to the number the option gives, and apply the results in the order of the heights, each block in its own transaction as today. A block whose read fails is held or deferred as today and does not stop the other blocks of the step. Change no reading of block entries task 22.39.624 made."
+do_3 = "do_3 Read the option from the setting PAXEER_X_PRICE_FEED_REPLAY_CONCURRENCY in services/explorer/backend/config/runtime.exs beside PAXEER_X_PRICE_FEED_CONCURRENCY, default 4, a value below 1 refused when the settings are read, and name the setting where the README of the backend names the other settings of the price feed."
+do_4 = "do_4 Add to services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_pace_test.exs a case with a node stub that answers each block after a fixed wait and shows that a step of eight blocks with the option at 8 ends in less than half the time of the same step with the option at 1, with the same stored result; and a case in which one block of the step fails and the others are applied. Keep the cases of services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs passing."
+do_5 = "do_5 Give in the final message the blocks per step and the reads that run side by side. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/test/repair", "services/explorer/backend/config", "services/explorer/backend/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_pace_test.exs apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.635]
+title = "Let the store of the price submissions of a block add to the total without counting the table"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.635"]
+interfaces = []
+do_1 = "do_1 Gotcha 4492, decision 3573. Read services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex, the function that stores the submissions of a block and the function that adds to the total counter, and the cases of services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs on the total."
+do_2 = "do_2 Let a store add its difference to the existing counter row by one statement that does not read the table of submissions. Read the number of stored submissions only when the counter row does not exist, and let two stores that meet at that moment end with one row that holds the right total. Keep the value the statistics response gives."
+do_3 = "do_3 Add to services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs a case that sets the counter row to a value that differs from the number of stored submissions, stores a block and finds the counter moved by the difference of that block only; a case that stores a block with no counter row and finds the number of stored submissions; and a case that watches the statements of the repository during a store with an existing row and finds no statement that counts the table of submissions."
+do_4 = "do_4 Give in the final message the statements one store issues before and after. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.634]
+title = "Let the suite of the explorer and JSON-RPC apps pass whole in the builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.627", "22.39.628", "22.39.629", "22.39.630", "22.39.631", "22.39.632", "22.39.633"]
+reqs = ["22998.1"]
+capabilities = ["22.39.634"]
+interfaces = []
+do_1 = "do_1 Gotcha 4491, decision 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test with no path once, the form .github/workflows/explorer-images.yml uses, and list every case that does not pass with file and first message."
+do_2 = "do_2 Bring each listed case in line by decision 3572, case or source, as the tasks 22.39.627 to 22.39.633 did for their files. Follow decision 3572. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. "
+do_3 = "do_3 Run the whole suite twice more by hand with two different orders of the files and repair what the other order shows."
+do_4 = "do_4 Give in the final message the count of cases of the last whole run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/ethereum_jsonrpc/lib"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.633]
+title = "Let the price acceptance cases of the explorer own their connections within the whole suite"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.624", "22.39.627"]
+reqs = ["22998.1"]
+capabilities = ["22.39.633"]
+interfaces = []
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs, services/explorer/backend/apps/explorer/test/repair/historical_price_acceptance_replay_test.exs, services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs, services/explorer/backend/apps/explorer/test/repair/price_acceptance_column_test.exs, services/explorer/backend/apps/explorer/test/explorer/repo/tune_paxeer_x_price_feed_tables_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+do_2 = "do_2 Each case of these files that uses the database takes the ownership of its connection itself and gives it back; the replay process a case starts is allowed by the case and stopped by it; a case that runs a migration or a script of the migrations directory does so on a connection it owns. Use the repair of the support files task 22.39.627 made and change no reading of block entries task 22.39.624 made."
+do_3 = "do_3 Follow decision 3572. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. "
+do_4 = "do_4 Run the files of this task together through the verify command, then the whole suite once more by hand, and give in the final message the count of cases of the whole suite and the cases of the files of this task among them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs apps/explorer/test/repair/historical_price_acceptance_replay_test.exs apps/explorer/test/repair/price_acceptance_node_failover_test.exs apps/explorer/test/repair/price_acceptance_column_test.exs apps/explorer/test/explorer/repo/tune_paxeer_x_price_feed_tables_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.632]
+title = "Let the websocket recovery cases of the JSON-RPC client hold within the whole suite"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.632"]
+interfaces = []
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_tls_reconnect_test.exs, services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_subscription_failback_test.exs, services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_recovery_test.exs, with services/explorer/backend/apps/ethereum_jsonrpc/test/test_helper.exs and the support files they use."
+do_2 = "do_2 Each case uses listeners, ports and named processes of its own and stops them, and receives the recovered phase and the tagged terminal messages within its wait also when the files of the app run together. Where the client loses a message of the recovery under load, the client is repaired; a longer wait alone is no repair."
+do_3 = "do_3 Follow decision 3572. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. "
+do_4 = "do_4 Run the files of this task together through the verify command, then the whole suite once more by hand, and give in the final message the count of cases of the whole suite and the cases of the files of this task among them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/ethereum_jsonrpc/lib"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/ethereum_jsonrpc/test/repair/websocket_tls_reconnect_test.exs apps/ethereum_jsonrpc/test/repair/websocket_subscription_failback_test.exs apps/ethereum_jsonrpc/test/repair/websocket_recovery_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.631]
+title = "Let the release, database TLS and account migration cases of the explorer read files of the tree"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.631"]
+interfaces = []
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/repair/production_database_tls_test.exs, services/explorer/backend/apps/explorer/test/repair/production_release_configuration_test.exs, services/explorer/backend/apps/explorer/test/repair/account_migration_cli_options_test.exs, services/explorer/backend/apps/explorer/test/repair/account_migration_preview_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+do_2 = "do_2 The cases on database TLS and on the release configuration name their certificate fixtures by the present path under services/explorer/backend/apps/explorer/config; where the fixtures are not in the tree, the case builds them in a temporary directory with the tools the builder has. The case on the release configuration reads a release the case built or the file the builder provides, not a path only an image build has. A document under services/explorer/deploy that links the guide of database TLS names its present path. The cases on the account migration set the settings of the source provider and serve its recorded answers from a local stub, so the first phase is reached without an outside address."
+do_3 = "do_3 Follow decision 3572. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. "
+do_4 = "do_4 Run the files of this task together through the verify command, then the whole suite once more by hand, and give in the final message the count of cases of the whole suite and the cases of the files of this task among them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib", "services/explorer/backend/apps/explorer/config", "services/explorer/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/production_database_tls_test.exs apps/explorer/test/repair/production_release_configuration_test.exs apps/explorer/test/repair/account_migration_cli_options_test.exs apps/explorer/test/repair/account_migration_preview_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.630]
+title = "Let the contract and import cases of the explorer state the calls the source makes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.630"]
+interfaces = []
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/internal_transactions_test.exs, services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy_test.exs, services/explorer/backend/apps/explorer/test/explorer/chain/smart_contract/proxy/models/implementation_test.exs, services/explorer/backend/apps/explorer/test/explorer/smart_contract/helper_test.exs, services/explorer/backend/apps/explorer/test/repair/compiler_version_configuration_restoration_test.exs, services/explorer/backend/apps/explorer/test/explorer/chain/import/runner/address/current_token_balances_test.exs, services/explorer/backend/apps/explorer/test/explorer/microservice_interfaces/metadata_test.exs, services/explorer/backend/apps/explorer/test/repair/contract_metadata_scam_badge_and_token_pagination_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+do_2 = "do_2 The cases on internal transactions, on proxies and on implementations state an expectation for every JSON-RPC call the source makes and as many as it makes, within the process that makes it. The case of compiler_version_configuration_restoration and the case of the contract helper use a fixture function that exists and is compiled for the test environment. The case on the metadata service answers from a local stub and reaches no outside address. The case on current token balances and the case on contract metadata state the values the importer and the reader give for the rows the case inserts, or the source is repaired."
+do_3 = "do_3 Follow decision 3572. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. "
+do_4 = "do_4 Run the files of this task together through the verify command, then the whole suite once more by hand, and give in the final message the count of cases of the whole suite and the cases of the files of this task among them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/import/runner/internal_transactions_test.exs apps/explorer/test/explorer/chain/smart_contract/proxy_test.exs apps/explorer/test/explorer/chain/smart_contract/proxy/models/implementation_test.exs apps/explorer/test/explorer/smart_contract/helper_test.exs apps/explorer/test/repair/compiler_version_configuration_restoration_test.exs apps/explorer/test/explorer/chain/import/runner/address/current_token_balances_test.exs apps/explorer/test/explorer/microservice_interfaces/metadata_test.exs apps/explorer/test/repair/contract_metadata_scam_badge_and_token_pagination_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.629]
+title = "Let the market and configuration cases of the explorer follow the present fetchers"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.629"]
+interfaces = []
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/explorer/market/fetcher/history_test.exs, services/explorer/backend/apps/explorer/test/explorer/market/fetcher/coin_test.exs, services/explorer/backend/apps/explorer/test/explorer/market/source/coin_market_cap_test.exs, services/explorer/backend/apps/explorer/test/repair/token_btc_conversion_and_task_recovery_test.exs, services/explorer/backend/apps/explorer/test/explorer/chain/supply/rsk_test.exs, services/explorer/backend/apps/explorer/test/explorer/config_helper_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+do_2 = "do_2 The cases on the coin fetcher and the history fetcher follow the present state of the fetchers, the fields tasks and failures among them, and the messages the fetchers handle; where a fetcher has no clause for a message a case of a later task sends and that task is the newer one, the fetcher takes the message. The cases on the CoinMarketCap source state the values the source builds from the recorded answer. The case of config_helper on the JSON-RPC transport requires that a websocket scheme is refused: the helper refuses it. The case on the RSK supply sets the expectations of the calls the source makes."
+do_3 = "do_3 Follow decision 3572. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. "
+do_4 = "do_4 Run the files of this task together through the verify command, then the whole suite once more by hand, and give in the final message the count of cases of the whole suite and the cases of the files of this task among them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib", "services/explorer/backend/config"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/fetcher/history_test.exs apps/explorer/test/explorer/market/fetcher/coin_test.exs apps/explorer/test/explorer/market/source/coin_market_cap_test.exs apps/explorer/test/repair/token_btc_conversion_and_task_recovery_test.exs apps/explorer/test/explorer/chain/supply/rsk_test.exs apps/explorer/test/explorer/config_helper_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.628]
+title = "Let the receipt and committed status cases of the explorer hold within the whole suite"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.628"]
+interfaces = []
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/repair/committed_status_evidence_test.exs, services/explorer/backend/apps/explorer/test/repair/receipt_commit_inclusion_test.exs, services/explorer/backend/apps/explorer/test/repair/receipt_endpoint_configuration_test.exs, services/explorer/backend/apps/explorer/test/repair/archive_receipt_and_live_signature_test.exs, services/explorer/backend/apps/explorer/test/repair/capability_snapshot_and_feed_health_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+do_2 = "do_2 The cases on the receipt endpoints set every setting they read, the node URL and the gateway settings among them, and put them back. The cases on committed status evidence and on commit inclusion state the refusal the source gives for the recorded evidence in the order the source checks it, or the source is repaired where the recorded evidence shows its order wrong; the cases that wait for a receipt request receive it from the client the case configured. The case of archive_receipt_and_live_signature reads the route table of services/explorer/backend/README.md: the table lists the route /paxeer-x/archive/anchors as the router serves it. The cases of capability_snapshot_and_feed_health set the answers of the probe they depend on."
+do_3 = "do_3 Follow decision 3572. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. "
+do_4 = "do_4 Run the files of this task together through the verify command, then the whole suite once more by hand, and give in the final message the count of cases of the whole suite and the cases of the files of this task among them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib", "services/explorer/backend/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/committed_status_evidence_test.exs apps/explorer/test/repair/receipt_commit_inclusion_test.exs apps/explorer/test/repair/receipt_endpoint_configuration_test.exs apps/explorer/test/repair/archive_receipt_and_live_signature_test.exs apps/explorer/test/repair/capability_snapshot_and_feed_health_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.627]
+title = "Let the repair cases of the explorer that use the database own their connections within the whole suite"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.627"]
+interfaces = []
+do_1 = "do_1 Gotcha 4491, decision 3572. The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path, the form .github/workflows/explorer-images.yml uses. Run it once that way before any change and keep the list of its cases. Then read the files of this task: services/explorer/backend/apps/explorer/test/repair/validator_block_count_reconciliation_test.exs, services/explorer/backend/apps/explorer/test/repair/database_migration_lock_and_index_recovery_test.exs, services/explorer/backend/apps/explorer/test/repair/missing_block_range_replacement_test.exs, services/explorer/backend/apps/explorer/test/repair/interop_message_export_state_test.exs, services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs, services/explorer/backend/apps/explorer/test/repair/migration_cache_recovery_test.exs, with services/explorer/backend/apps/explorer/test/test_helper.exs and the support files they use."
+do_2 = "do_2 Each case of these files that uses the database takes the ownership of its connection itself and gives it back, and does not depend on the mode another file left; a process a case starts that reads the database is allowed by the case or shares its connection; a supervised process a case starts is stopped by the case that started it. The case of migration_cache_recovery starts the block number cache with the settings the cache requires. The case of missing_block_range_and_rate_limit_state states the answer the source gives for a second start, or the source is repaired. Where the cause sits in a support file under services/explorer/backend/apps/explorer/test/support that other files use too, repair it there once."
+do_3 = "do_3 Follow decision 3572. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. "
+do_4 = "do_4 Run the files of this task together through the verify command, then the whole suite once more by hand, and give in the final message the count of cases of the whole suite and the cases of the files of this task among them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/explorer/lib"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/validator_block_count_reconciliation_test.exs apps/explorer/test/repair/database_migration_lock_and_index_recovery_test.exs apps/explorer/test/repair/missing_block_range_replacement_test.exs apps/explorer/test/repair/interop_message_export_state_test.exs apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs apps/explorer/test/repair/migration_cache_recovery_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.624]
 title = "Read the price submissions of a block from the consensus block route"
 status = "pending"
@@ -457776,7 +458938,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.622]
 title = "Let the acceptance replay take several blocks at a time and read a pruned height as unavailable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.621"]

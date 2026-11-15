@@ -22270,3 +22270,33 @@ fix = "Task texts say to leave the file as the spec tool wrote it."
 title = "The make target for the agent tests prepares the tests against a real node first"
 symptom = "The make target agent-test runs the prepare step of services/agent/tools/run-real-node-tests.sh before any crate, whatever the scope, and that step needs the contract tools. A verification that tests one crate without a node needs none of them."
 fix = "Decision 3570. The verification of such a task calls cargo for the crate."
+
+[gotcha.4490]
+title = "Three definitions of the folder platform state env names by the project key and one input under two keys"
+symptom = "The definitions agent-boundary, dashboard and webhooks-public of deploy/projects/platform form their env names with the project key in front of the folder name, and agent-boundary reads one input under two keys. The rule of decision 3564 forms the name from folder, service and variable, one name for one key. The definition webhooks-public also states two certificate variables in PEM form that no file of the service reads; its own test requires every variable to have a reader."
+fix = "Decision 3571. Task 22.39.611 brings the three definitions in line."
+
+[gotcha.4491]
+title = "Cases of the explorer backend share state within the whole suite"
+symptom = "The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path. Within the whole suite the files share what a single file has to itself: the ownership mode of the database connections, the application settings, named processes and caches, and the mock expectations of the JSON-RPC client. Some cases also name a file or directory by a path the tree no longer has, or state a value of a source that a later task changed."
+fix = "Decision 3572. Tasks 22.39.627 to 22.39.634."
+
+[gotcha.4492]
+title = "The store of the price updates of a block reads the number of all stored submissions"
+symptom = "The price feed of the explorer keeps the number of submissions stored since the first scan in a counter row. The store of the submissions of a block in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex reads the number of all stored submissions as the first value of that counter on every store that changes the number, although the first value is used only when the counter row does not exist yet. The acceptance replay takes the blocks of one step one after the other."
+fix = "Decision 3573. Tasks 22.39.635 and 22.39.636."
+
+[gotcha.4493]
+title = "A whole compile of the explorer app stops on a default argument no call uses"
+symptom = "The apps of the explorer backend compile with warnings as errors outside the development environment. The private request function of services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex states a default for its query that no call uses, which is a compiler warning. A compile that takes only changed files does not reach the file; a compile of the whole app does, for example after a change in the JSON-RPC client the app depends on."
+fix = "Decision 3574. Task 22.39.637."
+
+[gotcha.4494]
+title = "The variable contract of the launchpad names startup documents that no tool composes"
+symptom = "On the hosting platform a launchpad service takes each startup document as a variable that holds the standard base64 of the JSON bytes, beside a variable that holds the digest of those bytes. The variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad) requires these variables for all twelve services, but no tool of the tree writes them, and no command applies the registered migrations under migrations to a database outside a test. The expected schema document of a service carries values that only a migrated database gives."
+fix = "Decision 3575. Tasks 22.39.638 to 22.39.650."
+
+[gotcha.4495]
+title = "A test job gives each tool its input in the form the tool reads"
+symptom = "The options of a service container of a workflow reach the container tool as words without a shell, so a health command of several words is written with double quotes or as one word, never with single quotes. A path selector of the package manager is resolved from the directory the manager runs in, and a selector is right only when the manager lists exactly one project for it. A Go build inside a directory that a workspace file covers follows the Go version of the workspace file unless the workspace is off, whatever the module states. A test case that takes its input through a flag from a proof has no input in a plain run of its package. A proof that runs a command of the tree must call it with the options the command requires today."
+fix = "Decision 3576. Tasks 22.39.651 to 22.39.654."

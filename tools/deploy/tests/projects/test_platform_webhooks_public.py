@@ -125,7 +125,7 @@ def test_webhooks_public_definition_tracks_real_service_inputs() -> None:
     inputs = sections["inputs.webhooks-public"]
 
     assert service["kind"] == "repo"
-    assert service["container"] == "docker/platform-webhooks/Dockerfile"
+    assert service["dockerfile"] == "docker/platform-webhooks/Dockerfile"
     assert service["root"] == "."
     assert service["health"] == "/healthz"
     assert service["restart"] == "ALWAYS"
@@ -143,7 +143,7 @@ def test_webhooks_public_definition_tracks_real_service_inputs() -> None:
     assert expected <= set(vars_), sorted(expected - set(vars_))
     assert set(vars_) <= (_source_environment_names() | _file_inputs() | _build_args())
 
-    generated_prefix = "PAXEER_X_PLATFORM_WEBHOOKS_PUBLIC_"
+    generated_prefix = "PLATFORM_WEBHOOKS_PUBLIC_"
     env_refs = {
         value.removeprefix("env:"): key
         for key, value in vars_.items()
@@ -158,7 +158,7 @@ def test_webhooks_public_definition_tracks_real_service_inputs() -> None:
 
     raw_lines = DEFINITION.read_text().splitlines()
     for index, line in enumerate(raw_lines):
-        if not line.startswith("PAXEER_X_PLATFORM_WEBHOOKS_PUBLIC_"):
+        if not line.startswith("PLATFORM_WEBHOOKS_PUBLIC_"):
             continue
         previous = raw_lines[index - 1].strip()
         assert previous.startswith("#"), line
