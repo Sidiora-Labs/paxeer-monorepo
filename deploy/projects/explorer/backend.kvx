@@ -1,0 +1,77 @@
+[service.backend]
+kind = "repo"
+dockerfile = "docker/explorer-backend/Dockerfile"
+root = "/"
+watch = [
+  "/docker/explorer-backend/**",
+  "/docker/common/**",
+  "/services/explorer/backend/**",
+]
+health = "/api/health/liveness"
+restart = "ON_FAILURE"
+replicas = 1
+public = 1
+order = 1
+needs = []
+
+[vars.backend]
+PORT = "4000"
+DATABASE_URL = "env:EXPLORER_BACKEND_DATABASE_URL"
+SECRET_KEY_BASE = "env:EXPLORER_BACKEND_SECRET_KEY_BASE"
+CHAIN_ID = "env:EXPLORER_BACKEND_CHAIN_ID"
+ETHEREUM_JSONRPC_HTTP_URL = "env:EXPLORER_BACKEND_ETHEREUM_JSONRPC_HTTP_URL"
+ETHEREUM_JSONRPC_TRACE_URL = "env:EXPLORER_BACKEND_ETHEREUM_JSONRPC_TRACE_URL"
+ETHEREUM_JSONRPC_ETH_CALL_URL = "env:EXPLORER_BACKEND_ETHEREUM_JSONRPC_ETH_CALL_URL"
+ETHEREUM_JSONRPC_WS_URL = "env:EXPLORER_BACKEND_ETHEREUM_JSONRPC_WS_URL"
+BLOCKSCOUT_HOST = "env:EXPLORER_BACKEND_BLOCKSCOUT_HOST"
+BLOCKSCOUT_PROTOCOL = "https"
+API_URL = "env:EXPLORER_BACKEND_API_URL"
+WEBAPP_URL = "env:EXPLORER_BACKEND_WEBAPP_URL"
+CHECK_ORIGIN = "true"
+DATABASE_SSL_CA_CERT_FILE = "env:EXPLORER_BACKEND_DATABASE_SSL_CA_CERT_FILE"
+NETWORK = "Paxeer X"
+SUBNETWORK = "Paxeer X"
+COIN = "PAX"
+COIN_NAME = "Paxeer"
+DISABLE_MARKET = "true"
+CHAIN_TYPE = "paxeer_x"
+DISABLE_WEBAPP = "true"
+ADMIN_PANEL_ENABLED = "false"
+MICROSERVICE_SC_VERIFIER_URL = "http://${{smart-contract-verifier.RAILWAY_PRIVATE_DOMAIN}}:8050"
+MICROSERVICE_SC_VERIFIER_ENABLED = "true"
+DISABLE_API = "false"
+API_V1_READ_METHODS_DISABLED = "false"
+API_V1_WRITE_METHODS_DISABLED = "false"
+BRIDGED_TOKENS_ENABLED = "false"
+API_GRAPHQL_MAX_COMPLEXITY = "2000"
+MUD_INDEXER_ENABLED = "false"
+BLOCKSCOUT_USER = "blockscout"
+BLOCKSCOUT_GROUP = "blockscout"
+BLOCKSCOUT_UID = "10001"
+BLOCKSCOUT_GID = "10001"
+RELEASE_VERSION = "10.2.6"
+BLOCKSCOUT_VERSION = "v10.2.6"
+
+[inputs.backend]
+# Postgres connection URL for the explorer database, as a PostgreSQL URL with credentials.
+EXPLORER_BACKEND_DATABASE_URL = "provider"
+# Phoenix signing secret, as a randomly generated string of at least 64 bytes.
+EXPLORER_BACKEND_SECRET_KEY_BASE = "generated"
+# EIP-155 network identifier, as an unsigned decimal chain ID.
+EXPLORER_BACKEND_CHAIN_ID = "chain"
+# JSON-RPC HTTP endpoint, as an HTTPS URL to the archive node.
+EXPLORER_BACKEND_ETHEREUM_JSONRPC_HTTP_URL = "chain"
+# JSON-RPC trace endpoint, as an HTTPS URL supporting trace calls.
+EXPLORER_BACKEND_ETHEREUM_JSONRPC_TRACE_URL = "chain"
+# JSON-RPC eth_call endpoint, as an HTTPS URL supporting eth_call.
+EXPLORER_BACKEND_ETHEREUM_JSONRPC_ETH_CALL_URL = "chain"
+# JSON-RPC websocket endpoint, as a WSS URL accepting new-head subscriptions.
+EXPLORER_BACKEND_ETHEREUM_JSONRPC_WS_URL = "chain"
+# Public hostname for the explorer, as a DNS host name.
+EXPLORER_BACKEND_BLOCKSCOUT_HOST = "operator"
+# Public API base URL, as an HTTPS URL.
+EXPLORER_BACKEND_API_URL = "operator"
+# Public frontend base URL, as an HTTPS URL.
+EXPLORER_BACKEND_WEBAPP_URL = "operator"
+# Private database CA bundle path, as an absolute PEM file path.
+EXPLORER_BACKEND_DATABASE_SSL_CA_CERT_FILE = "provider"
