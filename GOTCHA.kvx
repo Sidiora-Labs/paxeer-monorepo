@@ -22455,3 +22455,8 @@ fix = "Decision 3608. The order of tasks 22.44.44 and 22.44.40."
 title = "Cases of the fast path state chain ids of chain names the product does not hold"
 symptom = "The chain id of the virtual machine comes from one table in modules/evm/config/config.go, which holds the chain name of the product, and every other chain name takes the default chain id. The package engine/deps/xevm/config reads that same table. The case TestGetChainID of engine/deps/xevm/keeper/keeper_test.go and cases of engine/deps/xevm/config/config_test.go state chain ids for chain names the table does not hold, and a verification that runs the package engine/deps/xevm/keeper whole holds the first of them."
 fix = "Decision 3609. Task 22.39.693; the verifications of tasks 22.39.679 and 22.39.689."
+
+[gotcha.4527]
+title = "The dashboard web lists the keys of a developer and the gateway issues them"
+symptom = "The gateway issues, lists, rotates and revokes the keys of a developer at /v1/keys for a caller whose session authorizes the signer: POST /v1/keys with an idempotency key header and the fields signer_public_key, scopes, quota_requests and quota_window_seconds, POST /v1/keys/ID/rotate, and DELETE /v1/keys/ID. The dashboard web keeps the session of the developer in a cookie the page cannot read, and its Keys view lists the keys the dashboard API returns. A control of the page reaches the gateway only through a route of the web that reads that cookie."
+fix = "Decision 3610. Task 22.39.694."
