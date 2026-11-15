@@ -24,7 +24,10 @@ function useInAppHistory(pathname: string): boolean {
   const previous = useRef<number | null>(null);
   useEffect(() => {
     const state: unknown = window.history.state;
-    const stamped = state && typeof state === 'object' ? (state as Record<string, unknown>)[DEPTH_KEY] : undefined;
+    const stamped =
+      state && typeof state === 'object'
+        ? (state as Record<string, unknown>)[DEPTH_KEY]
+        : undefined;
     if (typeof stamped === 'number' && Number.isSafeInteger(stamped) && stamped >= 0) {
       previous.current = stamped;
       setCanGoBack(stamped > 0);
@@ -32,7 +35,11 @@ function useInAppHistory(pathname: string): boolean {
     }
     const depth = previous.current === null ? 0 : previous.current + 1;
     if (state === null || typeof state === 'object') {
-      window.history.replaceState({ ...((state as Record<string, unknown> | null) ?? {}), [DEPTH_KEY]: depth }, '', window.location.href);
+      window.history.replaceState(
+        { ...((state as Record<string, unknown> | null) ?? {}), [DEPTH_KEY]: depth },
+        '',
+        window.location.href
+      );
     }
     previous.current = depth;
     setCanGoBack(depth > 0);
@@ -40,15 +47,18 @@ function useInAppHistory(pathname: string): boolean {
   return canGoBack;
 }
 
-const squareLink = 'inline-flex size-8 shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active [&_svg]:size-icon-md';
+const squareLink =
+  'inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active [&_svg]:size-icon-md';
 
 /**
  * Search trigger density. Desktop gets the reference's 32px field on a subtle
  * surface-1 fill; touch widths get an icon-only ghost trigger that opens the
  * same palette, which carries its own input.
  */
-const searchField = '[&>button]:h-8 [&>button]:bg-surface-1 [&>button]:hover:bg-surface-hover';
-const searchIcon = '[&>button]:size-9 [&>button]:bg-transparent [&>button]:text-text [&>button]:hover:bg-surface-hover';
+const searchField =
+  '[&>button]:min-h-control-height-md [&>button]:bg-surface-1 [&>button]:hover:bg-surface-hover';
+const searchIcon =
+  '[&>button]:size-touch-target-min [&>button]:bg-transparent [&>button]:text-text [&>button]:hover:bg-surface-hover';
 
 /**
  * Top bar anatomy, following the reference at each width:
@@ -71,9 +81,19 @@ export default function TopBar() {
   };
 
   return (
-    <header className="flex h-header-height items-center gap-1 bg-canvas px-3 sm:px-4 lg:gap-2">
-      <Link href="/" aria-label="Sidiora Launch home" className="flex shrink-0 items-center rounded-sm p-1 md:hidden">
-        <Image src="/Kindle-Launch-logo-dark.png" alt="" width={28} height={28} className="size-7" />
+    <header className="flex min-h-header-height flex-wrap items-center py-1 gap-1 bg-canvas px-3 sm:px-4 lg:gap-2">
+      <Link
+        href="/"
+        aria-label="Sidiora Launch home"
+        className="flex shrink-0 items-center min-h-touch-target-min min-w-touch-target-min justify-center rounded-sm p-1 md:hidden"
+      >
+        <Image
+          src="/Kindle-Launch-logo-dark.png"
+          alt=""
+          width={28}
+          height={28}
+          className="size-7"
+        />
       </Link>
       {atHome && !canGoBack ? null : (
         <IconButton
@@ -85,20 +105,34 @@ export default function TopBar() {
           onClick={back}
         />
       )}
-      <div data-search-field="" className={cn('hidden min-w-0 flex-1 lg:block lg:max-w-[480px]', searchField)}>
-        <ErrorBoundary area="global-search"><GlobalSearch /></ErrorBoundary>
+      <div
+        data-search-field=""
+        className={cn('hidden min-w-0 flex-1 lg:block lg:max-w-search-max', searchField)}
+      >
+        <ErrorBoundary area="global-search">
+          <GlobalSearch />
+        </ErrorBoundary>
       </div>
       <div className="flex-1 lg:hidden" />
       <PasteAddress />
       <div data-search-icon="" className={cn('shrink-0 lg:hidden', searchIcon)}>
-        <ErrorBoundary area="global-search"><GlobalSearch compact /></ErrorBoundary>
+        <ErrorBoundary area="global-search">
+          <GlobalSearch compact />
+        </ErrorBoundary>
       </div>
       <div className="hidden flex-1 lg:block" />
-      <Link href="/create" aria-label="Create coin" title="Create coin" className={cn(squareLink, 'hidden md:inline-flex')}>
+      <Link
+        href="/create"
+        aria-label="Create coin"
+        title="Create coin"
+        className={cn(squareLink, 'hidden md:inline-flex')}
+      >
         <Plus aria-hidden="true" />
       </Link>
-      <div className="ml-1 flex shrink-0 items-center gap-2">
-        <ErrorBoundary area="widget"><WalletButton /></ErrorBoundary>
+      <div className="ml-1 flex min-w-0 max-w-full flex-wrap items-center gap-2">
+        <ErrorBoundary area="widget">
+          <WalletButton />
+        </ErrorBoundary>
       </div>
     </header>
   );
