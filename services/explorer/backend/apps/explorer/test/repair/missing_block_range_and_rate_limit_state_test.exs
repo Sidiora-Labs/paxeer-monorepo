@@ -195,7 +195,14 @@ defmodule Explorer.Repair.MissingBlockRangeAndRateLimitStateTest do
   end
 
   defp ensure_started(module) do
-    Process.whereis(module) || start_supervised!({module, []})
+    case Process.whereis(module) do
+      nil ->
+        start_supervised!({module, []})
+
+      pid ->
+        assert {:error, {:already_started, ^pid}} = module.start_link([])
+        pid
+    end
   end
 
   defp request(context, count) do

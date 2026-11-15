@@ -40,6 +40,8 @@ defmodule Explorer.Repair.ValidatorBlockCountReconciliationTest do
   @miner "0xb3ad5a835b418958a9142d8681bfb4b81d2cf270"
 
   setup do
+    owner = Sandbox.start_owner!(Repo, shared: true, sandbox: false)
+    on_exit(fn -> Sandbox.stop_owner(owner) end)
     original_chain_type = Application.fetch_env!(:explorer, :chain_type)
     Application.put_env(:explorer, :chain_type, :stability)
     original_repo = Repo.get_dynamic_repo()
