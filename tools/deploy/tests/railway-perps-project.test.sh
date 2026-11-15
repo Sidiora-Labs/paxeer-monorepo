@@ -4,6 +4,48 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
 tool="$root/tools/deploy/railway-perps-project.py"
+python3 - "$tool" <<'PY2'
+import json
+import runpy
+import sys
+
+
+def test_http_transport_user_agent():
+    tool = runpy.run_path(sys.argv[1])
+    captured = []
+
+    class RequestCaptured(Exception):
+        pass
+
+    def capture_request(event, args):
+        if event == "urllib.Request":
+            captured.append(args)
+            raise RequestCaptured
+
+    sys.addaudithook(capture_request)
+    query = "query Project($id: String!) { project(id: $id) { id } }"
+    variables = {"id": "p1"}
+    try:
+        tool["http_transport"]("test-token")(query, variables)
+    except RequestCaptured:
+        pass
+    else:
+        raise AssertionError("HTTP request was not captured")
+
+    assert len(captured) == 1, "expected one HTTP request"
+    url, data, headers, method = captured[0]
+    assert url == tool["API"], "request URL differs"
+    assert method == "POST", "request method differs"
+    assert data == json.dumps({"query": query, "variables": variables}).encode(), "request body differs"
+    assert {k.lower(): v for k, v in headers.items()} == {
+        "content-type": "application/json",
+        "authorization": "Bearer test-token",
+        "user-agent": "perps-project",
+    }, "request headers must include User-Agent: perps-project"
+
+
+test_http_transport_user_agent()
+PY2
 python3 "$here/railway-perps-readiness.test.py"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -58,7 +100,7 @@ cat >"$tmp/replay.json" <<JSON
    "PGUSER": "\${{POSTGRES_USER}}", "PGPASSWORD": "\${{POSTGRES_PASSWORD}}", "PGDATABASE": "\${{POSTGRES_DB}}",
    "DATABASE_URL": "postgresql://\${{PGUSER}}:\${{POSTGRES_PASSWORD}}@\${{RAILWAY_PRIVATE_DOMAIN}}:5432/\${{PGDATABASE}}"}}},
  {"op": "Instance", "variables": {"s": "s-nats", "e": "e1"}, "data": {"serviceInstance": {
-   "source": {"image": "ghcr.io/sidiora-labs/perps-data-nats@$(d 9)"}, "healthcheckPath": "/healthz",
+   "source": {"image": "ghcr.io/sidiora-labs/perps-data-nats@$(d 9)"}, "healthcheckPath": "/varz",
    "healthcheckTimeout": 300, "restartPolicyType": "ALWAYS", "numReplicas": 1}}},
  {"op": "Variables", "variables": {"p": "p1", "e": "e1", "s": "s-nats"}, "data": {"variables": {
    "PORT": "8222", "NATS_CLUSTER_PASSWORD": "sentinel-old-cluster-pw-99"}}}
@@ -104,7 +146,7 @@ grep -q '^  var PERPS_START_HEIGHT add 34800001$' "$tmp/plan" || fail "start hei
 grep -q '^  setting healthcheckPath=/healthz/live$' "$tmp/plan" || fail "indexer health not from its railway json"
 grep -q '^  setting numReplicas=2$' "$tmp/plan" || fail "gateway replicas not from its railway json"
 grep -q '^  var DATABASE_URL add \${{Postgres.DATABASE_URL}}$' "$tmp/plan" || fail "Postgres reference missing"
-grep -q '^  registry credentials user=\$GHCR_USERNAME token=\$GHCR_TOKEN$' "$tmp/plan" || fail "registry credentials not planned"
+if grep -q '^  registry credentials ' "$tmp/plan"; then fail "public image rows unexpectedly planned registry credentials"; fi
 for s in gateway explorer; do
 	sed -n "/^service [0-9]* $s image/,/^service /p" "$tmp/plan" | grep -q '^  var PERPS_TRUSTED_PROXY_CIDRS add 100.64.0.0/10$' ||
 		fail "$s trusted proxy CIDRs not planned"
@@ -208,23 +250,22 @@ for line in open(manifest):
     elif cur is not None and (m := re.fullmatch(r'([A-Z_0-9]+) = "(.*)"\s*', line)):
         v = m.group(2)
         cur[m.group(1)] = os.environ[v[4:]] if v.startswith("env:") else "34800001" if v == "arg:start-height" else v
-creds = {"username": os.environ["GHCR_USERNAME"], "password": os.environ["GHCR_TOKEN"]}
 d = lambda n: "sha256:%064d" % n
 ref = lambda img, n: {"image": f"ghcr.io/sidiora-labs/{img}@{d(n)}"}
 def inst(img, n, health, replicas):
     return {"source": ref(img, n), "healthcheckPath": health, "healthcheckTimeout": 300,
-            "restartPolicyType": "ALWAYS", "numReplicas": replicas, "registryCredentials": creds}
+            "restartPolicyType": "ALWAYS", "numReplicas": replicas}
 nats_upsert = {k: v for k, v in vars_["nats"].items() if k != "PORT"}
 assert sorted(nats_upsert) == ["NATS_CLUSTER_PASSWORD", "NATS_GATEWAY_PASSWORD", "NATS_INDEXER_PASSWORD",
-                               "NATS_MAX_FILE_STORE", "NATS_ROUTES"], sorted(nats_upsert)
+                               "NATS_MAX_FILE_STORE", "NATS_ROUTES", "RAILWAY_RUN_UID"], sorted(nats_upsert)
 writes = [
-    ("InstanceUpdate", {"s": "s-nats", "e": "e1", "i": {"source": ref("perps-data-nats", 1), "registryCredentials": creds}},
+    ("InstanceUpdate", {"s": "s-nats", "e": "e1", "i": {"source": ref("perps-data-nats", 1)}},
      {"serviceInstanceUpdate": True}),
     ("VolumeMount", {"v": "v2", "e": "e1", "i": {"mountPath": "/data"}}, {"volumeInstanceUpdate": True}),
     ("VariablesUpsert", {"i": {"projectId": "p1", "environmentId": "e1", "serviceId": "s-nats",
                                "variables": nats_upsert, "skipDeploys": True}}, {"variableCollectionUpsert": True}),
 ]
-created = {"nats-2": ("perps-data-nats", 1, "/healthz", 1), "nats-3": ("perps-data-nats", 1, "/healthz", 1),
+created = {"nats-2": ("perps-data-nats", 1, "/varz", 1), "nats-3": ("perps-data-nats", 1, "/varz", 1),
            "indexer": ("perps-data-indexer", 2, "/healthz/live", 1), "gateway": ("perps-gateway", 3, "/healthz/ready", 2),
            "explorer": ("perps-explorer", 4, "/healthz/ready", 1), "portal": ("perps-portal", 5, "/healthz/ready", 1),
            "web": ("perps-web", 6, "/api/build-id", 1)}
@@ -265,9 +306,9 @@ rerun = [base[0], copy.deepcopy(base[1]), base[2], base[3]]
 rerun[1]["data"]["projects"]["edges"][0]["node"] = node
 latest = {"nats": "SUCCESS", "nats-2": "SUCCESS", "nats-3": "SUCCESS", "indexer": "CRASHED", "gateway": "SUCCESS",
           "explorer": "SUCCESS", "portal": "SUCCESS", "web": "SUCCESS"}
-for name, (img, n, health, replicas) in {"nats": ("perps-data-nats", 1, "/healthz", 1), **created}.items():
+for name, (img, n, health, replicas) in {"nats": ("perps-data-nats", 1, "/varz", 1), **created}.items():
     sid, pv = f"s-{name}", {"p": "p1", "e": "e1", "s": f"s-{name}"}
-    instance = {k: v for k, v in inst(img, n, health, replicas).items() if k != "registryCredentials"}
+    instance = inst(img, n, health, replicas)
     instance["latestDeployment"] = {"id": f"dep-{name}-0", "status": latest[name]}
     rerun += [{"op": "Instance", "variables": {"s": sid, "e": "e1"}, "data": {"serviceInstance": instance}},
               {"op": "Variables", "variables": pv, "data": {"variables": vars_[name]}}]
@@ -282,6 +323,30 @@ for name, status in (("rerun-crash", "CRASHED"), ("rerun", "SUCCESS")):
     json.dump(rerun + [{"op": "DeploymentStatus", "variables": {"id": "dep-indexer-1"},
                         "data": {"deployment": {"status": status}}}], open(f"{tmp}/{name}-replay.json", "w"))
 PY2
+
+# A credentialed image row opts into the private registry fields. The public
+# rows in the real manifest remain free of those fields.
+python3 - "$tmp" "$root/deploy/railway-perps-project.kvx" <<'PY2'
+import copy, json, os, sys
+tmp, manifest = sys.argv[1], sys.argv[2]
+lines = open(manifest).read().splitlines()
+at = lines.index("[service.indexer]") + 1
+lines.insert(at, "credentials = 1")
+credential_manifest = f"{tmp}/credentials.kvx"
+open(credential_manifest, "w").write("\n".join(lines) + "\n")
+replay = json.load(open(f"{tmp}/apply-replay.json"))
+creds = {"username": os.environ["GHCR_USERNAME"], "password": os.environ["GHCR_TOKEN"]}
+for entry in replay:
+    if entry["op"] == "InstanceUpdate" and entry["variables"].get("s") == "s-indexer":
+        entry["variables"]["i"]["registryCredentials"] = creds
+json.dump(replay, open(f"{tmp}/credentials-replay.json", "w"))
+PY2
+
+run --plan --manifest "$tmp/credentials.kvx" --digests "$tmp/digests.json" --replay "$tmp/replay.json" --start-height 34800001
+[ "$code" -eq 0 ] || { cat "$tmp/err" >&2; fail "credentialed plan exited $code"; }
+sed -n '/^service 3 indexer image/,/^service /p' "$tmp/out" | grep -q '^  registry credentials user=\$GHCR_USERNAME token=\$GHCR_TOKEN$' ||
+	fail "credentialed image row did not plan registry credentials"
+sed -n '/^service 2 nats image/,/^service /p' "$tmp/out" | grep -q '^  registry credentials ' && fail "public nats row planned registry credentials"
 
 run --plan --digests "$tmp/digests.json" --replay "$tmp/apply-replay.json" --start-height 34800001
 [ "$code" -eq 0 ] || { cat "$tmp/err" >&2; fail "plan over the moved volume exited $code"; }
@@ -316,6 +381,17 @@ grep -E '^(applied|deployed|wave) ' "$tmp/out" >"$tmp/applied"
 	done
 } >"$tmp/want-applied"
 diff -u "$tmp/want-applied" "$tmp/applied" || fail "apply writes or wave order differ"
+
+ghcr_user="$GHCR_USERNAME" ghcr_token="$GHCR_TOKEN"
+unset GHCR_USERNAME GHCR_TOKEN
+run --apply --digests "$tmp/digests.json" --replay "$tmp/apply-replay.json" --start-height 34800001
+public_code="$code"
+export GHCR_USERNAME="$ghcr_user" GHCR_TOKEN="$ghcr_token"
+[ "$public_code" -eq 0 ] || { cat "$tmp/out" "$tmp/err" >&2; fail "public-only apply requires registry credentials"; }
+
+run --apply --manifest "$tmp/credentials.kvx" --digests "$tmp/digests.json" --replay "$tmp/credentials-replay.json" --start-height 34800001
+[ "$code" -eq 0 ] || { cat "$tmp/out" "$tmp/err" >&2; fail "credentialed apply exited $code"; }
+grep -q '^applied indexer InstanceUpdate$' "$tmp/out" || fail "credentialed image update was not sent"
 
 run --apply --digests "$tmp/digests.json" --replay "$tmp/crash-replay.json" --start-height 34800001
 [ "$code" -eq 1 ] || fail "apply with a crashed nats exited $code, want 1"
@@ -374,6 +450,64 @@ variant("rerun-removing", "REMOVING", "SUCCESS")
 variant("rerun-unknown", "CRASHED", "SOMETHING_NEW")
 PY2
 
+python3 - "$tmp" <<'PY2'
+import copy, json, sys
+tmp = sys.argv[1]
+base = json.load(open(f"{tmp}/rerun-replay.json"))
+for name, latest_status, final_status in (("replaced", "SUCCESS", "SUCCESS"), ("replaced-failed", "SUCCESS", "FAILED")):
+    out = copy.deepcopy(base)
+    for entry in out:
+        if entry["op"] == "Deploy" and entry["variables"] == {"s": "s-indexer", "e": "e1"}:
+            entry["data"]["serviceInstanceDeployV2"] = "dep-indexer-2"
+        if entry["op"] == "DeploymentStatus" and entry["variables"] == {"id": "dep-indexer-1"}:
+            entry["data"]["deployment"]["status"] = "REMOVED"
+    out += [
+        {"op": "DeploymentStatus", "variables": {"id": "dep-indexer-2"},
+         "data": {"deployment": {"status": "REMOVED"}}},
+        {"op": "LatestDeployment", "variables": {"s": "s-indexer", "e": "e1"},
+         "data": {"serviceInstance": {"latestDeployment": {"id": "dep-indexer-3", "status": latest_status}}}},
+        {"op": "DeploymentStatus", "variables": {"id": "dep-indexer-3"},
+         "data": {"deployment": {"status": final_status}}},
+    ]
+    json.dump(out, open(f"{tmp}/{name}-replay.json", "w"))
+PY2
+
+run --apply --digests "$tmp/digests.json" --replay "$tmp/replaced-replay.json" --start-height 34800001
+[ "$code" -eq 0 ] || { cat "$tmp/out" "$tmp/err" >&2; fail "replaced deployment follow-up exited $code"; }
+grep -q '^deployed indexer deployment=dep-indexer-2$' "$tmp/out" || fail "replaced deployment was not started"
+grep -q '^wave 3 indexer SUCCESS$' "$tmp/out" || fail "latest replacement did not pass"
+
+run --apply --digests "$tmp/digests.json" --replay "$tmp/replaced-failed-replay.json" --start-height 34800001
+[ "$code" -eq 1 ] || fail "failed latest replacement exited $code, want 1"
+grep -q '^wave 3 indexer FAILED$' "$tmp/out" || fail "failed latest replacement not reported"
+grep -q 'wave 3 failed: indexer deployment dep-indexer-3 is FAILED; later waves were not applied' "$tmp/err" ||
+	fail "failed latest replacement does not name the latest deployment"
+
+
+python3 - "$root/deploy/railway-perps-project.kvx" <<'PY2'
+import importlib.util, re, sys
+manifest = sys.argv[1]
+spec = importlib.util.spec_from_file_location("perps_project", "tools/deploy/railway-perps-project.py")
+tool = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(tool)
+_, rows = tool.load(manifest)
+want = {
+    "nats": {"nats-2", "nats-3"},
+    "nats-2": {"nats", "nats-3"},
+    "nats-3": {"nats", "nats-2"},
+}
+for row in rows:
+    if row["name"] not in want:
+        continue
+    assert row["health"] == "/varz", row
+    assert row["vars"]["RAILWAY_RUN_UID"] == "0", row
+    routes = row["vars"]["NATS_ROUTES"]
+    assert routes.startswith("[") and routes.endswith("]"), routes
+    members = routes[1:-1].split(",")
+    assert len(members) == 2, routes
+    hosts = {re.search(r"\$\{\{([a-z0-9-]+)\.", member).group(1) for member in members}
+    assert hosts == want[row["name"]], (row["name"], routes)
+PY2
 for st in skipped removing; do
 	ST="$(echo "$st" | tr a-z A-Z)"
 	run --plan --digests "$tmp/digests.json" --replay "$tmp/rerun-$st-replay.json" --start-height 34800001

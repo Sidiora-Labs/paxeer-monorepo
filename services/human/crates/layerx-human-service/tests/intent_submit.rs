@@ -253,7 +253,7 @@ fn raw_transaction(call: &layerx_crypto::evm_transaction::Eip1559Call, from: [u8
     use layerx_crypto::account_derivation::derive_from_seed;
     use layerx_crypto::disclosure::call::bind_call;
     use layerx_crypto::local::LocalSigner;
-    use layerx_crypto::signer::sign_disclosed_call;
+    use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer as _};
 
     let account = derive_from_seed(&[0xa5; 32], 0)
         .unwrap_or_else(|error| panic!("transaction account: {error:?}"));
@@ -261,7 +261,12 @@ fn raw_transaction(call: &layerx_crypto::evm_transaction::Eip1559Call, from: [u8
     assert_ne!(account.evm_address(), from);
     let disclosure =
         bind_call(call, from).unwrap_or_else(|error| panic!("call disclosure: {error:?}"));
-    let signature = ready(sign_disclosed_call(&signer, call, &disclosure, from))
+    assert_eq!(
+        ready(sign_disclosed_call(&signer, call, &disclosure, from))
+            .expect_err("mismatched signer accepted"),
+        SignError::DisclosureMismatch("signer")
+    );
+    let signature = ready(signer.sign_transaction(call))
         .unwrap_or_else(|error| panic!("sign transaction: {error:?}"));
     layerx_crypto::evm_transaction::assemble(call, &signature)
 }
@@ -314,8 +319,15 @@ impl Fixture {
             Duration::from_secs(120),
         )
         .unwrap_or_else(|error| panic!("attestor config: {error}"));
-        let kms = AttestorKms::connect(config.clone())
-            .unwrap_or_else(|error| panic!("attestor custody: {error}"));
+        let runtime_clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .unwrap_or_else(|error| panic!("runtime clock: {error:?}"));
+        let kms = AttestorKms::connect_durable(
+            config.clone(),
+            root.join("send-replay"),
+            [23; 32],
+            runtime_clock,
+        )
+        .unwrap_or_else(|error| panic!("attestor custody: {error}"));
         let keystore = Keystore::open_production(root.join("evm-custody"), NETWORK_ID, kms.clone())
             .unwrap_or_else(|error| panic!("EVM keystore: {error}"));
         let owner = "intent-owner";
@@ -379,8 +391,21 @@ impl Fixture {
     }
 
     fn reopen_custody(&mut self) {
-        self.kms = AttestorKms::connect(self.config.clone())
-            .unwrap_or_else(|error| panic!("reopen custody: {error}"));
+        let temporary = AttestorKms::connect(self.config.clone())
+            .unwrap_or_else(|error| panic!("temporary custody: {error}"));
+        self.keystore =
+            Keystore::open_production(self.root.join("evm-custody"), NETWORK_ID, temporary.clone())
+                .unwrap_or_else(|error| panic!("temporary keystore: {error}"));
+        self.kms = temporary;
+        let runtime_clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .unwrap_or_else(|error| panic!("runtime clock: {error:?}"));
+        self.kms = AttestorKms::connect_durable(
+            self.config.clone(),
+            self.root.join("send-replay-reopened"),
+            [23; 32],
+            runtime_clock,
+        )
+        .unwrap_or_else(|error| panic!("reopen custody: {error}"));
         self.keystore =
             Keystore::open_production(self.root.join("evm-custody"), NETWORK_ID, self.kms.clone())
                 .unwrap_or_else(|error| panic!("reopen keystore: {error}"));

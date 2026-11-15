@@ -22,12 +22,14 @@ LINE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|(-?\d
 KEYS = {
     "database": ({"kind", "image", "railway_service", "volume", "order"}, set()),
     "image": ({"kind", "image", "railway_service", "order"},
-              {"config", "health", "restart", "replicas", "volume", "public"}),
+              {"config", "health", "restart", "replicas", "volume", "public", "credentials"}),
 }
 SUCCESS = {s for s, v in TERMINAL.items() if v == "pass"}
-REDEPLOY = {s for s, v in TERMINAL.items() if v == "fail"}
+REDEPLOY = {s for s, v in TERMINAL.items() if v == "fail"} | {"REPLACED"}
+REPLACED = {"REPLACED", "REMOVED", "REMOVING", "SKIPPED"}
 USAGE = ("usage: railway-perps-project.py --plan|--apply --digests <image-digest-map.json> "
-         "[--start-height <n>] [--replay <responses.json>] [--manifest <kvx>]")
+         "[--start-height <n>] [--replay <responses.json>] [--manifest <kvx>] "
+         "(image rows may set credentials = 1 to use GHCR credentials)")
 
 
 def parse(path):
@@ -74,6 +76,8 @@ def load(path):
         if not need <= set(kv) or set(kv) - need - opt:
             raise Malformed(f"[{section}]: missing {sorted(need - set(kv))} unexpected {sorted(set(kv) - need - opt)}")
         if kv["kind"] == "image":
+            if "credentials" in kv and kv["credentials"] != 1:
+                raise Malformed(f"[{section}]: credentials must be 1 when present")
             if not re.fullmatch(NAME, kv["image"]):
                 raise Malformed(f"[{section}]: bad image {kv['image']!r}")
             if "config" in kv:
@@ -132,7 +136,8 @@ def http_transport(token):
     def call(query, variables):
         req = urllib.request.Request(
             API, data=json.dumps({"query": query, "variables": variables}).encode(),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}",
+                     "User-Agent": "perps-project"})
         with urllib.request.urlopen(req, timeout=30) as resp:
             try:
                 body = json.load(resp)
@@ -249,7 +254,7 @@ def plan_service(svc, cur, digests, start_height):
     if cur is None:
         steps.append(("create", f"image={want['source']['image']}"))
     if svc["kind"] == "image":
-        if cur is None or "source" in diff:
+        if svc.get("credentials") == 1 and (cur is None or "source" in diff):
             steps.append(("registry", "credentials user=$GHCR_USERNAME token=$GHCR_TOKEN"))
         settings = {k: v for k, v in diff.items() if k != "source"}
         if "source" in diff and cur is not None:
@@ -298,6 +303,8 @@ def apply_service(gql, svc, state, want, diff, steps, upsert):
     sid = cur["id"] if cur else write(
         "mutation ServiceCreate($i: ServiceCreateInput!) { serviceCreate(input: $i) { id } }",
         {"i": {"projectId": project, "name": svc["railway_service"], "source": want["source"]}})["serviceCreate"]["id"]
+    if cur is None:
+        state["services"][svc["railway_service"]] = {"id": sid, "instance": {}, "variables": {}, "volume": None, "domains": []}
     ids = {"s": sid, "e": env}
     update = dict(want) if cur is None else dict(diff)
     kinds = {k for k, _ in steps}
@@ -327,15 +334,30 @@ def apply_service(gql, svc, state, want, diff, steps, upsert):
     return None
 
 
-def wait_deployment(gql, deployment):
+def wait_deployment(gql, deployment, service_id=None, environment_id=None):
     deadline = time.monotonic() + int(os.environ.get("ROLLOUT_TIMEOUT", "1800"))
+    current = deployment
+    seen = set()
     while True:
         status = gql("query DeploymentStatus($id: String!) { deployment(id: $id) { status } }",
-                     {"id": deployment})["deployment"]["status"]
+                     {"id": current})["deployment"]["status"]
+        if status in REPLACED and service_id and environment_id:
+            if current in seen:
+                return status, current
+            seen.add(current)
+            latest = gql(
+                "query LatestDeployment($s: String!, $e: String!) { "
+                "serviceInstance(serviceId: $s, environmentId: $e) { latestDeployment { id status } } }",
+                {"s": service_id, "e": environment_id},
+            )["serviceInstance"] or {}
+            latest = latest.get("latestDeployment") or {}
+            if latest.get("id") and latest["id"] != current:
+                current = latest["id"]
+                continue
         if status not in IN_PROGRESS:
-            return status if status in TERMINAL else f"unknown status {status!r}"
+            return (status if status in TERMINAL else f"unknown status {status!r}"), current
         if time.monotonic() >= deadline:
-            return f"TIMEOUT(last {status})"
+            return f"TIMEOUT(last {status})", current
         time.sleep(int(os.environ.get("ROLLOUT_POLL", "10")))
 
 
@@ -386,7 +408,8 @@ def main(argv, transport=None):
     if missing:
         print(f"digest map has no digest for: {','.join(missing)}", file=sys.stderr)
         return 2
-    mask(token, os.environ.get("GHCR_USERNAME"), os.environ.get("GHCR_TOKEN"),
+    credentialed = any(s.get("credentials") == 1 for s in plan if s["kind"] == "image")
+    mask(token, *(os.environ.get(v) for v in ("GHCR_USERNAME", "GHCR_TOKEN") if credentialed),
          *(os.environ.get(v[4:]) for s in plan for v in s["vars"].values() if v.startswith("env:")))
     if transport is None:
         transport = replay_transport(opts["--replay"]) if opts["--replay"] else http_transport(token)
@@ -416,7 +439,8 @@ def main(argv, transport=None):
             return 3
         return 0
 
-    needed = {"GHCR_USERNAME", "GHCR_TOKEN"} | {v[4:] for s in plan for v in s["vars"].values() if v.startswith("env:")}
+    needed = ({"GHCR_USERNAME", "GHCR_TOKEN"} if credentialed else set()) | {
+        v[4:] for s in plan for v in s["vars"].values() if v.startswith("env:")}
     unset = sorted(n for n in needed if not os.environ.get(n))
     if unset:
         print(f"--apply needs these environment variables: {','.join(unset)}", file=sys.stderr)
@@ -438,10 +462,11 @@ def main(argv, transport=None):
             for svc, deployment in wave:
                 if deployment is None:
                     deployment = state["services"][svc["railway_service"]]["instance"]["latestDeployment"]["id"]
-                status = wait_deployment(gql, deployment)
+                service_id = state["services"][svc["railway_service"]]["id"]
+                status, waited = wait_deployment(gql, deployment, service_id, state["env"]["id"])
                 print(f"wave {order} {svc['railway_service']} {status}")
                 if status not in SUCCESS:
-                    print(f"wave {order} failed: {svc['railway_service']} deployment {deployment} is {status}; "
+                    print(f"wave {order} failed: {svc['railway_service']} deployment {waited} is {status}; "
                           "later waves were not applied", file=sys.stderr)
                     return 1
     except (RuntimeError, OSError, KeyError, TypeError) as e:

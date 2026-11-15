@@ -1,6 +1,19 @@
 #!/bin/sh
 set -eu
 umask 077
+configure_service_port() {
+    if [ "${PORT+x}" = x ]; then
+        case "$PORT" in
+            ''|*[!0-9]*) printf 'PORT must be an integer from 1 to 65535\n' >&2; exit 64 ;;
+        esac
+        if [ "${#PORT}" -gt 5 ] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+            printf 'PORT must be an integer from 1 to 65535\n' >&2
+            exit 64
+        fi
+        export LAYERX_HUMAN_BIND="0.0.0.0:$PORT"
+    fi
+}
+
 kms_environment() {
     export LAYERX_HUMAN_KMS_REGISTRY_FILE="$1/registry.json"
     export LAYERX_HUMAN_KMS_CLIENT_CA_DER="$1/ca.der"
@@ -15,6 +28,7 @@ role=${1:?Human role is required}
 shift
 case "$role" in
     service)
+        configure_service_port
         private=${LAYERX_HUMAN_SERVICE_PRIVATE_DIR:-/run/layerx/human/service-private}
         case "$private" in
             /run/human-private/service|/run/layerx/human/service-private) ;;

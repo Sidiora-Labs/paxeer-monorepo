@@ -2,6 +2,8 @@
 
 This directory holds the reproducible `paxd` release builder, artifact and checksum checks, upgrade metadata tools, rollout and rollback helpers, and local rehearsal programs. It supports the single Paxeer network: the kernel runs inside `paxd`, block commits establish receipt finality, and the EVM chain ID is 125.
 
+The current release is 7.0.1. Its version comes from `tools/release/version.json`, and release 7.0.1 keeps plan `v7.0`.
+
 ## Layout
 
 - `env/` contains blank operator-input templates for rehearsal and rollout environment files.

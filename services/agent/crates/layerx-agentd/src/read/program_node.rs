@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_programs::chain_evidence::commitment_trust_step;
-#[cfg(test)]
 use layerx_programs::chain_proof::decode::decode_commitment_proof;
 use layerx_programs::chain_proof::{
     decode::CommitmentProof, header::ChainHeader, merkle::SimpleProof, validators::ValidatorSet,
@@ -18,7 +17,6 @@ use layerx_programs::{
     ProgramLifecycle, ProtocolDeploymentVerifier, ProtocolEvidenceError, Registry,
     VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedProgramBundle,
 };
-#[cfg(test)]
 use serde_json::Value;
 
 use super::program_balances_impl::{
@@ -87,7 +85,14 @@ pub struct LayerxdProgramBalanceReader {
     registry: Registry,
     staleness_limit: u64,
     consensus: Option<super::NativeResultSource>,
+    authority: Option<AuthorityConnection>,
     program_state_keys: std::collections::BTreeMap<[u8; 32], (String, Vec<u8>)>,
+}
+
+struct AuthorityConnection {
+    endpoint: String,
+    authorization: String,
+    replica_id: [u8; 32],
 }
 
 /// Explicit independent authority identity and outbound trust for both read endpoints.
@@ -199,6 +204,7 @@ impl LayerxdProgramBalanceReader {
         let config = ureq::Agent::config_builder()
             .tls_config(tls)
             .timeout_global(Some(Duration::from_secs(30)))
+            .max_redirects(0)
             .http_status_as_error(false)
             .build();
         let sequencer = SequencerEndpoint::new(endpoint, &[ca_der])
@@ -210,6 +216,11 @@ impl LayerxdProgramBalanceReader {
             authorization,
             staleness_limit: verifier.staleness_limit_ms(),
             consensus: None,
+            authority: Some(AuthorityConnection {
+                endpoint: authority_endpoint.to_owned(),
+                authorization: authority_authorization,
+                replica_id: authority_replica_id,
+            }),
             program_state_keys: std::collections::BTreeMap::new(),
             verifier,
             registry,
@@ -257,6 +268,7 @@ impl LayerxdProgramBalanceReader {
             verifier,
             registry,
             consensus: Some(source),
+            authority: None,
             program_state_keys: std::collections::BTreeMap::new(),
         })
     }
@@ -264,6 +276,7 @@ impl LayerxdProgramBalanceReader {
     #[must_use]
     pub fn with_consensus_source(mut self, source: super::NativeResultSource) -> Self {
         self.consensus = Some(source);
+        self.authority = None;
         self
     }
 
@@ -464,6 +477,21 @@ impl LayerxdProgramBalanceReader {
         if now == 0 {
             return Err(ChainHeadError::View(ProgramReadError::NonCanonicalView));
         }
+        if self.authority.is_some() {
+            let (document, evidence) = self.authority_head_evidence()?;
+            let head = self
+                .verifier
+                .verify_current_chain_head(
+                    ProgramHeadKind::Ordinary,
+                    &evidence.commitment,
+                    &evidence.transaction,
+                    &evidence.transaction_proof,
+                    now,
+                )
+                .map_err(ChainHeadError::Evidence)?;
+            validate_head_document(&document, &head)?;
+            return Ok(head);
+        }
         let height = self
             .sequencer
             .block_number()
@@ -488,6 +516,63 @@ impl LayerxdProgramBalanceReader {
             return Err(ChainHeadError::Evidence(ProtocolEvidenceError::Stale));
         }
         Ok(head)
+    }
+
+    fn authority_head_evidence(&self) -> Result<(Value, ChainHeadEvidence), ChainHeadError> {
+        let refused = || ChainHeadError::View(ProgramReadError::NonCanonicalView);
+        let authority = self.authority.as_ref().ok_or_else(refused)?;
+        let document = self.head_document(
+            &format!("{}/v1/protocol/account-state/head", self.endpoint),
+            &self.authorization,
+        )?;
+        let height = document["observed_sequence"]
+            .as_u64()
+            .filter(|height| *height > 0)
+            .ok_or_else(refused)?;
+        let independent = self.head_document(
+            &format!(
+                "{}/v1/protocol/account-state/head?height={height}",
+                authority.endpoint
+            ),
+            &authority.authorization,
+        )?;
+        if independent["authority_replica_id"].as_str()
+            != Some(hex::encode(&authority.replica_id).as_str())
+            || [
+                "current",
+                "receipt_digest",
+                "state_root",
+                "observed_sequence",
+                "observed_at",
+                "chain_evidence",
+            ]
+            .iter()
+            .any(|field| document[field] != independent[field])
+        {
+            return Err(refused());
+        }
+        let evidence = chain_head_evidence(&document).map_err(ChainHeadError::View)?;
+        Ok((document, evidence))
+    }
+
+    fn head_document(&self, url: &str, authorization: &str) -> Result<Value, ChainHeadError> {
+        let refused = || ChainHeadError::View(ProgramReadError::NonCanonicalView);
+        let mut response = self
+            .agent
+            .get(url)
+            .header("Authorization", &format!("Bearer {authorization}"))
+            .call()
+            .map_err(|_| refused())?;
+        if !response.status().is_success() {
+            return Err(refused());
+        }
+        let body = response
+            .body_mut()
+            .with_config()
+            .limit(1_048_576)
+            .read_to_string()
+            .map_err(|_| refused())?;
+        serde_json::from_str(&body).map_err(|_| refused())
     }
 
     /// Verifies retained coordinates at an explicit native block height.
@@ -856,7 +941,21 @@ impl ProgramBalanceReadRoute {
     }
 }
 
-#[cfg(test)]
+fn validate_head_document(
+    document: &Value,
+    head: &VerifiedChainHead,
+) -> Result<(), ChainHeadError> {
+    if document["current"] != true
+        || document["receipt_digest"].as_str() != Some(hex::encode(&head.receipt_digest()).as_str())
+        || document["state_root"].as_str() != Some(hex::encode(&head.state_root()).as_str())
+        || document["observed_sequence"].as_u64() != Some(head.freshness().observed_sequence)
+        || document["observed_at"].as_u64() != Some(head.freshness().observed_at)
+    {
+        return Err(ChainHeadError::View(ProgramReadError::NonCanonicalView));
+    }
+    Ok(())
+}
+
 fn chain_head_evidence(value: &Value) -> Result<ChainHeadEvidence, ProgramReadError> {
     let value = &value["chain_evidence"];
     let commitment = decode_commitment_proof(&chain_hex(field(value, "commitment_hex")?)?)
@@ -898,7 +997,6 @@ fn chain_head_evidence(value: &Value) -> Result<ChainHeadEvidence, ProgramReadEr
     })
 }
 
-#[cfg(test)]
 fn chain_hex(text: &str) -> Result<Vec<u8>, ProgramReadError> {
     if !text.len().is_multiple_of(2)
         || !text
@@ -910,7 +1008,6 @@ fn chain_hex(text: &str) -> Result<Vec<u8>, ProgramReadError> {
     hex::decode(text).map_err(|_| ProgramReadError::NonCanonicalView)
 }
 
-#[cfg(test)]
 fn field<'a>(value: &'a Value, name: &str) -> Result<&'a str, ProgramReadError> {
     value[name]
         .as_str()

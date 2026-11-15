@@ -462,6 +462,7 @@ The root `.env.example` inventories the components together; select the settings
 | `PRICE_SIDECAR_FEED_KEY_FILE` | Feed key file; path to protected secret material. | None | No; secret file path | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
 | `PRICE_SIDECAR_STATE_DIR` | State directory. | None | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
 | `RAILWAY_SERVICE_NAME` | Railway service name. | None | No | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
+| `RAILWAY_RUN_UID` | Railway volume runtime user ID; the perps NATS services run as user 0 so they can write `/data`. | 0 | No | [deploy/railway-perps-project.kvx](../../../deploy/railway-perps-project.kvx) |
 | `RAMP_ACTOR_DID` | Actor did. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |
 | `RAMP_CLIENT_TIMEOUT_SECONDS` | Client timeout seconds. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |
 | `RAMP_COMPLIANCE_ENDPOINT` | Compliance endpoint. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |
@@ -1326,6 +1327,9 @@ The root `.env.example` inventories the components together; select the settings
 | `PERPS_EXPLORER_TX_BASE` | Transaction-link base URL; required by perps portal, optional for explorer. | Unset | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PERPS_TRUSTED_PROXY_CIDRS` | Trusted proxy CIDRs for perps gateway and explorer; unset means no trusted proxies. | Unset | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PRICE_SIDECAR_CONFIG / root / cadence_ms` | Root cadence milliseconds. | `1000` | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
+| `PRICE_SIDECAR_CONFIG / root / max_pending_submissions` | Maximum submissions kept pending before the sidecar waits for their fate. A value above one requires a node that admits account sequences ahead of the committed sequence. Against a node that admits only the committed sequence, one submission is pending at a time whatever the bound. | `1` | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
+| `PRICE_SIDECAR_CONFIG / root / max_committed_reads_in_flight` | Maximum committed observation reads in flight. | `6` | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
+| `PRICE_SIDECAR_CONFIG / root / pending_submission_block_limit` | Number of blocks a pending submission may remain unresolved before it is evicted. | `10` | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
 | `PRICE_SIDECAR_HEALTH_ADDR` | Health addr. | All IPv6 interfaces, port 8080 | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
 | `RAILWAY_REPLICA_ID` | Railway replica ID. | System hostname used by webhook init when unset | No | [hosted/webhooks/env-init.sh](../../../services/platform/hosted/webhooks/env-init.sh) |
 | `RPC` | RPC. | Unset | No | [hosted/paxeer/gov-lib.sh](../../../services/platform/hosted/paxeer/gov-lib.sh) |

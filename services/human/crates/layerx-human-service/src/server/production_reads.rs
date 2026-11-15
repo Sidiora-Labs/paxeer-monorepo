@@ -1012,6 +1012,112 @@ fn receipt_verification(rung: Rung) -> Result<&'static str, ApiFailure> {
     }
 }
 
+fn receipt_endpoint() -> Result<layerx_client::px::PxEndpoint, ApiFailure> {
+    let config = layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
+        .map_err(|_| ApiFailure::unavailable())?;
+    let certificates = if config.url.starts_with("https://") {
+        let loaded = rustls_native_certs::load_native_certs();
+        if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+            return Err(ApiFailure::unavailable());
+        }
+        loaded.certs
+    } else {
+        Vec::new()
+    };
+    let anchors: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
+    layerx_client::px::PxEndpoint::new(&config.url, &anchors).map_err(|_| ApiFailure::unavailable())
+}
+
+fn committed_intent_receipt(
+    hash: [u8; 32],
+    height: u64,
+    keys: &[ReceiptKeyEntry],
+) -> Result<layerx_client::rpc::receipt::AuthenticatedReceipt, ApiFailure> {
+    use layerx_client::rpc::receipt::{lookup_authenticated_with_commit, Lookup, LookupContext};
+    use layerx_client::rpc::receipt_commit::ReceiptCommitEvidence;
+    use layerx_programs::chain_proof::merkle::SimpleProof;
+
+    let bad = ApiFailure::upstream_degraded;
+    let endpoint = receipt_endpoint()?;
+    let material = endpoint.node().commit_material(height).map_err(|_| bad())?;
+    let validators = endpoint.node().validator_set(height).map_err(|_| bad())?;
+    let verifier = layerx_client::rpc::ChainProofVerifier {
+        chain_id: material["signedHeader"]["header"]["chain_id"]
+            .as_str()
+            .ok_or_else(bad)?
+            .to_owned(),
+        validators: layerx_client::rpc::commit::decode_validators(&validators)
+            .map_err(|_| bad())?,
+    };
+    let batch = endpoint
+        .call("px_getSequenceBatch", &json!([height.to_string()]))
+        .map_err(|_| bad())?;
+    let digest = |value: &Value| {
+        value
+            .as_str()
+            .and_then(|text| text.strip_prefix("0x"))
+            .and_then(decode_digest)
+            .ok_or_else(bad)
+    };
+    let proof = SimpleProof {
+        total: batch["proof"]["total"]
+            .as_u64()
+            .and_then(|n| i64::try_from(n).ok())
+            .ok_or_else(bad)?,
+        index: batch["proof"]["index"]
+            .as_u64()
+            .and_then(|n| i64::try_from(n).ok())
+            .ok_or_else(bad)?,
+        leaf_hash: digest(&batch["proof"]["leafHash"])?,
+        aunts: batch["proof"]["aunts"]
+            .as_array()
+            .ok_or_else(bad)?
+            .iter()
+            .map(digest)
+            .collect::<Result<Vec<_>, _>>()?,
+    };
+    let transaction = batch["tx"]
+        .as_str()
+        .and_then(|text| text.strip_prefix("0x"))
+        .filter(|text| !text.is_empty() && text.len() % 2 == 0)
+        .ok_or_else(bad)?;
+    let transaction = transaction
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| match (nibble(pair[0]), nibble(pair[1])) {
+            (Some(high), Some(low)) => Ok(high << 4 | low),
+            _ => Err(bad()),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let activity_ids = batch["activityIds"]
+        .as_array()
+        .ok_or_else(bad)?
+        .iter()
+        .map(digest)
+        .collect::<Result<Vec<_>, _>>()?;
+    let proof = ReceiptCommitEvidence {
+        verifier: &verifier,
+        covering_height: height,
+        batch_transaction: &transaction,
+        transaction_proof: &proof,
+        activity_ids: &activity_ids,
+    };
+    let Lookup::Verified(receipt) = lookup_authenticated_with_commit(
+        endpoint.node(),
+        hash,
+        LookupContext { receipt_keys: keys },
+        &proof,
+    )
+    .map_err(|_| bad())?
+    else {
+        return Err(bad());
+    };
+    if receipt.rung() != Rung::Committed {
+        return Err(bad());
+    }
+    Ok(receipt)
+}
+
 fn intent_evm_receipt(
     records: &[Value],
     digest: [u8; 32],
@@ -1063,15 +1169,9 @@ fn intent_evm_receipt(
         let (rung, inclusion_height) = match landing {
             None => (Rung::Receipted, receipt.height),
             Some((height, block_hash)) => {
-                let block = node
-                    .block_by_number(height)
-                    .map_err(|_| ApiFailure::upstream_degraded())?
-                    .ok_or_else(ApiFailure::upstream_degraded)?;
-                let index =
-                    usize::try_from(receipt.index).map_err(|_| ApiFailure::upstream_degraded())?;
-                if block.hash != block_hash
-                    || block.transactions.get(index) != Some(&raw)
-                    || height < receipt.height
+                let committed = committed_intent_receipt(hash, height, &keys)?;
+                if committed.covering_block() != Some((height, block_hash))
+                    || committed.execution() != &receipt
                 {
                     return Err(ApiFailure::upstream_degraded());
                 }

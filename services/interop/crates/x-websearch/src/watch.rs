@@ -432,6 +432,7 @@ pub struct RequestWatcher {
     confirmations: u64,
     cursor_path: PathBuf,
     next_block: Option<u64>,
+    skipped_blocks: u64,
     last_head: u64,
     pending_path: PathBuf,
     pending: BTreeMap<u64, Pending>,
@@ -517,7 +518,8 @@ pub(crate) fn source_identity(log: &Value, chain_id: u64) -> Result<SourceIdenti
 
 impl RequestWatcher {
     /// Opens the watcher from atomic progress, migrating the legacy cursor
-    /// and pending journal. A cursor without work state rewinds the scan.
+    /// and pending journal. A cursor without work state resumes the scan at
+    /// the cursor.
     ///
     /// # Errors
     /// Returns the error creating the directory and a cursor file that does
@@ -592,12 +594,7 @@ impl RequestWatcher {
                 }
                 pending
             }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                if stored.is_some() {
-                    next_block = Some(0);
-                }
-                BTreeMap::new()
-            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => BTreeMap::new(),
             Err(error) => return Err(error),
         };
         Ok(Self {
@@ -605,6 +602,7 @@ impl RequestWatcher {
             confirmations: u64::from(confirmations),
             cursor_path,
             next_block,
+            skipped_blocks: 0,
             last_head: 0,
             pending_path,
             pending,
@@ -720,6 +718,13 @@ impl RequestWatcher {
     #[must_use]
     pub const fn last_head(&self) -> u64 {
         self.last_head
+    }
+
+    /// The cumulative number of blocks skipped because the endpoint no longer
+    /// serves the watcher's stored range.
+    #[must_use]
+    pub const fn skipped_blocks(&self) -> u64 {
+        self.skipped_blocks
     }
 
     /// Every request held in the journal, refused ones included, ascending.
@@ -934,6 +939,31 @@ impl RequestWatcher {
             .map_err(|_| EvmError::Cursor)
     }
 
+    fn earliest_served_block(&self) -> Result<u64, EvmError> {
+        let block = self
+            .rpc
+            .call("eth_getBlockByNumber", &json!(["earliest", false]))?;
+        let number = block
+            .as_str()
+            .or_else(|| block.get("number").and_then(Value::as_str))
+            .and_then(parse_quantity)
+            .and_then(|number| u64::try_from(number).ok())
+            .ok_or(EvmError::Malformed)?;
+        Ok(number)
+    }
+
+    fn logs(&self, from: u64, to: u64) -> Result<Value, EvmError> {
+        self.rpc.call(
+            "eth_getLogs",
+            &json!([{
+                "address": hex0x(&XWEB_PRECOMPILE),
+                "fromBlock": quantity(u128::from(from)),
+                "toBlock": quantity(u128::from(to)),
+                "topics": [[hex0x(&requested_topic()), hex0x(&program_requested_topic())]],
+            }]),
+        )
+    }
+
     /// Reads the confirmed blocks after the cursor, at most
     /// [`MAX_BLOCK_RANGE`] of them, and returns their requests in log order.
     /// The cursor moves only after every log in the range decoded and every
@@ -953,20 +983,34 @@ impl RequestWatcher {
         let Some(safe) = head.checked_sub(self.confirmations) else {
             return Ok(Vec::new());
         };
-        let from = *self.next_block.get_or_insert(safe);
+        let mut from = *self.next_block.get_or_insert(safe);
         if from > safe {
             return Ok(Vec::new());
         }
-        let to = safe.min(from.saturating_add(MAX_BLOCK_RANGE - 1));
-        let logs = self.rpc.call(
-            "eth_getLogs",
-            &json!([{
-                "address": hex0x(&XWEB_PRECOMPILE),
-                "fromBlock": quantity(u128::from(from)),
-                "toBlock": quantity(u128::from(to)),
-                "topics": [[hex0x(&requested_topic()), hex0x(&program_requested_topic())]],
-            }]),
-        )?;
+        let (to, logs) = loop {
+            let to = safe.min(from.saturating_add(MAX_BLOCK_RANGE - 1));
+            match self.logs(from, to) {
+                Ok(logs) => break (to, logs),
+                Err(EvmError::Rejected { code: -32_000 }) => {
+                    let earliest = self.earliest_served_block()?;
+                    if earliest <= from {
+                        return Err(EvmError::Rejected { code: -32_000 });
+                    }
+                    let skipped = earliest - from;
+                    self.skipped_blocks = self.skipped_blocks.saturating_add(skipped);
+                    eprintln!(
+                        "x-websearch request watch skipped {skipped} unavailable blocks; continuing at {earliest}"
+                    );
+                    from = earliest;
+                    self.next_block = Some(from);
+                    if from > safe {
+                        self.store_cursor(from)?;
+                        return Ok(Vec::new());
+                    }
+                }
+                Err(error) => return Err(error),
+            }
+        };
         let mut requests = Vec::new();
         let mut pending = self.pending.clone();
         let mut program_pending = self.program_pending.clone();

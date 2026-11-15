@@ -1,0 +1,73 @@
+[service.core-boundary]
+kind = "repo"
+dockerfile = "docker/platform-core/Dockerfile"
+root = "/"
+watch = ["/docker/platform-core/**", "/docker/common/**", "/services/**", "/programs/**"]
+# The treasury signer and supervisor use host Unix sockets; funding uses the host's loopback RPC.
+target = "other"
+# Liveness is served by the admin TLS listener on port 9444.
+health = "/livez"
+restart = "ALWAYS"
+replicas = 1
+volume = "/var/lib/layerx/core"
+public = 0
+order = 4
+needs = ["sequencer-primary"]
+
+[vars.core-boundary]
+LAYERX_CORE_NETWORK_ID = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_NETWORK_ID"
+LAYERX_CORE_TREASURY_SIGNER_SOCKET = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_TREASURY_SIGNER_SOCKET"
+LAYERX_CORE_TREASURY_ASSET = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_TREASURY_ASSET"
+LAYERX_CORE_SEQUENCER_ID = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_SEQUENCER_ID"
+LAYERX_CORE_STATE_DIR = "/var/lib/layerx/core"
+LAYERX_CORE_SEQUENCER_ENDPOINT = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_SEQUENCER_ENDPOINT"
+LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER = "/run/secrets/sequencer-ca.der"
+LAYERX_CORE_TLS_CERT_DER = "/run/secrets/core-cert.der"
+LAYERX_CORE_TLS_KEY_DER = "/run/secrets/core-key.der"
+LAYERX_CORE_ADMIN_TLS_CERT_DER = "/run/secrets/admin-cert.der"
+LAYERX_CORE_ADMIN_TLS_KEY_DER = "/run/secrets/admin-key.der"
+LAYERX_CORE_ADMIN_TOKEN_FILE = "/run/secrets/admin-token"
+LAYERX_CORE_SUPERVISOR_SOCKET = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_SUPERVISOR_SOCKET"
+LAYERX_CORE_NATIVE_ASSET_DENOMS = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_NATIVE_ASSET_DENOMS"
+LAYERX_CORE_CHAIN_RPC_URL = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_CHAIN_RPC_URL"
+# Funding uses the file signer, which is exclusive with the KMS signer.
+LAYERX_CORE_FUNDING_SENDER_KEY_FILE = "/run/secrets/funding-key"
+LAYERX_CORE_TLS_CERT_DER_BASE64 = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_TLS_CERT_DER_BASE64"
+LAYERX_CORE_TLS_KEY_DER_BASE64 = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_TLS_KEY_DER_BASE64"
+LAYERX_CORE_ADMIN_TLS_CERT_DER_BASE64 = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_ADMIN_TLS_CERT_DER_BASE64"
+LAYERX_CORE_ADMIN_TLS_KEY_DER_BASE64 = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_ADMIN_TLS_KEY_DER_BASE64"
+LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER_BASE64 = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER_BASE64"
+LAYERX_CORE_ADMIN_TOKEN_BASE64 = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_ADMIN_TOKEN_BASE64"
+LAYERX_CORE_FUNDING_SENDER_KEY_BASE64 = "env:PLATFORM_CORE_BOUNDARY_LAYERX_CORE_FUNDING_SENDER_KEY_BASE64"
+
+[inputs.core-boundary]
+# Network identifier as a nonzero decimal 32-bit integer.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_NETWORK_ID = "operator"
+# Treasury signer Unix socket as an absolute mounted path accessible to user 4020.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_TREASURY_SIGNER_SOCKET = "operator"
+# Treasury asset identifier as 64 hexadecimal digits, nonzero.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_TREASURY_ASSET = "operator"
+# Sequencer identifier as 64 hexadecimal digits.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_SEQUENCER_ID = "operator"
+# Sequencer endpoint as an HTTPS URL validated by the supplied DER trust anchor.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_SEQUENCER_ENDPOINT = "operator"
+# Native node supervisor Unix socket as an absolute mounted path.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_SUPERVISOR_SOCKET = "operator"
+# Asset-to-denomination bindings as a JSON object mapping hexadecimal asset identifiers to denomination strings.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_NATIVE_ASSET_DENOMS = "operator"
+# Native funding RPC as a plaintext HTTP URL on loopback with an explicit port and no path.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_CHAIN_RPC_URL = "operator"
+# Core TLS certificate as base64-encoded DER bytes.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_TLS_CERT_DER_BASE64 = "operator"
+# Core TLS private key as base64-encoded PKCS#8 DER bytes.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_TLS_KEY_DER_BASE64 = "operator"
+# Admin TLS certificate as base64-encoded DER bytes.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_ADMIN_TLS_CERT_DER_BASE64 = "operator"
+# Admin TLS private key as base64-encoded PKCS#8 DER bytes.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_ADMIN_TLS_KEY_DER_BASE64 = "operator"
+# Sequencer trust certificate as base64-encoded DER bytes.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER_BASE64 = "operator"
+# Shared admin bearer token as base64-encoded UTF-8 text containing at most 4096 bytes after trimming line endings.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_ADMIN_TOKEN_BASE64 = "generated"
+# Funding account private key as base64-encoded text containing a nonzero secp256k1 scalar of 64 hexadecimal digits, optionally prefixed with 0x.
+PLATFORM_CORE_BOUNDARY_LAYERX_CORE_FUNDING_SENDER_KEY_BASE64 = "chain"

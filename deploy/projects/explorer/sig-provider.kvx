@@ -1,0 +1,16 @@
+[service.sig-provider]
+kind = "repo"
+dockerfile = "docker/explorer-sig-provider/Dockerfile"
+root = "/"
+watch = ["/docker/explorer-sig-provider/**", "/services/explorer/services/sig-provider/**"]
+health = "/health"
+restart = "ALWAYS"
+replicas = 1
+order = 1
+needs = []
+
+[vars.sig-provider]
+PORT = "8050"
+SIG_PROVIDER__SERVER__HTTP__ADDR = "[::]:${{PORT}}"
+
+[inputs.sig-provider]

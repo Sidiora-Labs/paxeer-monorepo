@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libssl3 ca-cert
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+EXPOSE 8050
 ENV APP_USER=app
 # Processes in a container should not run as root, so we need to create app user
 # https://medium.com/@mccode/processes-in-containers-should-not-run-as-root-2feae3f0df3b

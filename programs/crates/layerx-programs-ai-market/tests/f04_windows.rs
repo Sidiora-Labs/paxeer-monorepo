@@ -15,7 +15,7 @@ use layerx_programs_ai_market::{
     },
     commit_reveal::{self as cr, commitment, CommitRecord, CommitRegion, Outcome as F04, Status},
     dispatch::{self, Operation},
-    epoch::{self, Frozen, Outcome as Opening, ADVANCE_SCRATCH_BYTES, OPEN_SCRATCH_BYTES},
+    epoch::{self, Frozen, ADVANCE_SCRATCH_BYTES, OPEN_SCRATCH_BYTES},
     errors::{
         ApplicationError, CodecResult, ARITHMETIC, BAD_SIGNATURE, CAPACITY, CONFLICT, EXPIRED,
         F03_NONCANONICAL_VECTOR, F03_NO_SCORES, F03_REPORT_ALREADY_FINAL, F03_SCORE_RANGE,
@@ -594,34 +594,7 @@ impl World {
     /// Permissionless object-local `OPEN_EPOCH` of the clock epoch of `at`.
     fn open(&mut self, at: u64) -> CodecResult<Frozen> {
         let mut candidate = self.clone();
-        repair::refresh_workers(&mut candidate.bytes, at)?;
-        let mut next = vec![0; MAX_STATE_BYTES];
-        let mut scratch = vec![0; OPEN_SCRATCH_BYTES];
-        let preview = epoch::preview_open(&candidate.bytes, at, &mut next, &mut scratch)?;
-        let call = Req {
-            epoch: preview.epoch,
-            config: preview.config.get(),
-            roster: Presence::Present(preview.roster),
-            request: tag(0x60, 0, preview.epoch),
-            ..req(dispatch::OPEN_EPOCH, principal(KEEPER)?, Vec::new())
-        };
-        let encoded = call.encode()?;
-        let mut event = vec![0; MAX_EVENT_BYTES];
-        let Opening::Opened {
-            frozen, state_len, ..
-        } = epoch::open_epoch(
-            &call.context(at)?,
-            &decode_envelope(&encoded)?,
-            &candidate.bytes,
-            &mut next,
-            &mut scratch,
-            &mut event,
-        )?
-        else {
-            return Err(NON_CANONICAL);
-        };
-        next.truncate(state_len);
-        candidate.bytes = next;
+        let frozen = repair::open(&mut candidate.bytes, at)?;
         *self = candidate;
         Ok(frozen)
     }

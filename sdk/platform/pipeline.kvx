@@ -410,7 +410,7 @@ root = "sdk/platform/jvm"
 "src/main/java/com/sidiora/layerx/sdk/SecretBytes.java" = "c651515a3541ee6d2fbbee0c348bf480844b33124ee4a40b0a4688a3e9da5ee5"
 "src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java" = "f8cd0e90eba7a16aa2873ffd983a0533973206f12d8fc0a028d23217d232df8c"
 "src/main/java/com/sidiora/layerx/sdk/verify/GeneratedReceiptContract.java" = "4b2cb7ac6c7bca2340a46d115d307de06c84063edaa4f615bd9daf8e644f2b51"
-"src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java" = "a22a2527ea3a738381932b92ac3fd4db5b7d9ae91fad72411be58a64b25f850d"
+"src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java" = "abf16337de17eb95ed3f0d1a71e93ed9e6cdd49dab14aa995d7db97a124f8809"
 "src/main/kotlin/com/sidiora/layerx/sdk/LayerX.kt" = "ab01badbb94d448f5fe5f379918ec2af08e124782dc3667f57a7f0007bc9d1ae"
 "src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java" = "91b807b852500ce266e49485b7ff6e40f8534bef28aed5e7bfb5dc6beda9acd6"
 

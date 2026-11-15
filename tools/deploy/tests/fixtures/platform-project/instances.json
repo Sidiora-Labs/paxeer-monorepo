@@ -1,0 +1,33 @@
+{
+  "store": {
+    "source": {"image": "ghcr.io/railwayapp-templates/postgres-ssl:18"}
+  },
+  "worker": {
+    "source": {
+      "image": "ghcr.io/sidiora-labs/platform-worker@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "healthcheckPath": "/healthz",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "numReplicas": 2
+  },
+  "api": {
+    "source": {"repo": "sidiora-labs/paxeer-monorepo"},
+    "dockerfilePath": "docker/platform-gateway/Dockerfile",
+    "rootDirectory": "/",
+    "watchPatterns": [
+      "/docker/platform-gateway/**",
+      "/docker/common/**",
+      "/services/platform/**"
+    ],
+    "healthcheckPath": "/healthz",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ALWAYS",
+    "numReplicas": 1,
+    "latestDeployment": {
+      "id": "dep-api",
+      "status": "SUCCESS",
+      "meta": {"branch": "main"}
+    }
+  }
+}

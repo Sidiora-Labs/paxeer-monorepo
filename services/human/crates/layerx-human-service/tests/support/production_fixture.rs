@@ -161,6 +161,7 @@ pub(crate) struct PeerState {
     pub(crate) submitted: BTreeMap<[u8; 32], Vec<u8>>,
     pub(crate) pending_nonces: Vec<([u8; 20], u64)>,
     pub(crate) receipts: BTreeMap<[u8; 32], Value>,
+    pub(crate) receipted_answers: BTreeMap<[u8; 32], Value>,
     pub(crate) blocks: BTreeMap<u64, Value>,
     pub(crate) receipt_rung: Option<layerx_types::rung::Rung>,
     pub(crate) node_recording: Option<recorded_node::NodeRecording>,
@@ -257,19 +258,25 @@ impl PeerState {
             HumanRequest::AccountSequence { actor, authority } => {
                 let (key, wallet) = self.identities.get(&actor).or_fail("registered actor");
                 assert_eq!(authority, cluster::hex(key));
-                let next = self
-                    .submitted
-                    .values()
-                    .filter_map(|raw| {
-                        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
-                            .or_fail("signed leg");
-                        (layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-                            .or_fail("sender")
-                            == *wallet)
-                            .then_some(call.nonce + 1)
+                let next = if let Some(node) = &self.bank_node {
+                    live_bank_node::pending(node.clock.as_ref(), || {
+                        node.endpoint.pending_nonce(wallet)
                     })
-                    .max()
-                    .unwrap_or(NONCE);
+                } else {
+                    self.submitted
+                        .values()
+                        .filter_map(|raw| {
+                            let (call, signature) =
+                                layerx_crypto::evm_transaction::decode_signed(raw)
+                                    .or_fail("signed leg");
+                            (layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                                .or_fail("sender")
+                                == *wallet)
+                                .then_some(call.nonce + 1)
+                        })
+                        .max()
+                        .unwrap_or(NONCE)
+                };
                 out.extend_from_slice(&next.to_be_bytes());
             }
             HumanRequest::IdentityResolve { agent } => return self.identity_response(&agent),
@@ -516,7 +523,7 @@ impl Drop for RealAgentLayer {
 fn receipt_lookup_answer(
     rpc_url: &str,
     hash: [u8; 32],
-    raw: &[u8],
+    _raw: &[u8],
     bank_node: Option<&live_bank_node::BankNode>,
     rung: Option<layerx_types::rung::Rung>,
 ) -> Vec<u8> {
@@ -550,35 +557,11 @@ fn receipt_lookup_answer(
         unreachable!("not-ready answer handled")
     };
     let protocol = receipt.receipt().protocol().or_fail("protocol receipt");
-    let (call, signature) = required(
-        layerx_crypto::evm_transaction::decode_signed(raw),
-        "submitted call",
-    );
-    let sender = required(
-        layerx_crypto::evm_transaction::recover_sender(&call, &signature),
-        "submitted sender",
-    );
-    let disclosure = required(
-        layerx_crypto::disclosure::call::bind_call(&call, sender),
-        "submitted disclosure",
-    );
     let batch = protocol.batch_id();
-    eprintln!(
-        "receipt binding: activity_id=0x{} retained_hash=0x{} batch_height={} submission_height={} timestamp={} fee_charged={} fee_limit={} result_code={} module_id={} expected_module=12 protocol_version={} expected_protocol={} module_version={} expiry={}..={}",
-        cluster::hex(&protocol.activity_id()),
-        cluster::hex(&hash),
+    assert_eq!(protocol.activity_id(), hash);
+    assert_eq!(
         u64::from_be_bytes(batch[24..].try_into().or_fail("batch height")),
-        receipt.height(),
-        protocol.timestamp(),
-        protocol.fee_charged(),
-        disclosure.fee_limit,
-        protocol.result_code(),
-        protocol.module_id(),
-        protocol.protocol_version(),
-        layerx_wire::limits::PROTOCOL_VERSION,
-        protocol.module_version(),
-        disclosure.expiry.not_before,
-        disclosure.expiry.not_after,
+        receipt.height()
     );
     let key = keys
         .iter()
@@ -683,7 +666,7 @@ const SEQUENCER_RECEIPT_TEMPLATE: &str = concat!(
     "0000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", // signature
 );
 
-fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
+fn receipted_answer(raw: &[u8], timestamp: u64, receipt_height: u64) -> Value {
     use ed25519_dalek::Signer as _;
     use sha2::{Digest as _, Sha256};
     let (call, signature) =
@@ -700,7 +683,7 @@ fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
     sequence_preimage.extend_from_slice(&sequence.to_be_bytes());
     sequence_preimage.extend_from_slice(&hash);
     let mut height = [0; 32];
-    height[24..].copy_from_slice(&HEAD.to_be_bytes());
+    height[24..].copy_from_slice(&receipt_height.to_be_bytes());
     let mut from = [0; 32];
     from[12..].copy_from_slice(&sender);
     let mut to = [0; 32];
@@ -745,10 +728,10 @@ fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
     let answer = json!({
         "rung": "receipted", "txHash": format!("0x{}", cluster::hex(&hash)),
         "nonce": format!("0x{:x}", call.nonce), "seq": format!("0x{sequence:x}"),
-        "height": format!("0x{HEAD:x}"), "index": "0x0", "timestamp": format!("0x{timestamp:x}"),
+        "height": format!("0x{receipt_height:x}"), "index": "0x0", "timestamp": format!("0x{timestamp:x}"),
         "status": "0x1", "returnData": "0x", "logs": [], "gasUsed": format!("0x{gas:x}"),
         "cumulativeGasUsed": format!("0x{gas:x}"), "effectiveGasPrice": "0x1",
-        "feeDenom": "uhpx", "feeAmount": format!("0x{fee:x}"),
+        "feeDenom": "uhpx", "paymentDenom": "uhpx", "feeAmount": format!("0x{fee:x}"),
         "sponsor": format!("0x{}", cluster::hex(&[0; 20])),
         "from": format!("0x{}", cluster::hex(&sender)), "to": format!("0x{}", cluster::hex(&call.to)),
         "contractAddress": format!("0x{}", cluster::hex(&[0; 20])), "vmError": "",
@@ -863,7 +846,7 @@ fn sequencer_receipt_answer(
                         .sample(Duration::from_secs(1))
                         .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt clock"))
                         .unix_seconds();
-                    receipted_answer(raw, timestamp)
+                    receipted_answer(raw, timestamp, HEAD)
                 }
                 _ => {
                     json!({"rung": "submitted", "txHash": format!("0x{}", cluster::hex(&hash)), "nonce": format!("0x{:x}", call.nonce)})
@@ -924,10 +907,35 @@ fn answer_rpc(
                 Some(Ok(json!(format!("0x{nonce:x}"))))
             }
             "eth_sendRawTransaction" => {
+                if state.receipt_rung == Some(layerx_types::rung::Rung::Receipted) {
+                    let head = node.endpoint.block_number().or_fail("committed head");
+                    let mut deadline = layerx_types::clock::Deadline::start(
+                        node.clock.as_ref(),
+                        Duration::from_secs(20),
+                    )
+                    .or_fail("open block deadline");
+                    while node.endpoint.block_number().or_fail("committed head") == head {
+                        assert!(!deadline
+                            .remaining(node.clock.as_ref())
+                            .or_fail("open block clock")
+                            .is_zero());
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                }
                 let result = send_transaction_answer(state, request, &mut rpc_error);
                 if rpc_error.is_none() {
                     let raw = unhex(request["params"][0].as_str().or_fail("raw transaction"));
                     let hash = live_bank_node::submit(&node, &raw);
+                    if state.receipt_rung == Some(layerx_types::rung::Rung::Receipted) {
+                        let answer = node
+                            .rpc(
+                                "pax_sequencerReceipt",
+                                &json!([format!("0x{}", cluster::hex(&hash))]),
+                            )
+                            .or_fail("execution receipt");
+                        assert_eq!(answer["rung"], "receipted");
+                        state.receipted_answers.insert(hash, answer);
+                    }
                     let receipt = node.receipt(
                         hash,
                         &node.receipt_keys(),
@@ -942,6 +950,25 @@ fn answer_rpc(
             }
             "pax_sequencerReceipt" if state.receipt_rung.is_none() => {
                 return (sequencer_receipt_answer(state, request, clock), None);
+            }
+            "pax_sequencerReceipt"
+                if state.receipt_rung == Some(layerx_types::rung::Rung::Receipted) =>
+            {
+                let hash: [u8; 32] = unhex(request["params"][0].as_str().or_fail("hash"))
+                    .try_into()
+                    .or_fail("hash width");
+                return (
+                    if state.submitted.contains_key(&hash) {
+                        state
+                            .receipted_answers
+                            .get(&hash)
+                            .or_fail("observed execution receipt")
+                            .clone()
+                    } else {
+                        Value::Null
+                    },
+                    None,
+                );
             }
             "eth_call"
                 if request["params"][0]["to"] != "0x000000000000000000000000000000000000100a" =>

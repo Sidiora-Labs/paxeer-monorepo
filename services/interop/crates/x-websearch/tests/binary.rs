@@ -606,10 +606,20 @@ fn the_binary_refuses_a_settlement_endpoint_on_another_chain() -> TestResult {
     })?;
     let receiver = settlement_receiver_key(&scratch)?;
     let (mut child, log) = launch(&scratch, Some(&receiver))?;
-    assert_eq!(wait_exit(&mut child)?.code(), Some(2));
-    assert!(std::fs::read_to_string(log)?.contains("the 402LXP adapter cannot be registered"));
     let address: SocketAddr = config["listen"].as_str().ok_or("listen")?.parse()?;
-    assert!(TcpStream::connect(address).is_err());
+    let deadline = Instant::now() + WAIT;
+    while TcpStream::connect(address).is_err() {
+        if Instant::now() > deadline {
+            return Err("the sidecar did not start".into());
+        }
+        if child.try_wait()?.is_some() {
+            return Err(format!("the sidecar exited: {}", std::fs::read_to_string(&log)?).into());
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert!(std::fs::read_to_string(log)?.contains("x-websearch payment unresolved: receiver 0x"));
+    child.kill()?;
+    child.wait()?;
     assert!(gateway.params("eth_call").is_empty());
     assert!(!gateway.params("eth_chainId").is_empty());
     assert!(gateway
