@@ -210958,7 +210958,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.673]
 title = "Read the blocks of a backfill range through several readers and in batches"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -381475,7 +381475,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.671]
 title = "Name the health port of the dashboard API and the gateway origin of the dashboard web in their definitions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
