@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+
 import { expect, test } from 'vitest';
 
 import { ThemeProvider } from '../components/theme-provider';
@@ -49,6 +50,7 @@ async function theme_init_and_provider_agree_on_an_invalid_stored_theme() {
 
     window.eval(THEME_INIT);
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('light')).toBe(false);
 
     await act(async() => {
       const mountedRoot = createRoot(container);
@@ -60,6 +62,7 @@ async function theme_init_and_provider_agree_on_an_invalid_stored_theme() {
       );
     });
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('light')).toBe(false);
   } finally {
     await act(async() => {
       root?.unmount();
