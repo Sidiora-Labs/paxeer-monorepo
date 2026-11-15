@@ -32,6 +32,8 @@ defmodule Explorer.ChainTest do
     PendingTransactionOperationCount
   }
 
+  alias Explorer.Chain.Cache.Counters.LastFetchedCounter
+
   alias Explorer.Chain.MultichainSearchDb.{BalancesExportQueue, MainExportQueue}
 
   alias Explorer.Chain.Supply.ProofOfAuthority
@@ -50,6 +52,12 @@ defmodule Explorer.ChainTest do
   setup :verify_on_exit!
 
   describe "address_estimated_count/0" do
+    setup do
+      Repo.delete_all(Address)
+      LastFetchedCounter.delete("addresses_count")
+      :ok
+    end
+
     test "returns the number of all addresses" do
       insert(:address, fetched_coin_balance: 0)
       insert(:address, fetched_coin_balance: 1)
@@ -66,6 +74,7 @@ defmodule Explorer.ChainTest do
 
     test "returns 0 on empty table" do
       start_supervised!(AddressesCount)
+      AddressesCount.consolidate()
       assert 0 == AddressesCount.fetch()
     end
   end
