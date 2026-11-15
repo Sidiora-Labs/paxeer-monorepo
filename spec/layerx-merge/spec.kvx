@@ -383027,7 +383027,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.699]
 title = "Let the definition of the gateway hold the key provisioning key of the key routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
