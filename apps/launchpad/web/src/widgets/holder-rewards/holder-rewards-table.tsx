@@ -35,17 +35,17 @@ export interface HolderRewardsTableProps {
 }
 
 const columns: ReadonlyArray<{ key: HolderRewardsSortKey; label: string; width: string }> = [
-  { key: 'rewards', label: 'Holder rewards', width: 'w-[124px] md:w-[168px]' },
-  { key: 'mcap', label: 'Market cap', width: 'hidden w-[132px] md:table-cell' },
-  { key: 'holders', label: 'Holders paid', width: 'hidden w-[132px] md:table-cell' },
+  { key: 'rewards', label: 'Holder rewards', width: 'w-31 md:w-42' },
+  { key: 'mcap', label: 'Market cap', width: 'hidden w-33 md:table-cell' },
+  { key: 'holders', label: 'Holders paid', width: 'hidden w-33 md:table-cell' },
 ];
 
 /** Sentence-case sortable column head (the shared SortHeader is uppercase by design). */
 function ColumnHead({ label, sr, sort, onSort, className }: { label: string; sr?: string; sort: 'asc' | 'desc' | null; onSort(): void; className?: string }) {
   const Icon = sort === 'asc' ? ArrowUp : sort === 'desc' ? ArrowDown : ArrowUpDown;
   return (
-    <th scope="col" aria-sort={sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : 'none'} className={cn('h-10 px-2 text-xs font-medium md:px-3', sort ? 'text-text' : 'text-text-faint', className)}>
-      <button type="button" onClick={onSort} className="ml-auto flex h-full items-center justify-end gap-1 whitespace-nowrap rounded-xs transition-colors hover:text-text">
+    <th scope="col" aria-sort={sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : undefined} className={cn('h-10 px-2 text-xs font-medium md:px-3', sort ? 'text-text' : 'text-text-faint', className)}>
+      <button type="button" onClick={onSort} className="ml-auto flex h-full items-center justify-end gap-1 rounded-xs transition-colors hover:text-text">
         <span>{label}{sr ? <span className="sr-only"> {sr}</span> : null}</span>
         <Icon aria-hidden="true" className={cn('size-3', sort ? 'text-text' : 'opacity-0 group-hover/head:opacity-60')} />
         <span className="sr-only">{sort === 'asc' ? ', sorted ascending' : sort === 'desc' ? ', sorted descending' : ', sortable'}</span>

@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { useEffect, useId, useMemo, useState, type PointerEvent } from 'react';
 import { cn } from '@/lib/utils';
@@ -53,7 +54,7 @@ function bucketLabel(iso: string): string {
 }
 
 /** Inline SVG area chart of portfolio value: flat alpha fill under a sign-coloured line, hover readout, no axes. */
-export function PortfolioChart({ points, tone, height = 200, className }: PortfolioChartProps) {
+export function PortfolioChart({ points, tone, height = launchpadGeometry.chart.portfolioHeight, className }: PortfolioChartProps) {
   const { hidden } = useBalanceVisibility();
   const geometry = useMemo(() => chartGeometry(points, height), [points, height]);
   const [hover, setHover] = useState<{ points: readonly SeriesPoint[]; index: number } | null>(null);

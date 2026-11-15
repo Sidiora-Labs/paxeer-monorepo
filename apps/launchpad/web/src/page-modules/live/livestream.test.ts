@@ -271,7 +271,7 @@ describe('live page structure', () => {
     const featured = directory.rankByViewers(await liveEntries());
     const markup = render(createElement(hero.HeroCarousel, { entries: featured, creatorLabel: (w: string) => w.slice(2, 10) }));
     expect(markup).toContain('data-live-hero-frame');
-    expect(markup).toContain('max-w-[1000px]');
+    expect(markup).toContain('max-w-250');
     expect(markup).toContain('lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]');
     expect(markup).not.toContain('Open coin');
     expect(markup).not.toMatch(BORDER);

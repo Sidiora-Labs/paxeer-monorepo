@@ -175,7 +175,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
     <HoldersFilters value={search} onChange={setSearch} pnlReason={pnlReason} />
     {coverage && coverage !== 'complete' ? <NoticeBar tone="warning" announce>Some holders may be missing from this list.</NoticeBar> : null}
     <div role="region" aria-label="Token holders table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
-      <table className="w-full min-w-[40rem] text-sm">
+      <table className="w-full min-w-160 text-sm">
         <thead>
           <tr>
             <SortHeader label="Holder" />

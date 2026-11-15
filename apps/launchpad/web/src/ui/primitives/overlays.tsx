@@ -321,8 +321,8 @@ export function ModalFrame({
       aria-describedby={subtitle ? subtitleId : undefined}
       className={cn('flex-col rounded-lg bg-surface-2 shadow-modal', modalWidth[size], className)}
     >
-      <div className="flex items-start gap-3 px-6 pt-6">
-        <div className="min-w-0 flex-1">
+      <div className="@container/modal-header flex shrink-0 flex-wrap items-start gap-3 px-4 pt-4">
+        <div className="order-last min-w-0 flex-1 basis-full @xs/modal-header:order-none @xs/modal-header:basis-40">
           <h2
             id={titleId}
             className={cn('text-xl font-extrabold text-text', hideTitle && 'sr-only')}
@@ -340,10 +340,10 @@ export function ModalFrame({
           icon={<X />}
           size="sm"
           onClick={onClose}
-          className="-mr-2 -mt-1"
+          className="ml-auto -mr-2 -mt-1"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
       {footer ? (
         <div className="flex flex-wrap items-center justify-end gap-2 px-6 pb-6">{footer}</div>
       ) : null}
@@ -458,7 +458,7 @@ export function Tooltip({ content, children, delay, align = 'center', className 
                 if (!focused.current) deferHide();
               }}
               style={position ? { top: position.top, left: position.left } : undefined}
-              className="sl-popover fixed z-[var(--sl-z-tooltip)] max-w-60 rounded-sm bg-surface-3 px-2 py-1 text-xs text-text shadow-pop"
+              className="sl-popover fixed z-[var(--sl-z-tooltip)] max-w-[min(var(--sl-notice-max-width),calc(100dvw-var(--sl-space-6)))] rounded-sm bg-surface-3 px-2 py-1 text-xs text-text shadow-pop"
             >
               {content}
             </div>,

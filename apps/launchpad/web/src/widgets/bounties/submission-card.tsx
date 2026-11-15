@@ -90,7 +90,7 @@ export function SubmissionCard({ submission, asset, own = false, actions, classN
       </header>
       <Evidence urls={submission.evidenceUrls} />
       <blockquote className={cn('flex gap-3 rounded-sm bg-surface-2 p-3 text-sm', muted ? 'text-text-faint' : 'text-text')}>
-        <span aria-hidden="true" className="w-[3px] shrink-0 rounded-pill bg-accent" />
+        <span aria-hidden="true" className="w-1 shrink-0 rounded-pill bg-accent" />
         <p className="min-w-0 whitespace-pre-wrap break-words">{submission.body}</p>
       </blockquote>
       {award ? (

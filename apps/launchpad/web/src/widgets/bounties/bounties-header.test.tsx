@@ -126,8 +126,8 @@ describe('create bounty call to action', () => {
     const container = mount(<Harness availability={ready} />);
     const h1 = container.querySelector('h1');
     expect(h1?.textContent).toBe('Open bounties');
-    expect(h1?.className).toMatch(/md:text-\[28px\]/);
-    expect(h1?.className).not.toMatch(/extrabold|text-2xl/);
+    expect(h1?.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-xl', 'md:text-2xl', 'font-bold']));
+    expect(h1?.className).not.toMatch(/extrabold|(?:^|\s)text-2xl(?:\s|$)/);
     const row = h1?.closest('div')?.parentElement;
     expect(row?.textContent).toContain('chips');
     expect(row?.textContent).toContain('Create bounty');

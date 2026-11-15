@@ -137,7 +137,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="text-base font-bold text-text mb-3 pb-2">
         {title}
       </h2>
-      <div className="space-y-3 text-sm text-text-muted leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-text [&_h3]:mt-4 [&_h3]:mb-2 [&_ul]:space-y-1.5 [&_ul]:pl-0 [&_li]:flex [&_li]:items-start [&_li]:gap-2 [&_li]:before:content-['–'] [&_li]:before:text-text-faint [&_li]:before:shrink-0 [&_strong]:text-text">
+      <div className="space-y-3 text-sm text-text-muted leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-text [&_h3]:mt-4 [&_h3]:mb-2 [&_ul]:space-y-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:pl-1 [&_li]:marker:text-text-faint [&_strong]:text-text">
         {children}
       </div>
     </section>

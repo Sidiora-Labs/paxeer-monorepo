@@ -96,7 +96,7 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
   const socials = pairSocials(metadata);
   return (
     <li className="relative flex h-11 items-center gap-2 bg-surface-1 px-2 transition-colors duration-fast hover:bg-surface-hover">
-      <Link href={terminalPoolPath(row.poolAddress)} aria-label={`${row.symbol} ${row.name}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus" />
+      <Link href={terminalPoolPath(row.poolAddress)} aria-label={`${row.symbol} ${row.name}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
       <Avatar src={row.image} name={row.symbol} size="md" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="flex min-w-0 items-baseline gap-1.5 text-sm">
@@ -150,8 +150,8 @@ interface TrenchColumnProps {
 function TrenchColumn({ title, count, control, children }: TrenchColumnProps) {
   return (
     <section aria-label={title} className="flex min-h-0 flex-col overflow-hidden rounded-md bg-surface-1">
-      <header className="flex h-8 shrink-0 items-center justify-between gap-2 px-2">
-        <h2 className="flex items-center gap-1.5 text-sm font-bold text-text">
+      <header className="flex min-h-touch-target-min shrink-0 flex-wrap items-center justify-between gap-2 px-2 py-1">
+        <h2 className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-text">
           {title}
           {count !== null ? <span data-numeric className="text-xs font-semibold tabular-nums text-text-faint">{formatCount(count)}</span> : null}
         </h2>
@@ -221,7 +221,7 @@ function GraduationColumn({ title }: { title: string }) {
 /** Trenches board: new pairs from the 'new' ranking; graduation columns only from served evidence. */
 export default function TerminalTrenchesView() {
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-1 overflow-y-auto bg-canvas lg:grid-cols-3 lg:overflow-hidden">
+    <div className="grid shrink-0 grid-cols-1 gap-1 bg-canvas @market-two/workspace:h-full @market-two/workspace:min-h-0 @market-two/workspace:grid-cols-3 @market-two/workspace:overflow-hidden">
       <NewPairsColumn />
       <GraduationColumn title="About to graduate" />
       <GraduationColumn title="Graduated" />

@@ -120,12 +120,13 @@
 
 /* Legal doc prose */
 .prose-legal {
-  max-inline-size: 65ch;
+  container-type: inline-size;
+  max-inline-size: var(--sl-prose-measure);
   color: var(--sl-text-muted);
 }
 .prose-legal h1 {
   font-weight: var(--sl-weight-bold);
-  font-size: var(--sl-text-xl);
+  font-size: var(--sl-text-page-title);
   color: var(--sl-text);
   margin-bottom: var(--sl-space-1);
 }
@@ -290,4 +291,12 @@
   .sl-native-select option:disabled {
     color: var(--sl-text-disabled);
   }
+}
+
+.foundation-shell [data-shell-content] :focus-visible {
+  scroll-margin-block-end: var(--sl-bottom-nav-height);
+}
+
+:focus-visible {
+  outline-style: solid;
 }
