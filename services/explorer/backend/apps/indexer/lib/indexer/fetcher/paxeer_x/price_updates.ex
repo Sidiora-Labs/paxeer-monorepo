@@ -134,7 +134,6 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdates do
 
     %{
       json_rpc_named_arguments: json_rpc_named_arguments,
-      cosmos_rest_urls: config[:cosmos_rest_urls],
       cometbft_rpc_urls: config[:cometbft_rpc_urls],
       start_block: config[:start_block],
       precompile: config[:precompile] || @default_precompile,
@@ -236,7 +235,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdates do
         :ok
 
       block ->
-        with {:ok, updates} <- CosmosRest.block_price_updates(state.cosmos_rest_urls, state.cometbft_rpc_urls, number),
+        with {:ok, updates} <- CosmosRest.block_price_updates([], state.cometbft_rpc_urls, number),
              :ok <- maybe_refresh_markets(updates, state),
              stored_hashes = MapSet.new(PriceFeed.block_update_hashes(number)),
              {:ok, _count} <- PriceFeed.replace_block_updates(block, updates) do
