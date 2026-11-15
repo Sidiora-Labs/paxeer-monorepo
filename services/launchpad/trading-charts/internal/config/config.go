@@ -317,6 +317,9 @@ func (c *Config) registerInlineDocuments() error {
 			return fmt.Errorf("%s_FILE and %s_DOCUMENT are both set", p.name, p.name)
 		}
 		if p.inline != "" {
+			if _, err := boundBytes("", p.inline, p.digest); err != nil {
+				return fmt.Errorf("%s_DOCUMENT: %w", p.name, err)
+			}
 			documents[p.digest] = p.inline
 		}
 	}
