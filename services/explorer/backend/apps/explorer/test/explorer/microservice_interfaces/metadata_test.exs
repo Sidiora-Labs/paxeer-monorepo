@@ -73,22 +73,32 @@ defmodule Explorer.MicroserviceInterfaces.MetadataTest do
                Metadata.get_addresses_tags([@address])
     end
 
-    test "gives up after the configured requests timeout instead of holding the list request", %{bypass: bypass} do
+    test "gives up after the configured requests timeout instead of holding the list request" do
+      test_pid = self()
+
+      {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true])
+      {:ok, {_address, port}} = :inet.sockname(listener)
+
+      _stub =
+        spawn(fn ->
+          {:ok, socket} = :gen_tcp.accept(listener)
+          send(test_pid, :metadata_stub_started)
+          Process.sleep(1_000)
+          :gen_tcp.close(socket)
+          :gen_tcp.close(listener)
+        end)
+
       Application.put_env(:explorer, Metadata,
-        service_url: "http://localhost:#{bypass.port}",
+        service_url: "http://localhost:#{port}",
         enabled: true,
         requests_timeout: 100
       )
-
-      Bypass.stub(bypass, "GET", "/api/v1/metadata", fn conn ->
-        Process.sleep(1_000)
-        Conn.resp(conn, 200, Jason.encode!(%{"addresses" => %{}}))
-      end)
 
       {elapsed, result} = :timer.tc(fn -> Metadata.get_addresses_tags([@address]) end, :millisecond)
 
       assert result == {:error, "Error while sending request to Metadata microservice"}
       assert elapsed < 1_000
+      assert_receive :metadata_stub_started, 2_000
     end
   end
 end

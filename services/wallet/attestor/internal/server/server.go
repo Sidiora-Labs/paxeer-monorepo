@@ -41,38 +41,40 @@ const (
 	PathHealth    = "/health"
 	PathMetrics   = "/metrics"
 
-	DefaultAPIReadTimeout  = 15 * time.Second
-	DefaultProtocolTimeout = 5 * time.Minute
-	maxRequestBytes        = 2 << 20
+	DefaultAPIReadTimeout        = 15 * time.Second
+	DefaultProtocolTimeout       = 5 * time.Minute
+	maxRequestBytes              = 2 << 20
+	DefaultInventoryRequestBytes = (2 << 20) + 1024
 )
 
 type Options struct {
-	NodeID          string
-	Region          string
-	ChainID         uint64
-	Ceremony        bool
-	Participants    []string
-	Store           *store.Store
-	Audit           *audit.Log
-	Transport       *transport.Transport
-	Policy          *policy.Policy
-	Kernel          *lx.Evaluator
-	NativePolicy    *nativepolicy.Document
-	Ledger          policy.Ledger
-	Clients         *ClientAuthorities
-	Tokens          *jwt.TokenVerifier
-	Agents          *agent.AgentVerifier
-	Authority       *agent.Authority
-	Inventory       *Inventory
-	Activities      *lxwire.Registry
-	PeerProbe       func(ctx context.Context) map[string]health.PeerState
-	Replica         func() health.ReplicaState
-	Snapshots       *backup.Writer
-	Metrics         *health.Metrics
-	APIReadTimeout  time.Duration
-	ProtocolTimeout time.Duration
-	PeerTimeout     time.Duration
-	RoundTimeout    time.Duration
+	NodeID                string
+	Region                string
+	ChainID               uint64
+	Ceremony              bool
+	Participants          []string
+	Store                 *store.Store
+	Audit                 *audit.Log
+	Transport             *transport.Transport
+	Policy                *policy.Policy
+	Kernel                *lx.Evaluator
+	NativePolicy          *nativepolicy.Document
+	Ledger                policy.Ledger
+	Clients               *ClientAuthorities
+	Tokens                *jwt.TokenVerifier
+	Agents                *agent.AgentVerifier
+	Authority             *agent.Authority
+	Inventory             *Inventory
+	Activities            *lxwire.Registry
+	PeerProbe             func(ctx context.Context) map[string]health.PeerState
+	Replica               func() health.ReplicaState
+	Snapshots             *backup.Writer
+	Metrics               *health.Metrics
+	APIReadTimeout        time.Duration
+	InventoryRequestBytes int
+	ProtocolTimeout       time.Duration
+	PeerTimeout           time.Duration
+	RoundTimeout          time.Duration
 }
 
 type Server struct {
@@ -121,6 +123,9 @@ func New(opts Options) (*Server, error) {
 	if opts.ProtocolTimeout <= 0 {
 		opts.ProtocolTimeout = DefaultProtocolTimeout
 	}
+	if opts.InventoryRequestBytes <= 0 {
+		opts.InventoryRequestBytes = DefaultInventoryRequestBytes
+	}
 	if opts.PeerProbe == nil {
 		opts.PeerProbe = func(context.Context) map[string]health.PeerState { return map[string]health.PeerState{} }
 	}
@@ -158,6 +163,7 @@ func New(opts Options) (*Server, error) {
 	s.mux.HandleFunc(PathDescribe, s.post(s.operatorOnly("keys.describe", s.HandleDescribe)))
 	s.mux.HandleFunc(PathPublicWallet, s.post(s.gatewayOnly("keys.public-wallet", s.HandlePublicWallet)))
 	s.mux.HandleFunc(PathAuthority, s.post(s.gatewayOnly("custody.authority", s.HandleAuthority)))
+	s.mux.HandleFunc(PathInventory, s.post(s.requireAuthority("custody.inventory", AuthorityGateway|AuthorityOperator, "gateway or operator", s.HandleInventory)))
 	s.mux.HandleFunc(PathSign, s.post(s.signRoute()))
 	s.mux.HandleFunc(PathNativeSign, s.post(s.gatewayOnly("sign.native-v2", s.HandleNativeSign)))
 	s.mux.HandleFunc(PathLXReview, s.post(s.gatewayOnly("lx.review", s.HandleLXReview)))
@@ -292,12 +298,19 @@ func (s *Server) gatewayOnly(kind string, h http.HandlerFunc) http.HandlerFunc {
 }
 
 func readBody(r *http.Request) ([]byte, *Error) {
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBytes+1))
+	return readBodyLimit(r, maxRequestBytes)
+}
+
+func readBodyLimit(r *http.Request, limit int) ([]byte, *Error) {
+	if limit <= 0 {
+		limit = maxRequestBytes
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, int64(limit)+1))
 	if err != nil {
 		return nil, newError(CodeSessionBadRequest, "request body unreadable")
 	}
-	if len(body) > maxRequestBytes {
-		return nil, newError(CodeSessionBadRequest, "request body exceeds %d bytes", maxRequestBytes)
+	if len(body) > limit {
+		return nil, newError(CodeSessionBadRequest, "request body exceeds %d bytes", limit)
 	}
 	return body, nil
 }

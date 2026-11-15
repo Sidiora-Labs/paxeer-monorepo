@@ -101,7 +101,7 @@ def test_platform_agent_boundary_definition() -> None:
     inputs = sections["inputs.agent-boundary"]
 
     assert service["kind"] == "repo"
-    container = ROOT / str(service["container"])
+    container = ROOT / str(service["dockerfile"])
     assert container == DOCKERFILE and container.is_file()
     assert service["root"] == "."
     patterns = service["watch"]

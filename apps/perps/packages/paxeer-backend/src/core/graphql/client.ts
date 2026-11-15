@@ -1,5 +1,14 @@
-import { activePoll, onStreamResync } from "@paxeer-network/paxeer-backend/core/net/realtime";
-import { isPageActive, scheduleActive, watchSocket, notifyStreamResync, type CancelTask } from "@paxeer-network/paxeer-backend/core/net/realtime";
+import {
+  activePoll,
+  onStreamResync,
+} from "@paxeer-network/paxeer-backend/core/net/realtime";
+import {
+  isPageActive,
+  scheduleActive,
+  watchSocket,
+  notifyStreamResync,
+  type CancelTask,
+} from "@paxeer-network/paxeer-backend/core/net/realtime";
 import { fetchWithPolicy as fetch } from "@paxeer-network/paxeer-backend/core/net/fetch";
 /* ══════════════════════════════════════════════════════════════════════
    GraphQL singleton client — ECC Phase 1 polling consolidation.
@@ -52,12 +61,92 @@ export interface GraphQLEndpoint {
    * request so token refresh is picked up automatically. Must be cheap.
    */
   authHeaders?: () => Record<string, string>;
+  /**
+   * Non-secret session generation. Update after changing auth state, including
+   * logout. Endpoints created by gqlEndpoint restart active work on assignment.
+   * Never use a token or another credential as the generation.
+   */
+  authGeneration?: number;
   /** Human label for logging / debugging. */
   name?: string;
 }
 
-export function gqlEndpoint(url: string, opts: Partial<GraphQLEndpoint> = {}): GraphQLEndpoint {
-  return { url, ...opts };
+export function gqlEndpoint(
+  url: string,
+  opts: Partial<GraphQLEndpoint> = {},
+): GraphQLEndpoint {
+  let generation = opts.authGeneration ?? 0;
+  const endpoint: GraphQLEndpoint = {
+    url,
+    ...opts,
+    get authGeneration() {
+      return generation;
+    },
+    set authGeneration(value: number) {
+      generation = value;
+      authScope(endpoint);
+    },
+  };
+  authScope(endpoint);
+  return endpoint;
+}
+
+interface AuthScope {
+  id: number;
+  generation: number;
+}
+
+const authScopes = new WeakMap<GraphQLEndpoint, AuthScope>();
+let nextScopeId = 1;
+
+function authScope(endpoint: GraphQLEndpoint): AuthScope {
+  const previous = authScopes.get(endpoint);
+  const generation = endpoint.authGeneration ?? 0;
+  if (previous?.generation === generation) return previous;
+  const scope = { id: nextScopeId++, generation };
+  authScopes.set(endpoint, scope);
+  if (previous) restartAuthenticatedWork(endpoint, scope);
+  return scope;
+}
+
+function restartAuthenticatedWork(endpoint: GraphQLEndpoint, scope: AuthScope) {
+  inFlight.forEach((request, key) => {
+    if (request.endpoint !== endpoint) return;
+    inFlight.delete(key);
+    request.controller.abort();
+  });
+  // Snapshot the collections: rotating their keys during iteration would revisit entries.
+  for (const p of [...pollers.values()]) {
+    if (p.endpoint !== endpoint) continue;
+    pollers.delete(p.key);
+    p.scope = scope;
+    p.key = makeKey(endpoint, p.query, p.variables);
+    p.cached = undefined;
+    p.hasCached = false;
+    p.lastFetchAt = 0;
+    p.fetching = false;
+    pollers.set(p.key, p);
+    void runFetch(p);
+  }
+  for (const conn of [...connections.values()]) {
+    if (conn.endpoint !== endpoint) continue;
+    connections.delete(conn.key);
+    conn.scope = scope;
+    conn.key = connectionKey(endpoint);
+    conn.ready = false;
+    conn.reconnectTimer?.();
+    conn.reconnectTimer = null;
+    conn.subs.forEach((sub) => {
+      sub.retryTimer?.();
+      sub.retryTimer = null;
+    });
+    const oldSocket = conn.ws;
+    conn.ws = null;
+    oldSocket?.close();
+    conn.backoffMs = 1000;
+    connections.set(conn.key, conn);
+    openSocket(conn);
+  }
 }
 
 // ── Stable cache key derivation ───────────────────────────────────────
@@ -69,28 +158,53 @@ export function gqlEndpoint(url: string, opts: Partial<GraphQLEndpoint> = {}): G
  */
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
+  if (Array.isArray(value))
+    return "[" + value.map(stableStringify).join(",") + "]";
   const obj = value as Record<string, unknown>;
   const keys = Object.keys(obj).sort();
-  return "{" + keys.map((k) => JSON.stringify(k) + ":" + stableStringify(obj[k])).join(",") + "}";
+  return (
+    "{" +
+    keys
+      .map((k) => JSON.stringify(k) + ":" + stableStringify(obj[k]))
+      .join(",") +
+    "}"
+  );
 }
 
-function makeKey(endpoint: GraphQLEndpoint, query: string, variables: unknown): string {
-  return endpoint.url + "|" + query + "|" + stableStringify(variables ?? null);
+function makeKey(
+  endpoint: GraphQLEndpoint,
+  query: string,
+  variables: unknown,
+): string {
+  return stableStringify([
+    authScope(endpoint).id,
+    endpoint.url,
+    query,
+    variables ?? null,
+  ]);
 }
 
 // ── One-shot deduped fetch ────────────────────────────────────────────
 
-const inFlight = new Map<string, Promise<any>>();
+const inFlight = new Map<
+  string,
+  {
+    endpoint: GraphQLEndpoint;
+    controller: AbortController;
+    promise: Promise<any>;
+  }
+>();
 
 async function rawFetch<T>(
   endpoint: GraphQLEndpoint,
   query: string,
   variables?: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<T> {
   const auth = endpoint.authHeaders?.() ?? {};
   const res = await fetch(endpoint.url, {
     method: "POST",
+    signal,
     idempotent: /^\s*(query\b|\{)/.test(query),
     headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify({ query, variables }),
@@ -115,15 +229,23 @@ export function gqlQuery<T>(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<T> {
+  const scope = authScope(endpoint);
   const key = makeKey(endpoint, query, variables);
   const existing = inFlight.get(key);
-  if (existing) return existing as Promise<T>;
-  const p = rawFetch<T>(endpoint, query, variables).finally(() => {
-    // Clear once settled so the next call starts fresh; we cache
-    // *successful* results separately inside the polled-query layer.
-    if (inFlight.get(key) === p) inFlight.delete(key);
-  });
-  inFlight.set(key, p);
+  if (existing) return existing.promise as Promise<T>;
+  const controller = new AbortController();
+  const p = rawFetch<T>(endpoint, query, variables, controller.signal)
+    .then((data) => {
+      if (authScope(endpoint) !== scope)
+        throw new Error("GraphQL authentication changed");
+      return data;
+    })
+    .finally(() => {
+      // Clear once settled so the next call starts fresh; we cache
+      // *successful* results separately inside the polled-query layer.
+      if (inFlight.get(key)?.promise === p) inFlight.delete(key);
+    });
+  inFlight.set(key, { endpoint, controller, promise: p });
   return p;
 }
 
@@ -152,6 +274,8 @@ export interface PolledSubscriptionOptions<T> {
 }
 
 interface PollerState {
+  key: string;
+  scope: AuthScope;
   endpoint: GraphQLEndpoint;
   query: string;
   variables?: Record<string, unknown>;
@@ -172,35 +296,56 @@ interface PollerState {
 const pollers = new Map<string, PollerState>();
 
 function broadcast(p: PollerState, data: any) {
+  const scope = p.scope;
   p.cached = data;
   p.hasCached = true;
   p.lastFetchAt = Date.now();
   p.subscribers.forEach((s) => {
-    try { s.onData(data); } catch { /* ignore subscriber errors */ }
+    if (authScope(p.endpoint) !== scope) return;
+    try {
+      s.onData(data);
+    } catch {
+      /* ignore subscriber errors */
+    }
   });
 }
 
 function broadcastError(p: PollerState, err: Error) {
   p.subscribers.forEach((s) => {
-    try { s.onError?.(err); } catch { /* ignore */ }
+    try {
+      s.onError?.(err);
+    } catch {
+      /* ignore */
+    }
   });
 }
 
 function fastestInterval(p: PollerState): number {
   let min = Infinity;
-  p.subscribers.forEach((s) => { if (s.intervalMs < min) min = s.intervalMs; });
+  p.subscribers.forEach((s) => {
+    if (s.intervalMs < min) min = s.intervalMs;
+  });
   return Number.isFinite(min) ? min : p.intervalMs;
 }
 
 function runFetch(p: PollerState, propagateFailure = false) {
+  const scope = authScope(p.endpoint);
   // Skip if no subscribers (race with unsubscribe) or tab is hidden.
   if (p.subscribers.size === 0) return;
   if (!isPageActive() || p.fetching) return;
   p.fetching = true;
   return gqlQuery(p.endpoint, p.query, p.variables)
-    .then((data) => broadcast(p, data))
-    .catch((err) => { broadcastError(p, err instanceof Error ? err : new Error(String(err))); if (propagateFailure) throw err; })
-    .finally(() => { p.fetching = false; });
+    .then((data) => {
+      if (authScope(p.endpoint) === scope) broadcast(p, data);
+    })
+    .catch((err) => {
+      if (authScope(p.endpoint) !== scope) return;
+      broadcastError(p, err instanceof Error ? err : new Error(String(err)));
+      if (propagateFailure) throw err;
+    })
+    .finally(() => {
+      if (p.scope === scope) p.fetching = false;
+    });
 }
 
 function startTimer(p: PollerState) {
@@ -227,12 +372,24 @@ function stopTimer(p: PollerState) {
  * fetch cycle. Returns an unsubscribe function — when the last
  * subscriber leaves the timer is torn down.
  */
-export function subscribeQuery<T>(opts: PolledSubscriptionOptions<T>): () => void {
-  const { endpoint, query, variables, intervalMs, onData, onError, immediate = true } = opts;
+export function subscribeQuery<T>(
+  opts: PolledSubscriptionOptions<T>,
+): () => void {
+  const {
+    endpoint,
+    query,
+    variables,
+    intervalMs,
+    onData,
+    onError,
+    immediate = true,
+  } = opts;
   const key = makeKey(endpoint, query, variables);
   let p = pollers.get(key);
   if (!p) {
     p = {
+      key,
+      scope: authScope(endpoint),
       endpoint,
       query,
       variables,
@@ -253,8 +410,15 @@ export function subscribeQuery<T>(opts: PolledSubscriptionOptions<T>): () => voi
   // so the caller's React `setState` runs after the current render.
   if (immediate && p.hasCached) {
     const cached = p.cached;
+    const scope = p.scope;
+    const poller = p;
     queueMicrotask(() => {
-      try { sub.onData(cached); } catch { /* ignore */ }
+      if (authScope(endpoint) !== scope || !poller.subscribers.has(sub)) return;
+      try {
+        sub.onData(cached);
+      } catch {
+        /* ignore */
+      }
     });
   }
 
@@ -271,7 +435,7 @@ export function subscribeQuery<T>(opts: PolledSubscriptionOptions<T>): () => voi
     p!.subscribers.delete(sub);
     if (p!.subscribers.size === 0) {
       stopTimer(p!);
-      pollers.delete(key);
+      pollers.delete(p!.key);
     } else if (sub.intervalMs === p!.intervalMs) {
       // The slowest-required-fastest subscriber left; we may be able
       // to relax the cadence.
@@ -282,23 +446,31 @@ export function subscribeQuery<T>(opts: PolledSubscriptionOptions<T>): () => voi
 }
 
 // Reconcile query snapshots after the subscription channel reconnects.
-onStreamResync(url => {
-  pollers.forEach(p => { if (p.endpoint.wsUrl === url) void runFetch(p); });
+onStreamResync((url) => {
+  pollers.forEach((p) => {
+    if (p.endpoint.wsUrl === url) void runFetch(p);
+  });
 });
 
 // ── Multiplexed graphql-transport-ws subscriptions ────────────────────
 
 interface WsConnection {
+  key: string;
+  scope: AuthScope;
   endpoint: GraphQLEndpoint;
   ws: WebSocket | null;
   ready: boolean;
   /** subscription id → metadata. ID is allocated on subscribe. */
-  subs: Map<string, {
-    query: string;
-    variables?: Record<string, unknown>;
-    onData: (data: any) => void;
-    onError?: (err: Error) => void;
-  }>;
+  subs: Map<
+    string,
+    {
+      query: string;
+      variables?: Record<string, unknown>;
+      onData: (data: any) => void;
+      onError?: (err: Error) => void;
+      retryTimer: CancelTask | null;
+    }
+  >;
   reconnectTimer: CancelTask | null;
   hasConnected: boolean;
   backoffMs: number;
@@ -307,12 +479,19 @@ interface WsConnection {
 
 const connections = new Map<string, WsConnection>();
 
+function connectionKey(endpoint: GraphQLEndpoint): string {
+  return stableStringify([authScope(endpoint).id, endpoint.wsUrl]);
+}
+
 function getOrCreateConnection(endpoint: GraphQLEndpoint): WsConnection | null {
   if (!endpoint.wsUrl) return null;
   if (typeof window === "undefined") return null;
-  let conn = connections.get(endpoint.wsUrl);
+  const key = connectionKey(endpoint);
+  let conn = connections.get(key);
   if (conn) return conn;
   conn = {
+    key,
+    scope: authScope(endpoint),
     endpoint,
     ws: null,
     ready: false,
@@ -322,15 +501,20 @@ function getOrCreateConnection(endpoint: GraphQLEndpoint): WsConnection | null {
     backoffMs: 1000,
     nextId: 1,
   };
-  connections.set(endpoint.wsUrl, conn);
+  connections.set(key, conn);
   const created = conn;
-  queueMicrotask(() => { if (created.subs.size) openSocket(created); });
+  queueMicrotask(() => {
+    if (created.subs.size && !created.ws) openSocket(created);
+  });
   return conn;
 }
 
 function openSocket(conn: WsConnection) {
   if (!conn.endpoint.wsUrl || !conn.subs.size) return;
-  if (!isPageActive()) { scheduleReconnect(conn); return; }
+  if (!isPageActive()) {
+    scheduleReconnect(conn);
+    return;
+  }
   let ws: WebSocket;
   try {
     ws = new WebSocket(conn.endpoint.wsUrl, "graphql-transport-ws");
@@ -339,20 +523,37 @@ function openSocket(conn: WsConnection) {
     return;
   }
   conn.ws = ws;
-  watchSocket(ws, () => { conn.backoffMs = 1000; }, { type: "ping" });
+  watchSocket(
+    ws,
+    () => {
+      conn.backoffMs = 1000;
+    },
+    { type: "ping" },
+  );
   conn.ready = false;
 
   ws.onopen = () => {
+    if (authScope(conn.endpoint) !== conn.scope || conn.ws !== ws) return;
     try {
-      ws.send(JSON.stringify({ type: "connection_init" }));
+      ws.send(
+        JSON.stringify({
+          type: "connection_init",
+          payload: conn.endpoint.authHeaders?.(),
+        }),
+      );
     } catch {
       // closed between open + send; onclose will reconnect.
     }
   };
 
   ws.onmessage = (ev) => {
+    if (authScope(conn.endpoint) !== conn.scope || conn.ws !== ws) return;
     let msg: any;
-    try { msg = JSON.parse(ev.data as string); } catch { return; }
+    try {
+      msg = JSON.parse(ev.data as string);
+    } catch {
+      return;
+    }
     switch (msg.type) {
       case "connection_ack": {
         conn.ready = true;
@@ -361,19 +562,27 @@ function openSocket(conn: WsConnection) {
         // Re-send all subscriptions on (re)connect.
         conn.subs.forEach((sub, id) => {
           try {
-            ws.send(JSON.stringify({
-              id,
-              type: "subscribe",
-              payload: { query: sub.query, variables: sub.variables },
-            }));
-          } catch { /* ignore */ }
+            ws.send(
+              JSON.stringify({
+                id,
+                type: "subscribe",
+                payload: { query: sub.query, variables: sub.variables },
+              }),
+            );
+          } catch {
+            /* ignore */
+          }
         });
         break;
       }
       case "next": {
         const sub = conn.subs.get(msg.id);
         if (sub && msg.payload?.data) {
-          try { sub.onData(msg.payload.data); } catch { /* ignore */ }
+          try {
+            sub.onData(msg.payload.data);
+          } catch {
+            /* ignore */
+          }
         }
         break;
       }
@@ -384,18 +593,38 @@ function openSocket(conn: WsConnection) {
             ? (msg.payload[0]?.message ?? "subscription error")
             : "subscription error",
         );
-        if (sub) try { sub.onError?.(err); } catch { /* ignore */ }
+        if (sub) {
+          try {
+            sub.onError?.(err);
+          } catch {
+            /* ignore */
+          }
+          scheduleResubscribe(conn, ws, msg.id);
+        }
+        break;
+      }
+      case "complete": {
+        scheduleResubscribe(conn, ws, msg.id);
         break;
       }
       case "ping": {
-        try { ws.send(JSON.stringify({ type: "pong" })); } catch { /* ignore */ }
+        try {
+          ws.send(JSON.stringify({ type: "pong" }));
+        } catch {
+          /* ignore */
+        }
         break;
       }
-      // complete / pong — no-op
+      // pong — no-op
     }
   };
 
   ws.onclose = () => {
+    if (conn.ws !== ws) return;
+    conn.subs.forEach((sub) => {
+      sub.retryTimer?.();
+      sub.retryTimer = null;
+    });
     conn.ready = false;
     conn.ws = null;
     if (conn.subs.size > 0) scheduleReconnect(conn);
@@ -406,14 +635,57 @@ function openSocket(conn: WsConnection) {
   };
 }
 
+function scheduleResubscribe(conn: WsConnection, ws: WebSocket, id: string) {
+  const sub = conn.subs.get(id);
+  if (!sub || sub.retryTimer || conn.ws !== ws) return;
+  notifyStreamResync(conn.endpoint.wsUrl!);
+  if (
+    conn.subs.get(id) !== sub ||
+    !conn.ready ||
+    ws.readyState !== WebSocket.OPEN
+  )
+    return;
+  const delay = Math.min(conn.backoffMs, 30_000);
+  conn.backoffMs = Math.min(conn.backoffMs * 2, 30_000);
+  sub.retryTimer = scheduleActive(
+    () => {
+      sub.retryTimer = null;
+      if (
+        conn.subs.get(id) !== sub ||
+        conn.ws !== ws ||
+        !conn.ready ||
+        ws.readyState !== WebSocket.OPEN
+      )
+        return;
+      try {
+        ws.send(
+          JSON.stringify({
+            id,
+            type: "subscribe",
+            payload: { query: sub.query, variables: sub.variables },
+          }),
+        );
+      } catch {
+        /* re-sent on reconnect */
+      }
+    },
+    delay,
+    conn.endpoint.wsUrl,
+  );
+}
+
 function scheduleReconnect(conn: WsConnection) {
   if (conn.reconnectTimer) return;
   const delay = Math.min(conn.backoffMs, 30_000);
   conn.backoffMs = Math.min(conn.backoffMs * 2, 30_000);
-  conn.reconnectTimer = scheduleActive(() => {
-    conn.reconnectTimer = null;
-    openSocket(conn);
-  }, delay, conn.endpoint.wsUrl);
+  conn.reconnectTimer = scheduleActive(
+    () => {
+      conn.reconnectTimer = null;
+      openSocket(conn);
+    },
+    delay,
+    conn.endpoint.wsUrl,
+  );
 }
 
 export interface StreamSubscriptionOptions<T> {
@@ -432,7 +704,9 @@ export interface StreamSubscriptionOptions<T> {
  * Returns a cleanup function that sends `complete` upstream and tears
  * down the socket once the last subscriber leaves.
  */
-export function subscribeStream<T>(opts: StreamSubscriptionOptions<T>): () => void {
+export function subscribeStream<T>(
+  opts: StreamSubscriptionOptions<T>,
+): () => void {
   const conn = getOrCreateConnection(opts.endpoint);
   if (!conn) return () => {};
 
@@ -442,33 +716,48 @@ export function subscribeStream<T>(opts: StreamSubscriptionOptions<T>): () => vo
     variables: opts.variables,
     onData: opts.onData as (d: any) => void,
     onError: opts.onError,
+    retryTimer: null,
   });
 
   if (conn.ready && conn.ws?.readyState === WebSocket.OPEN) {
     try {
-      conn.ws.send(JSON.stringify({
-        id,
-        type: "subscribe",
-        payload: { query: opts.query, variables: opts.variables },
-      }));
-    } catch { /* re-sent on reconnect */ }
+      conn.ws.send(
+        JSON.stringify({
+          id,
+          type: "subscribe",
+          payload: { query: opts.query, variables: opts.variables },
+        }),
+      );
+    } catch {
+      /* re-sent on reconnect */
+    }
   }
 
   return () => {
+    conn.subs.get(id)?.retryTimer?.();
     conn.subs.delete(id);
     if (conn.ready && conn.ws?.readyState === WebSocket.OPEN) {
-      try { conn.ws.send(JSON.stringify({ id, type: "complete" })); } catch { /* ignore */ }
+      try {
+        conn.ws.send(JSON.stringify({ id, type: "complete" }));
+      } catch {
+        /* ignore */
+      }
     }
     // Last subscriber for this endpoint? Close the socket so we don't
     // hold an idle connection forever.
     if (conn.subs.size === 0 && conn.endpoint.wsUrl) {
-      try { conn.ws?.close(); } catch { /* ignore */ }
+      const oldSocket = conn.ws;
       conn.ws = null;
+      try {
+        oldSocket?.close();
+      } catch {
+        /* ignore */
+      }
       if (conn.reconnectTimer) {
         conn.reconnectTimer();
         conn.reconnectTimer = null;
       }
-      connections.delete(conn.endpoint.wsUrl);
+      connections.delete(conn.key);
     }
   };
 }

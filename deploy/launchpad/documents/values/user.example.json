@@ -1,0 +1,14 @@
+{
+  "subjects": {
+    "profile.updated": "paxeer.125.users.profile.updated",
+    "preferences.updated": "paxeer.125.users.preferences.updated",
+    "watchlist.changed": "paxeer.125.users.watchlist.changed",
+    "consent.updated": "paxeer.125.users.consent.updated",
+    "endpoint.bound": "paxeer.125.users.endpoint.bound",
+    "endpoint.revoked": "paxeer.125.users.endpoint.revoked",
+    "account.export.requested": "paxeer.125.users.account.export.requested",
+    "account.deletion.requested": "paxeer.125.users.account.deletion.requested",
+    "account.deletion.job": "paxeer.125.users.account.deletion.job",
+    "account.backfill.completed": "paxeer.125.users.account.backfill.completed"
+  }
+}

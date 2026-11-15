@@ -2,17 +2,21 @@
 // @coord dropped ./optimisticL2 (OptimisticL2BatchDataContainer, OptimisticL2BlobTypeEip4844, OptimisticL2BlobTypeCelestia) — out of trading-app scope
 // @coord dropped ./zkSyncL2 (ZkSyncBatchesItem) — out of trading-app scope
 // @coord dropped local interfaces ArbitrumBlockData / OptimismBlockData — all consumed only by chain-specific fields narrowed to `unknown` below.
-import type { AddressParam } from './addressParams';
-import type { InternalTransaction } from './internalTransaction';
-import type { Reward } from './reward';
-import type { TokenInfo } from './token';
-import type { Transaction } from './transaction';
+import type { AddressParam } from "./addressParams";
+import type { InternalTransaction } from "./internalTransaction";
+import type { Reward } from "./reward";
+import type { TokenInfo } from "./token";
+import type { Transaction } from "./transaction";
 
-export type BlockType = 'block' | 'reorg' | 'uncle';
+export type BlockType = "block" | "reorg" | "uncle";
 
 export interface BlockBaseFeeCelo {
   amount: string;
-  breakdown: Array<{ amount: string; percentage: number; address: AddressParam }>;
+  breakdown: Array<{
+    amount: string;
+    percentage: number;
+    address: AddressParam;
+  }>;
   recipient: AddressParam;
   token: TokenInfo;
 }
@@ -78,9 +82,11 @@ export interface Block {
 export interface ZilliqaBlockData {
   view: number;
   quorum_certificate: ZilliqaQuorumCertificate;
-  aggregate_quorum_certificate: (ZilliqaQuorumCertificate & {
-    nested_quorum_certificates: Array<ZilliqaNestedQuorumCertificate>;
-  }) | null;
+  aggregate_quorum_certificate:
+    | (ZilliqaQuorumCertificate & {
+        nested_quorum_certificates: Array<ZilliqaNestedQuorumCertificate>;
+      })
+    | null;
 }
 
 export interface ZilliqaQuorumCertificate {

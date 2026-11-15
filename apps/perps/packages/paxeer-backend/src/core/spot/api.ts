@@ -1,6 +1,10 @@
-import { FetchPolicyError, fetchWithPolicy as fetch } from "@paxeer-network/paxeer-backend/core/net/fetch";
+import {
+  FetchPolicyError,
+  fetchWithPolicy as fetch,
+} from "@paxeer-network/paxeer-backend/core/net/fetch";
+import { gatewayUrls } from "@paxeer-network/paxeer-backend/core/network/gateway";
 /**
- * Typed REST client for the public SPOT data API at `https://api.paxeer-network.xyz`.
+ * Typed REST client for the spot user routes served at the gateway origin.
  *
  * Every numeric field that comes back from this service is a **decimal
  * string** (raw units, not floats). The shapes here mirror `swagger_spot.json`
@@ -11,9 +15,7 @@ import { FetchPolicyError, fetchWithPolicy as fetch } from "@paxeer-network/paxe
  * server's case-insensitive cache keys match.
  */
 
-const SPOT_API_BASE =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SPOT_API_BASE) ||
-  "https://api.paxeer-network.xyz";
+const SPOT_API_BASE = gatewayUrls().spotApiBase;
 
 // ── Decimal string helpers ────────────────────────────────────────────
 
@@ -47,7 +49,10 @@ export function dStrToToken(
  * Convert a USD raw amount (6-decimal stable) to dollars. The SPOT API
  * uses 6-decimal precision for `*Usd` fields per swagger.
  */
-export function dStrToUsd(raw: string | null | undefined, fallback = 0): number {
+export function dStrToUsd(
+  raw: string | null | undefined,
+  fallback = 0,
+): number {
   if (raw == null) return fallback;
   const n = Number(raw);
   if (!Number.isFinite(n)) return fallback;
@@ -251,7 +256,11 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
     });
   } catch (err) {
     if (err instanceof FetchPolicyError) throw err;
-    throw new SpotApiError(0, `[spot] network error: ${(err as Error).message}`, null);
+    throw new SpotApiError(
+      0,
+      `[spot] network error: ${(err as Error).message}`,
+      null,
+    );
   }
   let body: unknown = null;
   try {
@@ -261,9 +270,12 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   }
   if (!res.ok) {
     const msg =
-      (body && typeof body === "object" && "error" in body && typeof (body as { error?: unknown }).error === "string"
+      body &&
+      typeof body === "object" &&
+      "error" in body &&
+      typeof (body as { error?: unknown }).error === "string"
         ? String((body as { error: string }).error)
-        : `HTTP ${res.status}`);
+        : `HTTP ${res.status}`;
     throw new SpotApiError(res.status, `[spot] ${path} → ${msg}`, body);
   }
   return body as T;
@@ -279,12 +291,18 @@ export const spotApi = {
   base: SPOT_API_BASE,
 
   /** Live ERC-20 + native PAX balances, PAXSCAN-truthed. */
-  getHoldings(address: string, signal?: AbortSignal): Promise<SpotHoldingsResponse> {
+  getHoldings(
+    address: string,
+    signal?: AbortSignal,
+  ): Promise<SpotHoldingsResponse> {
     return getJson(`/v1/users/${lc(address)}/holdings`, signal);
   },
 
   /** Derived per-token positions (qty / WAC entry / realized PnL). */
-  getPositions(address: string, signal?: AbortSignal): Promise<SpotPositionsResponse> {
+  getPositions(
+    address: string,
+    signal?: AbortSignal,
+  ): Promise<SpotPositionsResponse> {
     return getJson(`/v1/users/${lc(address)}/positions`, signal);
   },
 
@@ -300,7 +318,10 @@ export const spotApi = {
     if (opts?.status) params.set("status", opts.status);
     if (opts?.limit) params.set("limit", String(opts.limit));
     const qs = params.toString();
-    return getJson(`/v1/users/${lc(address)}/orders${qs ? `?${qs}` : ""}`, opts?.signal);
+    return getJson(
+      `/v1/users/${lc(address)}/orders${qs ? `?${qs}` : ""}`,
+      opts?.signal,
+    );
   },
 
   /** Keyset-paginated trade tape. */
@@ -316,13 +337,20 @@ export const spotApi = {
     const params = new URLSearchParams();
     if (opts?.limit) params.set("limit", String(opts.limit));
     if (opts?.afterBlock) params.set("afterBlock", opts.afterBlock);
-    if (opts?.afterIndex != null) params.set("afterIndex", String(opts.afterIndex));
+    if (opts?.afterIndex != null)
+      params.set("afterIndex", String(opts.afterIndex));
     const qs = params.toString();
-    return getJson(`/v1/users/${lc(address)}/trades${qs ? `?${qs}` : ""}`, opts?.signal);
+    return getJson(
+      `/v1/users/${lc(address)}/trades${qs ? `?${qs}` : ""}`,
+      opts?.signal,
+    );
   },
 
   /** Aggregate trade statistics. */
-  getTradesStats(address: string, signal?: AbortSignal): Promise<SpotTradesStats> {
+  getTradesStats(
+    address: string,
+    signal?: AbortSignal,
+  ): Promise<SpotTradesStats> {
     return getJson(`/v1/users/${lc(address)}/trades/stats`, signal);
   },
 
@@ -335,11 +363,17 @@ export const spotApi = {
     if (opts?.limit) params.set("limit", String(opts.limit));
     if (opts?.afterId != null) params.set("afterId", String(opts.afterId));
     const qs = params.toString();
-    return getJson(`/v1/users/${lc(address)}/closed-legs${qs ? `?${qs}` : ""}`, opts?.signal);
+    return getJson(
+      `/v1/users/${lc(address)}/closed-legs${qs ? `?${qs}` : ""}`,
+      opts?.signal,
+    );
   },
 
   /** Compact PnL summary card. */
-  getPnlSummary(address: string, signal?: AbortSignal): Promise<SpotPnlSummary> {
+  getPnlSummary(
+    address: string,
+    signal?: AbortSignal,
+  ): Promise<SpotPnlSummary> {
     return getJson(`/v1/users/${lc(address)}/pnl/summary`, signal);
   },
 
@@ -368,7 +402,10 @@ export const spotApi = {
  * Resolve a position's USD valuation given a current price feed. Used by
  * the holdings table and total-value computations.
  */
-export function positionUsdValue(p: SpotPosition, currentPrice: number): number {
+export function positionUsdValue(
+  p: SpotPosition,
+  currentPrice: number,
+): number {
   const qty = dStrToToken(p.derived.qty, p.decimals);
   return qty > 0 && currentPrice > 0 ? qty * currentPrice : 0;
 }
@@ -377,7 +414,10 @@ export function positionUsdValue(p: SpotPosition, currentPrice: number): number 
  * Best-effort symbol resolution: prefer the API-provided `symbol`, fall
  * back to a short address if missing.
  */
-export function symbolOrShort(token: string, symbol: string | null | undefined): string {
+export function symbolOrShort(
+  token: string,
+  symbol: string | null | undefined,
+): string {
   if (symbol && symbol.length > 0) return symbol;
   return `${token.slice(0, 6)}…${token.slice(-4)}`;
 }

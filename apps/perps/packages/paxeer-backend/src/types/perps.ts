@@ -116,6 +116,11 @@ export interface ProtocolSnapshotRecord {
   totalPositions: string;
   totalOpenPositions: string;
   totalMarkets: string;
+  /**
+   * Raw six-decimal USDL custody inflow-minus-outflow sum from
+   * services/platform/perps-data/internal/store/projections.go, returned unchanged
+   * by services/platform/perps-data/internal/graphql/perps.go.
+   */
   tvlUsd: string;
   insuranceTotalUsd: string;
   onchainTimestamp: number;
@@ -147,14 +152,16 @@ export interface MarketStats {
   latestFundingRate: string | null;
 }
 
-// ── paxeer-network / Enriched types ───────────────────────────────────────────
-export interface PaxeerNetworkTicker {
+// ── Orderly / Enriched types ───────────────────────────────────────────
+export interface OrderlyTicker {
   symbol: string;
   paxeerSymbol: string;
   mark_price: number | null;
   index_price: number | null;
   sum_unitary_funding: number | null;
-  est_funding_rate: number | null;
+  /** Last settled hourly funding rate, an exact decimal string (parse with fundingRate.ts). */
+  last_funding_rate_hourly: string | null;
+  /** The server sends a JSON number (GraphQL Float); read it only through fundingRateFromJsonNumber (fundingRate.ts), never Number(), and null is never zero. */
   last_funding_rate: number | null;
   next_funding_time: number | null;
   open_interest: number | null;
@@ -166,7 +173,7 @@ export interface PaxeerNetworkTicker {
   h24_volume: number | null;
 }
 
-export interface PaxeerNetworkVolumeStats {
+export interface OrderlyVolumeStats {
   perp_volume_ytd: number | null;
   perp_volume_ltd: number | null;
   perp_volume_today: number | null;
@@ -175,7 +182,7 @@ export interface PaxeerNetworkVolumeStats {
   perp_volume_last_30_days: number | null;
 }
 
-export interface PaxeerNetworkPriceChange {
+export interface OrderlyPriceChange {
   symbol: string;
   paxeerSymbol: string;
   last_price: number | null;
@@ -189,18 +196,19 @@ export interface PaxeerNetworkPriceChange {
   change_30d: number | null;
 }
 
-export interface PaxeerNetworkOpenInterest {
+export interface OrderlyOpenInterest {
   symbol: string;
   paxeerSymbol: string;
   long_oi: number | null;
   short_oi: number | null;
 }
 
-export interface PaxeerNetworkFundingRate {
+export interface OrderlyFundingRate {
   symbol: string;
   paxeerSymbol: string;
-  est_funding_rate: number | null;
-  est_funding_rate_timestamp: number | null;
+  /** Last settled hourly funding rate, an exact decimal string (parse with fundingRate.ts). */
+  last_funding_rate_hourly: string | null;
+  /** The server sends a JSON number (GraphQL Float); read it only through fundingRateFromJsonNumber (fundingRate.ts), never Number(), and null is never zero. */
   last_funding_rate: number | null;
   last_funding_rate_timestamp: number | null;
   next_funding_time: number | null;
@@ -209,15 +217,15 @@ export interface PaxeerNetworkFundingRate {
 
 export interface EnrichedGlobalStats {
   onchain: GlobalStats;
-  paxeerNetwork: PaxeerNetworkVolumeStats | null;
+  orderly: OrderlyVolumeStats | null;
 }
 
 export interface EnrichedMarketStats {
   onchain: MarketStats;
-  ticker: PaxeerNetworkTicker | null;
-  fundingRate: PaxeerNetworkFundingRate | null;
-  openInterest: PaxeerNetworkOpenInterest | null;
-  priceChange: PaxeerNetworkPriceChange | null;
+  ticker: OrderlyTicker | null;
+  fundingRate: OrderlyFundingRate | null;
+  openInterest: OrderlyOpenInterest | null;
+  priceChange: OrderlyPriceChange | null;
 }
 
 // ── Spot Market (from SpotMarketRegistryFacet ABI) ─────────────────────

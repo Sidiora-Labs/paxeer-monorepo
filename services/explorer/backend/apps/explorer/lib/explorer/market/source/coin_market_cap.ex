@@ -86,8 +86,10 @@ defmodule Explorer.Market.Source.CoinMarketCap do
   def fetch_tvl_history(_previous_days), do: :ignore
 
   defp do_fetch_coin(coin_id, coin_id_not_specified_error) do
+    fetch_btc_value? = Application.get_env(:explorer, Coin, [])[:fetch_btc_value]
+
     convert_id =
-      if Application.get_env(:explorer, Coin, [])[:fetch_btc_value],
+      if fetch_btc_value?,
         do: "1,#{config(:currency_id)}",
         else: config(:currency_id)
 
@@ -111,7 +113,7 @@ defmodule Explorer.Market.Source.CoinMarketCap do
          total_supply:
            Source.to_decimal(token_properties["total_supply"]) ||
              Source.to_decimal(token_properties["circulating_supply"]),
-         btc_value: Source.to_decimal(token_properties["quote"]["1"]["price"]),
+         btc_value: if(fetch_btc_value?, do: Source.to_decimal(token_properties["quote"]["1"]["price"])),
          last_updated: Source.maybe_get_date(currency_id["last_updated"]),
          market_cap: Source.to_decimal(currency_id["market_cap"]),
          tvl: Source.to_decimal(currency_id["tvl"]),

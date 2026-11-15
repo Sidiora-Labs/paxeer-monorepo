@@ -27,8 +27,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {leading}
         <input
           ref={ref}
-          className="h-full w-full min-w-0 bg-transparent text-[15px] text-foreground outline-none placeholder:text-faint-foreground"
+          className="h-full w-full min-w-0 bg-transparent text-body-sm text-foreground outline-none placeholder:text-faint-foreground"
           {...props}
+          aria-invalid={error || props["aria-invalid"] || undefined}
         />
         {trailing}
       </div>
@@ -56,12 +57,12 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           className,
         )}
       >
-        <Search className="size-[18px] shrink-0 text-muted-foreground" aria-hidden />
+        <Search className="size-icon-sm shrink-0 text-muted-foreground" aria-hidden />
         <input
           ref={ref}
           type="search"
           value={value}
-          className="h-full w-full min-w-0 bg-transparent text-[15px] text-foreground outline-none placeholder:text-faint-foreground [&::-webkit-search-cancel-button]:hidden"
+          className="h-full w-full min-w-0 bg-transparent text-body-sm text-foreground outline-none placeholder:text-faint-foreground [&::-webkit-search-cancel-button]:hidden"
           {...props}
         />
         {hasValue && onClear && (

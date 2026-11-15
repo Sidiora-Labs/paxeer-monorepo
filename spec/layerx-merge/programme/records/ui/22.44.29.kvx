@@ -1,0 +1,148 @@
+[manifest]
+task = "22.44.29"
+surface = "apps/web/src/kit, apps/web/src/shell, apps/web/src/states, apps/web/src/app/globals.css"
+status = "served"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states", "apps/web/src/app/globals.css"]
+
+[guide.html]
+id = "html"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/web/src/kit/field.tsx", "apps/web/src/kit/explorer.tsx", "apps/web/src/kit/confirm.tsx"]
+
+[guide.validate_input_after_interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/web/src/kit/field.tsx", "apps/web/src/kit/explorer.tsx"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states", "apps/web/src/app/globals.css"]
+
+[guide.color]
+id = "color"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states", "apps/web/src/app/globals.css"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states", "apps/web/src/app/globals.css"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/web/src/kit/qr-code.tsx", "apps/web/src/app/globals.css"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states", "apps/web/src/app/globals.css"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states", "apps/web/src/app/globals.css"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/web/src/kit", "apps/web/src/shell", "apps/web/src/states", "apps/web/src/app/globals.css"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/web/src/kit/display.tsx", "apps/web/src/kit/qr-code.tsx"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/web/src/kit/confirm.tsx", "apps/web/src/states/error.tsx"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/web/src/kit/pattern-search.tsx", "apps/web/src/kit/pattern-notifications.tsx"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/web/src/kit/pattern-navigation.tsx", "apps/web/src/shell/app-shell.tsx"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/web/src/kit/pattern-detail.tsx", "apps/web/src/kit/money.tsx"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/web/src/kit/activity.tsx", "apps/web/src/kit/explorer.tsx"]
+
+[guide.toast]
+id = "persistent-toast-notifications"
+directories = ["apps/web/src/kit/pattern-notifications.tsx", "apps/web/src/states/offline.tsx"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/web/src/kit/performance.tsx", "apps/web/src/kit/surface.tsx", "apps/web/src/states/surfaces.tsx"]
+
+[guide.select]
+id = "branded-select-styling"
+directories = ["apps/web/src/kit/settings.tsx", "apps/web/src/kit/pattern-filters.tsx"]
+
+[guide.theme_switch]
+id = "dark-mode-toggle"
+directories = ["apps/web/src/kit/settings.tsx", "apps/web/src/app/globals.css"]
+
+[guide.browser_ui]
+id = "browser-ui-theming"
+directories = ["apps/web/src/app/globals.css"]
+
+[view.navigation]
+route = "/kit/navigation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.primary_action]
+route = "/kit/primary-action"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.confirmation]
+route = "/kit/confirmation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.detail]
+route = "/kit/detail"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.filters]
+route = "/kit/filters"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.money_lists]
+route = "/kit/money-lists"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.wizards]
+route = "/kit/wizards"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.search]
+route = "/kit/search"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.code_entry]
+route = "/kit/code-entry"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.notifications]
+route = "/kit/notifications"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]

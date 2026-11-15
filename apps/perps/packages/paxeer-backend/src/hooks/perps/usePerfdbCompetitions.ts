@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { perfdbQuery, perfdbRestAuth, getAuthToken } from "@paxeer-network/paxeer-backend/core/perfdb/client";
+import {
+  perfdbQuery,
+  perfdbRestAuth,
+} from "@paxeer-network/paxeer-backend/core/perfdb/client";
+
+import { usePerfdbSelection } from "./usePerfdbSelection";
+import { requirePerfdbIdentity } from "./usePerfdbAuth";
 
 // ── Types ────────────────────────────────────────────────────────────
 // Schema: GqlCompetition = { id, name, description, startAt, endAt, metric, prizePool, active, rankings }
@@ -56,7 +62,7 @@ interface RawCompetition {
   metric: string;
   prizePool: string | null;
   active: boolean;
-  rankings?: RawRanking[];
+  rankings: RawRanking[];
 }
 
 // ── Queries ──────────────────────────────────────────────────────────
@@ -71,6 +77,11 @@ const COMPETITIONS_LIST_QUERY = /* GraphQL */ `
       metric
       prizePool
       active
+      rankings {
+        rank
+        address
+        score
+      }
     }
   }
 `;
@@ -107,7 +118,7 @@ function deriveStatus(raw: RawCompetition): CompetitionStatus {
 }
 
 function normalize(raw: RawCompetition): Competition {
-  const participantCount = raw.rankings ? raw.rankings.length : 0;
+  const participantCount = raw.rankings.length;
   return {
     id: raw.id,
     name: raw.name,
@@ -153,7 +164,7 @@ export function usePerfdbCompetitions(): {
   const fetchList = useCallback(async (): Promise<void> => {
     try {
       const res = await perfdbQuery<CompetitionsListResponse>(
-        COMPETITIONS_LIST_QUERY
+        COMPETITIONS_LIST_QUERY,
       );
       if (!mountedRef.current) return;
       setCompetitions((res.competitions ?? []).map(normalize));
@@ -189,70 +200,49 @@ export function usePerfdbCompetitionDetail(id: string | null): {
   error: Error | null;
   join: (address: string) => Promise<void>;
 } {
-  const [detail, setDetail] = useState<CompetitionDetail | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(Boolean(id));
-  const [error, setError] = useState<Error | null>(null);
-  const mountedRef = useRef<boolean>(true);
-  const idRef = useRef<string | null>(id);
+  const {
+    value: detail,
+    isLoading,
+    error,
+    run,
+    capture,
+  } = usePerfdbSelection<CompetitionDetail | null>(id, null);
+  const selectedRef = useRef(id);
+  selectedRef.current = id;
+  const fetchDetail = useCallback(
+    (compId: string) =>
+      run(async () => {
+        const res = await perfdbQuery<CompetitionDetailResponse>(
+          COMPETITION_DETAIL_QUERY,
+          { id: compId },
+        );
+        return res.competition ? normalizeDetail(res.competition) : null;
+      }, null),
+    [run],
+  );
 
   useEffect(() => {
-    idRef.current = id;
-  }, [id]);
-
-  const fetchDetail = useCallback(async (compId: string): Promise<void> => {
-    try {
-      const res = await perfdbQuery<CompetitionDetailResponse>(
-        COMPETITION_DETAIL_QUERY,
-        { id: compId }
-      );
-      if (!mountedRef.current) return;
-      setDetail(res.competition ? normalizeDetail(res.competition) : null);
-      setError(null);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setDetail(null);
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    if (!id) {
-      setDetail(null);
-      setIsLoading(false);
-      setError(null);
-      return () => {
-        mountedRef.current = false;
-      };
-    }
-    setIsLoading(true);
-    fetchDetail(id);
-    return () => {
-      mountedRef.current = false;
-    };
-  }, [id, fetchDetail]);
+    if (id) void fetchDetail(id);
+    else void run(async () => null, null);
+  }, [id, fetchDetail, run]);
 
   const join = useCallback(
     async (address: string): Promise<void> => {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error("Not authenticated. Sign in to join competitions.");
-      }
-      const compId = idRef.current;
-      if (!compId) throw new Error("No competition selected.");
+      requirePerfdbIdentity(address);
+      const compId = id;
+      if (!compId || selectedRef.current !== compId)
+        throw new Error("No matching competition selected.");
+      const current = capture();
       await perfdbRestAuth<{ ok: boolean }>(
         `/v2/competitions/${encodeURIComponent(compId)}/join`,
-        {
-          method: "POST",
-          body: JSON.stringify({ address }),
-        }
+        { method: "POST", body: JSON.stringify({ address }) },
       );
+      if (!current()) return;
+      requirePerfdbIdentity(address);
       await fetchDetail(compId);
     },
-    [fetchDetail]
+    [id, capture, fetchDetail],
   );
 
-  return { detail, isLoading, error, join };
+  return { detail, isLoading: Boolean(id) && isLoading, error, join };
 }

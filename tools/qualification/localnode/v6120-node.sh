@@ -9,6 +9,7 @@ GATEWAY=http://127.0.0.1:0
 NODE_HOME=
 SEQUENCER=0
 FOLLOWER=0
+SIDIORA=0
 LAST_RECEIPT_HEIGHT=0
 SUCCESS=0
 FAILED_COMMAND=
@@ -426,6 +427,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --sequencer) SEQUENCER=1; shift ;;
         --follower) FOLLOWER=1; shift ;;
+        --sidiora) SIDIORA=1; shift ;;
         --env-out) [ "$#" -ge 2 ] || fail '--env-out requires a file'; ENV_OUT=$2; shift 2 ;;
         --gateway-url) [ "$#" -ge 2 ] || fail '--gateway-url requires a URL'; GATEWAY=$2; shift 2 ;;
         --stop) [ "$#" = 2 ] || fail '--stop requires a home'; stop_node "$2"; SUCCESS=1; exit ;;
@@ -610,6 +612,10 @@ bank['supply'] = [{'denom': denom, 'amount': str(amount)} for denom, amount in s
 with open(path, 'w') as handle:
     json.dump(genesis, handle)
 PY
+if [ "$SIDIORA" = 1 ]; then
+    (cd "$ROOT" && go run ./tools/qualification/localnode/sidioragenesis \
+        "$GENESIS" "$ROOT/contracts/test/sidiora_pointer_proposal.json" "$SOURCE")
+fi
 if [ "$SEQUENCER" = 1 ]; then
     for home in "$NODE_HOME"; do
         "$PAXD" sequencer gen-receipt-key --output "$home/config/receipt-key.hex" \

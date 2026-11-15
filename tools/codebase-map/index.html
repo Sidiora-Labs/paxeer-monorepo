@@ -1,20 +1,20 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>LayerX Codebase Map</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="loading" class="loading" role="status">
-      <div class="loading-mark">LX</div>
+    <main id="loading" class="loading">
+      <div class="loading-mark" aria-hidden="true">LX</div>
       <div>
-        <strong>Building your map</strong>
+        <h1>Building your map</h1>
         <span>Loading code-derived relationships…</span>
       </div>
-    </div>
+    </main>
 
     <div id="app" class="app" hidden>
       <header class="topbar">
@@ -26,14 +26,31 @@
           </div>
         </div>
 
-        <label class="global-search">
-          <span aria-hidden="true">⌕</span>
-          <input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="Find any file, symbol, task, route, or package…">
-          <kbd>/</kbd>
-        </label>
+        <search class="global-search">
+          <label for="search">Search codebase</label>
+          <div class="search-field">
+            <span aria-hidden="true">⌕</span>
+            <input
+              id="search"
+              name="q"
+              type="search"
+              autocapitalize="none"
+              autocorrect="off"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Find any file, symbol, task, route, or package…"
+            />
+            <kbd>/</kbd>
+          </div>
+        </search>
 
         <div class="snapshot-state">
-          <span id="dirty-indicator" class="state-dot"></span>
+          <span
+            id="dirty-indicator"
+            class="state-dot"
+            role="img"
+            aria-label="Repository snapshot status"
+          ></span>
           <div>
             <strong id="branch-label">—</strong>
             <span id="commit-label">—</span>
@@ -41,28 +58,66 @@
         </div>
       </header>
 
-      <section id="metric-strip" class="metric-strip" aria-label="Repository coverage"></section>
+      <section
+        id="metric-strip"
+        class="metric-strip"
+        aria-label="Repository coverage"
+      ></section>
 
+      <nav class="skip-links" aria-label="Map regions">
+        <a href="#inventory-title">Inventory</a>
+        <a href="#view-title">Graph</a>
+        <a href="#inspector">Selection details</a>
+      </nav>
       <main class="workspace">
         <aside class="rail" aria-label="Map views">
-          <nav id="view-nav" class="view-nav"></nav>
+          <nav id="view-nav" class="view-nav" aria-label="Map views"></nav>
           <div class="rail-footer">
-            <button id="fit-button" class="icon-button" type="button" title="Fit graph to screen" aria-label="Fit graph to screen">⌗</button>
-            <button id="help-button" class="icon-button" type="button" title="Keyboard and navigation help" aria-label="Open help">?</button>
+            <button
+              id="fit-button"
+              class="icon-button"
+              type="button"
+              aria-label="Fit graph to screen"
+            >
+              ⌗
+            </button>
+            <button
+              id="help-button"
+              class="icon-button"
+              type="button"
+              aria-label="Open help"
+            >
+              ?
+            </button>
           </div>
         </aside>
 
-        <aside class="inventory-panel">
+        <aside class="inventory-panel" aria-labelledby="inventory-title">
           <div class="panel-heading">
             <div>
               <span class="eyebrow">Inventory</span>
-              <h2 id="inventory-title">Systems</h2>
+              <h2 id="inventory-title" tabindex="-1">Systems</h2>
             </div>
             <span id="inventory-count" class="count-pill">0</span>
           </div>
-          <div id="breadcrumbs" class="breadcrumbs" aria-label="Current scope"></div>
-          <div id="search-results" class="search-results" hidden></div>
-          <div id="inventory" class="inventory" role="list"></div>
+          <div
+            id="breadcrumbs"
+            class="breadcrumbs"
+            aria-label="Current scope"
+          ></div>
+          <ul
+            id="search-results"
+            class="search-results"
+            role="list"
+            aria-label="Search results"
+            hidden
+          ></ul>
+          <ul
+            id="inventory"
+            class="inventory"
+            role="list"
+            aria-labelledby="inventory-title"
+          ></ul>
           <div class="inventory-footer">
             <span id="inventory-note">Select an item to inspect it</span>
           </div>
@@ -72,44 +127,86 @@
           <div class="graph-toolbar">
             <div>
               <span id="view-kicker" class="eyebrow">Architecture</span>
-              <h2 id="view-title">System relationships</h2>
+              <h2 id="view-title" tabindex="-1">System relationships</h2>
             </div>
             <div class="graph-toolbar-actions">
               <span id="render-note" class="render-note"></span>
-              <button id="back-button" class="text-button" type="button" disabled>Back</button>
-              <button id="fit-toolbar-button" class="text-button" type="button">Fit view</button>
+              <button
+                id="back-button"
+                class="text-button"
+                type="button"
+                disabled
+              >
+                Back
+              </button>
+              <button id="fit-toolbar-button" class="text-button" type="button">
+                Fit view
+              </button>
             </div>
           </div>
           <div id="canvas-shell" class="canvas-shell">
-            <canvas id="graph" tabindex="0" aria-label="Pan and zoom code relationship graph"></canvas>
-            <div class="canvas-hint">Scroll to zoom · drag empty space to pan · drag a node to arrange</div>
+            <canvas
+              id="graph"
+              tabindex="0"
+              aria-label="Pan and zoom code relationship graph"
+              aria-describedby="graph-description"
+              >The inventory and selection details list the code
+              relationships.</canvas
+            >
+            <div class="canvas-hint" id="graph-description">
+              Scroll to zoom · drag empty space to pan · drag a node to arrange
+            </div>
             <div id="graph-empty" class="graph-empty" hidden>
               <strong>No relationships in this scope</strong>
-              <span>Choose another item from the inventory or search the full map.</span>
+              <span
+                >Choose another item from the inventory or search the full
+                map.</span
+              >
             </div>
           </div>
           <div id="legend" class="legend"></div>
         </section>
 
-        <aside id="inspector" class="inspector-panel" aria-label="Selection details">
+        <aside
+          id="inspector"
+          class="inspector-panel"
+          tabindex="-1"
+          aria-label="Selection details"
+        >
           <div id="inspector-empty" class="inspector-empty">
             <div class="empty-orbit" aria-hidden="true"><span></span></div>
             <h2>Trace anything</h2>
-            <p>Select a node or inventory item to see its source, ownership, relationships, delivery state, and coverage.</p>
+            <p>
+              Select a node or inventory item to see its source, ownership,
+              relationships, delivery state, and coverage.
+            </p>
           </div>
           <div id="inspector-content" hidden></div>
         </aside>
       </main>
     </div>
 
-    <dialog id="help-dialog" class="help-dialog">
+    <dialog
+      id="help-dialog"
+      class="help-dialog"
+      aria-labelledby="help-heading"
+      closedby="any"
+    >
       <form method="dialog">
         <div class="dialog-heading">
           <div>
             <span class="eyebrow">Navigation</span>
-            <h2>Move through the codebase</h2>
+            <h2 id="help-heading">Move through the codebase</h2>
           </div>
-          <button class="icon-button" value="close" aria-label="Close help">×</button>
+          <button
+            class="icon-button"
+            type="submit"
+            value="close"
+            autofocus
+            aria-label="Close help"
+          >
+            ×
+          </button>
         </div>
         <div class="help-grid">
           <div><kbd>/</kbd><span>Search everything</span></div>
@@ -119,10 +216,106 @@
           <div><kbd>Wheel</kbd><span>Zoom around the pointer</span></div>
           <div><kbd>Drag</kbd><span>Pan space or reposition a node</span></div>
         </div>
-        <p class="dialog-note">Every edge identifies its source class. Unresolved and external references remain coverage facts; they are never promoted into invented internal relationships.</p>
+        <p class="dialog-note">
+          Every edge identifies its source class. Unresolved and external
+          references remain coverage facts; they are never promoted into
+          invented internal relationships.
+        </p>
       </form>
     </dialog>
 
-    <script type="module" src="app.js"></script>
+    <script type="module">
+      import { initialization } from "./app.js";
+
+      const help = document.getElementById("help-dialog");
+      document.addEventListener(
+        "keydown",
+        (event) => {
+          if (help.open) event.stopPropagation();
+        },
+        { capture: true },
+      );
+      if (!("closedBy" in HTMLDialogElement.prototype)) {
+        help.addEventListener("click", (event) => {
+          const bounds = help.getBoundingClientRect();
+          if (
+            event.target === help &&
+            (event.clientX < bounds.left ||
+              event.clientX > bounds.right ||
+              event.clientY < bounds.top ||
+              event.clientY > bounds.bottom)
+          )
+            help.close();
+        });
+      }
+
+      function exposeMapControls() {
+        for (const list of document.querySelectorAll(
+          "#inventory, #search-results",
+        )) {
+          for (const child of [...list.children]) {
+            if (child.tagName === "LI") continue;
+            const item = document.createElement("li");
+            child.before(item);
+            item.append(child);
+            if (child.tagName === "BUTTON") child.removeAttribute("role");
+          }
+        }
+        for (const button of document.querySelectorAll(".view-button")) {
+          button.setAttribute(
+            "aria-pressed",
+            String(button.classList.contains("active")),
+          );
+          button.firstElementChild?.setAttribute("aria-hidden", "true");
+        }
+        for (const icon of document.querySelectorAll(".item-icon"))
+          icon.setAttribute("aria-hidden", "true");
+        for (const signature of document.querySelectorAll(".signature")) {
+          signature.tabIndex = 0;
+          signature.setAttribute("role", "region");
+          signature.setAttribute("aria-label", "Indexed signature");
+        }
+      }
+      initialization.then(
+        () => {
+          const snapshotState = document.getElementById("dirty-indicator");
+          snapshotState.setAttribute("aria-label", snapshotState.title);
+          exposeMapControls();
+          new MutationObserver(exposeMapControls).observe(
+            document.querySelector(".workspace"),
+            {
+              childList: true,
+              subtree: true,
+              attributes: true,
+              attributeFilter: ["class"],
+            },
+          );
+          for (const list of document.querySelectorAll(
+            "#inventory, #search-results",
+          )) {
+            list.addEventListener("click", (event) => {
+              if (!event.target.closest(".inventory-item")) return;
+              queueMicrotask(() => {
+                const heading = document.querySelector(".inspector-header h2");
+                if (heading) {
+                  heading.tabIndex = -1;
+                  heading.focus();
+                }
+              });
+            });
+          }
+        },
+        () => {
+          const loading = document.getElementById("loading");
+          const heading = loading?.querySelector("h2");
+          if (heading) {
+            const title = document.createElement("h1");
+            title.textContent = heading.textContent;
+            heading.replaceWith(title);
+          }
+          loading?.firstElementChild?.setAttribute("role", "alert");
+        },
+      );
+    </script>
   </body>
 </html>
