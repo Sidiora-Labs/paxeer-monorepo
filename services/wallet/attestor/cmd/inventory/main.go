@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -16,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -41,6 +43,15 @@ func (m *memberFlags) Set(value string) error {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "serve" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := runServe(ctx, os.Getenv); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -49,7 +60,7 @@ func main() {
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: inventory {init|approve|renew|show} -private-key FILE -issuer ISSUER -tenant TENANT [flags]")
+		return errors.New("usage: inventory {init|approve|renew|show|serve} -private-key FILE -issuer ISSUER -tenant TENANT [flags]")
 	}
 	command := args[0]
 	if command != "init" && command != "approve" && command != "renew" && command != "show" {
