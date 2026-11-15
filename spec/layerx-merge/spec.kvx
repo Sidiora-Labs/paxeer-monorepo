@@ -172709,7 +172709,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.657]
 title = "Bring the journey evidence and node catalogue cases of the wallet package in line with their producers and report an error status by its number"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197904,7 +197904,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.649]
 title = "Compose the startup documents of the launchpad metadata service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -197966,7 +197966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.647]
 title = "Compose the startup documents of the launchpad user service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -198028,7 +198028,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.645]
 title = "Compose the startup documents of the launchpad ranking service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -198059,7 +198059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.644]
 title = "Compose the startup documents of the launchpad profit and loss service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
