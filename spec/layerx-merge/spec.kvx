@@ -14752,6 +14752,12 @@ value = "The prefix purge of the keeper of the fast path takes the form of the k
 basis = "Gotcha 4523. Decisions 3596 and 3604."
 affects = []
 
+[decision.3607]
+title = "The class merge helper of each surface is told the names of its theme"
+value = "The helper that merges the class names of a surface extends the merge by the names its theme gives to font sizes, and by the names of each other prefix the theme uses for two kinds of value. A case beside the helper reads the names from the source of the theme and holds for each name that a colour class and the class of the name both stay in both orders, and that of two classes of one kind the last stays. The helper in apps/bridge/src/lib/utils.ts gives the form. The trading workspace keeps the merge its baseline holds."
+basis = "Gotcha 4524. Decisions 3588 and 3589."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44412,6 +44418,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.51]
+title = "Tell the class merge of the wallet application the names of its theme"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src/lib/cn.ts"]
+tests = []
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/lib/cn.test.ts && pnpm --dir apps/wallet run typecheck"
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/wallet/src/lib/cn.ts, the font sizes, the shadows and the colours the theme names in apps/wallet/tailwind.config.ts, and apps/bridge/src/lib/utils.ts as the form."
+symbols = []
+
+[capability.22.44.50]
+title = "Tell the class merge of the launchpad the names of its theme"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/lib"]
+tests = []
+verification_contract = "pnpm --dir apps/launchpad/web exec vitest run src/lib/utils.test.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/launchpad/web/src/lib/utils.ts, the names the theme declares in apps/launchpad/web/src/app/tokens.css, and apps/bridge/src/lib/utils.ts as the form."
+symbols = []
+
+[capability.22.44.49]
+title = "Tell the class merge of the interface package of the human web application the names of its theme"
+reqs = ["22998.1"]
+touches = ["apps/web/packages/layerx-ui/src", "apps/web/packages/layerx-ui/README.md", "apps/web/e2e/ui-library.test.ts"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component"
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/web/packages/layerx-ui/src/lib/utils.ts, the names the theme declares in apps/web/packages/layerx-ui/src/styles/tokens.css, the variants and sizes in apps/web/packages/layerx-ui/src/components/button.tsx, and apps/bridge/src/lib/utils.ts as the form."
+symbols = []
 
 [capability.22.39.692]
 title = "Give the prefix purge of the keeper of the fast path the form of the keeper of the ordinary path"
@@ -173577,6 +173610,101 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.51]
+title = "Tell the class merge of the wallet application the names of its theme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.51"]
+interfaces = []
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/wallet/src/lib/cn.ts, the font sizes, the shadows and the colours the theme names in apps/wallet/tailwind.config.ts, and apps/bridge/src/lib/utils.ts as the form."
+do_2 = "do_2 In apps/wallet/src/lib/cn.ts the function cn merges with a merge extended by the font size names the theme gives beside the sizes the merge library knows, which today is display, and by the names of each other prefix the theme uses for two kinds of value, the shadow names among them. The function keeps its name and its parameters."
+do_3 = "do_3 Add apps/wallet/src/lib/cn.test.ts with cases over the function cn: for every font size name a colour class and the size class both stay, in both orders; of two size classes the last stays; of two colour classes the last stays; for every name of another prefix the helper was told, the class of that name and a colour class of the same prefix both stay. The cases read the names from the source of the theme, so that a name the theme gains later without the helper does not pass."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/wallet/src/lib/cn.ts"]
+tests = []
+planned_paths = ["apps/wallet/src/lib/cn.test.ts"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/lib/cn.test.ts && pnpm --dir apps/wallet run typecheck"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.50]
+title = "Tell the class merge of the launchpad the names of its theme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.50"]
+interfaces = []
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/launchpad/web/src/lib/utils.ts, the names the theme declares in apps/launchpad/web/src/app/tokens.css, and apps/bridge/src/lib/utils.ts as the form."
+do_2 = "do_2 In apps/launchpad/web/src/lib/utils.ts the function cn merges with a merge extended by the font size names the theme declares under the prefix --text- beside the sizes the merge library knows, which today are 2xs, md, num-sm, num-md and display, and by the names of each other prefix the theme uses for two kinds of value. The function keeps its name and its parameters."
+do_3 = "do_3 Add apps/launchpad/web/src/lib/utils.test.ts with cases over the function cn: for every font size name a colour class and the size class both stay, in both orders; of two size classes the last stays; of two colour classes the last stays; for every name of another prefix the helper was told, the class of that name and a colour class of the same prefix both stay. The cases read the names from the source of the theme, so that a name the theme gains later without the helper does not pass. One more case holds the class list of a numeric cell: text-num-sm beside text-text and beside text-text-faint keeps both classes."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/lib"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/lib/utils.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/lib/utils.test.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.49]
+title = "Tell the class merge of the interface package of the human web application the names of its theme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.49"]
+interfaces = []
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/web/packages/layerx-ui/src/lib/utils.ts, the names the theme declares in apps/web/packages/layerx-ui/src/styles/tokens.css, the variants and sizes in apps/web/packages/layerx-ui/src/components/button.tsx, and apps/bridge/src/lib/utils.ts as the form."
+do_2 = "do_2 In apps/web/packages/layerx-ui/src/lib/utils.ts the function cn merges with a merge extended by the font size names the theme declares under the prefix --text-, which today are nano, micro, label, body-sm, body, title-sm, title and display, and by the names of each other prefix the theme uses for two kinds of value, the shadow names among them. The function keeps its name and its parameters."
+do_3 = "do_3 In apps/web/e2e/ui-library.test.ts add cases over the function cn: for every font size name a colour class and the size class both stay, in both orders; of two size classes the last stays; of two colour classes the last stays; for every name of another prefix the helper was told, the class of that name and a colour class of the same prefix both stay. The cases read the names from the source of the theme, so that a name the theme gains later without the helper does not pass. One more case holds the class lists of the button: for the primary variant at each size the merged list holds text-primary-foreground and the size class of that size, and for each other variant that names a text colour the list holds that colour class and the size class."
+do_4 = "do_4 Read the components under apps/web/packages/layerx-ui/src/components for a class list that restates a colour or a size because the merge dropped it, and take the restated class away where the helper now keeps both."
+do_5 = "do_5 State in apps/web/packages/layerx-ui/README.md in one short paragraph that cn is told the names of the theme and that a name the theme gains is added to the helper."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/web/packages/layerx-ui/src", "apps/web/packages/layerx-ui/README.md", "apps/web/e2e/ui-library.test.ts"]
+tests = []
+planned_paths = []
+build_cmd = "make human-js-install && make agent-sdk-ts-build"
+verify_cmd = "npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -382576,7 +382704,7 @@ do_2 = "do_2 In deploy/projects/platform/dashboard-web.kvx add the variable DASH
 do_3 = "do_3 In tools/deploy/tests/projects/test_platform_dashboard_web.py the cases follow: the variable is a runtime input read by the sources of the web and no build argument of the image, its input is an operator input with a comment, and the set of variables of the definition equals what the sources and the image read."
 do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["deploy/projects/platform/dashboard-web.kvx", "tools/deploy/tests/projects/test_platform_dashboard_web.py"]
+touches = ["deploy/projects/platform/dashboard-web.kvx", "tools/deploy/tests/projects/test_platform_dashboard_web.py", "tools/deploy/tests/projects/test_platform_folder.py"]
 tests = []
 planned_paths = []
 build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_dashboard_web.py"
@@ -382592,6 +382720,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 The work of the earlier candidate stays as it is. Two cases follow the product: the case of the build inventory in tools/deploy/tests/projects/test_platform_dashboard_web.py states the build script the package file of the web holds, with its step that clears the output of the development server; the case of tools/deploy/tests/projects/test_platform_folder.py that states the inputs of the folder takes the input of the tenant. No other case of that file changes. Run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.681]
 title = "Give the gateway definition the identity settings of developer registration and sessions"
