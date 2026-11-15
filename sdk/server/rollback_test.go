@@ -44,6 +44,13 @@ type mockApplication struct {
 	cms sdk.CommitMultiStore
 }
 
+func setRollbackDBCopyPartLimit(t *testing.T, limit int) {
+	t.Helper()
+	previous := rollbackDBCopyPartLimit
+	rollbackDBCopyPartLimit = limit
+	t.Cleanup(func() { rollbackDBCopyPartLimit = previous })
+}
+
 func (m *mockApplication) CommitMultiStore() sdk.CommitMultiStore {
 	return m.cms
 }

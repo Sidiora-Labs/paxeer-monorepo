@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ModalPanel } from './primitives';
+import { motionDurations } from '@/theme/motion';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight,
@@ -69,31 +71,22 @@ export function WhatsNewModal() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 z-0 bg-black/70 backdrop-blur-sm"
+            transition={{ duration: motionDurations.normal }}
+            className="absolute inset-0 z-0 bg-pax-scrim backdrop-blur-sm"
             onClick={handleDismiss}
           />
-          <motion.div
-            key="whats-new-sheet"
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 28, mass: 0.9 }}
-            role="dialog"
-            aria-modal="true"
+          <ModalPanel
+            onDismiss={handleDismiss}
             aria-label="What's New"
-            className="relative z-10 w-full max-w-md bg-pax-card rounded-t-3xl overflow-hidden"
-            style={{
-              paddingBottom: 'max(5.5rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))',
-            }}
+            className="relative z-10 w-full max-w-md bg-pax-card rounded-t-3xl overflow-y-auto"
           >
             {/* Handle */}
-            <div className="w-10 h-1 rounded-full bg-white/10 absolute top-2.5 left-1/2 -translate-x-1/2" />
+            <div className="w-10 h-1 rounded-full bg-pax-control absolute top-2.5 left-1/2 -translate-x-1/2" />
 
             {/* Header */}
             <div className="px-5 pt-7 pb-4 flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-pax-accent/10 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-pax-accent-muted flex items-center justify-center">
                   <Sparkles className="w-6 h-6 text-pax-accent" />
                 </div>
                 <div>
@@ -104,7 +97,7 @@ export function WhatsNewModal() {
               <button
                 onClick={handleDismiss}
                 aria-label="Close What's New"
-                className="p-1.5 rounded-full bg-white/5 press-scale"
+                className="p-1.5 rounded-full bg-pax-control press-scale"
               >
                 <X className="w-4 h-4 text-pax-muted" />
               </button>
@@ -115,9 +108,12 @@ export function WhatsNewModal() {
               {WHATS_NEW.map((item, i) => (
                 <motion.div
                   key={item.title}
-                  initial={{ opacity: 0, x: -12 }}
+                  initial={{ opacity: 0, x: 'calc(-1 * var(--space-3))' }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.3 }}
+                  transition={{
+                    delay: i * motionDurations.stagger,
+                    duration: motionDurations.slow,
+                  }}
                   className="flex items-start gap-3"
                 >
                   <item.icon
@@ -136,13 +132,13 @@ export function WhatsNewModal() {
             <div className="px-5">
               <button
                 onClick={handleDismiss}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-pax-accent text-black font-semibold text-sm press-scale"
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-pax-accent text-pax-on-accent font-semibold text-sm press-scale"
               >
                 Get Started
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-          </motion.div>
+          </ModalPanel>
         </div>
       )}
     </AnimatePresence>

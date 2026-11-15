@@ -15,8 +15,8 @@ export interface RouteInfoCardProps {
 }
 
 const impactColor = (pct: number): string => {
-  if (pct > 3) return 'text-red-400';
-  if (pct > 1) return 'text-amber-400';
+  if (pct > 3) return 'text-pax-error';
+  if (pct > 1) return 'text-pax-warning';
   return '';
 };
 

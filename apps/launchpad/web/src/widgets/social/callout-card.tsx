@@ -65,7 +65,7 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
   }
 
   return (
-    <article aria-labelledby={headingId} className={cn('flex flex-col gap-3 rounded-md bg-surface-1 p-3', variant === 'rail' && 'p-4', className)}>
+    <article aria-labelledby={headingId} data-callout-id={callout.id} className={cn('flex flex-col gap-3 rounded-md bg-surface-1 p-3', variant === 'rail' && 'p-4', className)}>
       <header className="flex items-start gap-3">
         {profileHref ? (
           <Link href={profileHref} className="shrink-0 rounded-pill" aria-label={`Open profile of ${authorLabel}`}>

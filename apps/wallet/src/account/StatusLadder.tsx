@@ -65,12 +65,12 @@ export function StatusLadder({ steps }: { steps: readonly LadderStep[] }) {
             title={evidence?.state}
             className={cn(
               'flex-1 rounded-xl px-3 py-2 text-center text-xs',
-              source !== null ? 'bg-pax-accent/20 text-pax-light' : 'bg-white/[0.04] text-pax-muted'
+              source !== null ? 'bg-pax-accent/20 text-pax-light' : 'bg-pax-control text-pax-muted'
             )}
           >
             <span className="block font-semibold">{RUNG_LABELS[rung]}</span>
             {source !== null && (
-              <span className="block text-[10px] text-pax-muted">{SOURCE_LABELS[source]}</span>
+              <span className="block text-xs text-pax-muted">{SOURCE_LABELS[source]}</span>
             )}
           </li>
         );

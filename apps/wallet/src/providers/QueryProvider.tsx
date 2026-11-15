@@ -1,6 +1,7 @@
 'use client';
 
 import { QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack/react-query';
+import { MotionConfig } from 'framer-motion';
 import { useState } from 'react';
 
 /**
@@ -39,8 +40,12 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
     () =>
       new QueryClient({
         defaultOptions: defaultQueryOptions,
-      }),
+      })
   );
 
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+    </QueryClientProvider>
+  );
 }

@@ -18,6 +18,7 @@ mod routes;
 mod rpc;
 mod rpc_faucet;
 mod rpc_register;
+mod rpc_session;
 mod settlement;
 mod state;
 mod ui_proxy;
@@ -42,7 +43,7 @@ use std::fs;
 use std::io::Write;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use subtle::ConstantTimeEq;
@@ -521,23 +522,42 @@ fn valid_identifier(value: &str, maximum: usize) -> bool {
 const LISTENER_CERTIFICATE_VARIABLES: [&str; 2] = ["LAYERX_GATEWAY_TLS_CERT_DER", "LAYERX_GATEWAY_TLS_KEY_DER"];
 
 fn listener_config() -> Result<Listener, String> {
-    static TLS_PROVIDER: OnceLock<Result<(), String>> = OnceLock::new();
-    TLS_PROVIDER.get_or_init(|| rustls::crypto::ring::default_provider().install_default().map_err(|_| "failed to install TLS crypto provider".to_owned())).clone()?;
     match env::var("LAYERX_GATEWAY_LISTENER") {
         Err(env::VarError::NotPresent) => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "tls" => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "plain" => LISTENER_CERTIFICATE_VARIABLES
             .iter()
             .find(|variable| env::var_os(variable).is_some())
-            .map_or(Ok(Listener::Plain), |variable| Err(format!("{variable} is set with LAYERX_GATEWAY_LISTENER plain"))),
+            .map_or(Ok(Listener::Plain), |variable| {
+                Err(format!(
+                    "{variable} is set with LAYERX_GATEWAY_LISTENER plain"
+                ))
+            }),
         _ => Err("LAYERX_GATEWAY_LISTENER must be tls or plain".to_owned()),
     }
 }
 
 fn tls_config() -> Result<Arc<ServerConfig>, String> {
-    let cert = CertificateDer::from(fs::read(env::var("LAYERX_GATEWAY_TLS_CERT_DER").map_err(|_| "gateway TLS certificate is required")?).map_err(|error| error.to_string())?);
-    let key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(fs::read(env::var("LAYERX_GATEWAY_TLS_KEY_DER").map_err(|_| "gateway TLS key is required")?).map_err(|error| error.to_string())?));
-    ServerConfig::builder().with_no_client_auth().with_single_cert(vec![cert], key).map(Arc::new).map_err(|error| error.to_string())
+    let cert = CertificateDer::from(
+        fs::read(
+            env::var("LAYERX_GATEWAY_TLS_CERT_DER")
+                .map_err(|_| "gateway TLS certificate is required")?,
+        )
+        .map_err(|error| error.to_string())?,
+    );
+    let key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(
+        fs::read(
+            env::var("LAYERX_GATEWAY_TLS_KEY_DER").map_err(|_| "gateway TLS key is required")?,
+        )
+        .map_err(|error| error.to_string())?,
+    ));
+    ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions()
+        .map_err(|error| error.to_string())?
+        .with_no_client_auth()
+        .with_single_cert(vec![cert], key)
+        .map(Arc::new)
+        .map_err(|error| error.to_string())
 }
 
 struct ProtocolConfig {
@@ -641,16 +661,31 @@ fn configured_service_identity() -> Result<Option<Identity>, String> {
 }
 
 fn config(event_producer: bool) -> Result<Config, String> {
+    let registration_token = rpc_register::configured_token()?;
     let receipt_keys = match env::var_os("LAYERX_GATEWAY_RECEIPT_KEYS_FILE") {
         Some(path) => {
             let receipt_key_file = fs::File::open(path).map_err(|error| error.to_string())?;
             let mut receipt_key_document = String::new();
-            std::io::Read::read_to_string(&mut std::io::Read::take(receipt_key_file, 256 * 1024 + 1), &mut receipt_key_document).map_err(|error| error.to_string())?;
-            Some(ReceiptKeyList::from_config(&receipt_key_document).map_err(|field| format!("invalid gateway {field}"))?)
+            std::io::Read::read_to_string(
+                &mut std::io::Read::take(receipt_key_file, 256 * 1024 + 1),
+                &mut receipt_key_document,
+            )
+            .map_err(|error| error.to_string())?;
+            Some(
+                ReceiptKeyList::from_config(&receipt_key_document)
+                    .map_err(|field| format!("invalid gateway {field}"))?,
+            )
         }
         None => None,
     };
-    let ca = Certificate::from_der(&fs::read(env::var("LAYERX_GATEWAY_OUTBOUND_CA_DER").map_err(|_| "gateway outbound CA is required")?).map_err(|error| error.to_string())?).map_err(|error| error.to_string())?;
+    let ca = Certificate::from_der(
+        &fs::read(
+            env::var("LAYERX_GATEWAY_OUTBOUND_CA_DER")
+                .map_err(|_| "gateway outbound CA is required")?,
+        )
+        .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
     let kernel = configured_kernel()?;
     let identity = configured_identity()?;
     let service_identity = configured_service_identity()?;
@@ -661,7 +696,10 @@ fn config(event_producer: bool) -> Result<Config, String> {
         Some(identity) => (Client::new(ca.clone(), identity), true),
         None => (Client::without_identity(ca.clone()), false),
     };
-    let idempotency_seconds = env::var("LAYERX_GATEWAY_IDEMPOTENCY_SECONDS").unwrap_or_else(|_| "604800".to_owned()).parse::<u64>().map_err(|_| "gateway idempotency retention is invalid".to_owned())?;
+    let idempotency_seconds = env::var("LAYERX_GATEWAY_IDEMPOTENCY_SECONDS")
+        .unwrap_or_else(|_| "604800".to_owned())
+        .parse::<u64>()
+        .map_err(|_| "gateway idempotency retention is invalid".to_owned())?;
     if !(3600..=MAX_IDEMPOTENCY_SECONDS).contains(&idempotency_seconds) {
         return Err("gateway idempotency retention is outside its bound".to_owned());
     }
@@ -686,11 +724,14 @@ fn config(event_producer: bool) -> Result<Config, String> {
         capabilities: capabilities::configured()?,
         read_windows: std::sync::Mutex::default(),
         indexer: history::configured_endpoint()?,
-        registration_token: rpc_register::configured_token()?,
+        registration_token,
         trusted_proxies: rpc_register::configured_trusted_proxies()?,
         faucet: rpc_faucet::configured()?,
         store: Arc::new(RedisStore::new(
-            RedisEndpoint::parse(&env::var("LAYERX_GATEWAY_REDIS_URL").map_err(|_| "gateway Redis URL is required")?)?,
+            RedisEndpoint::parse(
+                &env::var("LAYERX_GATEWAY_REDIS_URL")
+                    .map_err(|_| "gateway Redis URL is required")?,
+            )?,
             ca,
             read_secret("LAYERX_GATEWAY_REDIS_USERNAME_FILE")?,
             read_secret("LAYERX_GATEWAY_REDIS_PASSWORD_FILE")?,

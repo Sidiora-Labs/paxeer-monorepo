@@ -12,6 +12,7 @@ if (!dashboardApiOrigin) {
 
 const config: NextConfig = {
   output: "standalone",
+  env: { DASHBOARD_API_ORIGIN: dashboardApiOrigin },
   outputFileTracingRoot: repositoryRoot,
   poweredByHeader: false,
   reactStrictMode: true,
