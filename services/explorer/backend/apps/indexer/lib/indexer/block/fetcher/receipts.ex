@@ -52,8 +52,8 @@ defmodule Indexer.Block.Fetcher.Receipts do
     |> Enum.concat(block_numbers)
     |> Task.async_stream(
       fn
-        block_number when is_integer(block_number) ->
-          Receipts.fetch_by_block_numbers([block_number], json_rpc_named_arguments)
+        {block_number, transaction_hashes} ->
+          Receipts.fetch_by_block_numbers([block_number], json_rpc_named_arguments, transaction_hashes)
 
         transactions when is_list(transactions) ->
           EthereumJSONRPC.fetch_transaction_receipts(transactions, json_rpc_named_arguments)
@@ -164,7 +164,8 @@ defmodule Indexer.Block.Fetcher.Receipts do
       if Enum.count(transaction_params) > max_receipts_by_block do
         {blocks_acc, transaction_params ++ transactions_acc}
       else
-        {[block_number | blocks_acc], transactions_acc}
+        transaction_hashes = MapSet.new(transaction_params, & &1.hash)
+        {[{block_number, transaction_hashes} | blocks_acc], transactions_acc}
       end
     end)
   end
