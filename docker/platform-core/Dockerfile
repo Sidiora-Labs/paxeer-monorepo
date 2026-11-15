@@ -1,12 +1,17 @@
 FROM rust:1.91.1-alpine3.22 AS build
 WORKDIR /src
 RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
-COPY . .
+COPY services/ services/
+COPY programs/ programs/
 RUN cargo build --locked --release --manifest-path services/platform/Cargo.toml -p layerx-platform-core
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates libgcc openssl python3 && addgroup -g 4020 layerx && adduser -D -H -u 4020 -G layerx layerx
+RUN mkdir -p /run/secrets /var/lib/layerx/core && chown 4020:4020 /run/secrets /var/lib/layerx/core && chmod 0700 /run/secrets /var/lib/layerx/core
 COPY --from=build /src/services/platform/target/release/layerx-core-boundary /usr/local/bin/layerx-core-boundary
 COPY --from=build /src/services/platform/hosted/node/generation_client.py /src/services/platform/hosted/node/generation_transport.py /src/services/platform/hosted/node/reset_state.py /opt/layerx/node/
+COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files
+COPY docker/platform-core/files.tsv /etc/layerx/files.tsv
+EXPOSE 9443 9444
 USER 4020:4020
-ENTRYPOINT ["/usr/local/bin/layerx-core-boundary"]
+ENTRYPOINT ["/usr/local/bin/layerx-env-files", "/usr/local/bin/layerx-core-boundary"]
