@@ -76,7 +76,7 @@ export default async function StatusPage({
                   spellCheck={false}
                   placeholder="example.pax"
                   defaultValue={name}
-                  pattern="[a-z0-9][a-z0-9-]{1,61}[a-z0-9]\.pax"
+                  pattern="[a-z0-9][a-z0-9\-]{1,61}[a-z0-9][.]pax"
                   aria-describedby="name-hint"
                   aria-invalid={Boolean(error)}
                   required
