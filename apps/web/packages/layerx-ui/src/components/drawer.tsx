@@ -10,7 +10,7 @@ export interface DrawerProps {
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
   portalContainer?: HTMLElement | null;
-  /** Width of the right-side panel. Default 420px. */
+  /** Width of the right-side panel. Defaults to the surface drawer token. */
   width?: number | string;
 }
 

@@ -149,7 +149,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
           ) : null}
         </div>
 
-        <div className="h-[2px] bg-track" aria-hidden="true">
+        <div className="h-0.5 bg-track" aria-hidden="true">
           <div
             className={isBuy ? 'h-full bg-accent' : 'h-full bg-danger'}
             style={{ animation: `toast-progress ${AUTO_DISMISS_MS}ms linear forwards`, animationPlayState: hold ? 'paused' : 'running' }}

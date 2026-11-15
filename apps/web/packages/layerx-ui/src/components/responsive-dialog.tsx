@@ -10,7 +10,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from "./modal";
 import { Button, type ButtonProps } from "./button";
 
 /**
- * One overlay, two bodies: bottom sheet on mobile, centered 440px modal on
+ * One overlay, two bodies: bottom sheet on mobile, centered modal on
  * desktop. This is the LayerX confirmation/detail contract from the pattern
  * table — consequence copy included, Esc/overlay dismiss, focus-trapped.
  */
