@@ -102,12 +102,11 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
     assert_receive {:node_request, :available, :transactions, @height}
   end
 
-  test "node errors retain their URL and message only after every endpoint has failed", context do
+  test "pruned heights are unavailable only after every endpoint has failed", context do
     first = serve(context, :error)
     second = serve(context, :available)
-    message = "height #{@held} is not available"
 
-    assert {:error, {:node_error, ^first, ^message}} = CosmosRest.fetch_block_results([first, second], @held)
+    assert {:error, {:height_unavailable, ^first}} = CosmosRest.fetch_block_results([first, second], @held)
 
     for _ <- 1..2 do
       assert_receive {:node_request, :error, :results, @held}
@@ -119,17 +118,21 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
   test "replay advances beyond a held middle block, preserves its error and throttles held warnings", context do
     first = serve(context, :error)
     second = serve(context, :available)
-    options = [cosmos_rest_urls: [first, second], cometbft_rpc_urls: [first, second]]
+
+    options = [
+      cosmos_rest_urls: [first, second],
+      cometbft_rpc_urls: [first, second],
+      acceptance_backfill_concurrency: 1
+    ]
+
     worker = start_supervised!({PriceAcceptanceBackfill, options})
 
     assert PriceAcceptanceBackfill.held_jobs() == nil
     assert {:ok, 0} = PriceAcceptanceBackfill.step(worker, 18)
-    assert {:error, {:node_error, endpoint, message}} = PriceAcceptanceBackfill.step(worker, 18)
+    assert {:error, {:height_unavailable, endpoint}} = PriceAcceptanceBackfill.step(worker, 18)
     assert endpoint in [first, second]
-    assert message == "height #{@held} is not available"
     assert [[@first, true, nil], [@held, false, error], [@height, false, nil]] = queue()
     assert error =~ endpoint
-    assert error =~ message
     assert PriceAcceptanceBackfill.held_jobs() == {1, @held, error}
 
     assert {:ok, 18} = PriceAcceptanceBackfill.step(worker, 18)
@@ -166,7 +169,6 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
     assert length(Regex.scan(~r/price acceptance replay held:/, log)) == 1
     assert log =~ "[warning]"
     assert log =~ "1 rows; lowest block #{@held}"
-    assert log =~ message
     assert log =~ endpoint
 
     reopened = start_supervised!({PriceAcceptanceBackfill, options})
@@ -245,6 +247,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
     options = [
       cosmos_rest_urls: [first, second],
       cometbft_rpc_urls: [first, second],
+      acceptance_backfill_concurrency: 1,
       acceptance_backfill_batch_size: 6,
       acceptance_backfill_interval: 250,
       acceptance_backfill_retry_interval: 400
@@ -252,9 +255,8 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
 
     worker = start_supervised!({PriceAcceptanceBackfill, options})
     assert {:ok, 0} = PriceAcceptanceBackfill.step(worker, 18)
-    assert {:error, {:node_error, endpoint, message}} = PriceAcceptanceBackfill.step(worker, 18)
+    assert {:error, {:height_unavailable, endpoint}} = PriceAcceptanceBackfill.step(worker, 18)
     assert endpoint in [first, second]
-    assert message == "height #{@held} is not available"
     assert [[@first, true, nil], [@held, false, error], [@height, false, nil]] = queue()
     assert PriceAcceptanceBackfill.held_jobs() == {1, @held, error}
     assert accepted_observations() == 0
@@ -396,7 +398,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
 
   @tag :queue
   test "a replay mismatch holds its row while the next error-free row completes", context do
-    worker = start_supervised!({PriceAcceptanceBackfill, []})
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     transactions = %{"txs" => context.body["txs"], "raw" => context.body["block"]["data"]["txs"]}
 
     assert :ok = PriceAcceptanceBackfill.retain(worker, @height, transactions, context.result["txs_results"])

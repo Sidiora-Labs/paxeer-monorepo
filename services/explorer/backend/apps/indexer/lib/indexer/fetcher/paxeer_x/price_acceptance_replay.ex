@@ -40,7 +40,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceAcceptanceReplay do
         {:stop, :normal, state}
 
       {:ok, _count} ->
-        Process.send_after(self(), :replay, state.interval)
+        send(self(), :replay)
         {:noreply, state}
 
       :deferred ->
