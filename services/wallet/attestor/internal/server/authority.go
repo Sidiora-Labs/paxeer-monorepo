@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ import (
 )
 
 const PathAuthority = "/v1/authority"
+const PathInventory = "/v1/inventory"
 
 type InventoryMember struct {
 	ID  string `json:"id"`
@@ -39,11 +41,13 @@ type WalletInventory struct {
 	Keys      []InventoryKey    `json:"keys"`
 }
 type Inventory struct {
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	path     string
 	verifier *agent.SignedVerifier
 	store    *store.Store
 	pins     map[string]string
+	current  WalletInventory
+	token    string
 }
 
 func NewInventory(path, publicKeyFile, issuer, tenant string, st *store.Store, pins map[string]string) (*Inventory, error) {
@@ -63,18 +67,81 @@ func NewInventory(path, publicKeyFile, issuer, tenant string, st *store.Store, p
 func (i *Inventory) load() (WalletInventory, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	var inventory WalletInventory
-	f, err := os.Open(i.path)
+	return i.loadLocked()
+}
+
+func (i *Inventory) loadLocked() (WalletInventory, error) {
+	var fileInventory WalletInventory
+	fileToken, fileErr := i.readToken(i.path, &fileInventory)
+	var savedInventory WalletInventory
+	var savedToken string
+	var savedSequence uint64
+	if sequence, token, err := agent.ReadPersisted(i.store, agent.InventoryAudience); err == nil {
+		savedSequence = sequence
+		if inventory, decodeErr := i.decode(token); decodeErr == nil {
+			savedToken, savedInventory = token, inventory
+		}
+	}
+	if fileErr != nil && savedToken == "" {
+		return WalletInventory{}, fileErr
+	}
+	if savedToken != "" && (fileErr != nil || savedSequence >= inventorySequence(fileInventory)) {
+		i.current, i.token = savedInventory, savedToken
+		return savedInventory, nil
+	}
+	if fileErr != nil {
+		return WalletInventory{}, agent.ErrAuthority
+	}
+	// A configured file that supersedes a valid retained record is retained for
+	// the next restart. If the retained record is expired, keeping it is unsafe
+	// and the valid configured file remains the source in force.
+	if savedToken == "" && savedSequence > inventorySequence(fileInventory) {
+		// An expired or otherwise unverifiable retained token gives way to the
+		// valid configured file without attempting a sequence rollback.
+	} else if savedToken == "" || savedSequence < inventorySequence(fileInventory) {
+		if err := agent.PersistSigned(i.store, agent.InventoryAudience, fileInventory.Sequence, fileToken); err != nil {
+			if savedToken != "" {
+				// A higher, expired record cannot be replaced by PersistSigned. The
+				// configured token is still valid for this process.
+				if savedSequence > inventorySequence(fileInventory) {
+					return WalletInventory{}, err
+				}
+			} else {
+				return WalletInventory{}, err
+			}
+		}
+	}
+	i.current, i.token = fileInventory, fileToken
+	return fileInventory, nil
+}
+
+func inventorySequence(inventory WalletInventory) uint64 {
+	sequence, _ := strconv.ParseUint(inventory.Sequence, 10, 64)
+	return sequence
+}
+
+func (i *Inventory) readToken(path string, inventory *WalletInventory) (string, error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return inventory, agent.ErrAuthority
+		return "", agent.ErrAuthority
 	}
 	defer f.Close()
 	raw, err := io.ReadAll(io.LimitReader(f, (2<<20)+1))
 	if err != nil || len(raw) > 2<<20 {
-		return inventory, agent.ErrAuthority
+		return "", agent.ErrAuthority
 	}
 	token := strings.TrimSpace(string(raw))
-	if err = i.verifier.Decode(token, agent.InventoryAudience, 30*24*time.Hour, &inventory); err != nil {
+	decoded, err := i.decode(token)
+	if err != nil {
+		return "", err
+	}
+	*inventory = decoded
+	return token, nil
+}
+
+func (i *Inventory) decode(token string) (WalletInventory, error) {
+	var inventory WalletInventory
+	if err := i.verifier.Decode(token, agent.InventoryAudience, 30*24*time.Hour, &inventory); err != nil {
 		return inventory, err
 	}
 	if inventory.Protocol != "wallet" || inventory.Threshold != 3 || len(inventory.Members) != 5 || len(inventory.Keys) > 65536 {
@@ -117,10 +184,43 @@ func (i *Inventory) load() (WalletInventory, error) {
 			}
 		}
 	}
-	if err = agent.PersistSigned(i.store, agent.InventoryAudience, inventory.Sequence, token); err != nil {
-		return inventory, err
-	}
 	return inventory, nil
+}
+
+// Admit verifies and installs a signed inventory without restarting the
+// attestor. The held result is safe to return for an idempotent repeat.
+func (i *Inventory) Admit(token string) (sequence string, held bool, err error) {
+	if i == nil {
+		return "", false, agent.ErrAuthority
+	}
+	candidate, err := i.decode(token)
+	if err != nil {
+		return "", false, err
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	currentSequence := inventorySequence(i.current)
+	candidateSequence := inventorySequence(candidate)
+	if i.token == "" {
+		if _, err := i.loadLocked(); err != nil {
+			return "", false, err
+		}
+		currentSequence = inventorySequence(i.current)
+	}
+	if candidateSequence < currentSequence {
+		return "", false, agent.ErrAuthority
+	}
+	if candidateSequence == currentSequence {
+		if token != i.token {
+			return "", false, agent.ErrAuthority
+		}
+		return candidate.Sequence, true, nil
+	}
+	if err := agent.PersistSigned(i.store, agent.InventoryAudience, candidate.Sequence, token); err != nil {
+		return "", false, err
+	}
+	i.current, i.token = candidate, token
+	return candidate.Sequence, false, nil
 }
 func (i *Inventory) Check(keyID, operation, owner, curve string, record *store.ShareRecord) error {
 	if i == nil {
@@ -250,6 +350,39 @@ func (s *Server) HandleAuthority(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"node_id": s.opts.NodeID, "sequence": sequence})
+}
+
+func (s *Server) HandleInventory(w http.ResponseWriter, r *http.Request) {
+	body, e := readBodyLimit(r, s.opts.InventoryRequestBytes)
+	if e != nil {
+		writeError(w, e)
+		return
+	}
+	var request struct {
+		Token string `json:"token"`
+	}
+	if e = decodeRequest(body, &request); e != nil {
+		writeError(w, e)
+		return
+	}
+	if s.opts.Inventory == nil {
+		writeError(w, newError(CodeTokenUnavailable, "custody inventory is not configured"))
+		return
+	}
+	sequence, held, err := s.opts.Inventory.Admit(request.Token)
+	if err != nil {
+		writeError(w, s.deny("custody.inventory", "", "", "denied", "", newError(CodeAgentInvalid, "custody inventory snapshot refused")))
+		return
+	}
+	if _, e = s.audit("custody.inventory", "", "producer", "allowed", sequence, ""); e != nil {
+		writeError(w, e)
+		return
+	}
+	status := "admitted"
+	if held {
+		status = "held"
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"node_id": s.opts.NodeID, "sequence": sequence, "status": status})
 }
 
 func (s *Server) inventoryRoute(operation string, next http.HandlerFunc) http.HandlerFunc {
