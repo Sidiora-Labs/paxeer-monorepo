@@ -14680,6 +14680,12 @@ value = "A task whose verification runs the proof of the JSON-RPC methods of the
 basis = "Gotcha 4512."
 affects = ["22.39.669"]
 
+[decision.3595]
+title = "The explorer foundation of the web guidance series follows the visual system integration"
+value = "Task 22.44.1 requires task 22.35.8, the integration of the explorer visual system, and no longer the suite of the explorer backend, with which it shares no path and no command. The suite task keeps its own course and its own verification."
+basis = "Gotcha 4513. Decisions 3587 to 3589."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175098,7 +175104,7 @@ title = "Bring the explorer theme, its base components and its global style to t
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.634"]
+requires = ["22.35.8"]
 reqs = ["22998.1"]
 capabilities = ["22.44.1"]
 interfaces = []

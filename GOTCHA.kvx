@@ -22385,3 +22385,8 @@ fix = "Decision 3593. Task 22.39.677."
 title = "A proof that starts the TypeScript SDK from its sources needs the packages of that SDK"
 symptom = "The proof of the receipt keys method of the hosted gateway, in services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs, starts the TypeScript SDK under services/agent/sdk/typescript from its sources to read the keys as a consumer does. The runtime resolves the packages the SDK declares from the directory of the SDK, so they have to be installed there before the proof runs."
 fix = "Decision 3594. The build of task 22.39.669 installs them."
+
+[gotcha.4513]
+title = "A foundation task of a web surface waits for work on its own paths"
+symptom = "The explorer foundation of the web guidance series changes the theme, the base components and the global style under apps/explorer and verifies with the type check and the tests of the toolkit. The suite of the explorer backend lives under services/explorer/backend and shares neither a path nor a command with it. The work the foundation builds on is the visual system integration of the explorer, which closed both colour modes and the production build."
+fix = "Decision 3595."
