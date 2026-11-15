@@ -20,7 +20,7 @@ function createWallet() {
   return wallet;
 }
 
-function supportedWalletPanelRendersNoCustodyHandoff() {
+function supportedWalletPanelRendersNoCustodyHandoff(): void {
   const html = renderToString(<SupportedWalletPanel paxeer={createWallet()} origin={origin} />);
 
   expect(html).toContain('data-supported-wallet="embedded"');
@@ -38,7 +38,7 @@ function supportedWalletPanelRendersNoCustodyHandoff() {
   expect(source).not.toContain('CUSTODY_TARGET');
 }
 
-async function supportedWalletPanelClearsRetainedCustodyKey() {
+async function supportedWalletPanelClearsRetainedCustodyKey(): Promise<void> {
   const keys = [
     'paxeer-demo:custody:125:0x1111111111111111111111111111111111111111',
     'paxeer-demo:custody:125:0xABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD',
