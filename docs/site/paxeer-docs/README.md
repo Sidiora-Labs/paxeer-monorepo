@@ -20,6 +20,8 @@ Development runs at `http://localhost:3000`. From this directory, build the prod
 npm run build
 ```
 
+The build generates `src/lib/systems.json` from `docs/release/7.0.0-systems.kvx` when the inventory is available. Builds containing only the site folders retain the committed system map after validating that it contains systems and the fields the site reads; missing or invalid data stops the build. `npm run test:static` checks types, then runs the generator with `--check` to verify that the committed map matches the available inventory without writing files.
+
 The generated `out/` directory contains the static pages. The documentation workflow uploads that directory and deploys pushes to `main` to GitHub Pages. The production canonical origin defaults to `https://docs.paxeer.app`. Set `NEXT_PUBLIC_SITE_URL` for the whole build command to use a different canonical origin; preview hosts do not change canonical URLs.
 
 For local inspection of the static export:
