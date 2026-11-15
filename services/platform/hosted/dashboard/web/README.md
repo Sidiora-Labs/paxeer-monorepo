@@ -45,10 +45,27 @@ fly deploy . --config services/platform/hosted/dashboard/web/fly.toml \
   --build-arg DASHBOARD_API_ORIGIN="$DASHBOARD_API_ORIGIN"
 ```
 
+## Local dashboard
+
+Start the dashboard from the repository root after installing its dependencies:
+
+```sh
+npm --prefix services/platform/hosted/dashboard/web run dev
+```
+
+For a production build, set `DASHBOARD_API_ORIGIN` and run the dashboard's
+`build` script, then its `start` script. The production build clears generated
+development output before generating production route types.
+
 ## Styles
 
 The style sheet is built from the dashboard app files and the `src` directory
-of the UI package. The build checks the generated sheet for the UI classes.
+of the UI package. The build checks the generated sheet for the UI classes. The dashboard uses
+shared colour, spacing, type and motion tokens, follows the system colour
+scheme and respects reduced motion and browser text scaling. Section tabs
+scroll within their track and support arrow keys, Home and End. Log rows wrap
+identifiers and adapt to their card's width. Sign-in forms use native constraints
+and show field errors after interaction.
 
 ## Browser sign-in
 
@@ -64,11 +81,11 @@ returns to the sign-in view.
 
 The web serves these routes beside the page:
 
-| Route | JSON input and result |
-| --- | --- |
-| `POST /session/registration` | `signer_public_key` and `registration_signature`; calls `px_register` and returns the confirmed public tenant, subject and signer key |
-| `POST /session` | `signer_public_key`, canonical decimal `proof_time` and `session_signature`; calls `px_openSession`. Alternatively, `token` alone checks `GET /v1/dashboard/overview` with Bearer authorization. Success returns 204 with no body. |
-| `DELETE /session` | Empty body or `{}`; returns 204 and clears the cookie |
+| Route                        | JSON input and result                                                                                                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /session/registration` | `signer_public_key` and `registration_signature`; calls `px_register` and returns the confirmed public tenant, subject and signer key                                                                                              |
+| `POST /session`              | `signer_public_key`, canonical decimal `proof_time` and `session_signature`; calls `px_openSession`. Alternatively, `token` alone checks `GET /v1/dashboard/overview` with Bearer authorization. Success returns 204 with no body. |
+| `DELETE /session`            | Empty body or `{}`; returns 204 and clears the cookie                                                                                                                                                                              |
 
 Requests require an Origin matching either the parsed HTTPS origin of the Host
 header, including its port, or the origin of the request URL for direct access.
