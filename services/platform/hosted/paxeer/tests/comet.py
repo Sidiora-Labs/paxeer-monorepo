@@ -41,6 +41,10 @@ def qualify(raw_request, comet_port, evidence_path):
     assert status == 200 and int(reply['result']['count']) > 0, reply
     assert reply['result']['block_height'] == height, reply
     assert body == upstream('validators', params)
+    params = dict(height=height)
+    status, reply, body = query('block', params)
+    assert status == 200 and reply['result']['block']['header']['height'] == height, reply
+    assert body == upstream('block', params)
     key = '0885fcd13735f4309833a503ee804ea32395851479'
     params = dict(path='/store/evm/key', data='0x' + key, height=height, prove=True)
     expected = upstream('abci_query', params | {'data': key})
@@ -66,6 +70,13 @@ def qualify(raw_request, comet_port, evidence_path):
     assert [op['type'] for op in response['proofOps']['ops']] == ['ics23:iavl', 'ics23:simple'], reply
     assert all(op['data'] and op['key'] for op in response['proofOps']['ops']), reply
     assert body == expected
+    sequence_params = dict(
+        path='/store/sequencer/key', data='0x03', height=str(int(height) - 1), prove=True
+    )
+    expected = upstream('abci_query', sequence_params | {'data': '03'})
+    status, reply, body = query('abci_query', sequence_params)
+    assert status == 200 and reply['result']['response']['height'] == sequence_params['height'], reply
+    assert body == expected
     future = str(2**63 - 2)
     status, reply, _ = query('abci_query', params | {'height': future})
     assert status == 503 and reply['error']['code'] == 'comet_evidence_unavailable', reply
@@ -78,6 +89,10 @@ def qualify(raw_request, comet_port, evidence_path):
         ('abci_query', params | {'prove': False}),
         ('abci_query', params | {'path': '/store/evm/subspace'}),
         ('abci_query', params | {'height': '0'}),
+        ('block', {}),
+        ('block', {'height': 'not-decimal'}),
+        ('abci_query', sequence_params | {'data': '0x04'}),
+        ('abci_query', sequence_params | {'prove': False}),
         ('commit', {'height': None}),
         ('validators', {'height': height, 'page': '1', 'per_page': '101'}),
     ]:

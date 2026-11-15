@@ -94,13 +94,18 @@ Without the gateway origin or a valid tenant, key registration and proof sign-in
 return 503 with `sign_in_not_configured`; token sign-in remains available. The
 page explains this refusal.
 
-The Keys view issues a gateway key with the Ed25519 public key held by the
-browser, the six gateway scopes (`activity:write`, `program:call`,
+The Keys view signs an issue request with the Ed25519 public key held by the
+browser key of the current session. It offers the six gateway scopes
+(`activity:write`, `program:call`,
 `program:read`, `program:simulate`, `receipt:read` and `state:read`) and a
 quota of 1–1,000,000 requests over 1–2,592,000 seconds. Active keys can be
 rotated or revoked after confirmation. Each write uses a fresh idempotency key.
 An issued or rotated secret is shown once with a copy control and stays only in
 page memory until its dialog closes; it is never written to browser storage.
+If this browser has no developer key, the view explains that it cannot sign
+issuance and keeps the Issue key control disabled. Creating a key during
+sign-in updates the view without a page reload; gateway refusals are shown in
+words from their reason so the developer can correct the request or try again.
 When no active key exists, the overview replaces its request counters with a
 no-quota message and a control that opens Keys.
 

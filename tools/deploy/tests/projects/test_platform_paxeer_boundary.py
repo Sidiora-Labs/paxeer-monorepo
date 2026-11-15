@@ -147,6 +147,17 @@ def test_paxeer_boundary_inputs_have_names_and_comments():
         assert len(lines[index - 1].split()) >= 6
 
 
+def test_paxeer_boundary_consensus_origin_is_an_operator_input():
+    document = definition()
+    variables = document["vars." + SERVICE]
+    inputs = document["inputs." + SERVICE]
+    name = "PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_COMET_URL"
+    assert variables["LAYERX_PAXEER_COMET_URL"] == "env:" + name
+    assert inputs[name] == "operator"
+    assert "loopback" in DEFINITION.read_text().lower()
+    assert "nonzero port" in DEFINITION.read_text().lower()
+
+
 def test_paxeer_boundary_watch_patterns_cover_build_inputs():
     service = definition()["service." + SERVICE]
     patterns = service["watch"]
