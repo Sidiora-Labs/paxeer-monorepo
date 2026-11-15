@@ -22470,3 +22470,8 @@ fix = "Decision 3611. Task 22.39.695; the verification of task 22.39.686."
 title = "The public role of the webhooks service is reached through the front of the hosting platform, which ends TLS"
 symptom = "The definition deploy/projects/platform/webhooks-public.kvx marks the service public, sets the TLS form of the listener on port 9444 and names the health listener on port 9442 as PORT. The front of the hosting platform ends TLS and passes plain HTTP to the port PORT names, so the public name of the service reaches the health listener, and the routes under /v1/webhooks are served by the other listener. The binary holds a plain form of the listener for the public role, and the init script services/platform/hosted/webhooks/env-init.sh selects the TLS form for both roles. The definitions of the gateway and of the dashboard API take the plain form."
 fix = "Decision 3612. Task 22.39.696."
+
+[gotcha.4530]
+title = "The build script of the types crate reads files of the repository root, and an image that copies chosen directories holds them"
+symptom = "The build script services/agent/crates/layerx-types/build.rs reads include/layerx/lxp_result.h, include/layerx/programs.h and spec/layerx-merge/contracts/address-table.md. The build stages of docker/platform-webhooks/Dockerfile and docker/platform-core/Dockerfile copy the directories services and programs and then build a binary whose crates depend on the types crate. The image of the gateway copies the whole context. A build stage that copies chosen directories copies each file a build script of its crates reads."
+fix = "Decision 3613. Task 22.39.697."
