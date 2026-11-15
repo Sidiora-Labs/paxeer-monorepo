@@ -22285,3 +22285,8 @@ fix = "Decision 3572. Tasks 22.39.627 to 22.39.634."
 title = "The store of the price updates of a block reads the number of all stored submissions"
 symptom = "The price feed of the explorer keeps the number of submissions stored since the first scan in a counter row. The store of the submissions of a block in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex reads the number of all stored submissions as the first value of that counter on every store that changes the number, although the first value is used only when the counter row does not exist yet. The acceptance replay takes the blocks of one step one after the other."
 fix = "Decision 3573. Tasks 22.39.635 and 22.39.636."
+
+[gotcha.4493]
+title = "A whole compile of the explorer app stops on a default argument no call uses"
+symptom = "The apps of the explorer backend compile with warnings as errors outside the development environment. The private request function of services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex states a default for its query that no call uses, which is a compiler warning. A compile that takes only changed files does not reach the file; a compile of the whole app does, for example after a change in the JSON-RPC client the app depends on."
+fix = "Decision 3574. Task 22.39.637."
