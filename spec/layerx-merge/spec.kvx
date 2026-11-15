@@ -457783,7 +457783,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.622]
 title = "Let the acceptance replay take several blocks at a time and read a pruned height as unavailable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.621"]
