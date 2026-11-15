@@ -39,6 +39,14 @@ defmodule BlockScoutWeb.API.V2.CsvExportController do
           filter_value_param()
         ],
     responses: [
+      forbidden:
+        {"Restricted access", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok: {"CSV file of token holders.", "application/csv", nil},
       unprocessable_entity: JsonErrorResponse.response(),
       not_found: NotFoundResponse.response()

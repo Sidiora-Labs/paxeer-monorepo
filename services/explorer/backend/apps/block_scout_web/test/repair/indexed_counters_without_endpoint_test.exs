@@ -11,6 +11,15 @@ defmodule BlockScoutWeb.IndexedCountersWithoutEndpointTest do
   setup tags do
     assert is_pid(Process.whereis(BlockScoutWeb.PubSub))
 
+    if tags[:endpoint_absent] do
+      on_exit(fn ->
+        assert {:ok, _pid} = Supervisor.restart_child(BlockScoutWeb.Supervisor, Endpoint)
+      end)
+
+      assert :ok = Supervisor.terminate_child(BlockScoutWeb.Supervisor, Endpoint)
+      assert Process.whereis(Endpoint) == nil
+    end
+
     if tags[:publisher_absent] do
       publisher_id = Supervisor.child_spec({Phoenix.PubSub, name: BlockScoutWeb.PubSub}, []).id
       assert :ok = Supervisor.terminate_child(BlockScoutWeb.Supervisor, publisher_id)
@@ -34,6 +43,16 @@ defmodule BlockScoutWeb.IndexedCountersWithoutEndpointTest do
   @tag :publisher_absent
   test "internal transactions counter completes quietly without the endpoint publisher" do
     assert_quiet_completion(&InternalTransactionsIndexedCounter.calculate_internal_transactions_indexed/0)
+  end
+
+  @tag :endpoint_absent
+  test "blocks counter completes quietly while the endpoint is stopped" do
+    assert_quiet_without_endpoint(&BlocksIndexedCounter.calculate_blocks_indexed_and_broadcast/0)
+  end
+
+  @tag :endpoint_absent
+  test "internal transactions counter completes quietly while the endpoint is stopped" do
+    assert_quiet_without_endpoint(&InternalTransactionsIndexedCounter.calculate_internal_transactions_indexed/0)
   end
 
   test "blocks counter publishes its ratio on both indexing topics" do
@@ -61,6 +80,18 @@ defmodule BlockScoutWeb.IndexedCountersWithoutEndpointTest do
 
     assert log == ""
     assert Process.whereis(BlockScoutWeb.PubSub) == nil
+  end
+
+  defp assert_quiet_without_endpoint(calculate) do
+    log =
+      capture_log([level: :error], fn ->
+        task = Task.async(calculate)
+        assert Task.await(task) == :ok
+      end)
+
+    assert log == ""
+    assert Process.whereis(Endpoint) == nil
+    assert is_pid(Process.whereis(BlockScoutWeb.PubSub))
   end
 
   defp assert_ratio_delivery(calculate, ratio, topics) do

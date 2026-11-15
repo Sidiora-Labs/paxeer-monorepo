@@ -73,11 +73,12 @@ defmodule BlockScoutWeb.AccountApiBlueprintTest do
     assert blueprint =~ "# Explorer Account API v2"
     assert blueprint =~ "EXPLORER_ORIGIN"
     assert blueprint =~ "$EXPLORER_ORIGIN/api/account/v2/get_csrf"
-    assert blueprint =~ "The former account/v1 examples and their upstream POA host are retired."
+    assert blueprint =~ "use `EXPLORER_ORIGIN`, supplied by the deployment, as the explorer backend"
     refute blueprint =~ "blockscout.com/poa/core"
     refute blueprint =~ "/api/account/v1"
 
-    [_, host] = Regex.run(~r/^HOST: (\S+)$/m, blueprint)
+    refute Regex.match?(~r/^HOST: /m, blueprint)
+    host = BlockScoutWeb.Endpoint.url()
     assert %URI{scheme: scheme, host: hostname} = URI.parse(host)
     assert scheme in ["http", "https"]
     assert is_binary(hostname)

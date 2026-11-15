@@ -149,6 +149,30 @@ defmodule BlockScoutWeb.API.RPC.StatsControllerTest do
 
   describe "ethsupplyexchange" do
     test "returns total supply from exchange", %{conn: conn} do
+      previous_coin = Application.get_env(:explorer, Coin)
+      previous_supply = Application.fetch_env(:explorer, :supply)
+
+      Application.put_env(
+        :explorer,
+        Coin,
+        Keyword.merge(previous_coin, store: :ets, enabled: true, table_name: :supply_rates)
+      )
+
+      Application.put_env(:explorer, :supply, Explorer.Chain.Supply.ExchangeRate)
+      Coin.init([])
+      ref = make_ref()
+      token = %Token{Token.null() | total_supply: Decimal.new("252460800")}
+      assert {:noreply, _} = Coin.handle_info({ref, {{:ok, token}, false}}, %Coin{tasks: %{ref => false}})
+
+      on_exit(fn ->
+        Application.put_env(:explorer, Coin, previous_coin)
+
+        case previous_supply do
+          {:ok, supply} -> Application.put_env(:explorer, :supply, supply)
+          :error -> Application.delete_env(:explorer, :supply)
+        end
+      end)
+
       params = %{
         "module" => "stats",
         "action" => "ethsupplyexchange"
@@ -240,7 +264,8 @@ defmodule BlockScoutWeb.API.RPC.StatsControllerTest do
         image_url: nil
       }
 
-      Coin.handle_info({nil, {{:ok, eth}, false}}, %{})
+      ref = make_ref()
+      Coin.handle_info({ref, {{:ok, eth}, false}}, %Coin{tasks: %{ref => false}})
 
       params = %{
         "module" => "stats",

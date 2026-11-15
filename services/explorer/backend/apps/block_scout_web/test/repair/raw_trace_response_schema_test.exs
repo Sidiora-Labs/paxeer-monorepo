@@ -380,10 +380,10 @@ defmodule BlockScoutWeb.RawTraceResponseSchemaTest do
 
     expected = if adapter in [Nethermind, Erigon], do: result["trace"], else: result
     assert response == expected
-    assert_receive {:trace_request, request}
+    hash = to_string(transaction.hash)
+    assert_receive {:trace_request, %{"params" => [^hash | _]} = request}
     assert request["jsonrpc"] == "2.0"
     assert request["id"] == 0
-    hash = to_string(transaction.hash)
 
     cond do
       adapter in [Nethermind, Erigon] ->
