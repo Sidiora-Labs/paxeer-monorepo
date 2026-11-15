@@ -378981,7 +378981,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.619]
 title = "Give the hosted gateway and its store the names of the certificate roster"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.611"]
@@ -458534,7 +458534,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.637]
 title = "Let the apps of the explorer backend compile whole without a warning"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458596,7 +458596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.635]
 title = "Let the store of the price submissions of a block add to the total without counting the table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458844,7 +458844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.627]
 title = "Let the repair cases of the explorer that use the database own their connections within the whole suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

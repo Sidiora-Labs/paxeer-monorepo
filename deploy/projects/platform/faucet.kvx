@@ -10,7 +10,7 @@ restart = "ALWAYS"
 replicas = 3
 public = 1
 order = 15
-needs = ["router", "identity", "redis-router", "sequencer-primary", "gas-station", "core-boundary", "testnet-control"]
+needs = ["gateway", "identity", "redis-gateway", "sequencer-primary", "gas-station", "core-boundary", "testnet-control"]
 
 [vars.faucet]
 LAYERX_FAUCET_LISTEN = "[::]:${{PORT}}"

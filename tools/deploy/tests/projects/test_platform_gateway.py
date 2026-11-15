@@ -1,4 +1,4 @@
-"""The platform router definition follows the native gateway's startup inputs."""
+"""The platform gateway definition follows the native gateway's startup inputs."""
 
 import ast
 import fnmatch
@@ -7,7 +7,7 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-DEFINITION = ROOT / "deploy/projects/platform/router.kvx"
+DEFINITION = ROOT / "deploy/projects/platform/gateway.kvx"
 CONTAINER = ROOT / "docker/platform-gateway"
 GATEWAY = ROOT / "services/platform/hosted/gateway"
 ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]*\Z")
@@ -174,6 +174,28 @@ def definition():
     return tomllib.loads(DEFINITION.read_text())
 
 
+def retired_roster_names():
+    source = (ROOT / "tools/bringup/roster.go").read_text()
+    listed = re.search(
+        r"for _, name := range \[\]string\{([^}]*)\}", source, re.S
+    )
+    assert listed, "roster retired-name list is declared"
+    names = set(re.findall(r'"([^"]+)"', listed[1]))
+    names.update(re.findall(r'target == "([^"]+)"', source))
+    return names
+
+
+def string_values(value):
+    if isinstance(value, dict):
+        for nested in value.values():
+            yield from string_values(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from string_values(nested)
+    elif isinstance(value, str):
+        yield value
+
+
 def image_copies():
     copies = {}
     for line in (CONTAINER / "Dockerfile").read_text().splitlines():
@@ -192,11 +214,11 @@ def selected_file_rows(variables):
     return [line.split("\t") for line in table.read_text().splitlines() if line and not line.startswith("#")]
 
 
-def test_router_service_matches_container_and_rollout():
+def test_gateway_service_matches_container_and_rollout():
     data = definition()
     assert set(data) == {"service", "vars", "inputs"}
-    assert set(data["service"]) == set(data["vars"]) == set(data["inputs"]) == {"router"}
-    service = data["service"]["router"]
+    assert set(data["service"]) == set(data["vars"]) == set(data["inputs"]) == {"gateway"}
+    service = data["service"]["gateway"]
     assert set(service) == {
         "kind", "dockerfile", "root", "watch", "health", "restart", "replicas",
         "public", "order", "needs",
@@ -211,20 +233,20 @@ def test_router_service_matches_container_and_rollout():
     assert service["replicas"] == int(re.search(r"replicas: (\d+)", gateway_deployment)[1])
     assert service["public"] == 1
     rollout = tomllib.loads((ROOT / "deploy/rollout.kvx").read_text())["service"]
-    assert rollout["router"]["railway_service"] == "router"
-    assert service["order"] == rollout["router"]["order"]
+    assert rollout["gateway"]["railway_service"] == "gateway"
+    assert service["order"] == rollout["gateway"]["order"]
     assert len(service["needs"]) == len(set(service["needs"]))
     for name in service["needs"]:
         assert name in rollout
         assert rollout[name]["order"] < service["order"]
-    redis = data["vars"]["router"]["LAYERX_GATEWAY_REDIS_URL"]
+    redis = data["vars"]["gateway"]["LAYERX_GATEWAY_REDIS_URL"]
     referenced = re.findall(r"\$\{\{([\w-]+)\.", redis)
     assert referenced and set(referenced) <= set(service["needs"])
     assert "volume" not in service
 
 
-def test_router_watch_patterns_cover_build_inputs():
-    service = definition()["service"]["router"]
+def test_gateway_watch_patterns_cover_build_inputs():
+    service = definition()["service"]["gateway"]
     patterns = [pattern.lstrip("/") for pattern in service["watch"]]
     for pattern in patterns:
         assert list(ROOT.glob(pattern)), pattern
@@ -262,8 +284,8 @@ def test_router_watch_patterns_cover_build_inputs():
                     pending.append(path.parent / dependency["path"] / "Cargo.toml")
 
 
-def test_router_variables_follow_source_readers():
-    variables = definition()["vars"]["router"]
+def test_gateway_variables_follow_source_readers():
+    variables = definition()["vars"]["gateway"]
     sources = runtime_sources()
     allowed = set()
     for source in sources.values():
@@ -283,18 +305,18 @@ def test_router_variables_follow_source_readers():
     assert all(isinstance(value, str) and value for value in variables.values())
 
 
-def test_router_inputs_have_names_categories_and_formats():
+def test_gateway_inputs_have_names_categories_and_formats():
     data = definition()
     used = set()
-    for variable, value in data["vars"]["router"].items():
+    for variable, value in data["vars"]["gateway"].items():
         if value.startswith("env:"):
             name = value.removeprefix("env:")
-            assert name == f"PLATFORM_ROUTER_{variable}"
+            assert name == f"PLATFORM_GATEWAY_{variable}"
             used.add(name)
         else:
             # Coordinates use service references; operator values use inputs.
             assert not re.search(r"(?:https?|rediss?)://(?!\$\{\{)", value)
-    inputs = data["inputs"]["router"]
+    inputs = data["inputs"]["gateway"]
     assert set(inputs) == used
     assert set(inputs.values()) <= {"generated", "provider", "chain", "operator"}
     lines = DEFINITION.read_text().splitlines()
@@ -305,9 +327,9 @@ def test_router_inputs_have_names_categories_and_formats():
         assert len(lines[index - 1].split()) >= 6
 
 
-def test_router_port_listener_and_health_are_served():
+def test_gateway_port_listener_and_health_are_served():
     data = definition()
-    variables = data["vars"]["router"]
+    variables = data["vars"]["gateway"]
     main = production_source(GATEWAY / "src/main.rs")
     port = re.search(r'\.or_else\(\|_\| env::var\("(\w+)"\)\.map\(\|port\| format!\("\[::\]:\{port\}"\)\)\)', main)
     assert port, "gateway must bind the hosting port on all interfaces"
@@ -320,15 +342,15 @@ def test_router_port_listener_and_health_are_served():
     assert 'Ok(mode) if mode == "plain" =>' in listener
     certificates = re.search(r"const LISTENER_CERTIFICATE_VARIABLES[^=]*=(.*?);", main, re.S)[1]
     assert not environment_literals(certificates).intersection(variables)
-    health = data["service"]["router"]["health"]
+    health = data["service"]["gateway"]["health"]
     route = rust_functions(main)["route_with_peer"]
     assert re.search(rf'if request.method == "GET" && request.path == "{re.escape(health)}"', route)
     health_body = route.split(f'request.path == "{health}"', 1)[1].split(";", 1)[0]
     assert re.search(r"return json_response\(\s*200,", health_body)
 
 
-def test_router_file_inputs_are_materialized_and_staged():
-    variables = definition()["vars"]["router"]
+def test_gateway_file_inputs_are_materialized_and_staged():
+    variables = definition()["vars"]["gateway"]
     rows = selected_file_rows(variables)
     entry = (CONTAINER / "entrypoint.sh").read_text().split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
     tree = ast.parse(entry)
@@ -361,3 +383,22 @@ def test_router_file_inputs_are_materialized_and_staged():
     assert '"4020:4020"' in entry
     assert 'stat.S_IMODE(before.st_mode) == 0o600' in entry
     assert 'os.fchown(output.fileno(), UID, UID)' in entry
+
+
+def test_gateway_wiring_avoids_retired_roster_names():
+    retired = retired_roster_names()
+    for path in sorted((ROOT / "deploy/projects/platform").glob("*.kvx")):
+        data = tomllib.loads(path.read_text())
+        for value in string_values(data):
+            for name in retired:
+                assert not re.search(
+                    rf"(?<![A-Za-z0-9_-]){re.escape(name)}(?![A-Za-z0-9_-])",
+                    value,
+                ), f"{path}: {name}"
+    rollout = tomllib.loads((ROOT / "deploy/rollout.kvx").read_text())
+    for value in string_values(rollout["service"]):
+        for name in retired:
+            assert not re.search(
+                rf"(?<![A-Za-z0-9_-]){re.escape(name)}(?![A-Za-z0-9_-])",
+                value,
+            ), f"deploy/rollout.kvx: {name}"
