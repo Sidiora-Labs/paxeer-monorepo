@@ -22215,3 +22215,8 @@ fix = "Decision 3562. Task 22.39.567 waits for task 22.39.563, which holds the m
 title = "The image build of the documentation site does not hold the systems inventory"
 symptom = "The container file under docs/site/paxeer-docs builds with the folder docs/site as its context and copies docs-assistant and paxeer-docs from it. The build of the site runs docs/site/paxeer-docs/scripts/generate-systems.mjs first, and that script reads docs/release/7.0.0-systems.kvx by a path above the site folder. The file it writes, src/lib/systems.json, is committed and is copied into the image with the sources."
 fix = "Decision 3563 and task 22.39.609: the script reads the inventory where it is present and keeps the committed file where it is not."
+
+[gotcha.4479]
+title = "The project tool and the definitions state the env name and the repository in two ways"
+symptom = "Decision 3560 names the env name of an input as the project name, the service name and the variable name. The definitions under deploy/projects read the project name as the name of their folder; tools/deploy/platform-project.py reads it as the project key of project.kvx. The definitions state no repository in a repo row; the tool asks for one in each row. A health path with a query and a list written as one string are further forms the tool does not take."
+fix = "Decision 3564 and tasks 22.39.610 to 22.39.615: the tool follows the folder name and the project file, and each folder has a test that loads it through the tool."
