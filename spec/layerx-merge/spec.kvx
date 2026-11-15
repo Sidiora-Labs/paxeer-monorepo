@@ -206785,7 +206785,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.561]
 title = "Show a paid search on the local network from the registration of the asset to the released result"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.558"]
