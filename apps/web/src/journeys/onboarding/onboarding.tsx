@@ -76,7 +76,7 @@ function StageList({ journey }: Readonly<{ journey: Journey }>) {
             data-stage-state={presented.state}
             className="flex items-center justify-between gap-4 py-3"
           >
-            <span className="text-[15px] text-foreground">{presented.title}</span>
+            <span className="text-body-sm text-foreground">{presented.title}</span>
             <StatusPill status={presented.status} />
           </li>
         );

@@ -76,6 +76,27 @@
   .human-data-table td {
     vertical-align: top;
   }
+
+  /* Keep the support conversation usable as its host changes size. */
+  .human-support-shell-desktop {
+    position: fixed;
+    inset-block-end: var(--space-6);
+    inset-inline-end: var(--space-6);
+    z-index: 40;
+    display: flex;
+    inline-size: var(--space-notification-wide);
+    max-block-size: calc(100dvh - var(--space-20));
+    max-inline-size: calc(100vw - var(--space-12));
+    flex-direction: column;
+  }
+
+  .human-support-bubble {
+    max-inline-size: var(--space-notification-wide);
+  }
+
+  .human-support-history {
+    max-block-size: var(--space-notification);
+  }
 }
 
 @media (forced-colors: active) {

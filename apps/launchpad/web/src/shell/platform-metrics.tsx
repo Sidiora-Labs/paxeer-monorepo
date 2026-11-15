@@ -15,7 +15,11 @@ import { formatCount, formatUsdl } from '@/utils/format';
 const OPERATION = 'IF_PLATFORM';
 
 /** One footer figure; `value` null renders the unavailable treatment, with `operation` naming the v2 field the envelope lacked. */
-export interface FooterMetric { label: string; value: string | null; operation: string | null }
+export interface FooterMetric {
+  label: string;
+  value: string | null;
+  operation: string | null;
+}
 
 const pending = (field: string) => `${OPERATION} (${field})`;
 
@@ -27,8 +31,14 @@ const pending = (field: string) => `${OPERATION} (${field})`;
  * unavailable, never a guessed number.
  */
 export function platformFooterItems(data: PlatformMetricsV2): FooterMetric[] {
-  const optional = (value: string | null | undefined, field: string, format: (raw: string) => string): Pick<FooterMetric, 'value' | 'operation'> =>
-    value === undefined || value === null ? { value: null, operation: pending(field) } : { value: format(value), operation: null };
+  const optional = (
+    value: string | null | undefined,
+    field: string,
+    format: (raw: string) => string
+  ): Pick<FooterMetric, 'value' | 'operation'> =>
+    value === undefined || value === null
+      ? { value: null, operation: pending(field) }
+      : { value: format(value), operation: null };
   const usdl = (raw: string) => formatUsdl(raw, { compact: true });
   return [
     { label: '24h volume', value: usdl(data.volumeUsdlRaw), operation: null },
@@ -49,24 +59,48 @@ export function platformFooterItems(data: PlatformMetricsV2): FooterMetric[] {
  */
 export default function PlatformMetricsFooter() {
   const operations = useOperations();
-  const query = useQuery({ queryKey: queryKeys.platformStats(), queryFn: ({ signal }) => fetchPlatformMetricsV2(operations, signal), staleTime: 30_000, ...retryTransientOnly });
+  const query = useQuery({
+    queryKey: queryKeys.platformStats(),
+    queryFn: ({ signal }) => fetchPlatformMetricsV2(operations, signal),
+    staleTime: 30_000,
+    ...retryTransientOnly,
+  });
   useRefetchOnAnyEvent({ queryKeys: [queryKeys.platformStats()], throttleMs: 30_000 });
 
   if (query.isPending) {
     return (
       // The footer row stays a single line while loading: no placeholder bars.
-      <span aria-busy="true" className="sr-only">Loading platform activity</span>
+      <span aria-busy="true" className="sr-only">
+        Loading platform activity
+      </span>
     );
   }
   // A refetch whose transient retries ran out keeps the last-good figures.
   const data = query.data;
   if (query.error && !(data && isTransientError(query.error))) {
     const marker = toUnsupported(OPERATION, query.error);
-    if (marker) return <UnavailableState variant="inline" title="Platform activity" operation={marker.operation} status={marker.status} className="text-2xs" />;
+    if (marker)
+      return (
+        <UnavailableState
+          variant="inline"
+          title="Platform activity"
+          operation={marker.operation}
+          status={marker.status}
+          className="text-2xs"
+        />
+      );
     return (
       <p role="status" className="truncate text-2xs text-text-faint">
         Couldn't load stats.{' '}
-        <button type="button" onClick={() => { void query.refetch(); }} className="font-bold text-text-muted hover:text-text">Try again</button>
+        <button
+          type="button"
+          onClick={() => {
+            void query.refetch();
+          }}
+          className="font-bold text-text-muted hover:text-text"
+        >
+          Try again
+        </button>
       </p>
     );
   }
@@ -74,17 +108,25 @@ export default function PlatformMetricsFooter() {
   if (!data) return null;
   return (
     <dl aria-label="Platform activity" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      {platformFooterItems(data).map(item => {
+      {platformFooterItems(data).map((item) => {
         const detail = item.value === null ? technicalDetail(item.operation, null) : null;
         return (
           <div key={item.label} className="flex items-baseline gap-1 text-2xs">
             <dt className="text-text-faint">{item.label}</dt>
             {item.value === null ? (
-              <dd data-unavailable="" title={detail ?? undefined} data-operation={detail ?? undefined} className="text-text-faint">
-                <span aria-hidden="true">—</span><span className="sr-only">not available yet</span>
+              <dd
+                data-unavailable=""
+                title={detail ?? undefined}
+                data-operation={detail ?? undefined}
+                className="text-text-faint"
+              >
+                <span aria-hidden="true">—</span>
+                <span className="sr-only">not available yet</span>
               </dd>
             ) : (
-              <dd data-numeric className="font-bold text-text-muted">{item.value}</dd>
+              <dd data-numeric className="text-right font-bold tabular-nums text-text-muted">
+                {item.value}
+              </dd>
             )}
           </div>
         );
@@ -113,10 +155,18 @@ export function ShellFooter() {
       <p suppressHydrationWarning>© {new Date().getFullYear()} Sidiora</p>
       <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {LEGAL_LINKS.map(({ label, href }) => (
-          <Link key={href} href={href} className="transition-colors duration-fast hover:text-text">{label}</Link>
+          <Link
+            key={href}
+            href={href}
+            className="inline-flex min-h-touch-target-min items-center transition-colors duration-fast hover:text-text"
+          >
+            {label}
+          </Link>
         ))}
       </nav>
-      <div className="min-w-0 sm:ml-auto"><PlatformMetricsFooter /></div>
+      <div className="min-w-0 sm:ml-auto">
+        <PlatformMetricsFooter />
+      </div>
     </footer>
   );
 }

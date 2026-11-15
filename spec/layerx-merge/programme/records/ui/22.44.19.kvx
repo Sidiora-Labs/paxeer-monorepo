@@ -1,0 +1,488 @@
+[manifest]
+task = "22.44.19"
+surface = "Sidiora Launch web shared tokens, controls and navigation"
+paths = ["apps/launchpad/web/src/app/globals.css", "apps/launchpad/web/src/app/tokens.css", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/components", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/ui"]
+
+[guide.css]
+id = "css"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/core/app-foundation"]
+
+[guide.html]
+id = "html"
+directories = ["apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/components"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/components", "apps/launchpad/web/src/core/app-foundation"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/launchpad/web/src/ui/primitives", "apps/launchpad/web/src/shell"]
+
+[guide.color]
+id = "color"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/shell"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/launchpad/web/src/ui/common", "apps/launchpad/web/src/ui/primitives"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/components/shared", "apps/launchpad/web/src/ui/primitives", "apps/launchpad/web/src/ui/shared"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.branded_select_styling]
+id = "branded-select-styling"
+directories = ["apps/launchpad/web/src/ui/primitives", "apps/launchpad/web/src/app"]
+
+[guide.persistent_toast_notifications]
+id = "persistent-toast-notifications"
+directories = ["apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/app"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/ui/primitives"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.sortable_table]
+id = "sortable-table"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.navbar]
+id = "navbar"
+directories = ["apps/launchpad/web/src/shell"]
+
+[guide.navigation_drawer]
+id = "navigation-drawer"
+directories = ["apps/launchpad/web/src/shell"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/launchpad/web/src/app"]
+
+[guide.browser_ui_theming]
+id = "browser-ui-theming"
+directories = ["apps/launchpad/web/src/app"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/launchpad/web/src/shell", "apps/launchpad/web/src/ui"]
+
+[guide.switch]
+id = "switch"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.slider]
+id = "slider"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.progress]
+id = "progress"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.card]
+id = "card"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.improve_text_layout_and_legibility]
+id = "improve-text-layout-and-legibility"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell"]
+
+[guide.rich_media_picker]
+id = "rich-media-picker"
+directories = ["apps/launchpad/web/src/ui/primitives", "apps/launchpad/web/src/app"]
+
+[guide.interest_triggered_tooltips]
+id = "interest-triggered-tooltips"
+directories = ["apps/launchpad/web/src/ui/primitives"]
+
+[guide.prevent_page_scroll_under_modal_dialog]
+id = "prevent-page-scroll-under-modal-dialog"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation"]
+
+[guide.adapt_scrollbar_to_contrast_preferences]
+id = "adapt-scrollbar-to-contrast-preferences"
+directories = ["apps/launchpad/web/src/app"]
+
+[view.home]
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.explore]
+route = "/explore"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.leaderboard]
+route = "/leaderboard"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.live]
+route = "/live"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.live_all]
+route = "/live/all"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.holder_rewards]
+route = "/holder-rewards"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.terminal]
+route = "/terminal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.rewards]
+route = "/rewards"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.rules]
+route = "/docs"
+state = "Platform rules"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.cookies]
+route = "/docs"
+state = "Cookie choices"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.more]
+route = "/docs"
+state = "More navigation"
+widths = [360, 390, 430]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.expanded_rail]
+route = "/docs"
+state = "Expanded navigation"
+widths = [768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.search_dialog]
+route = "/docs"
+state = "Search"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.signin]
+route = "/docs"
+state = "Sign in"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.paste_error]
+route = "/docs"
+state = "Address validation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.ticker]
+route = "/docs"
+state = "Market ticker"
+widths = [1280]
+schemes = ["light", "dark"]
+text_scales = [1]
+motion = ["running", "paused", "reduced"]
+keyboard = true
+
+[view.font_fallback]
+route = "/docs"
+state = "System font fallback"
+widths = [1280]
+schemes = ["light", "dark"]
+text_scales = [1]
+reduced_motion = true
+
+[view.watchlist]
+route = "/watchlist"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.profile]
+route = "/profile"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.chat]
+route = "/chat"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.create]
+route = "/create"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.create_chain]
+route = "/create/chain"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.swap]
+route = "/swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.meta_ag_swap]
+route = "/meta-ag/swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.meta_ag_orders]
+route = "/meta-ag/orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.search]
+route = "/search"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.new]
+route = "/new"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.token]
+route = "/token"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.coin_0xce20da50f92d21d8bee497910c782e9aa25b6263]
+route = "/coin/0xce20da50f92d21d8bee497910c782e9aa25b6263"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.docs]
+route = "/docs"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.docs_terms]
+route = "/docs/terms"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.docs_privacy]
+route = "/docs/privacy"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.docs_trademark_guidelines]
+route = "/docs/trademark-guidelines"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.docs_dmca]
+route = "/docs/dmca"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.docs_do_not_sell]
+route = "/docs/do-not-sell"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.native_select]
+route = "/holder-rewards"
+state = "Sort selection"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.filter_menu]
+route = "/holder-rewards"
+state = "List filters"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.notifications]
+route = "/docs"
+state = "Notifications"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true

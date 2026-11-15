@@ -41,13 +41,15 @@ type OpenControl =
 
 function AmountField({
   labelKey,
+  name,
   value,
   onChange,
   disabled,
-}: Readonly<{ labelKey: string; value: string; onChange: (value: string) => void; disabled: boolean }>) {
+}: Readonly<{ labelKey: string; name: string; value: string; onChange: (value: string) => void; disabled: boolean }>) {
   return (
     <KitTextField
       label={copyEntry(labelKey).message}
+      name={name}
       value={value}
       disabled={disabled}
       onChange={(event) => {
@@ -486,12 +488,14 @@ function BoundAgentControls({
                 <AmountField
                   disabled={busy}
                   labelKey="agent.keys.rotation-delay.label"
+                  name="rotation_delay"
                   value={open.delay}
                   onChange={(value) => { if (!busyRef.current) { setOpen({ ...open, delay: value }); } }}
                 />
                 <AmountField
                   disabled={busy}
                   labelKey="agent.keys.rotation-window.label"
+                  name="rotation_window"
                   value={open.window}
                   onChange={(value) => { if (!busyRef.current) { setOpen({ ...open, window: value }); } }}
                 />
@@ -501,6 +505,7 @@ function BoundAgentControls({
               <AmountField
                 disabled={busy}
                 labelKey="agent.limit.amount.label"
+                name="agent_limit_amount"
                 value={open.input}
                 onChange={(value) => {
                   if (!busyRef.current) {
@@ -513,6 +518,7 @@ function BoundAgentControls({
               <AmountField
                 disabled={busy}
                 labelKey="agent.reclaim.amount.label"
+                name="agent_reclaim_amount"
                 value={open.input}
                 onChange={(value) => {
                   if (!busyRef.current) {
@@ -525,6 +531,7 @@ function BoundAgentControls({
               <AmountField
                 disabled={busy}
                 labelKey="agent.fund.amount.label"
+                name="agent_fund_amount"
                 value={open.input}
                 onChange={(value) => {
                   if (!busyRef.current) {
