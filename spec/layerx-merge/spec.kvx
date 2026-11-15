@@ -378559,7 +378559,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.596]
 title = "Define the service wallet-attestor of the project wallet for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
