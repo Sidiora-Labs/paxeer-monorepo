@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { Text } from 'react-native';
 import {
   Button,
+  Text,
   Card,
   ErrorNotice,
   ListPage,
   ResourceStatus,
   showAction,
   useResource,
-  ui,
+  useSurface,
   type Runtime,
 } from '../navigation.tsx';
 export function Notifications({ runtime }: { runtime: Runtime }) {
+  const { ui } = useSurface();
   const inbox = useResource(
       runtime,
       'discovery-notifications',
@@ -55,7 +56,7 @@ export function Notifications({ runtime }: { runtime: Runtime }) {
             label="Explain and enable push notifications"
             disabled={!runtime.push || !runtime.session.token}
             onPress={() =>
-              void showAction(async () => {
+              showAction(async () => {
                 if (!runtime.push)
                   throw new Error('Native push provider unavailable');
                 await runtime.push.enableByUserAction();
@@ -76,7 +77,7 @@ export function Notifications({ runtime }: { runtime: Runtime }) {
               <Button
                 label="Disable push channel"
                 onPress={() =>
-                  void showAction(
+                  showAction(
                     () =>
                       runtime.services.updatePreferences(
                         {
@@ -114,7 +115,7 @@ export function Notifications({ runtime }: { runtime: Runtime }) {
             label="Mark notification read"
             disabled={!!item.read || inbox.offline}
             onPress={() =>
-              void showAction(
+              showAction(
                 () =>
                   runtime.services.readNotification(
                     item.notificationId,
