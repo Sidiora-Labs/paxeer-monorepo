@@ -103,7 +103,7 @@ export function HeroCarousel({ entries, creatorLabel, className }: HeroCarouselP
       onMouseLeave={() => setHovered(false)}
     >
       <div className={heroStageClass}>
-        <div className="relative mx-auto w-full max-w-[1000px]">
+        <div className="relative mx-auto w-full max-w-content-narrow-max-width">
           <div
             data-live-hero-frame
             role="group"

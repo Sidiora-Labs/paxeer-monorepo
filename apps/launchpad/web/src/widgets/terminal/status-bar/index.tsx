@@ -113,7 +113,7 @@ export default function TerminalStatusBar({ poolAddress }: { poolAddress: string
         <ConnectionPill poolAddress={pool} />
         <DropdownMenu label="Terminal settings" size="sm" trigger={<Settings aria-hidden="true" className="size-icon-sm" />} triggerClassName="h-6 px-1.5"
           items={[{ id: 'reset-columns', label: 'Reset column layout', onSelect: () => window.dispatchEvent(new CustomEvent(terminalResetColumnsEvent)) }]} />
-        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
+        <div className="scrollbar-none flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
           {tools.map(tool => {
             const Icon = tool.icon;
             if (tool.kind === 'link') {

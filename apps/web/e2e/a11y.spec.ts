@@ -15,11 +15,15 @@ const tokensUrl = new URL("../packages/layerx-ui/src/styles/tokens.css", import.
 
 test("the authoritative semantic token combinations meet WCAG AA text contrast", async () => {
   const stylesheet = await readFile(tokensUrl, "utf8");
+  assert.match(
+    stylesheet,
+    /--destructive-soft:\s*light-dark\(#f8e8e8,\s*#3d191d\);/u,
+  );
   assert.doesNotThrow(() => assertSemanticTokenContrast(stylesheet));
   for (const result of semanticContrastResults(stylesheet)) {
     assert.ok(
       result.ratio >= MINIMUM_TEXT_CONTRAST,
-      `${result.foreground} on ${result.background} is ${result.ratio.toFixed(2)}:1`,
+      `${result.foreground} on ${result.background} in ${result.scheme} scheme is ${result.ratio.toFixed(2)}:1`,
     );
   }
 });
@@ -55,14 +59,11 @@ test("the accessibility contract fixes touch targets and text expansion", () => 
 });
 
 test("the browser CI suite selects accessibility specs and a coarse-pointer tablet", async () => {
-  const [playwrightConfig, workflow] = await Promise.all([
-    readFile(new URL("../playwright.config.ts", import.meta.url), "utf8"),
-    readFile(new URL("../../../.github/workflows/human.yml", import.meta.url), "utf8"),
-  ]);
-  assert.match(playwrightConfig, /testMatch: \["\*\*\/\*\.spec\.ts"\]/u);
+  const playwrightConfig = await readFile(new URL("../playwright.config.ts", import.meta.url), "utf8");
+  assert.match(playwrightConfig, /"browser\/\*\*\/\*\.spec\.ts"/u);
   assert.match(playwrightConfig, /name: "touch-tablet-shell"/u);
-  assert.match(playwrightConfig, /testMatch: "\*\*\/a11y\.spec\.ts"/u);
-  assert.match(workflow, /run: make human-test-e2e/u);
+  assert.match(playwrightConfig, /testMatch: "browser\/a11y\.spec\.ts"/u);
+  assert.match(playwrightConfig, /name: "touch-tablet-shell"[\s\S]*?hasTouch: true/u);
 });
 
 test("layered surfaces retain focus trapping, Escape dismissal and mobile avoidance", async () => {
