@@ -458844,7 +458844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.627]
 title = "Let the repair cases of the explorer that use the database own their connections within the whole suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
