@@ -12,30 +12,33 @@ import type {
   QueryKey,
   UseInfiniteQueryOptions,
   UseInfiniteQueryResult,
-} from '@tanstack/react-query';
-import { useInfiniteQuery } from '@tanstack/react-query';
+} from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
 import {
   RESOURCES,
   buildUrl,
   paxscanFetch,
-} from '@paxeer-network/paxeer-backend/core/paxscan/api';
+} from "@paxeer-network/paxeer-backend/core/paxscan/api";
 import type {
   PaginatedResourceName,
   PathParams,
   QueryParams,
   ResourcePayload,
-} from '@paxeer-network/paxeer-backend/core/paxscan/api';
-import { PaxscanError } from '@paxeer-network/paxeer-backend/core/paxscan/api';
+} from "@paxeer-network/paxeer-backend/core/paxscan/api";
+import { PaxscanError } from "@paxeer-network/paxeer-backend/core/paxscan/api";
 
 // The page-param is Blockscout's `next_page_params` — an opaque cursor object
 // whose exact shape is endpoint-specific. Kept loose in Phase 1 (see Agent 2
 // plan §1 risks); per-resource tightening waits on Agent 1 filter-type freezes.
-export type PaxscanPageParam =
-  | Record<string, string | Array<string> | number | boolean | null | undefined>
-  | null;
+export type PaxscanPageParam = Record<
+  string,
+  string | Array<string> | number | boolean | null | undefined
+> | null;
 
-export interface UseBlockscoutInfiniteQueryOptions<R extends PaginatedResourceName> {
+export interface UseBlockscoutInfiniteQueryOptions<
+  R extends PaginatedResourceName,
+> {
   pathParams?: PathParams<R>;
   queryParams?: QueryParams<R>;
   queryOptions?: Omit<
@@ -46,7 +49,7 @@ export interface UseBlockscoutInfiniteQueryOptions<R extends PaginatedResourceNa
       QueryKey,
       PaxscanPageParam
     >,
-    'queryKey' | 'queryFn' | 'initialPageParam' | 'getNextPageParam'
+    "queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
   >;
 }
 
@@ -63,7 +66,7 @@ export function useBlockscoutInfiniteQuery<R extends PaginatedResourceName>(
     QueryKey,
     PaxscanPageParam
   >({
-    queryKey: [ 'paxscan', resource, pathParams ?? null, queryParams ?? null ],
+    queryKey: ["paxscan", resource, pathParams ?? null, queryParams ?? null],
     queryFn: ({ signal, pageParam }) => {
       const cursor = (pageParam ?? {}) as Record<string, unknown>;
       const mergedQuery = {

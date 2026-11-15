@@ -1,10 +1,10 @@
-import type { AddressParam } from './addressParams';
+import type { AddressParam } from "./addressParams";
 
-export type NFTTokenType = 'ERC-721' | 'ERC-1155' | 'ERC-404';
+export type NFTTokenType = "ERC-721" | "ERC-1155" | "ERC-404";
 // token type can come from the environment config, so it can be any string
 export type TokenType = string;
 
-export type TokenReputation = 'ok' | 'scam';
+export type TokenReputation = "ok" | "scam";
 
 export interface TokenInfo {
   address_hash: string;
@@ -55,7 +55,7 @@ export type TokenHoldersPagination = {
   value: string;
 };
 
-export type ThumbnailSize = '60x60' | '250x250' | '500x500' | 'original';
+export type ThumbnailSize = "60x60" | "250x250" | "500x500" | "original";
 
 export interface TokenInstance {
   is_unique: boolean;
@@ -68,13 +68,17 @@ export interface TokenInstance {
   external_app_url: string | null;
   metadata: Record<string, unknown> | null;
   owner: AddressParam | null;
-  thumbnails: ({ original: string } & Partial<Record<Exclude<ThumbnailSize, 'original'>, string>>) | null;
+  thumbnails:
+    | ({ original: string } & Partial<
+        Record<Exclude<ThumbnailSize, "original">, string>
+      >)
+    | null;
   token: TokenInfo;
 }
 
 export interface TokenInstanceMetadataSocketMessage {
   token_id: number;
-  fetched_metadata: TokenInstance['metadata'];
+  fetched_metadata: TokenInstance["metadata"];
 }
 
 export interface TokenInstanceTransfersCount {

@@ -57,12 +57,14 @@ defmodule Explorer.Chain.Import.Runner.Address.CurrentTokenBalancesTest do
                  options
                )
 
-      current_token_balances =
-        CurrentTokenBalance
-        |> Repo.all()
-        |> Enum.count()
-
-      assert current_token_balances == 1
+      assert [
+               %CurrentTokenBalance{
+                 address_hash: ^address_hash,
+                 block_number: ^block_number,
+                 token_contract_address_hash: ^token_contract_address_hash,
+                 value: ^value
+               }
+             ] = Repo.all(CurrentTokenBalance)
     end
 
     test "inserts values for multiple token IDs in the current token balances", %{
@@ -232,15 +234,27 @@ defmodule Explorer.Chain.Import.Runner.Address.CurrentTokenBalancesTest do
                  options
                )
 
-      current_token_balances =
-        CurrentTokenBalance
-        |> Repo.all()
+      current_token_balances = Repo.all(CurrentTokenBalance)
 
-      current_token_balances_count =
-        current_token_balances
-        |> Enum.count()
+      values =
+        Enum.map(current_token_balances, fn balance ->
+          {
+            to_string(balance.token_contract_address_hash),
+            balance.token_id && Decimal.to_string(balance.token_id),
+            Decimal.to_string(balance.value)
+          }
+        end)
+        |> Enum.sort()
 
-      assert current_token_balances_count == 6
+      assert values ==
+               Enum.sort([
+                 {to_string(token_contract_address_hash), "1", "111"},
+                 {to_string(token_contract_address_hash), "2", "222"},
+                 {to_string(token_erc_20_contract_address_hash), nil, "333"},
+                 {to_string(token_erc_721_contract_address_hash), nil, "2"},
+                 {to_string(token_erc_404_contract_address_hash), nil, "25"},
+                 {to_string(token_erc_404_contract_address_hash), "333", "10"}
+               ])
     end
 
     test "updates when the new block number is greater", %{
@@ -307,7 +321,7 @@ defmodule Explorer.Chain.Import.Runner.Address.CurrentTokenBalancesTest do
       assert current_token_balance.value == Decimal.new(200)
     end
 
-    test "ignores when the new value_fetched_at not set", %{
+    test "updates when the new block number is greater without a fetched timestamp", %{
       address: %Address{hash: address_hash} = address,
       token: %Token{contract_address_hash: token_contract_address_hash},
       options: options
@@ -323,7 +337,11 @@ defmodule Explorer.Chain.Import.Runner.Address.CurrentTokenBalancesTest do
 
       update_holder_count!(token_contract_address_hash, 1)
 
-      assert {:ok, %{address_current_token_balances: [], address_current_token_balances_update_token_holder_counts: []}} =
+      assert {:ok,
+              %{
+                address_current_token_balances: [balance],
+                address_current_token_balances_update_token_holder_counts: []
+              }} =
                run_changes(
                  %{
                    address_hash: address_hash,
@@ -334,10 +352,13 @@ defmodule Explorer.Chain.Import.Runner.Address.CurrentTokenBalancesTest do
                  options
                )
 
+      assert balance.block_number == 2
+      assert balance.value == Decimal.new(100)
+
       current_token_balance = Repo.get_by(CurrentTokenBalance, address_hash: address_hash)
 
-      assert current_token_balance.block_number == 1
-      assert current_token_balance.value == Decimal.new(200)
+      assert current_token_balance.block_number == 2
+      assert current_token_balance.value == Decimal.new(100)
     end
 
     test "ignores when the new block number is lesser", %{

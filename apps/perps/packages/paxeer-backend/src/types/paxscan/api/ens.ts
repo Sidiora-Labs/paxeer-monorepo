@@ -20,8 +20,10 @@ export interface EnsDomainLookupFilters {
 }
 
 export interface EnsLookupSorting {
-  sort: 'registration_date';
-  order: 'asc' | 'desc';
+  sort: "registration_date";
+  order: "asc" | "desc";
 }
 
-export type EnsDomainLookupFiltersOptions = Array<'resolved_to' | 'owned_by' | 'with_inactive'>;
+export type EnsDomainLookupFiltersOptions = Array<
+  "resolved_to" | "owned_by" | "with_inactive"
+>;

@@ -20,10 +20,17 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { useCallback, useMemo } from "react";
-import { classifyError, isUserFacingError } from "@paxeer-network/paxeer-backend/core/errors/classify";
+import {
+  classifyError,
+  isUserFacingError,
+} from "@paxeer-network/paxeer-backend/core/errors/classify";
 import { reportError } from "@paxeer-network/paxeer-backend/core/errors/report";
-import type { ErrorContext, HandleErrorOptions, UserFacingError } from "@paxeer-network/paxeer-backend/core/errors/types";
-import { showErrorToast } from "@paxeer-network/paxeer-backend/errors/ErrorToast";
+import type {
+  ErrorContext,
+  HandleErrorOptions,
+  UserFacingError,
+} from "@paxeer-network/paxeer-backend/core/errors/types";
+import { showErrorToast } from "@paxeer-network/paxeer-backend/widgets/errors/ErrorToast";
 
 export interface UseErrorHandlerOptions {
   /** Default context tag applied to every error this hook handles. */
@@ -40,14 +47,19 @@ export interface ErrorHandlerApi {
   ) => (...args: Args) => Promise<R | undefined>;
 }
 
-export function useErrorHandler(defaults: UseErrorHandlerOptions = {}): ErrorHandlerApi {
+export function useErrorHandler(
+  defaults: UseErrorHandlerOptions = {},
+): ErrorHandlerApi {
   const handle = useCallback(
     (err: unknown, opts: HandleErrorOptions = {}): UserFacingError => {
       const ctx = opts.context ?? defaults.context;
       const ufe = isUserFacingError(err) ? err : classifyError(err, ctx);
 
       if (opts.showToast !== false) {
-        showErrorToast(ufe);
+        showErrorToast(ufe, {
+          onRetry: opts.onRetry,
+          titleOverride: opts.titleOverride,
+        });
       }
 
       // Report runs asynchronously and never throws back at the caller.

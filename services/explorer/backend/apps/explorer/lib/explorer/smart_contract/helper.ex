@@ -318,8 +318,18 @@ defmodule Explorer.SmartContract.Helper do
       end
 
     case binary_hash do
-      bytes when is_binary(bytes) -> "0x" <> Base.encode16(bytes, case: :lower)
-      other -> ExplorerHelper.add_0x_prefix(other)
+      <<"0x", encoded::binary>> = value when byte_size(encoded) > 0 ->
+        if rem(byte_size(encoded), 2) == 0 and Regex.match?(~r/\A[0-9a-fA-F]+\z/, encoded) do
+          value
+        else
+          "0x" <> Base.encode16(value, case: :lower)
+        end
+
+      bytes when is_binary(bytes) ->
+        "0x" <> Base.encode16(bytes, case: :lower)
+
+      other ->
+        ExplorerHelper.add_0x_prefix(other)
     end
   end
 end

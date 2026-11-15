@@ -72,7 +72,9 @@ export function applySlippageMaxIn(
  * Construct an absolute deadline `(now + seconds)` as a `uint256`
  * UNIX timestamp. Pass the result directly to `marketBuy / marketSell`.
  */
-export function buildDeadline(secondsFromNow: number = DEFAULT_MARKET_DEADLINE_SECONDS): bigint {
+export function buildDeadline(
+  secondsFromNow: number = DEFAULT_MARKET_DEADLINE_SECONDS,
+): bigint {
   if (!Number.isFinite(secondsFromNow) || secondsFromNow <= 0) {
     throw new Error("secondsFromNow must be a positive finite number");
   }
@@ -96,7 +98,10 @@ export function buildLimitExpiry(
  * decimal precision. Throws on non-finite or negative input. Silently
  * truncates excess precision past `decimals`.
  */
-export function parseTokenAmount(value: string | number, decimals: number): bigint {
+export function parseTokenAmount(
+  value: string | number,
+  decimals: number,
+): bigint {
   if (decimals < 0 || decimals > 38) throw new Error("decimals out of range");
   const str = typeof value === "number" ? value.toString() : value.trim();
   if (!str || str === "." || str === "-") return 0n;
@@ -108,7 +113,8 @@ export function parseTokenAmount(value: string | number, decimals: number): bigi
   const [intPart, fracPart = ""] = abs.split(".");
   const fracTrimmed = fracPart.slice(0, decimals);
   const fracPadded = fracTrimmed.padEnd(decimals, "0");
-  const combined = `${intPart || "0"}${fracPadded}`.replace(/^0+(?=\d)/, "") || "0";
+  const combined =
+    `${intPart || "0"}${fracPadded}`.replace(/^0+(?=\d)/, "") || "0";
   const result = BigInt(combined);
   return negative ? -result : result;
 }
@@ -172,4 +178,76 @@ export function expectedOutFromPrice(params: {
   const numerator = amountIn * price * 10n ** BigInt(amountOutDecimals);
   const denominator = 10n ** BigInt(amountInDecimals) * PRICE_SCALE;
   return numerator / denominator;
+}
+
+/**
+ * Minimum output of an IOC / FOK limit order sent to the market rail: the
+ * output the limit price guarantees for `amountIn`. A sell receives the
+ * stable at `limitPrice`; a buy receives the base at its inverse. Rounded
+ * up, since the rail compares whole units, so a buy never pays above its
+ * limit and a sell never receives below it.
+ */
+export function limitMinOut(
+  amountIn: bigint,
+  limitPrice: bigint,
+  isBuy: boolean,
+  decimalsIn: number,
+  decimalsOut: number,
+): bigint {
+  if (amountIn <= 0n) throw new Error("amountIn must be positive");
+  if (limitPrice <= 0n) throw new Error("limitPrice must be positive");
+  for (const d of [decimalsIn, decimalsOut]) {
+    if (!Number.isInteger(d) || d < 0 || d > 38)
+      throw new Error("decimals out of range");
+  }
+  if (!isBuy) {
+    const out = expectedOutFromPrice({
+      amountIn,
+      price: limitPrice,
+      amountInDecimals: decimalsIn,
+      amountOutDecimals: decimalsOut,
+    });
+    const covered = out * PRICE_SCALE * 10n ** BigInt(decimalsIn);
+    const owed = amountIn * limitPrice * 10n ** BigInt(decimalsOut);
+    return covered === owed ? out : out + 1n;
+  }
+  const numerator = amountIn * PRICE_SCALE * 10n ** BigInt(decimalsOut);
+  const denominator = limitPrice * 10n ** BigInt(decimalsIn);
+  return (numerator + denominator - 1n) / denominator;
+}
+
+/* ── order routing ──────────────────────────────────────────────── */
+
+export type SpotOrderType = "market" | "limit" | "stop-limit";
+export type SpotTimeInForce = "GTC" | "IOC" | "FOK";
+export type SpotRail = "market" | "limit" | "stop";
+
+/**
+ * The rail a spot order is sent to. Post-only rests on the limit rail as
+ * GTC; an IOC or FOK limit is taken on the market rail at `limitMinOut`.
+ */
+export function spotOrderRail(
+  orderType: SpotOrderType,
+  tif: SpotTimeInForce,
+  postOnly: boolean,
+): SpotRail {
+  if (orderType === "market") return "market";
+  if (orderType === "stop-limit") return "stop";
+  return postOnly || tif === "GTC" ? "limit" : "market";
+}
+
+/**
+ * Decimals of the market quote token, read from the stablecoin metadata.
+ * Every quote stable must share them, since stable amounts are compared
+ * across the list at one scale.
+ */
+export function quoteDecimals(
+  stables: readonly { readonly decimals: number }[],
+): number {
+  const [first, ...rest] = stables;
+  if (!first) throw new Error("no quote stablecoin");
+  if (rest.some((s) => s.decimals !== first.decimals)) {
+    throw new Error("quote stablecoins disagree on decimals");
+  }
+  return first.decimals;
 }

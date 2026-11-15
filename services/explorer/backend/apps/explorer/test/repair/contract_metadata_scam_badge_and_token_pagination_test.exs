@@ -29,12 +29,14 @@ defmodule Explorer.ContractMetadataScamBadgeAndTokenPaginationTest do
       {:tesla, :adapter},
       {:explorer, BENS},
       {:explorer, Metadata},
+      {:block_scout_web, :chain_id},
       {:ethereum_jsonrpc, EthereumJSONRPC.Geth}
     ]
 
     original = Enum.map(keys, fn {app, key} -> {app, key, Application.fetch_env(app, key)} end)
     Application.put_env(:explorer, :http_client, Explorer.HttpClient.Tesla)
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
+    Application.put_env(:block_scout_web, :chain_id, "125")
     Application.put_env(:ethereum_jsonrpc, EthereumJSONRPC.Geth, tracer: "call_tracer", debug_trace_timeout: "5s")
 
     on_exit(fn ->
@@ -84,7 +86,7 @@ defmodule Explorer.ContractMetadataScamBadgeAndTokenPaginationTest do
     Application.put_env(:explorer, Metadata, enabled: true, service_url: url)
     chain_id = Application.get_env(:block_scout_web, :chain_id)
 
-    Bypass.expect(server, "POST", "/api/v1/#{chain_id}/addresses:batch_resolve_names", fn conn ->
+    Bypass.expect(server, "POST", "/api/v1/#{chain_id}/addresses%3Abatch-resolve-names", fn conn ->
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       assert %{"addresses" => addresses} = Jason.decode!(body)
       assert Enum.sort(addresses) == Enum.sort([@creator, @created])

@@ -6,7 +6,10 @@
  */
 import { createPublicClient } from "viem";
 import type { PublicClient, WalletClient } from "viem";
-import { getWalletClient as wagmiGetWalletClient, getAccount } from "wagmi/actions";
+import {
+  getWalletClient as wagmiGetWalletClient,
+  getAccount,
+} from "wagmi/actions";
 import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { wagmiConfig } from "@paxeer-network/paxeer-backend/core/wagmi";
 import { buildPaxeerTransport } from "@paxeer-network/paxeer-backend/core/rpc";

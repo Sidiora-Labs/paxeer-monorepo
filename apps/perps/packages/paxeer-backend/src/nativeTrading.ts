@@ -1,10 +1,8 @@
 import { parseUnits } from "viem";
+import { TimeInForce } from "./core/network/abi/PerpsPrecompile";
 import Decimal from "decimal.js";
-import {
-  PERPS_MARKETS,
-  COLLATERAL_TOKENS,
-  DIAMOND_ADDRESS,
-} from "./core/perps/config";
+import { PERPS_MARKETS, COLLATERAL_TOKENS } from "./core/perps/config";
+import { PRECOMPILES } from "./core/network/precompiles";
 import { paxeerChain } from "./core/chain";
 import { getConnectedAddress } from "./core/viem/clients";
 import { usePosition } from "./hooks/perps/usePosition";
@@ -86,7 +84,7 @@ export async function executeNativeOrder(order: NativeOrder) {
     await ensureAllowance({
       token: planned.collateralToken,
       owner: address,
-      spender: DIAMOND_ADDRESS,
+      spender: PRECOMPILES.perps,
       amount: planned.collateralAmount,
     });
   let receipt;
@@ -94,26 +92,46 @@ export async function executeNativeOrder(order: NativeOrder) {
     const bound = takeNativeQuote(order, leverage);
     const {
       marketId,
-      collateralToken,
       collateralAmount,
       leverage: quotedLeverage,
       isLong,
     } = bound.plan;
     receipt = await usePosition().openPosition({
       marketId,
-      collateralToken,
       collateralAmount,
       leverage: quotedLeverage,
       isLong,
+      quote: bound.quote,
     });
   } else if (planned.type === "LIMIT") {
-    receipt = await usePerpsOrders().placeLimitOrder(planned);
+    receipt = await usePerpsOrders().placeLimitOrder({
+      marketId: planned.marketId,
+      isLong: planned.isLong,
+      limitPrice: planned.limitPrice,
+      sizeUsd: planned.sizeUsd,
+      leverage: planned.leverage,
+      collateralAmount: planned.collateralAmount,
+      timeInForce: TimeInForce.GTC,
+      reduceOnly: Boolean(order.reduce_only),
+      cloid: "0x00000000000000000000000000000000",
+    });
   } else if (
     ["STOP_LIMIT", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"].includes(
       planned.type,
     )
   ) {
-    receipt = await usePerpsOrders().placeStopLimitOrder(planned);
+    receipt = await usePerpsOrders().placeStopLimitOrder({
+      marketId: planned.marketId,
+      isLong: planned.isLong,
+      limitPrice: planned.limitPrice,
+      triggerPrice: planned.triggerPrice,
+      sizeUsd: planned.sizeUsd,
+      leverage: planned.leverage,
+      collateralAmount: planned.collateralAmount,
+      timeInForce: TimeInForce.GTC,
+      reduceOnly: Boolean(order.reduce_only),
+      cloid: "0x00000000000000000000000000000000",
+    });
   } else {
     throw new Error(
       `The Paxeer contracts do not support ${planned.type} through this order path.`,
