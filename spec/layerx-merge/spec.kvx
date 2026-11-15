@@ -172178,7 +172178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.607]
 title = "Add the container file of the service inference-peer and define it in the project sites for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377839,7 +377839,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.608]
 title = "Define the service docs of the project sites for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377903,7 +377903,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.604]
 title = "Define the service sig-provider of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377999,7 +377999,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.600]
 title = "Define the service bridge-relayer of the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378351,7 +378351,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.589]
 title = "Define the service receipt-authority of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378383,7 +378383,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.588]
 title = "Define the service core-boundary of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378447,7 +378447,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.586]
 title = "Define the service testnet-control of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378511,7 +378511,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.584]
 title = "Define the service ramp of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
