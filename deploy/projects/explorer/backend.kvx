@@ -2,11 +2,7 @@
 kind = "repo"
 dockerfile = "docker/explorer-backend/Dockerfile"
 root = "/"
-watch = [
-  "/docker/explorer-backend/**",
-  "/docker/common/**",
-  "/services/explorer/backend/**",
-]
+watch = ["/docker/explorer-backend/**", "/docker/common/**", "/services/explorer/backend/**"]
 health = "/api/health/liveness"
 restart = "ON_FAILURE"
 replicas = 1
