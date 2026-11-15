@@ -76,6 +76,32 @@ compiled into the production rewrite, and
 origin the web calls at runtime for sign-in. Both values are absolute HTTP(S)
 origins; the API origin remains the web container's build argument.
 
+The platform [gateway definition](platform/gateway.kvx) sets `LAYERX_ROLE=identity`
+and `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` for developer registration
+and sessions. `LAYERX_GATEWAY_IDENTITY_URL` reads the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL`, an absolute HTTPS address of
+the identity service. `LAYERX_GATEWAY_TENANT` reads the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT`, a tenant of 1–95 lowercase letters,
+digits, dots, underscores or hyphens.
+
+The native table adds these four `identity` rows, each with mode `0600`.
+Each file input reads `PLATFORM_GATEWAY_` followed by its name from the launch
+environment; for example, `PLATFORM_GATEWAY_ENDPOINT_IDENTITY_TOKEN` supplies
+`ENDPOINT_IDENTITY_TOKEN`.
+
+| File input | Destination | Gateway file variable | Input category and format |
+| --- | --- | --- | --- |
+| `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of token text issued by the identity service |
+| `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by the identity service |
+| `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 client bundle written by the launcher |
+| `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client bundle password written by the launcher |
+
+The identity role selects eight native rows: these four plus the outbound CA,
+Redis username, Redis password and receipt keys marked `*`. A native start
+without the role and identity settings selects only those four chain files,
+serves the chain methods, and answers `px_register` and `px_openSession` with
+`registration_not_configured`.
+
 From the repository root, set `RAILWAY_API_TOKEN`, `RAILWAY_WORKSPACE_ID` and
 the named inputs, then start a plan or apply:
 
