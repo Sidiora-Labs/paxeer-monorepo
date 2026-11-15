@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from policy import load, require, sha, verified_tool_bytes
-TOOLS = {'go': (['version'], 'go1.26.4'), 'node': (['--version'], 'v24.16.0'), 'pnpm': (['--version'], '9.15.0')}
+TOOLS = {'go': (['version'], 'go1.27.0'), 'node': (['--version'], 'v24.16.0'), 'pnpm': (['--version'], '9.15.0')}
 
 def read_pins(path, expected_sha):
     require(sha(expected_sha), 'missing reviewed toolchain manifest digest')

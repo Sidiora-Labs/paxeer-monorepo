@@ -13,5 +13,12 @@ RUN /usr/bin/setpriv --help | grep -- --pdeathsig
 COPY --from=build /src/services/platform/target/release/layerx-receipt-authority /usr/local/bin/layerx-receipt-authority
 COPY --from=build /src/services/platform/target/release/layerx-runtime-clock /usr/local/bin/layerx-runtime-clock
 COPY --from=build /src/services/platform/hosted/node/generation_client.py /src/services/platform/hosted/node/generation_transport.py /src/services/platform/hosted/node/reset_state.py /opt/layerx/node/
+COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files
+COPY docker/platform-authority/files.tsv /etc/layerx/files.tsv
+COPY --chmod=0555 docker/platform-authority/entrypoint.sh /usr/local/bin/authority-entrypoint
+RUN mkdir -p /run/layerx-authority \
+    && chown 4020:4020 /run/layerx-authority \
+    && chmod 0700 /run/layerx-authority
+EXPOSE 9445
 USER 4020:4020
-ENTRYPOINT ["/usr/local/bin/layerx-runtime-clock", "--runtime-dir", "/tmp", "--", "/usr/local/bin/layerx-receipt-authority"]
+ENTRYPOINT ["/usr/local/bin/authority-entrypoint"]

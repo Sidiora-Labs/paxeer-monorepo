@@ -17,4 +17,5 @@ RUN apk add --no-cache jq setpriv
 COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files
 COPY docker/ramps/files.tsv /etc/layerx/files.tsv
 COPY --chmod=0555 services/platform/ramps/env-init.sh /usr/local/bin/ramp-env-init
-ENTRYPOINT ["/usr/local/bin/layerx-env-files", "/usr/local/bin/ramp-env-init"]
+COPY --chmod=0555 docker/ramps/entrypoint.sh /usr/local/bin/ramp-entrypoint
+ENTRYPOINT ["/usr/local/bin/ramp-entrypoint"]

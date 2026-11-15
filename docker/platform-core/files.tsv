@@ -1,0 +1,7 @@
+LAYERX_CORE_TLS_CERT_DER_BASE64	/run/secrets/core-cert.der	0600	*
+LAYERX_CORE_TLS_KEY_DER_BASE64	/run/secrets/core-key.der	0600	*
+LAYERX_CORE_ADMIN_TLS_CERT_DER_BASE64	/run/secrets/admin-cert.der	0600	*
+LAYERX_CORE_ADMIN_TLS_KEY_DER_BASE64	/run/secrets/admin-key.der	0600	*
+LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER_BASE64	/run/secrets/sequencer-ca.der	0600	*
+LAYERX_CORE_ADMIN_TOKEN_BASE64	/run/secrets/admin-token	0600	*
+LAYERX_CORE_FUNDING_SENDER_KEY_BASE64	/run/secrets/funding-key	0600	*
