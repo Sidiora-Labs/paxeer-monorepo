@@ -4,7 +4,7 @@ COPY . .
 RUN cargo build --manifest-path services/platform/Cargo.toml --locked --release -p layerx-platform-webhooks --bin layerx-webhooks
 
 FROM debian:bookworm-slim AS base
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3 util-linux && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/services/platform/target/release/layerx-webhooks /usr/local/bin/layerx-webhooks
 
 FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS webhooks-prebuilt
