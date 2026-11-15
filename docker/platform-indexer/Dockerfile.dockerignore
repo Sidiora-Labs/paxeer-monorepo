@@ -43,3 +43,5 @@ tools/qualification/output
 !docker/common/env-files.sh
 !docker/platform-indexer/files.tsv
 !docker/platform-indexer/package-abis.sh
+!docker/platform-indexer/health-config.sh
+!docker/platform-indexer/init.sh
