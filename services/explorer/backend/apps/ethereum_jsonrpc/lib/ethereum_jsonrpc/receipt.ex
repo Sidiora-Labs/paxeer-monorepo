@@ -97,6 +97,12 @@ defmodule EthereumJSONRPC.Receipt do
   @spec elixir_to_logs(elixir) :: Logs.elixir()
   def elixir_to_logs(%{"logs" => logs}), do: logs
 
+  @doc false
+  @spec chain_entry?(t(), MapSet.t(EthereumJSONRPC.hash())) :: boolean()
+  def chain_entry?(%{"transactionHash" => hash} = receipt, transaction_hashes) do
+    PaxeerX.cosmos_transaction_type?(receipt["type"]) and not MapSet.member?(transaction_hashes, hash)
+  end
+
   @doc """
   Converts `t:elixir/0` format to params used in `Explorer.Chain`.
 

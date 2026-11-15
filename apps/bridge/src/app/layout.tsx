@@ -1,8 +1,7 @@
+import { Providers } from '@/components/bridge/providers';
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import type { JSX } from 'react';
-
-import { Providers } from '@/components/bridge/providers';
+import { Suspense, type JSX } from 'react';
 
 import { THEME_INIT } from './theme-init';
 import './globals.css';
@@ -46,7 +45,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>): JSX.Element 
         >
           Skip to the bridge
         </a>
-        <Providers>{ children }</Providers>
+        <Suspense fallback={ <p role="status" className="p-6 text-center">Loading bridge…</p> }>
+          <Providers>{ children }</Providers>
+        </Suspense>
       </body>
     </html>
   );

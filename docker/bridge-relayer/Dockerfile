@@ -12,7 +12,7 @@ RUN cargo build --locked --manifest-path services/interop/Cargo.toml --release -
 
 FROM debian@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends ca-certificates jq libssl3 \
+    && apt-get install --yes --no-install-recommends ca-certificates jq libssl3 openssl util-linux \
     && rm -rf /var/lib/apt/lists/* \
     && install -d -m 0755 /usr/share/layerx/roots \
     && for pem in /usr/share/ca-certificates/mozilla/*.crt; do \
@@ -27,5 +27,8 @@ COPY --from=build /src/.lane-target/release/layerx-bridge-relayer /usr/local/bin
 COPY --from=build /src/.lane-target/release/layerx-bridge-cosign /usr/local/bin/layerx-bridge-cosign
 COPY --from=build /src/.lane-target/release/layerx-mirror-signer /usr/local/bin/layerx-mirror-signer
 COPY services/interop/deploy/bridge-relayer/signer-keys.json /etc/layerx/bridge-signer/keys.json
-COPY docker/bridge-relayer/entrypoint.sh /usr/local/bin/bridge-relayer-entrypoint
-ENTRYPOINT ["/usr/local/bin/bridge-relayer-entrypoint"]
+COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files
+COPY docker/bridge-relayer/files.tsv /etc/layerx/files.tsv
+COPY --chmod=0555 docker/bridge-relayer/entrypoint.sh /usr/local/bin/bridge-relayer-entrypoint
+COPY --chmod=0555 docker/bridge-relayer/env-entrypoint.sh /usr/local/bin/bridge-relayer-env-entrypoint
+ENTRYPOINT ["/usr/local/bin/bridge-relayer-env-entrypoint"]

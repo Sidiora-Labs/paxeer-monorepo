@@ -1,0 +1,32 @@
+# Explorer frontend service built from the repository root.
+
+[service.frontend]
+kind = "repo"
+dockerfile = "docker/explorer-frontend/Dockerfile"
+root = "."
+watch = ["docker/explorer-frontend/**", "docker/common/**", "apps/explorer/**", "docs/explorer/ENVS.md"]
+health = "/explorer/api/healthz"
+restart = "ON_FAILURE"
+replicas = 1
+public = 1
+order = 2
+needs = ["backend"]
+
+[vars.frontend]
+ENVS_PRESET = "paxeer-x"
+GIT_COMMIT_SHA = "env:EXPLORER_FRONTEND_GIT_COMMIT_SHA"
+GIT_TAG = "env:EXPLORER_FRONTEND_GIT_TAG"
+NEXT_OPEN_TELEMETRY_ENABLED = "env:EXPLORER_FRONTEND_NEXT_OPEN_TELEMETRY_ENABLED"
+NEXT_PUBLIC_APP_HOST = "${{RAILWAY_PUBLIC_DOMAIN}}"
+NEXT_PUBLIC_API_HOST = "${{backend.RAILWAY_PUBLIC_DOMAIN}}"
+NEXT_PUBLIC_NETWORK_ID = "125"
+NEXT_PUBLIC_NETWORK_NAME = "Paxeer X Network"
+PORT = "3000"
+
+[inputs.frontend]
+# Commit identifier used to label the built frontend; hexadecimal or tagged revision.
+EXPLORER_FRONTEND_GIT_COMMIT_SHA = "operator"
+# Release tag displayed by the frontend; a release tag string.
+EXPLORER_FRONTEND_GIT_TAG = "operator"
+# Build-time OpenTelemetry switch; the literal true or false.
+EXPLORER_FRONTEND_NEXT_OPEN_TELEMETRY_ENABLED = "operator"

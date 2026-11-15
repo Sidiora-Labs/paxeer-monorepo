@@ -133,7 +133,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     other_before = observations(@height + 1)
     migrate()
 
-    worker = start_supervised!({PriceAcceptanceBackfill, []})
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     failed_results = Enum.map(context.results, &Map.put(&1, "code", 5))
     # The stored status must agree with the real failed-transaction decoder.
     Repo.query!("UPDATE paxeer_x_price_updates SET status = 0 WHERE block_hash = $1", [context.block.hash.bytes])
@@ -166,6 +166,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
       start_block: @height,
       cosmos_rest_urls: [rest_url],
       cometbft_rpc_urls: [rpc_url],
+      acceptance_backfill_concurrency: 1,
       markets_refresh_seconds: 3600,
       acceptance_backfill_batch_size: 9,
       acceptance_backfill_interval: 1_000,
@@ -211,7 +212,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert Repo.aggregate(PriceUpdate, :count) == 2
     assert Repo.aggregate(PriceObservation, :count) == 36
 
-    worker = start_supervised!({PriceAcceptanceBackfill, []})
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     assert :ok = PriceAcceptanceBackfill.retain(worker, @height, context.transactions, context.results)
     assert {:ok, 9} = PriceAcceptanceBackfill.step(worker, 9)
     assert %{expired: 0} = PriceFeedMaintenance.run_once(@height, 5)
@@ -406,6 +407,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     [
       cosmos_rest_urls: [serve(context, availability, :rest)],
       cometbft_rpc_urls: [serve(context, availability, :rpc)],
+      acceptance_backfill_concurrency: 1,
       acceptance_backfill_batch_size: 9,
       acceptance_backfill_interval: 25,
       acceptance_backfill_retry_interval: 25

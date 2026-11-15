@@ -1,9 +1,9 @@
 #!/bin/sh
-# Root init of the bridge relayer Fly app: hands the mounted secrets to their
+# Root init of the bridge relayer: hands the secret files to their
 # owners, splits the RPC bearer tokens into owner-only files, starts the
 # bridge signer on its Unix socket, the relayer beside it and, when
 # LAYERX_BRIDGE_COSIGN_TRANSPORT_CONFIG is set, the cosign share transport,
-# and exits when any of them exits, so Fly Machines restart the machine.
+# and exits when any of them exits, so the hosting platform restarts the service.
 set -eu
 secrets=/run/secrets/bridge
 signer_socket=/run/bridge-signer/signer.sock
@@ -60,6 +60,8 @@ attestor_key=${LAYERX_BRIDGE_ATTESTOR_KEY_FILE:-}
 	fail "attestor key mount does not match attestor index $index"
 [ -n "$attestor_key" ] && [ -f "$attestor_key" ] || fail "attestor key file '$attestor_key' is missing"
 [ -f "$signer_keys" ] || fail "signer key manifest $signer_keys is missing"
+chown 4101:4100 "$signer_keys"
+chmod 0400 "$signer_keys"
 jq -e --arg key "$attestor_key" '[.keys[] | select(.handle == "bridge/attestor")] | length == 1 and .[0].key_file == $key' \
 	"$signer_keys" >/dev/null || fail "signer key manifest does not name $attestor_key as the one bridge/attestor key"
 membership=${LAYERX_BRIDGE_APPROVED_MEMBERSHIP:-}

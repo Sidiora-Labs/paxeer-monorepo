@@ -9,6 +9,7 @@ blocks. Deployment manifests describe service configuration and rollout order.
 
 ## Layout
 
+- [projects/](projects/README.md) holds project metadata and service definitions for the project tool.
 - [launchpad/](launchpad/README.md) contains Dockerfiles, Railway service
   definitions, configuration tests, and production bootstrap, topology,
   observability and recovery tooling.

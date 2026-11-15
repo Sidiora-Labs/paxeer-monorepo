@@ -200,11 +200,22 @@ defmodule EthereumJSONRPC.Receipts do
           EthereumJSONRPC.json_rpc_named_arguments()
         ) ::
           {:ok, %{logs: list(), receipts: list()}} | {:error, reason :: term()}
-  def fetch_by_block_numbers(block_numbers, json_rpc_named_arguments)
+  def fetch_by_block_numbers(block_numbers, json_rpc_named_arguments) do
+    fetch_by_block_numbers(block_numbers, json_rpc_named_arguments, nil)
+  end
 
-  def fetch_by_block_numbers([], _json_rpc_named_arguments), do: {:ok, %{logs: [], receipts: []}}
+  @doc false
+  @spec fetch_by_block_numbers(
+          [EthereumJSONRPC.block_number() | EthereumJSONRPC.quantity()],
+          EthereumJSONRPC.json_rpc_named_arguments(),
+          MapSet.t(EthereumJSONRPC.hash()) | nil
+        ) :: {:ok, %{logs: list(), receipts: list()}} | {:error, term()}
+  def fetch_by_block_numbers(block_numbers, json_rpc_named_arguments, transaction_hashes)
 
-  def fetch_by_block_numbers(block_numbers, json_rpc_named_arguments) when is_list(block_numbers) do
+  def fetch_by_block_numbers([], _json_rpc_named_arguments, _transaction_hashes),
+    do: {:ok, %{logs: [], receipts: []}}
+
+  def fetch_by_block_numbers(block_numbers, json_rpc_named_arguments, transaction_hashes) when is_list(block_numbers) do
     block_numbers = Enum.map(block_numbers, &quantity_to_integer/1)
 
     requests =
@@ -213,7 +224,7 @@ defmodule EthereumJSONRPC.Receipts do
         ByBlockNumber.request(%{id: number, number: quantity})
       end)
 
-    request_and_parse(requests, block_numbers, json_rpc_named_arguments)
+    request_and_parse(requests, block_numbers, json_rpc_named_arguments, transaction_hashes)
   end
 
   # Executes a batch JSON-RPC request to retrieve and process receipts.
@@ -235,12 +246,16 @@ defmodule EthereumJSONRPC.Receipts do
           [EthereumJSONRPC.Transport.request()],
           %{EthereumJSONRPC.request_id() => %{required(:gas) => non_neg_integer(), optional(atom()) => any()}}
           | [EthereumJSONRPC.request_id()],
-          EthereumJSONRPC.json_rpc_named_arguments()
+          EthereumJSONRPC.json_rpc_named_arguments(),
+          MapSet.t(EthereumJSONRPC.hash()) | nil
         ) :: {:ok, %{logs: list(), receipts: list()}} | {:error, reason :: term()}
-  defp request_and_parse(requests, elements_with_ids, json_rpc_named_arguments) do
+  defp request_and_parse(requests, elements_with_ids, json_rpc_named_arguments, transaction_hashes \\ nil) do
     with {:ok, raw_responses} <- json_rpc(requests, json_rpc_named_arguments),
          {:ok, fizzy_responses} <- process_responses(raw_responses, elements_with_ids) do
-      elixir_receipts = to_elixir(fizzy_responses)
+      elixir_receipts =
+        fizzy_responses
+        |> reject_chain_entries(transaction_hashes)
+        |> to_elixir()
 
       elixir_logs = elixir_to_logs(elixir_receipts)
       receipts = elixir_to_params(elixir_receipts)
@@ -248,6 +263,12 @@ defmodule EthereumJSONRPC.Receipts do
 
       {:ok, %{logs: logs, receipts: receipts}}
     end
+  end
+
+  defp reject_chain_entries(receipts, nil), do: receipts
+
+  defp reject_chain_entries(receipts, transaction_hashes) do
+    Enum.reject(receipts, &Receipt.chain_entry?(&1, transaction_hashes))
   end
 
   @doc """
