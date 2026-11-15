@@ -378436,7 +378436,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.611]
 title = "Let the definitions of the project platform load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.576", "22.39.577", "22.39.578", "22.39.579", "22.39.580", "22.39.581", "22.39.582", "22.39.583", "22.39.584", "22.39.585", "22.39.586", "22.39.587", "22.39.588", "22.39.589", "22.39.590", "22.39.591", "22.39.592", "22.39.593"]
