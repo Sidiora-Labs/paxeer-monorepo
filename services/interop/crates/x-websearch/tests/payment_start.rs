@@ -5,6 +5,8 @@ use x_websearch::payment::{PaymentResolution, PAYMENT_RESOLUTION_INTERVAL};
 #[test]
 fn payment_start_unresolved_state_carries_its_reason() {
     let status = PaymentResolution {
+        payable_assets: Vec::new(),
+        withheld_assets: Vec::new(),
         state: "unresolved",
         reason: Some("receiver identity read failed".to_owned()),
     };
@@ -23,6 +25,8 @@ fn payment_start_resolution_interval_is_thirty_seconds() {
 #[test]
 fn payment_start_ready_state_has_no_reason() {
     let status = PaymentResolution {
+        payable_assets: Vec::new(),
+        withheld_assets: Vec::new(),
         state: "ready",
         reason: None,
     };

@@ -50,9 +50,10 @@ The sidecar starts its listener while the receiver identity and ledger accounts
 are unresolved. During that period paid routes return `503 payment_unavailable`
 and publish no offer. `GET /readyz` reports `payment.state` as `unresolved` with
 the failed read as `payment.reason`; the sidecar retries the reads every thirty
-seconds. Once all reads pass, the payment state becomes `ready` and paid routes
+seconds, including while ready. Once the receiver resolves and at least one asset is payable, the payment state becomes `ready` and paid routes
 open without a restart. Configuration, key, store, lock and adapter refusals
 remain startup errors.
+Assets whose ledger records are refused or paused are withheld from offers; `/readyz` under `payment` and `receiver-status` list `payable_assets` and `withheld_assets` (each with `symbol` and `reason`).
 
 | Key | Meaning |
 | --- | --- |

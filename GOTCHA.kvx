@@ -22115,3 +22115,98 @@ fix = "Decision 3543. Task 22.39.555 names it and makes the tracing methods read
 title = "The request watch of the web search service starts at block zero when a cursor stands without a journal"
 symptom = "RequestWatcher::open in services/interop/crates/x-websearch/src/watch.rs sets the next block to zero when the cursor file exists and the journal does not. On a long chain the scan from zero does not end in useful time, and a read endpoint that keeps only recent blocks refuses the early ranges, so the watch does not advance."
 fix = "Decision 3544. Task 22.39.556 continues at the cursor and moves forward to the earliest block the endpoint serves."
+
+[gotcha.4459]
+title = "The start test of the daemon command names a standby address without replication TLS material"
+symptom = "TestNewAppPassesSequencerConfigToNode in daemon/paxd/cmd/new_app_test.go sets the standby address flag and none of the five replication flags of node/sequencer/config.go. ReplicationTLSConfig in node/sequencer/dial.go requires certificate, key, roots and peer identity wherever a standby is named, so the case needs that material to start the node."
+fix = "Decision 3545. Task 22.39.551 gives the case the material."
+
+[gotcha.4460]
+title = "Six cases of the spend composition test need directories that only its producer makes"
+symptom = "actual_guest in programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs reads the directory named by PAXEER_X_SPEND_GUESTS, and two cases read the directory named by PAXEER_X_SPEND_RESULTS. Only tools/qualification/paxeer-x/program_spend_composition.py makes these directories and sets the two names, and it runs each case alone by its exact name. The programs-test target of the Makefile runs the tests of the whole workspace without the two names, so the six cases whose names begin with actual_ find no input there."
+fix = "Decision 3546. Task 22.39.509 carries the change."
+
+[gotcha.4461]
+title = "The price sidecar keeps a submission that the node refused as ahead of the committed sequence"
+symptom = "attempt in services/platform/hosted/feeder/src/bin/price-sidecar/round.rs puts a submission into the pending list before the broadcast, and record_broadcast raises the next account sequence of the journal. When the node answers the broadcast with account sequence mismatch because the sent sequence is ahead of the committed one, the entry stays in the list with its sequences and next_submission signs every later submission past it. With max_pending_submissions above one and a node that admits only the committed sequence, the later submissions get the same answer until the entry is decided as evicted, which takes pending_submission_block_limit blocks where the node does not serve the transaction lookup."
+fix = "Decision 3547. Task 22.39.557 removes such an entry at once."
+
+[gotcha.4462]
+title = "The local node script stops its full node before the first EVM call"
+symptom = "In sequencer mode tools/qualification/localnode/v6120-node.sh starts a full node under the role bootstrap-peer beside the sequencing node and stops it once the sequencing node has left block sync, before the mint, approve, deposit and feed key calls. No test of tools/qualification/localnode therefore shows a node without sequencing applying a block that the sequencing node built from EVM transactions."
+fix = "Decision 3548. Task 22.39.558 adds the option and the tests."
+
+[gotcha.4463]
+title = "The release scripts name the release version as a literal"
+symptom = "tools/release/version.json holds the version and the upgrade plan, and the workflows read it. tools/release/preflight.sh and tools/release/postflight.sh compare the version of a node with the literals 7.0.0 and v7.0.0, and tools/release/tests/identity.test.sh holds the literal as well. A release that keeps the plan and raises the version needs each of these places changed by hand."
+fix = "Decision 3549. Task 22.39.559 makes the scripts follow the file and sets 7.0.1."
+
+[gotcha.4464]
+title = "The live check of paid search selects an offer the web search service does not publish"
+symptom = "CheckSearchPayment in tools/bringup/live_rpc.go takes the offer whose scheme is metered and sends a standing grant id, and check_search in tools/bringup/check-live.sh requires CHECK_LIVE_SEARCH_GRANT_ID. The web search service publishes only offers of the exact scheme, where the buyer sends payExact at 0x000000000000000000000000000000000000101a and presents the transaction, and the ledger has retired grants and metered draws. The check therefore ends with the message that the metered offer is absent."
+fix = "Decision 3550. Task 22.39.560 moves the check to the exact scheme."
+
+[gotcha.4465]
+title = "No test pays for a search against a running network"
+symptom = "The tests of services/interop/crates/x-websearch answer the ledger and the receipt reads with stand-in endpoints, and the tests of tools/qualification/localnode send no transaction to the ledger precompile. The chain of steps a buyer and a seller take on a network, from the registration of an asset to the released result, is shown by no test, and no test shows a node without sequencing applying the blocks of these steps."
+fix = "Decision 3551. Task 22.39.561 adds the cases on the local network."
+
+[gotcha.4466]
+title = "The web search service offers payment in assets without reading their records"
+symptom = "resolve_receiver in services/interop/crates/x-websearch/src/payment.rs reads the identity of the receiver and derives one account for each accepted asset through accountId. It does not read the record of an asset, and it reads once: after the first success the state stays ready. An asset that the ledger does not hold, or holds as paused, is therefore offered, and a buyer cannot pay such an offer."
+fix = "Decision 3552. Task 22.39.562 reads the records and withholds such assets."
+
+[gotcha.4467]
+title = "The trading workspace under apps/perps addresses a contract venue instead of the native markets"
+symptom = "The package at apps/perps/packages/paxeer-backend holds the address of a contract venue, its facet interfaces and the endpoints of an index service of that venue, and the adapters beside its layers and the folder apps/perps/apps/web/src/native present that venue to the screens. The chain serves the perpetual and the spot markets through precompiles, and market data through the perps data gateway. contracts/perps-client.md describes that client, and the application the workspace replaced implemented it."
+fix = "Decision 3553. Task 22.39.563 binds the workspace to the native markets and the gateway."
+
+[gotcha.4468]
+title = "The trading workspace has no container file, deployment folder or identity route"
+symptom = "The image perps-web of tools/deploy/offchain-images.sh builds from apps/perps/Dockerfile with the values of apps/perps/deploy/build-args.production.env, and the web service of the perps project file under deploy is checked at /api/build-id. The workspace holds none of these files and its web application has no such route."
+fix = "Decision 3554. Task 22.39.564 adds them."
+
+[gotcha.4469]
+title = "Trees outside apps/perps name files of the application the workspace replaced"
+symptom = "Tests under precompiles, modules/pricefeed, services/platform/perps-data and services/platform/ramps, checks under tests/ci, tools/containers, tools/deps and tools/qualification/audit_repairs, the files deploy/launchpad/Dockerfile.web and docker/web/Dockerfile, the wallet workspace and the documents name paths such as apps/perps/src, apps/perps/public, apps/perps/tests and apps/perps/swagger_spot.json. The client code now lies under apps/perps/packages/paxeer-backend/src and the public files under apps/perps/apps/web/public."
+fix = "Decision 3555. Tasks 22.39.563, 22.39.565, 22.39.566 and 22.39.569 to 22.39.573 move the readers or return the files they name."
+
+[gotcha.4470]
+title = "The wallet workspace lists apps/perps as a member"
+symptom = "services/wallet/pnpm-workspace.yaml lists ../../apps/perps, and docker/web/Dockerfile copies its manifest for the install of the wallet workspace. apps/perps is a workspace root of its own with its own lockfile and does not consume the wallet packages through that workspace."
+fix = "Decision 3555. Task 22.39.565 removes the member."
+
+[gotcha.4471]
+title = "The trading workspace has no legal pages and no consent notice"
+symptom = "The application the workspace replaced served the terms, the privacy policy and the cookie policy and asked for consent before optional storage. The web application of the workspace serves none of them, and tools/qualification/audit_repairs/test_documentation_link_contracts.py names the earlier cookie policy file."
+fix = "Decision 3556. Task 22.39.567 carries the pages and the notice."
+
+[gotcha.4472]
+title = "Five launchpad modules state a Go version above the reviewed builder of the launchpad images"
+symptom = "deploy/launchpad/Dockerfile.svc builds with the reviewed image of go1.26.4 and the local toolchain only, and the supply chain files of services/launchpad/security pin that version. The modules api, indexer, notifications, social and user under services/launchpad and services/launchpad/go.work state go 1.27.0."
+fix = "Decision 3557. Task 22.39.568 makes builder and directives agree."
+
+[gotcha.4473]
+title = "The perps project tool sends registry credentials with every image row and waits only on the deployment it started"
+symptom = "The tool requires both registry credential variables and attaches them to every image row, also when the images of the row are public. After a deploy call it reads the state of the deployment it started. When the hosting platform replaces that deployment with a newer one of the same service, the first one ends in a removed state while the service runs the newer one."
+fix = "Decision 3558. Task 22.39.574 changes the tool."
+
+[gotcha.4474]
+title = "The message bus rows of the perps project file do not match what the message bus image reads"
+symptom = "services/platform/perps-data/deploy/nats/nats.conf reads the route variable as a list in brackets, the form services/platform/perps-data/deploy/nats_test.go sets. The rows of the perps project file under deploy give the routes as one string with a comma. The image runs as a user without privileges and stores under /data, and a volume of the hosting platform is mounted with user 0 as owner. The rows name the health path /healthz, which a server answers only after it has met the other servers, while the hosting platform routes to a server only after its health path answers."
+fix = "Decision 3558. Task 22.39.574 changes the rows."
+
+[gotcha.4475]
+title = "Most services of the repository have no definition that creates them on the hosting platform"
+symptom = "deploy/rollout.kvx and the two rollout files beside it move services that exist to a pinned image, and the perps project file under deploy is the one definition that creates services. The other services of deploy/rollout.kvx that run on the hosting platform, the remaining container folders under docker and the web applications under apps have no such definition, and the variables each of them reads are stated only in its sources and in the pages under docs/release/variables."
+fix = "Decisions 3559 and 3560. Tasks 22.39.575 to 22.39.608 add the tool and the definitions."
+
+[gotcha.4476]
+title = "Four services have no container file"
+symptom = "The evaluator under services/platform/hosted/ai-evaluator, which deploy/rollout.kvx lists with an image, and the applications apps/bridge, apps/names and apps/inference-peer have no container file in the repository."
+fix = "Decision 3561. Tasks 22.39.583, 22.39.601, 22.39.606 and 22.39.607 add them."
+
+[gotcha.4477]
+title = "The type check of the trading workspace needs the build output of one of its packages"
+symptom = "The web application under apps/perps/apps/web imports @sidioralabs/chainflow-data-gateway from the package under apps/perps/packages/chainflow. The scripts dev and build of the workspace build that package first; the type check script of the workspace root does not, and then reports the import."
+fix = "Decision 3562. Task 22.39.567 waits for task 22.39.563, which holds the manifest of the workspace root."

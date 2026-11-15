@@ -87,7 +87,7 @@ def native_fixtures(path, source, destination):
 
 def interface_suites(artifacts):
     return [
-        ('protocol', [artifacts['protocol-tests']['path'], '--skip', 'emit_native_inputs',
+        ('protocol', [artifacts['protocol-tests']['path'], '--include-ignored', '--skip', 'emit_native_inputs',
                       '--test-threads=1'], producer.PROTOCOL_CASES),
         ('legacy', [artifacts['legacy-tests']['path'], 'interface::conformance_vectors::',
                     '--test-threads=1'], producer.LEGACY_CASES),
