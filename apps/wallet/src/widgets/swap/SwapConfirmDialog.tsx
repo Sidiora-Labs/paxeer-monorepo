@@ -28,8 +28,8 @@ export interface SwapConfirmDialogProps {
 }
 
 const impactClass = (pct: number): string => {
-  if (pct > 3) return 'text-red-400 font-medium';
-  if (pct > 1) return 'text-amber-400';
+  if (pct > 3) return 'text-pax-error font-medium';
+  if (pct > 1) return 'text-pax-warning';
   return '';
 };
 
@@ -68,11 +68,7 @@ export function SwapConfirmDialog({
           <TokenBadge token={fromToken} />
         </div>
         <div className="flex justify-center">
-          <SvgIcon
-            name="swap"
-            className="w-4 h-4"
-            style={{ filter: 'brightness(0) invert(0.6)' }}
-          />
+          <SvgIcon name="swap" className="w-4 h-4" />
         </div>
         <div className="flex items-center justify-between">
           <div>
