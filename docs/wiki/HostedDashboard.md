@@ -138,6 +138,18 @@ owned routes are `404 not_found`.
 `unverified` because the gateway audit trail records digests rather
 than receipts (`services/platform/hosted/dashboard/src/model.rs`).
 
+The gateway writes the principal request index in the same script as each
+common audit entry and recovers retained entries in the background at startup.
+`DIGEST` is the principal's audit digest, before the first colon in the event.
+
+| Store key | Writer and dashboard reading |
+| --- | --- |
+| `gateway:principal:DIGEST:audit` | Gateway stream containing the common audit IDs and fields for this principal |
+| `gateway:principal:DIGEST:audit:version` | Gateway sets `1`; the dashboard accepts version `1` and refuses other values or entries without a version |
+
+A principal with neither a version nor index entries has an empty request list.
+Its overview has empty key and recent-request lists when it has no keys.
+
 A payment's `settled` flag is true only when the `state` fact equals
 `settled`, that fact is at least `receipt-verified`, and a receipt
 digest stands behind that exact fact.

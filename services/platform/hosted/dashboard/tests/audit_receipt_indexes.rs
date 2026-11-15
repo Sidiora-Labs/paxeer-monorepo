@@ -294,6 +294,10 @@ fn reply(data: &mut IndexData, arguments: &[String]) -> Vec<u8> {
                 .get(&arguments[1])
                 .map_or_else(|| b"$-1\r\n".to_vec(), |value| bulk(value.as_bytes()))
         }
+        "SMEMBERS" => {
+            assert_eq!(arguments.len(), 2);
+            array(&[])
+        }
         "HGET" => {
             assert_eq!(arguments.len(), 3);
             data.hashes
@@ -593,7 +597,9 @@ fn finding_026_activity_index_preserves_principal_and_receipt_evidence_checks() 
 #[test]
 fn missing_producer_wiring_is_an_error_instead_of_empty_history() {
     let tenant = principal("tenant:uninitialized");
-    let fixture = IndexFixture::start(IndexData::default());
+    let mut unversioned = IndexData::default();
+    unversioned.audit(&tenant, 1, "completed");
+    let fixture = IndexFixture::start(unversioned);
     assert!(matches!(
         fixture.store().requests(&tenant, 1),
         Err(DashboardError::CorruptStore)
@@ -604,10 +610,208 @@ fn missing_producer_wiring_is_an_error_instead_of_empty_history() {
     ));
     let mut data = checked(fixture.data.lock());
     data.initialize(&tenant);
+    data.streams.remove(&audit_key(&tenant));
     drop(data);
     assert!(checked(fixture.store().requests(&tenant, 1)).is_empty());
     assert!(matches!(
         fixture.reader().receipt(&tenant, &"ab".repeat(32)),
         Err(DashboardError::UnknownReceipt)
     ));
+}
+
+#[test]
+fn principal_without_audit_version_or_entries_has_empty_requests_and_overview_snapshot() {
+    let tenant = principal("tenant:empty");
+    let fixture = IndexFixture::start(IndexData::default());
+    let store = fixture.store();
+    let page = checked(store.requests_page(&tenant, None, 10));
+    assert!(page.records.is_empty());
+    assert_eq!(page.next_cursor, None);
+    assert!(checked(store.requests(&tenant, 200)).is_empty());
+    let overview = checked(store.snapshot(&tenant, 1_000, 20));
+    assert!(overview.keys.is_empty());
+    assert!(overview.recent_requests.is_empty());
+    assert_eq!(overview.usage.keys, 0);
+    assert_eq!(overview.requests.records, 0);
+    let commands = &checked(fixture.data.lock()).commands;
+    assert!(commands.iter().all(|command| command[1] != "gateway:audit"));
+}
+
+#[test]
+fn principal_audit_entries_without_version_are_refused_even_before_the_cursor() {
+    let tenant = principal("tenant:unversioned");
+    let mut data = IndexData::default();
+    data.audit(&tenant, 2, "completed");
+    let fixture = IndexFixture::start(data);
+    assert!(matches!(
+        fixture.store().requests_page(&tenant, Some("1-0"), 10),
+        Err(DashboardError::CorruptStore)
+    ));
+    assert!(matches!(
+        fixture.store().requests(&tenant, 10),
+        Err(DashboardError::CorruptStore)
+    ));
+    assert!(matches!(
+        fixture.store().snapshot(&tenant, 1_000, 10),
+        Err(DashboardError::CorruptStore)
+    ));
+}
+
+#[test]
+fn principal_audit_version_other_than_one_is_refused_with_or_without_entries() {
+    let tenant = principal("tenant:unsupported-version");
+    let mut data = IndexData::default();
+    data.versions
+        .insert(format!("{}:version", audit_key(&tenant)), "2".to_owned());
+    let fixture = IndexFixture::start(data);
+    assert!(matches!(
+        fixture.store().requests(&tenant, 10),
+        Err(DashboardError::CorruptStore)
+    ));
+    checked(fixture.data.lock()).audit(&tenant, 2, "completed");
+    assert!(matches!(
+        fixture.store().requests(&tenant, 10),
+        Err(DashboardError::CorruptStore)
+    ));
+}
+
+#[path = "../../gateway/tests/support/redis_process.rs"]
+mod redis_process;
+
+#[test]
+fn gateway_producer_indexes_are_read_by_dashboard_after_store_restart() {
+    use layerx_platform_gateway::store::KeyRecord;
+    let mut redis = redis_process::RedisProcess::start();
+    let tenant = principal("tenant:producer");
+    let foreign = principal("tenant:foreign-producer");
+    let empty = principal("tenant:without-entries");
+    let gateway = redis.store();
+    for (owner, key_id) in [
+        (&tenant, "dashboard-key"),
+        (&foreign, "foreign-dashboard-key"),
+    ] {
+        let key = KeyRecord {
+            key_id: key_id.to_owned(),
+            principal_digest: digest(owner),
+            salt: "dashboard-audit-salt".to_owned(),
+            secret_digest: "33".repeat(32),
+            signer_public_key: "44".repeat(32),
+            scopes: "receipt:read".to_owned(),
+            quota_requests: 1,
+            quota_window_seconds: 120,
+            epoch: 1,
+            disabled: false,
+        };
+        checked(gateway.issue_key(
+            &key,
+            &gateway_audit_event(&digest(owner), "issue", key_id, "issued", 1),
+        ));
+        assert_eq!(
+            checked(gateway.consume_read(
+                &key,
+                1,
+                &gateway_audit_event(&digest(owner), "read", "receipt", "consumed", 1)
+            )),
+            None
+        );
+        assert!(checked(gateway.consume_read(
+            &key,
+            1,
+            &gateway_audit_event(&digest(owner), "read", "receipt", "rate_limited", 1)
+        ))
+        .is_some());
+    }
+    drop(gateway);
+    redis.restart();
+    checked(redis.store().reconcile_principal_audit_indexes());
+    let dashboard = checked(Store::new(
+        &redis.url,
+        redis.certificate.clone(),
+        Zeroizing::new("tap".to_owned()),
+        Zeroizing::new("tap-secret".to_owned()),
+    ));
+    let records = checked(dashboard.requests(&tenant, 10));
+    assert_eq!(records.len(), 3);
+    assert_eq!(records[0].outcome, RequestOutcome::RateLimited);
+    assert_eq!(
+        records[1].operation_digest,
+        gateway_audit_event(&digest(&tenant), "read", "receipt", "consumed", 1)
+            .split_once(':')
+            .expect("commitment")
+            .1
+    );
+    assert_eq!(
+        records[2].operation_digest,
+        gateway_audit_event(&digest(&tenant), "issue", "dashboard-key", "issued", 1)
+            .split_once(':')
+            .expect("commitment")
+            .1
+    );
+    let overview = checked(dashboard.snapshot(&empty, 1, 20));
+    assert!(overview.keys.is_empty());
+    assert!(overview.recent_requests.is_empty());
+    assert_eq!(overview.requests.records, 0);
+    assert!(checked(dashboard.requests(&empty, 10)).is_empty());
+
+    let username = redis.directory.join("dashboard-user");
+    let password = redis.directory.join("dashboard-password");
+    checked(std::fs::write(&username, "tap"));
+    checked(std::fs::write(&password, "tap-secret"));
+    let ca = redis.directory.join("server.der");
+    let variables = [
+        ("LAYERX_DASHBOARD_GATEWAY_REDIS_URL", redis.url.as_str()),
+        (
+            "LAYERX_DASHBOARD_REDIS_CA_DER",
+            ca.to_str().expect("CA path"),
+        ),
+        (
+            "LAYERX_DASHBOARD_GATEWAY_REDIS_USERNAME_FILE",
+            username.to_str().expect("username path"),
+        ),
+        (
+            "LAYERX_DASHBOARD_GATEWAY_REDIS_PASSWORD_FILE",
+            password.to_str().expect("password path"),
+        ),
+        ("LAYERX_WEBHOOKS_REDIS_URL", redis.url.as_str()),
+        (
+            "LAYERX_WEBHOOKS_INTERNAL_CA_DER",
+            ca.to_str().expect("CA path"),
+        ),
+        (
+            "LAYERX_WEBHOOKS_REDIS_USERNAME_FILE",
+            username.to_str().expect("username path"),
+        ),
+        (
+            "LAYERX_WEBHOOKS_REDIS_PASSWORD_FILE",
+            password.to_str().expect("password path"),
+        ),
+    ];
+    struct Environment(Vec<(&'static str, Option<std::ffi::OsString>)>);
+    impl Drop for Environment {
+        fn drop(&mut self) {
+            for (name, previous) in &self.0 {
+                match previous {
+                    Some(value) => std::env::set_var(name, value),
+                    None => std::env::remove_var(name),
+                }
+            }
+        }
+    }
+    let _environment = Environment(
+        variables
+            .iter()
+            .map(|(name, _)| (*name, std::env::var_os(name)))
+            .collect(),
+    );
+    for (name, value) in variables {
+        std::env::set_var(name, value);
+    }
+    let service = checked(layerx_platform_dashboard::Dashboard::from_environment());
+    let overview = checked(service.overview(&empty, 1));
+    assert!(overview.keys.is_empty());
+    assert!(overview.recent_requests.is_empty());
+    assert!(overview.endpoints.is_empty());
+    assert!(overview.dead_letters.is_empty());
+    assert!(overview.payments.is_empty());
+    assert_eq!(overview.requests.records, 0);
 }
