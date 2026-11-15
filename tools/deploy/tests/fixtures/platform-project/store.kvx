@@ -1,0 +1,13 @@
+[service.store]
+kind = "database"
+image = "ghcr.io/railwayapp-templates/postgres-ssl:18"
+volume = "/var/lib/postgresql/data"
+order = 1
+
+[vars.store]
+POSTGRES_DB = "platform"
+POSTGRES_PASSWORD = "env:PLATFORM_STORE_POSTGRES_PASSWORD"
+
+[inputs.store]
+# Database password: a random string shared with database clients.
+PLATFORM_STORE_POSTGRES_PASSWORD = "generated"

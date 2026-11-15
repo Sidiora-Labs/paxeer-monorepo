@@ -1,0 +1,103 @@
+[service.webhooks-ingress]
+kind = "repo"
+dockerfile = "docker/platform-webhooks/Dockerfile"
+root = "."
+watch = ["docker/platform-webhooks/**", "docker/common/**", "services/**", "programs/**"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 3
+public = 0
+order = 7
+needs = ["redis-internal", "internal-kms", "internal-journeys", "internal-payments", "internal-approvals", "internal-programs"]
+
+[vars.webhooks-ingress]
+LAYERX_ROLE = "ingress"
+LAYERX_FILES_OWNER = "65532:65532"
+PORT = "8080"
+LAYERX_WEBHOOKS_REDIS_URL = "rediss://${{redis-internal.RAILWAY_PRIVATE_DOMAIN}}:6379"
+LAYERX_WEBHOOKS_KMS_URL = "https://${{internal-kms.RAILWAY_PRIVATE_DOMAIN}}:9443"
+LAYERX_WEBHOOKS_JOURNEY_SOURCE_URL = "https://${{internal-journeys.RAILWAY_PRIVATE_DOMAIN}}:9443"
+LAYERX_WEBHOOKS_PAYMENT_SOURCE_URL = "https://${{internal-payments.RAILWAY_PRIVATE_DOMAIN}}:9443"
+LAYERX_WEBHOOKS_APPROVAL_SOURCE_URL = "https://${{internal-approvals.RAILWAY_PRIVATE_DOMAIN}}:9443"
+LAYERX_WEBHOOKS_PROGRAM_SOURCE_URL = "https://${{internal-programs.RAILWAY_PRIVATE_DOMAIN}}:9443"
+LAYERX_WEBHOOKS_NODE_URL = "env:PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_NODE_URL"
+LAYERX_WEBHOOKS_COMET_URL = "env:PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_COMET_URL"
+LAYERX_WEBHOOKS_INTERNAL_CA_DER = "/run/layerx/ca/internal.der"
+LAYERX_WEBHOOKS_PUBLIC_CA_DER = "/run/layerx/ca/public.der"
+LAYERX_WEBHOOKS_CLIENT_IDENTITY_PKCS12 = "/run/layerx/client/identity.p12"
+LAYERX_WEBHOOKS_CLIENT_IDENTITY_PASSWORD_FILE = "/run/layerx/client/password"
+LAYERX_WEBHOOKS_REDIS_USERNAME_FILE = "/run/layerx/redis/username"
+LAYERX_WEBHOOKS_REDIS_PASSWORD_FILE = "/run/layerx/redis/password"
+LAYERX_WEBHOOKS_KMS_TOKEN_FILE = "/run/layerx/tokens/kms"
+LAYERX_WEBHOOKS_CURSOR_KEY_FILE = "/run/layerx/keys/cursor"
+LAYERX_WEBHOOKS_CHAIN_POLICY_FILE = "/run/layerx/policy/chain.json"
+LAYERX_WEBHOOKS_NODE_TOKEN_FILE = "/run/layerx/tokens/node"
+WEBHOOKS_INGRESS_TLS_CERT_DER = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_INGRESS_TLS_CERT_DER"
+WEBHOOKS_INGRESS_TLS_KEY_DER = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_INGRESS_TLS_KEY_DER"
+WEBHOOKS_CLIENT_P12 = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CLIENT_P12"
+WEBHOOKS_CLIENT_PASSWORD = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CLIENT_PASSWORD"
+WEBHOOKS_CLIENT_CA_DER = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CLIENT_CA_DER"
+WEBHOOKS_PUBLIC_CA = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_PUBLIC_CA"
+WEBHOOKS_REDIS_USERNAME = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_REDIS_USERNAME"
+WEBHOOKS_REDIS_PASSWORD = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_REDIS_PASSWORD"
+WEBHOOKS_KMS_TOKEN = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_KMS_TOKEN"
+WEBHOOKS_JOURNEY_SOURCE_TOKEN = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_JOURNEY_SOURCE_TOKEN"
+WEBHOOKS_PAYMENT_SOURCE_TOKEN = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_PAYMENT_SOURCE_TOKEN"
+WEBHOOKS_APPROVAL_SOURCE_TOKEN = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_APPROVAL_SOURCE_TOKEN"
+WEBHOOKS_PROGRAM_SOURCE_TOKEN = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_PROGRAM_SOURCE_TOKEN"
+WEBHOOKS_SOURCE_TRIGGER_TOKEN = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_SOURCE_TRIGGER_TOKEN"
+WEBHOOKS_OPERATOR_TOKEN = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_OPERATOR_TOKEN"
+WEBHOOKS_CURSOR_KEY = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CURSOR_KEY"
+WEBHOOKS_CHAIN_POLICY = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CHAIN_POLICY"
+WEBHOOKS_NODE_TOKEN = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_NODE_TOKEN"
+SOURCE_REVISION = "env:PLATFORM_WEBHOOKS_INGRESS_SOURCE_REVISION"
+PACKAGING_REVISION = "env:PLATFORM_WEBHOOKS_INGRESS_PACKAGING_REVISION"
+WEBHOOKS_SHA256 = "env:PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_SHA256"
+
+[inputs.webhooks-ingress]
+# Node EVM RPC endpoint; an HTTPS URL authenticated with the node token and client certificate.
+PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_NODE_URL = "operator"
+# Node Comet RPC endpoint; an HTTPS URL authenticated with the node token and client certificate.
+PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_COMET_URL = "operator"
+# Ingress server certificate; base64-encoded DER with private service DNS names in its SANs.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_INGRESS_TLS_CERT_DER = "operator"
+# Ingress server private key; base64-encoded PKCS#8 DER matching the server certificate.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_INGRESS_TLS_KEY_DER = "operator"
+# Internal client identity; base64-encoded PKCS#12 containing its certificate and private key.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CLIENT_P12 = "operator"
+# Client identity password; base64-encoded nonempty UTF-8 text.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CLIENT_PASSWORD = "operator"
+# Internal trust anchor; base64-encoded DER CA certificate.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CLIENT_CA_DER = "operator"
+# Outbound delivery trust anchor; base64-encoded DER CA certificate.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_PUBLIC_CA = "operator"
+# Redis ACL username; base64-encoded UTF-8 text matching the shared store's webhook user.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_REDIS_USERNAME = "operator"
+# Redis ACL password; base64-encoded random text shared with the internal Redis store.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_REDIS_PASSWORD = "generated"
+# KMS bearer token; base64-encoded random UTF-8 text shared with internal-kms.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_KMS_TOKEN = "generated"
+# Journey source bearer token; base64-encoded random UTF-8 text shared with internal-journeys.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_JOURNEY_SOURCE_TOKEN = "generated"
+# Payment source bearer token; base64-encoded random UTF-8 text shared with internal-payments.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_PAYMENT_SOURCE_TOKEN = "generated"
+# Approval source bearer token; base64-encoded random UTF-8 text shared with internal-approvals.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_APPROVAL_SOURCE_TOKEN = "generated"
+# Program source bearer token; base64-encoded random UTF-8 text shared with internal-programs.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_PROGRAM_SOURCE_TOKEN = "generated"
+# Source trigger bearer token; base64-encoded random UTF-8 text shared with event producers.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_SOURCE_TRIGGER_TOKEN = "operator"
+# Operator bearer token; base64-encoded random UTF-8 text distinct from the source trigger token.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_OPERATOR_TOKEN = "operator"
+# Cursor authentication key; base64-encoded UTF-8 text containing 64 hexadecimal digits, shared with webhooks-public.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CURSOR_KEY = "generated"
+# Chain trust policy; base64-encoded JSON with chain_id and validators, each with public_key and voting_power.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_CHAIN_POLICY = "operator"
+# Node RPC bearer token; base64-encoded nonempty UTF-8 text.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_NODE_TOKEN = "operator"
+# Binary source revision for prebuilt image packaging; a Git commit ID.
+PLATFORM_WEBHOOKS_INGRESS_SOURCE_REVISION = "operator"
+# Container packaging revision for prebuilt image packaging; a Git commit ID.
+PLATFORM_WEBHOOKS_INGRESS_PACKAGING_REVISION = "operator"
+# Binary digest for prebuilt image packaging; 64 hexadecimal SHA-256 digits.
+PLATFORM_WEBHOOKS_INGRESS_WEBHOOKS_SHA256 = "operator"

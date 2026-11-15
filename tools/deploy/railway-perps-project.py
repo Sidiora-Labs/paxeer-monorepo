@@ -132,7 +132,8 @@ def http_transport(token):
     def call(query, variables):
         req = urllib.request.Request(
             API, data=json.dumps({"query": query, "variables": variables}).encode(),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}",
+                     "User-Agent": "perps-project"})
         with urllib.request.urlopen(req, timeout=30) as resp:
             try:
                 body = json.load(resp)
