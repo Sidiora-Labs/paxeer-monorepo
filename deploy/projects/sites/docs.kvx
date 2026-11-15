@@ -1,0 +1,23 @@
+[service.docs]
+kind = "repo"
+dockerfile = "docs/site/paxeer-docs/Dockerfile"
+root = "/"
+watch = ["/docs/site/paxeer-docs/**", "/docs/site/docs-assistant/**", "/docs/release/7.0.0-systems.kvx"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 1
+public = 1
+order = 1
+needs = []
+
+[vars.docs]
+PORT = "3000"
+TRUST_PROXY = "1"
+NEXT_PUBLIC_SITE_URL = "env:SITES_DOCS_NEXT_PUBLIC_SITE_URL"
+CENTRA_GATEWAY_API_KEY = "env:SITES_DOCS_CENTRA_GATEWAY_API_KEY"
+
+[inputs.docs]
+# Canonical public site origin, an absolute HTTP(S) URL without a path.
+SITES_DOCS_NEXT_PUBLIC_SITE_URL = "operator"
+# Assistant gateway credential, a provider-issued bearer token supplied at runtime.
+SITES_DOCS_CENTRA_GATEWAY_API_KEY = "provider"
