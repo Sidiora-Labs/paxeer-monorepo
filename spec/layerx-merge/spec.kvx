@@ -14812,6 +14812,12 @@ value = "For the kind sideways an element clipped to nothing, the form of text k
 basis = "Gotcha 4533. Decisions 3587 and 3591."
 affects = []
 
+[decision.3617]
+title = "A row that scrolls sideways shows where it continues, and the parts of a list row sit on one line"
+value = "A row that scrolls sideways shows at each end where content continues: the edge fades or the next item is cut in view, and the selected item is scrolled into view when the view opens. The parts of a list row sit on one line where the width holds them: the actions side by side with one distance of the spacing scale, ending at the edge of the card, and the caption on a line of the row. At a narrow width the actions move below the text as a whole and keep their order. A caption states only what holds: a revoked key shows no remaining count. The pass over the screenshots of a render proof task looks at these forms at 360, 768 and 1440 in both schemes. Tasks 22.44.38, 22.44.39, 22.44.40 and 22.44.44 require task 22.44.52, whose measurements close them."
+basis = "Gotcha 4534. Decisions 3587, 3591 and 3616."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -174214,7 +174220,7 @@ title = "Close the developer dashboard on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.32", "22.44.37", "22.39.683", "22.44.49"]
+requires = ["22.44.32", "22.44.37", "22.39.683", "22.44.49", "22.44.52"]
 reqs = ["22998.1"]
 capabilities = ["22.44.44"]
 interfaces = []
@@ -174241,6 +174247,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3617, gotcha 4534. The tab row shows at each end where it continues at a width that does not hold the five tabs, and the selected tab is in view when a view opens. A row of the key list holds its two actions side by side, ending at the edge of the card, with the remaining count on a line of the row; at a narrow width the actions move below the text as a whole. A revoked key shows its mark and no remaining count. Add to the surface file the states of the keys view with an active and a revoked key, with the dialog of a new key secret and with the dialog that confirms a revocation, each taken after its opening motion has ended, and look at them at 360, 768 and 1440 in both schemes. The measurements of task 22.44.52 are in the tool: run the command again by hand and correct what it still reports before any counted run. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.43]
 title = "Close the human web application on the device list with the render check"
@@ -174346,7 +174353,7 @@ title = "Close the launchpad on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.22", "22.44.37", "22.44.50"]
+requires = ["22.44.22", "22.44.37", "22.44.50", "22.44.52"]
 reqs = ["22998.1"]
 capabilities = ["22.44.40"]
 interfaces = []
@@ -174379,7 +174386,7 @@ title = "Close the trading workspace on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.18", "22.44.37"]
+requires = ["22.44.18", "22.44.37", "22.44.52"]
 reqs = ["22998.1"]
 capabilities = ["22.44.39"]
 interfaces = []
@@ -174412,7 +174419,7 @@ title = "Close the explorer on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.11", "22.44.37"]
+requires = ["22.44.11", "22.44.37", "22.44.52"]
 reqs = ["22998.1"]
 capabilities = ["22.44.38"]
 interfaces = []
