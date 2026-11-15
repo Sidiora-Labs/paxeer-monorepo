@@ -22405,3 +22405,8 @@ fix = "Decision 3597. Task 22.39.680."
 title = "A surface is built before it is rendered, and a build reads more than the presentation"
 symptom = "The render check starts a surface with the command of its surface file, and that command builds the application first. The build of the wallet demo resolves the wallet package from its sources, whose imports name the compiled extension, through the configuration of its bundler and of its compiler. The build of the playground of the module tools compiles its sources with the type check before it copies its pages. A proof task whose paths hold only the presentation cannot bring such a build to a start."
 fix = "Decision 3598. Tasks 22.44.42 and 22.44.47."
+
+[gotcha.4517]
+title = "A method that reads a file needs a row of the file table, and a row is required by every start it applies to"
+symptom = "The start script of an image writes each row of its file table that applies to the role of the start from a variable into a file, and a start whose variable is missing ends. A row marked for every role is required by every start. The native table of the gateway holds the four files of the chain methods. The methods px_register and px_openSession read the address of the identity service, its token, the provisioning token, the tenant and a client identity, each from a variable or from a file; without them the two methods answer registration_not_configured and every other method serves as before. A definition that offers the two methods names their files in rows under a role of their own, so that a start without the role keeps its four files."
+fix = "Decision 3599. Task 22.39.681."
