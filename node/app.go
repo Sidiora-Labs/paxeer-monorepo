@@ -3017,11 +3017,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 
 	// GasWanted should be set to the transaction's gas limit to match standard executor behavior.
 	// This is critical for LastResultsHash computation which uses Code, Data, GasWanted, and GasUsed.
-	normalizer := app.EvmKeeper.GetPriorityNormalizer(ctx)
-	gasWanted := normalizer.MulInt64(int64(ethTx.Gas())).TruncateInt().Int64()                                 //nolint:gosec
-	meter := sdk.NewGasMeterWithMultiplier(ctx, uint64(gasWanted))                                             //nolint:gosec
-	meter.ConsumeGas(normalizer.MulInt64(int64(execResult.UsedGas)).TruncateInt().Uint64(), "evm transaction") //nolint:gosec
-	gasUsed := int64(meter.GasConsumed())                                                                      //nolint:gosec
+	gasWanted, gasUsed := gigaexecutor.TransactionGas(ctx, app.GigaEvmKeeper.GetPriorityNormalizer(ctx), ethTx.Gas(), execResult.UsedGas)
 
 	// Build Data field to match standard executor format.
 	// Standard path wraps MsgEVMTransactionResponse in TxMsgData.
