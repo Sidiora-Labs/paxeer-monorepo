@@ -34,7 +34,7 @@ export function SegmentedControl({
       role="tablist"
       className={cn(
         "flex w-full items-center rounded-full bg-surface-sunken p-1",
-        size === "sm" ? "h-9" : "h-11",
+        size === "sm" ? "min-h-9" : "min-h-11",
         className,
       )}
       {...aria}
@@ -50,7 +50,7 @@ export function SegmentedControl({
             onClick={() => onValueChange(opt.value)}
             className={cn(
               "flex h-full flex-1 items-center justify-center rounded-full font-semibold whitespace-nowrap transition-all outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
-              size === "sm" ? "px-3 text-label" : "px-4 text-sm",
+              size === "sm" ? "px-3 py-1 text-label" : "px-4 py-2 text-sm",
               active
                 ? "bg-surface text-foreground shadow-sm"
                 : "text-faint-foreground hover:text-muted-foreground",

@@ -219,13 +219,13 @@ export default function ChainWizard() {
       <ol aria-label="Launch a chain steps" className="flex gap-4 text-sm text-text-muted">
         {['Name', 'Size', 'Review and launch'].map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined}>{index + 1}. {label}</li>)}
       </ol>
-      {!address ? <Button onClick={() => openModal('Connect your wallet to launch a chain')}>Connect wallet</Button>
-        : chainId !== 125 ? <Button onClick={() => void switchChainAsync({ chainId: 125 }).catch(() => setError('Switch to Paxeer in your wallet to continue.'))}>Switch to Paxeer</Button> : null}
+      {!address ? <Button type="button" onClick={() => openModal('Connect your wallet to launch a chain')}>Connect wallet</Button>
+        : chainId !== 125 ? <Button type="button" onClick={() => void switchChainAsync({ chainId: 125 }).catch(() => setError('Switch to Paxeer in your wallet to continue.'))}>Switch to Paxeer</Button> : null}
       <section className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4">
         {step === 0 ? <>
           <h2 className="text-base font-semibold text-text">Name your chain</h2>
           <label htmlFor="chain-name" className="text-sm font-bold text-text">Chain name</label>
-          <input id="chain-name" value={name} maxLength={32} disabled={locked} autoCapitalize="none" autoCorrect="off" spellCheck={false}
+          <input id="chain-name" name="chainName" autoComplete="off" value={name} maxLength={32} disabled={locked} autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-describedby="chain-name-rule chain-name-status" aria-invalid={!!name && (!!validateChainName(name) || availability?.state === 'taken') || undefined}
             className="rounded-sm bg-surface-2 p-3 text-text" onChange={event => setName(event.target.value)} />
           <p id="chain-name-rule" className="text-xs text-text-muted">{nameRule}</p>
@@ -236,11 +236,11 @@ export default function ChainWizard() {
           </p>
           <h2 className="text-base font-semibold text-text">Name your token</h2>
           <label htmlFor="chain-token-name" className="text-sm font-bold text-text">Coin name</label>
-          <input id="chain-token-name" value={tokenName} maxLength={NAME_MAX_BYTES} disabled={locked}
+          <input id="chain-token-name" name="tokenName" autoComplete="off" value={tokenName} maxLength={NAME_MAX_BYTES} disabled={locked}
             className="rounded-sm bg-surface-2 p-3 text-text" onChange={event => setTokenName(event.target.value)} />
           <p className="text-xs text-text-muted">Name must be 1 to {NAME_MAX_BYTES} bytes.</p>
           <label htmlFor="chain-token-symbol" className="text-sm font-bold text-text">Ticker</label>
-          <input id="chain-token-symbol" value={tokenSymbol} maxLength={SYMBOL_MAX_BYTES} disabled={locked}
+          <input id="chain-token-symbol" name="tokenSymbol" autoComplete="off" value={tokenSymbol} maxLength={SYMBOL_MAX_BYTES} disabled={locked}
             autoCapitalize="none" autoCorrect="off" spellCheck={false}
             className="rounded-sm bg-surface-2 p-3 text-text" onChange={event => setTokenSymbol(event.target.value)} />
           <p className="text-xs text-text-muted">Ticker must be 1 to {SYMBOL_MAX_BYTES} bytes.</p>
@@ -275,7 +275,7 @@ export default function ChainWizard() {
             <p>Chain ID: <strong>{result.chainId}</strong></p>
             <p>Registry ID: {result.id}</p>
             <label htmlFor="chain-rpc">Chain node path</label>
-            <input id="chain-rpc" readOnly value={result.rpcUrl} className="w-full rounded-sm bg-surface-2 p-2 font-mono text-xs" />
+            <input id="chain-rpc" name="rpcUrl" autoComplete="off" readOnly value={result.rpcUrl} className="w-full rounded-sm bg-surface-2 p-2 font-mono text-xs" />
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void readyAction('copy')}>Copy RPC URL</Button>
               <Button onClick={() => void readyAction('wallet')}>Add to wallet</Button>

@@ -149,7 +149,7 @@ export function ViewAllChip({
     <button
       type="button"
       className={cn(
-        "inline-flex h-8 items-center rounded-full bg-surface border border-border px-3.5 text-label font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
+        "inline-flex min-h-8 items-center rounded-full bg-surface border border-border px-3.5 py-1 text-label font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
         className,
       )}
       {...props}

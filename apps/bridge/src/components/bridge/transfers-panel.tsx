@@ -74,7 +74,7 @@ async function enrichTransfers(list: Array<BridgeTransfer>): Promise<Array<Bridg
     }
     const enriched = enrichRecord(transfer, receipt);
     if (enriched !== transfer) {
-      updateTransfer(enriched.id, {
+      updateTransfer(stored.id, {
         logIndex: enriched.logIndex,
         nonce: enriched.nonce,
         bridgeOutNonce: enriched.bridgeOutNonce,

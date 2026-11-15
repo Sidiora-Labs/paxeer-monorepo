@@ -33,7 +33,12 @@ function reconcileImportedTransfer(transfer: BridgeTransfer, address: Address) {
   if (transfer.account.toLowerCase() !== address.toLowerCase()) {
     throw new Error('Connect the wallet that started this transfer to import it.');
   }
-  const existing = listTransfers().find((entry) => entry.id === transfer.id);
+  const existing = listTransfers().find((entry) => entry.id === transfer.id || (
+    entry.sourceTxHash.toLowerCase() === transfer.sourceTxHash.toLowerCase() &&
+    entry.direction === transfer.direction &&
+    entry.foreignChainId === transfer.foreignChainId &&
+    entry.logIndex === undefined && entry.bridgeOutNonce === undefined
+  ));
   const conflicts: Array<string> = [];
   if (existing) {
     for (const field of [ 'account', 'direction', 'foreignChainId', 'assetId', 'amount', 'recipient', 'bridgeOutNonce', 'logIndex', 'nonce', 'vault' ] as const) {

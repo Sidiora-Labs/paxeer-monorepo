@@ -23,6 +23,14 @@ func (k *Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	return k.GetParamsIfExists(ctx)
 }
 
+func (k *Keeper) GetSstoreSetGasEIP2200(ctx sdk.Context) uint64 {
+	sstore := k.GetParams(ctx).PaxSstoreSetGasEip2200
+	if sstore == 0 {
+		return 20000
+	}
+	return sstore
+}
+
 func (k *Keeper) GetParamsPreV580(ctx sdk.Context) (params types.ParamsPreV580) {
 	return k.GetParamsPreV580IfExists(ctx)
 }

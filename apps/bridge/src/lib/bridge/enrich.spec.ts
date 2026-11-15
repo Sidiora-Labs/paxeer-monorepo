@@ -1,11 +1,12 @@
 import { encodeAbiParameters, encodeEventTopics, zeroHash } from 'viem';
 import type { Address, Hex, Log, TransactionReceipt } from 'viem';
+
 import { expect, test } from 'vitest';
 
 import { LAYERX_BRIDGE_ADDRESS, layerxBridgeAbi, paxeerXVaultAbi } from './contracts';
 import { paxeerRecipient } from './digests';
 import { enrichRecord } from './enrich';
-import type { BridgeTransfer } from './transfers';
+import { transferIdOf, type BridgeTransfer } from './transfers';
 
 const vault: Address = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const account: Address = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -103,7 +104,7 @@ function enrichRecordIgnoresADepositLogForAnotherRecipient(): void {
 
   const matching = depositLog(recipient);
   const enriched = enrichRecord(transfer, { ...receipt, logs: [ wrongRecipient, wrongAsset, matching ] });
-  expect(enriched).toEqual({ ...transfer, logIndex: '7', nonce: '9' });
+  expect(enriched).toEqual({ ...transfer, id: transferIdOf('in', zeroHash, '8453', '7'), logIndex: '7', nonce: '9' });
   expect(transfer.logIndex).toBeUndefined();
   expect(enrichRecord(enriched, { ...receipt, logs: [ depositLog(other) ] })).toBe(enriched);
   expect(enrichRecord(transfer, receipt)).toBe(transfer);
@@ -122,7 +123,7 @@ function enrichRecordReadsTheBridgeOutNonce(): void {
 
   expect(LAYERX_BRIDGE_ADDRESS).toBe('0x0000000000000000000000000000000000001016');
   const enriched = enrichRecord(withdrawal, bridgeReceipt);
-  expect(enriched).toEqual({ ...withdrawal, bridgeOutNonce: '42' });
+  expect(enriched).toEqual({ ...withdrawal, id: transferIdOf('out', zeroHash, '8453', '42'), bridgeOutNonce: '42' });
   expect(withdrawal.bridgeOutNonce).toBeUndefined();
   expect(enrichRecord(withdrawal, { ...bridgeReceipt, logs: [ impostor ] })).toBe(withdrawal);
   expect(enrichRecord(withdrawal, receipt)).toBe(withdrawal);

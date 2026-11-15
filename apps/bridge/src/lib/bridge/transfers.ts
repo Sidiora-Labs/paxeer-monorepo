@@ -5,6 +5,7 @@
  * this store. Legacy v1 identities are upgraded in place on read.
  */
 import { isAddress, type Address, type Hex } from 'viem';
+
 import type { SettlementStatus } from './settlement';
 import { solanaRecipientHandle } from './solana';
 
@@ -139,14 +140,12 @@ export function saveTransfer(transfer: BridgeTransfer): void {
   transfer = { ...transfer, id: canonicalIdOf(transfer) };
   const account = transfer.account.toLowerCase();
   const stored = readAll();
+  const eventId = transferEventId(transfer);
   const replaces = (t: BridgeTransfer) => t.account.toLowerCase() === account &&
-    (t.id === transfer.id || (t.id === transferIdOf(t.direction, t.sourceTxHash, t.foreignChainId) &&
-      t.direction === transfer.direction && t.foreignChainId === transfer.foreignChainId &&
-      t.sourceTxHash.toLowerCase() === transfer.sourceTxHash.toLowerCase() &&
-      t.assetId.toLowerCase() === transfer.assetId.toLowerCase() && t.amount === transfer.amount &&
-      (t.foreignChainKey === 'solana' ? t.recipient === transfer.recipient :
-        t.recipient.toLowerCase() === transfer.recipient.toLowerCase())));
+    (t.id === transfer.id || (sameTransferIdentity(t, transfer) &&
+      (transferEventId(t) === undefined || eventId === undefined || transferEventId(t) === eventId)));
   transfer = { ...stored.find(replaces), ...transfer };
+  transfer = { ...transfer, id: canonicalIdOf(transfer) };
   const all = stored.filter((t) => !replaces(t));
   const own = [ transfer, ...all.filter((t) => t.account.toLowerCase() === account) ]
     .sort((a, b) => b.submittedAt - a.submittedAt)
@@ -169,6 +168,20 @@ export function updateTransfer(id: string, patch: Partial<BridgeTransfer>): void
 function canonicalIdOf(transfer: BridgeTransfer): string {
   return transferIdOf(transfer.direction, transfer.sourceTxHash, transfer.foreignChainId,
     transfer.direction === 'in' ? transfer.logIndex : transfer.bridgeOutNonce);
+}
+
+function transferEventId(transfer: BridgeTransfer): string | undefined {
+  return transfer.direction === 'in' ? transfer.logIndex : transfer.bridgeOutNonce;
+}
+
+function sameTransferIdentity(a: BridgeTransfer, b: BridgeTransfer): boolean {
+  return a.direction === b.direction &&
+    a.foreignChainId === b.foreignChainId &&
+    a.sourceTxHash.toLowerCase() === b.sourceTxHash.toLowerCase() &&
+    a.assetId.toLowerCase() === b.assetId.toLowerCase() &&
+    a.amount === b.amount &&
+    (a.foreignChainKey === 'solana' ? a.recipient === b.recipient :
+      a.recipient.toLowerCase() === b.recipient.toLowerCase());
 }
 
 export function transferIdOf(

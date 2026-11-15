@@ -62,7 +62,7 @@ export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, ban
     <header className={cn('rounded-lg bg-surface-1 pb-4', className)}>
       <div data-profile-banner className="relative h-[100px] overflow-hidden bg-surface-2 md:h-[200px] xl:h-[240px]">
         {loading ? <Skeleton variant="block" className="size-full rounded-none" /> : showBanner ? (
-          <img src={bannerUrl as string} alt="" className="size-full object-cover" onError={() => setBannerFailed(true)} />
+          <img src={bannerUrl as string} alt="" width={1440} height={240} decoding="async" className="size-full object-cover" onError={() => setBannerFailed(true)} />
         ) : null}
         {isOwner && onEdit ? (
           <IconButton label="Change banner" icon={<Camera />} variant="on-media" onClick={() => onEdit('banner')} className="absolute right-3 top-3" />

@@ -120,7 +120,7 @@ export function LeaderboardView({ rail, className }: LeaderboardViewProps) {
     <div className={cn('mx-auto w-full max-w-content-narrow-max-width px-4 pb-16 pt-4 sm:px-6', className)}>
       <div className={cn('grid gap-6', rail && wide && 'xl:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width-wide)]')}>
         <div className="min-w-0">
-          <h1 className="h-14 text-[22px] font-bold leading-[56px] text-text sm:text-xl sm:leading-[56px]">Leaderboard</h1>
+          <h1 className="flex h-header-height items-center text-xl font-bold text-text">Leaderboard</h1>
           <UnderlineTabs tabs={tabs} active={tab} onChange={changeTab} label="Leaderboard sections" idPrefix={tabIdPrefix} manual className={tabStripClass} />
           <div className="mt-4">
             {tab === 'traders' ? (

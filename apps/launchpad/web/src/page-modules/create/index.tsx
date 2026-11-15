@@ -50,8 +50,10 @@ export function CreatePageFallback() {
 
 export default function CreateModule() {
   return (
-    <Suspense fallback={<CreatePageFallback />}>
-      <CreateWizard />
-    </Suspense>
+    <div data-create-route className="min-w-0">
+      <Suspense fallback={<CreatePageFallback />}>
+        <CreateWizard />
+      </Suspense>
+    </div>
   );
 }
