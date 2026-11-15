@@ -174325,7 +174325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.23]
 title = "Bring the screens of the launchpad mobile application to one scale on every phone and tablet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246531,7 +246531,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.666]
 title = "Divide the eligible wallets of the custody ceremony by the state of their identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
