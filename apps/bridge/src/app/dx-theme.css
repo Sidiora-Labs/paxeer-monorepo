@@ -24,6 +24,7 @@
   --spacing-14: 3.5rem;
   --spacing-16: 4rem;
   --spacing-20: 5rem;
+  --touch-target: 2.75rem;
 
   --text-unit: 0.85em;
   --text-caption: clamp(0.75rem, 0.72rem + 0.1vw, 0.8125rem);
