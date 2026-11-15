@@ -1,65 +1,31 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Children, cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from 'react'
+import { CopyButton } from './CopyButton'
 
-export function CodeBlockWrapper() {
-  useEffect(() => {
-    const addCopyButtons = () => {
-      const codeBlocks = document.querySelectorAll('pre')
-      
-      codeBlocks.forEach((pre) => {
-        if (pre.dataset.copyManaged || pre.querySelector('.copy-button')) return
+function plainText(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (isValidElement<{ children?: ReactNode }>(node)) return plainText(node.props.children)
+  return Children.toArray(node).map(plainText).join('')
+}
 
-        const button = document.createElement('button')
-        button.className = 'copy-button'
-        button.type = 'button'
-        button.setAttribute('aria-label', 'Copy code')
-        button.title = 'Copy code'
-        
-        const iconCopy = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.7"/></svg>`
-        const iconCheck = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-        
-        button.innerHTML = iconCopy
-        
-        button.addEventListener('click', async () => {
-          const code = pre.querySelector('code')
-          const text = code?.textContent || ''
-          
-          try {
-            await navigator.clipboard.writeText(text)
-            button.innerHTML = iconCheck
-            setTimeout(() => {
-              button.innerHTML = iconCopy
-            }, 2000)
-          } catch (err) {
-            const field = document.createElement('textarea')
-            field.value = text
-            field.style.position = 'fixed'
-            field.style.opacity = '0'
-            document.body.appendChild(field)
-            field.select()
-            document.execCommand('copy')
-            field.remove()
-            button.innerHTML = iconCheck
-            setTimeout(() => {
-              button.innerHTML = iconCopy
-            }, 2000)
-          }
-        })
-        
-        pre.style.position = 'relative'
-        pre.classList.add('group')
-        pre.appendChild(button)
-      })
+export function CodeBlockWrapper({ children, label }: { children: ReactNode; label: string }): ReactNode {
+  return Children.map(children, child => {
+    if (!isValidElement<{ children?: ReactNode; scope?: string; 'data-copy-managed'?: string }>(child) || typeof child.type !== 'string') return child
+    if (child.type === 'pre') {
+      if (child.props['data-copy-managed']) return child
+      return <ManagedCodeBlock element={child} label={label} />
     }
+    if (child.type === 'table') return <div className="table-scroll" role="region" aria-label={`${label} table`} tabIndex={0}>{cloneElement(child, {}, <CodeBlockWrapper label={label}>{child.props.children}</CodeBlockWrapper>)}</div>
+    if (child.type === 'th') return cloneElement(child, { scope: child.props.scope || 'col' }, child.props.children)
+    if (child.type === 'td' && /^[-+]?\d[\d,.%\s]*$/.test(plainText(child.props.children).trim())) return cloneElement(child, { 'data-numeric': true } as React.HTMLAttributes<HTMLElement>, child.props.children)
+    if (child.props.children == null) return child
+    return cloneElement(child, {}, <CodeBlockWrapper label={label}>{child.props.children}</CodeBlockWrapper>)
+  })
+}
 
-    addCopyButtons()
-    
-    const observer = new MutationObserver(addCopyButtons)
-    observer.observe(document.body, { childList: true, subtree: true })
-    
-    return () => observer.disconnect()
-  }, [])
-
-  return null
+function ManagedCodeBlock({ element, label }: { element: ReactElement<{ children?: ReactNode; id?: string }>; label: string }) {
+  const generated = useId()
+  const targetId = element.props.id || 'code-' + generated
+  return <div className="code-block-frame"><div className="code-block-tools"><CopyButton targetId={targetId} resetKey={plainText(element.props.children)} /></div>{cloneElement(element, { id: targetId, tabIndex: 0, role: 'region', 'aria-label': `${label} code example` } as React.HTMLAttributes<HTMLElement>)}</div>
 }

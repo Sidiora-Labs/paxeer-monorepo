@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { CodeBlockWrapper } from './CodeBlockWrapper'
 import { Sidebar } from './Sidebar'
 import { CopyForAgent } from './CopyForAgent'
 import { navStructure, pageTitleForPath } from './nav'
@@ -46,7 +47,7 @@ export function DocsLayout({ children }: { children: ReactNode }) {
     const observer = new IntersectionObserver(changes => {
       const visible = changes.filter(entry => entry.isIntersecting)
       if (visible[0]) setActive(visible[0].target.id)
-    }, { rootMargin: '-100px 0px -60% 0px' })
+    }, { rootMargin: `-${document.querySelector('.site-header')?.getBoundingClientRect().height ?? 0}px 0px -60% 0px` })
     nodes.forEach(node => observer.observe(node))
     const frame = requestAnimationFrame(() => {
       if (window.location.hash) document.getElementById(decodeURIComponent(window.location.hash.slice(1)))?.scrollIntoView()
@@ -62,7 +63,7 @@ export function DocsLayout({ children }: { children: ReactNode }) {
       <div className="docs-reading-grid">
         <div className="article-column">
           <details className="mobile-toc"><summary>On this page</summary>{contents}</details>
-          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(pathname) }} /><DocFigure key={pathname} {...topicFigure} /><article ref={article} className="article">{children}</article>
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(pathname) }} /><DocFigure key={pathname} {...topicFigure} /><article id="documentation-article" ref={article} className="article"><CodeBlockWrapper label={pageTitle}>{children}</CodeBlockWrapper></article>
           {related.length > 0 && <section className="doc-related" aria-label="Continue exploring"><p>Continue exploring</p><DocFigure kind="branches" label="Connected paths representing related documentation" caption="Follow the connections across Paxeer X." compact /><div className="doc-related-links">{related.map(item => <Link key={item.href} href={item.href}>{item.title} <span aria-hidden="true">↗</span></Link>)}</div></section>}
           <div className="docs-bottom"><span>Paxeer X · System documentation</span><a href="#main-content">Back to top ↑</a></div>
         </div>
