@@ -1,0 +1,78 @@
+[manifest]
+task = "22.44.43"
+surface = "LayerX human web device list"
+paths = ["apps/web/packages/layerx-ui", "apps/web/src", "tools/ui-check/surfaces/human-web"]
+status = "served"
+
+[inventory]
+routes = 2
+views = 6
+states = ["filled", "empty", "error"]
+
+[render]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+renders = 204
+result = "pass"
+
+[review]
+screenshots = 60
+widths = [360, 768, 1440, 2560, "844x390"]
+schemes = ["light", "dark"]
+corrected = ["device timestamps wrap within their row", "list trailing content stays within the card", "active navigation and search controls use accent treatment", "closed technical details do not expose clipped content", "mobile navigation retains focus across updates and draws the token outline", "technical-details focus outlines remain visible", "route announcements stay within the viewport", "error actions retain readable primary-button text"]
+
+[view.settings_devices]
+route = "/app/settings/devices"
+states = ["filled", "empty", "error"]
+renders = 102
+
+[view.security_devices]
+route = "/app/security/devices"
+states = ["filled", "empty", "error"]
+renders = 102
+
+[guide.css]
+id = "css"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.html]
+id = "html"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.color]
+id = "color"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]
+
+[guide.natural_interactions]
+id = "natural-interactions"
+directories = ["apps/web/packages/layerx-ui", "apps/web/src"]

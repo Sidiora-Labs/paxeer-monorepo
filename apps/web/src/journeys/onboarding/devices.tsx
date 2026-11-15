@@ -78,14 +78,14 @@ export function DeviceList() {
             subtitle: (
               <>
                 {session.device.platform} ·{" "}
-                <time dateTime={session.opened_at}>
+                <time className="block max-w-full whitespace-normal" dateTime={session.opened_at}>
                   {formatCopy("device.opened", { when: time(session.opened_at) })}
                 </time>
               </>
             ),
             trailing: session.current ? copyEntry("device.current").message : undefined,
             trailingCaption: (
-              <time dateTime={session.last_active_at}>
+              <time className="block max-w-full whitespace-normal" dateTime={session.last_active_at}>
                 {formatCopy("device.last_active", { when: time(session.last_active_at) })}
               </time>
             ),

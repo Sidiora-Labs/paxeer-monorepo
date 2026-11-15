@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "trace": "trc_00000000000000000000000000000004",
+  "error": {
+    "code": "unavailable",
+    "copy_key": "state.error.body",
+    "retry": "retriable"
+  }
+}
