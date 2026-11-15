@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Focusable panel</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  #panel { height: calc(100vh + 200px); padding: 16px; }
+  #panel:focus-visible { outline-offset: -3px; }
+</style>
+<body>
+<section id="panel" tabindex="0" aria-label="Panel"><p>Panel content</p></section>
+<script>
+  const parameters = new URLSearchParams(location.search);
+  if (parameters.has("small")) {
+    document.getElementById("panel").remove();
+    const control = document.createElement("button");
+    control.id = "control";
+    control.textContent = "Action";
+    control.style.cssText = "position:fixed;bottom:-24px;left:16px";
+    document.body.append(control);
+  }
+  if (parameters.has("unmarked")) {
+    const style = document.createElement("style");
+    style.textContent = "#panel:focus-visible { outline: none; }";
+    document.head.append(style);
+  }
+</script>
+</body>
+</html>
