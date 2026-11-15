@@ -1,6 +1,6 @@
-import type { AddressParam } from './addressParams';
-import type { TokenInfo } from './token';
-import type { Erc721TotalPayload } from './tokenTransfer';
+import type { AddressParam } from "./addressParams";
+import type { TokenInfo } from "./token";
+import type { Erc721TotalPayload } from "./tokenTransfer";
 
 export type TxStateChange = (TxStateChangeCoin | TxStateChangeToken) & {
   address: AddressParam;
@@ -10,23 +10,26 @@ export type TxStateChange = (TxStateChangeCoin | TxStateChangeToken) & {
 };
 
 export interface TxStateChangeCoin {
-  type: 'coin';
+  type: "coin";
   change: string;
   token: null;
 }
 
-export type TxStateChangeToken = TxStateChangeTokenErc20 | TxStateChangeTokenErc721 | TxStateChangeTokenErc1155;
+export type TxStateChangeToken =
+  | TxStateChangeTokenErc20
+  | TxStateChangeTokenErc721
+  | TxStateChangeTokenErc1155;
 
-type ChangeDirection = 'from' | 'to';
+type ChangeDirection = "from" | "to";
 
 export interface TxStateChangeTokenErc20 {
-  type: 'token';
+  type: "token";
   token: TokenInfo;
   change: string;
 }
 
 export interface TxStateChangeTokenErc721 {
-  type: 'token';
+  type: "token";
   token: TokenInfo;
   change: Array<{
     direction: ChangeDirection;
@@ -35,14 +38,14 @@ export interface TxStateChangeTokenErc721 {
 }
 
 export interface TxStateChangeTokenErc1155 {
-  type: 'token';
+  type: "token";
   token: TokenInfo;
   change: string;
   token_id: string;
 }
 
 export interface TxStateChangeTokenErc404 {
-  type: 'token';
+  type: "token";
   token: TokenInfo;
   change: string;
   token_id: string;

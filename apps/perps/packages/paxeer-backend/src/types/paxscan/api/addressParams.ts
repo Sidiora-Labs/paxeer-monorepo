@@ -1,5 +1,5 @@
-import type { AddressMetadataTagApi } from './addressMetadata';
-import type { TokenReputation } from './token';
+import type { AddressMetadataTagApi } from "./addressMetadata";
+import type { TokenReputation } from "./token";
 
 export interface AddressImplementation {
   address_hash: string;
@@ -25,22 +25,22 @@ export type AddressFilecoinParams = {
 };
 
 export type FilecoinActorType =
-  'account' |
-  'cron' |
-  'datacap' |
-  'eam' |
-  'ethaccount' |
-  'evm' |
-  'init' |
-  'market' |
-  'miner' |
-  'multisig' |
-  'paych' |
-  'placeholder' |
-  'power' |
-  'reward' |
-  'system' |
-  'verifreg';
+  | "account"
+  | "cron"
+  | "datacap"
+  | "eam"
+  | "ethaccount"
+  | "evm"
+  | "init"
+  | "market"
+  | "miner"
+  | "multisig"
+  | "paych"
+  | "placeholder"
+  | "power"
+  | "reward"
+  | "system"
+  | "verifreg";
 
 export interface UserTags {
   private_tags: Array<AddressTag> | null;

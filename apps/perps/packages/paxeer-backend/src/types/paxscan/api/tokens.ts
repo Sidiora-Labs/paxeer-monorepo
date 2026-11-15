@@ -1,5 +1,5 @@
-import type { TokenInfo, TokenType } from './token';
-import type { TokenTransfer } from './tokenTransfer';
+import type { TokenInfo, TokenType } from "./token";
+import type { TokenTransfer } from "./tokenTransfer";
 
 export type TokensResponse = {
   items: Array<TokenInfo>;
@@ -13,7 +13,10 @@ export type TokensResponse = {
 
 export type TokensFilters = { q: string; type: Array<TokenType> | undefined };
 
-export type TokensBridgedFilters = { q: string; chain_ids: Array<string> | undefined };
+export type TokensBridgedFilters = {
+  q: string;
+  chain_ids: Array<string> | undefined;
+};
 
 export interface TokenInstanceTransferResponse {
   items: Array<TokenTransfer>;
@@ -28,10 +31,12 @@ export interface TokenInstanceTransferPagination {
 }
 
 export interface TokensSorting {
-  sort: 'fiat_value' | 'holders_count' | 'circulating_market_cap';
-  order: 'asc' | 'desc';
+  sort: "fiat_value" | "holders_count" | "circulating_market_cap";
+  order: "asc" | "desc";
 }
 
-export type TokensSortingField = TokensSorting['sort'];
+export type TokensSortingField = TokensSorting["sort"];
 
-export type TokensSortingValue = `${ TokensSortingField }-${ TokensSorting['order'] }` | 'default';
+export type TokensSortingValue =
+  | `${TokensSortingField}-${TokensSorting["order"]}`
+  | "default";

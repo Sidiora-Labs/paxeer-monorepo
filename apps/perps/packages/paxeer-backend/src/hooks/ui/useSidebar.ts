@@ -19,6 +19,6 @@ export const useSidebar = create<SidebarStore>()(
       setCollapsed: (collapsed) => set({ collapsed }),
       toggle: () => set((s) => ({ collapsed: !s.collapsed })),
     }),
-    { name: "paxeer-sidebar-collapsed" }
-  )
+    { name: "paxeer-sidebar-collapsed" },
+  ),
 );

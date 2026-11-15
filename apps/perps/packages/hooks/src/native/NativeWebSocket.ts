@@ -112,14 +112,16 @@ export class NativeWebSocket extends EventEmitter {
     if (symbol && (name.includes("orderbook") || requestType === "orderbook")) {
       stopPoll = this.streams.subscribeNativeOrderbook(
         toNativeSymbol(symbol),
-        (book) =>
+        (book) => {
+          if (!book) return;
           emit({
             symbol,
             snapshot: true,
             ts: book.ts,
             asks: book.asks.map((level) => [level.price, level.size]),
             bids: book.bids.map((level) => [level.price, level.size]),
-          }),
+          });
+        },
       );
     } else if (symbol && (name.includes("trade") || requestType === "trade")) {
       const seen = new Set<string>();

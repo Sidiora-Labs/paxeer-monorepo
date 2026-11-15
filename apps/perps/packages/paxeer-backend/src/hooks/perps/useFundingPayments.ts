@@ -16,7 +16,10 @@ export function useFundingPayments(params?: {
   limit?: number;
   offset?: number;
 }) {
-  return useSharedPolledQuery<{ fundingPayments: FundingPayment[] }, FundingPayment[]>({
+  return useSharedPolledQuery<
+    { fundingPayments: FundingPayment[] },
+    FundingPayment[]
+  >({
     endpoint: INDEXER_GRAPHQL,
     query: FUNDING_PAYMENTS_QUERY,
     variables: {

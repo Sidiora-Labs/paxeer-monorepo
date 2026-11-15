@@ -1,0 +1,173 @@
+/**
+ * Venue funding rate for Paxeer Perps markets.
+ *
+ * The venue ticker sends `last_funding_rate_hourly`: the last settled hourly
+ * funding rate as an exact decimal string (a fraction, "0.0001" = 0.01%).
+ * It is held as an 18-decimal bigint (1e18 = 1.0), never as a float. The
+ * 24h figure is that settled hourly rate × 24, a projection of the last
+ * settlement and not an estimate of the next one.
+ */
+
+import { formatWadFixed, wadToDecimal } from "./pnlHelpers";
+
+/** Decimals of the fixed-point funding rate: 1e18 = a rate of 1.0. */
+export const FUNDING_RATE_DECIMALS = 18;
+const SCALE = 10n ** BigInt(FUNDING_RATE_DECIMALS);
+const HOURS_PER_DAY = 24n;
+const EXACT_DECIMAL = /^(-?)(\d+)(?:\.(\d{1,18}))?$/;
+
+export const FUNDING_LABEL_1H = "last settled funding (1h)";
+export const FUNDING_LABEL_24H = "last settled funding (1h) ×24 projection";
+export const FUNDING_LABEL_PREDICTED = "Pred. funding rate";
+
+/** The venue ticker fields the quoter reads. */
+export interface VenueTicker {
+  index_price?: number | null;
+  mark_price?: number | null;
+  last_funding_rate_hourly?: string | null;
+}
+
+/**
+ * Parses the venue's hourly rate string to the 18-decimal scale. Anything
+ * that is not a plain decimal with at most 18 fractional digits throws, so a
+ * missing, renamed or inexact field never reads as zero.
+ */
+export function parseFundingRateHourly(v: string | null | undefined): bigint {
+  const m = typeof v === "string" ? EXACT_DECIMAL.exec(v) : null;
+  if (!m)
+    throw new Error(
+      `last_funding_rate_hourly is not an exact decimal string: ${String(v)}`,
+    );
+  const abs =
+    BigInt(m[2]) * SCALE +
+    BigInt((m[3] ?? "").padEnd(FUNDING_RATE_DECIMALS, "0"));
+  return m[1] ? -abs : abs;
+}
+
+/** The settled hourly rate × 24, exact. */
+export function projectFunding24h(hourly: bigint): bigint {
+  return hourly * HOURS_PER_DAY;
+}
+
+/** A rate as a percent with `dp` decimals ("0.0100%"), rounded half away from zero. */
+export function formatFundingRatePct(rate: bigint, dp = 4): string {
+  return `${formatWadFixed(rate * 100n, dp)}%`;
+}
+
+/** An 18-decimal rate as its signed percent and the exact value's sign; null is a dash with a null sign. */
+export function fundingWadFigure(rate: bigint | null): {
+  text: string;
+  sign: -1 | 0 | 1 | null;
+} {
+  const decimal = fundingWadDecimal(rate);
+  return {
+    text: formatSignedFundingDecimalPct(decimal),
+    sign: fundingDecimalSign(decimal),
+  };
+}
+
+/** The two labelled funding figures a display shows for one hourly rate; a missing rate keeps both labels with dashes. */
+export function fundingFigures(
+  hourly: bigint | null,
+): { label: string; text: string; sign: -1 | 0 | 1 | null }[] {
+  return [
+    { label: FUNDING_LABEL_1H, ...fundingWadFigure(hourly) },
+    {
+      label: FUNDING_LABEL_24H,
+      ...fundingWadFigure(hourly === null ? null : projectFunding24h(hourly)),
+    },
+  ];
+}
+
+const PLAIN_DECIMAL = /^(-?)(\d+)(?:\.(\d+))?$/;
+
+/**
+ * A funding rate the server sends as a JSON number (the symbol socket's
+ * perp_stats funding_rate and last_funding_rate, and the GraphQL Float
+ * last_funding_rate) as an exact plain decimal string. JSON.parse does not
+ * expose the number's text, so this writes the parsed double's shortest
+ * round-trip digits, which are the digits the server's encoder emitted for
+ * that value, without exponent and without any float arithmetic. A string
+ * already in exact decimal form passes unchanged; null, missing, non-finite or
+ * any other value is null, never zero.
+ */
+export function fundingRateFromJsonNumber(v: unknown): string | null {
+  if (typeof v === "string") return PLAIN_DECIMAL.test(v) ? v : null;
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  const [mantissa, exp] = String(v).split("e");
+  if (exp === undefined) return mantissa;
+  const sign = mantissa.startsWith("-") ? "-" : "";
+  const [int, frac = ""] = mantissa.replace("-", "").split(".");
+  const digits = int + frac;
+  const point = int.length + +exp;
+  if (point <= 0) return `${sign}0.${"0".repeat(-point)}${digits}`;
+  if (point >= digits.length)
+    return `${sign}${digits}${"0".repeat(point - digits.length)}`;
+  return `${sign}${digits.slice(0, point)}.${digits.slice(point)}`;
+}
+
+/** An exact decimal rate string as a percent with `dp` decimals, rounded half away from zero; null or malformed is a dash. */
+export function formatFundingDecimalPct(v: string | null, dp = 4): string {
+  const m = v === null ? null : PLAIN_DECIMAL.exec(v);
+  if (!m) return "—";
+  const frac = m[3] ?? "";
+  const units = BigInt(m[2] + frac) * 100n;
+  const drop = frac.length - dp;
+  const unit = 10n ** BigInt(Math.max(drop, 0));
+  const scaled =
+    drop <= 0 ? units * 10n ** BigInt(-drop) : (units + unit / 2n) / unit;
+  const step = 10n ** BigInt(dp);
+  const body =
+    dp > 0
+      ? `${scaled / step}.${(scaled % step).toString().padStart(dp, "0")}`
+      : `${scaled}`;
+  return `${m[1] && scaled > 0n ? "-" : ""}${body}%`;
+}
+
+/** The sign of an exact decimal rate string (-1, 0 or 1); null or malformed is null. */
+export function fundingDecimalSign(v: string | null): -1 | 0 | 1 | null {
+  const m = v === null ? null : PLAIN_DECIMAL.exec(v);
+  if (!m) return null;
+  if (!/[1-9]/.test(m[2] + (m[3] ?? ""))) return 0;
+  return m[1] ? -1 : 1;
+}
+
+/** formatFundingDecimalPct with the exact value's sign kept: "+0.0100%", "-0.0000%" for a tiny negative, "0.0000%" for zero. */
+export function formatSignedFundingDecimalPct(
+  v: string | null,
+  dp = 4,
+): string {
+  const sign = fundingDecimalSign(v);
+  if (sign === null || v === null) return "—";
+  return `${sign < 0 ? "-" : sign > 0 ? "+" : ""}${formatFundingDecimalPct(v.replace(/^-/, ""), dp)}`;
+}
+
+/**
+ * The mobile funding row: the symbol socket's predicted rate only when its
+ * stats carry one, otherwise the venue's last settled hourly rate. The
+ * server's perp_stats body has no funding_rate today, so a connected socket
+ * must not hide the settled rate the ticker holds.
+ */
+export function fundingRowFigure(
+  socketRate: string | null | undefined,
+  venueHourly: bigint | null,
+): { label: string; text: string; sign: -1 | 0 | 1 } {
+  const rate = socketRate ?? fundingWadDecimal(venueHourly);
+  return {
+    label: socketRate != null ? FUNDING_LABEL_PREDICTED : FUNDING_LABEL_1H,
+    text: formatSignedFundingDecimalPct(rate),
+    sign: fundingDecimalSign(rate) ?? 0,
+  };
+}
+
+/** An on-chain 18-decimal integer rate string (the subgraph's fundingRate24h) as a bigint; null or malformed is null, never zero. */
+export function parseFundingRateWad(
+  v: string | null | undefined,
+): bigint | null {
+  return typeof v === "string" && /^-?\d+$/.test(v) ? BigInt(v) : null;
+}
+
+/** An 18-decimal rate as the exact decimal string formatSignedFundingDecimalPct and fundingDecimalSign read; null stays null. */
+export function fundingWadDecimal(rate: bigint | null): string | null {
+  return rate === null ? null : wadToDecimal(rate);
+}
