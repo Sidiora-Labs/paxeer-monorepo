@@ -14566,6 +14566,12 @@ value = "The command launchpad-schema under sdk/launchpad/shared/db/production/c
 basis = "Gotcha 4494. The loaders of the services and of sdk/launchpad/shared/db/production are the authority for the form of each document."
 affects = []
 
+[decision.3576]
+title = "The launchpad and wallet test jobs call each tool in its present form"
+value = "In .github/workflows/launchpad-test.yml the health commands of the service containers are written in a form the container tool reads as one command, the package step selects exactly one project of the workspace for each entry of its matrix, and the tests under tests/ci name the fixture directories that are in the tree. Every Go build of the joined services fixture of the launchpad web tests runs with the workspace off, and a fixture step that ends with a status other than zero reports the last lines of its log in its message. A case that takes its input through a flag from a proof skips with its reason when the flag is empty and runs unchanged when the proof passes it. A proof step that runs a command calls it with its present options and asserts an answer that comes from the parties of the proof, not from the reading of the options."
+basis = "Gotcha 4495. Decision 2501 names the cases whose inputs come from a producer."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44226,6 +44232,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.654]
+title = "Call the load test command of the wallet attestor proof with the options the command requires"
+reqs = ["22998.1"]
+touches = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go"]
+tests = []
+verification_contract = "cd services/wallet/attestor && CGO_ENABLED=1 go test -count=1 ./internal/server/ -run TestProofS28WalletAttestorsTss"
+do_1 = "do_1 Gotcha 4495, decision 3576. Read the function proofS28Loadtest and its caller in services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go, the files main.go and manifest.go of services/wallet/attestor/cmd/loadtest with the tests beside them, and the attestor job of .github/workflows/wallet-go-test.yml."
+symbols = []
+
+[capability.22.39.653]
+title = "Skip the wallet policy case of the web search application proof when the proof passes no calldata"
+reqs = ["22998.1"]
+touches = ["services/wallet/attestor/internal/policy/policy_test.go"]
+tests = []
+verification_contract = "cd services/wallet/attestor && go test -count=1 ./internal/policy/"
+do_1 = "do_1 Gotcha 4495, decisions 3576 and 2501. Read the case TestXweb0x1019ApplicationPolicy and the flag xweb-proof-calldata in services/wallet/attestor/internal/policy/policy_test.go, and in precompiles/xweb/proof_xweb_0x1019_test.go the call that runs this case with the flag."
+symbols = []
+
+[capability.22.39.652]
+title = "Run every Go build of the joined services fixture of the launchpad web tests with the workspace off"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading/run-joined-services.py", "apps/launchpad/web/scripts/prepare-test-environment.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_joined_builds.py && (cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go build -o /dev/null ./cmd/stats-migrate)"
+do_1 = "do_1 Gotcha 4495, decision 3576. Read apps/launchpad/web/src/widgets/trading/run-joined-services.py from the loop that builds the five services to the step that builds and runs the migration command of the stats service, the method run of the fixture owner in apps/launchpad/web/scripts/prepare-test-environment.py, and the Go version lines of services/launchpad/go.work and of the go.mod of the stats service."
+symbols = []
+
+[capability.22.39.651]
+title = "Write the service health commands and the package selection of the launchpad test workflow in the form their tools read"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci/test_launchpad_go_tests_wired.py", "tests/ci/test_launchpad_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py", "tests/ci/test_js_suites_have_runner.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py"
+do_1 = "do_1 Gotcha 4495, decision 3576. Read .github/workflows/launchpad-test.yml whole, the cases of tests/ci/test_launchpad_go_tests_wired.py, tests/ci/test_launchpad_test_workflow.py, tests/ci/test_pnpm_workspace_roots.py and tests/ci/test_js_suites_have_runner.py that read it, and apps/launchpad/pnpm-workspace.yaml with the field packageManager of apps/launchpad/package.json."
+symbols = []
 
 [capability.22.39.650]
 title = "Compose the startup documents of the launchpad livestream service"
@@ -197587,6 +197629,102 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.654]
+title = "Call the load test command of the wallet attestor proof with the options the command requires"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.654"]
+interfaces = []
+do_1 = "do_1 Gotcha 4495, decision 3576. Read the function proofS28Loadtest and its caller in services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go, the files main.go and manifest.go of services/wallet/attestor/cmd/loadtest with the tests beside them, and the attestor job of .github/workflows/wallet-go-test.yml."
+do_2 = "do_2 The command requires a manifest path and one of the phases export, generate and sign, and the proof step still calls it without them, so the command ends while it reads its options. Write the step so that it calls the command in its present form with the attestors of the proof and asserts an answer that comes from those attestors: the inventory refusal with the code the step names today where the phases reach it. Where the number of attestors of the proof cannot satisfy a rule of the command, bring the proof to the number the command requires if the helpers of the file allow it; if they do not, assert the exact refusal of that rule by its message and state the reason in one comment line. An assertion that any error at all satisfies is not enough."
+do_3 = "do_3 Change only the test file. If the command itself is wrong, change nothing there and give file, function and first message in the final message."
+do_4 = "do_4 Before the verification install what the attestor job installs before its test step, in the order of the job, and set the variables its test step sets."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/attestor && go vet ./internal/server/ ./cmd/loadtest/"
+verify_cmd = "cd services/wallet/attestor && CGO_ENABLED=1 go test -count=1 ./internal/server/ -run TestProofS28WalletAttestorsTss"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.652]
+title = "Run every Go build of the joined services fixture of the launchpad web tests with the workspace off"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.652"]
+interfaces = []
+do_1 = "do_1 Gotcha 4495, decision 3576. Read apps/launchpad/web/src/widgets/trading/run-joined-services.py from the loop that builds the five services to the step that builds and runs the migration command of the stats service, the method run of the fixture owner in apps/launchpad/web/scripts/prepare-test-environment.py, and the Go version lines of services/launchpad/go.work and of the go.mod of the stats service."
+do_2 = "do_2 The five service builds run with the environment that turns the workspace off; the build named joined-build-stats-migrate runs with the environment of the owner, in which the workspace file decides the Go version. Give that build the same build environment as the service builds, through one helper both use, so that no Go build of the file can run with the workspace on."
+do_3 = "do_3 In apps/launchpad/web/scripts/prepare-test-environment.py the method run raises an error that names only the step, the status and the log path. Add the last 40 lines of the log to the message, the way the migration step of apps/launchpad/web/src/widgets/trading/run-joined-services.py already reports its own log. The lines of a log can hold a connection string: replace in the message every word that holds :// by the word URL."
+do_4 = "do_4 Add tests/ci/test_launchpad_joined_builds.py: it loads apps/launchpad/web/scripts/prepare-test-environment.py by path, runs the method run with a command that prints two lines and ends with status 3 and expects both lines, the status and no :// in the message; and it reads apps/launchpad/web/src/widgets/trading/run-joined-services.py as a syntax tree and fails when a call that runs go build is outside the helper of do_2 or when the helper does not set GOWORK to off."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading/run-joined-services.py", "apps/launchpad/web/scripts/prepare-test-environment.py"]
+tests = []
+planned_paths = ["tests/ci/test_launchpad_joined_builds.py"]
+build_cmd = "python3 -m py_compile apps/launchpad/web/src/widgets/trading/run-joined-services.py apps/launchpad/web/scripts/prepare-test-environment.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_joined_builds.py && (cd services/launchpad/stats-*ers && GOWORK=off GOFLAGS=-mod=readonly go build -o /dev/null ./cmd/stats-migrate)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.651]
+title = "Write the service health commands and the package selection of the launchpad test workflow in the form their tools read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.651"]
+interfaces = []
+do_1 = "do_1 Gotcha 4495, decision 3576. Read .github/workflows/launchpad-test.yml whole, the cases of tests/ci/test_launchpad_go_tests_wired.py, tests/ci/test_launchpad_test_workflow.py, tests/ci/test_pnpm_workspace_roots.py and tests/ci/test_js_suites_have_runner.py that read it, and apps/launchpad/pnpm-workspace.yaml with the field packageManager of apps/launchpad/package.json."
+do_2 = "do_2 In the shared service definition of the Go jobs write the health command of the database container and of the store container in a form the container tool reads as one command: double quotes around the command, or a command of one word. The tool receives the options as words without a shell, so single quotes do not group. The other options and both jobs that use the definition stay."
+do_3 = "do_3 The step Test package must select exactly one project for every entry of its matrix other than the web entry. Find with the package manager itself why the present selector matches no project: run the manager with the options of the step and the subcommand list at depth -1 for one entry under sdk/launchpad/packages and for apps/launchpad/mobile, from the working directory the step states. Where the manager is absent install the version apps/launchpad/package.json names with npm install --global. Write the step so that each entry selects its one project, by a selector or a working directory the manager resolves, and keep --fail-if-no-match."
+do_4 = "do_4 In tests/ci/test_launchpad_go_tests_wired.py the case on the reward schema fixture names the directory that is in the tree, testdata/reward_schema under the application package of the profit and loss service; the workflow already names it. Bring the cases of tests/ci/test_launchpad_test_workflow.py, tests/ci/test_pnpm_workspace_roots.py and tests/ci/test_js_suites_have_runner.py that state the form of the package step and of the service options in line with the forms of do_2 and do_3, and add to tests/ci/test_launchpad_test_workflow.py one case that fails when a health command of a service container of this workflow holds a single quote."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci/test_launchpad_go_tests_wired.py", "tests/ci/test_launchpad_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py", "tests/ci/test_js_suites_have_runner.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.650]
 title = "Compose the startup documents of the launchpad livestream service"
 status = "pending"
@@ -243485,6 +243623,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.653]
+title = "Skip the wallet policy case of the web search application proof when the proof passes no calldata"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.653"]
+interfaces = []
+do_1 = "do_1 Gotcha 4495, decisions 3576 and 2501. Read the case TestXweb0x1019ApplicationPolicy and the flag xweb-proof-calldata in services/wallet/attestor/internal/policy/policy_test.go, and in precompiles/xweb/proof_xweb_0x1019_test.go the call that runs this case with the flag."
+do_2 = "do_2 When the flag is empty the case ends as skipped, with a reason that names the flag and the proof that passes it. When the flag holds a value the case runs as it does today, and a value shorter than a selector still fails. Change nothing in the proof and nothing else in the case."
+do_3 = "do_3 Add beside the case one case named TestXweb0x1019ApplicationPolicyNeedsProofInput that runs the test binary of the package again for the first case alone, once without the flag and once with a value of two bytes, and expects the word SKIP in the first output and a failure in the second. Use the path of the running test binary; where it cannot be run again the new case fails."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/attestor/internal/policy/policy_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/attestor && go vet ./internal/policy/"
+verify_cmd = "cd services/wallet/attestor && go test -count=1 ./internal/policy/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.626]
 title = "Answer the block route of the transaction service for a block with the sequence batch entry"

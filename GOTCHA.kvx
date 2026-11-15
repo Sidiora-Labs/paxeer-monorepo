@@ -22295,3 +22295,8 @@ fix = "Decision 3574. Task 22.39.637."
 title = "The variable contract of the launchpad names startup documents that no tool composes"
 symptom = "On the hosting platform a launchpad service takes each startup document as a variable that holds the standard base64 of the JSON bytes, beside a variable that holds the digest of those bytes. The variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad) requires these variables for all twelve services, but no tool of the tree writes them, and no command applies the registered migrations under migrations to a database outside a test. The expected schema document of a service carries values that only a migrated database gives."
 fix = "Decision 3575. Tasks 22.39.638 to 22.39.650."
+
+[gotcha.4495]
+title = "A test job gives each tool its input in the form the tool reads"
+symptom = "The options of a service container of a workflow reach the container tool as words without a shell, so a health command of several words is written with double quotes or as one word, never with single quotes. A path selector of the package manager is resolved from the directory the manager runs in, and a selector is right only when the manager lists exactly one project for it. A Go build inside a directory that a workspace file covers follows the Go version of the workspace file unless the workspace is off, whatever the module states. A test case that takes its input through a flag from a proof has no input in a plain run of its package. A proof that runs a command of the tree must call it with the options the command requires today."
+fix = "Decision 3576. Tasks 22.39.651 to 22.39.654."
