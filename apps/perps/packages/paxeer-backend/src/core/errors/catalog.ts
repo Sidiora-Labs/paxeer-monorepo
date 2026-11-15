@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════════
-   paxeer-network error catalog
+   Hyperpax error catalog
 
    Every entry maps a stable `ErrorCode` to the user-facing copy and
    metadata. This file is the ONLY place where error wording lives —
@@ -39,7 +39,7 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
   WALLET_WRONG_NETWORK: {
     code: "WALLET_WRONG_NETWORK",
     title: "Wrong network",
-    message: "Your wallet is on a different chain than PaxeerNetworkeer.",
+    message: "Your wallet is on a different chain than HyperPaxeer.",
     suggestedFix: "Switch your wallet to Paxeer Network (Chain ID 125).",
     severity: "warning",
     isReportable: false,
@@ -48,7 +48,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
   WALLET_INSUFFICIENT_FUNDS: {
     code: "WALLET_INSUFFICIENT_FUNDS",
     title: "Not enough balance",
-    message: "Your wallet doesn't have enough funds to cover this action plus gas.",
+    message:
+      "Your wallet doesn't have enough funds to cover this action plus gas.",
     suggestedFix: "Top up PAX or reduce the amount and try again.",
     severity: "warning",
     isReportable: false,
@@ -96,7 +97,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
     code: "RPC_REVERT",
     title: "Transaction reverted",
     message: "The contract rejected this transaction.",
-    suggestedFix: "Double-check the inputs — the action may not be allowed right now.",
+    suggestedFix:
+      "Double-check the inputs — the action may not be allowed right now.",
     severity: "error",
     isReportable: true,
     isRetryable: true,
@@ -104,8 +106,10 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
   RPC_GAS_ESTIMATION_FAILED: {
     code: "RPC_GAS_ESTIMATION_FAILED",
     title: "Gas estimation failed",
-    message: "We couldn't estimate gas — usually that means the transaction would fail on-chain.",
-    suggestedFix: "Verify your inputs and that the position/order is still valid.",
+    message:
+      "We couldn't estimate gas — usually that means the transaction would fail on-chain.",
+    suggestedFix:
+      "Verify your inputs and that the position/order is still valid.",
     severity: "error",
     isReportable: true,
     isRetryable: true,
@@ -114,7 +118,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
     code: "RPC_NONCE_TOO_LOW",
     title: "Pending transaction conflict",
     message: "Your wallet has another transaction in flight at the same nonce.",
-    suggestedFix: "Wait for the pending transaction to clear, or speed it up in your wallet.",
+    suggestedFix:
+      "Wait for the pending transaction to clear, or speed it up in your wallet.",
     severity: "warning",
     isReportable: false,
     isRetryable: true,
@@ -132,7 +137,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
     code: "RPC_TX_TIMEOUT",
     title: "Transaction taking longer than usual",
     message: "Your transaction is still pending after a while.",
-    suggestedFix: "Check your wallet — if it's stuck, speed up or cancel from there.",
+    suggestedFix:
+      "Check your wallet — if it's stuck, speed up or cancel from there.",
     severity: "warning",
     isReportable: true,
     isRetryable: false,
@@ -235,7 +241,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
     code: "WS_CONNECT_FAILED",
     title: "Live data offline",
     message: "We couldn't open a live connection.",
-    suggestedFix: "We're auto-reconnecting — check your network if this persists.",
+    suggestedFix:
+      "We're auto-reconnecting — check your network if this persists.",
     severity: "warning",
     isReportable: true,
     isRetryable: true,
@@ -244,7 +251,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
     code: "WS_DISCONNECTED",
     title: "Connection dropped",
     message: "The live data feed disconnected.",
-    suggestedFix: "Reconnecting automatically — your screen will refresh shortly.",
+    suggestedFix:
+      "Reconnecting automatically — your screen will refresh shortly.",
     severity: "info",
     isReportable: false,
     isRetryable: true,
@@ -320,7 +328,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
     code: "TRADE_SLIPPAGE_EXCEEDED",
     title: "Slippage too high",
     message: "Price moved beyond your slippage tolerance before execution.",
-    suggestedFix: "Increase your slippage tolerance or try again at a calmer moment.",
+    suggestedFix:
+      "Increase your slippage tolerance or try again at a calmer moment.",
     severity: "warning",
     isReportable: false,
     isRetryable: true,
@@ -329,7 +338,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
     code: "TRADE_MARKET_HALTED",
     title: "Market paused",
     message: "Trading on this market is temporarily halted.",
-    suggestedFix: "Try again once trading resumes — check the market status banner.",
+    suggestedFix:
+      "Try again once trading resumes — check the market status banner.",
     severity: "warning",
     isReportable: false,
     isRetryable: true,
@@ -337,7 +347,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
   TRADE_INSUFFICIENT_LIQUIDITY: {
     code: "TRADE_INSUFFICIENT_LIQUIDITY",
     title: "Not enough liquidity",
-    message: "There isn't enough on-book size to fill that order at the price you wanted.",
+    message:
+      "There isn't enough on-book size to fill that order at the price you wanted.",
     suggestedFix: "Reduce the size or use a more aggressive price.",
     severity: "warning",
     isReportable: false,
@@ -355,8 +366,10 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
   TRADE_TP_SL_INVALID: {
     code: "TRADE_TP_SL_INVALID",
     title: "Trigger price invalid",
-    message: "The take-profit or stop-loss price doesn't make sense for this position.",
-    suggestedFix: "Set TP above and SL below the entry for longs (and the reverse for shorts).",
+    message:
+      "The take-profit or stop-loss price doesn't make sense for this position.",
+    suggestedFix:
+      "Set TP above and SL below the entry for longs (and the reverse for shorts).",
     severity: "warning",
     isReportable: false,
     isRetryable: true,
@@ -375,7 +388,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
   RUNTIME_HYDRATION: {
     code: "RUNTIME_HYDRATION",
     title: "Page didn't load cleanly",
-    message: "Something rendered differently between the server and your browser.",
+    message:
+      "Something rendered differently between the server and your browser.",
     suggestedFix: "Refresh the page — that usually fixes it.",
     severity: "error",
     isReportable: true,
@@ -393,8 +407,10 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
   RUNTIME_PERMISSION_DENIED: {
     code: "RUNTIME_PERMISSION_DENIED",
     title: "Permission needed",
-    message: "Your browser blocked access to something we needed (clipboard, storage, etc.).",
-    suggestedFix: "Allow the permission in your browser settings and try again.",
+    message:
+      "Your browser blocked access to something we needed (clipboard, storage, etc.).",
+    suggestedFix:
+      "Allow the permission in your browser settings and try again.",
     severity: "warning",
     isReportable: false,
     isRetryable: true,
@@ -403,7 +419,7 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
     code: "RUNTIME_QUOTA_EXCEEDED",
     title: "Storage full",
     message: "Your browser has run out of space for this site.",
-    suggestedFix: "Clear site data for paxeer-network in your browser settings.",
+    suggestedFix: "Clear site data for hyperpax in your browser settings.",
     severity: "warning",
     isReportable: false,
     isRetryable: true,
@@ -413,7 +429,8 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
   UNKNOWN: {
     code: "UNKNOWN",
     title: "Something went wrong",
-    message: "We hit an unexpected error. We've logged it, but a quick report from you helps a lot.",
+    message:
+      "We hit an unexpected error. We've logged it, but a quick report from you helps a lot.",
     suggestedFix: "Try again — if it keeps happening, send us a report.",
     severity: "error",
     isReportable: true,
@@ -425,7 +442,9 @@ export const ERROR_CATALOG: Record<ErrorCode, CatalogEntry> = {
  * Resolve a catalog entry by code. If `code` is missing or unknown,
  * returns the `UNKNOWN` entry — never throws.
  */
-export function getCatalogEntry(code: ErrorCode | undefined | null): CatalogEntry {
+export function getCatalogEntry(
+  code: ErrorCode | undefined | null,
+): CatalogEntry {
   if (!code) return ERROR_CATALOG.UNKNOWN;
   return ERROR_CATALOG[code] ?? ERROR_CATALOG.UNKNOWN;
 }

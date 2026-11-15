@@ -21,12 +21,16 @@ type FeedMarket = Omit<
   MarketSnapshot,
   "volume_7d" | "volume_30d" | "trades_count"
 >;
+function rateWei(value: number): bigint | null {
+  return Number.isFinite(value) ? BigInt(Math.trunc(value * 1e18)) : null;
+}
 let pending: Promise<FeedMarket[]> | null = null;
 export function readAuthenticatedFeedMarkets(): Promise<FeedMarket[]> {
-  if (!pending)
-    pending = fetchJsonWithPolicy<{ success: boolean; data: FeedTicker[] }>(
-      `${MARKET_DATA_URL}/tickers`,
-    )
+  if (!pending) {
+    const request = fetchJsonWithPolicy<{
+      success: boolean;
+      data: FeedTicker[];
+    }>(`${MARKET_DATA_URL}/tickers`)
       .then((body) => {
         if (!body.success || !Array.isArray(body.data))
           throw new Error("Ticker feed unavailable");
@@ -54,8 +58,10 @@ export function readAuthenticatedFeedMarkets(): Promise<FeedMarket[]> {
             reported_volume_24h: row["24h_volume"],
             open_interest: row.open_interest,
             reported_open_interest: row.open_interest,
-            funding_8h: row.last_funding_rate,
+            funding_8h: rateWei(row.last_funding_rate),
             est_funding_rate: row.est_funding_rate,
+            perp_funding_rate: rateWei(row.est_funding_rate),
+            last_funding_rate_hourly: rateWei(row.last_funding_rate),
             price_24h: row["24h_open"],
             high_24h: row["24h_high"],
             low_24h: row["24h_low"],
@@ -65,5 +71,7 @@ export function readAuthenticatedFeedMarkets(): Promise<FeedMarket[]> {
       .finally(() => {
         pending = null;
       });
-  return pending;
+    pending = request;
+  }
+  return pending ?? Promise.reject(new Error("Ticker feed unavailable"));
 }

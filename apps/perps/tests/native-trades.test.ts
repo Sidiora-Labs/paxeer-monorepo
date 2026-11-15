@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { NativeWebSocket } from "../packages/hooks/src/native/NativeWebSocket";
+type NativeWebSocketModule =
+  typeof import("../packages/hooks/src/native/NativeWebSocket");
+let nativeWebSocketModule: NativeWebSocketModule | undefined;
+async function nativeSocket(): Promise<
+  NativeWebSocketModule["NativeWebSocket"]
+> {
+  process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL ??= "https://gateway.test";
+  nativeWebSocketModule ??=
+    await import("../packages/hooks/src/native/NativeWebSocket");
+  return nativeWebSocketModule.NativeWebSocket;
+}
 import type { SidPaxTrade } from "../packages/paxeer-backend/src/hooks/perps/useSidPaxMarketStream";
 
 const trade = (id: string, ts: number): SidPaxTrade => ({
@@ -14,7 +24,8 @@ const trade = (id: string, ts: number): SidPaxTrade => ({
   liquidation: false,
 });
 
-test("native orderbook delivery identifies complete snapshots and preserves their source timestamp", () => {
+test("native orderbook delivery identifies complete snapshots and preserves their source timestamp", async () => {
+  const NativeWebSocket = await nativeSocket();
   const messages: any[] = [];
   const socket = new NativeWebSocket({
     subscribeNativeOrderbook: (_symbol, callback) => {
@@ -43,7 +54,8 @@ test("native orderbook delivery identifies complete snapshots and preserves thei
   stop();
 });
 
-test("trade history requests return a limited array and release synchronous cached subscriptions", () => {
+test("trade history requests return a limited array and release synchronous cached subscriptions", async () => {
+  const NativeWebSocket = await nativeSocket();
   let stopped = 0;
   const messages: any[] = [];
   const socket = new NativeWebSocket({
@@ -76,7 +88,8 @@ test("trade history requests return a limited array and release synchronous cach
   assert.equal(stopped, 1);
 });
 
-test("live trades append individual unseen records with source timestamps and contract quantities", () => {
+test("live trades append individual unseen records with source timestamps and contract quantities", async () => {
+  const NativeWebSocket = await nativeSocket();
   let publish!: (trades: SidPaxTrade[]) => void;
   const messages: any[] = [];
   const socket = new NativeWebSocket({

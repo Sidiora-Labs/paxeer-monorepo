@@ -37,7 +37,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
       {kind, height} =
         case conn.path_info do
           ["block_results"] -> {:results, String.to_integer(conn.query_params["height"])}
-          ["cosmos", "tx", "v1beta1", "txs", "block", height] -> {:transactions, String.to_integer(height)}
+          ["block"] -> {:transactions, String.to_integer(conn.query_params["height"])}
         end
 
       {status, response} =
@@ -77,7 +77,11 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
       results: %{@first => empty_result, @held => empty_result, @height => result}
     }
 
-    if tags[:queue], do: seed_queue(context)
+    if tags[:queue] do
+      Explorer.TestHelper.start_migration_owner!()
+      seed_queue(context)
+    end
+
     context
   end
 
@@ -97,7 +101,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
     second = serve(context, :available)
 
     assert {:ok, transactions} = CosmosRest.fetch_block_txs([first, second], @height)
-    assert transactions == %{"txs" => context.body["txs"], "raw" => context.body["block"]["data"]["txs"]}
+    assert transactions == %{"raw" => context.body["block"]["data"]["txs"]}
     assert_receive {:node_request, :error, :transactions, @height}
     assert_receive {:node_request, :available, :transactions, @height}
   end
@@ -106,7 +110,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
     first = serve(context, :error)
     second = serve(context, :available)
 
-    assert {:error, {:height_unavailable, ^first}} = CosmosRest.fetch_block_results([first, second], @held)
+    assert {:error, {:height_unavailable, ^second}} = CosmosRest.fetch_block_results([first, second], @held)
 
     for _ <- 1..2 do
       assert_receive {:node_request, :error, :results, @held}
@@ -163,7 +167,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
         end
 
         assert queue() == [[@first, true, nil], [@held, false, error], [@height, true, nil]]
-        assert :ok = stop_supervised(PriceAcceptanceReplay)
+        assert :ok = Explorer.TestHelper.stop_supervised_if_alive(PriceAcceptanceReplay)
       end)
 
     assert length(Regex.scan(~r/price acceptance replay held:/, log)) == 1
@@ -187,6 +191,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
   def replay_database_outage_recovers(context) do
     {options, error} = prepare_held_replay(context)
     handler = observe_replay_queries()
+    batch = Explorer.TestHelper.pause_next_replay_batch()
     before_outage = durable_replay_state()
 
     log =
@@ -201,6 +206,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
             {runner, state, monitors}
           end)
 
+        Explorer.TestHelper.await_replay_batch(batch, runner)
         finish_recovered_replay(handler, runner, state, monitors, error, 6)
       end)
 
@@ -215,10 +221,12 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
   def replay_held_warnings_survive_database_outage(context) do
     {options, error} = prepare_held_replay(context)
     handler = observe_replay_queries()
+    batch = Explorer.TestHelper.pause_next_replay_batch()
 
     log =
       capture_log([level: :warning], fn ->
         runner = start_supervised!({PriceAcceptanceReplay, options})
+        Explorer.TestHelper.await_replay_batch(batch, runner)
         state = await_held_warning(handler, runner, error)
         monitors = monitor_replay(runner, state.worker)
         assert accepted_observations() == 6
@@ -230,10 +238,14 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
             %{current | last_held_warning_at: current.last_held_warning_at - 60_000}
           end)
 
+        recovery_batch = Explorer.TestHelper.pause_next_replay_batch()
+
         with_queue_unavailable(fn ->
+          :ok = :sys.resume(runner)
           assert_outage_retries(handler, runner, due_state, monitors, before_outage)
         end)
 
+        Explorer.TestHelper.await_replay_batch(recovery_batch, runner)
         finish_recovered_replay(handler, runner, due_state, monitors, error, 12)
       end)
 
@@ -355,6 +367,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
     assert [[@first, true, nil], [@held, false, ^error], [@height, false, nil]] = queue()
     assert PriceAcceptanceBackfill.held_jobs() == {1, @held, error}
     worker = state.worker
+    :ok = :sys.resume(runner)
 
     for _ <- 1..2 do
       assert_receive {^handler, :step, ^worker, _, {:ok, %{rows: [[_, @held, nil, nil]]}}}, 3_000

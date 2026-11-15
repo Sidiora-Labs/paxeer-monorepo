@@ -143,6 +143,13 @@ func Load() (Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
+	for _, d := range cfg.boundDocuments() {
+		if d[0] != "" || d[1] != "" || d[2] != "" {
+			if _, err := boundBytes(d[0], d[1], d[2]); err != nil {
+				return Config{}, fmt.Errorf("config: %s: %w", d[3], err)
+			}
+		}
+	}
 	cfg.registerInlineDocuments()
 	return cfg, nil
 }

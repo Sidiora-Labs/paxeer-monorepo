@@ -1,24 +1,26 @@
 /* ══════════════════════════════════════════════════════════════════════
-   ERC-20 allowance helpers for PECOR spot trading.
+   ERC-20 allowance helpers for the spot and perpetuals precompiles.
 
-   PECOR has no native EIP-2612 permit and no Permit2 integration on the
-   spot contracts, so every spend is gated by a standard `approve` →
-   `transferFrom` flow. For UX we issue a one-time `MaxUint256` approval
-   per (token, spender) pair, which means subsequent trades are a single
-   tx with no allowance check overhead.
-
-   On embedded wallets the approval is auto-confirmed silently — the
-   user never sees a popup. On injected wallets (MetaMask / Rabby /
-   Paxport-injected) it surfaces a single approval prompt that's good
-   for that token forever.
+   The precompiles pull ERC-20 inputs with `transferFrom` against the
+   allowance the user gives to the precompile address. Every approval
+   is planned by `planApproval` and requests exactly the amount of the
+   call it precedes. The PAX and SID pointers and native value move by
+   bank transfer, so no allowance is read or requested for them.
 
    The hook layer is intentionally stateless — every call hits chain.
-   Higher-level hooks (`useSpotOrders`) cache the result of a prior
-   `ensureAllowance` for the duration of a single submit pipeline.
    ══════════════════════════════════════════════════════════════════════ */
 
 import type { Address } from "viem";
 import { erc20Abi } from "@paxeer-network/paxeer-backend/core/perps/config";
+import {
+  planApproval,
+  type ApprovalToken,
+  type NativeTokens,
+} from "@paxeer-network/paxeer-backend/core/network/approvals";
+import {
+  NATIVE_PAX_ADDRESS,
+  SPOT_TOKENS,
+} from "@paxeer-network/paxeer-backend/core/spot/addresses";
 import {
   readContract,
   writeContract,
@@ -26,18 +28,14 @@ import {
   type WaitForTxResult,
 } from "@paxeer-network/paxeer-backend/hooks/perps/useContract";
 
-/* ── constants ─────────────────────────────────────────────────── */
+/* ── native set ────────────────────────────────────────────────── */
 
-/** uint256 max — used as the standard "infinite" allowance. */
-export const MAX_UINT256: bigint = (1n << 256n) - 1n;
-
-/**
- * Threshold below which we trigger a re-approval even though the
- * allowance is technically non-zero. Most users start with `MaxUint256`
- * and never burn through it, but if a custom approval drops below this
- * we issue a fresh max approval rather than tracking partial allowance.
- */
-const ALLOWANCE_TOPUP_THRESHOLD: bigint = (MAX_UINT256 / 2n);
+/** Addresses of the token table that the precompiles move by bank transfer. */
+export const SPOT_NATIVE_TOKENS: NativeTokens = new Set<Address>(
+  Object.values(SPOT_TOKENS)
+    .filter((token) => token.isNative)
+    .map((token) => token.address),
+);
 
 /* ── read ──────────────────────────────────────────────────────── */
 
@@ -60,29 +58,9 @@ export async function getAllowance(params: {
 /* ── write ─────────────────────────────────────────────────────── */
 
 /**
- * Issue a `MaxUint256` approval for the given `(token, spender)` pair.
+ * Issue an allowance of exactly `amount` for `(token, spender)`.
  * Returns when the receipt has been observed or the finality window
  * expires. Throws on revert or timeout.
- */
-export async function approveMax(params: {
-  token: Address;
-  spender: Address;
-}): Promise<WaitForTxResult> {
-  const { token, spender } = params;
-  const hash = await writeContract({
-    address: token,
-    abi: erc20Abi,
-    functionName: "approve",
-    args: [spender, MAX_UINT256],
-  });
-  return waitForTx(hash);
-}
-
-/**
- * Issue a precise allowance for `(token, spender)`. Lower-level than
- * `approveMax` — exposed for advanced flows like Permit2 wrappers that
- * want exact-amount approvals. The order pipeline always uses
- * `approveMax` for v1.
  */
 export async function approveExact(params: {
   token: Address;
@@ -104,48 +82,61 @@ export async function approveExact(params: {
 export interface EnsureAllowanceResult {
   /** True when a new approval was issued in this call. */
   approved: boolean;
-  /** Current allowance after the call (always ≥ `amount` on success). */
-  allowance: bigint;
+  /** Allowance after the call, or null when the token needs none (native coin or value). */
+  allowance: bigint | null;
   /** Receipt of the approval tx, if one was issued. */
   receipt?: WaitForTxResult;
 }
 
 /**
- * Ensure the user has at least `amount` allowance for the given
- * `(token, spender)` pair, issuing a `MaxUint256` approval if needed.
+ * Ensure the user has at least `amount` allowance for `(token, spender)`,
+ * approving exactly `amount` through `approveExact` when it is short.
  *
- * Skips the approval write when:
- *   · `amount === 0n` (no spend planned)
- *   · existing allowance ≥ `amount` AND ≥ `ALLOWANCE_TOPUP_THRESHOLD`
- *
- * Returns the updated allowance plus the approval receipt (when one
- * was issued). Throws if the approval tx reverts or times out.
+ * No allowance is read for `null` (native value) or a member of
+ * `native`. Throws RangeError for an amount outside [0, 2^256 - 1) and
+ * rethrows if the approval tx reverts or times out.
  */
 export async function ensureAllowance(params: {
-  token: Address;
+  token: ApprovalToken;
   owner: Address;
   spender: Address;
   amount: bigint;
+  native?: NativeTokens;
 }): Promise<EnsureAllowanceResult> {
-  const { token, owner, spender, amount } = params;
+  const { owner, spender, amount, native = SPOT_NATIVE_TOKENS } = params;
+  // NATIVE_PAX_ADDRESS is the native-value sentinel: PAX sent as value has no allowance.
+  const token =
+    params.token?.toLowerCase() === NATIVE_PAX_ADDRESS ? null : params.token;
 
-  if (amount === 0n) {
-    return { approved: false, allowance: 0n };
-  }
+  let current: bigint | null = null;
+  const plan = await planApproval(
+    token,
+    spender,
+    async () => {
+      if (token === null) {
+        throw new Error("ensureAllowance: native value has no allowance");
+      }
+      current = await getAllowance({ token, owner, spender });
+      return current;
+    },
+    amount,
+    native,
+  );
 
-  const current = await getAllowance({ token, owner, spender });
-
-  // Existing allowance is healthy — short-circuit.
-  if (current >= amount && current >= ALLOWANCE_TOPUP_THRESHOLD) {
+  if (plan.length === 0) {
     return { approved: false, allowance: current };
   }
 
-  const receipt = await approveMax({ token, spender });
-  return {
-    approved: true,
-    allowance: MAX_UINT256,
-    receipt,
-  };
+  let receipt: WaitForTxResult | undefined;
+  for (const call of plan) {
+    const [approvedSpender, approvedAmount] = call.args;
+    receipt = await approveExact({
+      token: call.address,
+      spender: approvedSpender,
+      amount: approvedAmount,
+    });
+  }
+  return { approved: true, allowance: amount, receipt };
 }
 
 /* ── hook surface ──────────────────────────────────────────────── */
@@ -155,14 +146,12 @@ export async function ensureAllowance(params: {
  * for ergonomic destructuring in submit pipelines:
  *
  *   const { ensureAllowance } = useSpotApprovals();
- *   await ensureAllowance({ token: USDL, owner, spender: PECOR, amount });
+ *   await ensureAllowance({ token: USDL, owner, spender: SPOT_SPENDERS.market, amount });
  */
 export function useSpotApprovals() {
   return {
     getAllowance,
-    approveMax,
     approveExact,
     ensureAllowance,
-    MAX_UINT256,
   };
 }

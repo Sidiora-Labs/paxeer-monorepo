@@ -1,10 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { planNativeOrder } from "../packages/paxeer-backend/src/nativeOrderPlan";
-import {
-  PERPS_MARKETS,
-  COLLATERAL_TOKENS,
-} from "../packages/paxeer-backend/src/core/perps/config";
+type NativeOrderModule =
+  typeof import("../packages/paxeer-backend/src/nativeOrderPlan");
+type PerpsConfigModule =
+  typeof import("../packages/paxeer-backend/src/core/perps/config");
+let nativeOrderModule: NativeOrderModule | undefined;
+let perpsConfigModule: PerpsConfigModule | undefined;
+async function nativeConfig(): Promise<{
+  planNativeOrder: NativeOrderModule["planNativeOrder"];
+  PERPS_MARKETS: PerpsConfigModule["PERPS_MARKETS"];
+  COLLATERAL_TOKENS: PerpsConfigModule["COLLATERAL_TOKENS"];
+}> {
+  process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL ??= "https://gateway.test";
+  nativeOrderModule ??=
+    await import("../packages/paxeer-backend/src/nativeOrderPlan");
+  perpsConfigModule ??=
+    await import("../packages/paxeer-backend/src/core/perps/config");
+  return { ...nativeOrderModule, ...perpsConfigModule };
+}
 const order = {
   symbol: "PERP_ETH_USDC",
   side: "BUY",
@@ -13,14 +26,16 @@ const order = {
   order_price: "",
   trigger_price: "",
 };
-test("market form converts exact USD collateral and 18 decimal contract leverage", () => {
+test("market form converts exact USD collateral and 18 decimal contract leverage", async () => {
+  const { planNativeOrder, COLLATERAL_TOKENS } = await nativeConfig();
   const plan = planNativeOrder(order, 3000, 3);
   assert.equal(plan.collateralAmount, 10_000_010n);
   assert.equal(plan.leverage, 3_000_000_000_000_000_000n);
   assert.equal(plan.collateralToken, COLLATERAL_TOKENS.usdc.address);
   assert.equal(plan.sizeUsd, 30_000_030_000_000_000_000n);
 });
-test("limit order uses entered price and rounds collateral down at token precision", () => {
+test("limit order uses entered price and rounds collateral down at token precision", async () => {
+  const { planNativeOrder } = await nativeConfig();
   const plan = planNativeOrder(
     {
       ...order,
@@ -34,7 +49,8 @@ test("limit order uses entered price and rounds collateral down at token precisi
   assert.equal(plan.collateralAmount, 29_999_900n);
   assert.equal(plan.triggerPrice, 2_999_990_000_000_000_000_000n);
 });
-test("native plans reject unsupported markets, sides, invalid size, missing prices and excessive leverage", () => {
+test("native plans reject unsupported markets, sides, invalid size, missing prices and excessive leverage", async () => {
+  const { planNativeOrder, PERPS_MARKETS } = await nativeConfig();
   const max = PERPS_MARKETS.find((m) => m.symbol === "ETH")!.maxLeverage;
   for (const [input, price, lev] of [
     [{ ...order, symbol: "PERP_UNKNOWN_USDC" }, 3000, 2],
@@ -45,7 +61,8 @@ test("native plans reject unsupported markets, sides, invalid size, missing pric
   ] as const)
     assert.throws(() => planNativeOrder(input, price, lev));
 });
-test("short orders preserve direction and explicit stop/limit triggers", () => {
+test("short orders preserve direction and explicit stop/limit triggers", async () => {
+  const { planNativeOrder } = await nativeConfig();
   const plan = planNativeOrder(
     {
       ...order,
@@ -62,7 +79,8 @@ test("short orders preserve direction and explicit stop/limit triggers", () => {
   assert.equal(plan.limitPrice, 2900n * 10n ** 18n);
 });
 
-test("unsupported order modes fail before a transaction can be prepared", () => {
+test("unsupported order modes fail before a transaction can be prepared", async () => {
+  const { planNativeOrder } = await nativeConfig();
   assert.throws(() =>
     planNativeOrder({ ...order, order_type: "TRAILING_STOP" }, 3000, 2),
   );
@@ -75,7 +93,8 @@ test("unsupported order modes fail before a transaction can be prepared", () => 
   );
 });
 
-test("execution flags and collateral cannot be silently changed by the native bridge", () => {
+test("execution flags and collateral cannot be silently changed by the native bridge", async () => {
+  const { planNativeOrder } = await nativeConfig();
   for (const input of [
     { ...order, order_type_ext: "IOC" },
     { ...order, visible_quantity: 0 },

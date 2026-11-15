@@ -1982,7 +1982,7 @@ paxeer_x_url_list = fn env_var ->
     |> Enum.reject(&(&1 == ""))
 
   if paxeer_x_price_feed_enabled? and
-       (urls == [] or
+       ((urls == [] and env_var == "PAXEER_X_COMETBFT_RPC_URLS") or
           Enum.any?(urls, &(URI.parse(&1).scheme not in ["http", "https"] or URI.parse(&1).host in [nil, ""]))) do
     raise ArgumentError, "PAXEER_X_PRICE_FEED_ENABLED=true requires #{env_var} to be a comma list of http(s) URLs"
   end

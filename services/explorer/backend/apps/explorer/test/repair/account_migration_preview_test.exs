@@ -7,6 +7,7 @@ defmodule Explorer.Repair.AccountMigrationPreviewTest do
   alias Explorer.Account
   alias Explorer.Account.{Api.Key, CustomABI, Identity, TagAddress, TagTransaction, Watchlist, WatchlistAddress}
   alias Explorer.Repo
+  alias Explorer.ThirdPartyIntegrations.Dynamic
   alias Mix.Tasks.Auth0ToKeycloakMigrate.Preview
   alias Ueberauth.Strategy.Auth0.OAuth
 
@@ -16,15 +17,8 @@ defmodule Explorer.Repair.AccountMigrationPreviewTest do
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo.account_repo())
 
-    previous = Application.fetch_env(:ueberauth, OAuth)
-    Application.put_env(:ueberauth, OAuth, auth0_application_id: "", domain: nil)
-
-    on_exit(fn ->
-      case previous do
-        {:ok, config} -> Application.put_env(:ueberauth, OAuth, config)
-        :error -> Application.delete_env(:ueberauth, OAuth)
-      end
-    end)
+    replace_env(:ueberauth, OAuth, auth0_application_id: "", domain: nil)
+    replace_env(:explorer, Dynamic, enabled: false)
 
     users = @export |> File.read!() |> String.split("\n", trim: true) |> Enum.map(&Jason.decode!/1)
     [email, wallet] = Enum.map(users, &insert_identity(&1["user_id"], &1["email"]))
@@ -143,8 +137,9 @@ defmodule Explorer.Repair.AccountMigrationPreviewTest do
   test "explicit CLI execution still enters the configured migration runner" do
     before = snapshot()
 
-    assert capture_log(fn -> assert run_cli(["--no-dry-run"]) == [] end) =~
-             "Auth0 is not configured. Cannot read source users."
+    assert_raise Mix.Error, "Auth0 is not configured. Cannot read source users.", fn ->
+      run_cli(["--no-dry-run"])
+    end
 
     assert snapshot() == before
   end
@@ -171,6 +166,18 @@ defmodule Explorer.Repair.AccountMigrationPreviewTest do
 
   defp run_cli(args) do
     Mix.Task.rerun("auth0_to_keycloak_migrate", ["--no-start" | args])
+  end
+
+  defp replace_env(app, key, value) do
+    previous = Application.fetch_env(app, key)
+    Application.put_env(app, key, value)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, config} -> Application.put_env(app, key, config)
+        :error -> Application.delete_env(app, key)
+      end
+    end)
   end
 
   defp insert_identity(uid, email) do

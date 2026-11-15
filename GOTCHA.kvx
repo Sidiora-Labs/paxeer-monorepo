@@ -22280,3 +22280,68 @@ fix = "Decision 3571. Task 22.39.611 brings the three definitions in line."
 title = "Cases of the explorer backend share state within the whole suite"
 symptom = "The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path. Within the whole suite the files share what a single file has to itself: the ownership mode of the database connections, the application settings, named processes and caches, and the mock expectations of the JSON-RPC client. Some cases also name a file or directory by a path the tree no longer has, or state a value of a source that a later task changed."
 fix = "Decision 3572. Tasks 22.39.627 to 22.39.634."
+
+[gotcha.4492]
+title = "The store of the price updates of a block reads the number of all stored submissions"
+symptom = "The price feed of the explorer keeps the number of submissions stored since the first scan in a counter row. The store of the submissions of a block in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex reads the number of all stored submissions as the first value of that counter on every store that changes the number, although the first value is used only when the counter row does not exist yet. The acceptance replay takes the blocks of one step one after the other."
+fix = "Decision 3573. Tasks 22.39.635 and 22.39.636."
+
+[gotcha.4493]
+title = "A whole compile of the explorer app stops on a default argument no call uses"
+symptom = "The apps of the explorer backend compile with warnings as errors outside the development environment. The private request function of services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex states a default for its query that no call uses, which is a compiler warning. A compile that takes only changed files does not reach the file; a compile of the whole app does, for example after a change in the JSON-RPC client the app depends on."
+fix = "Decision 3574. Task 22.39.637."
+
+[gotcha.4494]
+title = "The variable contract of the launchpad names startup documents that no tool composes"
+symptom = "On the hosting platform a launchpad service takes each startup document as a variable that holds the standard base64 of the JSON bytes, beside a variable that holds the digest of those bytes. The variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad) requires these variables for all twelve services, but no tool of the tree writes them, and no command applies the registered migrations under migrations to a database outside a test. The expected schema document of a service carries values that only a migrated database gives."
+fix = "Decision 3575. Tasks 22.39.638 to 22.39.650."
+
+[gotcha.4495]
+title = "A test job gives each tool its input in the form the tool reads"
+symptom = "The options of a service container of a workflow reach the container tool as words without a shell, so a health command of several words is written with double quotes or as one word, never with single quotes. A path selector of the package manager is resolved from the directory the manager runs in, and a selector is right only when the manager lists exactly one project for it. A Go build inside a directory that a workspace file covers follows the Go version of the workspace file unless the workspace is off, whatever the module states. A test case that takes its input through a flag from a proof has no input in a plain run of its package. A proof that runs a command of the tree must call it with the options the command requires today."
+fix = "Decision 3576. Tasks 22.39.651 to 22.39.654."
+
+[gotcha.4496]
+title = "A case that reads every package manifest of the repository counts the manifests of every tree"
+symptom = "The case test_js_test_scripts_have_runner of tests/ci/test_js_suites_have_runner.py reads every package manifest of the repository, among them the manifests of the trading packages under apps/perps/packages. The runners and the exclusion list for those packages are the work of task 22.39.571. A task on the launchpad test job that verifies with this case would take on that work."
+fix = "Decision 3577. The verification of the launchpad task selects the other cases of the file."
+
+[gotcha.4497]
+title = "A case keeps its input only while it follows the side that produces it"
+symptom = "A test that builds a call environment by hand holds only the fields it sets, and an entry point that reads the chain configuration of the environment needs one. A setting of a test configuration that is named after one transformer is read only by that transformer; when the version of the test runner brings another transformer the setting has no effect and a file with JSX no longer parses. A case whose input comes from another test through the environment has no input in a plain run of its package. A relative import into the tree of another application ends when that tree is replaced. An answer with a status outside the success range can carry a JSON object, and it is still not an answer to the request."
+fix = "Decision 3578. Tasks 22.39.655 to 22.39.658."
+
+[gotcha.4498]
+title = "An approval list that is fixed at start cannot follow keys that come into being later"
+symptom = "A signed approval list that a service reads from a path fixed at start changes only when that path is rewritten on every member, so a key that comes into being while the services run waits for that. A file that is materialised from the environment at each start returns to its first content at the next start, and a store that remembers a higher sequence then refuses it. A list has a lifetime, so it is signed again before the lifetime ends even when no key changes. A request for approval already has a form in the tree; a second form beside it leaves two readers to keep in line."
+fix = "Decision 3579. Tasks 22.39.659 to 22.39.664."
+
+[gotcha.4499]
+title = "A kind of transaction is shown for a node without sequencing only by a case that runs on such a node"
+symptom = "The node that sequences executes a transaction when it arrives and issues the receipt; a node without sequencing applies the same transaction from the block and must reach the same receipt, block hash and application hash. The two are different paths through the code, so a case on a single sequencing node speaks for the first path. The comparison on the local network with a second node holds cases for transfers, a revert, an identity bind and a ledger draw. The committed vector builds a contract creation and a sponsored batch with a set-code authorization on one node; the comparison takes the same kinds to the second node."
+fix = "Decision 3580. Task 22.39.665."
+
+[gotcha.4500]
+title = "A delivery over every eligible wallet needs every one of them to hold an identity"
+symptom = "The plan of the custody ceremony counts as eligible every wallet that is neither funded nor migrated. The delivery of a wallet begins with its bound identity: the identifier on the wallet row, the provisioning record in the active state and the binding on the chain. A wallet whose owner has not yet provisioned an identity through the gateway holds an envelope and no identity, and a wallet of the agent kind has an identity whose key is held outside the attestors. The gateway signs for a wallet with an envelope from that envelope until the wallet is migrated, so such a wallet stays in use while it waits. A ceremony that takes the eligible wallets as one set therefore covers a database in which every owner has provisioned; a database with wallets of the three kinds needs the set divided."
+fix = "Decision 3581. Task 22.39.666."
+
+[gotcha.4501]
+title = "The values that approve a migration release come from applying it"
+symptom = "The registry of the launchpad migrations names for every registration an approval digest, the digest of the grants document, the lowest reader version and an estimate of its lock, and the aliases file names for every source of an earlier per-service history the structural fingerprint of its schema after that source. The schema command refuses a registry in which one of these is empty, and it compares each fingerprint with the catalog of the database it applies to. Each of these values is a fact about the release applied to a database: a fingerprint is the catalog after a source ran, a lock estimate is the time a migration held its transaction, and the grants can only be applied when every object they name has been created by a registration. A fingerprint also depends on the way the server renders a definition, so it belongs to one major version of PostgreSQL. Values written by hand can agree with the command and still differ from the database; values taken from one run on an empty database agree with both."
+fix = "Decision 3582. Task 22.39.667."
+
+[gotcha.4502]
+title = "A style sheet holds rules only for the class names found in its sources"
+symptom = "The utility compiler of the web apps writes a rule for a class name only when it finds the name in a source it reads. It reads the files of the app itself and leaves out what is installed as a dependency. The components of the package at apps/web/packages/layerx-ui carry their class names in the package, and an app receives the package as a dependency. An app that imports the tokens of the package and does not name the directory src of the package as a source builds a sheet with the tokens and the few rules of its own files, and its build and its static test pass. The app under apps/web names the directory; every other app that renders components of the package names it too, and a check of the built sheet keeps it so."
+fix = "Task 22.39.668."
+
+[gotcha.4503]
+title = "A registered developer key is not yet a session"
+symptom = "The routes that issue and rotate keys, the funds request and every route of the dashboard take a session of the identity service, as a Bearer value or as the session cookie of the host. The identity service opens a session only for a caller that holds its provisioning token. The hosted gateway holds that token and uses it for the registration of a developer key. The proof a developer gives for the registration covers the tenant and the key and no time, so it stays valid for ever and cannot open a session. A session for a developer therefore comes from a method of its own that asks for a proof of the key bound to the present time and accepts each proof once."
+fix = "Decisions 3583 and 3584. Tasks 22.39.669 and 22.39.670."
+
+[gotcha.4504]
+title = "A health path is asked from the first second of a deployment"
+symptom = "A platform that starts a service asks its health path on the port named by the variable PORT and ends the deployment when no answer comes within its wait. A definition that gives a listener and no PORT leaves the port to the platform, and the listener is not asked. An image that does long first work before it serves, such as the first backfill of the indexer, has no listener in that time; the work can take longer than any wait. A definition names the port its health path answers on, and an image answers its health path while the first work runs."
+fix = "Decision 3585. Tasks 22.39.671 and 22.39.672."

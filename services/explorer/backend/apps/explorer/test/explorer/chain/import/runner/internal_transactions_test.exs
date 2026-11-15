@@ -1,9 +1,14 @@
 defmodule Explorer.Chain.Import.Runner.InternalTransactionsTest do
   use Explorer.DataCase
 
+  import Mox
+
   alias Ecto.Multi
   alias Explorer.Chain.{Block, Data, Wei, PendingBlockOperation, Transaction, InternalTransaction}
   alias Explorer.Chain.Import.Runner.InternalTransactions
+
+  setup :set_mox_global
+  setup :verify_on_exit!
 
   setup do
     config = Application.get_env(:ethereum_jsonrpc, EthereumJSONRPC.Geth)
@@ -382,6 +387,7 @@ defmodule Explorer.Chain.Import.Runner.InternalTransactionsTest do
         value: Wei.from(Decimal.new(0), :wei)
       }
 
+      expect_contract_code_fetch([contract_address.hash], ["0x"])
       assert {:ok, _} = run_internal_transactions([selfdestruct_changes])
 
       # Verify the contract_code was emptied
@@ -428,6 +434,7 @@ defmodule Explorer.Chain.Import.Runner.InternalTransactionsTest do
         value: Wei.from(Decimal.new(0), :wei)
       }
 
+      expect_contract_code_fetch([contract_address.hash], ["0x6080604052"])
       assert {:ok, _} = run_internal_transactions([create_changes, selfdestruct_changes])
 
       # Verify the contract_code was NOT emptied (contract created and destroyed in same tx)
@@ -485,6 +492,11 @@ defmodule Explorer.Chain.Import.Runner.InternalTransactionsTest do
         value: Wei.from(Decimal.new(0), :wei)
       }
 
+      expect_contract_code_fetch(
+        [contract_address_1.hash, contract_address_2.hash, contract_address_3.hash],
+        ["0x", "0x", "0x"]
+      )
+
       assert {:ok, _} =
                run_internal_transactions([
                  selfdestruct_changes_1,
@@ -537,6 +549,7 @@ defmodule Explorer.Chain.Import.Runner.InternalTransactionsTest do
         value: Wei.from(Decimal.new(0), :wei)
       }
 
+      expect_contract_code_fetch([contract_address.hash], ["0x6080604052"])
       assert {:ok, _} = run_internal_transactions([create2_changes, selfdestruct_changes])
 
       # Verify the contract_code was NOT emptied (contract created and destroyed in same tx)
@@ -565,6 +578,7 @@ defmodule Explorer.Chain.Import.Runner.InternalTransactionsTest do
         value: Wei.from(Decimal.new(0), :wei)
       }
 
+      expect_contract_code_fetch([non_existent_address_hash], ["0x"])
       # Should not raise an error
       assert {:ok, _} = run_internal_transactions([selfdestruct_changes])
     end
@@ -580,6 +594,29 @@ defmodule Explorer.Chain.Import.Runner.InternalTransactionsTest do
   end
 
   defp make_empty_block_changes(block_number), do: %{block_number: block_number}
+
+  defp expect_contract_code_fetch(address_hashes, codes) do
+    expected_addresses = Enum.sort_by(address_hashes, &to_string/1)
+    assert length(codes) == length(expected_addresses)
+
+    expect(EthereumJSONRPC.Mox, :json_rpc, 1, fn requests, _options ->
+      assert Enum.map(requests, & &1.method) == List.duplicate("eth_getCode", length(expected_addresses))
+
+      assert Enum.map(requests, fn %{id: id, params: [address, block]} ->
+               assert is_binary(address)
+               assert %{blockHash: block_hash, requireCanonical: true} = block
+               assert is_binary(block_hash)
+               {id, address}
+             end) ==
+               Enum.with_index(expected_addresses)
+               |> Enum.map(fn {address, id} -> {id, to_string(address)} end)
+
+      {:ok,
+       Enum.map(Enum.with_index(codes), fn {code, id} ->
+         %{id: id, result: code}
+       end)}
+    end)
+  end
 
   defp make_internal_transaction_changes(transaction, index, error) do
     %{

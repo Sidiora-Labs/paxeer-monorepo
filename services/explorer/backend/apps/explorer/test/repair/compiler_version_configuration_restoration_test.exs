@@ -4,7 +4,7 @@ Code.require_file("../explorer/smart_contract/binary_getter_fixture.exs", __DIR_
 defmodule Explorer.Repair.CompilerVersionConfigurationRestorationTest do
   use ExUnit.Case
 
-  alias Explorer.SmartContract.{CompilerVersion, CompilerVersionFixture, Repair2233544Fixtures}
+  alias Explorer.SmartContract.{BinaryGetterFixture, CompilerVersion, CompilerVersionFixture}
 
   setup do
     replace_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, enabled: false)
@@ -51,7 +51,7 @@ defmodule Explorer.Repair.CompilerVersionConfigurationRestorationTest do
   end
 
   test "disabled-binary-getter-regression preserves bytes beginning with ASCII 0x over real HTTP" do
-    Repair2233544Fixtures.assert_binary_getter()
+    BinaryGetterFixture.assert_binary_getter()
   end
 
   defp compiler_server do
