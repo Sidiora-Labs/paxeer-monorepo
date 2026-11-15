@@ -67,8 +67,24 @@ async function boundedBody(stream: ReadableStream<Uint8Array> | null, limit: num
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
+function acceptsOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (origin === null) return false;
+  try {
+    const parsedOrigin = originUrl(origin, "/").origin;
+    if (parsedOrigin === new URL(request.url).origin) return true;
+    const host = request.headers.get("host");
+    if (host === null || !/^(?:\[[0-9a-f:.]+\]|[^\s:/\\?#@,\[\]%]+)(?::[0-9]+)?$/i.test(host)) {
+      return false;
+    }
+    return parsedOrigin === new URL(`https://${host}`).origin;
+  } catch {
+    return false;
+  }
+}
+
 async function requestDocument(request: Request): Promise<Document> {
-  if (request.headers.get("origin") !== new URL(request.url).origin) {
+  if (!acceptsOrigin(request)) {
     throw new SessionFailure(403, "origin_refused");
   }
   if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(request.headers.get("content-type") ?? "")) {
