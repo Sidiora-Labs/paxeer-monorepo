@@ -22185,3 +22185,28 @@ fix = "Decision 3556. Task 22.39.567 carries the pages and the notice."
 title = "Five launchpad modules state a Go version above the reviewed builder of the launchpad images"
 symptom = "deploy/launchpad/Dockerfile.svc builds with the reviewed image of go1.26.4 and the local toolchain only, and the supply chain files of services/launchpad/security pin that version. The modules api, indexer, notifications, social and user under services/launchpad and services/launchpad/go.work state go 1.27.0."
 fix = "Decision 3557. Task 22.39.568 makes builder and directives agree."
+
+[gotcha.4473]
+title = "The perps project tool sends registry credentials with every image row and waits only on the deployment it started"
+symptom = "The tool requires both registry credential variables and attaches them to every image row, also when the images of the row are public. After a deploy call it reads the state of the deployment it started. When the hosting platform replaces that deployment with a newer one of the same service, the first one ends in a removed state while the service runs the newer one."
+fix = "Decision 3558. Task 22.39.574 changes the tool."
+
+[gotcha.4474]
+title = "The message bus rows of the perps project file do not match what the message bus image reads"
+symptom = "services/platform/perps-data/deploy/nats/nats.conf reads the route variable as a list in brackets, the form services/platform/perps-data/deploy/nats_test.go sets. The rows of the perps project file under deploy give the routes as one string with a comma. The image runs as a user without privileges and stores under /data, and a volume of the hosting platform is mounted with user 0 as owner. The rows name the health path /healthz, which a server answers only after it has met the other servers, while the hosting platform routes to a server only after its health path answers."
+fix = "Decision 3558. Task 22.39.574 changes the rows."
+
+[gotcha.4475]
+title = "Most services of the repository have no definition that creates them on the hosting platform"
+symptom = "deploy/rollout.kvx and the two rollout files beside it move services that exist to a pinned image, and the perps project file under deploy is the one definition that creates services. The other services of deploy/rollout.kvx that run on the hosting platform, the remaining container folders under docker and the web applications under apps have no such definition, and the variables each of them reads are stated only in its sources and in the pages under docs/release/variables."
+fix = "Decisions 3559 and 3560. Tasks 22.39.575 to 22.39.608 add the tool and the definitions."
+
+[gotcha.4476]
+title = "Four services have no container file"
+symptom = "The evaluator under services/platform/hosted/ai-evaluator, which deploy/rollout.kvx lists with an image, and the applications apps/bridge, apps/names and apps/inference-peer have no container file in the repository."
+fix = "Decision 3561. Tasks 22.39.583, 22.39.601, 22.39.606 and 22.39.607 add them."
+
+[gotcha.4477]
+title = "The type check of the trading workspace needs the build output of one of its packages"
+symptom = "The web application under apps/perps/apps/web imports @sidioralabs/chainflow-data-gateway from the package under apps/perps/packages/chainflow. The scripts dev and build of the workspace build that package first; the type check script of the workspace root does not, and then reports the import."
+fix = "Decision 3562. Task 22.39.567 waits for task 22.39.563, which holds the manifest of the workspace root."
