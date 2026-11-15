@@ -180,7 +180,7 @@ fn verify_bundle_consumers(
             .verify_current_chain_head(
                 kind,
                 &state.commitment,
-                &state.transaction,
+                &support::deployment::raw_transaction(recovered),
                 &state.transaction_proof,
                 NOW,
             )

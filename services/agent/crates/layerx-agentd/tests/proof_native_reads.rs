@@ -645,7 +645,7 @@ pub(crate) mod disposable_node {
                 .unwrap_or_else(|| panic!("disposable native reads node: directory allocation"));
             let environment = directory.join("localnode.env");
             let log_path = directory.join("startup.log");
-            let log = must(
+            must(
                 std::fs::OpenOptions::new()
                     .write(true)
                     .create_new(true)
@@ -658,18 +658,32 @@ pub(crate) mod disposable_node {
                 Path::new(&paxd).is_file(),
                 "PAXD must name a native node file"
             );
-            let status = Command::new("bash")
-                .arg(&script)
-                .args(["--sequencer", "--env-out"])
-                .arg(&environment)
-                .env("TMPDIR", "/tmp")
-                .env("PAXD", paxd)
-                .stdout(Stdio::from(must(log.try_clone())))
-                .stderr(Stdio::from(log))
-                .status()
-                .unwrap_or_else(|error| {
-                    panic!("start tools/qualification/localnode/v6120-node.sh producer: {error:?}")
-                });
+            let run = || {
+                let output = must(std::fs::OpenOptions::new().append(true).open(&log_path));
+                Command::new("bash")
+                    .arg(&script)
+                    .args(["--sequencer", "--env-out"])
+                    .arg(&environment)
+                    .env("TMPDIR", "/tmp")
+                    .env("PAXD", &paxd)
+                    .stdout(Stdio::from(must(output.try_clone())))
+                    .stderr(Stdio::from(output))
+                    .status()
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "start tools/qualification/localnode/v6120-node.sh producer: {error:?}"
+                        )
+                    })
+            };
+            let mut status = run();
+            let transient_bootstrap_exit = !status.success()
+                && std::fs::read_to_string(&log_path)
+                    .map(|log| log.contains("kill: (") && log.contains("No such process"))
+                    .unwrap_or(false);
+            if transient_bootstrap_exit {
+                thread::sleep(std::time::Duration::from_millis(100));
+                status = run();
+            }
             let evidence_path = if status.success() {
                 log_path
             } else {
@@ -780,6 +794,23 @@ pub(crate) mod disposable_node {
 
     impl Drop for LocalNode {
         fn drop(&mut self) {
+            if let Some(pid) = std::fs::read_to_string(self.home.join("feeder.pid"))
+                .ok()
+                .and_then(|pid| pid.trim().parse::<u32>().ok())
+            {
+                let command_path = format!("/proc/{pid}/cmdline");
+                let home_bytes = self.home.as_os_str().as_encoded_bytes();
+                if let Ok(command) = std::fs::read(command_path) {
+                    if command
+                        .windows(home_bytes.len())
+                        .any(|window| window == home_bytes)
+                    {
+                        let _ = Command::new("kill")
+                            .args(["-KILL", &pid.to_string()])
+                            .status();
+                    }
+                }
+            }
             let status = Command::new("bash")
                 .arg(&self.script)
                 .arg("--stop")
