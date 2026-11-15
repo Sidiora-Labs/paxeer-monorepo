@@ -204,7 +204,7 @@ beforeAll(async () => {
       }
       if (unavailable) {
         response.statusCode = 503;
-        response.end(JSON.stringify({ error: 'Recorded offline interval' }));
+        response.end(JSON.stringify({ jsonrpc: '2.0', id: 0, result: null }));
         return;
       }
       if (request.method !== 'POST' || path !== '/rpc') throw new Error(`Unrecorded path ${path}`);

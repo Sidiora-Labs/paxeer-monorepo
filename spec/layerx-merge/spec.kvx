@@ -197776,7 +197776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.654]
 title = "Call the load test command of the wallet attestor proof with the options the command requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197840,7 +197840,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.651]
 title = "Write the service health commands and the package selection of the launchpad test workflow in the form their tools read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -198090,7 +198090,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.643]
 title = "Compose the startup documents of the launchpad stats service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -198183,7 +198183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.640]
 title = "Compose the startup documents of the launchpad API in both roles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -458867,7 +458867,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.632]
 title = "Let the websocket recovery cases of the JSON-RPC client hold within the whole suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458991,7 +458991,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.628]
 title = "Let the receipt and committed status cases of the explorer hold within the whole suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

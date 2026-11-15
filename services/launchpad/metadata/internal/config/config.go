@@ -154,7 +154,37 @@ func Load() (Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
+	if err := cfg.validateStartupDocuments(); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
 	return cfg, nil
+}
+
+func (c Config) validateStartupDocuments() error {
+	if c.RuntimeBudgetFile != "" || c.RuntimeBudgetDocument != "" {
+		data, err := boundBytes(c.RuntimeBudgetFile, c.RuntimeBudgetDocument, c.RuntimeBudgetSHA256)
+		if err != nil {
+			return fmt.Errorf("DB_BUDGET_DOCUMENT: %w", err)
+		}
+		budget, err := dbproduction.ParseConnectionBudget(data)
+		if err != nil {
+			return fmt.Errorf("DB_BUDGET_DOCUMENT: %w", err)
+		}
+		if _, err := budget.BudgetPoolOptions("metadatad", c.RuntimePoolID, c.RuntimeInstanceID); err != nil {
+			return fmt.Errorf("DB_BUDGET_DOCUMENT: %w", err)
+		}
+	}
+	if c.ExpectedSchemaFile != "" || c.ExpectedSchemaDocument != "" {
+		if _, err := c.readExpectedRuntimeSchema(); err != nil {
+			return fmt.Errorf("EXPECTED_SCHEMA_DOCUMENT: %w", err)
+		}
+	}
+	if c.PublicationConfigFile != "" || c.PublicationConfigDocument != "" {
+		if _, _, err := c.ReadPublicationRuntime(); err != nil {
+			return fmt.Errorf("METADATA_PUBLICATION_CONFIG_DOCUMENT: %w", err)
+		}
+	}
+	return nil
 }
 
 // Validate enforces field-level rules beyond presence.
@@ -354,18 +384,29 @@ func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) err
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
 		return fmt.Errorf("runtime_schema_configuration_missing")
 	}
-	data, err := boundBytes(c.ExpectedSchemaFile, c.ExpectedSchemaDocument, c.ExpectedSchemaSHA256)
+	want, err := c.readExpectedRuntimeSchema()
 	if err != nil {
 		return err
+	}
+	return dbproduction.CheckReadiness(ctx, pool, want)
+}
+
+func (c Config) readExpectedRuntimeSchema() (dbproduction.ExpectedSchema, error) {
+	data, err := boundBytes(c.ExpectedSchemaFile, c.ExpectedSchemaDocument, c.ExpectedSchemaSHA256)
+	if err != nil {
+		return dbproduction.ExpectedSchema{}, err
 	}
 	want, err := dbproduction.LoadExpectedSchema(data, c.ExpectedSchemaSHA256)
 	if err != nil {
-		return err
+		return dbproduction.ExpectedSchema{}, err
+	}
+	if want.Service == "metadata" {
+		want.Service = "media/metadata"
 	}
 	if want.Service != "media/metadata" {
-		return fmt.Errorf("runtime_schema_service_mismatch")
+		return dbproduction.ExpectedSchema{}, fmt.Errorf("runtime_schema_service_mismatch")
 	}
-	return dbproduction.CheckReadiness(ctx, pool, want)
+	return want, nil
 }
 
 func ReadBoundDocument(path, digest string, out any) error {

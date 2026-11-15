@@ -64,10 +64,7 @@ defmodule EthereumJSONRPC.WebSocket.Lifecycle do
   alias EthereumJSONRPC.WebSocket.Supervisor, as: WebSocketSupervisor
   alias EthereumJSONRPC.WebSocket.WebSocketClient.Options
 
-  @client Indexer.Block.Realtime.WebSocket
-  @primary_listener __MODULE__.Primary
-  @fallback_listener __MODULE__.Fallback
-  @tls_listener __MODULE__.TLS
+  @client __MODULE__.Client
   @fixture Path.expand("../../support/fixture/paxeer_x/new_head_full.json", __DIR__)
   @cert Path.join(__DIR__, "fixtures/localhost-cert.pem")
   @key Path.join(__DIR__, "fixtures/localhost-key.pem")
@@ -75,17 +72,14 @@ defmodule EthereumJSONRPC.WebSocket.Lifecycle do
 
   def assert_primary_recovery do
     fixture = fixture()
-    primary_port = start_node(@primary_listener, :primary, fixture)
-    fallback_port = start_node(@fallback_listener, :fallback, fixture)
+    primary_listener = {__MODULE__, make_ref()}
+    fallback_listener = {__MODULE__, make_ref()}
+    primary_port = start_node(primary_listener, :primary, fixture)
+    fallback_port = start_node(fallback_listener, :fallback, fixture)
     configure_runtime()
 
     transport_options = transport("ws://127.0.0.1:#{primary_port}/websocket")
     transport_options = %{transport_options | fallback_url: "ws://127.0.0.1:#{fallback_port}/websocket"}
-
-    Application.put_env(:indexer, :subscribe_named_arguments,
-      transport: WebSocket,
-      transport_options: transport_options |> Map.from_struct() |> Map.to_list()
-    )
 
     # The production supervisor supplies start_link(url, options), including the stable owner name.
     start_supervised!({WebSocketSupervisor, transport_options})
@@ -97,19 +91,20 @@ defmodule EthereumJSONRPC.WebSocket.Lifecycle do
     assert_subscription(initial_pid, subscription, primary_id)
     assert_head(subscription, transport_options, primary_connection, :primary, fixture)
 
-    assert :ok = :cowboy.stop_listener(@primary_listener)
+    assert :ok = :cowboy.stop_listener(primary_listener)
     {fallback_connection, fallback_id} = assert_subscribed(:fallback)
     refute fallback_id == primary_id
     await(fn -> :sys.get_state(initial_pid).fallback? end)
     assert_subscription(initial_pid, subscription, fallback_id)
     assert_head(subscription, transport_options, fallback_connection, :fallback, fixture)
 
-    assert start_node(@primary_listener, :recovered, fixture, primary_port) == primary_port
+    assert start_node(primary_listener, :recovered, fixture, primary_port) == primary_port
 
     monitor = Process.monitor(initial_pid)
     send(RetryWorker, :retry)
     {recovered_connection, recovered_id} = assert_subscribed(:recovered)
     assert_receive {:DOWN, ^monitor, :process, ^initial_pid, :shutdown}, 15_000
+    assert_receive {^subscription, {:error, {:websocket_terminated, :shutdown}}}, 2_000
     recovered_pid = Process.whereis(@client)
     assert is_pid(recovered_pid)
     refute recovered_pid == initial_pid
@@ -131,7 +126,7 @@ defmodule EthereumJSONRPC.WebSocket.Lifecycle do
 
   def assert_tls_reconnect do
     fixture = fixture()
-    port = start_node(@tls_listener, :tls, fixture, 0, :tls)
+    port = start_node({__MODULE__, make_ref()}, :tls, fixture, 0, :tls)
     configure_runtime()
 
     # These are real control-plane peers used by the production WebSocket callbacks.
@@ -212,23 +207,16 @@ defmodule EthereumJSONRPC.WebSocket.Lifecycle do
   end
 
   defp configure_runtime do
-    for {app, key} <- [
-          {:ethereum_jsonrpc, RetryWorker},
-          {:indexer, :subscribe_named_arguments},
-          {:indexer, :realtime_overrides}
-        ] do
-      previous = Application.fetch_env(app, key)
+    previous = Application.fetch_env(:ethereum_jsonrpc, RetryWorker)
 
-      on_exit(fn ->
-        case previous do
-          {:ok, value} -> Application.put_env(app, key, value)
-          :error -> Application.delete_env(app, key)
-        end
-      end)
-    end
+    on_exit(fn ->
+      case previous do
+        {:ok, value} -> Application.put_env(:ethereum_jsonrpc, RetryWorker, value)
+        :error -> Application.delete_env(:ethereum_jsonrpc, RetryWorker)
+      end
+    end)
 
     Application.put_env(:ethereum_jsonrpc, RetryWorker, retry_interval: 60_000)
-    Application.put_env(:indexer, :realtime_overrides, [])
   end
 
   defp transport(url) do

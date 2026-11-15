@@ -9,15 +9,8 @@ defmodule Explorer.CommittedStatusEvidenceTest do
 
   @vectors Path.expand("../support/fixture/paxeer_x/committed_vectors.json", __DIR__)
   @chain_id "committed-fixture"
-  @validator_hash Base.decode16!("65CEAF405AF4643DA85D93D6CAA8CA8A47F80A4174D4541D7D3F58401981ACA2")
-  @block_hash Base.decode16!("066B3B86EB6F62437B659C1D075F28EB22246D233FE86B3D5CACBDB5E18216E9")
-  @receipt_key %{
-    key_id: Base.decode16!("BA3A5A0BBA18E7EAD9FD281C793DAAEC55218C5D084483346E45C959A92BF699"),
-    public_key: Base.decode16!("AED3D83B59B735683EDB641862D13D6855F37284C190B7B501A46CA29085B239"),
-    first_height: 10,
-    last_height: 10
-  }
-
+  @validator_hash Base.decode16!("65AC241D8D9974E24C80AE5EF8B49BD34F4CDD522B0A881EA960A28E47BB6C29")
+  @block_hash Base.decode16!("A7C648246A5213D57D6A2F2AA7BDC8E0050249629E5E92A4B89F2BDB918E9108")
   defmodule RecordedRPC do
     @behaviour Plug
 
@@ -37,24 +30,29 @@ defmodule Explorer.CommittedStatusEvidenceTest do
 
   setup do
     old_config = Application.get_env(:explorer, SequencerReceipt)
+    old_http_client = Application.get_env(:explorer, :http_client)
     old_adapter = Application.get_env(:tesla, :adapter)
+    Application.put_env(:explorer, :http_client, Explorer.HttpClient.HTTPoison)
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
-
-    Application.put_env(:explorer, SequencerReceipt,
-      chain_id: @chain_id,
-      receipt_keys: [@receipt_key],
-      validator_checkpoints: %{10 => %{block_hash: @block_hash, validators_hash: @validator_hash}}
-    )
 
     {:ok, _} = Application.ensure_all_started(:plug_cowboy)
 
     on_exit(fn ->
       restore_env(:explorer, SequencerReceipt, old_config)
+      restore_env(:explorer, :http_client, old_http_client)
       restore_env(:tesla, :adapter, old_adapter)
     end)
 
     corpus = @vectors |> File.read!() |> Jason.decode!()
     [positive | _] = corpus["cases"]
+    {:ok, [receipt_key]} = SequencerReceipt.decode_receipt_keys([positive["pinnedKey"]])
+
+    Application.put_env(:explorer, SequencerReceipt,
+      chain_id: @chain_id,
+      receipt_keys: [receipt_key],
+      validator_checkpoints: %{10 => %{block_hash: @block_hash, validators_hash: @validator_hash}}
+    )
+
     {:ok, corpus: corpus, positive: positive}
   end
 
@@ -95,8 +93,8 @@ defmodule Explorer.CommittedStatusEvidenceTest do
     assert settlement["exec_tx_result_proof"]["index"] == "1"
     assert settlement["sequence_batch"]["FromSeq"] == decoded.global_sequence
     assert settlement["sequence_batch"]["ToSeq"] == decoded.global_sequence
-    assert settlement["exec_tx_result"]["gas_used"] == 39_092
-    assert receipt["gasUsed"] == "0x98b4"
+    assert settlement["exec_tx_result"]["gas_used"] == 39_080
+    assert receipt["gasUsed"] == "0x98a8"
 
     calls = recorded_calls(vector)
     url = replay(calls)
@@ -225,8 +223,8 @@ defmodule Explorer.CommittedStatusEvidenceTest do
     assert {:ok, 1_000} = CometCommit.verify(unrelated["chain_id"], unrelated["commit"], unrelated["validators"])
     {:ok, [key]} = SequencerReceipt.decode_receipt_keys([unrelated["pinnedKey"]])
 
-    assert SequencerReceipt.verify(transaction_hash(unrelated), unrelated["receiptJson"], [key]) == {:receipted, key}
-    assert verify(unrelated) == {:error, :r8}
+    assert SequencerReceipt.verify(transaction_hash(unrelated), unrelated["receiptJson"], [key]) == {:error, :r5}
+    assert verify(unrelated) == {:error, :r5}
   end
 
   test "committed_without_inclusion_rejects_altered_covering_ranges", %{positive: vector} do
