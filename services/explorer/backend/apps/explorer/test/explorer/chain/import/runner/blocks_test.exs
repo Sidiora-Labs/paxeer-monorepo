@@ -453,7 +453,8 @@ defmodule Explorer.Chain.Import.Runner.BlocksTest do
                 save_internal_transactions_for_delete: [^block_number]
               }} = run_block_consensus_change(block, true, options)
 
-      assert %{block_number: ^block_number} = Repo.one(InternalTransactionDeleteQueue)
+      assert %{block_number: ^block_number} =
+               Repo.one(from(queue in InternalTransactionDeleteQueue, where: queue.block_number == ^block_number))
     end
 
     # Regression test for https://github.com/poanetwork/blockscout/issues/1644
