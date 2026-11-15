@@ -16,6 +16,101 @@ defmodule Explorer.TestHelper do
   # cast cd 'getAddress(string)' IMPLEMENTATION
   @address_manager_calldata "0xbf40fac10000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000e494d504c454d454e544154494f4e000000000000000000000000000000000000"
 
+  @doc """
+  Owns a committed connection shared by a serial migration test and its workers.
+  The connection stays checked out through cleanup and is released afterwards.
+  """
+  def start_migration_owner! do
+    owner = Ecto.Adapters.SQL.Sandbox.start_owner!(Explorer.Repo, shared: true, sandbox: false)
+    ExUnit.Callbacks.on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(owner) end)
+    owner
+  end
+
+  @doc """
+  Pauses a replay after its next committed batch so a test can inspect its cursor.
+  """
+  def pause_next_replay_batch do
+    handler = {__MODULE__, :replay_batch, make_ref()}
+    prefix = Explorer.Repo.config()[:telemetry_prefix] || [:explorer, :repo]
+    gate = :atomics.new(1, [])
+
+    :ok = :telemetry.attach(handler, prefix ++ [:query], &__MODULE__.observe_replay_batch/4, {self(), handler, gate})
+    ExUnit.Callbacks.on_exit(fn -> :telemetry.detach(handler) end)
+    handler
+  end
+
+  @doc false
+  def observe_replay_batch(_event, _measurements, metadata, {owner, handler, gate}) do
+    cond do
+      String.starts_with?(metadata.query, "SELECT j.block_hash, j.block_number, j.transactions, j.results") ->
+        Process.put(handler, true)
+
+      metadata.query == "commit" and match?({:ok, _}, metadata.result) and Process.get(handler, false) and
+          :atomics.compare_exchange(gate, 1, 0, 1) == :ok ->
+        monitor = Process.monitor(owner)
+        send(owner, {handler, :batch_committed, self()})
+
+        receive do
+          {^handler, :continue} -> Process.demonitor(monitor, [:flush])
+          {:DOWN, ^monitor, :process, ^owner, _reason} -> exit(:shutdown)
+        end
+
+      true ->
+        :ok
+    end
+  end
+
+  @doc """
+  Suspends the replay before it starts another batch. Resume it with `:sys.resume/1`.
+  """
+  def await_replay_batch(handler, runner) do
+    import ExUnit.Assertions
+
+    assert_receive {^handler, :batch_committed, worker}, 5_000
+    suspension = Task.async(fn -> :sys.suspend(runner) end)
+    await_replay_suspension(runner, suspension.pid, 500)
+    send(worker, {handler, :continue})
+    :ok = Task.await(suspension, 5_000)
+    :ok = :telemetry.detach(handler)
+  end
+
+  @doc """
+  Stops a supervised child when it still has a process in the test supervisor.
+  """
+  def stop_supervised_if_alive(id) do
+    with {:ok, supervisor} <- ExUnit.fetch_test_supervisor(),
+         {^id, pid, _type, _modules} when is_pid(pid) <-
+           List.keyfind(Supervisor.which_children(supervisor), id, 0) do
+      ExUnit.Callbacks.stop_supervised(id)
+    else
+      _ -> :ok
+    end
+  end
+
+  defp await_replay_suspension(runner, caller, attempts) do
+    import ExUnit.Assertions
+
+    {:messages, messages} = Process.info(runner, :messages)
+
+    requested? =
+      Enum.any?(messages, fn
+        {:system, {^caller, _tag}, :suspend} -> true
+        _ -> false
+      end)
+
+    cond do
+      requested? ->
+        :ok
+
+      attempts == 0 ->
+        assert requested?
+
+      true ->
+        Process.sleep(10)
+        await_replay_suspension(runner, caller, attempts - 1)
+    end
+  end
+
   # TODO: Execute this for all background migrations
   def run_necessary_background_migrations do
     for background_migration <- [
