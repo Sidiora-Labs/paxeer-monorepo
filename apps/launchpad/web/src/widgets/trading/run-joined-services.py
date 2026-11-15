@@ -32,6 +32,15 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def build_go(owner, binary, entry, name, cwd, env):
+    previous_env = owner.env
+    owner.env = {**env, 'GOWORK': 'off'}
+    try:
+        owner.run(['go', 'build', '-o', str(binary), './cmd/' + entry], name, cwd=cwd)
+    finally:
+        owner.env = previous_env
+
+
 def ready(owner, child, url, timeout=90):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -299,12 +308,7 @@ def prepare_fixture(owner):
                                   ('indexer', 'indexer', 'indexerd'),
                                   ('gateway', 'gateway', 'mediagatewayd'), ('api', 'api', 'apid')]:
         binary = output / role
-        build_env = owner.env
-        owner.env = common
-        try:
-            owner.run(['go', 'build', '-o', str(binary), './cmd/' + entry], 'joined-build-' + role, cwd=services / service)
-        finally:
-            owner.env = build_env
+        build_go(owner, binary, entry, 'joined-build-' + role, services / service, common)
         env = {**common, 'PORT': str(ports[role])}
         if role == 'trading-charts':
             owner.run(['psql', database, '-v', 'ON_ERROR_STOP=1', '-c',
@@ -314,8 +318,8 @@ def prepare_fixture(owner):
             owner.run(['psql', database, '-v', 'ON_ERROR_STOP=1', '-c',
                        'CREATE SCHEMA stats_migrations'], 'joined-stats-migration-schema')
             migration = output / 'stats-migrate'
-            owner.run(['go', 'build', '-o', str(migration), './cmd/stats-migrate'],
-                      'joined-build-stats-migrate', cwd=services / 'stats-workers')
+            build_go(owner, migration, 'stats-migrate', 'joined-build-stats-migrate',
+                     services / 'stats-workers', common)
             env['DATABASE_URL'] = database + '&search_path=stats_migrations'
             log = owner.output / 'joined-stats-migrate.log'
             with log.open('w') as stream:
