@@ -22155,3 +22155,58 @@ fix = "Decision 3551. Task 22.39.561 adds the cases on the local network."
 title = "The web search service offers payment in assets without reading their records"
 symptom = "resolve_receiver in services/interop/crates/x-websearch/src/payment.rs reads the identity of the receiver and derives one account for each accepted asset through accountId. It does not read the record of an asset, and it reads once: after the first success the state stays ready. An asset that the ledger does not hold, or holds as paused, is therefore offered, and a buyer cannot pay such an offer."
 fix = "Decision 3552. Task 22.39.562 reads the records and withholds such assets."
+
+[gotcha.4467]
+title = "The trading workspace under apps/perps addresses a contract venue instead of the native markets"
+symptom = "The package at apps/perps/packages/paxeer-backend holds the address of a contract venue, its facet interfaces and the endpoints of an index service of that venue, and the adapters beside its layers and the folder apps/perps/apps/web/src/native present that venue to the screens. The chain serves the perpetual and the spot markets through precompiles, and market data through the perps data gateway. contracts/perps-client.md describes that client, and the application the workspace replaced implemented it."
+fix = "Decision 3553. Task 22.39.563 binds the workspace to the native markets and the gateway."
+
+[gotcha.4468]
+title = "The trading workspace has no container file, deployment folder or identity route"
+symptom = "The image perps-web of tools/deploy/offchain-images.sh builds from apps/perps/Dockerfile with the values of apps/perps/deploy/build-args.production.env, and the web service of the perps project file under deploy is checked at /api/build-id. The workspace holds none of these files and its web application has no such route."
+fix = "Decision 3554. Task 22.39.564 adds them."
+
+[gotcha.4469]
+title = "Trees outside apps/perps name files of the application the workspace replaced"
+symptom = "Tests under precompiles, modules/pricefeed, services/platform/perps-data and services/platform/ramps, checks under tests/ci, tools/containers, tools/deps and tools/qualification/audit_repairs, the files deploy/launchpad/Dockerfile.web and docker/web/Dockerfile, the wallet workspace and the documents name paths such as apps/perps/src, apps/perps/public, apps/perps/tests and apps/perps/swagger_spot.json. The client code now lies under apps/perps/packages/paxeer-backend/src and the public files under apps/perps/apps/web/public."
+fix = "Decision 3555. Tasks 22.39.563, 22.39.565, 22.39.566 and 22.39.569 to 22.39.573 move the readers or return the files they name."
+
+[gotcha.4470]
+title = "The wallet workspace lists apps/perps as a member"
+symptom = "services/wallet/pnpm-workspace.yaml lists ../../apps/perps, and docker/web/Dockerfile copies its manifest for the install of the wallet workspace. apps/perps is a workspace root of its own with its own lockfile and does not consume the wallet packages through that workspace."
+fix = "Decision 3555. Task 22.39.565 removes the member."
+
+[gotcha.4471]
+title = "The trading workspace has no legal pages and no consent notice"
+symptom = "The application the workspace replaced served the terms, the privacy policy and the cookie policy and asked for consent before optional storage. The web application of the workspace serves none of them, and tools/qualification/audit_repairs/test_documentation_link_contracts.py names the earlier cookie policy file."
+fix = "Decision 3556. Task 22.39.567 carries the pages and the notice."
+
+[gotcha.4472]
+title = "Five launchpad modules state a Go version above the reviewed builder of the launchpad images"
+symptom = "deploy/launchpad/Dockerfile.svc builds with the reviewed image of go1.26.4 and the local toolchain only, and the supply chain files of services/launchpad/security pin that version. The modules api, indexer, notifications, social and user under services/launchpad and services/launchpad/go.work state go 1.27.0."
+fix = "Decision 3557. Task 22.39.568 makes builder and directives agree."
+
+[gotcha.4473]
+title = "The perps project tool sends registry credentials with every image row and waits only on the deployment it started"
+symptom = "The tool requires both registry credential variables and attaches them to every image row, also when the images of the row are public. After a deploy call it reads the state of the deployment it started. When the hosting platform replaces that deployment with a newer one of the same service, the first one ends in a removed state while the service runs the newer one."
+fix = "Decision 3558. Task 22.39.574 changes the tool."
+
+[gotcha.4474]
+title = "The message bus rows of the perps project file do not match what the message bus image reads"
+symptom = "services/platform/perps-data/deploy/nats/nats.conf reads the route variable as a list in brackets, the form services/platform/perps-data/deploy/nats_test.go sets. The rows of the perps project file under deploy give the routes as one string with a comma. The image runs as a user without privileges and stores under /data, and a volume of the hosting platform is mounted with user 0 as owner. The rows name the health path /healthz, which a server answers only after it has met the other servers, while the hosting platform routes to a server only after its health path answers."
+fix = "Decision 3558. Task 22.39.574 changes the rows."
+
+[gotcha.4475]
+title = "Most services of the repository have no definition that creates them on the hosting platform"
+symptom = "deploy/rollout.kvx and the two rollout files beside it move services that exist to a pinned image, and the perps project file under deploy is the one definition that creates services. The other services of deploy/rollout.kvx that run on the hosting platform, the remaining container folders under docker and the web applications under apps have no such definition, and the variables each of them reads are stated only in its sources and in the pages under docs/release/variables."
+fix = "Decisions 3559 and 3560. Tasks 22.39.575 to 22.39.608 add the tool and the definitions."
+
+[gotcha.4476]
+title = "Four services have no container file"
+symptom = "The evaluator under services/platform/hosted/ai-evaluator, which deploy/rollout.kvx lists with an image, and the applications apps/bridge, apps/names and apps/inference-peer have no container file in the repository."
+fix = "Decision 3561. Tasks 22.39.583, 22.39.601, 22.39.606 and 22.39.607 add them."
+
+[gotcha.4477]
+title = "The type check of the trading workspace needs the build output of one of its packages"
+symptom = "The web application under apps/perps/apps/web imports @sidioralabs/chainflow-data-gateway from the package under apps/perps/packages/chainflow. The scripts dev and build of the workspace build that package first; the type check script of the workspace root does not, and then reports the import."
+fix = "Decision 3562. Task 22.39.567 waits for task 22.39.563, which holds the manifest of the workspace root."
