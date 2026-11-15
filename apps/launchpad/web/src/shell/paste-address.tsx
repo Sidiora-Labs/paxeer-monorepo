@@ -1,11 +1,11 @@
 'use client';
 
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useId, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, IconButton } from '@/ui/primitives';
-import { useDismiss } from '@/ui/primitives/use-popover';
+import { useDismiss, usePopoverPosition } from '@/ui/primitives/use-popover';
 
 const ADDRESS = /(?<![0-9a-fA-F])0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/;
 
@@ -29,8 +29,14 @@ export default function PasteAddress() {
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const inputId = useId();
-  useDismiss(fallbackOpen, () => setFallbackOpen(false), [anchorRef]);
+  const position = usePopoverPosition(anchorRef, formRef, fallbackOpen, 'end', undefined, 'auto');
+  const close = useCallback(() => {
+    setFallbackOpen(false);
+    anchorRef.current?.querySelector('button')?.focus();
+  }, []);
+  useDismiss(fallbackOpen, close, [anchorRef, formRef]);
 
   const go = (address: string) => {
     router.push(coinPath(address));
@@ -57,7 +63,10 @@ export default function PasteAddress() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const address = addressFromText(manual);
-    if (!address) { setError('Enter a valid coin address (0x...)'); return; }
+    if (!address) {
+      setError('Enter a valid coin address (0x...)');
+      return;
+    }
     go(address);
   };
 
@@ -70,20 +79,32 @@ export default function PasteAddress() {
         size="md"
         loading={reading}
         aria-expanded={fallbackOpen}
-        onClick={() => { void paste(); }}
+        onClick={() => {
+          void paste();
+        }}
       />
       {fallbackOpen ? (
         <form
+          ref={formRef}
+          style={position ? { top: position.top, left: position.left } : undefined}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setFallbackOpen(false);
+          }}
           onSubmit={submit}
           role="dialog"
           aria-label="Open a coin by address"
-          className="absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-1 flex w-72 max-w-[calc(100vw-24px)] lg:left-0 lg:right-auto flex-col gap-2 rounded-md bg-surface-2 p-3 shadow-pop"
+          className="sl-popover fixed z-[var(--sl-z-dropdown)] flex w-72 max-w-[calc(100dvw-var(--sl-space-6))] flex-col gap-2 rounded-md bg-surface-2 p-3 shadow-pop"
         >
-          <label htmlFor={inputId} className="text-xs font-bold text-text-muted">Paste the coin address here</label>
+          <label htmlFor={inputId} className="text-xs font-bold text-text-muted">
+            Paste the coin address here
+          </label>
           <input
             id={inputId}
             value={manual}
-            onChange={event => { setManual(event.target.value); setError(null); }}
+            onChange={(event) => {
+              setManual(event.target.value);
+              setError(null);
+            }}
             autoFocus
             autoComplete="off"
             spellCheck={false}
@@ -91,12 +112,20 @@ export default function PasteAddress() {
             placeholder="0x…"
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? `${inputId}-error` : undefined}
-            className="h-control-height-md w-full rounded-sm bg-surface-3 px-3 font-mono text-sm text-text placeholder:text-text-faint"
+            className="sl-field min-h-control-height-md py-2 w-full rounded-sm bg-surface-3 px-3 font-mono text-sm text-text placeholder:text-text-faint"
           />
-          {error ? <p id={`${inputId}-error`} role="alert" className="text-xs text-danger">{error}</p> : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setFallbackOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" size="sm">Open coin</Button>
+          {error ? (
+            <p id={`${inputId}-error`} role="alert" className="text-xs text-danger">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={close}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              Open coin
+            </Button>
           </div>
         </form>
       ) : null}

@@ -47,7 +47,9 @@ export function BridgeTrackForm({
     <div className="flex flex-col gap-3">
       <TextField
         label="Ethereum deposit transaction hash"
+        name="deposit_transaction_hash"
         value={txHash}
+        autoComplete="off"
         spellCheck={false}
         onChange={(event) => {
           setTxHash(event.target.value.trim().toLowerCase());
@@ -55,7 +57,9 @@ export function BridgeTrackForm({
       />
       <TextField
         label="BridgeDeposit log index"
+        name="deposit_log_index"
         inputMode="numeric"
+        autoComplete="off"
         value={logIndex}
         onChange={(event) => {
           setLogIndex(event.target.value.trim());
@@ -115,7 +119,9 @@ export function BridgeOutForm({
     <div className="flex flex-col gap-3">
       <TextField
         label="Amount (base units)"
+        name="bridge_amount"
         inputMode="numeric"
+        autoComplete="off"
         value={amountText}
         onChange={(event) => {
           setAmountText(event.target.value);
@@ -124,7 +130,9 @@ export function BridgeOutForm({
       />
       <TextField
         label="Ethereum recipient"
+        name="ethereum_recipient"
         value={recipient}
+        autoComplete="off"
         spellCheck={false}
         onChange={(event) => {
           setRecipient(event.target.value.trim());

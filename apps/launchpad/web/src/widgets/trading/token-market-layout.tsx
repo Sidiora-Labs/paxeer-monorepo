@@ -39,7 +39,7 @@ const gridClass = [
  * the shell's `<main>` is the nearest scroll container, so a sticky offset there resolves against
  * main's top padding and pushes this column below the other two instead of keeping it flush.
  */
-const calloutColumnClass = 'xl:flex xl:max-h-[calc(100vh-var(--spacing-shell-top-total))] xl:flex-col xl:overflow-y-auto';
+const calloutColumnClass = 'xl:flex xl:max-h-[calc(100dvh-var(--sl-shell-top-total))] xl:flex-col xl:overflow-y-auto';
 
 /** Holder count row (rail position 2, after the trade panel); live stats first, then the snapshot rows. */
 function RailHolders({ poolAddress, liveStats }: { poolAddress: string; liveStats: PoolStats | null }) {
@@ -135,7 +135,7 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
       data-market-stream={live.state.stream}
       data-market-freshness={live.freshness}
       data-market-snapshot={pool ? 'ready' : settled ? 'failed' : 'pending'}
-      className="flex w-full flex-col gap-2 p-2 pb-36 motion-reduce:[&_*]:animate-none motion-reduce:[&_*]:transition-none sm:p-3 lg:pb-3"
+      className="flex w-full min-w-0 flex-col gap-2 p-2 pb-36 motion-reduce:[&_*]:animate-none motion-reduce:[&_*]:transition-none sm:p-3 lg:pb-3"
     >
       <div className={gridClass}>
         <aside aria-label="Hot callouts" className={`hidden min-w-0 xl:col-start-1 xl:row-start-1 xl:row-span-2 ${calloutColumnClass}`}>

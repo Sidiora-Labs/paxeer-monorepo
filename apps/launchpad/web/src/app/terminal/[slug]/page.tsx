@@ -4,6 +4,8 @@ import { parseTerminalSlug } from '@/widgets/terminal/sub-nav';
 
 interface Props { params: Promise<{ slug: string }>; }
 
+export const metadata = { title: 'Terminal' };
+
 export default async function TerminalSlugPage({ params }: Props) {
   const { slug } = await params;
   const target = parseTerminalSlug(slug);

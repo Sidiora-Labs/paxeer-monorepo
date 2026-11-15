@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
-	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
@@ -160,8 +159,7 @@ func (k Keeper) execute(ctx sdk.Context, job Job, baseFee *big.Int) (gasUsed uin
 	if err != nil {
 		return 0, []string{err.Error()}
 	}
-	sstore := k.evm.GetSstoreSetGasEIP2200(cached)
-	cfg := evmtypes.DefaultChainConfig().EthereumConfigWithSstore(k.evm.ChainID(cached), &sstore)
+	cfg := k.evm.GetEVMChainConfig(cached)
 	target := job.Target
 	msg := &core.Message{
 		From:      job.Creator,

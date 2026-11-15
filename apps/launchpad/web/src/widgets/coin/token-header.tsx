@@ -62,7 +62,7 @@ function explorerHref(address: string): string | null {
 function HeaderStat({ label, value, unit }: { label: string; value: string | null; unit?: string }) {
   return (
     <div className="flex min-w-0 flex-col">
-      <dt className="text-2xs font-bold uppercase tracking-[.04em] text-text-faint">{label}</dt>
+      <dt className="text-2xs font-bold uppercase tracking-wider text-text-faint">{label}</dt>
       <dd data-numeric className={`truncate text-sm font-bold tabular-nums ${value ? 'text-text' : 'text-text-faint'}`}>
         {value === null ? <span aria-label="No data">—</span> : <>{value}{unit ? <span className="ml-1 text-xs font-normal text-text-faint">{unit}</span> : null}</>}
       </dd>
@@ -83,7 +83,7 @@ function ValuationCluster({ headline, onToggle, value, reason, secondary, change
           title={value === null ? reason ?? undefined : secondary ?? undefined}
           className="-mx-1 flex flex-col items-start rounded-sm px-1 text-left transition-colors hover:bg-surface-hover"
         >
-          <span className="flex items-center gap-1 text-2xs font-bold uppercase tracking-[.04em] text-text-faint">{label}<ArrowLeftRight aria-hidden="true" className="size-3" /></span>
+          <span className="flex items-center gap-1 text-2xs font-bold uppercase tracking-wider text-text-faint">{label}<ArrowLeftRight aria-hidden="true" className="size-3" /></span>
           <span data-numeric data-headline={headline} className={`text-xl font-extrabold tabular-nums ${value ? 'text-text' : 'text-text-faint'}`}>{value ?? '—'}</span>
         </button>
         {change ? <span data-change="24h" className="pb-1"><StatChange change={change} variant="text" size="sm" align="start" decimals={2} /></span> : null}
@@ -108,7 +108,7 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
 
   if (snapshot.isPending) {
     return (
-      <header data-coin-header="loading" aria-busy="true" className="flex min-h-[72px] items-center gap-3 rounded-md bg-surface-1 p-3">
+      <header data-coin-header="loading" aria-busy="true" className="flex min-h-control-height-lg items-center gap-3 rounded-md bg-surface-1 p-3">
         <Skeleton variant="block" width={64} height={64} label="coin image" />
         <div className="flex flex-1 flex-col gap-2"><Skeleton variant="text" width={160} /><Skeleton variant="text" width={240} /></div>
       </header>

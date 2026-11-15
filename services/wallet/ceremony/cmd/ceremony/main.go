@@ -113,7 +113,7 @@ func runPlan(ctx context.Context, getenv func(string) string, stdout io.Writer, 
 		return err
 	}
 	if requestsPath == "" {
-		_, err = fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d already_migrated=%d\n", plan.Total, len(plan.Eligible), len(plan.Funded), plan.AlreadyMigrated)
+		_, err = fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d already_migrated=%d deliverable=%d waiting_identity=%d external_identity=%d\n", plan.Total, len(plan.Eligible), len(plan.Funded), plan.AlreadyMigrated, len(plan.Deliverable), len(plan.WaitingIdentity), len(plan.ExternalIdentity))
 		return err
 	}
 	masterKey, err := envelope.LoadMasterKey(getenv)
@@ -125,7 +125,7 @@ func runPlan(ctx context.Context, getenv func(string) string, stdout io.Writer, 
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d already_migrated=%d inventory_requests=%d\n", plan.Total, len(plan.Eligible), len(plan.Funded), plan.AlreadyMigrated, requests)
+	_, err = fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d already_migrated=%d deliverable=%d waiting_identity=%d external_identity=%d inventory_requests=%d\n", plan.Total, len(plan.Eligible), len(plan.Funded), plan.AlreadyMigrated, len(plan.Deliverable), len(plan.WaitingIdentity), len(plan.ExternalIdentity), requests)
 	return err
 }
 
@@ -172,13 +172,13 @@ func runDeliver(ctx context.Context, getenv func(string) string, stdout io.Write
 	}
 	defer zero(options.JournalKey)
 	report, err := migrate.Deliver(ctx, db, client, masterKey, plan, options)
-	fmt.Fprintf(stdout, "eligible=%d funded_archived=%d read=%d verified=%d imported=%d refreshed=%d test_signed=%d matched=%d\n",
-		len(plan.Eligible), verified.Rows, report.Read, report.Verified, report.Imported, report.Refreshed, report.TestSigned, report.Matched)
+	fmt.Fprintf(stdout, "eligible=%d deliverable=%d waiting_identity=%d external_identity=%d funded_archived=%d read=%d verified=%d imported=%d refreshed=%d test_signed=%d matched=%d\n",
+		len(plan.Eligible), len(plan.Deliverable), len(plan.WaitingIdentity), len(plan.ExternalIdentity), verified.Rows, report.Read, report.Verified, report.Imported, report.Refreshed, report.TestSigned, report.Matched)
 	if err != nil {
 		return err
 	}
-	if report.Matched != len(plan.Eligible) {
-		return fmt.Errorf("matched %d of %d eligible wallets", report.Matched, len(plan.Eligible))
+	if report.Matched != len(plan.Deliverable) {
+		return fmt.Errorf("matched %d of %d deliverable wallets", report.Matched, len(plan.Deliverable))
 	}
 	return nil
 }
@@ -232,11 +232,11 @@ func runDeliverCounts(ctx context.Context, getenv func(string) string, stdout io
 	if err != nil {
 		return err
 	}
-	pending := len(plan.Eligible)
-	fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d migrated=%d eligible_not_migrated=%d\n",
-		plan.Total, pending+plan.AlreadyMigrated, len(plan.Funded), plan.AlreadyMigrated, pending)
+	pending := len(plan.Deliverable)
+	fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d migrated=%d deliverable=%d waiting_identity=%d external_identity=%d eligible_not_migrated=%d\n",
+		plan.Total, len(plan.Eligible)+plan.AlreadyMigrated, len(plan.Funded), plan.AlreadyMigrated, len(plan.Deliverable), len(plan.WaitingIdentity), len(plan.ExternalIdentity), len(plan.Eligible))
 	if pending > 0 {
-		return fmt.Errorf("%w: %d of %d", errNotMigrated, pending, pending+plan.AlreadyMigrated)
+		return fmt.Errorf("%w: %d deliverable wallets", errNotMigrated, pending)
 	}
 	return nil
 }

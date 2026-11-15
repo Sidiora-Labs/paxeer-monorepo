@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'profile';
@@ -22,7 +22,12 @@ export function isAddressName(name: string): boolean {
 
 /** The hex digits of an address-like name, lowercased, without the 0x prefix; "" when there are none. */
 function addressHex(name: string): string {
-  return name.trim().replace(/^[$@]/, '').replace(/^0x/i, '').toLowerCase().replace(/[^0-9a-f]/g, '');
+  return name
+    .trim()
+    .replace(/^[$@]/, '')
+    .replace(/^0x/i, '')
+    .toLowerCase()
+    .replace(/[^0-9a-f]/g, '');
 }
 
 /**
@@ -60,9 +65,20 @@ export interface AvatarProps {
   className?: string;
 }
 
-export function Avatar({ src, name, size = 'md', shape = 'round', decorative = false, badge, loading = false, className }: AvatarProps) {
+export function Avatar({
+  src,
+  name,
+  size = 'md',
+  shape = 'round',
+  decorative = false,
+  badge,
+  loading = false,
+  className,
+}: AvatarProps) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [src]);
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
   const radius = shape === 'round' ? 'rounded-pill' : 'rounded-sm';
   const showImage = Boolean(src) && !failed && !loading;
 
@@ -86,7 +102,10 @@ export function Avatar({ src, name, size = 'md', shape = 'round', decorative = f
           role={decorative ? undefined : 'img'}
           aria-label={decorative ? undefined : name}
           aria-hidden={decorative || undefined}
-          className={cn('flex size-full items-center justify-center bg-surface-3 font-bold uppercase text-text-muted', radius)}
+          className={cn(
+            'flex size-full items-center justify-center bg-surface-3 font-bold uppercase text-text-muted',
+            radius
+          )}
         >
           {initialsOf(name)}
         </span>
@@ -99,7 +118,17 @@ export function Avatar({ src, name, size = 'md', shape = 'round', decorative = f
 /** Sizes too small for four mono digits show the last two. */
 const compactMark: ReadonlySet<AvatarSize> = new Set(['xs', 'sm']);
 
-function AddressMark({ name, size, radius, decorative }: { name: string; size: AvatarSize; radius: string; decorative: boolean }) {
+function AddressMark({
+  name,
+  size,
+  radius,
+  decorative,
+}: {
+  name: string;
+  size: AvatarSize;
+  radius: string;
+  decorative: boolean;
+}) {
   const { text, hue } = addressMarkOf(name, compactMark.has(size) ? 2 : 4);
   return (
     <span
@@ -108,8 +137,11 @@ function AddressMark({ name, size, radius, decorative }: { name: string; size: A
       aria-hidden={decorative || undefined}
       data-address-mark={text}
       // Hue from the address bytes, as a translucent tint over the surface so it holds in light and dark themes.
-      style={{ backgroundColor: `hsl(${hue} 55% 50% / 0.28)` }}
-      className={cn('flex size-full items-center justify-center bg-surface-3 font-mono font-semibold lowercase tracking-tight text-text', radius)}
+      style={{ '--sl-address-hue': hue } as CSSProperties}
+      className={cn(
+        'sl-address-mark flex size-full items-center justify-center bg-surface-3 font-mono font-semibold lowercase tracking-tight text-text',
+        radius
+      )}
     >
       {text}
     </span>
@@ -135,20 +167,43 @@ export interface AvatarStackProps {
 
 const haloClass = { 1: 'bg-surface-1', 2: 'bg-surface-2', 3: 'bg-surface-3' } as const;
 
-export function AvatarStack({ items, size = 'sm', max = 5, label, surface = 1, shape = 'round', className }: AvatarStackProps) {
+export function AvatarStack({
+  items,
+  size = 'sm',
+  max = 5,
+  label,
+  surface = 1,
+  shape = 'round',
+  className,
+}: AvatarStackProps) {
   const shown = items.slice(0, max);
   const rest = items.length - shown.length;
   const radius = shape === 'round' ? 'rounded-pill' : 'rounded-sm';
   return (
     <span role="img" aria-label={label} className={cn('inline-flex items-center', className)}>
       {shown.map((item, index) => (
-        <span key={`${item.name}-${index}`} className={cn('inline-flex p-0.5', radius, haloClass[surface], index > 0 && '-ml-2')}>
+        <span
+          key={`${item.name}-${index}`}
+          className={cn('inline-flex p-0.5', radius, haloClass[surface], index > 0 && '-ml-2')}
+        >
           <Avatar src={item.src} name={item.name} size={size} shape={shape} decorative />
         </span>
       ))}
       {rest > 0 ? (
-        <span className={cn('-ml-2 inline-flex items-center justify-center p-0.5', radius, haloClass[surface])}>
-          <span className={cn('flex items-center justify-center bg-surface-3 text-2xs font-bold text-text-muted', avatarSizeClass[size], radius)}>
+        <span
+          className={cn(
+            '-ml-2 inline-flex items-center justify-center p-0.5',
+            radius,
+            haloClass[surface]
+          )}
+        >
+          <span
+            className={cn(
+              'flex items-center justify-center bg-surface-3 text-2xs font-bold text-text-muted',
+              avatarSizeClass[size],
+              radius
+            )}
+          >
             +{rest}
           </span>
         </span>

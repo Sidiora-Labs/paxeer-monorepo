@@ -7,7 +7,9 @@ import { join } from 'node:path';
 import PlatformRulesModal, { RULES_AGREED_KEY } from './platform-rules-modal';
 import CookieBanner from './cookie-banner';
 
-beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
+beforeAll(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 const mounted: Array<{ root: Root; container: HTMLElement }> = [];
 function mount(node: React.ReactNode) {
@@ -27,12 +29,18 @@ beforeEach(() => {
   window.dispatchEvent(new Event('resize'));
 });
 afterEach(() => {
-  for (const { root, container } of mounted.splice(0)) { act(() => root.unmount()); container.remove(); }
+  for (const { root, container } of mounted.splice(0)) {
+    act(() => root.unmount());
+    container.remove();
+  }
   window.localStorage.clear();
 });
 
 const dialogOf = () => document.querySelector<HTMLElement>('[role="dialog"]');
-const cta = () => Array.from(document.querySelectorAll('button')).find(button => button.textContent?.includes('I understand'));
+const cta = () =>
+  Array.from(document.querySelectorAll('button')).find((button) =>
+    button.textContent?.includes('I understand')
+  );
 
 describe('platform rules modal', () => {
   it('renders a composed Sidiora header in markup and no legacy Kindle image', () => {
@@ -46,7 +54,9 @@ describe('platform rules modal', () => {
     expect(dialog.querySelector('img')).toBeNull();
     expect(dialog.outerHTML).not.toMatch(/kindle/i);
     expect(dialog.outerHTML).not.toContain('Welcome_banner');
-    expect(readFileSync(join(process.cwd(), 'src/ui/shared/platform-rules-modal.tsx'), 'utf8')).not.toContain('Welcome_banner');
+    expect(
+      readFileSync(join(process.cwd(), 'src/ui/shared/platform-rules-modal.tsx'), 'utf8')
+    ).not.toContain('Welcome_banner');
   });
 
   it('is a labelled modal dialog', () => {
@@ -55,7 +65,9 @@ describe('platform rules modal', () => {
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     const title = document.getElementById(dialog.getAttribute('aria-labelledby')!);
     expect(title?.textContent?.trim()).toBe('Platform rules');
-    expect(document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent).toContain('Please review');
+    expect(
+      document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent
+    ).toContain('Please review');
   });
 
   it('pins the CTA and footnote in a footer outside the scrolling body at 390x844', () => {
@@ -64,7 +76,11 @@ describe('platform rules modal', () => {
     expect(window.innerHeight).toBe(844);
     const dialog = dialogOf()!;
     expect(dialog.className).toMatch(/\bflex-col\b/);
-    expect(dialog.className).toContain('max-h-[calc(100dvh-2rem)]');
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(dialog.className).toContain('sl-native-dialog');
+    expect(readFileSync(join(process.cwd(), 'src/app/tokens.css'), 'utf8')).toContain(
+      'max-height: var(--sl-dialog-max-height)'
+    );
     expect(dialog.className).toContain('overflow-hidden');
     expect(dialog.className).not.toContain('overflow-y-auto');
     const body = dialog.querySelector<HTMLElement>('[data-slot="dialog-body"]')!;
@@ -89,7 +105,9 @@ describe('platform rules modal', () => {
     const overlay = dialogOf()!.parentElement!;
     for (const element of [overlay, ...Array.from(overlay.querySelectorAll<HTMLElement>('*'))]) {
       const className = element.getAttribute('class') ?? '';
-      expect(className).not.toMatch(/shadow|gradient|glow|drop-shadow|\bring\b|ring-|\bborder\b|border-(?!0\b|none\b)/);
+      expect(className).not.toMatch(
+        /shadow|gradient|glow|drop-shadow|\bring\b|ring-|\bborder\b|border-(?!0\b|none\b)/
+      );
       const style = element.getAttribute('style') ?? '';
       expect(style).not.toMatch(/box-shadow|gradient|background-image/);
       expect(element.style.boxShadow).toBe('');
@@ -107,25 +125,41 @@ describe('platform rules modal', () => {
       expect(dialog.contains(document.activeElement)).toBe(true);
       expect(outside.hasAttribute('inert')).toBe(true);
 
-      act(() => { outside.focus(); });
+      act(() => {
+        outside.focus();
+      });
       expect(dialog.contains(document.activeElement)).toBe(true);
 
       const button = cta()!;
       button.focus();
-      act(() => { button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })); });
+      act(() => {
+        button.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+        );
+      });
       expect(dialog.contains(document.activeElement)).toBe(true);
       expect(document.activeElement).not.toBe(button);
 
-      const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-      act(() => { dialog.dispatchEvent(escape); });
+      const escape = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      });
+      act(() => {
+        dialog.dispatchEvent(escape);
+      });
       expect(escape.defaultPrevented).toBe(true);
       expect(dialogOf()).not.toBeNull();
 
-      act(() => { button.click(); });
+      act(() => {
+        button.click();
+      });
       expect(dialogOf()).toBeNull();
       expect(window.localStorage.getItem(RULES_AGREED_KEY)).toBeTruthy();
       expect(outside.hasAttribute('inert')).toBe(false);
-    } finally { outside.remove(); }
+    } finally {
+      outside.remove();
+    }
   });
 
   it('does not render once agreed', () => {
@@ -139,10 +173,17 @@ describe('cookie banner with the rules modal', () => {
   const cookieText = () => document.body.textContent?.includes('We use cookies') ?? false;
 
   it('stays hidden while the rules modal is open and appears after agreement', () => {
-    mount(<><PlatformRulesModal /><CookieBanner /></>);
+    mount(
+      <>
+        <PlatformRulesModal />
+        <CookieBanner />
+      </>
+    );
     expect(dialogOf()).not.toBeNull();
     expect(cookieText()).toBe(false);
-    act(() => { cta()!.click(); });
+    act(() => {
+      cta()!.click();
+    });
     expect(dialogOf()).toBeNull();
     expect(cookieText()).toBe(true);
   });

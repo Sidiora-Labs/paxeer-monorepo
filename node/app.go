@@ -477,7 +477,7 @@ func newGigaBlockCache(ctx sdk.Context, keeper *gigaevmkeeper.Keeper) (*gigaBloc
 	if err != nil {
 		return nil, err
 	}
-	sstore := keeper.GetParams(ctx).PaxSstoreSetGasEip2200
+	sstore := keeper.GetSstoreSetGasEIP2200(ctx)
 	chainConfig := evmtypes.DefaultChainConfig().EthereumConfigWithSstore(chainID, &sstore)
 	baseFee := keeper.GetBaseFee(ctx)
 	return &gigaBlockCache{
@@ -2893,6 +2893,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 
 	// Create state DB for this transaction (only for valid transactions)
+	ctx = ctx.WithEventManager(sdk.NewEventManager())
 	stateDB := gigaevmstate.NewDBImpl(ctx, &app.GigaEvmKeeper, false)
 	defer stateDB.Cleanup()
 
@@ -2933,6 +2934,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	} else {
 		stateDB.SubBalance(sender, uint256.MustFromBig(gasFee), tracing.BalanceDecreaseGasBuy)
 	}
+	anteEventCount := len(stateDB.Ctx().EventManager().Events())
 
 	// Get gas pool (mutated per tx, cannot be cached)
 	gp := app.GigaEvmKeeper.GetGasPool()
@@ -3048,12 +3050,27 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 		return nil, fmt.Errorf("marshal tx msg data: %w", txMarshalErr)
 	}
 
+	resultLog := vmError
+	var resultEvents []abci.Event
+	if execResult.Err == nil {
+		events := ctx.EventManager().Events()
+		messageEvents := sdk.Events{
+			sdk.NewEvent(sdk.EventTypeMessage, sdk.NewAttribute(sdk.AttributeKeyAction, sdk.MsgTypeURL(msg))),
+		}
+		messageEvents = append(messageEvents, events[anteEventCount:]...)
+		resultLog = (sdk.ABCIMessageLogs{sdk.NewABCIMessageLog(0, "", messageEvents)}).String()
+		txEvents := append(sdk.Events{}, events[:anteEventCount]...)
+		txEvents = append(txEvents, messageEvents...)
+		resultEvents = sdk.MarkEventsToIndex(txEvents.ToABCIEvents(), app.IndexEvents)
+	}
+
 	return &abci.ExecTxResult{
 		Code:      code,
 		Data:      txMsgDataBytes,
 		GasWanted: gasWanted,
 		GasUsed:   gasUsed,
-		Log:       vmError,
+		Log:       resultLog,
+		Events:    resultEvents,
 		EvmTxInfo: &abci.EvmTxInfo{
 			SenderAddress: sender.Hex(),
 			TxHash:        ethTx.Hash().Hex(),

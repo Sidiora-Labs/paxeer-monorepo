@@ -74,7 +74,7 @@ export function NotificationsScreen({
 
   return (
     <div className={cn("flex h-full flex-col bg-background", className)}>
-      <header className="relative flex items-center justify-center border-b border-border bg-surface px-4 pt-[max(0.875rem,env(safe-area-inset-top))] pb-3.5">
+      <header className="relative flex items-center justify-center border-b border-border bg-surface px-4 lx-safe-top-min pb-3.5">
         <IconButton
           variant="outline"
           size="sm"
@@ -84,7 +84,7 @@ export function NotificationsScreen({
         >
           <ArrowLeft />
         </IconButton>
-        <h2 className="text-[17px] font-bold text-foreground">Notifications</h2>
+        <h2 className="text-title-sm font-bold text-foreground">Notifications</h2>
       </header>
       <div className="p-4 pb-2">
         <SegmentedControl
@@ -94,7 +94,7 @@ export function NotificationsScreen({
           onValueChange={(v) => setSegment(v as RecencySegment)}
         />
       </div>
-      <div className="lx-scroll flex-1 overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <div className="lx-scroll flex-1 overflow-y-auto px-4 lx-safe-bottom-roomy">
         {shown.length > 0 ? (
           <List>
             {shown.map((n) => (
@@ -138,20 +138,20 @@ export function BellPopover({
             <Bell />
           </IconButton>
           {unread > 0 && (
-            <span className="pointer-events-none absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+            <span className="pointer-events-none absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
               {unread}
             </span>
           )}
         </span>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[380px] p-0">
+      <PopoverContent align="end" className="w-notification-wide p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <span className="text-sm font-bold text-foreground">Notifications</span>
           {unread > 0 && (
             <span className="text-xs font-semibold text-muted-foreground">{unread} unread</span>
           )}
         </div>
-        <div className="lx-scroll max-h-[360px] overflow-y-auto px-2 py-1">
+        <div className="lx-scroll max-h-90 overflow-y-auto px-2 py-1">
           {recent.length > 0 ? (
             <List className="divide-border/50">
               {recent.map((n) => (
@@ -196,13 +196,13 @@ export function NotificationsArchive({
   const shown = filterBySegment(items, segment);
 
   return (
-    <div className={cn("mx-auto flex max-w-[720px] flex-col gap-4", className)}>
+    <div className={cn("mx-auto flex max-w-notification-wide flex-col gap-4", className)}>
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-xl font-bold text-foreground">Notifications</h2>
         <SegmentedControl
           aria-label="Recency"
           size="sm"
-          className="w-[320px]"
+          className="w-notification"
           options={SEGMENTS}
           value={segment}
           onValueChange={(v) => setSegment(v as RecencySegment)}

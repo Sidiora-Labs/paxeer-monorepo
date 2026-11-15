@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Text, requireNativeComponent, type ViewProps } from 'react-native';
+import { requireNativeComponent, type ViewProps } from 'react-native';
 import {
   Button,
+  Text,
   Card,
   ErrorNotice,
   ListPage,
   ResourceStatus,
   useResource,
   useRetainedInput,
-  ui,
+  useSurface,
   type Runtime,
 } from '../navigation.tsx';
 const NativeVideo = requireNativeComponent<ViewProps & { source: string }>(
@@ -26,6 +27,7 @@ function managedURL(runtime: Runtime, value: string) {
   return url.toString();
 }
 export function Live({ runtime }: { runtime: Runtime }) {
+  const { ui } = useSurface();
   const state = useResource(runtime, 'live', (s) =>
       runtime.services.streams(s),
     ),
@@ -48,12 +50,12 @@ export function Live({ runtime }: { runtime: Runtime }) {
       header={
         <>
           <ResourceStatus {...state} />
-          {error && <ErrorNotice message={error} />}{' '}
+          {error && <ErrorNotice message={error} />}
           {playback && (
             <Card>
               <NativeVideo
                 source={playback}
-                style={{ width: '100%', height: 240 }}
+                style={ui.video}
                 accessibilityLabel="Managed livestream player"
               />
               <Button label="Close playback" onPress={() => setPlayback('')} />

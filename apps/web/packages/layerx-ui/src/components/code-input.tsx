@@ -159,7 +159,7 @@ export function Keypad({
           >
             <span className="text-xl font-semibold leading-tight">{k.main}</span>
             {k.sub && (
-              <span className="text-[9px] font-semibold tracking-[0.18em] text-muted-foreground">
+              <span className="text-nano font-semibold tracking-widest text-muted-foreground">
                 {k.sub}
               </span>
             )}

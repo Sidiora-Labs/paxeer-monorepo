@@ -68,6 +68,14 @@ shared only within the project, `provider` for an outside provider key, `chain`
 for a chain account key or address, and `operator` for other supplied values.
 The tool reads these inputs; operators supply or generate their values.
 
+The dashboard API sets `PORT` to `9445`, matching `LAYERX_DASHBOARD_LISTEN`
+for health requests. The dashboard web requires two operator inputs without
+defaults: `PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN` supplies the API origin
+compiled into the production rewrite, and
+`PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN` supplies the hosted gateway
+origin the web calls at runtime for sign-in. Both values are absolute HTTP(S)
+origins; the API origin remains the web container's build argument.
+
 From the repository root, set `RAILWAY_API_TOKEN`, `RAILWAY_WORKSPACE_ID` and
 the named inputs, then start a plan or apply:
 

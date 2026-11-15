@@ -9,16 +9,20 @@ import type { BackendOriginError } from '@/core/backend-origins';
  * open a backend connection is mounted. Body text is the plain copy; the
  * variable names are never rendered, the server log carries them.
  */
-export function BackendConfigurationError({ problems }: { problems: readonly BackendOriginError[] }) {
+export function BackendConfigurationError({
+  problems,
+}: {
+  problems: readonly BackendOriginError[];
+}) {
   void problems;
   return (
     <main
       role="alert"
       data-state="backend-configuration-error"
-      className="flex min-h-[70vh] flex-col items-center justify-center gap-6 p-8"
+      className="flex min-h-[var(--sl-page-min-height)] flex-col items-center justify-center gap-6 p-8"
     >
       <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-danger-soft text-danger">
-        <TriangleAlert size={36} aria-hidden="true" />
+        <TriangleAlert className="size-9" aria-hidden="true" />
       </div>
       <div className="space-y-2 text-center">
         <h1 className="text-xl font-bold text-text">Sidiora can't load right now</h1>

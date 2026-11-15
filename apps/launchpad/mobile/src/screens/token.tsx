@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { decodeContract } from '../../../../../sdk/launchpad/packages/sdk/src/validate.ts';
-import { Linking, Text } from 'react-native';
+import { Linking } from 'react-native';
 import {
   Button,
+  Text,
   Card,
   Copyable,
   ErrorNotice,
@@ -12,7 +13,7 @@ import {
   showAction,
   useResource,
   useRetainedInput,
-  ui,
+  useSurface,
   type Runtime,
 } from '../navigation.tsx';
 import { nativeRequestId } from '../platform/protected-storage.ts';
@@ -25,6 +26,7 @@ export function Token({
   runtime: Runtime;
   address: string;
 }) {
+  const { ui } = useSurface();
   const state = useResource(runtime, `pool:${address}`, (s) =>
     runtime.services.pool(address, s),
   );
@@ -130,7 +132,7 @@ export function Token({
               label="Add to watchlist"
               disabled={!runtime.session.token || state.offline}
               onPress={() =>
-                void showAction(
+                showAction(
                   () =>
                     runtime.services.watch(
                       address,
@@ -147,7 +149,7 @@ export function Token({
               <Button
                 label="Unlock approvals and trading on this device"
                 onPress={() =>
-                  void showAction(
+                  showAction(
                     () => runtime.privacy.unlock(),
                     setError,
                     runtime.changed,
@@ -170,7 +172,7 @@ export function Token({
                 setAmount('');
                 runtime.lifecycle.invalidateQuote();
                 if (runtime.approval?.current)
-                  void showAction(
+                  return showAction(
                     () => runtime.approval!.dismiss(),
                     setError,
                     runtime.changed,
@@ -199,7 +201,7 @@ export function Token({
                 BigInt(amount || '0') <= 0n
               }
               onPress={() =>
-                void showAction(
+                showAction(
                   () =>
                     runtime.lifecycle.requestQuote({
                       poolAddress: address,
@@ -241,7 +243,7 @@ export function Token({
                     (runtime.privacy.enabled && !runtime.privacy.unlocked)
                   }
                   onPress={() =>
-                    void showAction(
+                    showAction(
                       () => runtime.approval!.prepare(quote),
                       setError,
                       runtime.changed,
@@ -307,7 +309,7 @@ export function Token({
                         amount !== approval.targetRaw
                       }
                       onPress={() =>
-                        void showAction(
+                        showAction(
                           () => runtime.approval!.submit(),
                           setError,
                           runtime.changed,
@@ -321,7 +323,7 @@ export function Token({
                       state.offline || !runtime.wallet?.connectedAccount
                     }
                     onPress={() =>
-                      void showAction(
+                      showAction(
                         async () => {
                           await runtime.approval!.reconcile();
                           await runtime.lifecycle.foreground();
@@ -345,7 +347,7 @@ export function Token({
                           state.offline
                         }
                         onPress={() =>
-                          void showAction(
+                          showAction(
                             () =>
                               runtime.approval!.reconcileReplacement(
                                 replacement,
@@ -361,7 +363,7 @@ export function Token({
                     <Button
                       label="Dismiss approval details"
                       onPress={() =>
-                        void showAction(
+                        showAction(
                           () => runtime.approval!.dismiss(),
                           setError,
                           runtime.changed,
@@ -384,7 +386,7 @@ export function Token({
                 quote?.side !== side
               }
               onPress={() =>
-                void showAction(async () => {
+                showAction(async () => {
                   if (!runtime.wallet)
                     throw new Error(
                       'Supported native wallet adapter unavailable',
@@ -423,7 +425,7 @@ export function Token({
           <Button
             label="Launch a chain in the web app"
             onPress={() =>
-              void showAction(
+              showAction(
                 () =>
                   Linking.openURL(
                     `${runtime.services.config.canonicalOrigin}/create/chain`,
