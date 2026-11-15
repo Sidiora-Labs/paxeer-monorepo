@@ -174115,7 +174115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.29]
 title = "Bring the kit, shell, states and global style of the human web application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.28", "22.39.677"]
