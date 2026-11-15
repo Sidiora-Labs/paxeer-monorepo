@@ -197776,7 +197776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.654]
 title = "Call the load test command of the wallet attestor proof with the options the command requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197840,7 +197840,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.651]
 title = "Write the service health commands and the package selection of the launchpad test workflow in the form their tools read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
