@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import re
+import shlex
 
 import pytest
 import yaml
@@ -113,17 +114,17 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
     )
     assert install["run"] == "pnpm install --frozen-lockfile"
     assert build["run"] == "pnpm run build:packages"
-    assert test["working-directory"] == "."
+    assert test["working-directory"] == "apps/launchpad"
     for row in matrix_rows(job):
         directory = run_directory(workflow, job, test, row)
-        assert directory == ROOT
+        assert directory == WORKSPACE
         (command,) = list(pnpm_commands(expand_matrix(test["run"], row), directory))
         cwd, args = command
-        assert cwd == ROOT
-        assert args[:3] == ["--dir", "apps/launchpad", "--filter"]
-        assert args[4:] == ["--fail-if-no-match", "run", "test"]
+        assert cwd == WORKSPACE
+        assert args[:1] == ["--filter"]
+        assert args[2:] == ["--fail-if-no-match", "run", "test"]
         assert pnpm_directory(cwd, args) == WORKSPACE
-        selector = args[3]
+        selector = args[1]
         assert selector.startswith("./"), row
         assert (WORKSPACE / selector).resolve() == (
             ROOT / row["package"]
@@ -155,6 +156,30 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
         assert (ROOT / directory).resolve() in locked_members, directory
         if "packageManager" in package:
             assert package["packageManager"] == manager_version, directory
+
+
+def test_launchpad_service_health_commands_use_container_option_quoting():
+    workflow = launchpad_workflow()
+    health_commands = {
+        "postgres": "pg_isready -U kindle_fixture -d kindle_fixture",
+        "redis": "redis-cli ping",
+    }
+    checked = set()
+    for job_name, job in workflow["jobs"].items():
+        for service_name, service in job.get("services", {}).items():
+            options = service["options"]
+            assert "'" not in options, (job_name, service_name, options)
+            assert shlex.split(options) == [
+                "--health-cmd", health_commands[service_name],
+                "--health-interval", "10s",
+                "--health-timeout", "5s", "--health-retries", "5",
+            ], (job_name, service_name)
+            checked.add((job_name, service_name))
+    assert checked == {
+        (job_name, service_name)
+        for job_name in ("launchpad-go-test", "launchpad-go-ci")
+        for service_name in health_commands
+    }
 
 
 def test_launchpad_workflow_triggers_on_launchpad_paths():

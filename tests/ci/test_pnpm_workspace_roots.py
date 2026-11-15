@@ -206,15 +206,17 @@ def test_launchpad_matrix_runs_from_launchpad_workspace():
         directory = run_directory(workflow, job, test_step, row)
         command, = list(pnpm_commands(expand_matrix(test_step["run"], row), directory))
         cwd, args = command
-        assert cwd == ROOT
-        assert args[:2] == ["--dir", "apps/launchpad"]
+        assert directory == cwd == LAUNCHPAD
+        assert args[:1] == ["--filter"]
         assert pnpm_directory(cwd, args) == LAUNCHPAD
         assert args[-2:] == ["run", "test"]
         assert "--fail-if-no-match" in args
         assert args.count("--filter") == 1
         selector = args[args.index("--filter") + 1]
         assert selector.startswith("./")
-        assert (LAUNCHPAD / selector).resolve() == (ROOT / row["package"]).resolve()
+        selected = (cwd / selector).resolve()
+        assert selected == (ROOT / row["package"]).resolve()
+        assert selected in members
         assert nearest_workspace(LAUNCHPAD) == LAUNCHPAD / "pnpm-workspace.yaml"
 
 
