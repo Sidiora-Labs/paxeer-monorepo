@@ -1,84 +1,67 @@
-# Hyperpax trading frontend
+# Paxeer Xtrades
 
-This directory holds the Next.js and React trading application for Paxeer mainnet-beta, including perpetual orders and positions, markets, portfolio analytics, explorer views, embedded-wallet integration and spot trading screens. It sends contract calls to the network's native venues through node JSON-RPC and reads REST, WebSocket and GraphQL data from the perps data gateway. Paxeer uses EVM chain ID 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Transaction receipts are final when their block commits.
+Paxeer Xtrades is the trading workspace for the perpetual markets of Paxeer.
 
-## Layout
+## Run locally
 
-- `deploy/` — Compose configuration, environment templates and the deployment guide.
-- `public/` — Static images, fonts, chart assets and service-worker assets.
-- `scripts/` — The browser HTTP transport check.
-- `src/` — Pages and API handlers, application shell, trading widgets, hooks, wallet integration, network clients, types and styles.
-- `tests/` — Node test suites, browser scenarios and fixtures.
-- `package.json` — Dependencies, package-manager version and application scripts.
-- `pnpm-lock.yaml` — Locked dependency resolutions.
-- `pnpm-workspace.yaml` — Workspace membership, including the wallet SDK and wallet gateway packages.
-- `.npmrc` — Package-manager settings.
-- `next.config.js` — Standalone output, asset caching, security headers and Sentry build integration.
-- `next-env.d.ts` — Next.js TypeScript declarations.
-- `tsconfig.json` — TypeScript options and source aliases.
-- `tailwind.config.js` — Theme tokens and utility styling.
-- `postcss.config.js` — Tailwind and Autoprefixer plugins.
-- `components.json` — Component generator settings and aliases.
-- `sentry.client.config.ts` — Browser error reporting configuration.
-- `sentry.server.config.ts` — Server error reporting configuration.
-- `sentry.edge.config.ts` — Edge error reporting configuration.
-- `Dockerfile` — Dependency, charting, application build and standalone runtime stages.
-- `.dockerignore` — Docker build-context exclusions.
-- `railway.json` — Docker deployment and health-check configuration.
-- `ecosystem.config.js` — PM2 process configuration.
-- `swagger_spot.json` — Spot API schema.
-- `renovate.json` — Dependency update configuration.
-- `.gitignore` — Dependency, build and local configuration exclusions.
+```sh
+corepack pnpm install
+pnpm dev
+```
 
-## Build and test
+Open http://localhost:3000/trade. Use `/trade/grid` for the grid renderer, `/portfolio` for account pages, and `/markets` for market discovery. Split layout choices and panel sizes persist locally. The grid picker offers Exchange Style and Order Entry Left, each with its own saved arrangement. Mobile uses the duplicated SDK mobile components and bottom navigation.
 
-Run these commands from `apps/perps`, using the pnpm version declared in `package.json`. The local workspace includes `../../sdk/wallet` and `../../services/wallet/gateway`.
+```sh
+pnpm typecheck
+pnpm check:ui
+pnpm test
+pnpm test:browser          # requires the running preview and Playwright Chromium
+pnpm build
+pnpm start
+```
 
-| Command | Purpose |
+Development and production both use Turbopack and use separate output directories (`.next-dev` and `.next-production`). Building does not overwrite the running development server's output.
+
+## Packages
+
+`apps/web` owns routing, theme, app configuration, and registration of native layout plugins. The duplicated SDK packages live under `packages/` with `@paxeer-network/*` ownership. Components retain the original JSX, styles, and responsive structure; controllers and services connect them to native functionality.
+
+| Package | Responsibility |
 | --- | --- |
-| `pnpm install --frozen-lockfile` | Install the locked dependencies, as in the Dockerfile. |
-| `pnpm dev` | Start the Next.js development server. |
-| `pnpm build` | Build the Next.js application with standalone output. |
-| `pnpm start` | Serve the built application. |
-| `pnpm typecheck` | Check TypeScript without emitting files. |
-| `pnpm test` | Run the Node test suites selected by the package script. |
-| `pnpm check:transport` | Check browser source for HTTP calls outside the shared transport. |
+| `ui`, `ui-scaffold`, `i18n` | Shared controls, navigation, dialogs, typography and translations |
+| `layout-core`, `layout-split`, `layout-grid` | Original layout strategies, draggable/resizable panels and layout controls |
+| `trading-next`, `ui-order-entry`, `ui-orderbook`, `ui-tradingview` | Desktop/mobile trading modules |
+| `ui-positions`, `ui-orders`, `ui-tp-sl`, `ui-transfer` | Account actions and dialogs |
+| `portfolio`, `markets` | Original SDK page modules |
+| `hooks`, `core`, `net`, `wallet-connector` | Native state, request transport, wallet and transaction bindings |
+| `paxeer-backend` | paxeer-network contracts, vaults, indexer queries, embedded wallet and original market/candle streams |
 
-Configure `NEXT_PUBLIC_PERPS_GATEWAY_URL` before building or starting the application. The Dockerfile obtains the charting library and datafeeds from its charting image stage. See the [deployment guide](deploy/README.md) for container build inputs and Compose commands.
+`pnpm check:ui` verifies the presentation files against `docs/ui-source-baseline.json`.
 
-## Configuration
+## Native services and current boundaries
 
-The application reads the following environment variables. Public variables are embedded in the browser bundle during the build.
+The application uses Paxeer Mainnet (chain 125), the original paxeer-network Diamond and vault contracts, the original GraphQL indexer, and paxeer-network's per-symbol market streams and TradingView datafeed. Injected wallets and the original embedded wallet are available. No exchange API account, exchange trading key, sample prices or fake transaction receipts are used.
 
-| Area | Environment variables |
-| --- | --- |
-| Data gateway | `NEXT_PUBLIC_PERPS_GATEWAY_URL` |
-| Node JSON-RPC | `NEXT_PUBLIC_PAXEER_RPC_URL`, `NEXT_PUBLIC_PAXEER_RPC_URLS` |
-| Market feeds and candle proxy | `NEXT_PUBLIC_MARKET_PROXY_HOST`, `MARKET_PROXY_HOST`, `MARKET_PROXY_ORIGIN` |
-| Proxy client identification | `CANDLE_TRUSTED_PROXY_IPS`, `PRESENCE_TRUSTED_PROXY_IPS` |
-| Embedded wallet and authentication | `NEXT_PUBLIC_PAXEER_WALLET_API`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_AUTH_REDIRECT_URL`, `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN` |
-| Explorer | `NEXT_PUBLIC_PAXSCAN_API_URL`, `NEXT_PUBLIC_PAXSCAN_WS_URL`, `NEXT_PUBLIC_PAXSCAN_BASE_URL` |
-| Perpetuals and launchpad precompiles | `NEXT_PUBLIC_PERPS_PRECOMPILE`, `NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE` |
-| Spot precompiles | `NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE`, `NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE`, `NEXT_PUBLIC_PECOR_STOP_PRECOMPILE`, `NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE`, `NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE` |
-| Spot availability and status link | `NEXT_PUBLIC_RELEASE_SPOT_OPEN`, `NEXT_PUBLIC_STATUS_PAGE_URL` |
-| Logging | `NEXT_PUBLIC_LOG_LEVEL` |
-| Error reporting | `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_ENV`, `NEXT_PUBLIC_RELEASE`, `SENTRY_DSN`, `SENTRY_ENV` |
-| Sentry build integration | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `NEXT_PUBLIC_SENTRY_TUNNEL` |
-| Build identity | `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`, `RAILWAY_GIT_COMMIT_SHA`, `VERCEL_GIT_COMMIT_SHA` |
-| Next.js runtime | `NODE_ENV`, `NEXT_RUNTIME` |
+Market opening uses a fresh native contract quote bound to the wallet, network and exact order inputs. Native limit/stop-limit placement, position market closing, order cancellation, token allowance and vault deposit/withdrawal wait for actual transaction receipts. USDC is the order-entry collateral; the vault supports the original collateral tokens. Native account writes still require the user's wallet approval.
 
-`NEXT_PUBLIC_PERPS_GATEWAY_URL` must be a bare HTTP(S) origin. The gateway client derives the REST, GraphQL and WebSocket paths from it. Node JSON-RPC connections use the node root path. `NEXT_PUBLIC_RELEASE_SPOT_OPEN` controls the spot route, navigation and markets mode.
+Some SDK protocol features have no matching configured paxeer-network service. Those operations return an explicit capability error, including exchange API keys, subaccounts, transfers/conversions, hidden and IOC/FOK/post-only instructions, TP/SL placement and editing through the conditional-order API, and SDK per-symbol margin-mode writes. These are not simulated. An SDK page being present does not imply its exchange-specific backend feature is supported.
 
-Environment templates are in [`src/env/.env.template`](src/env/.env.template) and [`deploy/.env.production.example`](deploy/.env.production.example); [`deploy/build-args.production.env`](deploy/build-args.production.env) lists public container build inputs. [`deploy/docker-compose.yml`](deploy/docker-compose.yml) maps build and runtime variables and reads `BUILD_COMMIT_SHA` for image identity. The Dockerfile also uses `NODE_IMAGE` and `CHARTING_IMAGE` build arguments and sets `NEXT_TELEMETRY_DISABLED`, `PORT` and `HOSTNAME` for the standalone server. The PM2 configuration sets `PORT`, `UV_THREADPOOL_SIZE` and `NODE_OPTIONS`.
+On `https://app.hyperpax.xyz`, the browser calls `https://data.feed.chainflowtrading.com/api/*` and `wss://data.feed.chainflowtrading.com/ws/*` directly. The gateway authorizes this production origin, so REST requests carry no API key and sockets do not request or attach a token. Prices, markets, candle history, orderbooks and trades all use this path. `NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS` can override the comma-separated list of approved origins; it defaults to this production origin.
 
-Build and tooling configuration lives in `next.config.js`, `tsconfig.json`, `tailwind.config.js`, `postcss.config.js`, `components.json`, `.npmrc` and `pnpm-workspace.yaml`. Error reporting uses the three `sentry.*.config.ts` files. Deployment configuration lives in `Dockerfile`, `railway.json`, `ecosystem.config.js` and `deploy/docker-compose.yml`.
+Localhost and other origins use `packages/chainflow` through same-origin `/api/price-feed/*` routes. Configure `PRICE_FEED_REST_API_KEY` and `PRICE_FEED_WS_API_KEY` in `apps/web/.env.local` or that preview's server environment. These credentials stay server-side. Preview sockets obtain a fresh opaque credential per handshake using the SDK's exact `{ symbol }` request. The gateway owns signing; `PRICE_FEED_WS_TOKEN_SECRET` is never sent to browsers. `PRICE_FEED_ORIGIN` optionally selects the authenticated upstream gateway.
 
-## Documentation
+For authenticated previews, the token issuer permits per-symbol socket credentials and rejects the aggregate `markets` scope. Market-list snapshots and totals therefore use the SDK REST operations on a shared five-second poll that pauses when the page is hidden or offline. Books, trades and live candles use authenticated per-symbol WebSockets. All data comes from the configured services.
 
-- [Frontend data API](../../docs/perps/data-api.md)
-- [Perpetual futures documentation site page](../../docs/site/paxeer-docs/src/app/perpetuals/page.tsx)
-- [Perpetual futures reference](../../docs/site/paxeer-docs/public/markdown/perpetuals.md)
-- [Spot exchange documentation site page](../../docs/site/paxeer-docs/src/app/spot-exchange/page.tsx)
-- [Deployment and environment](deploy/README.md)
-- [Settings behavior](src/app/modals/SettingsModal.md)
-- [Trading component integration](src/components/paxeer/README.md)
+`pnpm dev` and `pnpm build` build the local Chainflow client before running the web app. The API adapter translates ticker fields and funding durations into the native UI's data contracts. HTTP methods, feed paths, symbols and history resolutions are validated; upstream authentication failures return a generic error without forwarding credentials.
+
+Trade-history requests return arrays, while live trade subscriptions deliver individual records with their source timestamps and contract quantities. History and live subscriptions are released together when the selected market changes. Native orderbook messages identify complete snapshots so the component controller replaces the book rather than merging them as incremental updates.
+
+Funded wallet transactions have not been executed by the implementation agent. Unit tests cover transaction planning; browser checks cover component behavior and navigation.
+
+## Branding and deployment
+
+The public site name is **Paxeer Xtrades**. Internal package ownership remains `@paxeer-network/*`. The supplied [Paxeer mark](https://www.paxeer.network/paxeer.x_darkmode_white.png) is stored at `apps/web/public/brand/paxeer-x.png` and used for the site, favicon and PAX market. The supplied [Sidiora mark](https://www.sidioralabs.com/sidiora_labs_mark_lightning.png) is stored alongside it and used for SID. Site accent tokens are white, with neutral hover and selected surfaces. Trading profit/loss colors retain their meaning.
+
+The workspace-root `vercel.json` selects the root package as the deployment entrypoint and sets the builder root to `apps/web`. This serves pages, API functions and static assets at the domain root, without an `/apps/web` URL prefix or a catch-all rewrite. Import `paxeer-network` as the Vercel project root. Its app build first compiles the local Chainflow workspace client, then writes `.next-production`. The root configuration uses Vercel's supported explicit builder format so the workspace root can remain separate from the Next.js app.
+
+The approved production origin uses direct REST and WSS without deployment credentials. Other deployment origins need the preview server credentials described above, unless the gateway authorizes them and they are explicitly added to `NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS`. Secrets are absent from deployment JSON and committed files.

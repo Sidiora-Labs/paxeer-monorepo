@@ -1,0 +1,58 @@
+# HyperPax distribution and peer registry service.
+
+[service.hpx-registry]
+kind = "repo"
+repository = "https://github.com/Sidiora-Labs/paxeer-monorepo"
+container = "docker/hpx-registry/Dockerfile"
+root = "."
+watch = ["docker/hpx-registry/**", "docker/common/**", "docker/search-front/**", "tools/hpx/registry/**", "tools/hpx/hosting/**"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 1
+volume = "/srv/hpx"
+public = 1
+order = 1
+needs = []
+
+[vars.hpx-registry]
+SOURCE_REVISION = "env:PLATFORM_HPX_REGISTRY_SOURCE_REVISION"
+PORT = "env:PLATFORM_HPX_REGISTRY_PORT"
+HPX_ADDR = "env:PLATFORM_HPX_REGISTRY_HPX_ADDR"
+HPX_ARTIFACTS_DIR = "env:PLATFORM_HPX_REGISTRY_HPX_ARTIFACTS_DIR"
+HPX_DATA_DIR = "env:PLATFORM_HPX_REGISTRY_HPX_DATA_DIR"
+HPX_REGISTER_TOKEN = "env:PLATFORM_HPX_REGISTRY_HPX_REGISTER_TOKEN"
+HPX_CHAIN_ID = "env:PLATFORM_HPX_REGISTRY_HPX_CHAIN_ID"
+HPX_SEED_PEERS = "env:PLATFORM_HPX_REGISTRY_HPX_SEED_PEERS"
+HPX_STATESYNC_RPC = "env:PLATFORM_HPX_REGISTRY_HPX_STATESYNC_RPC"
+HPX_STATESYNC_RPC_SERVERS = "env:PLATFORM_HPX_REGISTRY_HPX_STATESYNC_RPC_SERVERS"
+HPX_STATESYNC_TRUST_OFFSET = "env:PLATFORM_HPX_REGISTRY_HPX_STATESYNC_TRUST_OFFSET"
+HPX_STATESYNC_TRUST_PERIOD = "env:PLATFORM_HPX_REGISTRY_HPX_STATESYNC_TRUST_PERIOD"
+LAYERX_TRUSTED_PROXIES = "env:PLATFORM_HPX_REGISTRY_LAYERX_TRUSTED_PROXIES"
+
+[inputs.hpx-registry]
+# Image source revision in forty lowercase hexadecimal characters.
+PLATFORM_HPX_REGISTRY_SOURCE_REVISION = "operator"
+# Public HTTP listener port as a decimal number.
+PLATFORM_HPX_REGISTRY_PORT = "operator"
+# Internal registry listener endpoint in host:port form.
+PLATFORM_HPX_REGISTRY_HPX_ADDR = "operator"
+# Mounted artifact directory path.
+PLATFORM_HPX_REGISTRY_HPX_ARTIFACTS_DIR = "operator"
+# Mounted registry state directory path.
+PLATFORM_HPX_REGISTRY_HPX_DATA_DIR = "operator"
+# Optional registration token using the service's token character set.
+PLATFORM_HPX_REGISTRY_HPX_REGISTER_TOKEN = "operator"
+# Chain identifier used in registry responses.
+PLATFORM_HPX_REGISTRY_HPX_CHAIN_ID = "chain"
+# Comma-separated seed peers in node-id and host:port form.
+PLATFORM_HPX_REGISTRY_HPX_SEED_PEERS = "chain"
+# State-sync RPC endpoint.
+PLATFORM_HPX_REGISTRY_HPX_STATESYNC_RPC = "chain"
+# Comma-separated state-sync RPC servers.
+PLATFORM_HPX_REGISTRY_HPX_STATESYNC_RPC_SERVERS = "chain"
+# State-sync trust offset in blocks.
+PLATFORM_HPX_REGISTRY_HPX_STATESYNC_TRUST_OFFSET = "operator"
+# State-sync trust period duration.
+PLATFORM_HPX_REGISTRY_HPX_STATESYNC_TRUST_PERIOD = "operator"
+# Trusted proxy addresses or CIDR ranges in comma-separated form.
+PLATFORM_HPX_REGISTRY_LAYERX_TRUSTED_PROXIES = "operator"
