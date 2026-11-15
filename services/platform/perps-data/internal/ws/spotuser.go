@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"net"
 	"net/http"
 	"slices"
 	"strings"
@@ -111,7 +113,11 @@ func (s *SpotUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
+			slog.Error("close websocket", "err", closeErr)
+		}
+	}()
 	base := &Socket{conn: conn, server: &Server{Now: time.Now, Ticker: realTicker, limits: DefaultLimits()}}
 	conn.SetReadLimit(maxClientFrameBytes)
 	base.lastPong.Store(time.Now().UnixNano())
@@ -143,7 +149,11 @@ func (s *SpotUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	go func() {
 		defer workers.Done()
-		defer conn.Close()
+		defer func() {
+			if closeErr := conn.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
+				slog.Error("close websocket", "err", closeErr)
+			}
+		}()
 		for {
 			select {
 			case <-socket.done:

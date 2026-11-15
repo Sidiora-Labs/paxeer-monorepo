@@ -13,7 +13,7 @@ use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_human_service::journeys::{
     BankCommitEvidence, Endpoint, MoveLegExecution, Relationship, RouteRequest, RouteResolver,
-    SendRoute, BANK_ADDRESS,
+    SendRoute,
 };
 use layerx_human_service::server::production_components::web_identity;
 use layerx_human_service::server::schema::ApiSchema;
@@ -50,13 +50,12 @@ fn hex(bytes: &[u8]) -> String {
     text
 }
 fn transcript() -> Value {
-    serde_json::from_str(include_str!("../src/journeys/bank_commit_transcript.json"))
-        .unwrap_or_else(|error| {
-            panic!(
-                "{}: {error:?}",
-                "committed node/sequencer and Comet producer transcript"
-            )
-        })
+    serde_json::from_str(include_str!("fixtures/bank_move_receipts.json")).unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "committed node/sequencer and Comet producer transcript"
+        )
+    })
 }
 fn keys() -> Vec<ReceiptKeyEntry> {
     let document = transcript();
@@ -262,7 +261,11 @@ fn native_bank_call_uses_the_sender_pending_nonce() {
                 network_id: NetworkId::new(125).or_fail("network"),
                 protocol_version: ProtocolVersion::new(3).or_fail("protocol"),
             },
-            pointer: EvmAddress::new(BANK_ADDRESS),
+            pointer: EvmAddress::new(
+                unhex(transcript()["pointer"].as_str().or_fail("native pointer"))
+                    .try_into()
+                    .or_fail("pointer width"),
+            ),
             denom: "uhpx".to_owned(),
             chain_id: 125,
             max_priority_fee_per_gas: 1,
@@ -278,21 +281,26 @@ fn native_bank_call_uses_the_sender_pending_nonce() {
     };
     assert_eq!(call.chain_id, 125);
     assert_eq!(call.nonce, nonce);
-    assert_eq!(call.to, BANK_ADDRESS);
-    assert_eq!(hex(&call.to), "0x0000000000000000000000000000000000001001");
+    assert_eq!(
+        call.to,
+        unhex(transcript()["pointer"].as_str().or_fail("native pointer")).as_slice()
+    );
+    assert_eq!(
+        hex(&call.to),
+        transcript()["pointer"].as_str().or_fail("native pointer")
+    );
     assert_eq!(
         &call.data[..4],
-        &layerx_crypto::disclosure::call::ledger_selector("send(address,address,string,uint256)")
+        &layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
     );
     let mut amount = [0; 32];
     amount[31] = 90;
     let disclosure = bind_call(call, sender()).or_fail("production signing consumer");
     assert_eq!(
         disclosure.construct_method().or_fail("bank ABI"),
-        Some(ConstructMethod::BankSend {
-            from: sender(),
+        Some(ConstructMethod::PointerTransfer {
+            pointer: call.to,
             to: [0x22; 20],
-            denom: "uhpx".to_owned(),
             amount,
         })
     );
@@ -322,8 +330,8 @@ fn native_bank_call_uses_the_sender_pending_nonce() {
         "eth_getTransactionCount",
         "`pending`",
         "125",
-        &hex(&call.to),
-        "send(address,address,string,uint256)",
+        "native pointer",
+        "transfer(address,uint256)",
     ] {
         assert!(
             README.contains(text),

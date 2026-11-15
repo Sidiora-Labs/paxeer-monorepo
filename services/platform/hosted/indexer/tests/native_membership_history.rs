@@ -1004,7 +1004,7 @@ fn live_consumer_transcript() -> Checked<Value> {
         "format": 1,
         "membership_source_sha256": transcript_hex(&Sha256::digest(include_bytes!("../src/ai_market_membership.rs"))),
         "refusals": refusals,
-        "source_revision": "116ae09395ecb90e9547e536cc7d40168f788fa9",
+        "source_revision": "965a7a307bb7ebdc57d1a0c1f8e0357b9786760b",
         "successes": successes,
     }))
 }

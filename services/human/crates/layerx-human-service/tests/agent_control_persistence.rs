@@ -16,11 +16,11 @@ mod control_proof {
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope, LocalLimit};
     use layerx_agentd::identity::{
-        register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
+        CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority, register,
     };
     use layerx_agentd::session::{
-        close, invalidate_on_revocation, open, InvalidationReason, OpenRequest, RevocationEvent,
-        SessionId, SessionRegistry, Token,
+        InvalidationReason, OpenRequest, RevocationEvent, SessionId, SessionRegistry, Token, close,
+        invalidate_on_revocation, open,
     };
     use layerx_agentd::sign::ProvisionedSessionKey;
     use layerx_agentd::store::{Store, TenantId};
@@ -837,17 +837,19 @@ mod control_proof {
         assert_eq!(&recovered.view(1_013).or_fail("current view"), later);
         let mut foreign_profile = profile();
         foreign_profile.principal = support::principal("bob");
-        assert!(AgentControls::open(
-            recovered.into_boundary(),
-            foreign_profile,
-            1000,
-            LimitBacking::Protocol {
-                active_budget_id: AGENT_ID
-            },
-            1_013,
-            store.clone()
-        )
-        .is_err());
+        assert!(
+            AgentControls::open(
+                recovered.into_boundary(),
+                foreign_profile,
+                1000,
+                LimitBacking::Protocol {
+                    active_budget_id: AGENT_ID
+                },
+                1_013,
+                store.clone()
+            )
+            .is_err()
+        );
         drop(store);
         fs::remove_dir_all(root).or_fail("remove control store");
     }
@@ -885,15 +887,15 @@ mod archive_proof {
     fn activity_type() -> ActivityType {
         ActivityType::new(ModuleId::Asset, 5).or_fail("activity type")
     }
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use base64::Engine as _;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use ciborium::value::Value as CborValue;
     use layerx_agentd::identity::{
-        register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
+        CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority, register,
     };
     use layerx_agentd::session::{
-        close, invalidate_on_revocation, open, InvalidationReason, OpenRequest, RevocationEvent,
-        SessionId, SessionRegistry, Token,
+        InvalidationReason, OpenRequest, RevocationEvent, SessionId, SessionRegistry, Token, close,
+        invalidate_on_revocation, open,
     };
     use layerx_agentd::sign::ProvisionedSessionKey;
     use layerx_crypto::session::IssuedSessionKey;
@@ -914,7 +916,7 @@ mod archive_proof {
     use layerx_human_service::notify::AgentId;
     use layerx_human_service::store::{EvidenceRef, RowKey};
     use layerx_types::verify::VerificationLevel;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     const ARCHIVE_ASSET: [u8; 32] = [0x33; 32];
     const ARCHIVE_RP_ID: &str = "paxportwallet.com";
@@ -1841,9 +1843,11 @@ mod reclaim_proof {
                 last_used: 41
             })
         ));
-        assert!(Reclaim::load(&scope, &request(3, 40, "worker").journey_id)
-            .or_fail("absent stale journey")
-            .is_none());
+        assert!(
+            Reclaim::load(&scope, &request(3, 40, "worker").journey_id)
+                .or_fail("absent stale journey")
+                .is_none()
+        );
         assert!(
             matches!(
                 Reclaim::start(&mut scope, &request(4, 40, "worker"), &registry, 1_003),
@@ -1856,9 +1860,11 @@ mod reclaim_proof {
         let scope = store
             .principal(&principal("bob"))
             .or_fail("foreign principal scope");
-        assert!(Reclaim::load(&scope, &first.journey_id)
-            .or_fail("isolated lookup")
-            .is_none());
+        assert!(
+            Reclaim::load(&scope, &first.journey_id)
+                .or_fail("isolated lookup")
+                .is_none()
+        );
         drop(scope);
         drop(store);
         std::fs::remove_dir_all(root).or_fail("remove reclaim state");
@@ -1868,7 +1874,7 @@ mod reclaim_proof {
 mod spend_proof {
     use crate::require_value::RequireValue as _;
     use ed25519_dalek::SigningKey;
-    use layerx_agentd::budget::{verify_budget_proof, BudgetProofTrust, SpendReceiptEvidence};
+    use layerx_agentd::budget::{BudgetProofTrust, SpendReceiptEvidence, verify_budget_proof};
     use layerx_agentd::read::ServedCheckpoint;
     use layerx_client::sequencer::SequencerEndpoint;
     use layerx_human_service::agents::{
@@ -1881,11 +1887,12 @@ mod spend_proof {
     };
     use layerx_types::ids::Did;
     use layerx_types::rung::Rung;
-    use serde_json::{json, Value};
+    use layerx_types::verify::VerificationLevel;
+    use serde_json::{Value, json};
     use std::io::{Read as _, Write as _};
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
 
     const ANSWERS: &str =
@@ -2281,7 +2288,10 @@ mod spend_proof {
             Err(SpendError::WrongPrincipal)
         ));
         let replay = Replay::new(serde_json::from_str(ANSWERS).or_fail("recorded RPC transcript"));
-        let document: Value = serde_json::from_slice(EXPORT).or_fail("production authority export");
+        let mut document: Value =
+            serde_json::from_slice(EXPORT).or_fail("production authority export");
+        document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
+        let export = serde_json::to_vec(&document).or_fail("committed authority export");
         let hash = hex(document["head"]["block_hash"]
             .as_str()
             .or_fail("block hash"));
@@ -2303,7 +2313,7 @@ mod spend_proof {
             now_ms: 1_700_000_000_000,
             maximum_age_seconds: 60,
         };
-        let proof = verify_budget_proof(EXPORT, budget_id(), &trust).unwrap_or_else(|error| {
+        let proof = verify_budget_proof(&export, budget_id(), &trust).unwrap_or_else(|error| {
             panic!(
                 "{}: {error:?}",
                 "real budget authority producer/transport/verifier"
@@ -2335,12 +2345,14 @@ mod spend_proof {
         assert_eq!(surfaces.mobile().spend(), surfaces.desktop().spend());
         let mut changed = document.clone();
         changed["budget_state"]["remaining"] = json!("78");
-        assert!(verify_budget_proof(
-            &serde_json::to_vec(&changed).or_fail("tampered export"),
-            budget_id(),
-            &trust
-        )
-        .is_err());
+        assert!(
+            verify_budget_proof(
+                &serde_json::to_vec(&changed).or_fail("tampered export"),
+                budget_id(),
+                &trust
+            )
+            .is_err()
+        );
         let mut wrong_profile = profile();
         wrong_profile.agent_account = [0xff; 32];
         let mut wrong = SpendReconciliation::new(wrong_profile).or_fail("other account profile");

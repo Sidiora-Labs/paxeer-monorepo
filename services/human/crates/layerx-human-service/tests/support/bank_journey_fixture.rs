@@ -5,6 +5,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use crate::require_value::RequireValue as _;
+
 use base64::Engine as _;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
@@ -100,8 +102,8 @@ fn unhex(text: &str) -> Vec<u8> {
         .collect()
 }
 
-// Re-recorded with the production bank ABI, receipt/RPC, sequence-batch and
-// Comet encoders. Producer source hashes are retained inside the recording.
+// Native-pointer transfers retain node-issued receipts, sequence batches and
+// consensus coverage across durable reopen.
 fn transcript() -> Value {
     serde_json::from_str(BANK_TRANSCRIPT).or_fail("canonical bank producer transcript")
 }
@@ -159,6 +161,15 @@ impl BankNode {
                     fixture["nonce"].as_u64().or_fail("nonce")
                         + sent.iter().filter(|sent| **sent).count() as u64
                 ))
+            }
+            "eth_call" => {
+                assert_eq!(
+                    params[0]["to"],
+                    "0x000000000000000000000000000000000000100a"
+                );
+                assert_eq!(params[0]["data"], fixture["pointerQuery"]);
+                assert_eq!(params[1], "pending");
+                fixture["pointerView"].clone()
             }
             "eth_sendRawTransaction" => {
                 let index = records
@@ -502,7 +513,7 @@ fn assert_recorded_calls(movement: &MovePlan, fixture: &Value, sender: [u8; 20])
         );
         assert_eq!(
             &recorded, call,
-            "the node recording must contain the exact current 0x1001 bank-send preparation"
+            "the node recording contains the exact native-pointer transfer"
         );
     }
 }
@@ -552,12 +563,13 @@ fn capture_signed_bank_calls(
             amount[16..].copy_from_slice(&(if index == 0 { 90_u128 } else { 40 }).to_be_bytes());
             assert_eq!(
                 disclosure.construct_method().or_fail("decode bank method"),
-                Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
-                    from: sender,
-                    to: [if index == 0 { 0x22 } else { 0x55 }; 20],
-                    denom: "uhpx".to_owned(),
-                    amount,
-                })
+                Some(
+                    layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
+                        pointer: call.to,
+                        to: [if index == 0 { 0x22 } else { 0x55 }; 20],
+                        amount,
+                    }
+                )
             );
         }
     }
@@ -769,8 +781,9 @@ fn recorded_bank_movement() -> (MovePlan, [u8; 20], u64) {
     let sender: [u8; 20] = unhex(fixture["sender"].as_str().or_fail("sender"))
         .try_into()
         .or_fail("sender width");
-    let mut pointer = [0; 20];
-    pointer[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
+    let pointer = unhex(fixture["pointer"].as_str().or_fail("native pointer"))
+        .try_into()
+        .or_fail("pointer width");
     let nonce = fixture["nonce"].as_u64().or_fail("nonce");
     let ceiling = 1_000_000_000_000_000_000;
     let movement = plan(
@@ -984,293 +997,4 @@ fn exercise(restart_every_phase: bool) {
     fs::remove_dir_all(root).or_fail("remove private durable fixtures");
 }
 
-const BANK_TRANSCRIPT: &str = r#"{
-  "key": {
-    "firstHeight": 1,
-    "keyId": "0x2b61f0ec7a2b23523274ba3f5b0a4a9e66f75a1165e11ced25862d8a1692761d",
-    "lastHeight": 1000,
-    "publicKey": "0xa7f6dfaf8f38b89ba8ce649b594f91e4d01fdc57f9c9493df43b5e50a9987367"
-  },
-  "nonce": 7,
-  "pointer": "0x0000000000000000000000000000000000001001",
-  "producer": "node/sequencer ReceiptKey.SignReceipt, rpc decodeSequencerReceipt and SequencerReceiptResult.Verify (unchanged extracted production declarations); bank ABI encoder, EncodeSequenceBatchTx, Comet Header.Hash, VoteSignBytes and Txs.Proof",
-  "records": [
-    {
-      "activityIds": [
-        "0x2c6f9011c36194321c05f13b17758624ecd7cbea2a9f9ceba1700ca13062b5e5"
-      ],
-      "appHash": "0x4a5f7f615738280ec996e9a5bec458d5b3997ab8f3b4bfe194d0d12d94f99428",
-      "balanceAfter": "0x51dac207a000",
-      "balanceBefore": "0x0",
-      "batch": "0x5041584545522f76312f73657175656e63652d626174636800000000000000001200000000000000150000000000000015128d2f802cddb92f94af5505868c3c55089dd3760a25ba9a58b68f507144efbf86b022f4da302cc6c3148e0508d67a488635c9f76eab9aa9f9c3ba76099e407e8e9da4c7d6c28b16514a3ba7a345e3295ec325212e939a0c7de8452f99ff6dd92b61f0ec7a2b23523274ba3f5b0a4a9e66f75a1165e11ced25862d8a1692761df86d25e940cf18311f50496e145e48275c2c2e7106e4d94d1114bcadfbc0647e747dcd79e7920e28312dd6597b00d8461cc6790180bb6de4b1ad470bcf079b03",
-      "block": {
-        "hash": "0x3df853ed0255adc7de2d810998ff635c3513c100e9cba936dd5cfeaeaf49256f",
-        "number": "0x12",
-        "parentHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
-        "receiptsRoot": "0x3333333333333333333333333333333333333333333333333333333333333333",
-        "timestamp": "0x3e8",
-        "transactions": [],
-        "transactionsRoot": "0x3cd3dfb6a596af1567297c96b0fe59f79d017bf44123fd535e4d8e171e26d323"
-      },
-      "hash": "0x3df853ed0255adc7de2d810998ff635c3513c100e9cba936dd5cfeaeaf49256f",
-      "height": 18,
-      "landing": {
-        "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "blockNumber": "0x8",
-        "contractAddress": "0x0000000000000000000000000000000000000000",
-        "cumulativeGasUsed": "0x0",
-        "effectiveGasPrice": null,
-        "gasUsed": "0xc350",
-        "logs": [],
-        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "root": "0x",
-        "status": "0x1",
-        "transactionHash": "0x2c6f9011c36194321c05f13b17758624ecd7cbea2a9f9ceba1700ca13062b5e5",
-        "transactionIndex": "0x0",
-        "type": "0x2"
-      },
-      "material": {
-        "height": "18",
-        "signedHeader": {
-          "commit": {
-            "block_id": {
-              "hash": "3DF853ED0255ADC7DE2D810998FF635C3513C100E9CBA936DD5CFEAEAF49256F",
-              "parts": {
-                "hash": "3333333333333333333333333333333333333333333333333333333333333333",
-                "total": 1
-              }
-            },
-            "height": "18",
-            "round": 0,
-            "signatures": [
-              {
-                "block_id_flag": 2,
-                "signature": "BWNDdMm6HdwKaT+WBbFfDQ1DvDXm+cca7loVkyg47LFA8koPIX9qpu+9QEK/YuLBfmvv89ZsKezU9YBt6WpFDA==",
-                "timestamp": "1970-01-01T00:16:40Z",
-                "validator_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC"
-              }
-            ]
-          },
-          "header": {
-            "app_hash": "4A5F7F615738280EC996E9A5BEC458D5B3997AB8F3B4BFE194D0D12D94F99428",
-            "chain_id": "hyperpax_125-1",
-            "consensus_hash": "3333333333333333333333333333333333333333333333333333333333333333",
-            "data_hash": "3CD3DFB6A596AF1567297C96B0FE59F79D017BF44123FD535E4D8E171E26D323",
-            "evidence_hash": "3333333333333333333333333333333333333333333333333333333333333333",
-            "height": "18",
-            "last_block_id": {
-              "hash": "3333333333333333333333333333333333333333333333333333333333333333",
-              "parts": {
-                "hash": "3333333333333333333333333333333333333333333333333333333333333333",
-                "total": 1
-              }
-            },
-            "last_commit_hash": "3333333333333333333333333333333333333333333333333333333333333333",
-            "last_results_hash": "3333333333333333333333333333333333333333333333333333333333333333",
-            "next_validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
-            "proposer_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC",
-            "time": "1970-01-01T00:16:40Z",
-            "validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
-            "version": {
-              "app": "1",
-              "block": "11"
-            }
-          }
-        }
-      },
-      "proof": {
-        "aunts": [],
-        "index": "0",
-        "leaf_hash": "PNPftqWWrxVnKXyWsP5Z950Be/RBI/1TXk2OFx4m0yM=",
-        "total": "1"
-      },
-      "raw": "0x02f9012d7d070185e8d4a51000830f424094000000000000000000000000000000000000100180b8c45c05961b00000000000000000000000017c5185167401ed00cf5f5b2fc97d9bbfdb7d02500000000000000000000000022222222222222222222222222222222222222220000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000005a00000000000000000000000000000000000000000000000000000000000000047568707800000000000000000000000000000000000000000000000000000000c080a044bea57c7332819a1e4848437ce5416572aecc98f21009632b8472b6bd6600fca049ef1310225c83ecb8457d3d80610e4d6e989b81a39aed424aef01533ad59632",
-      "recipient": "0x2222222222222222222222222222222222222222",
-      "validators": {
-        "height": "18",
-        "total": "1",
-        "validators": [
-          {
-            "address": "c0742a797bd5374378f26a371f35e61b32c0d0cc",
-            "pubKey": {
-              "type": "tendermint/PubKeyEd25519",
-              "value": "W2SJycf9Dc9QVF58FkiG70BJHsBsfxsSMEF5foEXU14="
-            },
-            "votingPower": "10"
-          }
-        ]
-      },
-      "view": {
-        "contractAddress": "0x0000000000000000000000000000000000000000",
-        "cumulativeGasUsed": "0xc350",
-        "effectiveGasPrice": "0x1",
-        "feeAmount": "0xc350",
-        "feeDenom": "uhpx",
-        "from": "0x17c5185167401ed00cf5f5b2fc97d9bbfdb7d025",
-        "gasUsed": "0xc350",
-        "height": "0x8",
-        "index": "0x0",
-        "keyId": "0x2b61f0ec7a2b23523274ba3f5b0a4a9e66f75a1165e11ced25862d8a1692761d",
-        "logs": [],
-        "nonce": "0x7",
-        "paymentDenom": "uhpx",
-        "receipt": "0x000252010002000000202c6f9011c36194321c05f13b17758624ecd7cbea2a9f9ceba1700ca13062b5e5000000000000001500000020128d2f802cddb92f94af5505868c3c55089dd3760a25ba9a58b68f507144efbf0000002086b022f4da302cc6c3148e0508d67a488635c9f76eab9aa9f9c3ba76099e407e00000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000001000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855000000000000000004756870780000000000000000000000000000c350000000200000000000000000000000000000000000000000000000000000000000000008000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f73000000000000000000000000000000000000002000000000000000000000000017c5185167401ed00cf5f5b2fc97d9bbfdb7d0250000000000000000000000003b9aca000000000000000000000000003b9a06b000000000000000070000002000000000000000000000000000000000000000000000000000000000000010010000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000202b61f0ec7a2b23523274ba3f5b0a4a9e66f75a1165e11ced25862d8a1692761d00000000000f424001000000409f763003cf8e5853ba5b7d4435f9eeb5b4ed03b8330f08f40ab9a725436ff48029d163ae6fe8791c17f4a8dcd011bd41f5b9ba10855137550db74da5d6a51400",
-        "returnData": "0x",
-        "rung": "receipted",
-        "seq": "0x15",
-        "signingKey": "0xa7f6dfaf8f38b89ba8ce649b594f91e4d01fdc57f9c9493df43b5e50a9987367",
-        "sponsor": "0x0000000000000000000000000000000000000000",
-        "status": "0x1",
-        "timestamp": "0xf4240",
-        "to": "0x0000000000000000000000000000000000001001",
-        "txHash": "0x2c6f9011c36194321c05f13b17758624ecd7cbea2a9f9ceba1700ca13062b5e5",
-        "vmError": ""
-      }
-    },
-    {
-      "activityIds": [
-        "0xb44ed9ba71bb63f598848b468fffeb49a924b12af9f5b1092409f809b0528f36"
-      ],
-      "appHash": "0x0c15fc0438296d4057b909e9d3d0e7d2fdce99684c25ef8ec32d703275ad13a6",
-      "balanceAfter": "0x246139ca8000",
-      "balanceBefore": "0x0",
-      "batch": "0x5041584545522f76312f73657175656e63652d62617463680000000000000000130000000000000016000000000000001686b022f4da302cc6c3148e0508d67a488635c9f76eab9aa9f9c3ba76099e407e602ab9efb754a5187eceac19bb4d5e1530c9b60d000bf7160340c0e23cc007b53a373d7c66102cb70e3d6d1f17dd168ea1f0c7bb540592f71691083214be0ce22b61f0ec7a2b23523274ba3f5b0a4a9e66f75a1165e11ced25862d8a1692761d7d385032cb3d539ac2066955d0478bbc601229e76fe6ca0c9bf7d6e430aa511dce896e9e9423e44b615c956d79debdc23c7e3af626cfd3ad0fcd368b0fb56000",
-      "block": {
-        "hash": "0x5592daa3a26a72cb569892916d3f1f692311b110c42a943961d8e2727dd0eb32",
-        "number": "0x13",
-        "parentHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
-        "receiptsRoot": "0x3333333333333333333333333333333333333333333333333333333333333333",
-        "timestamp": "0x3e8",
-        "transactions": [],
-        "transactionsRoot": "0x17142e2d6d8eff93cfe5bb93beb8ddefaa7a3ddff79bdc674f41e6e465304f11"
-      },
-      "hash": "0x5592daa3a26a72cb569892916d3f1f692311b110c42a943961d8e2727dd0eb32",
-      "height": 19,
-      "landing": {
-        "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "blockNumber": "0x9",
-        "contractAddress": "0x0000000000000000000000000000000000000000",
-        "cumulativeGasUsed": "0x0",
-        "effectiveGasPrice": null,
-        "gasUsed": "0xc350",
-        "logs": [],
-        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "root": "0x",
-        "status": "0x1",
-        "transactionHash": "0xb44ed9ba71bb63f598848b468fffeb49a924b12af9f5b1092409f809b0528f36",
-        "transactionIndex": "0x0",
-        "type": "0x2"
-      },
-      "material": {
-        "height": "19",
-        "signedHeader": {
-          "commit": {
-            "block_id": {
-              "hash": "5592DAA3A26A72CB569892916D3F1F692311B110C42A943961D8E2727DD0EB32",
-              "parts": {
-                "hash": "3333333333333333333333333333333333333333333333333333333333333333",
-                "total": 1
-              }
-            },
-            "height": "19",
-            "round": 0,
-            "signatures": [
-              {
-                "block_id_flag": 2,
-                "signature": "YDEgOD5nSvuqUj4S5IcS1As3SsBxnYPdJ9rCI1lHtg+4G1jhgPA76LHMBVRC517EhHimya1VvmTumq7UWqPSBw==",
-                "timestamp": "1970-01-01T00:16:40Z",
-                "validator_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC"
-              }
-            ]
-          },
-          "header": {
-            "app_hash": "0C15FC0438296D4057B909E9D3D0E7D2FDCE99684C25EF8EC32D703275AD13A6",
-            "chain_id": "hyperpax_125-1",
-            "consensus_hash": "3333333333333333333333333333333333333333333333333333333333333333",
-            "data_hash": "17142E2D6D8EFF93CFE5BB93BEB8DDEFAA7A3DDFF79BDC674F41E6E465304F11",
-            "evidence_hash": "3333333333333333333333333333333333333333333333333333333333333333",
-            "height": "19",
-            "last_block_id": {
-              "hash": "3333333333333333333333333333333333333333333333333333333333333333",
-              "parts": {
-                "hash": "3333333333333333333333333333333333333333333333333333333333333333",
-                "total": 1
-              }
-            },
-            "last_commit_hash": "3333333333333333333333333333333333333333333333333333333333333333",
-            "last_results_hash": "3333333333333333333333333333333333333333333333333333333333333333",
-            "next_validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
-            "proposer_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC",
-            "time": "1970-01-01T00:16:40Z",
-            "validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
-            "version": {
-              "app": "1",
-              "block": "11"
-            }
-          }
-        }
-      },
-      "proof": {
-        "aunts": [],
-        "index": "0",
-        "leaf_hash": "FxQuLW2O/5PP5buTvrjd76p6Pd/3m9xnT0Hm5GUwTxE=",
-        "total": "1"
-      },
-      "raw": "0x02f9012d7d080185e8d4a51000830f424094000000000000000000000000000000000000100180b8c45c05961b00000000000000000000000017c5185167401ed00cf5f5b2fc97d9bbfdb7d02500000000000000000000000055555555555555555555555555555555555555550000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000002800000000000000000000000000000000000000000000000000000000000000047568707800000000000000000000000000000000000000000000000000000000c001a0c3f778e86fa0d4bcc0d29dde126d09070e9485aff835bcb62a6230e2020b70d8a0284be4905262a3d0b9e68593926eaa3737770dc8008639177076ab112984c96b",
-      "recipient": "0x5555555555555555555555555555555555555555",
-      "validators": {
-        "height": "19",
-        "total": "1",
-        "validators": [
-          {
-            "address": "c0742a797bd5374378f26a371f35e61b32c0d0cc",
-            "pubKey": {
-              "type": "tendermint/PubKeyEd25519",
-              "value": "W2SJycf9Dc9QVF58FkiG70BJHsBsfxsSMEF5foEXU14="
-            },
-            "votingPower": "10"
-          }
-        ]
-      },
-      "view": {
-        "contractAddress": "0x0000000000000000000000000000000000000000",
-        "cumulativeGasUsed": "0xc350",
-        "effectiveGasPrice": "0x1",
-        "feeAmount": "0xc350",
-        "feeDenom": "uhpx",
-        "from": "0x17c5185167401ed00cf5f5b2fc97d9bbfdb7d025",
-        "gasUsed": "0xc350",
-        "height": "0x9",
-        "index": "0x0",
-        "keyId": "0x2b61f0ec7a2b23523274ba3f5b0a4a9e66f75a1165e11ced25862d8a1692761d",
-        "logs": [],
-        "nonce": "0x8",
-        "paymentDenom": "uhpx",
-        "receipt": "0x00025201000200000020b44ed9ba71bb63f598848b468fffeb49a924b12af9f5b1092409f809b0528f3600000000000000160000002086b022f4da302cc6c3148e0508d67a488635c9f76eab9aa9f9c3ba76099e407e00000020602ab9efb754a5187eceac19bb4d5e1530c9b60d000bf7160340c0e23cc007b500000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000001000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855000000000000000004756870780000000000000000000000000000c350000000200000000000000000000000000000000000000000000000000000000000000009000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f73000000000000000000000000000000000000002000000000000000000000000017c5185167401ed00cf5f5b2fc97d9bbfdb7d0250000000000000000000000003b9aca000000000000000000000000003b9a06b000000000000000080000002000000000000000000000000000000000000000000000000000000000000010010000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000202b61f0ec7a2b23523274ba3f5b0a4a9e66f75a1165e11ced25862d8a1692761d00000000000f42400100000040eb5f07925bb200e099ea3294e3e980dad8a7769a2dfe815e2f4e3af4c9438a863f8195f4c287b733ac62ed9c614b1d54d710b8c7c36113ca37717900619e5e0b",
-        "returnData": "0x",
-        "rung": "receipted",
-        "seq": "0x16",
-        "signingKey": "0xa7f6dfaf8f38b89ba8ce649b594f91e4d01fdc57f9c9493df43b5e50a9987367",
-        "sponsor": "0x0000000000000000000000000000000000000000",
-        "status": "0x1",
-        "timestamp": "0xf4240",
-        "to": "0x0000000000000000000000000000000000001001",
-        "txHash": "0xb44ed9ba71bb63f598848b468fffeb49a924b12af9f5b1092409f809b0528f36",
-        "vmError": ""
-      }
-    }
-  ],
-  "secret": "0x4242424242424242424242424242424242424242424242424242424242424242",
-  "sender": "0x17c5185167401ed00cf5f5b2fc97d9bbfdb7d025",
-  "sourceHashes": {
-    "modules/sequencer/types/batch_tx.go": "b948fd8a9f0567b0aa392b58cadc6555df41eaab0a603bac1e9cf84916a7410e",
-    "node/sequencer/executor.go": "6e9664fa63b7c49b53009710614f8c778dcf4662b53ff60127e406a450119141",
-    "node/sequencer/receipt.go": "fd5e182f019b043139e16b69d2324ac736cc5406cfd0cae0478fdce568b5ec30",
-    "node/sequencer/receiptkey.go": "dd9373d94b240a238cbcc802dc3f0e182d7293bf4f9007916f46a404d549695e",
-    "precompiles/bank/abi.json": "3611222d01669a53e8eb40807ef801fc60bd3c386ddd034a900ebbad00b48422",
-    "rpc/sequencer_receipt.go": "458ed4ad4b40a4301a6792388b1a3b595ec0c36340b3de514b1fb7e7d133c455"
-  }
-}
-"#;
-
-use crate::require_value::RequireValue as _;
+const BANK_TRANSCRIPT: &str = include_str!("../fixtures/bank_move_receipts.json");

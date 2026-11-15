@@ -68,7 +68,7 @@ func InitializeGRPCClientContext(ctx context.Context, targetEndpoint string, por
 		return fmt.Errorf("connect to gRPC server %s: %w", address, err)
 	}
 	if err := ctx.Err(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("initialize gRPC client: %w", err)
 	}
 

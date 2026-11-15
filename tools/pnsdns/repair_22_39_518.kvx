@@ -1,0 +1,165 @@
+[meta]
+feature = "22.39.518"
+title = "Lint repairs for small tools and the committed fixture"
+
+[rule.1]
+file = "tools/pnsdns/main.go"
+linter = "errcheck"
+action = "removed"
+reason = "Listener shutdown calls now handle their returned errors."
+
+[rule.2]
+file = "tools/pnsdns/main.go"
+linter = "prealloc"
+action = "removed"
+reason = "The address string collection is allocated with its known capacity."
+
+[rule.3]
+file = "tools/pnsdns/main.go"
+linter = "staticcheck"
+action = "removed"
+reason = "Address validation uses the equivalent explicit range checks."
+
+[rule.4]
+file = "tools/pnsdns/server.go"
+linter = "errcheck"
+action = "removed"
+reason = "Response, packet, and connection close or write results are handled."
+
+[rule.5]
+file = "tools/pnsdns/server.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The DNS response length is bounded to the uint16 wire representation before conversion."
+
+[rule.6]
+file = "tools/pnsdns/server.go"
+linter = "staticcheck"
+action = "removed"
+reason = "Label validation uses equivalent explicit range checks."
+
+[rule.7]
+file = "tools/specgen/kvx.go"
+linter = "errcheck"
+action = "removed"
+reason = "Parser file closure preserves a preceding parse error and reports a close error otherwise."
+
+[rule.8]
+file = "tools/specgen/kvx.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The parser reads the path supplied by its caller for repository and temporary documents."
+
+[rule.9]
+file = "tools/specgen/main.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The writer reads caller-selected output paths and creates generated files with their public modes."
+
+[rule.10]
+file = "tools/specgen/render.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The renderer reads include paths declared by feature documents."
+
+[rule.11]
+file = "tools/specgen/validate.go"
+linter = "prealloc"
+action = "removed"
+reason = "Validation allocates its task identifier collection with the section count."
+
+[rule.12]
+file = "tools/tx-scanner/client/grpc.go"
+linter = "errcheck"
+action = "removed"
+reason = "The client now handles all checked results in this file."
+
+[rule.13]
+file = "tools/tx-scanner/client/grpc.go"
+linter = "gosec"
+action = "removed"
+reason = "The client has no remaining security diagnostics for this rule."
+
+[rule.14]
+file = "tools/tx-scanner/cmd/scan.go"
+linter = "errcheck"
+action = "removed"
+reason = "The scanner command now handles all checked results in this file."
+
+[rule.15]
+file = "tools/tx-scanner/cmd/scan.go"
+linter = "gosec"
+action = "removed"
+reason = "The scanner command has no remaining security diagnostics for this rule."
+
+[rule.16]
+file = "tools/tx-scanner/state/types.go"
+linter = "gosec"
+action = "narrowed"
+reason = "State restoration reads the operator-selected state file path."
+
+[rule.17]
+file = "daemon/committed-fixture/main.go"
+linter = "errcheck"
+action = "removed"
+reason = "The fixture entrypoint has no remaining unchecked error diagnostics."
+
+[rule.18]
+file = "daemon/committed-fixture/main.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The fixture launches the configured node and writes public recording artifacts."
+
+[rule.19]
+file = "daemon/committed-fixture/vector_v1.go"
+linter = "errcheck"
+action = "removed"
+reason = "The V1 fixture has no remaining unchecked error diagnostics."
+
+[rule.20]
+file = "daemon/committed-fixture/vector_v1.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The V1 fixture converts a receipt log index after validating the recorded receipt."
+
+[rule.21]
+file = "daemon/committed-fixture/vector_v1_programs.go"
+linter = "goconst"
+action = "removed"
+reason = "The V1 program fixture has no remaining repeated literal diagnostics."
+
+[rule.22]
+file = "daemon/committed-fixture/vector_v1_programs.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The V1 program fixture serializes recorded lengths and public fixture artifacts."
+
+[rule.23]
+file = "daemon/committed-fixture/vector_v2.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The V2 fixture records protocol timestamps and public artifact files."
+
+[rule.24]
+file = "daemon/committed-fixture/vector_v4.go"
+linter = "gosec"
+action = "narrowed"
+reason = "The V4 fixture converts validated receipt fields into the recorded batch header."
+
+[rule.25]
+file = "daemon/committed-fixture/vector_v4.go"
+linter = "staticcheck"
+action = "removed"
+reason = "The V4 fixture has no remaining static analysis diagnostics."
+
+[rule.26]
+file = "daemon/committed-fixture/vector_v6.go"
+linter = "prealloc"
+action = "removed"
+reason = "The V6 fixture has no remaining allocation diagnostics."
+
+[rule.27]
+file = "precompiles/launchpad/[^/]+.go"
+linter = "goconst"
+action = "narrowed"
+reason = "One directory rule covers repeated constants across the launchpad Go files."

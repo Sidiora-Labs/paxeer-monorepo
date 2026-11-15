@@ -64,7 +64,9 @@ func execute(cmd *cobra.Command, _ []string) error {
 		}
 	}
 	fmt.Printf("Starting the scan from height: %d\n", startHeight)
-	client.InitializeGRPCClient(endpoint, port)
+	if err := client.InitializeGRPCClient(endpoint, port); err != nil {
+		return err
+	}
 	rateLimiter := rate.NewLimiter(rate.Limit(bpsLimit), bpsLimit)
 	latestHeight := getLatestBlockHeight()
 	var currBlockHeight = startHeight

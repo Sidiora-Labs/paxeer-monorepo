@@ -224,13 +224,13 @@ fn reads_use_only_eth_and_px_methods() {
 }
 
 #[test]
-fn finalised_wait_is_refused_without_reading_a_checkpoint() {
+fn finalised_wait_requires_an_injected_clock_before_checkpoint_reads() {
     let (rpc, server) = listener(vec![json!({"chainId": "0x7d"})]);
     let policy = ReceiptPolicy {
         protocol_version: 3,
         network_id: 125,
         sequencer: SequencerAuthorization::new([1; 32], [2; 32], 1, 100),
-        trusted_checkpoint_context_digest: Some([0x33; 32]),
+        trusted_checkpoint_context_digest: None,
     };
     assert!(matches!(
         rpc.wait_for(
@@ -239,7 +239,9 @@ fn finalised_wait_is_refused_without_reading_a_checkpoint() {
             &policy,
             Duration::from_secs(1)
         ),
-        Err(RpcError::MissingFinalityTrust)
+        Err(RpcError::Clock(
+            layerx_types::clock::ClockError::Unavailable
+        ))
     ));
     assert_eq!(
         rpc.get_node_info()

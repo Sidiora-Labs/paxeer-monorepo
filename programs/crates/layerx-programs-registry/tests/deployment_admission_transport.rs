@@ -539,11 +539,16 @@ fn deployment_support_producer_refuses_synthetic_and_cross_wired_evidence() {
     let (verifier, exports) = peer_exports();
     let export = &exports[0];
     let now = export.expected.observed_at;
-    let primitive = support::deploy_fixture(
+    let mut primitive = support::deploy_fixture(
         support::WASM_V1,
         UpgradePolicy::Authority(AUTHORITY),
         38,
         now,
+    );
+    primitive.proof.deployment.interface = Some(
+        support::fixture_interface(support::WASM_V1)
+            .canonical_encoding()
+            .to_vec(),
     );
     assert!(node_deployment_fixture(
         &primitive

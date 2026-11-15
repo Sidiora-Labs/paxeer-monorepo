@@ -11,6 +11,15 @@ import (
 )
 
 const (
+	jobIDField        = "job_id"
+	runIDField        = "run_id"
+	machineIDField    = "machine_id"
+	machineDestroying = "destroying"
+	machineDestroyed  = "destroyed"
+	statusField       = "status"
+)
+
+const (
 	metadataJobID  = "flyci_job_id"
 	metadataRunID  = "flyci_run_id"
 	finishedGrace  = 5 * time.Minute
@@ -175,7 +184,7 @@ func (idx *jobIndex) assignment(m machine) (workflowJob, bool) {
 func (r *reconciler) machineRunHistory(ctx context.Context, machines []machine, idx *jobIndex) {
 	for _, m := range machines {
 		_, runID, managed := machineJob(m)
-		if !managed || m.State == "destroyed" || m.State == "destroying" {
+		if !managed || m.State == machineDestroyed || m.State == machineDestroying {
 			continue
 		}
 		if _, present := idx.byRun[runID]; present {
@@ -186,7 +195,7 @@ func (r *reconciler) machineRunHistory(ctx context.Context, machines []machine, 
 		if err != nil {
 			idx.incomplete = true
 			idx.byRun[runID] = nil
-			r.log.Error("machine job history unavailable", "machine_id", m.ID, "trigger_run_id", runID)
+			r.log.Error("machine job history unavailable", machineIDField, m.ID, "trigger_run_id", runID)
 			continue
 		}
 		idx.add(runID, jobs)
@@ -194,7 +203,7 @@ func (r *reconciler) machineRunHistory(ctx context.Context, machines []machine, 
 }
 
 func (r *reconciler) cleanupLog(message string, m machine, reason string, jobID, runID int64, idx *jobIndex, failure error) {
-	attributes := []any{"machine_id", m.ID, "trigger_job_id", jobID, "trigger_run_id", runID, "reason", reason}
+	attributes := []any{machineIDField, m.ID, "trigger_job_id", jobID, "trigger_run_id", runID, "reason", reason}
 	if actual, known := idx.assignment(m); known {
 		attributes = append(attributes, "actual_job_id", actual.ID, "actual_run_id", actual.RunID, "runner_id", actual.RunnerID, "runner_name", actual.RunnerName, "actual_status", actual.Status)
 	} else {
@@ -223,7 +232,7 @@ func (r *reconciler) reconcile(ctx context.Context) (pollSummary, error) {
 				return summary, ctx.Err()
 			}
 			idx.incomplete = true
-			r.log.Error("list workflow runs failed", "status", status, "error", err)
+			r.log.Error("list workflow runs failed", statusField, status, "error", err)
 			continue
 		}
 		for _, run := range runs {
@@ -239,7 +248,7 @@ func (r *reconciler) reconcile(ctx context.Context) (pollSummary, error) {
 					return summary, ctx.Err()
 				}
 				idx.incomplete = true
-				r.log.Error("list jobs failed", "run_id", run.ID, "error", err)
+				r.log.Error("list jobs failed", runIDField, run.ID, "error", err)
 				continue
 			}
 			idx.add(run.ID, jobs)
@@ -262,7 +271,7 @@ func (r *reconciler) reconcile(ctx context.Context) (pollSummary, error) {
 		if _, claimed := m.Config.Metadata[metadataJobID]; claimed && !managed {
 			r.observation.fail("managed_machine_identity_invalid")
 		}
-		if !managed || m.State == "destroyed" || m.State == "destroying" {
+		if !managed || m.State == machineDestroyed || m.State == machineDestroying {
 			continue
 		}
 		r.observation.condition(readinessOperation("runner_image", jobID), m.Config.Image == r.cfg.RunnerImage)
@@ -305,35 +314,35 @@ func (r *reconciler) reconcile(ctx context.Context) (pollSummary, error) {
 				}
 				r.observation.deferJobs(deferred)
 			}
-			r.log.Warn("machine ceiling reached", "max_machines", r.cfg.MaxMachines, "waiting_jobs", len(selected)-i, "job_id", job.ID)
+			r.log.Warn("machine ceiling reached", "max_machines", r.cfg.MaxMachines, "waiting_jobs", len(selected)-i, jobIDField, job.ID)
 			break
 		}
 		name := runnerName(job.ID)
 		jit, err := r.github.generateJITConfig(ctx, name, r.cfg.Labels)
 		r.observation.observe(readinessOperation("github_jit", job.ID), err)
 		if err != nil {
-			r.log.Error("mint runner configuration failed", "job_id", job.ID, "run_id", job.RunID, "error", err)
+			r.log.Error("mint runner configuration failed", jobIDField, job.ID, runIDField, job.RunID, "error", err)
 			continue
 		}
 		r.observation.condition(readinessOperation("jit_identity", job.ID), jit.Runner.ID > 0 && jit.EncodedJITConfig != "")
 		created, err := r.fly.createMachine(ctx, r.machineRequest(job, name, jit.EncodedJITConfig))
 		r.observation.observe(readinessOperation("fly_create", job.ID), err)
 		if err != nil {
-			r.log.Error("create machine failed", "job_id", job.ID, "run_id", job.RunID, "runner_id", jit.Runner.ID, "error", err)
+			r.log.Error("create machine failed", jobIDField, job.ID, runIDField, job.RunID, "runner_id", jit.Runner.ID, "error", err)
 			continue
 		}
 		r.observation.condition(readinessOperation("created_machine_identity", job.ID), created.ID != "" && created.Name == name && created.Config.Image == r.cfg.RunnerImage)
 		live[job.ID] = true
 		summary.Live++
 		summary.Created++
-		r.log.Info("machine created", "job_id", job.ID, "run_id", job.RunID, "machine_id", created.ID, "runner", name)
+		r.log.Info("machine created", jobIDField, job.ID, runIDField, job.RunID, machineIDField, created.ID, "runner", name)
 	}
 	return summary, nil
 }
 
 func (r *reconciler) destroyReason(ctx context.Context, m machine, jobID, runID int64, idx *jobIndex) string {
 	ownerJob, ownerRun, managed := machineJob(m)
-	if !managed || ownerJob != jobID || ownerRun != runID || m.State == "destroyed" || m.State == "destroying" {
+	if !managed || ownerJob != jobID || ownerRun != runID || m.State == machineDestroyed || m.State == machineDestroying {
 		return ""
 	}
 	if m.State == "stopped" {

@@ -2,23 +2,15 @@
 #[path = "support/chain.rs"]
 mod chain;
 
-use ed25519_dalek::{Signer, SigningKey};
+#[allow(dead_code)]
+#[path = "support/deployment.rs"]
+mod deployment;
+
 use layerx_programs::{
-    chain_evidence::{
-        self, deployment::ChainDeploymentProof, lifecycle::ChainLifecycleProof,
-        program_state::ChainProgramStateProof, protocol_head::ChainProtocolHeadProof,
-        wind_down::ChainWindDownProof,
-    },
-    chain_proof::{
-        decode::decode_commitment_proof,
-        merkle::{hash_from_byte_slices, SimpleProof},
-        validators::TrustedValidator,
-        vote::vote_sign_bytes,
-    },
-    interface_state_key, interface_state_value, DeploymentProof, InterfaceEntryPoint,
-    ProgramHeadKind, ProgramId, ProgramInterface, ProgramLifecycle, ProgramLifecycleProof,
-    ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier, ProtocolEvidenceError,
-    ProtocolHeadProof, ReceiptEvidenceDigest, ValueSchema, ValueType,
+    chain_evidence::protocol_head::ChainProtocolHeadProof, DeploymentProof, InterfaceEntryPoint,
+    ProgramHeadKind, ProgramId, ProgramInterface, ProgramLifecycle, ProgramStateBundle,
+    ProgramStateProof, ProtocolDeploymentVerifier, ProtocolEvidenceError, ProtocolHeadProof,
+    ReceiptEvidenceDigest, ValueSchema, ValueType,
 };
 use sha2::{Digest, Sha256};
 
@@ -32,12 +24,6 @@ pub const WASM_V1: &[u8] = &[
 const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
 const NOW: u64 = 1_700_000_000_123;
 const PERSISTED_TRUST: &str = "LAYERX_CHAIN_TRUST_ONLY_TEST_ROOT";
-
-fn key(prefix: &[u8], program: ProgramId) -> Vec<u8> {
-    let mut key = prefix.to_vec();
-    key.extend_from_slice(&program.bytes());
-    chain_evidence::programs_state_key(&key)
-}
 
 fn fixture_interface() -> ProgramInterface {
     ProgramInterface::bind(
@@ -56,119 +42,38 @@ fn fixture_interface() -> ProgramInterface {
     .unwrap_or_else(|error| panic!("{error:?}"))
 }
 
-fn prepare_signed_transaction(fixture: &mut chain::ChainFixture) -> (Vec<u8>, [u8; 32]) {
-    let transaction = b"chain deployment transaction".to_vec();
-    let tx_hash: [u8; 32] = Sha256::digest(&transaction).into();
-    let tx_root = hash_from_byte_slices(&[&tx_hash]);
-    fixture.header.data_hash = tx_root.to_vec();
-    fixture.commit.block_id.hash = fixture
-        .header
-        .hash()
-        .unwrap_or_else(|error| panic!("{error:?}"))
-        .to_vec();
-    let keys: Vec<_> = SEEDS.iter().map(SigningKey::from_bytes).collect();
-    for signature in &mut fixture.commit.signatures {
-        let signer = keys
-            .iter()
-            .find(|key| {
-                TrustedValidator::new(key.verifying_key().to_bytes(), 1)
-                    .address
-                    .as_slice()
-                    == signature.validator_address
-            })
-            .unwrap_or_else(|| panic!("expected value"));
-        let bytes = vote_sign_bytes(
-            &fixture.header.chain_id,
-            fixture.commit.height,
-            fixture.commit.round,
-            Some(&fixture.commit.block_id),
-            signature.timestamp,
-        )
-        .unwrap_or_else(|error| panic!("{error:?}"));
-        signature.signature = signer.sign(&bytes).to_bytes().to_vec();
-    }
-    (transaction, tx_root)
+fn fixture() -> (chain::ChainFixture, DeploymentProof, ProgramStateBundle) {
+    let program = ProgramId::new([0x31; 32]).expect("program identifier");
+    let interface = fixture_interface();
+    let (fixture, proof, witness) = deployment::fixture(deployment::Parameters {
+        program,
+        version: 7,
+        policy: layerx_programs::UpgradePolicy::Authority([0x51; 32]),
+        code: WASM_V1,
+        interface: Some(&interface),
+        chain_id: "paxeer-public-verifier-switch",
+        seeds: &SEEDS,
+        height: chain::STATE_HEIGHT + 1,
+        timestamp: NOW,
+        old_hash: Some(Sha256::digest(WASM_V1).into()),
+        status: None,
+        raw: None,
+        execution: true,
+    });
+    let bundle = ProgramStateBundle {
+        commitment: proof.state.commitment.clone(),
+        program,
+        program_record_ops: proof.state.state.ops.clone(),
+        interface_ops: witness.proof,
+        wind_down: Some(proof.state.wind_down.clone()),
+    };
+    (fixture, proof, bundle)
 }
 
-fn fixture() -> (chain::ChainFixture, DeploymentProof, ProgramStateBundle) {
-    let program = ProgramId::new([0x31; 32]).unwrap_or_else(|error| panic!("{error:?}"));
-    let interface = fixture_interface();
-    let mut record = vec![0; 33];
-    record.extend_from_slice(&interface.code_hash());
-    record.extend_from_slice(&1_u16.to_be_bytes());
-    record.extend_from_slice(&7_u32.to_be_bytes());
-    let program_key = key(b"program\0", program);
-    let interface_key = chain_evidence::programs_state_key(&interface_state_key(program));
-    let mut fixture = chain::ChainFixture::new(
-        "paxeer-public-verifier-switch",
-        &SEEDS,
-        vec![
-            (program_key.clone(), record.clone()),
-            (
-                interface_key.clone(),
-                interface_state_value(program, 7, &interface)
-                    .unwrap_or_else(|error| panic!("{error:?}")),
-            ),
-        ],
-    )
-    .unwrap_or_else(|error| panic!("{error:?}"));
-    let (transaction, tx_root) = prepare_signed_transaction(&mut fixture);
-    let commitment = decode_commitment_proof(
-        &fixture
-            .encode_key(&program_key)
-            .unwrap_or_else(|error| panic!("{error:?}")),
-    )
-    .unwrap_or_else(|error| panic!("{error:?}"));
-    let state = ChainProgramStateProof {
-        program,
-        ops: fixture
-            .prove(&program_key)
-            .unwrap_or_else(|error| panic!("{error:?}")),
-    };
-    let wind_down = ChainWindDownProof {
-        program,
-        value: None,
-        ops: fixture
-            .prove_absent(&key(b"wind-down\0s", program))
-            .unwrap_or_else(|error| panic!("{error:?}")),
-    };
-    let lifecycle = ProgramLifecycleProof(ChainLifecycleProof {
-        program,
-        record: Some(record),
-        record_ops: state.ops.clone(),
-        status: None,
-        status_ops: wind_down.ops.clone(),
-    });
-    let deployment = DeploymentProof {
-        state: ProgramStateProof {
-            commitment: commitment.clone(),
-            state: state.clone(),
-            lifecycle,
-            wind_down: wind_down.clone(),
-            transaction,
-            transaction_proof: SimpleProof {
-                total: 1,
-                index: 0,
-                leaf_hash: tx_root,
-                aunts: Vec::new(),
-            },
-        },
-        deployment: ChainDeploymentProof {
-            program_state: state.clone(),
-            code: WASM_V1.to_vec(),
-            interface: Some(interface.canonical_encoding().to_vec()),
-        },
-    };
-    let bundle = ProgramStateBundle {
-        commitment,
-        program,
-        program_record_ops: state.ops,
-        interface_ops: fixture
-            .prove(&interface_key)
-            .unwrap_or_else(|error| panic!("{error:?}")),
-        wind_down: Some(wind_down),
-    };
-    (fixture, deployment, bundle)
+fn program_state(proof: &DeploymentProof) -> ProgramStateProof {
+    let mut state = proof.state.clone();
+    state.transaction = deployment::raw_transaction(proof);
+    state
 }
 
 fn verify_protocol_head_methods(
@@ -194,7 +99,7 @@ fn verify_protocol_head_methods(
             header: &fixture.header,
             commit: &fixture.commit,
         },
-        transaction: &proof.state.transaction,
+        transaction: &deployment::raw_transaction(proof),
         transaction_proof: &proof.state.transaction_proof,
     };
     let head = verifier
@@ -244,7 +149,7 @@ fn verify_program_bundle_methods(
             .verify_current_chain_head(
                 kind,
                 commitment,
-                &proof.state.transaction,
+                &deployment::raw_transaction(proof),
                 &proof.state.transaction_proof,
                 NOW,
             )
@@ -305,7 +210,7 @@ fn verify_public_evidence_rejections(
         .verify_current_chain_head(
             ProgramHeadKind::Ordinary,
             commitment,
-            &proof.state.transaction,
+            &deployment::raw_transaction(proof),
             &proof.state.transaction_proof,
             NOW,
         )
@@ -329,7 +234,7 @@ fn verifier_public_methods_accept_chain_evidence() {
         .verify_head(&fixture.header, &fixture.commit)
         .unwrap_or_else(|error| panic!("{error:?}"));
     let root = verified_header.app_hash();
-    let tx_hash: [u8; 32] = Sha256::digest(&proof.state.transaction).into();
+    let tx_hash: [u8; 32] = Sha256::digest(deployment::raw_transaction(&proof)).into();
     let bytes = proof
         .canonical_encoding()
         .unwrap_or_else(|error| panic!("{error:?}"));
@@ -381,7 +286,7 @@ fn verifier_public_methods_accept_chain_evidence() {
         deployment
     );
     let program = verifier
-        .verify_current_program(&proof.state, bundle.program, NOW)
+        .verify_current_program(&program_state(&proof), bundle.program, NOW)
         .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(program.state_root(), root);
     assert_eq!(program.programs_root(), root);
@@ -576,7 +481,7 @@ fn verifier_needs_no_trust_history_file() {
     assert_eq!(deployment.state_root(), header.app_hash());
     assert_eq!(
         deployment.receipt_digest(),
-        <[u8; 32]>::from(Sha256::digest(&proof.state.transaction))
+        <[u8; 32]>::from(Sha256::digest(deployment::raw_transaction(&proof)))
     );
     assert_eq!(
         deployment.freshness().observed_sequence,

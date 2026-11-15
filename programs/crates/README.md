@@ -65,7 +65,7 @@ configuration and WASM compiler flags apply.
 - `PAXEER_X_DETERMINISM_VECTOR_DIR` — Runtime determinism vector input directory.
 - `PAXEER_X_SPEND_GUESTS`, `PAXEER_X_SPEND_RESULTS` — Program-spending composition artifacts and results.
 - `PAXEER_X_INTERFACE_INPUTS` — Registry interface test input directory.
-- `LAYERX_AUTHENTICATED_REPLAY_INPUTS`, `LAYERX_ARBITER_ADMISSION_INPUTS`, `LAYERX_MARKET_SANDBOX_INPUTS` — Arbiter replay, admission, and market-sandbox test inputs.
+- `LAYERX_AUTHENTICATED_REPLAY_INPUTS`, `LAYERX_ARBITER_ADMISSION_INPUTS`, `LAYERX_MARKET_SANDBOX_INPUTS` — Arbiter replay, admission, and market-sandbox cases run every assertion when these variables name their corpora. Each case prints one line naming the required variables and returns when an input variable is unset; unreadable or invalid corpora fail the case.
 
 ## Documentation
 

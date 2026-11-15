@@ -1,3 +1,6 @@
+#[path = "support/ledger_assets.rs"]
+mod ledger_assets;
+
 use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::error::Error;
@@ -201,16 +204,23 @@ impl Replay {
                 let Some(request) = read_request(&mut stream)? else {
                     return Ok(());
                 };
-                let rule = rules
-                    .iter()
-                    .find(|rule| {
-                        rule["method"] == request["method"] && rule["params"] == request["params"]
-                    })
-                    .ok_or_else(|| format!("unrecorded RPC request: {request}"))?;
-                let body = json!({
-                    "jsonrpc": "2.0", "id": request["id"], "result": rule["result"],
-                })
-                .to_string();
+                let result = if let Some(result) = (request["method"] == "eth_call")
+                    .then(|| ledger_assets::get_asset_answer(&request["params"]))
+                    .flatten()
+                {
+                    result
+                } else {
+                    rules
+                        .iter()
+                        .find(|rule| {
+                            rule["method"] == request["method"]
+                                && rule["params"] == request["params"]
+                        })
+                        .ok_or_else(|| format!("unrecorded RPC request: {request}"))?["result"]
+                        .clone()
+                };
+                let body =
+                    json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
                 write!(
                     stream,
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",

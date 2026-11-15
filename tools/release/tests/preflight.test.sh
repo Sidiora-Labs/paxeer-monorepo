@@ -20,6 +20,9 @@ import tomllib
 
 root, work = map(Path, sys.argv[1:])
 script = root / "tools/release/preflight.sh"
+identity = json.loads((root / "tools/release/version.json").read_text())
+release_version = identity["version"]
+release_version_unprefixed = release_version.removeprefix("v")
 labels = ("binary", "digest", "layout", "configuration", "consensus-key", "node-key", "disk", "clock")
 secret = "private-key-material"
 app_text = '''[state-commit]
@@ -57,7 +60,9 @@ key-file = "config/priv_validator_key.json"
 '''
 
 
-def write_binary(path, version="v7.0.0", code=0):
+def write_binary(path, version=None, code=0):
+    if version is None:
+        version = release_version
     path.write_text(
         '#!/usr/bin/env bash\n'
         '[[ "$*" == "version --long --output json" ]] || exit 2\n'
@@ -157,15 +162,15 @@ def release_plan_matches_sources():
     assert 'const MergeUpgrade = "v7.0"' in (root / "precompiles/common/precompiles.go").read_text()
     assert "const MergeUpgrade = pcommon.MergeUpgrade" in (root / "node/upgrades.go").read_text()
     assert json.loads((root / "tools/release/version.json").read_text()) == {
-        "upgrade": "v7.0", "version": "v7.0.0",
+        "upgrade": "v7.0", "version": release_version,
     }
 
 
 def binary_version_and_execution_are_required():
-    for index, version in enumerate(("v6.12.0", "v7.0.0-dev", "17.0.0")):
+    for index, version in enumerate(("v6.12.0", release_version + "-dev", "17.0.0")):
         case = fixture(f"version-{index}")
         write_binary(case[1], version)
-        invoke(case, 1, {"binary": "new binary must report version 7.0.0"})
+        invoke(case, 1, {"binary": f"new binary must report version {release_version_unprefixed}"})
     case = fixture("execution")
     write_binary(case[1], code=1)
     invoke(case, 1, {"binary": "new binary version command failed"})

@@ -44,13 +44,12 @@ fn prose(schema: &str, section: &str, key: &str) -> String {
 }
 
 fn transcript() -> Value {
-    serde_json::from_str(include_str!("../src/journeys/bank_commit_transcript.json"))
-        .unwrap_or_else(|error| {
-            panic!(
-                "{}: {error:?}",
-                "committed node and consensus producer transcript"
-            )
-        })
+    serde_json::from_str(include_str!("fixtures/bank_move_receipts.json")).unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "committed node and consensus producer transcript"
+        )
+    })
 }
 
 fn unhex(text: &str) -> Vec<u8> {
@@ -210,7 +209,11 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
                 network_id: NetworkId::new(125).or_fail("network"),
                 protocol_version: ProtocolVersion::new(3).or_fail("protocol"),
             },
-            pointer: EvmAddress::new(BANK_ADDRESS),
+            pointer: EvmAddress::new(
+                unhex(transcript()["pointer"].as_str().or_fail("native pointer"))
+                    .try_into()
+                    .or_fail("pointer width"),
+            ),
             denom: "uhpx".to_owned(),
             chain_id: 125,
             max_priority_fee_per_gas: 1,
@@ -227,11 +230,14 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
     let [call] = route.bank_transfers() else {
         panic!("one bank call")
     };
-    assert_eq!(call.to, BANK_ADDRESS);
+    assert_eq!(
+        call.to,
+        unhex(transcript()["pointer"].as_str().or_fail("native pointer")).as_slice()
+    );
     assert_eq!(call.nonce, nonce);
     assert_eq!(call.chain_id, 125);
     assert!(prose(INTENT_SCHEMA, "type.IntentLeg", "evm_call").contains("value zero"));
-    assert_eq!(&call.data[..4], &unhex("5c05961b"));
+    assert_eq!(&call.data[..4], &unhex("a9059cbb"));
     let mut amount = [0; 32];
     amount[31] = 90;
     assert_eq!(
@@ -239,10 +245,9 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
             .or_fail("production disclosure consumer")
             .construct_method()
             .or_fail("bank ABI"),
-        Some(ConstructMethod::BankSend {
-            from: sender(),
+        Some(ConstructMethod::PointerTransfer {
+            pointer: call.to,
             to: [0x22; 20],
-            denom: "uhpx".to_owned(),
             amount,
         })
     );
@@ -262,7 +267,7 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
         prose(INTENT_SCHEMA, "type.IntentDomain", "meaning").contains("compatibility vocabulary")
     );
     assert!(prose(INTENT_SCHEMA, "type.IntentLeg", "evm_call").contains("pending EVM nonce"));
-    assert!(prose(INTENT_SCHEMA, "type.IntentLeg", "send").contains("0x5c05961b"));
+    assert!(prose(INTENT_SCHEMA, "type.IntentLeg", "send").contains("0xa9059cbb"));
     for retired in [
         LegMechanism::PaxeerCustodyDeposit,
         LegMechanism::PaxeerWithdrawFinalise,

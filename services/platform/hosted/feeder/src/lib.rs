@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use ed25519_dalek::SigningKey;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 /// Status line of the plain health listener: `GET /healthz` answers 200
 /// while the process runs, `GET /readyz` answers 200 only while the last
@@ -148,12 +148,22 @@ pub fn http_agent() -> Result<ureq::Agent, String> {
         .provider(ureq::tls::TlsProvider::Rustls)
         .root_certs(ureq::tls::RootCerts::new_with_certs(&roots))
         .build();
-    Ok(ureq::Agent::config_builder()
+    Ok(feed_agent(Some(tls)))
+}
+
+/// Builds a feed client with the connection pool sized for one round of
+/// market requests. A TLS configuration is optional so local feed tests can
+/// use the same pool settings without loading platform root certificates.
+pub fn feed_agent(tls: Option<ureq::tls::TlsConfig>) -> ureq::Agent {
+    let mut builder = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(5)))
         .max_redirects(0)
-        .tls_config(tls)
-        .build()
-        .into())
+        .max_idle_connections(64)
+        .max_idle_connections_per_host(64);
+    if let Some(tls) = tls {
+        builder = builder.tls_config(tls);
+    }
+    builder.build().into()
 }
 
 /// Whether the feeder is ready: a round was accepted no longer than

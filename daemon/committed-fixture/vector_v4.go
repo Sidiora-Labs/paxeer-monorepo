@@ -310,7 +310,7 @@ func v4RecordSettlement(ctx context.Context, n *node, receipt *evmrpc.SequencerR
 	if block == nil || block.Block == nil || block.Block.Height != height || !bytes.Equal(block.BlockID.Hash, receipt.BlockHash.Bytes()) {
 		return nil, errors.New("committed receipt block does not match Comet block")
 	}
-	txs := block.Block.Data.Txs
+	txs := block.Block.Txs
 	if len(txs) < 2 {
 		return nil, errors.New("committed block is missing its batch or payment transaction")
 	}
@@ -333,7 +333,7 @@ func v4RecordSettlement(ctx context.Context, n *node, receipt *evmrpc.SequencerR
 		return nil, err
 	}
 	if results == nil || len(results.TxsResults) != len(txs) {
-		return nil, errors.New("Comet results do not match block transactions")
+		return nil, errors.New("comet results do not match block transactions")
 	}
 	encoded, err := abci.MarshalTxResults(results.TxsResults)
 	if err != nil {
@@ -370,26 +370,26 @@ func v4RecordSettlement(ctx context.Context, n *node, receipt *evmrpc.SequencerR
 	if err != nil {
 		return nil, err
 	}
-	if commit == nil || commit.Header == nil || commit.Commit == nil || validators == nil || validators.Total != len(validators.Validators) || !bytes.Equal(root, commit.Header.LastResultsHash) {
+	if commit == nil || commit.Header == nil || commit.Commit == nil || validators == nil || validators.Total != len(validators.Validators) || !bytes.Equal(root, commit.LastResultsHash) {
 		return nil, errors.New("results root or validator set is incomplete at committed header H")
 	}
-	if commit.Header.Height != committedHeight || !bytes.Equal(commit.Commit.BlockID.Hash, commit.Header.Hash()) || !bytes.Equal(commit.Header.LastBlockID.Hash, block.Block.Header.Hash()) {
-		return nil, errors.New("Comet commit does not bind header H and the payment execution block")
+	if commit.Height != committedHeight || !bytes.Equal(commit.Commit.BlockID.Hash, commit.Hash()) || !bytes.Equal(commit.LastBlockID.Hash, block.Block.Hash()) {
+		return nil, errors.New("comet commit does not bind header H and the payment execution block")
 	}
 	set := tmtypes.NewValidatorSet(validators.Validators)
-	if !bytes.Equal(set.Hash(), commit.Header.ValidatorsHash) {
+	if !bytes.Equal(set.Hash(), commit.ValidatorsHash) {
 		return nil, errors.New("validators do not hash to committed header")
 	}
 	if err := set.VerifyCommit(fixtureChainID, commit.Commit.BlockID, committedHeight, commit.Commit); err != nil {
 		return nil, err
 	}
-	if executionCommit == nil || executionCommit.Commit == nil || executionCommit.Commit.Height != block.Block.Header.Height || !bytes.Equal(executionCommit.Commit.BlockID.Hash, block.Block.Header.Hash()) {
-		return nil, errors.New("Comet execution commit does not bind the payment execution header")
+	if executionCommit == nil || executionCommit.Commit == nil || executionCommit.Commit.Height != block.Block.Height || !bytes.Equal(executionCommit.Commit.BlockID.Hash, block.Block.Hash()) {
+		return nil, errors.New("comet execution commit does not bind the payment execution header")
 	}
 	if err := set.VerifyCommit(fixtureChainID, executionCommit.Commit.BlockID, height, executionCommit.Commit); err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(commit.Header.LastCommitHash, executionCommit.Commit.Hash()) {
+	if !bytes.Equal(commit.LastCommitHash, executionCommit.Commit.Hash()) {
 		return nil, errors.New("committed header does not bind the execution commit")
 	}
 	insufficient := *commit.Commit

@@ -2,6 +2,9 @@ mod test_network {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
 }
 
+#[path = "support/ledger_assets.rs"]
+mod ledger_assets;
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::{Read, Write};
@@ -793,6 +796,9 @@ fn settlement_peer(receipts: Arc<AtomicBool>, chain: Arc<AtomicU64>) -> Checked<
     RpcTranscript::start(move |request| match request["method"].as_str() {
         Some("eth_chainId") => Ok(json!(format!("0x{:x}", chain.load(Ordering::Acquire)))),
         Some("pax_sequencerReceipt") if receipts.load(Ordering::Acquire) => Ok(Value::Null),
+        Some("eth_call") if ledger_assets::get_asset_answer(&request["params"]).is_some() => {
+            Ok(ledger_assets::get_asset_answer(&request["params"]).expect("asset record"))
+        }
         Some("eth_call") => exchanges
             .iter()
             .find(|exchange| {

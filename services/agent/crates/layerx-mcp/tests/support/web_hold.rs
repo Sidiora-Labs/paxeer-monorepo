@@ -320,7 +320,9 @@ impl Recording {
         let paid_signatures = Arc::clone(&signatures);
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
-        let ledger = Arc::new(Mutex::new(fixture("gateway/metered.json")));
+        let ledger = Arc::new(Mutex::new(
+            crate::node_recording::account_sequence_recording(fixture("gateway/metered.json")),
+        ));
         let shared_ledger = Arc::clone(&ledger);
         let worker = thread::spawn(move || {
             let exact = fixture("gateway/exact.json");

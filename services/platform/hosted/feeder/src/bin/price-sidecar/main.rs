@@ -24,6 +24,18 @@ fn default_cadence_ms() -> u64 {
     DEFAULT_CADENCE_MS
 }
 
+fn default_max_pending_submissions() -> usize {
+    1
+}
+
+fn default_max_committed_reads_in_flight() -> usize {
+    6
+}
+
+fn default_pending_submission_block_limit() -> u64 {
+    round::PENDING_SUBMISSION_BLOCK_LIMIT
+}
+
 /// One pricefeed market: its on-chain id and its Chainflow request symbol.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -44,6 +56,12 @@ pub struct Config {
     pub gas_limit: u64,
     #[serde(default = "default_cadence_ms")]
     pub cadence_ms: u64,
+    #[serde(default = "default_max_pending_submissions")]
+    pub max_pending_submissions: usize,
+    #[serde(default = "default_max_committed_reads_in_flight")]
+    pub max_committed_reads_in_flight: usize,
+    #[serde(default = "default_pending_submission_block_limit")]
+    pub pending_submission_block_limit: u64,
     pub retry_backoff_ms: u64,
     pub retry_max_attempts: u32,
     pub chainflow: ChainflowConfig,
@@ -82,6 +100,18 @@ impl Config {
             ("cadence_ms", self.cadence_ms),
             ("retry_backoff_ms", self.retry_backoff_ms),
             ("retry_max_attempts", u64::from(self.retry_max_attempts)),
+            (
+                "max_pending_submissions",
+                self.max_pending_submissions as u64,
+            ),
+            (
+                "max_committed_reads_in_flight",
+                self.max_committed_reads_in_flight as u64,
+            ),
+            (
+                "pending_submission_block_limit",
+                self.pending_submission_block_limit,
+            ),
             ("chainflow.timeout_ms", self.chainflow.timeout_ms),
             (
                 "chainflow.max_quote_age_ms",
@@ -300,6 +330,7 @@ pub fn run(check_config: bool) -> Result<(), String> {
         env("PRICE_SIDECAR_EVM_RPC_URL")?,
     )?;
     let mut sidecar = round::start(&config, &rpc, secret, &state_dir)?;
+    eprintln!("{}", start_report(&config));
     let metrics = Arc::new(Mutex::new(health::Metrics::default()));
     health::serve(&health, Arc::clone(&metrics), config.cadence_ms)?;
     let cadence = Duration::from_millis(config.cadence_ms);
@@ -316,6 +347,17 @@ pub fn run(check_config: bool) -> Result<(), String> {
         )?;
         thread::sleep(cadence.saturating_sub(started.elapsed()));
     }
+}
+
+/// The startup line describing the submission and committed-read bounds.
+#[must_use]
+pub fn start_report(config: &Config) -> String {
+    format!(
+        "price-sidecar: max_pending_submissions {}, max_committed_reads_in_flight {}, pending_submission_block_limit {}",
+        config.max_pending_submissions,
+        config.max_committed_reads_in_flight,
+        config.pending_submission_block_limit,
+    )
 }
 
 pub fn main() {

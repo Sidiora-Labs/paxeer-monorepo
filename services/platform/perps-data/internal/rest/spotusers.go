@@ -199,12 +199,16 @@ WHERE kind = 'token_registered' ORDER BY block, tx_index, log_index, sub`
 // tokens reads the registered spot tokens: the non-stable tokens take their
 // symbol by registration rank (records.SpotTokenRank), the stablecoin at the USDL
 // address is USDL.
-func (s *SpotUsers) tokens(ctx context.Context) (map[common.Address]spotToken, error) {
+func (s *SpotUsers) tokens(ctx context.Context) (result0 map[common.Address]spotToken, resultErr error) {
 	rows, err := s.db.QueryContext(ctx, spotRegistrySQL)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	symbols := make(map[int]string, len(records.SpotTokenRank))
 	for sym, rank := range records.SpotTokenRank {
 		symbols[rank] = sym
@@ -373,7 +377,11 @@ func (s *SpotUsers) fold(ctx context.Context, user *common.Address) (traders map
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); err == nil {
+			err = closeErr
+		}
+	}()
 	traders = map[common.Address]*spotTrader{}
 	refused := map[common.Address]bool{}
 	for rows.Next() {
@@ -750,7 +758,7 @@ type spotOrdersBody struct {
 
 // orders answers the spot orders of the user from perps.spot_orders; status is
 // open or all (the default).
-func (s *SpotUsers) orders(ctx context.Context, user common.Address, q map[string][]string) (any, error) {
+func (s *SpotUsers) orders(ctx context.Context, user common.Address, q map[string][]string) (result0 any, resultErr error) {
 	var openOnly bool
 	switch spotQuery(q, "status") {
 	case "", "all":
@@ -771,7 +779,11 @@ func (s *SpotUsers) orders(ctx context.Context, user common.Address, q map[strin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	body := spotOrdersBody{Address: spotHex(user), Items: []spotOrderJSON{}}
 	for rows.Next() {
 		o, err := scanSpotOrder(rows, tokens)
@@ -879,7 +891,7 @@ type spotTradesBody struct {
 
 // trades pages the spot trades of the user newest first by afterBlock and
 // afterIndex, which go together.
-func (s *SpotUsers) trades(ctx context.Context, user common.Address, q map[string][]string) (any, error) {
+func (s *SpotUsers) trades(ctx context.Context, user common.Address, q map[string][]string) (result0 any, resultErr error) {
 	limit, err := parseLimit(q)
 	if err != nil {
 		return nil, &spotError{http.StatusBadRequest, "invalid limit"}
@@ -905,7 +917,11 @@ func (s *SpotUsers) trades(ctx context.Context, user common.Address, q map[strin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	body := spotTradesBody{Address: spotHex(user), Limit: limit, Items: []spotTradeItemJSON{}}
 	for rows.Next() {
 		t, err := scanSpotTrade(rows)
@@ -963,12 +979,16 @@ type spotTradesStatsBody struct {
 }
 
 // tradesStats counts the trades of the user by source and by contract.
-func (s *SpotUsers) tradesStats(ctx context.Context, user common.Address, _ map[string][]string) (any, error) {
+func (s *SpotUsers) tradesStats(ctx context.Context, user common.Address, _ map[string][]string) (result0 any, resultErr error) {
 	rows, err := s.db.QueryContext(ctx, spotTradesStatsSQL, user.Bytes())
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	body := spotTradesStatsBody{Address: spotHex(user), BySource: map[string]int64{}, ByContract: map[string]int64{}}
 	for rows.Next() {
 		var (
@@ -1288,13 +1308,17 @@ LEFT JOIN perps.spot_board_generation g ON g.singleton = true
 LEFT JOIN LATERAL (SELECT kind, rank, account, value FROM perps.spot_leaderboard
 	WHERE kind = $1 ORDER BY rank LIMIT $2) r ON true ORDER BY r.rank`
 
-func (s *SpotUsers) projectedRank(ctx context.Context, kind string, limit int) (spotLeaderboardBody, error) {
+func (s *SpotUsers) projectedRank(ctx context.Context, kind string, limit int) (result0 spotLeaderboardBody, resultErr error) {
 	body := spotLeaderboardBody{Kind: kind, Items: []spotRankJSON{}}
 	rows, err := s.db.QueryContext(ctx, spotLeaderboardSQL, kind, limit)
 	if err != nil {
 		return body, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var at sql.NullTime
 		var omitted, rank sql.NullInt64
@@ -1546,12 +1570,16 @@ func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]S
 }
 
 // tradeAt reads the trade of user at (block, logIndex).
-func (s *SpotUsers) tradeAt(ctx context.Context, user common.Address, block int64, logIndex int) (spotTradeItemJSON, bool, error) {
+func (s *SpotUsers) tradeAt(ctx context.Context, user common.Address, block int64, logIndex int) (result0 spotTradeItemJSON, result1 bool, resultErr error) {
 	rows, err := s.db.QueryContext(ctx, spotUserTradesSQL, user.Bytes(), block, logIndex+1, 1)
 	if err != nil {
 		return spotTradeItemJSON{}, false, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	if !rows.Next() {
 		return spotTradeItemJSON{}, false, rows.Err()
 	}

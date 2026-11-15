@@ -1,3 +1,6 @@
+#[path = "ledger_assets.rs"]
+mod ledger_assets;
+
 mod test_network {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
 }
@@ -81,6 +84,11 @@ fn answer_rpc(
         let mut network_id = [0_u8; 32];
         network_id[31] = 1;
         json!({ "jsonrpc": "2.0", "id": request["id"], "result": hex0x(&network_id) })
+    } else if let Some(result) = (method == "eth_call" && chain_id.is_some())
+        .then(|| ledger_assets::get_asset_answer(&params))
+        .flatten()
+    {
+        json!({ "jsonrpc": "2.0", "id": request["id"], "result": result })
     } else if let Some(recorded) = ledger_calls
         .iter()
         .find(|recorded| recorded["method"] == method && recorded["params"] == params)
