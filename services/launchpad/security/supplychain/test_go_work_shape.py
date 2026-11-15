@@ -2,9 +2,14 @@ import re
 import shlex
 from pathlib import Path
 
+from test_builder_go_directive import DOCKERFILES, _builder_version
+
 
 LAUNCHPAD = Path(__file__).resolve().parents[2]
 WORKSPACE = LAUNCHPAD / 'go.work'
+IMAGE_MODULES = tuple(
+    LAUNCHPAD / name for name in ('api', 'indexer', 'notifications', 'social', 'user')
+)
 
 
 def _workspace_modules():
@@ -46,8 +51,11 @@ def test_go_work_uses_every_launchpad_module():
 
 def test_go_directives_match_workspace():
     workspace_go = _go_directive(WORKSPACE)
-    assert workspace_go == '1.25.0', 'go.work must pin go 1.25.0'
-    for module in sorted(_workspace_modules()):
+    reviewed_builder_go = _builder_version(DOCKERFILES[0])
+    assert workspace_go == reviewed_builder_go, (
+        f'go.work must pin the reviewed builder version {reviewed_builder_go}'
+    )
+    for module in sorted(IMAGE_MODULES):
         module_go = _go_directive(module / 'go.mod')
         assert module_go == workspace_go, (
             f'{module / "go.mod"} declares go {module_go}; '
