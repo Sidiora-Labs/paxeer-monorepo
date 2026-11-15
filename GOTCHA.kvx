@@ -22275,3 +22275,8 @@ fix = "Decision 3570. The verification of such a task calls cargo for the crate.
 title = "Three definitions of the folder platform state env names by the project key and one input under two keys"
 symptom = "The definitions agent-boundary, dashboard and webhooks-public of deploy/projects/platform form their env names with the project key in front of the folder name, and agent-boundary reads one input under two keys. The rule of decision 3564 forms the name from folder, service and variable, one name for one key. The definition webhooks-public also states two certificate variables in PEM form that no file of the service reads; its own test requires every variable to have a reader."
 fix = "Decision 3571. Task 22.39.611 brings the three definitions in line."
+
+[gotcha.4491]
+title = "Cases of the explorer backend share state within the whole suite"
+symptom = "The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path. Within the whole suite the files share what a single file has to itself: the ownership mode of the database connections, the application settings, named processes and caches, and the mock expectations of the JSON-RPC client. Some cases also name a file or directory by a path the tree no longer has, or state a value of a source that a later task changed."
+fix = "Decision 3572. Tasks 22.39.627 to 22.39.634."
