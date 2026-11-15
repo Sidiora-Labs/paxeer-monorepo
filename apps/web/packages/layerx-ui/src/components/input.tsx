@@ -16,7 +16,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div
         className={cn(
-          "flex h-12 items-center gap-2 rounded-md border bg-surface px-4 transition-colors",
+          "flex min-h-12 items-center gap-2 rounded-md border bg-surface px-4 py-2 transition-colors",
           error
             ? "border-destructive focus-within:ring-2 focus-within:ring-destructive/25"
             : "border-border focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
@@ -53,7 +53,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
     return (
       <div
         className={cn(
-          "flex h-11 items-center gap-2.5 rounded-full bg-surface border border-border px-4 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
+          "flex min-h-11 items-center gap-2.5 rounded-full bg-surface border border-border px-4 py-2 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
           className,
         )}
       >

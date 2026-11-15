@@ -49,7 +49,7 @@ export function ExplorerTable({
   rows: readonly Readonly<{ id: string; cells: readonly ReactNode[] }>[];
 }>) {
   return (
-    <div className="human-table-scroll rounded-md border border-border">
+    <div className="human-table-scroll rounded-md border border-border" tabIndex={0}>
       <table className="human-data-table border-collapse text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="bg-surface-sunken text-foreground-secondary">
