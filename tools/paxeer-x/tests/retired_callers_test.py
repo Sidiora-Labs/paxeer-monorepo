@@ -533,19 +533,36 @@ def self_test(catalogue):
             "spec/release-v6-12-0/**",
             "spec/monorepo-layout/**",
             "repair_*.kvx",
-            "services/platform/hosted/authority/src/repair_22_31_207/**",
-            "services/platform/ramps/toolkit/src/repair_22_31_211/**",
+            "services/platform/hosted/authority/src/native_receipt_producer/**",
+            "services/platform/ramps/toolkit/src/native_payment_overlays/**",
             "tools/hyperfide/**",
             "core/deps/geth/signer/fourbyte/**",
             "programs/vendor/**",
             "apps/launchpad/web/public/charting_library/**",
             "spec/layerx-merge/programme/records/services/platform/examples/marketplace/repair-22-31-349.kvx",
-            "tools/bringup/repair-*.kvx",
+            "spec/layerx-merge/programme/records/tools/bringup/repair-*.kvx",
             "api/README.md",
             "modules/README.md",
             "GOTCHA.kvx",
             "CHANGELOG.md",
             "CODEMAP.md",
+            "docs/site/paxeer-docs/src/app/checkpoints/page.tsx",
+            "docs/site/paxeer-docs/src/app/contracts/page.tsx",
+            "docs/site/paxeer-docs/src/app/custody/page.tsx",
+            "docs/site/paxeer-docs/src/app/docker/page.tsx",
+            "docs/site/paxeer-docs/src/app/mirrors/page.tsx",
+            "docs/site/paxeer-docs/src/app/modules/page.tsx",
+            "docs/site/paxeer-docs/src/app/node-troubleshooting/page.tsx",
+            "docs/site/paxeer-docs/src/app/operators/page.tsx",
+            "docs/site/paxeer-docs/src/app/relay-archive/page.tsx",
+            "docs/site/paxeer-docs/src/app/run-node/page.tsx",
+            "docs/site/paxeer-docs/src/components/nav.ts",
+            "docs/site/paxeer-docs/src/lib/seo-pages.json",
+            "docs/site/paxeer-docs/.generated/assistant-docs.json",
+            "docs/site/paxeer-docs/public/llms-full.txt",
+            "docs/site/paxeer-docs/public/llms.txt",
+            "docs/site/paxeer-docs/public/search-index.json",
+            "docs/site/paxeer-docs/public/sitemap.xml",
         ],
         "reviewed documentation paths",
     )
@@ -698,6 +715,109 @@ def self_test(catalogue):
         for name, component in components.items()
         for symbol in component["symbols"]
     ]
+    for path, text, expected in (
+        (
+            "docs/site/paxeer-docs/src/lib/systems.json",
+            '"modules/layerxanchor", "modules/layerxcustody", "precompiles/layerxverify"',
+            [
+                ("anchor", "layerxanchor"),
+                ("custody-deposit", "layerxcustody"),
+                ("verify", "layerxverify"),
+            ],
+        ),
+        (
+            "precompiles/README.md",
+            "`layerxanchor/` `layerxcustody/` `layerxverify/` — retained interfaces",
+            [
+                ("anchor", "layerxanchor"),
+                ("custody-deposit", "layerxcustody"),
+                ("verify", "layerxverify"),
+            ],
+        ),
+        (
+            "docs/site/paxeer-docs/src/app/sdk/page.tsx",
+            "<code>layerxanchor</code>, <code>layerxcustody</code>",
+            [("anchor", "layerxanchor"), ("custody-deposit", "layerxcustody")],
+        ),
+        (
+            "docs/site/paxeer-docs/src/app/accounts/page.tsx",
+            "<code>system:paxeer-reserve</code>",
+            [("custody-disclosure", "paxeer-reserve")],
+        ),
+        (
+            "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py",
+            "custody = genesis['app_state']['layerxcustody']",
+            [("custody-deposit", "layerxcustody")],
+        ),
+    ):
+        file_scoped = path == "docs/site/paxeer-docs/src/lib/systems.json"
+        detected = [(path, 1, component, symbol) for component, symbol in expected]
+        check_equal(
+            sorted(match_line(path, 1, text, all_patterns, allowances)),
+            []
+            if file_scoped
+            or path == "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+            else sorted(detected),
+            "retained inventory or state reference scope " + path,
+        )
+        neighbor = path + ".outside"
+        check_equal(
+            sorted(match_line(neighbor, 1, text, all_patterns, allowances)),
+            sorted((neighbor, 1, component, symbol) for component, symbol in expected),
+            "retained reference allowance is file scoped " + path,
+        )
+        check_equal(
+            sorted(
+                match_line(path, 1, text + " depositToken()", all_patterns, allowances)
+            ),
+            sorted(
+                ([] if file_scoped else detected)
+                + [(path, 1, "custody-deposit", "depositToken")]
+            ),
+            "retained reference still detects retired methods " + path,
+        )
+    for path in (
+        "precompiles/common/README.md",
+        "precompiles/layerxauth/internal/nativefixtures/native.go",
+        "services/agent/.env.example",
+        "services/platform/hosted/authority/README.md",
+        "tools/qualification/paxeer-x/inference_market_room.py",
+        "precompiles/README.md",
+        "docs/site/paxeer-docs/src/app/sdk/page.tsx",
+        "docs/site/paxeer-docs/src/app/accounts/page.tsx",
+        "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py",
+        "precompiles/setup.go",
+    ):
+        entries = [entry for entry in allowances if entry["path"] == path]
+        check_equal(len(entries), 1, "one retained reference entry " + path)
+        entry = entries[0]
+        check_equal(
+            "symbols" in entry, False, "retained reference uses exact lines " + path
+        )
+        source_lines = {
+            " ".join(line.split())
+            for line in (ROOT / path).read_text().splitlines()
+        }
+        for line in entry["lines"]:
+            check_equal(
+                " ".join(line.split()) in source_lines,
+                True,
+                "retained reference line exists " + path,
+            )
+            check_equal(
+                match_line(path, 1, line, all_patterns, allowances),
+                [],
+                "retained reference exact line " + path,
+            )
+        probe = "layerxverify.execute(); depositToken();"
+        check_equal(
+            match_line(path, 1, probe, all_patterns, allowances),
+            [
+                (path, 1, "verify", "layerxverify"),
+                (path, 1, "custody-deposit", "depositToken"),
+            ],
+            "retained reference does not admit calls " + path,
+        )
     attestor_path = "services/human/crates/layerx-human-kms/src/attestor.rs"
     attestor_patterns = [
         ("envelope-signing", symbol, symbol_pattern(symbol))
@@ -1083,8 +1203,8 @@ def self_test(catalogue):
                 "programs/vendor/library/src/lib.rs": "layerxverify\n",
                 "apps/launchpad/web/public/charting_library/bundles/vendor.js": "layerxverify\n",
                 "core/deps/geth/signer/fourbyte/4byte.json": "layerxverify\n",
-                "services/platform/hosted/authority/src/repair_22_31_207/producer.go": "layerxverify\n",
-                "services/platform/ramps/toolkit/src/repair_22_31_211/record.kvx": "layerxverify\n",
+                "services/platform/hosted/authority/src/native_receipt_producer/producer.go": "layerxverify\n",
+                "services/platform/ramps/toolkit/src/native_payment_overlays/record.kvx": "layerxverify\n",
                 "services/agent/crates/layerx-wire/src/lib.rs": "use layerx_wire::activity;\n",
                 "live.rs": "px_getUnifiedHistory px_getNetwork px_listAssets\n",
             },

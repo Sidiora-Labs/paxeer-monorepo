@@ -401,17 +401,40 @@ fn identity_first_batch_hosted_job_observes_after_merged_registration() {
     let native = script
         .split("human_native_provision() (")
         .nth(1)
-        .unwrap_or_else(|| panic!("native provisioning"));
+        .unwrap_or_else(|| panic!("native provisioning"))
+        .split_once("\n)\n")
+        .unwrap_or_else(|| panic!("native provisioning body"))
+        .0;
     let produce = native
         .find("--produce-owner-registration")
         .unwrap_or_else(|| panic!("produce"));
     let validate = native
         .find("--validate-owner-registration")
         .unwrap_or_else(|| panic!("validate"));
-    let observe = native
+    assert!(produce < validate);
+    let evidence = script
+        .split("human_evidence_provision() (")
+        .nth(1)
+        .unwrap_or_else(|| panic!("evidence provisioning"))
+        .split_once("\n)\n")
+        .unwrap_or_else(|| panic!("evidence provisioning body"))
+        .0;
+    let register = evidence
+        .find("human_native_provision\n")
+        .unwrap_or_else(|| panic!("register"));
+    let fund = evidence
+        .find("--funding-evidence")
+        .unwrap_or_else(|| panic!("fund"));
+    let validate = evidence
+        .find("--validate-owner-registration")
+        .unwrap_or_else(|| panic!("validate funded registration"));
+    let observe = evidence
         .find("human_account_head_observe\n")
         .unwrap_or_else(|| panic!("observe"));
-    assert!(produce < validate && validate < observe);
+    let naming = evidence
+        .find("naming_program_deploy\n")
+        .unwrap_or_else(|| panic!("naming"));
+    assert!(register < fund && fund < validate && validate < observe && observe < naming);
     assert!(script.contains("pod['containers'] = [validator]"));
     assert!(script.contains("rpc_ca_der_hex=[ssl.PEM_cert_to_DER_cert(ca).hex()]"));
     assert!(script.contains("dict(consumed=result['consumed'])"));

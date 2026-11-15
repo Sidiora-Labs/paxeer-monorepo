@@ -423,10 +423,15 @@ def test_f47_catalogue_targets_native_producers():
             selected.add(name)
         if agent:
             suite, name = agent
-            source = ROOT / "services/agent/crates/layerx-agentd/tests" / (suite + ".rs")
-            assert "fn " + name + "(" in source.read_text()
+            source_path = ROOT / "services/agent/crates/layerx-agentd/tests" / (suite + ".rs")
+            source = source_path.read_text()
+            if "fn " + name + "(" not in source:
+                include = re.search(r'include!\("([^"]+)"\)', source)
+                assert include, (suite, name)
+                source += (source_path.parent / include.group(1)).read_text()
+            assert "fn " + name + "(" in source
     assert {"TestWALGroupSyncBeforeRelease", "TestWALCorruptTailStopsReplay",
-            "TestCrashAfterReceiptReplaysIdenticalReceipt", "TestRepair475_ReconcileSealAfterCommitCrash"} <= selected
+            "TestCrashAfterReceiptReplaysIdenticalReceipt", "TestCommittedHashReconcileSealAfterCommitCrash"} <= selected
     source = Path(driver.__file__).read_text()
     for retired in ("test-finality-evidence", "test-batch-wal-recovery", "qualify-replay",
                     "custody_claim_without_a_settlement_domain_declaration_is_rejected",

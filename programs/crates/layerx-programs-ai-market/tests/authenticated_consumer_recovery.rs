@@ -186,7 +186,7 @@ pub(crate) fn authority() -> Vec<Validator> {
 }
 
 /// Committed peer fixture: native namespace manifest and ICS23 leaf operations,
-/// matching `indexer/tests/repair_22_31_350.rs` and the lxphost store layout.
+/// matching `indexer/tests/native_membership_history.rs` and the lxphost store layout.
 fn native_membership(state: &[u8], program: [u8; 32]) -> (Vec<u8>, [u8; 32]) {
     fn leaf(key: &[u8], value: &[u8], prefix: &[u8]) -> (Vec<u8>, [u8; 32]) {
         let mut operation = Vec::new();

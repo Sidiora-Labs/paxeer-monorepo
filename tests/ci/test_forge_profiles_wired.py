@@ -85,4 +85,4 @@ def test_named_profiles_point_at_existing_dirs():
     assert mirror["solc_version"] == "0.8.30"
     assert mirror["ffi"] is True, "The publisher recovery suite needs real FFI"
     suites = {path.name for path in (ROOT / MIRROR / mirror["test"]).glob("*.t.sol")}
-    assert {"LayerXMirrorArchive.t.sol", "Repair2231231.t.sol"} <= suites
+    assert {"LayerXMirrorArchive.t.sol", "ManifestReceiptRecovery.t.sol"} <= suites

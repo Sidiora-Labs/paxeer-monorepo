@@ -2,10 +2,13 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.native
 def test_generator_matches_fixture():
     subprocess.run(["make", "build/tools/dump_trading_vectors"], cwd=ROOT, check=True)
     result = subprocess.run(

@@ -236,8 +236,10 @@ Environment:
   CHECK_LIVE_INTEROP_TRANSACTION  pre-signed chain-125 payExact transaction file
   CHECK_LIVE_INTEROP_API_KEY_FILE  facilitator API key file, never printed
   CHECK_LIVE_INDEXER_RPC, CHECK_LIVE_GATEWAY_RPC  explicit hosted gateway URLs
-  CHECK_LIVE_SEARCH_PAYER_ADDRESS, CHECK_LIVE_SEARCH_GRANT_ID
-                       EVM payer and existing authorized metered ledger grant
+  CHECK_LIVE_SEARCH_PAYER_ADDRESS, CHECK_LIVE_SEARCH_PAYER_KEY_FILE,
+  CHECK_LIVE_SEARCH_NODE_RPC
+                       optional derived payer address, protected secp256k1 key
+                       file and node RPC used for exact search payments
   CHECK_LIVE_DEVELOPERS_SOURCE_URL  authorized Human /v1/intents/submit URL
   CHECK_LIVE_DEVELOPERS_SOURCE_REQUEST, CHECK_LIVE_DEVELOPERS_SOURCE_TOKEN_FILE
                        signed current intent request and source session token
@@ -3534,14 +3536,15 @@ check_developers() {
 	finish "$failures"
 }
 
-# Paid search uses the standing ledger grant and EVM payer address accepted
-# by the current sidecar. Metadata is read from the explicit hosted gateway.
+# Paid search signs an exact ledger payment with the protected payer key.
+# Metadata and the committed receipt are read from the explicit hosted gateway.
 check_search() {
-	local gateway="${CHECK_LIVE_GATEWAY_RPC:-}" payer="${CHECK_LIVE_SEARCH_PAYER_ADDRESS:-}"
-	local grant="${CHECK_LIVE_SEARCH_GRANT_ID:-}" listing name first="" second="" body failures=0
+	local gateway="${CHECK_LIVE_GATEWAY_RPC:-}"
+	local key_file="${CHECK_LIVE_SEARCH_PAYER_KEY_FILE:-}" node="${CHECK_LIVE_SEARCH_NODE_RPC:-}"
+	local listing name first="" second="" body failures=0
 	local -a names=() paths=()
-	if [ -z "$gateway" ] || [ -z "$payer" ] || [ -z "$grant" ]; then
-		echo "check-live: CHECK_LIVE_GATEWAY_RPC, CHECK_LIVE_SEARCH_PAYER_ADDRESS and CHECK_LIVE_SEARCH_GRANT_ID are required" >&2
+	if [ -z "$gateway" ] || [ -z "$key_file" ] || [ -z "$node" ]; then
+		echo "check-live: CHECK_LIVE_GATEWAY_RPC, CHECK_LIVE_SEARCH_PAYER_KEY_FILE and CHECK_LIVE_SEARCH_NODE_RPC are required" >&2
 		exit 2
 	fi
 	if ! listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names 2>&1)"; then
@@ -3564,7 +3567,7 @@ check_search() {
 	[ -z "$second" ] || paths+=("$second")
 	paths+=(search.paxeer.network)
 	for name in "${paths[@]}"; do
-		bringup_inspect search-payment "https://$name/search?q=paxeer" "$gateway" "$payer" "$grant" || failures=$((failures + 1))
+		bringup_inspect search-payment "https://$name/search?q=paxeer" "$gateway" || failures=$((failures + 1))
 	done
 	finish "$failures"
 }

@@ -75,7 +75,7 @@ def test_finding_36_every_affected_lock_matches_manifest_without_resolution_chur
         assert match is not None
         remainder = text[:match.start()] + text[match.end():]
         assert hashlib.sha256(remainder.encode()).hexdigest() == (
-            "8bcf0c5f5fc8da8949269043d32cedd9684f0f845484a48a6059ed67fb61212e"
+            "60b4291ce51935f23e111d1bb21c2e28b73167f44b788abcc01d2b0d3678bf3b"
         )
         affected.append(path.relative_to(ROOT).as_posix())
     assert affected == ["services/platform/Cargo.lock"]
@@ -122,9 +122,9 @@ def test_finding_36_live_transport_height_is_authenticated_before_delivery():
     assert 'u64::from_str_radix( receipt_json["height"]' in fetch
     assert '.strip_prefix("0x")' in fetch
     assert "if height <= 1" in fetch
-    assert '"commit", serde_json::json!({"height":height.to_string()})' in fetch
+    assert '"commit", &serde_json::json!({"height":height.to_string()})' in fetch
     assert "if commit.height()? != height" in fetch
-    assert '"block", serde_json::json!({"height":height.to_string()})' in fetch
+    assert '"block", &serde_json::json!({"height":height.to_string()})' in fetch
     assert '"eth_getBlockByNumber"' in fetch
     assert '"/store/sequencer/key"' in fetch
     assert '"height":(height-1).to_string(), "prove":true' in fetch
@@ -164,7 +164,7 @@ def test_finding_36_governed_receipt_and_batch_checks_keep_exact_facts():
         "let sequence = receipt.sequence;",
         "previous != receipt.previous_state_root",
         "next != receipt.resulting_state_root",
-        "self.activity_ids[(sequence - from) as usize] != activity",
+        "self.activity_ids[usize::try_from(sequence - from) .map_err(|_| WebhookError::VerificationRequired)?] != activity",
         "keys.authorization_for_header(id, height)?",
         "policy.chain_id.as_bytes()",
         ".verify_strict(&digest(&preimage), &Signature::from_bytes(&signature))",

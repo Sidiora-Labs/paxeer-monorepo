@@ -3,8 +3,7 @@ order: 1
 ---
 # Byzantine Consensus Algorithm
 
-Paxeer mainnet-beta is one BFT network run by `paxd`, with EVM chain ID 125
-(`0x7d`). The kernel is part of the network and proposes blocks. A transaction
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A transaction
 receipt is final once its block is committed. The consensus protocols below are
 node implementation modes, not separate execution and settlement networks.
 

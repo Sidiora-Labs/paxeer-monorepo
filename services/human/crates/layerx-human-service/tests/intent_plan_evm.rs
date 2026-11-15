@@ -31,7 +31,7 @@ fn transaction_hash(text: &str) -> std::result::Result<[u8; 32], String> {
 
 #[test]
 fn intent_plan_answers_eip1559_legs() -> Result<()> {
-    assert_eq!(<[u8; 32]>::from(Sha256::digest(b"alxp")), ASSET);
+    assert_eq!(<[u8; 32]>::from(Sha256::digest(b"uhpx")), ASSET);
     let _guard = ENVIRONMENT
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);

@@ -9,10 +9,10 @@ export default function Settlement() {
     <DocsLayout>
       <div className="page-header">
         <h1 className="page-title">Settlement &amp; committed evidence</h1>
-        <p className="page-description">Verify signed execution, transaction inclusion, and committed block evidence on the Paxeer BFT chain.</p>
+        <p className="page-description">Verify signed execution, transaction inclusion, and committed block evidence on Paxeer X.</p>
       </div>
       <h2>Execution and settlement form one history</h2>
-      <p>Paxeer mainnet-beta has EVM chain ID <code>125</code>. Its kernel executes within the network, and receipts are final once their covering block is committed. Payments, program calls, transfers, and storage charges participate in the chain execution history.</p>
+      <p>Paxeer mainnet-beta has EVM chain ID <code>125</code>. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Receipts are final once validators commit their covering block. Payments, program calls, transfers, and storage charges participate in the chain execution history.</p>
       <table><thead><tr><th>Level</th><th>Evidence</th><th>Meaning</th></tr></thead><tbody>
         <tr><td>Submission</td><td>Transaction hash</td><td>The node has accepted a transaction for processing.</td></tr>
         <tr><td>Signed execution</td><td>Canonical execution receipt</td><td>The receipt binds the transaction to its execution outcome.</td></tr>

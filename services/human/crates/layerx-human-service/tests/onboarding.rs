@@ -1,3 +1,11 @@
+pub mod canonical_owner {
+    include!("support/canonical_owner.rs");
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
+}
+
 use layerx_human_test_support as support;
 
 use std::fs;
@@ -8,6 +16,7 @@ use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_agent_api::track::{EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef};
 use layerx_agent_api::{SubmissionState, SubmissionState as AgentSubmissionState};
 use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_human_service::agents::ProtocolEvidence;
 use layerx_human_service::audit::{verify_export, AuditChain, IdentityEvent};
 use layerx_human_service::custody::{EnvelopeKms, Keystore};
 use layerx_human_service::onboarding::{
@@ -17,10 +26,10 @@ use layerx_human_service::onboarding::{
 };
 use layerx_human_service::store::{PrincipalStore, TenancyDigest};
 use layerx_human_service::trace::TraceId;
-use layerx_intents::IntentKind;
+use layerx_intents::{IntentKind, NativeOwnerBootstrap};
 use layerx_sdk::{Client as AgentClient, Operation};
 use layerx_types::ids::Did;
-use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
+use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
@@ -32,7 +41,7 @@ const CHALLENGE_DELAY: u64 = 86_400;
 
 struct Fixture {
     root: std::path::PathBuf,
-    store: PrincipalStore,
+    store: Option<PrincipalStore>,
     digest: TenancyDigest,
     keystore: Keystore,
     agent: AgentClient,
@@ -67,7 +76,7 @@ impl Fixture {
             .unwrap_or_else(|error| panic!("agent SDK: {error:?}"));
         Self {
             root,
-            store,
+            store: Some(store),
             digest,
             keystore,
             agent,
@@ -76,7 +85,8 @@ impl Fixture {
         }
     }
 
-    fn reopen_store(&self) -> PrincipalStore {
+    fn reopen_store(&mut self) -> PrincipalStore {
+        self.store.take();
         PrincipalStore::open(self.root.join("store"), retention_uniform(10), self.digest)
             .unwrap_or_else(|error| panic!("reopen store: {error}"))
     }
@@ -132,22 +142,60 @@ struct ReceiptFixture {
     bytes: Vec<u8>,
     receipt_key: ReceiptKeyEntry,
     activity_id: [u8; 32],
+    evidence: ProtocolEvidence,
+    registry: ModuleRegistry,
 }
 
-fn receipt(stage: ProtocolStage, marker: u8) -> ReceiptFixture {
+fn receipt(
+    stage: ProtocolStage,
+    marker: u8,
+    action_key: [u8; 32],
+    keystore: &Keystore,
+    registry: &ModuleRegistry,
+) -> ReceiptFixture {
+    let did = Did::new(b"did:layerx:alice").unwrap_or_else(|error| panic!("DID: {error:?}"));
+    let request = match stage {
+        ProtocolStage::DidRegistration => NativeOwnerBootstrap::Identity {
+            did,
+            primary_key: PublicKey::new(
+                keystore
+                    .describe(
+                        &principal("alice"),
+                        &layerx_human_service::custody::KeyId::new("human-primary")
+                            .unwrap_or_else(|error| panic!("key: {error}")),
+                    )
+                    .unwrap_or_else(|error| panic!("primary key: {error}"))
+                    .public_key,
+            ),
+        },
+        ProtocolStage::RecoveryRegistration => NativeOwnerBootstrap::RecoveryPolicy {
+            did,
+            root: RecoveryRoot::new([0x43; 32]),
+            threshold: ApprovalThreshold::new(2)
+                .unwrap_or_else(|error| panic!("threshold: {error:?}")),
+            minimum_delay: CHALLENGE_DELAY,
+            maximum_delay: CHALLENGE_DELAY,
+        },
+    };
+    let compiled = request
+        .compile(registry)
+        .unwrap_or_else(|error| panic!("native setup: {error:?}"));
+    let owner = canonical_owner::sign_transaction(
+        compiled.payload(),
+        action_key,
+        layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
+        NETWORK_ID,
+    );
     let height = u64::from(marker);
     let mut batch_id = [0; 32];
     batch_id[24..].copy_from_slice(&height.to_be_bytes());
     let fields = ReceiptFields {
-        activity_id: [marker; 32],
+        activity_id: owner.id,
         previous_state_root: [marker.saturating_add(1); 32],
         resulting_state_root: [marker.saturating_add(2); 32],
         batch_id,
-        asset: [0x71; 32],
-        operation: match stage {
-            ProtocolStage::DidRegistration => 1,
-            ProtocolStage::RecoveryRegistration => 3,
-        },
+        asset: [0; 32],
+        operation: 0,
         sequence: u64::from(marker),
     };
     let signer = SigningKey::from_bytes(&[marker.saturating_add(4); 32]);
@@ -157,8 +205,26 @@ fn receipt(stage: ProtocolStage, marker: u8) -> ReceiptFixture {
     receipt_digest.update(&unsigned);
     let signature = signer.sign(&<[u8; 32]>::from(receipt_digest.finalize()));
     let bytes = encode_receipt(&fields, Some(signature.to_bytes()));
+    let evidence = ProtocolEvidence {
+        signed_activity: owner.bytes,
+        actor: owner.actor,
+        owner_public_key: owner.public_key,
+        network_id: NETWORK_ID,
+        action_key,
+        activity_id: owner.id,
+        receipt_bytes: bytes.clone(),
+        tx_hash: owner.id,
+        receipt_hash: Sha256::digest(&bytes).into(),
+        block_height: height,
+        rung: Rung::Committed,
+    };
+    evidence
+        .verify_outcome(compiled.activity_type())
+        .unwrap_or_else(|error| panic!("native outcome: {error:?}"));
     ReceiptFixture {
         bytes,
+        evidence,
+        registry: registry.clone(),
         receipt_key: ReceiptKeyEntry {
             key_id: [0x94; 32],
             public_key: signer.verifying_key().to_bytes(),
@@ -171,9 +237,15 @@ fn receipt(stage: ProtocolStage, marker: u8) -> ReceiptFixture {
 
 fn encode_receipt(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8> {
     let mut bytes = Vec::new();
-    push_u16(&mut bytes, layerx_intents::canonical::PROTOCOL_VERSION);
+    push_u16(
+        &mut bytes,
+        layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
+    );
     push_u16(&mut bytes, 0x5201);
-    push_u16(&mut bytes, layerx_intents::canonical::PROTOCOL_VERSION);
+    push_u16(
+        &mut bytes,
+        layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
+    );
     push_bytes(&mut bytes, &fields.activity_id);
     push_u64(&mut bytes, fields.sequence);
     push_bytes(&mut bytes, &fields.previous_state_root);
@@ -188,17 +260,17 @@ fn encode_receipt(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8
     bytes.extend_from_slice(&1_u32.to_be_bytes());
     bytes.push(fields.operation);
     push_bytes(&mut bytes, &fields.asset);
-    bytes.extend_from_slice(&1_u128.to_be_bytes());
-    push_bytes(&mut bytes, &[0x91; 32]);
-    bytes.extend_from_slice(&10_u128.to_be_bytes());
-    bytes.extend_from_slice(&9_u128.to_be_bytes());
-    push_u64(&mut bytes, 1);
-    push_bytes(&mut bytes, &[0x92; 32]);
-    bytes.extend_from_slice(&20_u128.to_be_bytes());
-    bytes.extend_from_slice(&21_u128.to_be_bytes());
-    push_bytes(&mut bytes, &[0x93; 32]);
-    push_bytes(&mut bytes, &[0x94; 32]);
-    push_bytes(&mut bytes, &[0x95; 32]);
+    bytes.extend_from_slice(&0_u128.to_be_bytes());
+    push_bytes(&mut bytes, &[0; 32]);
+    bytes.extend_from_slice(&0_u128.to_be_bytes());
+    bytes.extend_from_slice(&0_u128.to_be_bytes());
+    push_u64(&mut bytes, 0);
+    push_bytes(&mut bytes, &[0; 32]);
+    bytes.extend_from_slice(&0_u128.to_be_bytes());
+    bytes.extend_from_slice(&0_u128.to_be_bytes());
+    push_bytes(&mut bytes, &[0; 32]);
+    push_bytes(&mut bytes, &[0; 32]);
+    push_bytes(&mut bytes, &[0; 32]);
     push_u64(&mut bytes, 1_000);
     bytes.push(u8::from(signature.is_some()));
     if let Some(signature) = signature {
@@ -268,42 +340,18 @@ fn complete_stage(
     stage: ProtocolStage,
     now: u64,
 ) {
-    let digest = Sha256::digest(&receipt.bytes).into();
-    let submission = tracked(
-        match stage {
-            ProtocolStage::DidRegistration => "sub-did",
-            ProtocolStage::RecoveryRegistration => "sub-recovery",
-        },
-        match stage {
-            ProtocolStage::DidRegistration => "rcp-did",
-            ProtocolStage::RecoveryRegistration => "rcp-recovery",
-        },
-        SubmissionState::Executed {
-            receipt_ref: ReceiptRef::new("rcp-input")
-                .unwrap_or_else(|error| panic!("receipt ref: {error:?}")),
-        },
-        digest,
-    );
+    assert_eq!(receipt.evidence.action_key, action_key);
     journey
-        .apply_agent_update(
+        .accept_bootstrap_owner(
             scope,
-            audit,
+            stage,
+            &receipt.evidence,
+            &receipt.registry,
             trace,
-            &AgentStageUpdate {
-                stage,
-                action_key,
-                outcome: AgentStageOutcome::Executed {
-                    submission: &submission,
-                    activity_id: receipt.activity_id,
-                    receipt_bytes: &receipt.bytes,
-                    tx_hash: receipt.activity_id,
-                    rung: submission.rung,
-                    receipt_key: &receipt.receipt_key,
-                },
-            },
             now,
         )
         .unwrap_or_else(|error| panic!("complete stage: {error}"));
+    *audit = AuditChain::open(scope).unwrap_or_else(|error| panic!("audit: {error}"));
 }
 
 #[test]
@@ -313,6 +361,8 @@ fn receipt_gated_onboarding_survives_unavailability_and_restart() {
     let alice = principal("alice");
     let mut scope = fixture
         .store
+        .as_mut()
+        .unwrap_or_else(|| panic!("store available"))
         .principal(&alice)
         .unwrap_or_else(|error| panic!("scope: {error}"));
     let mut journey = OnboardingJourney::start(&mut scope, &start_request(0x21), 100)
@@ -422,7 +472,13 @@ fn receipt_gated_onboarding_survives_unavailability_and_restart() {
         .unwrap_or_else(|error| panic!("locked action check: {error}"))
         .is_none());
 
-    let did_receipt = receipt(ProtocolStage::DidRegistration, 0x11);
+    let did_receipt = receipt(
+        ProtocolStage::DidRegistration,
+        0x11,
+        did_key,
+        &fixture.keystore,
+        &fixture.registry,
+    );
     complete_stage(
         &mut journey,
         &mut scope,
@@ -465,7 +521,13 @@ fn receipt_gated_onboarding_survives_unavailability_and_restart() {
         recovery_action.intent().kind(),
         IntentKind::RecoveryRegistration(_)
     ));
-    let recovery_receipt = receipt(ProtocolStage::RecoveryRegistration, 0x22);
+    let recovery_receipt = receipt(
+        ProtocolStage::RecoveryRegistration,
+        0x22,
+        recovery_action.action_key(),
+        &fixture.keystore,
+        &fixture.registry,
+    );
     complete_stage(
         &mut journey,
         &mut scope,
@@ -519,6 +581,8 @@ fn tampered_or_wrong_operation_receipt_never_activates_account() {
     let mut fixture = Fixture::new("onboarding-receipt-refusal");
     let mut scope = fixture
         .store
+        .as_mut()
+        .unwrap_or_else(|| panic!("store available"))
         .principal(&principal("alice"))
         .unwrap_or_else(|error| panic!("scope: {error}"));
     let mut journey = OnboardingJourney::start(&mut scope, &start_request(0x32), 200)
@@ -536,7 +600,13 @@ fn tampered_or_wrong_operation_receipt_never_activates_account() {
         )
         .unwrap_or_else(|error| panic!("action: {error}"))
         .unwrap_or_else(|| panic!("action missing"));
-    let wrong = receipt(ProtocolStage::RecoveryRegistration, 0x44);
+    let wrong = receipt(
+        ProtocolStage::RecoveryRegistration,
+        0x44,
+        action.action_key(),
+        &fixture.keystore,
+        &fixture.registry,
+    );
     let digest = Sha256::digest(&wrong.bytes).into();
     let submission = tracked(
         "sub-did",
@@ -567,11 +637,40 @@ fn tampered_or_wrong_operation_receipt_never_activates_account() {
             },
             203,
         ),
-        Err(OnboardingError::ReceiptOperationMismatch)
+        Err(OnboardingError::NativeOutcomeRequired)
     ));
     assert!(!journey.status().account_active());
-    let mut tampered = receipt(ProtocolStage::DidRegistration, 0x45);
+    assert!(matches!(
+        journey.accept_bootstrap_owner(
+            &mut scope,
+            ProtocolStage::DidRegistration,
+            &wrong.evidence,
+            &fixture.registry,
+            &fixture.trace,
+            203,
+        ),
+        Err(OnboardingError::EvidenceConflict)
+    ));
+    let mut tampered = receipt(
+        ProtocolStage::DidRegistration,
+        0x45,
+        action.action_key(),
+        &fixture.keystore,
+        &fixture.registry,
+    );
     tampered.bytes[100] ^= 1;
+    tampered.evidence.receipt_bytes = tampered.bytes.clone();
+    assert!(matches!(
+        journey.accept_bootstrap_owner(
+            &mut scope,
+            ProtocolStage::DidRegistration,
+            &tampered.evidence,
+            &fixture.registry,
+            &fixture.trace,
+            204,
+        ),
+        Err(OnboardingError::EvidenceConflict)
+    ));
     assert!(journey
         .apply_agent_update(
             &mut scope,
@@ -605,6 +704,8 @@ fn duplicate_start_and_key_generation_converge_without_orphans() {
     let alice = principal("alice");
     let mut scope = fixture
         .store
+        .as_mut()
+        .unwrap_or_else(|| panic!("store available"))
         .principal(&alice)
         .unwrap_or_else(|error| panic!("scope: {error}"));
     let mut first = OnboardingJourney::start(&mut scope, &start_request(0x53), 300)
@@ -642,6 +743,8 @@ fn recovery_is_never_silently_optional() {
     let mut fixture = Fixture::new("onboarding-required-recovery");
     let mut scope = fixture
         .store
+        .as_mut()
+        .unwrap_or_else(|| panic!("store available"))
         .principal(&principal("alice"))
         .unwrap_or_else(|error| panic!("scope: {error}"));
     let mut journey = OnboardingJourney::start(&mut scope, &start_request(0x63), 400)
@@ -659,7 +762,13 @@ fn recovery_is_never_silently_optional() {
         )
         .unwrap_or_else(|error| panic!("DID action: {error}"))
         .unwrap_or_else(|| panic!("DID action missing"));
-    let did_receipt = receipt(ProtocolStage::DidRegistration, 0x64);
+    let did_receipt = receipt(
+        ProtocolStage::DidRegistration,
+        0x64,
+        action.action_key(),
+        &fixture.keystore,
+        &fixture.registry,
+    );
     let mut audit = AuditChain::open(&scope).unwrap_or_else(|error| panic!("audit: {error}"));
     complete_stage(
         &mut journey,

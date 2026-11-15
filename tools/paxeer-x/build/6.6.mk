@@ -1,5 +1,5 @@
-PAXEER_X_PROFILE2_ACCOUNTS_DIR ?= /root/lx-target/profile2-accounts
-PAXEER_X_PROFILE2_RUNTIME_LIB ?= /root/lx-target/arbiter-prestate/rust/debug/liblayerx_programs_sandbox.a
+PAXEER_X_PROFILE2_ACCOUNTS_DIR ?= $(CURDIR)/build/qualification/profile2-accounts
+PAXEER_X_PROFILE2_RUNTIME_LIB ?= $(CURDIR)/build/qualification/arbiter-prestate/rust/debug/liblayerx_programs_sandbox.a
 
 .PHONY: paxeer-x-profile2-accounts-build paxeer-x-profile2-native
 paxeer-x-profile2-accounts-build:

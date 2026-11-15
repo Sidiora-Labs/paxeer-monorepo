@@ -52,9 +52,9 @@ def test_discovery_captures_status_before_inspecting_output():
 
 
 @pytest.mark.parametrize(('target', 'command'), [
-    ('build', '$(GO) build $(GOFLAGS) ./...'),
+    ('build', '$(GO) build $(filter-out -timeout=%,$(GOFLAGS)) ./...'),
     ('vet', '$(GO) vet ./...'),
-    ('lint', 'golangci-lint run'),
+    ('lint', '"$$lint" run --config "$(abspath ../../.golangci.yml)"'),
     ('test', 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(GOFLAGS)"'),
     ('race', 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(strip $(GOFLAGS) -race)"'),
     ('cover', 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(GOFLAGS)" --profile "$(CURDIR)/.cover/$$name.out"'),
@@ -64,6 +64,8 @@ def test_each_workspace_gate_requires_successful_discovery(target, command):
     loops = [recipe for recipe in targets[target] if 'for m in $(MODULES)' in recipe]
     assert len(loops) == 1
     loop = loops[0]
+    if target != 'cover':
+        loop = loop[loop.index('for m in $(MODULES); do'):]
     prefix = 'for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then '
     if target == 'cover':
         assert loop.startswith('run_id=$$(python3 $(COVER_INVENTORY) begin .cover .cover/run.json --modules "$(MODULES)"); for m in $(MODULES); do ')

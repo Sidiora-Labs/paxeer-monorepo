@@ -4,10 +4,13 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.native
 def test_interop_lockfile_resolves_locked():
     result = subprocess.run(
         [

@@ -2,6 +2,10 @@
 #[path = "support/chain.rs"]
 mod chain;
 
+#[allow(dead_code)]
+#[path = "support/chain_deployment_support.rs"]
+mod deployment_support;
+
 #[path = "support/assertions.rs"]
 mod assertions;
 use assertions::TestResultExt;
@@ -16,13 +20,15 @@ use layerx_programs::{
     chain_proof::{
         decode::decode_commitment_proof,
         merkle::{hash_from_byte_slices, SimpleProof},
+        results::TxResult,
         validators::{TrustedValidator, ValidatorSet},
         vote::{vote_sign_bytes, BlockIdFlag, CommitSig, Timestamp},
     },
-    interface_state_key, interface_state_value, DeploymentProof, InterfaceEntryPoint,
-    ProgramHeadKind, ProgramId, ProgramInterface, ProgramLifecycle, ProgramLifecycleProof,
-    ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier, ProtocolEvidenceError,
-    Registry, RegistryError, UpgradePolicy, ValueSchema, ValueType, VerifiedDeploymentEvidence,
+    interface_state_key, interface_state_value, DeploymentExecutionProof, DeploymentProof,
+    InterfaceEntryPoint, ProgramHeadKind, ProgramId, ProgramInterface, ProgramLifecycle,
+    ProgramLifecycleProof, ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier,
+    ProtocolEvidenceError, Registry, RegistryError, UpgradePolicy, ValueSchema, ValueType,
+    VerifiedDeploymentEvidence,
 };
 use sha2::{Digest, Sha256};
 
@@ -150,10 +156,57 @@ fn deployment_fixture_at(
     });
     fixture.header.time.seconds += height - fixture.header.height;
     fixture.header.height = height;
-    let transaction = b"chain program deployment".to_vec();
+    let transaction_name = if version > 1 {
+        "upgrade"
+    } else if program.bytes() != [0x31; 32] {
+        "other"
+    } else if code != WASM {
+        "changed"
+    } else if policy == UpgradePolicy::Immutable {
+        "immutable"
+    } else {
+        "authority"
+    };
+    let transaction = include_str!("fixtures/chain_transactions.hex")
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once('=')?;
+            (name == transaction_name).then(|| {
+                layerx_programs::hex::decode(value).or_panic("signed deployment transaction")
+            })
+        })
+        .expect("deployment transaction fixture");
     let transaction_hash: [u8; 32] = Sha256::digest(&transaction).into();
     let transaction_root = hash_from_byte_slices(&[&transaction_hash]);
     fixture.header.data_hash = transaction_root.to_vec();
+    let prior_rows = if version == 1 {
+        vec![(b"unrelated".to_vec(), vec![1])]
+    } else {
+        let prior_interface = interface_for_code(WASM);
+        let mut prior_record = record.clone();
+        prior_record[33..65].copy_from_slice(&prior_interface.code_hash());
+        prior_record[67..71].copy_from_slice(&(version - 1).to_be_bytes());
+        vec![
+            (program_key.clone(), prior_record),
+            (
+                interface_key.clone(),
+                interface_state_value(program, version - 1, &prior_interface)
+                    .or_panic("predecessor interface"),
+            ),
+        ]
+    };
+    let mut prior =
+        ChainFixture::new(chain_id, &SEEDS, prior_rows).or_panic("predecessor chain state");
+    prior.header.height = height - 1;
+    prior.header.time.seconds = fixture.header.time.seconds - 1;
+    prior.header.data_hash = transaction_root.to_vec();
+    sign(&mut prior, &SEEDS);
+    fixture.header.last_block_id.hash = prior.commit.block_id.hash.clone();
+    fixture.header.last_block_id.part_set_total = prior.commit.block_id.part_set_header.total;
+    fixture.header.last_block_id.part_set_hash = prior.commit.block_id.part_set_header.hash.clone();
+    let producer = deployment_support::node_producer();
+    let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
+    fixture.header.last_results_hash = result_root.to_vec();
     sign(&mut fixture, &SEEDS);
     let commitment = decode_commitment_proof(
         &fixture
@@ -177,7 +230,7 @@ fn deployment_fixture_at(
                 )
             }),
     };
-    let proof = DeploymentProof {
+    let mut proof = DeploymentProof {
         state: ProgramStateProof {
             commitment: commitment.clone(),
             state: state.clone(),
@@ -189,7 +242,7 @@ fn deployment_fixture_at(
                 status_ops: wind_down.ops.clone(),
             }),
             wind_down: wind_down.clone(),
-            transaction,
+            transaction: Vec::new(),
             transaction_proof: SimpleProof {
                 total: 1,
                 index: 0,
@@ -197,12 +250,47 @@ fn deployment_fixture_at(
                 aunts: Vec::new(),
             },
         },
-        deployment: ChainDeploymentProof {
-            program_state: state.clone(),
-            code: code.to_vec(),
-            interface: Some(interface.canonical_encoding().to_vec()),
-        },
+        deployment: ChainDeploymentProof::from_state_proofs(
+            state.clone(),
+            code.to_vec(),
+            &decode_commitment_proof(
+                &fixture
+                    .encode_key(&interface_key)
+                    .or_panic("interface commitment"),
+            )
+            .or_panic("decoded interface commitment"),
+        )
+        .or_panic("authenticated interface witness"),
     };
+    proof
+        .bind_execution(&DeploymentExecutionProof {
+            transaction,
+            previous: decode_commitment_proof(
+                &prior
+                    .encode_key(&program_key)
+                    .or_panic("predecessor commitment"),
+            )
+            .or_panic("decoded predecessor commitment"),
+            result: TxResult {
+                code: 0,
+                data: producer["success"].clone(),
+                gas_wanted: 0,
+                gas_used: 0,
+            },
+            result_proof: SimpleProof {
+                total: 1,
+                index: 0,
+                leaf_hash: result_root,
+                aunts: Vec::new(),
+            },
+            interface_ops: fixture
+                .prove(&interface_key)
+                .or_panic("execution interface membership"),
+            migration: None,
+            migration_ops: Vec::new(),
+            migration_previous_ops: Vec::new(),
+        })
+        .or_panic("versioned deployment execution transport");
     let bundle = ProgramStateBundle {
         commitment,
         program,
@@ -250,7 +338,9 @@ fn upgrade_evidence(
         .verify_current_chain_head(
             ProgramHeadKind::Ordinary,
             &proof.state.commitment,
-            &proof.state.transaction,
+            &DeploymentExecutionProof::decode(&proof.state.transaction)
+                .or_panic("deployment execution")
+                .transaction,
             &proof.state.transaction_proof,
             now,
         )
@@ -275,7 +365,10 @@ fn upgrade_evidence(
         evidence.state_root(),
         authenticated_bundle.program_head().state_root()
     );
-    assert_eq!(evidence.record().old_code_hash, None);
+    assert_eq!(
+        evidence.record().old_code_hash,
+        (version > 1).then(|| interface_for_code(WASM).code_hash())
+    );
     evidence
 }
 
@@ -291,14 +384,14 @@ fn chain_bundle_appends_a_verified_upgrade() {
     let upgrade = upgrade_evidence(program, 2, &upgraded_code, chain_id, height + 1);
     assert_ne!(predecessor.code_hash(), upgrade.code_hash());
     let mut registry = Registry::new();
-    registry
-        .record_verified_deployment(&predecessor)
-        .or_panic("record authenticated version one");
-    assert_eq!(registry.latest_version(program), Ok(1));
     assert_eq!(
         registry.record_verified_deployment(&upgrade),
         Err(RegistryError::VersionHistoryMismatch)
     );
+    registry
+        .record_verified_deployment(&predecessor)
+        .or_panic("record authenticated version one");
+    assert_eq!(registry.latest_version(program), Ok(1));
     let wrong_hash = upgrade_evidence(program, 1, &upgraded_code, chain_id, height);
     let other_program = upgrade_evidence(
         ProgramId::new([0x32; 32]).or_panic("different program identifier"),
@@ -365,7 +458,9 @@ fn verify_program_bundle(
         .verify_current_chain_head(
             ProgramHeadKind::Ordinary,
             &proof.state.commitment,
-            &proof.state.transaction,
+            &DeploymentExecutionProof::decode(&proof.state.transaction)
+                .or_panic("deployment execution")
+                .transaction,
             &proof.state.transaction_proof,
             now,
         )
@@ -655,10 +750,10 @@ fn chain_bundle_records_deployment_and_survives_rotation() {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_221.rs"]
-mod repair_22_33_221;
+#[path = "support/chain_deployment_support.rs"]
+mod chain_deployment_support;
 
 #[test]
 fn node_upgrade_survives_hosted_envelope_restart() {
-    repair_22_33_221::restart_recovery(true);
+    chain_deployment_support::restart_recovery(true);
 }

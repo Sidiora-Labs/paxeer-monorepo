@@ -358,7 +358,7 @@ def test_f023_retained_executor(tmp_path):
     document = {'schema': MOVEMENT.SCHEMA, 'revision': SOURCE['revision'], 'artifacts': {
         name: {'path': str(executable), 'sha256': MOVEMENT.digest(executable)} for name in MOVEMENT.ARTIFACTS}}
     assert MOVEMENT.admit_artifacts(document, SOURCE['revision']) == document['artifacts']
-    files = {'probe': 'proof_human_kms', 'kms_cases': 'provider', 'deadline_cases': 'repair_22_33_25'}
+    files = {'probe': 'proof_human_kms', 'kms_cases': 'provider', 'deadline_cases': 'attestor_signing'}
     for target, test in MOVEMENT.CASES:
         source = ROOT / 'services/human/crates/layerx-human-kms/tests' / (files[target] + '.rs')
         assert '\nfn ' + test + '(' in source.read_text()

@@ -65,27 +65,33 @@ def index_rows():
     for line in INDEX.read_text(encoding="utf-8").splitlines():
         if line.startswith("|") and line.endswith("|"):
             cells = [cell.strip() for cell in line[1:-1].split("|")]
-            assert len(cells) == 2, f"Malformed index row: {line}"
-            rows.append(cells)
+            if len(cells) == 5 and cells[0] not in {"System", "---"}:
+                rows.append(cells)
     return rows
+
+
+def documentation_directory_section():
+    text = INDEX.read_text(encoding="utf-8")
+    return text.split("Other documentation directories:", 1)[1].split(
+        "The [monorepo layout]", 1
+    )[0]
 
 
 @pytest.mark.parametrize("tree", TREES)
 def test_consolidated_tree_has_one_described_index_row(tree):
-    rows = [row for row in index_rows() if tree in markdown_targets(row[0])]
-    assert len(rows) == 1, f"Expected exactly one index row for docs/{tree}"
+    section = documentation_directory_section()
+    targets = list(markdown_targets(section))
+    assert targets.count(tree) == 1, f"Expected exactly one index row for docs/{tree}"
     assert (INDEX.parent / tree).is_dir(), f"Missing documentation tree: {tree}"
-    assert re.search(r"[A-Za-z]", rows[0][1]), f"Missing description for {tree}"
+    assert re.search(r"\[[^]]+\]\(" + re.escape(tree) + r"\)", section)
 
 
 def test_wallet_row_links_to_app_and_service_documentation():
-    rows = [row for row in index_rows() if "wallet/" in markdown_targets(row[0])]
-    assert len(rows) == 1
-    description = rows[0][1]
-    targets = set(markdown_targets(description))
-    for tree in ("wallet/app/", "wallet/service/"):
-        assert tree in targets, f"Wallet row does not link to {tree}"
-        assert (INDEX.parent / tree).is_dir(), f"Missing wallet tree: {tree}"
+    text = INDEX.read_text(encoding="utf-8")
+    assert list(markdown_targets(documentation_directory_section())).count("wallet/") == 1
+    for target in ("wallet/app/operations/runbooks.md", "wallet/service/cutover.md"):
+        assert f"]({target})" in text, f"Wallet documentation link is missing: {target}"
+        assert (INDEX.parent / target).is_file(), f"Missing wallet page: {target}"
 
 
 def test_every_relative_index_link_resolves():

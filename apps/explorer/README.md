@@ -4,8 +4,9 @@ This directory holds the Next.js and React frontend of the Paxeer X Network bloc
 explorer, derived from Blockscout. It reads indexed chain data from the
 [explorer backend](../../services/explorer/backend) and presents blocks,
 transactions, accounts, contracts and the embedded LayerX kernel domain under
-the `/explorer` base path. Paxeer mainnet-beta is one BFT network with EVM chain
-id `125`; receipts are final when their block is committed. The presets identify
+the `/explorer` base path. Paxeer mainnet-beta uses EVM chain id `125`; the LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. Receipts are final when their block is committed. The presets identify
 the network as Paxeer X Network, shortened to Paxeer X, and its native coin as
 Paxeer (`PAX`) with 18 decimals.
 

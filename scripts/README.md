@@ -1,6 +1,6 @@
 # scripts
 
-The `scripts/` directory contains operational utilities, generators, diagnostics, CI checks, qualification gates, and test fixtures for the Paxeer mainnet-beta node. These commands support the single BFT network and its merged kernel, EVM chain (chain ID 125), local node workflows, and the surrounding SDK and service workspaces.
+The `scripts/` directory contains operational utilities, generators, diagnostics, CI checks, qualification gates, and test fixtures for the Paxeer mainnet-beta node. These commands support the single Paxeer network and its merged LayerX kernel, EVM chain (chain ID 125), local node workflows, and the surrounding SDK and service workspaces; the kernel inside `paxd` executes and orders each transaction and builds each block, and validators check and commit it.
 
 ## Layout
 

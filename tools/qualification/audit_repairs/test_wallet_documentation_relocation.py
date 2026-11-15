@@ -114,10 +114,16 @@ def assert_relative_markdown_links_resolve(paths, tracked_files=None):
                     failures.append(f"{path.relative_to(ROOT)}: missing {destination}")
                     continue
                 if tracked_files is not None:
-                    assert target.is_file(), f"{path.relative_to(ROOT)}: not a file {destination}"
-                    assert target.resolve().relative_to(ROOT).as_posix() in tracked_files, (
-                        f"{path.relative_to(ROOT)}: untracked {destination}"
-                    )
+                    relative_target = target.resolve().relative_to(ROOT).as_posix()
+                    if target.is_dir():
+                        assert any(name.startswith(relative_target + "/") for name in tracked_files), (
+                            f"{path.relative_to(ROOT)}: no tracked files in {destination}"
+                        )
+                    else:
+                        assert target.is_file(), f"{path.relative_to(ROOT)}: not a file {destination}"
+                        assert relative_target in tracked_files, (
+                            f"{path.relative_to(ROOT)}: untracked {destination}"
+                        )
                 if url.fragment and target.suffix.lower() == ".md":
                     target_prose = markdown_prose(target.read_text(encoding="utf-8"))
                     if unquote(url.fragment) not in heading_ids(target_prose):

@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 ROOT = Path.cwd()
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 MANIFEST = ['--locked', '--manifest-path', 'programs/Cargo.toml']
 REQUIRED = {
     'runtime-lib': ['fault::sdk_parity_tests::vocabulary_and_bound_match_the_sdk',
@@ -61,7 +61,7 @@ def tally(output, label, expected_binaries, required):
 
 
 try:
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.28.4'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     count = skipped = 0
     runtime = [CARGO, 'test'] + MANIFEST + ['-p', 'layerx-programs-runtime']
     for label, argv, binaries, required in [

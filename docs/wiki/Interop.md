@@ -1,9 +1,10 @@
 # Interoperability adapters
 
 Interop crates translate foreign protocols into typed requests and verifiable
-Paxeer evidence. They never write balances themselves. Paxeer is one BFT network,
-EVM chain id `125` (`0x7d`); its kernel participates in block proposal. Receipts
-are final once their block is committed.
+Paxeer evidence. They never write balances themselves. Paxeer uses EVM chain id
+`125` (`0x7d`). The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. Receipts are
+final once their block is committed.
 
 The service package is `layerx-interop-service`; its executable is
 `layerx-interop-gateway`, as declared in its

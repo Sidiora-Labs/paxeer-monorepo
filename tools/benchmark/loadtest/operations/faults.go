@@ -15,6 +15,25 @@ import (
 	"time"
 )
 
+const (
+	paxdName         = "paxd"
+	systemctlCommand = "systemctl"
+	sudoCommand      = "sudo"
+	showOperation    = "show"
+	qdiscObject      = "qdisc"
+	deviceArgument   = "dev"
+	faultInterface   = "ens5"
+	faultNetwork     = "network"
+	stakingModule    = "staking"
+	faultDelegation  = "delegation"
+	outputFlag       = "--output"
+	jsonOutput       = "json"
+	chainIDFlag      = "--chain-id"
+	fromFlag         = "--from"
+	nativeDenom      = "uhpx"
+	adminAccount     = "admin"
+)
+
 var hostPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.:-]*$`)
 
 const faultHandle = "1f00:"
@@ -63,7 +82,8 @@ func (c *FaultController) ssh(ctx context.Context, host string, args ...string) 
 	if c.Options.SSHKey == "" {
 		return nil, errors.New("SSH key is required")
 	}
-	argv := []string{"ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-i", c.Options.SSHKey, "--", "ubuntu@" + host}
+	argv := make([]string, 0, 9+len(args))
+	argv = append(argv, "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-i", c.Options.SSHKey, "--", "ubuntu@"+host)
 	argv = append(argv, args...)
 	return c.Commands.Run(ctx, Command{Args: argv})
 }
@@ -74,20 +94,20 @@ func (c *FaultController) Restarts(ctx context.Context) error {
 	}
 	for start := 0; start < len(c.Options.Validators); start += c.Options.Concurrent {
 		for _, host := range c.Options.Validators[start:min(start+c.Options.Concurrent, len(c.Options.Validators))] {
-			before, err := c.ssh(ctx, host, "systemctl", "show", "paxd", "--property=InvocationID", "--value")
+			before, err := c.ssh(ctx, host, systemctlCommand, showOperation, paxdName, "--property=InvocationID", "--value")
 			if err != nil {
 				return err
 			}
 			if len(strings.TrimSpace(string(before))) == 0 {
 				return errors.New("paxd has no active invocation")
 			}
-			if _, err = c.ssh(ctx, host, "sudo", "-n", "systemctl", "restart", "paxd"); err != nil {
+			if _, err = c.ssh(ctx, host, sudoCommand, "-n", systemctlCommand, "restart", paxdName); err != nil {
 				return err
 			}
-			if _, err = c.ssh(ctx, host, "systemctl", "is-active", "--quiet", "paxd"); err != nil {
+			if _, err = c.ssh(ctx, host, systemctlCommand, "is-active", "--quiet", paxdName); err != nil {
 				return err
 			}
-			after, err := c.ssh(ctx, host, "systemctl", "show", "paxd", "--property=InvocationID", "--value")
+			after, err := c.ssh(ctx, host, systemctlCommand, showOperation, paxdName, "--property=InvocationID", "--value")
 			if err != nil {
 				return err
 			}
@@ -102,12 +122,12 @@ func (c *FaultController) Restarts(ctx context.Context) error {
 	return nil
 }
 
-func (c *FaultController) createRecord() error {
+func (c *FaultController) createRecord() (err error) {
 	dir, err := privateDirectory(filepath.Dir(c.Options.Recovery))
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
+	defer func() { err = closeWithError(dir, err) }()
 	// Exclusive creation refuses an unresolved earlier run or a symlink.
 	if err = saveAccountRecord(dir, filepath.Base(c.Options.Recovery), c.record); err != nil {
 		return fmt.Errorf("recovery record unavailable; recover the previous run first: %w", err)
@@ -115,20 +135,26 @@ func (c *FaultController) createRecord() error {
 	return nil
 }
 
-func saveAccountRecord(dir *os.File, name string, record RecoveryRecord) error {
+func saveAccountRecord(dir *os.File, name string, record RecoveryRecord) (err error) {
 	// Use the same exclusive, no-follow persistence policy as account secrets.
 	fd, err := openExclusiveAt(dir, name)
 	if err != nil {
 		return err
 	}
-	defer fd.Close()
+	defer func() {
+		if fd != nil {
+			err = closeWithError(fd, err)
+		}
+	}()
 	if err = json.NewEncoder(fd).Encode(record); err != nil {
 		return err
 	}
 	if err = fd.Sync(); err != nil {
 		return err
 	}
-	if err = fd.Close(); err != nil {
+	err = fd.Close()
+	fd = nil
+	if err != nil {
 		return err
 	}
 	return dir.Sync()
@@ -137,7 +163,7 @@ func saveAccountRecord(dir *os.File, name string, record RecoveryRecord) error {
 func (c *FaultController) persist() error { return writeJSONAtomic(c.Options.Recovery, c.record, 0600) }
 
 func (c *FaultController) qdisc(ctx context.Context, host string) (bool, error) {
-	raw, err := c.ssh(ctx, host, "sudo", "-n", "tc", "-j", "qdisc", "show", "dev", "ens5")
+	raw, err := c.ssh(ctx, host, sudoCommand, "-n", "tc", "-j", qdiscObject, showOperation, deviceArgument, faultInterface)
 	if err != nil {
 		return false, err
 	}
@@ -177,11 +203,11 @@ func (c *FaultController) SlowNetwork(ctx context.Context) (err error) {
 			if exists {
 				return errors.New("fault qdisc already exists; recover it before starting")
 			}
-			c.record.Actions = append(c.record.Actions, RecoveryAction{Kind: "network", Host: host})
+			c.record.Actions = append(c.record.Actions, RecoveryAction{Kind: faultNetwork, Host: host})
 			if e = c.persist(); e != nil {
 				return e
 			}
-			if _, e = c.ssh(ctx, host, "sudo", "-n", "tc", "qdisc", "add", "dev", "ens5", "root", "handle", faultHandle, "netem", "delay", "200ms", "10ms", "25%"); e != nil {
+			if _, e = c.ssh(ctx, host, sudoCommand, "-n", "tc", qdiscObject, "add", deviceArgument, faultInterface, "root", "handle", faultHandle, "netem", "delay", "200ms", "10ms", "25%"); e != nil {
 				return e
 			}
 			c.record.Actions[len(c.record.Actions)-1].Applied = true
@@ -214,7 +240,7 @@ func (c *FaultController) paxd(ctx context.Context, args ...string) ([]byte, err
 }
 
 func (c *FaultController) admin(ctx context.Context) (string, error) {
-	raw, err := c.paxd(ctx, "keys", "list", "--output", "json")
+	raw, err := c.paxd(ctx, "keys", "list", outputFlag, jsonOutput)
 	if err != nil {
 		return "", err
 	}
@@ -224,7 +250,7 @@ func (c *FaultController) admin(ctx context.Context) (string, error) {
 	}
 	address := ""
 	for _, account := range accounts {
-		if account.Name == "admin" {
+		if account.Name == adminAccount {
 			if address != "" {
 				return "", errors.New("multiple admin accounts")
 			}
@@ -273,7 +299,7 @@ func stakeTarget(action RecoveryAction) (*big.Int, error) {
 }
 
 func (c *FaultController) delegationAmount(ctx context.Context, admin, validator string) (*big.Int, error) {
-	raw, err := c.paxd(ctx, "q", "staking", "delegation", admin, validator, "--chain-id", c.Options.ChainID, "--output", "json")
+	raw, err := c.paxd(ctx, "q", stakingModule, faultDelegation, admin, validator, chainIDFlag, c.Options.ChainID, outputFlag, jsonOutput)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +315,7 @@ func (c *FaultController) delegationAmount(ctx context.Context, admin, validator
 }
 
 func (c *FaultController) stakingTx(ctx context.Context, operation, validator, amount string) error {
-	raw, err := c.paxd(ctx, "tx", "staking", operation, validator, amount+"uhpx", "--from", "admin", "--chain-id", c.Options.ChainID, "--broadcast-mode", "block", "--output", "json", "-y")
+	raw, err := c.paxd(ctx, "tx", stakingModule, operation, validator, amount+nativeDenom, fromFlag, adminAccount, chainIDFlag, c.Options.ChainID, "--broadcast-mode", "block", outputFlag, jsonOutput, "-y")
 	if err != nil {
 		return err
 	}
@@ -320,7 +346,7 @@ func (c *FaultController) delegations(ctx context.Context, admin string) ([]dele
 	pageKey := ""
 	seen := map[string]bool{}
 	for {
-		args := []string{"q", "staking", "delegations", admin, "--chain-id", c.Options.ChainID, "--output", "json"}
+		args := []string{"q", stakingModule, "delegations", admin, chainIDFlag, c.Options.ChainID, outputFlag, jsonOutput}
 		if pageKey != "" {
 			args = append(args, "--page-key", pageKey)
 		}
@@ -359,12 +385,12 @@ func (c *FaultController) DelegationChange(ctx context.Context) (err error) {
 		return err
 	}
 	total := new(big.Int)
-	validators := []string{}
+	validators := make([]string, 0, len(rows))
 	seen := map[string]bool{}
 	balances := map[string]string{}
 	for _, response := range rows {
 		amount, e := parseStake(response.Balance.Amount)
-		if e != nil || response.Balance.Denom != "uhpx" || response.Delegation.Validator == "" || seen[response.Delegation.Validator] {
+		if e != nil || response.Balance.Denom != nativeDenom || response.Delegation.Validator == "" || seen[response.Delegation.Validator] {
 			return errors.New("invalid delegation inventory")
 		}
 		total.Add(total, amount)
@@ -383,7 +409,7 @@ func (c *FaultController) DelegationChange(ctx context.Context) (err error) {
 	}
 	defer func() { err = errors.Join(err, c.Cleanup()) }()
 	for _, validator := range validators[:len(validators)/4] {
-		action := RecoveryAction{Kind: "delegation", Validator: validator, Admin: admin, Before: balances[validator], Added: new(big.Int).Mul(total, big.NewInt(10)).String()}
+		action := RecoveryAction{Kind: faultDelegation, Validator: validator, Admin: admin, Before: balances[validator], Added: new(big.Int).Mul(total, big.NewInt(10)).String()}
 		target, e := stakeTarget(action)
 		if e != nil {
 			return e
@@ -412,13 +438,13 @@ func (c *FaultController) DelegationChange(ctx context.Context) (err error) {
 
 func (c *FaultController) restoreAction(ctx context.Context, action RecoveryAction) error {
 	switch action.Kind {
-	case "network":
+	case faultNetwork:
 		exists, err := c.qdisc(ctx, action.Host)
 		if err != nil {
 			return err
 		}
 		if exists {
-			if _, err = c.ssh(ctx, action.Host, "sudo", "-n", "tc", "qdisc", "del", "dev", "ens5", "root", "handle", faultHandle); err != nil {
+			if _, err = c.ssh(ctx, action.Host, sudoCommand, "-n", "tc", qdiscObject, "del", deviceArgument, faultInterface, "root", "handle", faultHandle); err != nil {
 				return err
 			}
 		}
@@ -429,7 +455,7 @@ func (c *FaultController) restoreAction(ctx context.Context, action RecoveryActi
 		if exists {
 			return errors.New("network fault remains after cleanup")
 		}
-	case "delegation":
+	case faultDelegation:
 		amount, err := c.delegationAmount(ctx, action.Admin, action.Validator)
 		if err != nil {
 			return err
@@ -462,7 +488,7 @@ func (c *FaultController) restoreAction(ctx context.Context, action RecoveryActi
 func (c *FaultController) restoreActions(ctx context.Context) error {
 	// Attempt every restoration even when one host is unreachable. Remove only
 	// confirmed restorations, persisting each one before touching the next action.
-	var failures []error
+	failures := make([]error, 0, len(c.record.Actions))
 	for index := len(c.record.Actions) - 1; index >= 0; index-- {
 		if err := c.restoreAction(ctx, c.record.Actions[index]); err != nil {
 			failures = append(failures, err)
@@ -488,7 +514,7 @@ func (c *FaultController) Cleanup() error {
 	return nil
 }
 
-func OpenRecovery(commands Commands, path string) (*FaultController, error) {
+func OpenRecovery(commands Commands, path string) (controller *FaultController, err error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, err
@@ -500,7 +526,7 @@ func OpenRecovery(commands Commands, path string) (*FaultController, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { err = closeWithError(file, err) }()
 	var record RecoveryRecord
 	decoder := json.NewDecoder(file)
 	decoder.DisallowUnknownFields()
@@ -514,17 +540,17 @@ func OpenRecovery(commands Commands, path string) (*FaultController, error) {
 		return nil, errors.New("unsupported recovery record version")
 	}
 	for _, action := range record.Actions {
-		if action.Kind != "network" && action.Kind != "delegation" {
+		if action.Kind != faultNetwork && action.Kind != faultDelegation {
 			return nil, errors.New("unsupported recovery action")
 		}
-		if action.Kind == "delegation" {
+		if action.Kind == faultDelegation {
 			if _, e := stakeTarget(action); e != nil {
 				return nil, e
 			}
 		}
 	}
 	record.Options.Recovery = path
-	controller := NewFaultController(commands, record.Options)
+	controller = NewFaultController(commands, record.Options)
 	controller.record = record
 	return controller, nil
 }

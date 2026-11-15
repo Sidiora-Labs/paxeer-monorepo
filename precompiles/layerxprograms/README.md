@@ -1,6 +1,6 @@
 # LayerX Programs precompile
 
-This directory holds the Go implementation, Solidity interface and ABI for the LayerX Programs precompile at `0x101D`. It connects EVM contracts to the native Programs module through `modules/lxphost`, supporting program deployment and upgrades, calls and simulation, account transfers, sandbox leases and program state queries. Programs execute inside `paxd` on the Paxeer BFT network; their state changes, transfers and receipts become final when the containing block commits.
+This directory holds the Go implementation, Solidity interface and ABI for the LayerX Programs precompile at `0x101D`. It connects EVM contracts to the native Programs module through `modules/lxphost`, supporting program deployment and upgrades, calls and simulation, account transfers, sandbox leases and program state queries. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Program state changes, transfers and receipts become final when validators commit the containing block.
 
 ## Layout
 

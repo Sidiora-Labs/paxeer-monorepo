@@ -16,7 +16,7 @@ ROOT = Path.cwd()
 RUNTIME = ROOT / 'programs/crates/layerx-programs-runtime/src'
 SDK = ROOT / 'programs/sdk/rust/src'
 FIXTURE = ROOT / 'programs/sdk/rust/response-fixture'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 SUITES = ('activity_calldata', 'composition')
 CALLDATA_TESTS = ('activity_entry_accepts_empty_and_exact_maximum_calldata',
                   'empty_skips_trapping_allocator_and_copy_meter_is_exact',
@@ -124,7 +124,7 @@ def tally(output, label, expected_binaries):
 
 try:
     count = contract()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.28.2'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     argv = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(argv + [arg for suite in SUITES for arg in ('--test', suite)], 'activity calldata and composition suites', env)
     ran = set(re.findall(r'^test (\S+) \.\.\. ok$', output, re.M))

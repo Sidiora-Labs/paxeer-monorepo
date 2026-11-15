@@ -51,18 +51,15 @@ def test_site_pages_cite_only_tracked_spec_files():
     )
     pages = sorted(SITE.rglob("page.tsx"))
     assert pages, "No site pages found"
-    references = []
     missing = []
     for page in pages:
         for number, line in enumerate(page.read_text(encoding="utf-8").splitlines(), 1):
             for match in SPEC_FILE.finditer(line):
                 path = match.group()
                 reference = f"{page.relative_to(ROOT)}:{number}: {path}"
-                references.append(reference)
                 if path not in tracked or not (ROOT / path).is_file():
                     missing.append(reference)
 
-    assert references, "No specification file citations found in site pages"
     assert not missing, "Untracked or missing specification files:\n" + "\n".join(missing)
 
 

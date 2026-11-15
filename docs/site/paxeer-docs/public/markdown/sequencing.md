@@ -4,7 +4,7 @@
 
 Follow a signed transaction through ordered execution, receipt verification, and BFT block commitment.
 
-Paxeer mainnet-beta is one BFT chain. Its kernel participates in block execution and proposal, and the committed chain records the resulting order. A signed receipt can be available before its covering block is committed.
+On Paxeer mainnet-beta, the LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it, and the committed chain records the resulting order. A signed receipt can be available before its covering block is committed.
 
 The proposer places `MsgSequenceBatch` at transaction index zero of each block at or above the sequencing activation height. Validators verify that batch and re-execute its transactions. See [block commitment](https://docs.paxeer.app/checkpoints) for the evidence boundary.
 

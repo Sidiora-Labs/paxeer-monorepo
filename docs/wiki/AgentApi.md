@@ -7,9 +7,9 @@ and programs. `layerx-agentd` consumes network evidence and enforces local
 restrictions; it does not create balances or protocol authority from a cache.
 See [Agentd](Agentd.md) for trust and recovery, and [MCP](Mcp.md) for tool routing.
 
-Paxeer mainnet-beta is one BFT network, with EVM chain id **125 (`0x7d`)**.
-The kernel is part of the network and proposes blocks. Public node JSON-RPC
-uses the node root URL; select an endpoint from [Public RPC](PublicRpc.md).
+Paxeer mainnet-beta uses EVM chain id **125 (`0x7d`)**. The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. Public node JSON-RPC uses the node root URL; select an endpoint from [Public RPC](PublicRpc.md).
 The hosted gateway's `px_` contract is declared separately in
 `services/platform/hosted/gateway/openrpc.json`; do not assume every node
 serves those methods. Sub-chains are tenant domains in the database.

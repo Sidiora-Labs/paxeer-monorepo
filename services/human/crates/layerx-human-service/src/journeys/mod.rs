@@ -10,6 +10,8 @@ mod router;
 
 pub use layerx_client::sequencer::ReceiptKeyEntry;
 
+pub(crate) use bank_commit::pointer_transfer_succeeded;
+
 pub use bank_commit::{BankCommitEvidence, BankCommittedReceipt};
 
 pub use engine::{
@@ -32,6 +34,8 @@ pub use move_money::{
 };
 
 pub use observed::{NetworkObservation, ObservationError, ObservedStateBuilder};
+
+pub(crate) use resolver::{decode_native_pointer, native_pointer_query, pointer_transfer_calldata};
 
 pub use resolver::{
     BudgetCreation, BudgetRoute, ChangeSurface, CustodyRoute, Endpoint, EndpointConstructionError,

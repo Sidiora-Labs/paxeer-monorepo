@@ -1,9 +1,10 @@
 # Address inventory
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID **125 (`0x7d`)**.
-The kernel participates in the network and proposes blocks. A transaction's
-receipt is final when its block is committed. Sub-chains are tenant domains in
-the database, rather than independently deployed networks.
+Paxeer mainnet-beta uses EVM chain ID **125 (`0x7d`)**. The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction's receipt is final when its block is
+committed. Sub-chains are tenant domains in the database, rather than
+independently deployed networks.
 
 This inventory describes addresses and activation rules in the source tree.
 It is not a record of an operator's deployed contracts or an assertion that a

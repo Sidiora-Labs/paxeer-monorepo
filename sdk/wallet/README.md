@@ -1,6 +1,6 @@
 # `@paxeer/wallet`
 
-TypeScript SDK for Paxeer wallet applications: Supabase email and OAuth sign-in, an embedded wallet, an EIP-1193 provider, EIP-6963 discovery, EVM transaction review, authenticated receipts, and clients for node account reads, hosted operations, and the human service. Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). Its kernel participates in block proposal and execution. A transaction is final once its block is committed. Sub-chains are tenant domains in the database, not separate networks that a wallet must switch to.
+TypeScript SDK for Paxeer wallet applications: Supabase email and OAuth sign-in, an embedded wallet, an EIP-1193 provider, EIP-6963 discovery, EVM transaction review, authenticated receipts, and clients for node account reads, hosted operations, and the human service. Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction is final once its block is committed. Sub-chains are tenant domains in the database, not separate networks that a wallet must switch to.
 
 ## Layout
 

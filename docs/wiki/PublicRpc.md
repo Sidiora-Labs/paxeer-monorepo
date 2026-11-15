@@ -3,8 +3,9 @@
 The public JSON-RPC of Paxeer X Network is served at the root path of
 `https://api-mainnet-beta.paxeer.network` and `api1` through
 `api14.mainnet-beta.paxeer.network` (EVM chain ID `125`, hex `0x7d`).
-The former router and its `/rpc` path are retired. The kernel proposes blocks
-inside `paxd`; a transaction is final once its block is committed.
+The former router and its `/rpc` path are retired. The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction is final once validators commit its block.
 
 See [Commitment levels](CommitmentLevels.md), [Assets](Assets.md) and the
 [Payments developer path](PaymentsQuickstart.md). The complete endpoint list,

@@ -5,9 +5,9 @@ Models receive tool access, not protocol authority. Calls pass the daemon's
 policy, capability, budget, rate and audit controls; writes use the ordinary
 owner preparation, external signing, submission and tracking path.
 
-Paxeer is one network: the kernel participates in block proposal, and a
-receipt is final when its block is committed. Tools report actual evidence
-using `submitted`, `receipted` and `committed`, not a second settlement system.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when its block is
+committed. Tools report actual evidence using `submitted`, `receipted` and `committed`, not a second settlement system.
 See [Agent API](AgentApi.md) for the contract and [Agentd](Agentd.md) for trust
 and recovery.
 

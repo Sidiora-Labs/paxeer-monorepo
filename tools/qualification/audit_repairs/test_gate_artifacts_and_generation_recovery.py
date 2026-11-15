@@ -27,7 +27,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 GATES = ROOT / "tools/paxeer-x/gates"
 NODE = ROOT / "services/platform/hosted/node"
-FIXTURES = NODE / "tests/fixtures/repair_22_31_355"
+FIXTURES = NODE / "tests/fixtures/native_lifecycle"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(NODE))
 import generation_client as client

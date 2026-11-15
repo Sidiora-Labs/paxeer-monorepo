@@ -1,6 +1,6 @@
 # Sidiora launchpad applications
 
-This directory holds Sidiora's Next.js web application and React Native mobile application for the Paxeer network. They provide market discovery, token creation and trading, portfolios, watchlists and account views; the web application also provides market-bound chain launch. The applications use the shared [launchpad SDK packages](../../sdk/launchpad/packages) and [launchpad services](../../services/launchpad), with wallet transactions submitted to the network. Paxeer mainnet-beta is one BFT network with EVM chain ID 125; sub-chains are tenant domains within that network.
+This directory holds Sidiora's Next.js web application and React Native mobile application for the Paxeer network. They provide market discovery, token creation and trading, portfolios, watchlists and account views; the web application also provides market-bound chain launch. The applications use the shared [launchpad SDK packages](../../sdk/launchpad/packages) and [launchpad services](../../services/launchpad), with wallet transactions submitted to the network. Paxeer mainnet-beta uses EVM chain ID 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Sub-chains are tenant domains within that network.
 
 ## Layout
 

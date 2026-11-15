@@ -2,7 +2,7 @@
 
 # Chain modules and parameters
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`). The kernel runs inside `paxd` through `modules/lxphost` and participates in block proposal and execution. A receipt is final when its block is committed. The pre-merge execution/settlement split and independent checkpoint finality are retired.
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel runs inside `paxd` through `modules/lxphost`, executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when its block is committed. The pre-merge execution/settlement split and independent checkpoint finality are retired.
 
 This page preserves the declaration inventory from `modules/<name>/types/*.go`: `Params` fields, `Msg*` request types and proposal type constants. Counts describe source declarations, including historical ones; they do not establish that an operation is available. Registration in `node/app.go`, each module's `RegisterServices`, and the activation gates in `node/upgrades.go` determine the served behavior. Parameter names below are JSON field names, not node configuration keys; Go types are local to the owning package (`sdk` is the repository's SDK).
 

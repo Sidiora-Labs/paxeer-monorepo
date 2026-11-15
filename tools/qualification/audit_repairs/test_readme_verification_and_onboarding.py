@@ -15,6 +15,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_539.kvx"
 
 
@@ -25,10 +27,10 @@ def source(path):
 def section(heading, level=3):
     """Keep shell comments inside fences when locating Markdown boundaries."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -45,9 +47,12 @@ def section(heading, level=3):
 def test_readme_retired_architecture_integrated_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -63,10 +68,7 @@ def test_readme_retired_architecture_integrated_network():
 def test_readme_retired_architecture_root_rpc():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "https://api-mainnet-beta.paxeer.network",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
         "gateway contract does not establish method availability at public node URLs",
     ):
         assert fact in quickstart, fact
@@ -79,11 +81,9 @@ def test_readme_retired_architecture_root_rpc():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-H") - 1] == "$PAXEER_RPC_URL"
     assert '# Expected result: "0x7d"' in blocks[0]
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.scheme == "https" and parsed.path in ("", "/")
@@ -171,11 +171,11 @@ def test_readme_retired_architecture_retirement_and_no_old_onboarding():
         r"two (?:execution )?domains", r"kernel still runs separately",
         r"merge is (?:only )?a draft",
     ):
-        assert not re.search(stale, README, re.I), stale
-    for paragraph in README.split("\n\n"):
+        assert not re.search(stale, NETWORK, re.I), stale
+    for paragraph in NETWORK.split("\n\n"):
         if re.search(r"layerxAnchor|layerxCustody|guarantor|L0–L4", paragraph):
             assert re.search(r"retired|historical|archived", paragraph), paragraph
-    for block in re.findall(r"```(?:sh|bash)\n(.*?)\n```", README, re.S):
+    for block in re.findall(r"```(?:sh|bash)\n(.*?)\n```", NETWORK, re.S):
         assert not re.search(r"layerxd|layerxAnchor|checkpoint|guarantor", block, re.I)
 
 
@@ -196,14 +196,14 @@ def test_readme_retired_architecture_build_and_merge_status():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "`v7.0` merge handler activates the merged interfaces" in release
     assert "retires the old custody/checkpoint write paths" in release
     for body in (build, release, section("Receipt and proof verification")):
         links = re.findall(r"\]\(([^)]+)\)", body)
         assert links
         for target in links:
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (ROOT / "docs/readme" / target.split("#", 1)[0]).exists(), target
 
 
 def test_readme_retired_architecture_record_maps_proofs_and_limits():

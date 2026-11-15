@@ -18,6 +18,22 @@ import (
 
 const CommandTimeout = 30 * time.Second
 
+func closeWithError(closer io.Closer, err error) error {
+	closeErr := closer.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
+}
+
+func effectiveUID() (uint64, error) {
+	uid := os.Geteuid()
+	if uid < 0 || uint64(uid) > uint64(^uint32(0)) {
+		return 0, errors.New("effective user ID exceeds uint32")
+	}
+	return uint64(uid), nil
+}
+
 type Command struct {
 	Args  []string `json:"args"`
 	Input string   `json:"input,omitempty"`
@@ -78,7 +94,15 @@ func writeJSONAtomic(path string, data any, mode os.FileMode) (err error) {
 		return err
 	}
 	name := file.Name()
-	defer func() { file.Close(); os.Remove(name) }()
+	defer func() {
+		if file != nil {
+			err = closeWithError(file, err)
+		}
+		removeErr := os.Remove(name)
+		if err == nil && removeErr != nil && !os.IsNotExist(removeErr) {
+			err = removeErr
+		}
+	}()
 	if err = file.Chmod(mode); err != nil {
 		return err
 	}
@@ -88,17 +112,24 @@ func writeJSONAtomic(path string, data any, mode os.FileMode) (err error) {
 	if err = file.Sync(); err != nil {
 		return err
 	}
-	if err = file.Close(); err != nil {
+	err = file.Close()
+	file = nil
+	if err != nil {
 		return err
 	}
 	if err = os.Rename(name, path); err != nil {
 		return err
 	}
-	dir, err := os.Open(filepath.Dir(path))
+	directory, err := os.OpenRoot(filepath.Dir(path))
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
+	defer func() { err = closeWithError(directory, err) }()
+	dir, err := directory.Open(".")
+	if err != nil {
+		return err
+	}
+	defer func() { err = closeWithError(dir, err) }()
 	return dir.Sync()
 }
 

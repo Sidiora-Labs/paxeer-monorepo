@@ -14,7 +14,7 @@ import sys
 
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 UNIT = {
     'access::tests::canonical_encoding_is_independent_of_builder_order_and_strictly_decodes': 'declared access set has one canonical encoding',
     'access::tests::frozen_empty_and_absent_encodings_match_protocol_bytes': 'empty and absent declarations have frozen protocol bytes',
@@ -102,7 +102,7 @@ def production_path():
 
 try:
     count = production_path()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.32.5'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'access::'], 'access unit suite', env)
     missing = sorted(name for name in UNIT if name not in passed_names(output))

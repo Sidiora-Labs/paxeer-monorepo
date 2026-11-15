@@ -2,7 +2,8 @@
 
 Developer and operator tools for building, inspecting, testing, releasing, and
 operating Paxeer X Network. They support the node, applications, and hosted
-services around one BFT network. The kernel runs inside `paxd`, and a receipt is
+services around Paxeer. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
 final when its block is committed.
 
 ## Layout

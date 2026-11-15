@@ -59,13 +59,17 @@ type spotBoardAccount struct {
 	trades, wins, losses int64
 }
 
-func foldSpotAccount(ctx context.Context, tx *sql.Tx, account common.Address, block int64) (spotBoardAccount, error, error) {
+func foldSpotAccount(ctx context.Context, tx *sql.Tx, account common.Address, block int64) (result0 spotBoardAccount, refusalErr error, resultErr error) {
 	var total spotBoardAccount
 	rows, err := tx.QueryContext(ctx, spotBoardLegsSQL, account.Bytes(), block)
 	if err != nil {
 		return total, nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	books := map[common.Address]pnl.Position{}
 	var refusal error
 	for rows.Next() {
@@ -127,7 +131,7 @@ func FoldSpotBoard(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 	}
 	var accounts set[common.Address]
 	for _, row := range rows {
-		if row.Common().Block != uint64(block) {
+		if block < 0 || row.Common().Block != uint64(block) {
 			return fmt.Errorf("store: FoldSpotBoard rows span blocks")
 		}
 		switch r := row.(type) {
@@ -150,7 +154,7 @@ func FoldSpotBoard(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 	return foldSpotBoardAccounts(ctx, tx, accounts.list, block, false)
 }
 
-func rebuildSpotBoard(ctx context.Context, tx *sql.Tx, block int64) error {
+func rebuildSpotBoard(ctx context.Context, tx *sql.Tx, block int64) (resultErr error) {
 	rows, err := tx.QueryContext(ctx, `SELECT account FROM perps.spot_account_legs
 UNION SELECT account FROM perps.spot_leaderboard
 UNION SELECT account FROM perps.spot_board_omissions
@@ -164,7 +168,11 @@ UNION SELECT o.account FROM perps.spot_orders o JOIN perps.spot_order_events e
 	for rows.Next() {
 		var a []byte
 		if err := rows.Scan(&a); err != nil {
-			rows.Close()
+			defer func() {
+				if closeErr := rows.Close(); resultErr == nil {
+					resultErr = closeErr
+				}
+			}()
 			return err
 		}
 		accounts = append(accounts, common.BytesToAddress(a))
@@ -186,7 +194,7 @@ UNION SELECT o.account FROM perps.spot_orders o JOIN perps.spot_order_events e
 	return foldSpotBoardAccounts(ctx, tx, accounts, last.Int64, true)
 }
 
-func foldSpotBoardAccounts(ctx context.Context, tx *sql.Tx, accounts []common.Address, block int64, recovery bool) error {
+func foldSpotBoardAccounts(ctx context.Context, tx *sql.Tx, accounts []common.Address, block int64, recovery bool) (resultErr error) {
 	winRates := map[common.Address]*big.Rat{}
 	stored, err := tx.QueryContext(ctx, `SELECT account, value::text FROM perps.spot_leaderboard WHERE kind = 'win-rate'`)
 	if err != nil {
@@ -196,12 +204,20 @@ func foldSpotBoardAccounts(ctx context.Context, tx *sql.Tx, accounts []common.Ad
 		var account []byte
 		var value string
 		if err := stored.Scan(&account, &value); err != nil {
-			stored.Close()
+			defer func() {
+				if closeErr := stored.Close(); resultErr == nil {
+					resultErr = closeErr
+				}
+			}()
 			return err
 		}
 		rate, ok := new(big.Rat).SetString(value)
 		if !ok {
-			stored.Close()
+			defer func() {
+				if closeErr := stored.Close(); resultErr == nil {
+					resultErr = closeErr
+				}
+			}()
 			return fmt.Errorf("store: invalid spot win rate %q", value)
 		}
 		winRates[common.BytesToAddress(account)] = rate

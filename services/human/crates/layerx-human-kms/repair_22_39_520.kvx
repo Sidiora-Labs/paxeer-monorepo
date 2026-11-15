@@ -1,0 +1,38 @@
+[meta]
+task   = "22.39.520"
+
+[repair.1]
+rule  = "Store admission backs off with a bounded exponential wait while preserving the request deadline."
+files = ["services/human/crates/layerx-human-kms/src/server.rs"]
+
+[repair.2]
+rule  = "Durable lost-response checks use bounded polling intervals while waiting for publication."
+files = ["services/human/crates/layerx-human-kms/tests/provider.rs", "services/human/crates/layerx-human-kms/tests/shared_wallet_lifecycle.rs"]
+
+[repair.3]
+rule  = "Native budget creation without pinned construct-state evidence is asserted as a typed refusal; other native creation calls remain fully signed and checked across restart."
+files = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"]
+
+[repair.4]
+rule  = "EVM signatures are checked for valid recovery on each pass; quorum sessions may produce different valid signature bytes for the same call."
+files = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"]
+
+[repair.5]
+rule  = "Integration fixtures expose the native pointer verifier used by the shared send disclosure implementation."
+files = ["services/human/crates/layerx-human-kms/tests/attestor_signing.rs", "services/human/crates/layerx-human-kms/tests/wallet_identity_exports.rs", "services/human/crates/layerx-human-kms/tests/onboarding_consent.rs", "services/human/crates/layerx-human-kms/tests/documented_custody.rs", "services/human/crates/layerx-human-kms/tests/lxkp_signing.rs"]
+
+[repair.6]
+rule = "Mutual TLS provider connections send small records promptly, preserve vectored TLS writes, and flush the unbuffered socket without an additional clock observation."
+files = ["services/human/crates/layerx-human-service/src/custody/provider.rs"]
+
+[repair.7]
+rule = "A full connection batch starts after the preceding authenticated request has returned its worker permit."
+files = ["services/human/crates/layerx-human-kms/tests/attestor_signing.rs"]
+
+[repair.8]
+rule = "Concurrent KMS workers serialize authenticated clock observations within each caller's transport budget."
+files = ["services/human/crates/layerx-human-kms/src/server.rs", "services/human/crates/layerx-human-kms/src/attestor.rs"]
+
+[repair.9]
+rule = "Signing-wire fixtures retain exclusive attestor lifecycle ownership through teardown and send small TLS records promptly."
+files = ["services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs"]

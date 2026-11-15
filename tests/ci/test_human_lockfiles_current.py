@@ -2,6 +2,8 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -26,10 +28,12 @@ def _assert_resolves_locked(manifest):
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.native
 def test_human_lockfile_resolves_locked():
     _assert_resolves_locked("services/human/Cargo.toml")
 
 
+@pytest.mark.native
 def test_intents_fuzz_lockfile_resolves_locked():
     _assert_resolves_locked("services/human/crates/layerx-intents/fuzz/Cargo.toml")
 

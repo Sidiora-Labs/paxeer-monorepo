@@ -62,7 +62,7 @@ def test_doc_13_recording_command_matches_real_recorder_and_route():
     assert len(commands) == 1
     args = shlex.split(commands[0])
     assert args == [
-        "yarn", "record-stubs", "http://127.0.0.1:4001",
+        "yarn", "record-stubs", "$REST_ORIGIN",
         "FULL_RUNNING_BACKEND_GIT_SHA", "/private/recorded-empty",
         "/api/health", "/api/v2/blocks",
     ]
@@ -221,8 +221,8 @@ def test_doc_13_controller_and_generated_consumer_preserve_documented_fields():
 
 def test_doc_13_real_client_integration_is_registered_and_disclosed():
     manifest = tomllib.loads(source("crate/Cargo.toml"))
-    targets = [item for item in manifest["test"] if item["name"] == "repair_22_33_360"]
-    assert targets == [{"name": "repair_22_33_360", "path": "../../tests/health_client_contract.rs"}]
+    targets = [item for item in manifest["test"] if item["name"] == "health_client_contract"]
+    assert targets == [{"name": "health_client_contract", "path": "../../tests/health_client_contract.rs"}]
     rust = (CLIENT / "crate" / targets[0]["path"]).read_text()
     record = tomllib.loads(RECORD.read_text())
     cases = re.findall(r"#\[tokio::test\]\s*async fn (\w+)\(", rust)

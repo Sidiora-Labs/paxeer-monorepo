@@ -5,8 +5,10 @@ Run commands from the repository root unless shown otherwise. Use the pins in
 and Anvil on PATH for the frontend wallet fixture. These are local qualification
 fixtures; production credentials are not required.
 
-Paxeer is one network, with the kernel participating in block proposal. Its EVM
-chain ID is 125 (`0x7d`), and a receipt is final when its block commits. The local
+Paxeer is one network: the LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. Its EVM
+chain ID is 125 (`0x7d`), and a receipt is final when the validators commit its
+block. The local
 Compose EVM and in-process Hardhat chain also use 125 but do not reproduce Paxeer
 consensus or establish deployment readiness. Public node JSON-RPC uses the root
 path. Local fixture commands below use their private chains.

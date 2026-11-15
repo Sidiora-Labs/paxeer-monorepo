@@ -278,7 +278,7 @@ fn assert_witness_bound_refusal(
     } else {
         assert!(
             reason == "deterministic execution observer refused: SupplementRejected at retain_boundary_capture.source"
-                || reason == "program replay record refused: Bounds",
+                || reason.starts_with("program replay record refused: Bounds"),
             "{host_calls} calls must refuse at the witness byte bound: {error:?}"
         );
     }

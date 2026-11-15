@@ -54,7 +54,7 @@
       "latest_block": "0x10"
     },
     "consensus": {
-      "latest_height": "34742403",
+      "latest_height": "16",
       "latest_block_hash": "A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1",
       "latest_app_hash": "B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2",
       "catching_up": false

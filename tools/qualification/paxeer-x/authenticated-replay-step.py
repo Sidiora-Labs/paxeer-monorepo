@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-EVIDENCE = Path(os.environ.get("LAYERX_AUTHENTICATED_REPLAY_EVIDENCE", "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task1043525"))
+EVIDENCE = Path(os.environ.get("LAYERX_AUTHENTICATED_REPLAY_EVIDENCE", ROOT / "build/qualification/authenticated-replay-step"))
 DECLARED = (
     "programs/crates/layerx-programs-runtime/src/portable_replay.rs",
     "programs/crates/layerx-programs-arbiter/Cargo.toml",
@@ -62,17 +62,16 @@ def main():
     if EVIDENCE.stat().st_mode & 0o077:
         raise RuntimeError("private evidence required")
     environment = dict(os.environ)
-    environment["PATH"] = "/root/.cargo/bin:" + environment.get("PATH", "")
     environment["CARGO_BUILD_JOBS"] = "4"
-    environment["CARGO_TARGET_DIR"] = "/root/lx-target/arbiter-prestate/rust"
+    environment["CARGO_TARGET_DIR"] = environment.get("CARGO_TARGET_DIR", str(ROOT / "programs/target"))
     if args.build:
         inputs = sources()
         runtime_output = execute([
-            "/root/.cargo/bin/cargo", "test", "--locked", "--manifest-path", "programs/Cargo.toml",
+            "cargo", "test", "--locked", "--manifest-path", "programs/Cargo.toml",
             "-p", "layerx-programs-runtime", "--test", "program_replay", "--no-run", "--message-format=json",
         ], EVIDENCE / "build-runtime.log", environment, 900)
         output = execute([
-            "/root/.cargo/bin/cargo", "test", "--locked", "--manifest-path", "programs/Cargo.toml",
+            "cargo", "test", "--locked", "--manifest-path", "programs/Cargo.toml",
             "-p", "layerx-programs-arbiter", "--test", "verified_step", "--no-run", "--message-format=json",
         ], EVIDENCE / "build-arbiter.log", environment, 900)
         binaries = {"runtime": artifact(runtime_output, "program_replay"), "arbiter": artifact(output, "verified_step")}

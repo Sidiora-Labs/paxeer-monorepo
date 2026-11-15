@@ -14,7 +14,7 @@ func ResolveServiceHost(host, callerNamespace string, externalHosts []string) (n
 	host = strings.TrimSuffix(strings.ToLower(host), ".")
 	for _, external := range externalHosts {
 		if host == strings.TrimSuffix(strings.ToLower(external), ".") {
-			return "", "", "offcluster", nil
+			return "", "", offclusterHostKind, nil
 		}
 	}
 	if ip := net.ParseIP(host); ip != nil {
@@ -31,13 +31,13 @@ func ResolveServiceHost(host, callerNamespace string, externalHosts []string) (n
 	}
 	switch {
 	case len(parts) == 1 && serviceLabel.MatchString(callerNamespace):
-		return callerNamespace, parts[0], "service", nil
+		return callerNamespace, parts[0], serviceHostKind, nil
 	case len(parts) == 2:
-		return parts[1], parts[0], "service", nil
+		return parts[1], parts[0], serviceHostKind, nil
 	case len(parts) == 3 && parts[2] == "svc":
-		return parts[1], parts[0], "service", nil
+		return parts[1], parts[0], serviceHostKind, nil
 	case len(parts) == 5 && parts[2] == "svc" && parts[3] == "cluster" && parts[4] == "local":
-		return parts[1], parts[0], "service", nil
+		return parts[1], parts[0], serviceHostKind, nil
 	default:
 		return "", "", "", fmt.Errorf("host %s is neither a Kubernetes Service nor an explicitly declared external host", host)
 	}
@@ -230,7 +230,7 @@ func topologyPortMatches(rule TopologyRule, protocol, port string, names map[str
 }
 
 func (topology TopologyInput) policiesFor(workload TopologyWorkload, direction string) []TopologyPolicy {
-	var policies []TopologyPolicy
+	policies := make([]TopologyPolicy, 0, len(topology.Policies))
 	for _, policy := range topology.Policies {
 		if policy.NS != workload.NS || !policy.Selector.Matches(workload.Labels) {
 			continue
@@ -250,7 +250,7 @@ func (topology TopologyInput) ingress(callee TopologyWorkload, port, protocol st
 	if len(policies) == 0 {
 		return true, "no ingress NetworkPolicy selects the callee (open)"
 	}
-	names := []string{}
+	names := make([]string, 0, len(policies))
 	for _, policy := range policies {
 		names = append(names, policy.Name)
 		for _, rule := range policy.Ingress {
@@ -275,7 +275,7 @@ func (topology TopologyInput) egress(caller TopologyWorkload, calleeNS string, l
 		return true, "no egress NetworkPolicy selects the caller (open)"
 	}
 	admitted, dns := "", ""
-	names := []string{}
+	names := make([]string, 0, len(policies))
 	for _, policy := range policies {
 		names = append(names, policy.Name)
 		for _, rule := range policy.Egress {
@@ -311,13 +311,13 @@ func CheckTopology(topology TopologyInput) [][3]string {
 		label := fmt.Sprintf("%s -> %s:%s [%s]", topologyDescription(edge.Caller), edge.Host, edge.Port, edge.Source)
 		ns, name, kind, err := ResolveServiceHost(edge.Host, edge.Caller.NS, topology.ExternalHosts)
 		if err != nil {
-			results = append(results, [3]string{"FAIL", label, err.Error()})
+			results = append(results, [3]string{topologyFailure, label, err.Error()})
 			continue
 		}
-		if kind == "offcluster" || kind == "loopback" {
+		if kind == offclusterHostKind || kind == "loopback" {
 			status, detail := "note", "explicitly declared external or loopback host; not checked against Service policies"
 			if edge.Listed {
-				status = "offcluster"
+				status = offclusterHostKind
 			}
 			results = append(results, [3]string{status, label, detail})
 			continue
@@ -331,19 +331,19 @@ func CheckTopology(topology TopologyInput) [][3]string {
 				}
 				handled = true
 				if edge.Port != external.Port {
-					results = append(results, [3]string{"FAIL", label, fmt.Sprintf("separately operated service %s/%s is declared on port %s, not %s", ns, name, external.Port, edge.Port)})
+					results = append(results, [3]string{topologyFailure, label, fmt.Sprintf("separately operated service %s/%s is declared on port %s, not %s", ns, name, external.Port, edge.Port)})
 					break
 				}
 				ok, detail := topology.egress(edge.Caller, ns, external.Labels, external.Port, "TCP", nil)
 				if !ok {
-					results = append(results, [3]string{"FAIL", label, detail})
+					results = append(results, [3]string{topologyFailure, label, detail})
 				} else {
 					results = append(results, [3]string{"external", label, "separately operated; " + detail + "; callee policy is not in this repository"})
 				}
 				break
 			}
 			if !handled {
-				results = append(results, [3]string{"FAIL", label, fmt.Sprintf("no Service %s/%s is declared in the manifests and it is not a declared separately operated service", ns, name)})
+				results = append(results, [3]string{topologyFailure, label, fmt.Sprintf("no Service %s/%s is declared in the manifests and it is not a declared separately operated service", ns, name)})
 			}
 			continue
 		}
@@ -352,21 +352,21 @@ func CheckTopology(topology TopologyInput) [][3]string {
 		for service.Type == "ExternalName" {
 			key := [2]string{ns, name}
 			if aliases[key] {
-				results = append(results, [3]string{"FAIL", label, fmt.Sprintf("ExternalName cycle at %s/%s", ns, name)})
+				results = append(results, [3]string{topologyFailure, label, fmt.Sprintf("ExternalName cycle at %s/%s", ns, name)})
 				aliasFailed = true
 				break
 			}
 			aliases[key] = true
 			targetNS, targetName, targetKind, err := ResolveServiceHost(service.ExternalName, ns, topology.ExternalHosts)
-			if err != nil || targetKind != "service" {
-				results = append(results, [3]string{"FAIL", label, fmt.Sprintf("ExternalName %s/%s target %s has no declared in-cluster Service", ns, name, service.ExternalName)})
+			if err != nil || targetKind != serviceHostKind {
+				results = append(results, [3]string{topologyFailure, label, fmt.Sprintf("ExternalName %s/%s target %s has no declared in-cluster Service", ns, name, service.ExternalName)})
 				aliasFailed = true
 				break
 			}
 			ns, name = targetNS, targetName
 			service, exists = services[[2]string{ns, name}]
 			if !exists {
-				results = append(results, [3]string{"FAIL", label, fmt.Sprintf("ExternalName target Service %s/%s is not declared", ns, name)})
+				results = append(results, [3]string{topologyFailure, label, fmt.Sprintf("ExternalName target Service %s/%s is not declared", ns, name)})
 				aliasFailed = true
 				break
 			}
@@ -382,7 +382,7 @@ func CheckTopology(topology TopologyInput) [][3]string {
 			}
 		}
 		if portIndex == -1 {
-			exposed := []string{}
+			exposed := make([]string, 0, len(service.Ports))
 			for _, port := range service.Ports {
 				name := port.Name
 				if name == "" {
@@ -390,7 +390,7 @@ func CheckTopology(topology TopologyInput) [][3]string {
 				}
 				exposed = append(exposed, port.Port+"("+name+")")
 			}
-			results = append(results, [3]string{"FAIL", label, fmt.Sprintf("Service %s/%s exposes %s, not %s", ns, name, strings.Join(exposed, ", "), edge.Port)})
+			results = append(results, [3]string{topologyFailure, label, fmt.Sprintf("Service %s/%s exposes %s, not %s", ns, name, strings.Join(exposed, ", "), edge.Port)})
 			continue
 		}
 		port := service.Ports[portIndex]
@@ -410,7 +410,7 @@ func CheckTopology(topology TopologyInput) [][3]string {
 			}
 		}
 		if len(selected) == 0 {
-			results = append(results, [3]string{"FAIL", label, fmt.Sprintf("Service %s/%s selects no workload declared in the manifests", ns, name)})
+			results = append(results, [3]string{topologyFailure, label, fmt.Sprintf("Service %s/%s selects no workload declared in the manifests", ns, name)})
 			continue
 		}
 		failed := false
@@ -420,7 +420,7 @@ func CheckTopology(topology TopologyInput) [][3]string {
 			if _, err := strconv.ParseUint(podPort, 10, 16); err != nil {
 				named, exists := callee.Ports[podPort]
 				if !exists {
-					results = append(results, [3]string{"FAIL", label, fmt.Sprintf("Service %s/%s targetPort %s is not a container port of %s", ns, name, podPort, topologyDescription(callee))})
+					results = append(results, [3]string{topologyFailure, label, fmt.Sprintf("Service %s/%s targetPort %s is not a container port of %s", ns, name, podPort, topologyDescription(callee))})
 					failed = true
 					continue
 				}
@@ -428,14 +428,14 @@ func CheckTopology(topology TopologyInput) [][3]string {
 			}
 			ok, detail := topology.ingress(callee, podPort, protocol, edge.Caller)
 			if !ok {
-				results = append(results, [3]string{"FAIL", label, detail})
+				results = append(results, [3]string{topologyFailure, label, detail})
 				failed = true
 				continue
 			}
 			details = append(details, fmt.Sprintf("pod %s:%s/%s %s", topologyDescription(callee), podPort, protocol, detail))
 			ok, detail = topology.egress(edge.Caller, ns, callee.Labels, podPort, protocol, callee.Ports)
 			if !ok {
-				results = append(results, [3]string{"FAIL", label, detail})
+				results = append(results, [3]string{topologyFailure, label, detail})
 				failed = true
 				continue
 			}

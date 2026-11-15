@@ -11,7 +11,7 @@ export default function Sequencing() {
         <h1 className="page-title">Sequencing &amp; Finality</h1>
         <p className="page-description">Follow a signed transaction through ordered execution, receipt verification, and BFT block commitment.</p>
       </div>
-      <p>Paxeer mainnet-beta is one BFT chain. Its kernel participates in block execution and proposal, and the committed chain records the resulting order. A signed receipt can be available before its covering block is committed.</p>
+      <p>On Paxeer mainnet-beta, the LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it, and the committed chain records the resulting order. A signed receipt can be available before its covering block is committed.</p>
       <p>The proposer places <code>MsgSequenceBatch</code> at transaction index zero of each block at or above the sequencing activation height. Validators verify that batch and re-execute its transactions. See <Link href="/checkpoints">block commitment</Link> for the evidence boundary.</p>
       <h2>Global ordering and sequence batches</h2>
       <p>A nonempty batch starts at the stored last sequence plus one and binds the preceding sequence hash. The keeper rejects a discontinuity, an invalid receipt-key signature, a mismatched height, or a second sequence batch in one block. EVM account nonces separately enforce sender ordering.</p>

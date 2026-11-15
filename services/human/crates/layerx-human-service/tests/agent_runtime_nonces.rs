@@ -243,13 +243,7 @@ fn native_send_owner_context_carries_the_pending_nonce() {
     let nonces = [0_u64, 1, 7, u64::MAX];
     let mut exchanges = Vec::new();
     for pending_nonce in nonces {
-        let mut nonce_answer = pending_nonce.to_be_bytes().to_vec();
-        let rung = match pending_nonce {
-            0 => Rung::Submitted,
-            1 => Rung::Committed,
-            _ => Rung::Receipted,
-        };
-        nonce_answer.push(rung.wire_rank());
+        let nonce_answer = pending_nonce.to_be_bytes().to_vec();
         exchanges.push((nonce_request.clone(), frame(0, &nonce_answer)));
         let mut body = Vec::new();
         bytes(&mut body, OWNER.as_bytes());
@@ -263,11 +257,11 @@ fn native_send_owner_context_carries_the_pending_nonce() {
         body.extend_from_slice(&[0x77; 32]);
         exchanges.push((owner_request.clone(), frame(0, &body)));
     }
-    let mut malformed = vec![7_u64.to_be_bytes().to_vec()];
+    let mut malformed = vec![Vec::new()];
     let mut truncated = 7_u64.to_be_bytes().to_vec();
     truncated.pop();
     malformed.push(truncated);
-    for rank in 3..=u8::MAX {
+    for rank in 0..=u8::MAX {
         let mut body = 7_u64.to_be_bytes().to_vec();
         body.push(rank);
         malformed.push(body);

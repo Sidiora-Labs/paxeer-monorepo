@@ -67,7 +67,7 @@ async function daemon_probe_uses_hosted_authentication_and_disclosure(): Promise
     readonly credential: { readonly tenant: string; readonly session_id: string; readonly token_id: string; readonly generation: string };
   }>(goldens + "agent-http-request.json");
   const credential = original.credential;
-  const tlsRoot = "services/platform/hosted/node/tests/fixtures/repair_22_31_355/";
+  const tlsRoot = "services/platform/hosted/node/tests/fixtures/native_lifecycle/";
   const cert = source(tlsRoot + "tls-certificate.pem.txt");
   const key = source(tlsRoot + "tls-private-key.pem.txt");
   const directory = mkdtempSync(join(tmpdir(), "hosted-envelope-22-33-23-"));
@@ -332,7 +332,7 @@ function exchange_account_bearing_dispatch_is_required(): void {
     readonly marketId: string; readonly accountId: string; readonly side: number;
     readonly price: string; readonly quantity: string; readonly timeInForce: number;
     readonly to: string; readonly data: string; readonly value: string;
-  }>("precompiles/layerxexchange/testdata/repair_459_typescript.json");
+  }>("precompiles/layerxexchange/testdata/account_order_typescript_calldata.json");
   assert.equal(recorded.producer, "services/agent/sdk/typescript/src/exchange.ts#exchangePlaceOrderCall");
   assert.equal(recorded.signature, signature);
   const order = { ...recorded, price: BigInt(recorded.price), quantity: BigInt(recorded.quantity) };

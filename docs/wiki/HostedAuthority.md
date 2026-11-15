@@ -5,9 +5,9 @@ verified receipt and batch evidence over TLS. Its entry point is
 [`src/main.rs`](../../services/platform/hosted/authority/src/main.rs), and its
 verification core is [`src/lib.rs`](../../services/platform/hosted/authority/src/lib.rs).
 
-Paxeer mainnet-beta is one BFT network, run by `paxd`; the kernel is part of
-that network and proposes blocks. EVM chain id is **125** (`0x7d`). A receipt
-is final when its block is committed. Hosted authority supplies verified facts
+Paxeer mainnet-beta runs `paxd` with EVM chain id **125** (`0x7d`). The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when its block is committed. Hosted authority supplies verified facts
 for hosted consumers; it does not create another settlement or finality layer.
 See [Public RPC](PublicRpc.md) for node access.
 

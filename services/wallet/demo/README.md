@@ -2,7 +2,7 @@
 
 Next.js reference app for [`@paxeer/wallet`](../../../sdk/wallet/README.md), the workspace wallet SDK. The demo offers an embedded threshold-custody wallet authenticated with Supabase, or an injected EIP-6963 wallet. `ConnectButton` opens `WalletModal`, which renders `SupportedWalletPanel` from `FundedAccountPanel.tsx` for wallet actions.
 
-The demo targets Paxeer mainnet-beta, one BFT network with EVM chain ID `125` (`0x7d`). The kernel is part of the network and proposes blocks. A transaction receipt is final when its block is committed; receiving a transaction hash from the send button alone does not establish commitment.
+The demo targets Paxeer mainnet-beta with EVM chain ID `125` (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction receipt is final when its block is committed; receiving a transaction hash from the send button alone does not establish commitment.
 
 ## Run
 

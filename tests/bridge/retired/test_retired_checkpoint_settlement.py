@@ -20,7 +20,7 @@ def test_checkpoint_settlement_is_retired():
         "docker/paxeer/Dockerfile.paxd-node.dockerignore",
         "services/agent/crates/layerx-proof/tests/support/historical_checkpoint.rs",
         "services/agent/crates/layerx-types/src/historical/settlement.rs",
-        "services/agent/crates/layerx-types/tests/repair_22_33_1542.rs",
+        "services/agent/crates/layerx-types/tests/program_admission_chain_trust.rs",
         "services/agent/crates/layerx-types/tests/vectors.rs",
         "services/platform/hosted/paxeer/tests/migrations/v1/settlement_domains.py",
         "services/platform/hosted/paxeer/tests/support/node_tls.rs",

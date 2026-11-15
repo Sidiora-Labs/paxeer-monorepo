@@ -3,8 +3,9 @@
 ## Overview
 
 The slashing module tracks validator liveness and applies staking penalties on
-Paxeer's BFT network. Paxeer has one network: its kernel participates in the
-network and proposes blocks, and committed blocks determine finality.
+Paxeer. Paxeer has one network. The LayerX kernel inside `paxd` executes and
+orders each transaction and builds each block; validators check and commit it.
+A receipt is final when the validators commit its block.
 
 This fork stores missed signatures in packed arrays and calculates liveness
 updates concurrently before applying store mutations in vote order. Start with

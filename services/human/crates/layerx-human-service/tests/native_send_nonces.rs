@@ -32,7 +32,6 @@ use layerx_human_test_support::{
 use layerx_types::account::AccountId;
 use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 const OWNER: &str = "did:layerx:nonce-owner";
@@ -254,8 +253,7 @@ fn nonce_exchange(pending: u64) -> (Vec<u8>, Vec<u8>) {
         &mut request,
         hex(owner().verifying_key().to_bytes()).as_bytes(),
     );
-    let mut response = pending.to_be_bytes().to_vec();
-    response.push(Rung::Committed.wire_rank());
+    let response = pending.to_be_bytes().to_vec();
     (frame(13, &request), frame(0, &response))
 }
 

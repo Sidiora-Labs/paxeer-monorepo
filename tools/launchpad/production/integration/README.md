@@ -25,8 +25,8 @@ It checks chain-125 event/header identity, global log ordering, complete-block
 agreement and transport duplicate equality. Obtain and authenticate raw node
 receipts, deployed ABI/code provenance and complete log ranges independently;
 normalized models cannot authenticate their own inputs or establish activation.
-Paxeer is one network: its kernel participates in block proposal and block commit
-establishes finality. Disagreement quarantines the stream; ordinary committed
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. Block commit establishes finality. Disagreement quarantines the stream; ordinary committed
 blocks are not rolled back. Public node JSON-RPC uses the root path with chain
 ID 125 (`0x7d`).
 

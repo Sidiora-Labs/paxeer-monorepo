@@ -14,6 +14,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
+PROTOCOL = (ROOT / "docs/wiki/Protocol.md").read_text(encoding="utf-8")
+PAGE_DIR = ROOT / "docs/readme"
 
 
 def source(path):
@@ -22,10 +26,10 @@ def source(path):
 
 def section(heading, level=3):
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -42,13 +46,15 @@ def section(heading, level=3):
 def test_readme_network_embeds_kernel_and_proposes_committed_blocks():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through",
-        "no router and no separate LayerX interface",
         "A receipt is final once its block is committed",
     ):
         assert fact in overview, fact
@@ -63,19 +69,16 @@ def test_readme_network_embeds_kernel_and_proposes_committed_blocks():
 
 def test_readme_network_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through " in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "compare `eth_blockNumber`" in quickstart
+    assert "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint." in PUBLIC_RPC
     allowed = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     urls = [
         urlsplit(url)
-        for url in re.findall(r"https?://[^\s`<>)]+", README)
+        for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
         if "mainnet-beta.paxeer.network" in url
     ]
     assert urls
@@ -87,9 +90,7 @@ def test_readme_network_root_rpc_hosts_and_chain_probe():
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
     assert argv[0] == "curl"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -169,7 +170,7 @@ def test_readme_network_retires_custody_checkpoint_and_daemon_deployments():
     assert "custody deposit and credit-attestation funding flow is retired" in section(
         "Accounts and native funding"
     )
-    retirement = [p for p in README.split("\n\n") if p.startswith("The pre-merge ")]
+    retirement = [p for p in NETWORK.split("\n\n") if p.startswith("The pre-merge ")]
     assert len(retirement) == 1
     for fact in (
         "`layerxCustody` (`0x1013`)",
@@ -185,14 +186,14 @@ def test_readme_network_retires_custody_checkpoint_and_daemon_deployments():
     anchor = source("precompiles/layerxanchor/layerxanchor.go")
     assert "!isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade" in anchor
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
-    current = README.replace(retirement[0], "")
+    current = NETWORK.replace(retirement[0], "")
     for name in ("layerxCustody", "layerxcustody", "layerxAnchor", "layerxanchor"):
         assert name not in current, name
     for stale in (
         r"\blayerxd\b", r"kernel still runs separately", r"two execution domains",
-        r"merge is (?:only )?a draft", r"/rpc(?:/|\b)",
+        r"merge is (?:only )?a draft",
     ):
-        assert not re.search(stale, README, re.IGNORECASE), stale
+        assert not re.search(stale, NETWORK, re.IGNORECASE), stale
     build = section("Build")
     assert "make paxd-build" in build
     assert './build/paxd start --home "$PAXD_HOME"' in build

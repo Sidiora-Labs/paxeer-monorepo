@@ -3,8 +3,9 @@
 `layerx-platform-core` is the crate and `layerx-core-boundary` is its binary
 ([crate manifest](../../services/platform/hosted/core/Cargo.toml)). It provides
 hosted HTTPS reads and administrative funding/reset operations for the merged
-Paxeer network. The kernel runs inside the network and proposes blocks through
-`paxd`; a receipt is final once its block is committed. Core is an HTTP boundary,
+Paxeer network. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final once validators commit its block. Core is an HTTP boundary,
 not a second execution or settlement system.
 
 Use the root node URL for EVM chain id **125** (`0x7d`); see

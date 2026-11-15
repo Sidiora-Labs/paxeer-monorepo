@@ -1,11 +1,11 @@
 #[path = "support/node_root_22_34_5.rs"]
 mod support;
 
-use layerx_client::px::{PxEndpoint, DEFAULT_NODE_ENDPOINT, NODE_READ_METHODS};
+use layerx_client::px::{DEFAULT_NODE_ENDPOINT, NODE_READ_METHODS, PxEndpoint};
 use layerx_client::rpc::{commit, history};
 use layerx_client::sequencer::{SequencerError, SequencerReceipt};
-use serde_json::{json, Value};
-use support::{must, Server};
+use serde_json::{Value, json};
+use support::{Server, must};
 
 #[test]
 fn every_served_method_uses_node_root_and_preserves_recorded_refusals() {
@@ -277,8 +277,10 @@ fn assert_committed_receipt_reads(px: &PxEndpoint, producer: &Value) {
 #[test]
 fn node_network_reads_keep_snapshot_and_unavailability_checks() {
     let records = support::gateway_reads();
+    let mut malformed_network = records["network"].clone();
+    malformed_network["consensus"]["latest_height"] = json!(17);
     for (record, expected) in [
-        (records["network"].clone(), SequencerError::Malformed),
+        (malformed_network, SequencerError::Malformed),
         (records["unavailable"].clone(), SequencerError::Unavailable),
     ] {
         let node = Server::start("/", move |request| {

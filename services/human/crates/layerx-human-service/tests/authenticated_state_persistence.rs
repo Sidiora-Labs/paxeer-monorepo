@@ -1270,8 +1270,61 @@ fn security_key_export_projects_real_custody_mutation_and_refuses_retry_after_re
         EnvelopeKms::new("kms://repair-export", secret).or_fail("reopened KMS"),
     )
     .or_fail("reopened keystore");
-    assert!(ceremony
+    let resumed = ceremony
         .begin(&keystore, &support::principal(ACCOUNT_ID), NOW + 3)
+        .or_fail("retained export challenge");
+    assert_eq!(resumed.export_id, challenge.export_id);
+    let stepup = passkeys
+        .begin_step_up_authorized(&mut durable.scope(), resumed.confirms, NOW + 3)
+        .or_fail("delivery stepup");
+    let credential = authenticator.assert(&stepup.ceremony);
+    let delivery_proof = passkeys
+        .finish_step_up(
+            &mut durable.scope(),
+            &stepup.challenge_id,
+            &credential,
+            NOW + 4,
+        )
+        .or_fail("delivery proof");
+    let recovered = ceremony
+        .finish(
+            &keystore,
+            &mut durable.scope(),
+            &resumed.export_id,
+            &delivery_proof,
+            &TraceId::mint([0x34; 16]),
+            NOW + 4,
+        )
+        .or_fail("recover authorized delivery");
+    assert_eq!(recovered.secret.expose(), exported.secret.expose());
+    assert_eq!(recovered.public_key, exported.public_key);
+    assert_eq!(recovered.self_custodied_at, exported.self_custodied_at);
+    let decode = |text: &str| -> Vec<u8> {
+        text.as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                u8::from_str_radix(std::str::from_utf8(pair).or_fail("hex text"), 16)
+                    .or_fail("hex byte")
+            })
+            .collect()
+    };
+    let mut token = Sha256::new();
+    token.update(b"layerx-human-export-delivery/v1\0");
+    token.update(decode(&resumed.export_id));
+    token.update(decode(recovered.secret.expose()));
+    ceremony
+        .acknowledge(
+            &keystore,
+            &mut durable.scope(),
+            &resumed.export_id,
+            token.finalize().into(),
+            &delivery_proof,
+            &TraceId::mint([0x35; 16]),
+            NOW + 5,
+        )
+        .or_fail("acknowledge key delivery");
+    assert!(ceremony
+        .begin(&keystore, &support::principal(ACCOUNT_ID), NOW + 6)
         .is_err());
     assert!(ceremony
         .finish(

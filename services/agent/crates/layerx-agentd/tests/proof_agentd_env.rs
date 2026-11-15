@@ -132,6 +132,16 @@ impl Producer {
             ("LAYERX_AGENT_MCP_WEB_TIMEOUT_MS", "1000".to_owned()),
             ("LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS", "2".to_owned()),
             ("LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD", "1".to_owned()),
+            (
+                "LAYERX_AGENT_MCP_WEB_PAYER_ADDRESS",
+                hex::encode([seed; 20]),
+            ),
+            (
+                "LAYERX_AGENT_MCP_WEB_RECEIVER_ADDRESS",
+                hex::encode([seed.wrapping_add(1); 20]),
+            ),
+            ("LAYERX_AGENT_MCP_WEB_FIRST_BATCH_NUMBER", "1".to_owned()),
+            ("LAYERX_AGENT_MCP_WEB_LAST_BATCH_NUMBER", "99".to_owned()),
         ] {
             values.insert(key.to_owned(), value);
         }

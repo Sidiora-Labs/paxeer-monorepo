@@ -1,0 +1,114 @@
+[binding_artifacts]
+rule = "The Rust SDK target builds the quickstart, response fixture, escrow and vault before running the named binding conformance case; the programs workspace test runs after the SDK target."
+files = ["Makefile", "programs/sdk/rust/tests/bindgen_conformance.rs", "programs/sdk/rust/repair_22_39_509.kvx"]
+command = "make -s programs-test"
+case = "generated_client_guest_and_typescript_are_compiler_inputs"
+
+[binding_inputs]
+rule = "The compiler-input and published-interface cases run every assertion when PAXEER_X_BINDINGS_ARTIFACTS and PAXEER_X_BINDINGS_FIXTURES, respectively, are set. Each case prints one line naming its variable and returns when it is unset. Neither case has an ignore attribute, and the Rust SDK target runs its named case without an ignored selector."
+cases = ["generated_client_guest_and_typescript_are_compiler_inputs", "immutable_published_interfaces_generate_all_language_families"]
+
+[market_test_producers]
+rule = "The programs test target builds the native host boundary before the workspace tests read its manifest. Opening fixtures publish every participant chunk before using the captured roster. Aggregation fixtures use the epoch transition so BeginAggregation seals reputation state and FinalizeAggregation applies every bounded participant chunk before asserting terminal rewards."
+files = ["Makefile", "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs", "programs/crates/layerx-programs-ai-market/tests/f04_windows.rs", "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs", "programs/crates/layerx-programs-ai-market/tests/market_state_producers.rs", "programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs"]
+command = "make -s programs-test"
+
+[room_capacity]
+rule = "Per-model placement capacity is checked with a locked bond. At the combined bid and bond limit, LockBond returns CAPACITY; an unbonded PostBid returns F11_BOND_INSUFFICIENT. Reward readers use the prefix before the room market book."
+files = ["programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs", "programs/crates/layerx-programs-ai-market/tests/settlement_capacity.rs"]
+command = "make -s programs-test"
+
+[sandbox_contract_fixture]
+rule = "The sandbox contract publication case reads the published contract record from its programme records directory and checks every contract term and finding identifier."
+files = ["programs/crates/layerx-programs-sandbox/tests/durable_lease_lifecycle.rs"]
+command = "make -s programs-test"
+
+[sandbox_settlement_fixtures]
+rule = "Runtime settlement cases read the native execution result and usage transport frames from native_submission_recordings and assert receipt digest and transport equality."
+files = ["programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"]
+command = "make -s programs-test"
+
+[aggregation_reward_refusal]
+rule = "The reward refusal case stages the first bounded finalization chunk before terminalizing rewards. Public aggregation tail readers exclude the private finalization journal, and refused completion preserves committed progress and history."
+files = ["programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs"]
+case = "f05_a16_refused_steps_keep_committed_progress"
+call = "FinalizeAggregation"
+returned_code = "F06_EPOCH_TERMINAL"
+command = "make -s programs-test"
+
+[placement_bond_binding]
+rule = "The placement capacity case locks its overflow bid bond to the room used by both PostBid calls. Closing a different room frees model placement capacity while preserving the bid bond binding."
+files = ["programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs"]
+case = "capacity_is_per_model_and_both_full_sides_fit_state_and_result_budgets"
+command = "make -s programs-test"
+
+[compiled_guest_fixtures]
+rule = "Deployment and aggregation measurement fixtures are generated from the current AI market source with the shared deployment recipe, including source and artifact digests and the deployment envelope size bound."
+files = ["programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.kvx"]
+producer = "bash programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh && bash programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh --aggregation-probe"
+command = "make -s programs-test"
+
+[reputation_finalization_capacity]
+rule = "The reputation finalization case admits the exact produced state length and refuses one byte less. Scratch capacity is checked one byte below the combined policy and settlement output regions; refusal preserves committed state, and successful completion remains atomic and replayable."
+files = ["programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs"]
+case = "f07_a12_atomic_terminal_and_sealed_history_allowed"
+command = "make -s programs-test"
+
+[arbiter_corpus_inputs]
+rule = "Arbiter replay and admission cases load corpora only when LAYERX_AUTHENTICATED_REPLAY_INPUTS and LAYERX_ARBITER_ADMISSION_INPUTS are set; the market profile case loads its corpus when LAYERX_MARKET_SANDBOX_INPUTS is set. Loaders return None for an unset required variable, and each case prints one line naming its required variables and returns. With inputs set, every existing assertion runs and unreadable or invalid corpora fail the case. No case has an ignore attribute."
+files = ["programs/crates/layerx-programs-arbiter/tests/verified_step.rs", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs", "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs", "programs/crates/README.md"]
+command = "make -s programs-test"
+
+[replay_record_boundaries]
+rule = "Market sandbox and terminal trap cases decode raw captured boundary leaves with the header supplied by the same runtime replay record. The metered step conformance case uses the same decoder, retaining all execution, replay, trap and codec assertions."
+files = ["programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs", "programs/crates/layerx-programs-arbiter/tests/terminal_trap.rs", "programs/crates/layerx-programs-runtime/tests/step_conformance.rs"]
+command = "make -s programs-test"
+
+[chain_deployment_evidence]
+rule = "Chain deployment verification requires an authenticated interface commitment proof and execution evidence binding the transaction, successful result and predecessor state. Upgrade evidence binds the predecessor code hash. Chain bundle fixtures carry signed node-encoded deployment transactions, successful node result leaves, an interface commitment at the deployment header and the adjacent authenticated predecessor state."
+files = ["programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs", "programs/crates/layerx-programs-registry/tests/support/chain_transactions/main.go", "programs/crates/layerx-programs-registry/tests/fixtures/chain_transactions.hex"]
+cases = ["chain_bundle_appends_a_verified_upgrade", "chain_bundle_records_deployment_and_survives_rotation"]
+producer = "go run -mod=readonly ./programs/crates/layerx-programs-registry/tests/support/chain_transactions > programs/crates/layerx-programs-registry/tests/fixtures/chain_transactions.hex"
+call = "ProtocolDeploymentVerifier::verify_deployment"
+command = "make programs-test"
+
+[registry_fixture_transport]
+rule = "Registry fixtures authenticate interface membership or absence at the program header and bind node-encoded signed deployment transactions to successful result leaves. Upgrade fixtures authenticate the adjacent predecessor and retain its code hash. The history refusal cases use an empty registry before recording version one. Rotation fixtures announce the new validator set before signing the deployment predecessor with that set; chain-head consumers read the transaction carried by the execution transport."
+files = ["Makefile", "programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs", "programs/crates/layerx-programs-registry/tests/chain_fixture.rs", "programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs", "programs/crates/layerx-programs-registry/tests/deployment_admission_transport.rs", "programs/crates/layerx-programs-registry/tests/program_bundle_verification.rs", "programs/crates/layerx-programs-registry/tests/proof_registry_crate.rs", "programs/crates/layerx-programs-registry/tests/deployment_journal_recovery.rs", "programs/crates/layerx-programs-registry/tests/interface.rs", "programs/crates/layerx-programs-registry/tests/registry.rs", "programs/crates/layerx-programs-registry/tests/support/mod.rs", "programs/crates/layerx-programs-registry/tests/support/deployment.rs", "programs/crates/layerx-programs-registry/tests/support/chain_transactions/main.go", "programs/crates/layerx-programs-registry/tests/fixtures/chain_transactions.hex"]
+command = "make -s programs-test"
+
+[native_result_registry]
+rule = "The programs test target builds the native result-code registry executable before the runtime cases request its replay and engine status names."
+files = ["Makefile"]
+command = "make -s programs-test"
+
+[native_interface_fixtures]
+rule = "The native receipt interface case runs in the program interface harness, which supplies PAXEER_X_INTERFACE_FIXTURES and includes ignored cases while requiring every protocol case to pass with none reported as ignored."
+files = ["programs/crates/layerx-programs-registry/tests/interface_protocol.rs", "tools/qualification/paxeer-x/program-interface.py"]
+command = "make -s programs-test"
+
+[replay_start_trap]
+rule = "Replay capture permits the module start boundary, so a trapping guest initializer retains its failure record together with the replay record produced at that boundary. Replay-bound refusals are recognized from their stable leading text while retaining the producer's diagnostic suffix."
+files = ["programs/crates/layerx-programs-runtime/src/host/mod.rs", "programs/crates/layerx-programs-runtime/src/native_result.rs", "programs/crates/layerx-programs-runtime/tests/native_result_replay_bounds.rs", "programs/crates/layerx-programs-runtime/tests/replay_memory_limits.rs"]
+command = "make -s programs-test"
+
+[cross_language_bindings]
+rule = "The call-budget cases compile generated Rust, TypeScript, Go, Java, Kotlin, Python, Swift and C# bindings with their language toolchains and pass their encoded calls through the real runtime."
+inputs = ["rustc", "tsc", "node", "go", "javac", "java", "kotlinc", "python3", "swiftc", "dotnet"]
+command = "make -s programs-test"
+
+[guest_toolchains]
+rule = "The native host-boundary guest uses the shared deployment recipe with Binaryen 133. C guests compile with Clang and its WebAssembly linker; AssemblyScript guests compile with the SDK's pinned compiler package."
+inputs = ["wasm-opt version 133 (version_133)", "clang", "wasm-ld", "assemblyscript 0.27.31"]
+command = "make -s programs-test"
+
+[spend_composition_inputs]
+rule = "The six native spend-composition cases report an unset PAXEER_X_SPEND_GUESTS or PAXEER_X_SPEND_RESULTS input and return; when set, they retain every existing file read and assertion."
+files = ["programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs", "programs/sdk/rust/repair_22_39_509.kvx"]
+cases = ["actual_guest_narrowing_preserves_owner_leg_and_repeated_visits", "actual_guest_escalation_rolls_back_the_preceding_owner_leg", "actual_native_failure_terminal_retains_class_reason_and_rejecting_frame", "actual_returned_proposals_are_staged_by_owner_after_child_return", "actual_late_returned_proposal_cannot_escape_atomic_owner_budget", "actual_native_owner_budget_denial_has_authenticated_failure_terminal"]
+command = "make -s programs-test"
+
+[sandbox_activity_protocol]
+rule = "Canonical submission fixtures derive the accepted protocol context and call ABI from the occupancy protocol and sandbox registration constants. A context below those versions remains refused with ProtocolMismatch."
+files = ["programs/crates/layerx-programs-sandbox/src/activity.rs"]
+command = "cargo test -p layerx-programs-sandbox"

@@ -6,9 +6,9 @@ export const metadata = metadataFor('/public-rpc')
 
 export default function PublicRpc() {
   return <DocsLayout>
-    <div className="page-header"><h1 className="page-title">Public RPC endpoints</h1><p className="page-description">Connect wallets and applications to Paxeer mainnet-beta, EVM chain ID 125, using node JSON-RPC at the endpoint root.</p></div>
+    <div className="page-header"><h1 className="page-title">Public RPC endpoints</h1><p className="page-description">The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125.</p></div>
     <h2>Connect to the node</h2>
-    <p>Paxeer is one BFT network. The kernel runs inside <code>paxd</code>, and the proposer executes transactions and proposes their block. The node exposes Ethereum JSON-RPC for contracts, balances, logs and broadcasts. A receipt is final once its covering block commits.</p>
+    <p>The LayerX kernel runs inside every <code>paxd</code> node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. The node exposes Ethereum JSON-RPC for contracts, balances, logs and broadcasts. A receipt is final once its covering block commits.</p>
     <table><thead><tr><th>Interface</th><th>Endpoint</th><th>Purpose</th></tr></thead><tbody>
       <tr><td>Node HTTP</td><td><code>PAXEER_RPC_URL</code></td><td>Your configured root JSON-RPC URL for reads and broadcasts.</td></tr>
       <tr><td>Node WebSocket</td><td><code>PAXEER_WS_URL</code></td><td>Your configured WebSocket URL for subscriptions and RPC sessions.</td></tr>

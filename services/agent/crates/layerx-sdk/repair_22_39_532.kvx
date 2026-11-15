@@ -1,0 +1,7 @@
+[repair]
+rule = "Lifecycle idempotency keys commit the signed activity hash, operation ordinal, and calldata selector under the published domain. Receipt waits require an injected runtime clock before network polling, and finality trust is supplied independently from receipt policy metadata. Wallet write tests use the explicit clock requirement for post-submission waits while preserving direct transaction refusal classification."
+changed_files = [
+    "services/agent/crates/layerx-sdk/tests/program_lifecycle_replay.rs",
+    "services/agent/crates/layerx-sdk/tests/rpc_node.rs",
+    "services/agent/crates/layerx-sdk/tests/wallet_calls.rs",
+]

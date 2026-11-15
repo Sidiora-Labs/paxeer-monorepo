@@ -7,8 +7,8 @@ export const metadata = metadataFor('/network-operations')
 export default function NetworkOperations() {
   return <DocsLayout>
     <h1>Network operations</h1>
-    <p className="page-description">Operate Paxeer mainnet-beta nodes and the optional hosted services, monitor readiness, and preserve durable state.</p>
-    <p>Paxeer mainnet-beta is one BFT network with EVM chain ID 125. The kernel runs inside <code>paxd</code> and participates in block proposal and execution. A receipt is final when its block is committed. Hosted identity, Human, gateway, registry, signing, and event-delivery services support applications around that network. The control routes below belong to <code>services/platform/hosted/testnet/</code>, the control service for an isolated hosted environment.</p>
+    <p className="page-description">Operate paxd nodes with the LayerX kernel that executes and orders transactions and builds blocks for validators to check and commit.</p>
+    <p>The LayerX kernel runs inside every <code>paxd</code> node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when its block is committed. Hosted identity, Human, gateway, registry, signing, and event-delivery services support applications around that network. The control routes below belong to <code>services/platform/hosted/testnet/</code>, the control service for an isolated hosted environment.</p>
     <h2>Service architecture</h2>
     <table><thead><tr><th>Service boundary</th><th>Responsibility</th><th>Operational evidence</th></tr></thead><tbody>
       <tr><td>Gateway</td><td>Application JSON-RPC admission, authentication, and upstream calls.</td><td>Readiness, JSON-RPC responses, and verified receipt lookup.</td></tr>

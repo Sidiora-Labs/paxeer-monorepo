@@ -36,7 +36,7 @@
 use std::fmt::Debug;
 
 use layerx_crypto::{ed25519, VerifyError};
-use layerx_types::account::AccountId;
+use layerx_types::account::{AccountError, AccountId};
 use layerx_types::json::{decode_hex, parse, JsonValue};
 use layerx_types::payload::{ActivityType, ModuleRegistration, ModuleRegistry};
 use layerx_types::result::KnownResult;
@@ -135,6 +135,10 @@ fn wire_activity_retired_native_receipts_need_no_envelope() {
 
 #[test]
 fn wire_activity_hash_preserves_native_identity_and_accounts() {
+    assert_eq!(
+        AccountId::parse("system:paxeer-reserve"),
+        Err(AccountError::UnknownNamespace)
+    );
     let vectors = must(parse(NATIVE_VECTORS));
     for case in &must(vectors.array_at("cases"))[..7] {
         let raw = must(case.hex_at("rawTransaction"));

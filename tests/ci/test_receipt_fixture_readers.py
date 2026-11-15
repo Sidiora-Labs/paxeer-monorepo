@@ -5,7 +5,6 @@ import sys
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SDK_TESTS = ROOT / "tests/agent/sdk/python"
 SEQUENCER_FIXTURE = "sequencer-receipt-v1.json"

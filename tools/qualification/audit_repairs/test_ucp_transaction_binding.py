@@ -256,21 +256,39 @@ def test_ucp_reopened_replay_source_contract():
     """Inspect the real Rust consumer regression; do not claim Rust execution."""
     recovery = source("services/interop/crates/layerx-ucp/tests/support/producer_checkout.rs")
     assert "sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json" in recovery
+    recovery = " ".join(recovery.split())
+    assert 'self.unwrap_or_else(|error| panic!("{context}: {error:?}"))' in recovery
+    initial_submission = recovery.split("fn assert_initial_submission(", 1)[1].split(
+        "fn recorded_checkout_evidence(", 1
+    )[0]
+    require_in_order(
+        initial_submission, "UcpAdapter::complete_checkout(",
+        "CheckoutStatus::CompleteInProgress", "assert!(submitted.order.is_none())",
+        "assert!(submitted.stored_order.is_none())", "Some(TranslationStatus::Pending)",
+    )
     require_in_order(
         recovery, "fn submit(", "OpenOptions::new().write(true).create_new(true).open(path)",
-        "file.sync_all().unwrap()", 'fs::File::open(&self.directory).unwrap().sync_all().unwrap()',
+        'file.sync_all().or_panic("expected Ok value")',
+        'fs::File::open(&self.directory) .or_panic("expected Ok value") .sync_all() .or_panic("expected Ok value")',
         "pub fn producer_checkout(", "store.submit(source, &native_calldata)",
-        "CheckoutStatus::CompleteInProgress", "drop(payment)", "drop(gateway)", "drop(store)",
+        "assert_initial_submission( &mut gateway, &principal, &checkout, &config, &mut payment, &keys, &trace, )",
+        "drop(payment)", "drop(gateway)", "drop(store)",
         "RecordedSubmission::open(&directory.0)", "let recovered = store.read()",
         'assert_eq!(recovered["producer"], *source)',
         'store.submit(&recovered["producer"], &native_calldata)',
         "evidence: recorded_evidence(&recovered[\"producer\"])",
         "UcpAdapter::complete_checkout(", "CheckoutStatus::Completed",
-        "UcpAdapter::read_order_with_config(&stored, &keys, &config)",
+        "assert_recovered_order( &stored, &order, &evidence, &checkout, source, &keys, &config, )",
         "let retry = UcpAdapter::complete_checkout(",
         "assert_eq!(retry.order, Some(order))", "assert_eq!(retry.stored_order, Some(stored))",
         "assert_eq!(store.submission_count(), 1)",
     )
+    recovered_order = recovery.split("fn assert_recovered_order(", 1)[1].split(
+        "fn assert_initial_submission(", 1
+    )[0]
+    assert (
+        "assert_eq!( UcpAdapter::read_order_with_config(stored, keys, config), Ok(order.clone()) );"
+    ) in recovered_order
     vectors = source("services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs")
     assert 'include_str!("fixtures/sequenced-order.json")' in vectors
     assert 'MerchantCurrencyBinding::new(submission.currency, submission.layerx_asset, 2, 6)' in vectors

@@ -7,9 +7,9 @@ authorized native calls. The [Human API schema](../../schema/human-api/README.md
 contract. Principal and tenant authorization precede operation dispatch;
 caller aliases and currency labels are selectors, not signing authority.
 
-Paxeer mainnet-beta is one BFT network with EVM chain id **125** (`0x7d`). The
-kernel is part of the network and proposes blocks. A receipt becomes final when
-its block is committed. Tenant domains are database namespaces. Human services
+Paxeer mainnet-beta uses EVM chain id **125** (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt becomes final when its block is committed. Tenant domains are database namespaces. Human services
 consume that network's transaction and receipt paths.
 
 ## Processes and dependencies
@@ -47,9 +47,11 @@ retained for retry rather than preparing a different transaction after submissio
 See [production_components.rs](src/server/production_components.rs).
 
 Bank sends are zero-value EIP-1559 calls on chain **125** to
-`0x0000000000000000000000000000000000001001`, using
-`send(address,address,string,uint256)`. The disclosure binds sender, recipient,
-denomination and amount. The executor reads the sender's **pending nonce** using
+the denomination’s native pointer, using
+`transfer(address,uint256)`. The service reads `getNativePointer(string)` at
+`0x000000000000000000000000000000000000100a`, requires the pointer to exist, and
+binds the denomination to its asset digest. The disclosure binds sender, pointer,
+recipient and amount. The executor reads the sender's **pending nonce** using
 `eth_getTransactionCount` with the `pending` block tag; the kernel account sequence
 is not an EVM nonce. Multi-leg plans bind consecutive pending nonces and reject
 nonce mismatches. Retries reconcile the retained transaction hash and signed bytes
@@ -74,6 +76,9 @@ submitted operation can report completion. A submission-only reply remains
 incomplete. See [onboarding_sponsor.rs](src/server/onboarding_sponsor.rs).
 
 ## Configuration
+
+Passkeys default to relying party `paxportwallet.com` and web origins
+`https://paxportwallet.com,https://api-mainnet-beta.paxeer.network`.
 
 This table locates the main configuration boundaries; it is not a complete
 deployment environment. Required fields and bounds are read by
@@ -147,6 +152,7 @@ clock process:
 ```sh
 cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test agent_runtime_eip1559
 cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test agent_runtime_nonces
+cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test documented_service_contract
 ```
 
 Production still requires its authenticated runtime-clock supervisor. Broader suites

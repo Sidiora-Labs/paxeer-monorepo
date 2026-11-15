@@ -17,7 +17,7 @@ import material
 import merged_owner
 import provision
 from merged_owner import LEDGER, PAYMENT, evm
-from test_owner_custody import environment
+from test_merged_owner import environment
 
 
 def guide_sections():

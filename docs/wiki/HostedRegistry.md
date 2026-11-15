@@ -4,8 +4,8 @@
 `layerx-cgroup-exec` build supervisor. The registry exposes program metadata,
 published interfaces, source archives and reproducible-build verdicts. Program
 execution belongs to the integrated kernel in `paxd`; the hosted registry is an
-off-chain reader and builder. A receipt is final when its block is committed on
-the BFT chain, whose EVM chain ID is `125` (`0x7d`). See
+off-chain reader and builder. A receipt is final when validators commit its
+block on the chain with EVM chain ID `125` (`0x7d`). See
 [Unified Network Architecture](UnifiedNetwork.md).
 
 The current native read client is

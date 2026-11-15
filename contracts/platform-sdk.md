@@ -2,10 +2,10 @@
 
 This contract describes the platform clients in [`sdk/platform`](../sdk/platform). Public
 names retain `LayerX` where that is the package or wire-format name. The clients
-connect to Paxeer X Network: one BFT chain, with its kernel participating in the
-network and proposing blocks. A transaction receipt is final when its block is
-committed. Sub-chains are tenant domains in the database, without separate chain
-infrastructure.
+connect to Paxeer X Network. The LayerX kernel inside `paxd` executes and orders
+each transaction and builds each block; validators check and commit it. A transaction
+receipt is final when the validators commit its block. Sub-chains are tenant
+domains in the database, without separate chain infrastructure.
 
 ## Network and transport
 

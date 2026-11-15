@@ -8,9 +8,9 @@ The offline contracts do not execute their command templates. The
 its activation updates database authority and leaves traffic switching to the
 traffic owner. Checked-in resources do not establish a production deployment.
 
-These are application restoration procedures on the single Paxeer network, EVM
-chain ID `125`. The kernel participates in block proposal and execution, and
-block commit determines receipt finality. A restoration epoch fences application
+These are application restoration procedures on Paxeer, EVM chain ID `125`. The
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it. Block commit determines receipt finality. A restoration epoch fences application
 writes and broker acknowledgements; it does not change chain finality. See the
 [launchpad deployment overview](../../README.md).
 

@@ -13,8 +13,7 @@ func openExclusiveAt(dir *os.File, name string) (*os.File, error) {
 	}
 	file := os.NewFile(uintptr(fd), name)
 	if err = file.Chmod(0600); err != nil {
-		file.Close()
-		return nil, err
+		return nil, closeWithError(file, err)
 	}
 	return file, nil
 }
@@ -27,12 +26,14 @@ func openPrivateFile(path string) (*os.File, error) {
 	file := os.NewFile(uintptr(fd), path)
 	info, err := file.Stat()
 	if err != nil {
-		file.Close()
-		return nil, err
+		return nil, closeWithError(file, err)
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm() != 0600 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Geteuid()) {
-		file.Close()
-		return nil, errors.New("file must be an owner-only regular file")
+	uid, err := effectiveUID()
+	if err != nil {
+		return nil, closeWithError(file, err)
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm() != 0600 || uint64(info.Sys().(*syscall.Stat_t).Uid) != uid {
+		return nil, closeWithError(file, errors.New("file must be an owner-only regular file"))
 	}
 	return file, nil
 }

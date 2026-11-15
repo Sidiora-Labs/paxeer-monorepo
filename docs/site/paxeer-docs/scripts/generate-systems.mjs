@@ -41,7 +41,7 @@ for (const system of systems) {
       throw new Error(`${system.id}.${field} must be a list of nonempty strings`)
     }
   }
-  if (!['new', 'changed', 'unchanged'].includes(system.change)) {
+  if (!['new', 'changed', 'unchanged', 'retired'].includes(system.change)) {
     throw new Error(`Unknown release change for ${system.id}: ${system.change}`)
   }
   for (const dependency of system.depends) {

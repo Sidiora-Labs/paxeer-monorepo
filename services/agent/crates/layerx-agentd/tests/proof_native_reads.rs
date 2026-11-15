@@ -590,7 +590,6 @@ pub(crate) mod disposable_node {
     use std::path::{Path, PathBuf};
     use std::process::{Command, Stdio};
     use std::thread;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use zeroize::Zeroizing;
 
     #[track_caller]
@@ -621,38 +620,70 @@ pub(crate) mod disposable_node {
                 "missing producer harness: {}",
                 script.display()
             );
-            let directory = Path::new("/tmp/lx-localnode").join(format!(
-                "native-reads-{}-{}",
-                std::process::id(),
-                must(SystemTime::now().duration_since(UNIX_EPOCH)).as_nanos()
-            ));
+            let mut identifier = [0_u8; 16];
+            must(getrandom::fill(&mut identifier));
+            let base = Path::new("/tmp/lx-localnode");
             must(
                 std::fs::DirBuilder::new()
                     .recursive(true)
                     .mode(0o700)
-                    .create(&directory),
+                    .create(base),
             );
+            let directory = (0..32)
+                .find_map(|attempt| {
+                    let candidate = base.join(format!(
+                        "native-reads-{}-{}-{attempt}",
+                        std::process::id(),
+                        layerx_programs::hex::encode(&identifier)
+                    ));
+                    match std::fs::DirBuilder::new().mode(0o700).create(&candidate) {
+                        Ok(()) => Some(candidate),
+                        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
+                        Err(error) => panic!("disposable native reads node: {error:?}"),
+                    }
+                })
+                .unwrap_or_else(|| panic!("disposable native reads node: directory allocation"));
             let environment = directory.join("localnode.env");
             let log_path = directory.join("startup.log");
-            let log = must(
+            must(
                 std::fs::OpenOptions::new()
                     .write(true)
                     .create_new(true)
                     .mode(0o600)
                     .open(&log_path),
             );
-            let status = Command::new("bash")
-                .arg(&script)
-                .args(["--sequencer", "--env-out"])
-                .arg(&environment)
-                .env("TMPDIR", "/tmp")
-                .env_remove("PAXD")
-                .stdout(Stdio::from(must(log.try_clone())))
-                .stderr(Stdio::from(log))
-                .status()
-                .unwrap_or_else(|error| {
-                    panic!("start tools/qualification/localnode/v6120-node.sh producer: {error:?}")
-                });
+            let paxd = std::env::var_os("PAXD")
+                .unwrap_or_else(|| panic!("PAXD must name the built native node"));
+            assert!(
+                Path::new(&paxd).is_file(),
+                "PAXD must name a native node file"
+            );
+            let run = || {
+                let output = must(std::fs::OpenOptions::new().append(true).open(&log_path));
+                Command::new("bash")
+                    .arg(&script)
+                    .args(["--sequencer", "--env-out"])
+                    .arg(&environment)
+                    .env("TMPDIR", "/tmp")
+                    .env("PAXD", &paxd)
+                    .stdout(Stdio::from(must(output.try_clone())))
+                    .stderr(Stdio::from(output))
+                    .status()
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "start tools/qualification/localnode/v6120-node.sh producer: {error:?}"
+                        )
+                    })
+            };
+            let mut status = run();
+            let transient_bootstrap_exit = !status.success()
+                && std::fs::read_to_string(&log_path)
+                    .map(|log| log.contains("kill: (") && log.contains("No such process"))
+                    .unwrap_or(false);
+            if transient_bootstrap_exit {
+                thread::sleep(std::time::Duration::from_millis(100));
+                status = run();
+            }
             let evidence_path = if status.success() {
                 log_path
             } else {
@@ -763,6 +794,23 @@ pub(crate) mod disposable_node {
 
     impl Drop for LocalNode {
         fn drop(&mut self) {
+            if let Some(pid) = std::fs::read_to_string(self.home.join("feeder.pid"))
+                .ok()
+                .and_then(|pid| pid.trim().parse::<u32>().ok())
+            {
+                let command_path = format!("/proc/{pid}/cmdline");
+                let home_bytes = self.home.as_os_str().as_encoded_bytes();
+                if let Ok(command) = std::fs::read(command_path) {
+                    if command
+                        .windows(home_bytes.len())
+                        .any(|window| window == home_bytes)
+                    {
+                        let _ = Command::new("kill")
+                            .args(["-KILL", &pid.to_string()])
+                            .status();
+                    }
+                }
+            }
             let status = Command::new("bash")
                 .arg(&self.script)
                 .arg("--stop")

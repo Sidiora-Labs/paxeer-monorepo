@@ -111,14 +111,16 @@ def test_package_metadata_names_the_owning_repository_and_existing_directory(
 
 def test_all_seven_sdk_links_resolve_to_existing_package_contracts():
     replacements = {
-        "sdk/js/README.md": ["../../contracts/sdk-js.md#encoding-tokenfactory"],
+        "sdk/js/README.md": [
+            "../../contracts/sdk-js.md",
+            "../../contracts/bridge/README.md#interface-contracts",
+            "../../apps/explorer/public/openapi.yaml",
+            "../../apps/explorer/lib/socket/types.ts",
+        ],
         "contracts/sdk-js.md": [
-            "../sdk/js/README.md#pax-jscosmosencoding",
             "../sdk/js/package.json",
-            "../sdk/js/README.md#usage-with-cosmjsstargate",
-            "../sdk/js/README.md#pax-jscosmostypes",
-            "../sdk/js/README.md#pax-jscosmostypes",
-            "../sdk/js/README.md#pax-jscosmosrest",
+            "../sdk/js/README.md",
+            "../sdk/js/test/tokenfactory-encoding.test.cjs",
         ],
     }
     assert sum(map(len, replacements.values())) == 7
@@ -129,8 +131,8 @@ def test_all_seven_sdk_links_resolve_to_existing_package_contracts():
             assert links[target] >= count, (document, target)
             assert_local_target(document, target)
         assert not any("/dist/" in target for target in links), document
-        assert f"{REPOSITORY}/tree/main/sdk/js" in links, document
-        assert "absent from this checkout" in text or "does not contain" in text
+    assert f"{REPOSITORY}/tree/main/sdk/js" in markdown_targets(read("contracts/sdk-js.md"))
+    assert "consumers need the distribution artifacts" in read("contracts/sdk-js.md")
 
 
 def test_eight_archived_consensus_links_point_to_matching_cometbft_pages():
@@ -168,12 +170,12 @@ def test_eight_archived_consensus_links_point_to_matching_cometbft_pages():
 def test_keyring_keeps_operator_instructions_without_private_repository_links():
     text = read(KEYRING)
     assert "## Operator runbook" in text
-    assert "Kubernetes Secret" in text
+    assert "projected file" in text
     for variable in (
         "SEI_KEYRING_BACKEND", "SEI_KEYRING_DIR", "SEI_KEYRING_PASSPHRASE"
     ):
         assert variable in text.split("## Operator runbook", 1)[1]
-    assert "Mount the keyring read-only" in text
+    assert "Populate the configured keyring directory from the deployment's secret storage" in text
     assert "restarting the sidecar pod" in text
     assert "https://github.com/" not in text
 

@@ -22,19 +22,19 @@ layerx-programs-sandbox/src/host_ffi/terminal.rs
 # Foreign function declaration retaining sandbox host exports.
 layerx-programs-sandbox/src/lib.rs
 # Foreign function link of the sandbox archive test.
-layerx-programs-sandbox/tests/repair_22_33_231.rs
+layerx-programs-sandbox/tests/durable_lease_lifecycle.rs
 # Foreign function link of the sandbox host export test.
 layerx-programs-sandbox/tests/host_ffi_link.rs
 # Foreign function link of the runtime native contract test.
-layerx-programs-runtime/tests/repair_22_31_259.rs
+layerx-programs-runtime/tests/persisted_execution_replay.rs
 # Counting allocator of the runtime receipt decoder test.
-layerx-programs-runtime/tests/repair_22_33_226.rs
+layerx-programs-runtime/tests/receipt_field_bounds.rs
 # Counting allocator of the runtime guest execution test.
-layerx-programs-runtime/tests/repair_22_33_227.rs
+layerx-programs-runtime/tests/host_read_preflight.rs
 # Counting allocator of the runtime host state decoder test.
-layerx-programs-runtime/tests/repair_22_33_258.rs
+layerx-programs-runtime/tests/storage_scan_allocation.rs
 # Foreign function link of the runtime interface test.
-layerx-programs-runtime/tests/repair_22_33_259.rs
+layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs
 # Foreign function link of the arbiter signature test.
 layerx-programs-arbiter/tests/proof_arbiter_crate.rs
 UNSAFE_EXCEPTIONS

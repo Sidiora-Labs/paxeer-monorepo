@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
 sys.path.insert(0, str(ROOT / "tests/agent/sdk/python"))
 
-from test_repair_22_31_147 import WEB_FIXTURES, http_server, raw
+from test_committed_receipt_consumers import WEB_FIXTURES, http_server, raw
 
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 from layerx_sdk.web_search import (

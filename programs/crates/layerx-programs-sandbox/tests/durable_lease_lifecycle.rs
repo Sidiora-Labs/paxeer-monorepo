@@ -705,7 +705,7 @@ fn programs_contract_is_published_with_the_crate() {
     ] {
         assert!(contract.contains(term), "contract lacks {term}");
     }
-    let record = include_str!("../../../../spec/layerx-merge/programme/records/spec/layerx-merge/programme/records/programs/crates/layerx-programs-sandbox/src/repair_22_33_231.kvx");
+    let record = include_str!("../../../../spec/layerx-merge/programme/records/programs/crates/layerx-programs-sandbox/src/repair_22_33_231.kvx");
     for id in [
         "truncated-submission",
         "expiry-lifetime-capacity",

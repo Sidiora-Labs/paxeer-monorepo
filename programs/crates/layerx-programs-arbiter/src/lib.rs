@@ -1,4 +1,4 @@
-#![doc = include_str!("repair_22_33_215.md")]
+#![doc = include_str!("chain_authenticated_interfaces.md")]
 
 use layerx_programs::chain_proof::{proto, ChainProofError};
 #[path = "../../layerx-programs-registry/src/chain_proof/multistore.rs"]

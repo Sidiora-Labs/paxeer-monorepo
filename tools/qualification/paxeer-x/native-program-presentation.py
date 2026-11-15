@@ -34,7 +34,7 @@ def require(value, message):
 
 
 def build_manifest_path():
-    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/agent'))
+    target = Path(os.environ.get('CARGO_TARGET_DIR', str(ROOT / ".lane-target")))
     return Path(os.environ.get('PAXEER_X_NATIVE_PROGRAM_PRESENTATION_BUILD_MANIFEST',
                                str(target / 'paxeer-x' / (BUILD_PROFILE + '.json'))))
 
@@ -46,7 +46,7 @@ def admit_build_manifest(path, source=None, root=ROOT):
 
 
 def main():
-    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/agent'))
+    target = Path(os.environ.get('CARGO_TARGET_DIR', str(ROOT / ".lane-target")))
     if sys.argv[1:] == ['--build']:
         build_contract.build_test_targets(build_manifest_path(), TARGETS, target)
         return

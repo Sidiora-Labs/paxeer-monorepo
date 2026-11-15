@@ -296,7 +296,7 @@ def test_relay_retirement_8_parser_rejects_generic_rpc_errors_and_success():
 def test_relay_retirement_8_committed_header_checks_recorded_bft_fields():
     parser = production("fork-rehearsal.sh", "rehearsal_json")
     # Recorded BFT reply; the EVM projection here is a parser unit vector only.
-    comet = json.loads((PAXEER / "tests/fixtures/repair_22_33_1324/commit.json").read_text())
+    comet = json.loads((PAXEER / "tests/fixtures/chain_evidence_tls/commit.json").read_text())
     signed = comet["result"]["signed_header"]
     height = int(signed["header"]["height"])
     eth = {

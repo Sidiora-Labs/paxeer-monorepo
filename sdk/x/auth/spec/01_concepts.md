@@ -9,8 +9,7 @@ SDK application in Paxeer. The `authz` module grants permission to execute
 messages on behalf of another account. Authentication and delegated authorization
 are separate responsibilities.
 
-Paxeer mainnet-beta is one BFT network. Its kernel participates in the network
-and proposes blocks; a receipt is final when its block is committed. The EVM
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final when its block is committed. The EVM
 chain ID is `125` (`0x7d`). SDK transactions use the configured SDK chain ID in
 their sign bytes; the numeric EVM chain ID is not a substitute for that value.
 See [Client](07_client.md) for the query interfaces.

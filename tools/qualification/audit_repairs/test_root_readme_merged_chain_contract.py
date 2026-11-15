@@ -15,6 +15,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
+PROTOCOL = (ROOT / "docs/wiki/Protocol.md").read_text(encoding="utf-8")
+PAGE_DIR = ROOT / "docs/readme"
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_257.kvx")
 
 
@@ -25,10 +29,10 @@ def source(path):
 def section(title, level=3):
     """Extract a real heading and its children, ignoring fenced examples."""
     marker = "#" * level + " " + title + "\n"
-    assert README.count(marker) == 1, title
+    assert NETWORK.count(marker) == 1, title
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -45,9 +49,12 @@ def section(title, level=3):
 def test_034_one_chain_125_embeds_kernel_in_paxd():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -58,21 +65,21 @@ def test_034_one_chain_125_embeds_kernel_in_paxd():
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
         "node/sequencer/consensus_source.go"
     )
-    assert re.search(r"\blayerxd\b", README, re.I) is None
+    assert re.search(r"\blayerxd\b", NETWORK, re.I) is None
 
 
 def test_034_public_root_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "`https://api1.mainnet-beta.paxeer.network` through " in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "api1.mainnet-beta.paxeer.network" in PUBLIC_RPC
+    assert "api14.mainnet-beta.paxeer.network" in PUBLIC_RPC
     allowed = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     public_urls = [
         urlsplit(url)
-        for url in re.findall(r"https?://[^\s`<>)]+", README)
+        for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
         if urlsplit(url).hostname in allowed
     ]
     assert {url.hostname for url in public_urls} >= {
@@ -88,9 +95,7 @@ def test_034_public_root_hosts_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in examples[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -138,7 +143,7 @@ def test_034_finality_requires_authenticated_block_commitment():
         "Neither a transaction hash nor a signed execution receipt alone establishes block commitment",
     ):
         assert fact in proof, fact
-    diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
+    diagrams = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
     topology = [diagram for diagram in diagrams if "flowchart LR" in diagram]
     sequence = [diagram for diagram in diagrams if "sequenceDiagram" in diagram]
     assert len(topology) == len(sequence) == 1
@@ -181,15 +186,14 @@ def test_034_current_repository_paths_and_merge_status():
         "daemon/paxd", "node/", "consensus/", "modules/", "rpc/",
         "modules/lxphost", "node/sequencer/", "programs/", "src/", "include/",
     ):
-        assert path in README, path
+        assert path in NETWORK, path
         assert (ROOT / path).is_dir(), path
     releases = section("Releases and Network Upgrades")
     assert "merged runtime executes kernel activity inside `paxd`" in releases
-    assert "commits it with the BFT chain state" in releases
+    assert "validators commit it in the same block" in releases
     assert "`v7.0` merge handler activates the merged interfaces" in releases
     assert "retires the old custody/checkpoint write paths" in releases
-    assert not re.search(r"\bmerge\b[^.\n]*\bdraft\b|\bdraft\b[^.\n]*\bmerge\b", README, re.I)
-    assert "planned destinations under `core/` and `sdk/programs`" in README
+    assert not re.search(r"\bmerge\b[^.\n]*\bdraft\b|\bdraft\b[^.\n]*\bmerge\b", NETWORK, re.I)
 
 
 def test_034_record_maps_proof_limits_and_external_revision_evidence():

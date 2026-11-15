@@ -1,11 +1,13 @@
 # Agent Rust API
 
 The agent workspace is
-[`services/agent/Cargo.toml`](../services/agent/Cargo.toml). Its crate names retain
-the `layerx-` prefix; they implement agents for the merged Paxeer network.
-Mainnet-beta uses EVM chain ID 125, and committed blocks establish receipt
-finality on the one BFT network. Historical Rust identifiers are not instructions
-to provision another execution or finality service.
+[`services/agent/Cargo.toml`](../services/agent/Cargo.toml). Its crate names
+retain the `layerx-` prefix; they implement agents for the merged Paxeer
+network. Mainnet-beta uses EVM chain ID 125, and committed blocks establish
+receipt finality on Paxeer. The LayerX kernel inside `paxd` executes and orders
+each transaction and builds each block; validators check and commit it.
+Historical Rust identifiers are not instructions to provision another execution
+or finality service.
 
 Read the [API contract](agent-api.md), [configuration](agent-config.md),
 [formats](agent-formats.md) and [Human peer](agent-human-peer.md) alongside this

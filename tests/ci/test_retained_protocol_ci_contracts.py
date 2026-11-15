@@ -34,8 +34,13 @@ def test_finding_001_preserves_corpus_rejections_and_budget_pull_exclusion():
         "unsupported_corpus_version_is_build_breaking",
         "unknown_vector_class_names_the_missing_capability",
         "retired budget pull excluded",
-        "unexpected undeclared replay activities: [196616, 196619]",
+        r"unexpected undeclared replay activities: \[(\d+)\]",
     } <= strings
+    statements = {ast.dump(node) for node in preparation.body}
+    rejection = ast.parse(
+        "assert int(diagnostic.group(1)) == 0x00030008, refused.stdout"
+    ).body[0]
+    assert ast.dump(rejection) in statements
     assert not any("activity::replay_registry_tests" in value for value in strings)
     assert any(
         isinstance(node, ast.Call) and isinstance(node.func, ast.Name)

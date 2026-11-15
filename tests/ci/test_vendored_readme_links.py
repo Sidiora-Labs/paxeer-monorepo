@@ -91,11 +91,10 @@ def test_vendored_readme_relative_links_resolve_or_are_absolute():
     assert _link_targets(EVM).count(
         _upstream_url("core/deps/geth", "cmd/evm/t8n_test.go")
     ) == 1
-    assert _link_targets(RELEASE_PROCESS).count(
-        _upstream_url(
-            "core/deps/geth", "crypto/secp256k1/libsecp256k1/tools/check-abi.sh"
-        )
-    ) == 1
+    assert _link_targets(RELEASE_PROCESS).count("../tools/check-abi.sh") == 1
+    assert (RELEASE_PROCESS.parent / "../tools/check-abi.sh").resolve() == (
+        ROOT / "core/deps/geth/crypto/secp256k1/libsecp256k1/tools/check-abi.sh"
+    )
 
     time_format_links = [
         target for target in _link_targets(CHANGELOG) if "#time-format" in target
