@@ -43,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>): JSX.Element 
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <a
           href="#bridge"
-          className="sr-only focus:not-sr-only focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
+          className="skip-link sr-only focus:not-sr-only focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
         >
           Skip to the bridge
         </a>
