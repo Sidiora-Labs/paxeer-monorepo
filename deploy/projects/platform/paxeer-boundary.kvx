@@ -1,0 +1,33 @@
+[service.paxeer-boundary]
+kind = "repo"
+dockerfile = "docker/paxeer/Dockerfile"
+root = "/"
+watch = ["/docker/paxeer/**", "/docker/common/**", "/services/**", "/programs/**"]
+# The boundary's TLS listener and loopback node require a shared network namespace.
+target = "other"
+health = "/livez"
+restart = "ALWAYS"
+replicas = 1
+public = 0
+order = 4
+needs = ["sequencer-primary"]
+
+[vars.paxeer-boundary]
+PORT = "9443"
+LAYERX_PAXEER_BOUNDARY_LISTEN = "0.0.0.0:${{PORT}}"
+LAYERX_PAXEER_NODE_URL = "env:PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_NODE_URL"
+LAYERX_PAXEER_CHAIN_ID = "env:PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_CHAIN_ID"
+LAYERX_PAXEER_BOUNDARY_TLS_CERT_DER = "/run/layerx-paxeer/cert.der"
+LAYERX_PAXEER_BOUNDARY_TLS_KEY_DER = "/run/layerx-paxeer/key.der"
+LAYERX_PAXEER_BOUNDARY_TLS_CERT_B64 = "env:PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_BOUNDARY_TLS_CERT_B64"
+LAYERX_PAXEER_BOUNDARY_TLS_KEY_B64 = "env:PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_BOUNDARY_TLS_KEY_B64"
+
+[inputs.paxeer-boundary]
+# Loopback node JSON-RPC URL with an explicit nonzero port.
+PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_NODE_URL = "operator"
+# Positive decimal EVM chain identifier.
+PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_CHAIN_ID = "chain"
+# Base64-encoded X.509 certificate DER bytes.
+PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_BOUNDARY_TLS_CERT_B64 = "operator"
+# Base64-encoded PKCS#8 private-key DER bytes.
+PLATFORM_PAXEER_BOUNDARY_LAYERX_PAXEER_BOUNDARY_TLS_KEY_B64 = "operator"

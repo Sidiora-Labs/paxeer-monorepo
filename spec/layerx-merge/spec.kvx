@@ -14494,6 +14494,36 @@ value = "Where docs/release/7.0.0-systems.kvx is present, docs/site/paxeer-docs/
 basis = "The image build copies only the two site folders, and the committed file is the output of the same script from the same inventory."
 affects = []
 
+[decision.3564]
+title = "The project tool names inputs by the folder and takes the repository from the project file"
+value = "The project name in an env name of decision 3560 is the name of the folder under deploy/projects: the env name is the folder name, the service name and the variable name in upper case joined by underscores, every other character replaced by an underscore. It stays the same where an option of the tool replaces the destination project. The meta section of project.kvx may state repo as owner/repository. A repo row without a repo key takes it from there, a repo row with the key keeps its own, and a repo row with neither is refused with file and row. A row with target = other requires kind and order alone; where it states health, the value is a path or tcp: followed by a port. In a definition watch and needs are lists in brackets, a health path holds no query, and needs names a service by its section name. Each project folder has one test under tools/deploy/tests/projects that loads the folder through the load function of the tool and requires every definition file of the folder among the result, so a definition the tool does not take cannot enter the repository."
+basis = "Gotcha 4479. The definitions agree with each other on the folder name, and the hosting platform takes a health path without a query."
+affects = []
+
+[decision.3565]
+title = "The project tool speaks the forms of the hosting platform for a repo row"
+value = "For a repo row tools/deploy/platform-project.py creates the service with the repository as its source and the branch beside it, sends in the instance update the Dockerfile path, the root directory, the watch patterns, the health path with its timeout, the restart policy and the replica count and nothing else, and sets repository and branch of an existing service through the connect call of the service. It asks the platform for neither a branch nor a builder on an instance. It reads the branch from the record of the latest deployment; where no deployment exists the branch counts as not set and the plan shows a connect step. Repository names are compared without regard to case. Every request of a deploy tool to the platform carries a User-Agent header that names the tool. The recorded transport of the tests holds the forms of the platform, so a form the platform does not take cannot pass them."
+basis = "Gotcha 4480. The forms are the ones the interface of the platform publishes."
+affects = []
+
+[decision.3566]
+title = "The source of a wire vector pair follows the wire library, and its copy follows the source"
+value = "For the pairs of tests/ci/data/intentional_copies.txt under services/agent/crates/layerx-wire/tests/support/wallet_vectors the file under services/agent/crates/layerx-wire/tests/support/wallet_vectors is the source. Its rows follow the account names and identifiers the wire library services/agent/crates/layerx-wire derives. The copy under services/wallet/attestor/internal/lxwire/testdata is the same bytes, and the tests of services/wallet/attestor/internal/lxwire that name a row of a vector file name it as the file writes it. A change to a vector row is made in the source, the copy and the tests of both languages in one commit."
+basis = "Gotcha 4481. One list of native accounts serves both languages."
+affects = []
+
+[decision.3567]
+title = "A hosted service carries the name the certificate roster gives it"
+value = "The name of a hosted service in tools/bringup/ca-services.tsv is its name in every definition under deploy/projects, in deploy/rollout.kvx, in the needs lists and references of other services and in the env names of its inputs. The hosted gateway is gateway with the definition file gateway.kvx and the env names PLATFORM_GATEWAY_ followed by the variable name; its store is redis-gateway. A definition of a service the roster has no row for keeps its name. A name the roster lists as retired is used by no definition and no row."
+basis = "Gotcha 4482. The roster is the list certificates are issued from, and the bring-up tools read it."
+affects = []
+
+[decision.3568]
+title = "A migration on main keeps its content"
+value = "A migration file under services/explorer/backend/apps/explorer/priv/repo/migrations that is on main is not changed. A change of the schema is a new migration with a later version, written so that a database in either earlier state ends in the same state: it states the target form of the column or index and applies it only where it is missing."
+basis = "Gotcha 4485. A database applies a version once."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44154,6 +44184,132 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.623]
+title = "Keep the indexed counters quiet where no endpoint runs"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/indexed_counters_without_endpoint_test.exs"
+do_1 = "do_1 Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/blocks_indexed_counter.ex and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/internal_transactions_indexed_counter.ex, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex with broadcast_indexed_ratio, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/application.ex with the children it starts when the web application is switched off, and one test under services/explorer/backend/apps/block_scout_web/test/repair for the form."
+symbols = []
+
+[capability.22.39.622]
+title = "Let the acceptance replay take several blocks at a time and read a pruned height as unavailable"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/paxeer_x", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs", "services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_pace_test.exs"
+do_1 = "do_1 Gotcha 4485. Read services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex with get_json, get_once, node_error and pick_error, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex with price_updates_supervisor.ex beside it, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, and the tests services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs, services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs and services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs."
+symbols = []
+
+[capability.22.39.621]
+title = "Make the accepted column optional on every database and index the replay queue"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_column_test.exs"
+do_1 = "do_1 Gotcha 4485, decision 3568. Read the migrations 20261028000000 and 20261104000000 under services/explorer/backend/apps/explorer/priv/repo/migrations, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, the schema services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex and under services/explorer/backend/apps/explorer/test/repair the tests historical_price_acceptance_replay_test.exs and price_acceptance_replay_lifecycle_test.exs."
+symbols = []
+
+[capability.22.39.620]
+title = "Import a block whose receipts hold entries of the chain itself"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/indexer/lib/indexer/block", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/repair/block_receipts_chain_entries_test.exs"
+do_1 = "do_1 Gotcha 4484. Read services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex with the functions that validate receipts and logs, services/explorer/backend/apps/indexer/lib/indexer/block/fetcher/receipts.ex, services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex with fetch_by_block_numbers, services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex and the test services/explorer/backend/apps/indexer/test/repair/receipt_log_identity_validation_test.exs."
+symbols = []
+
+[capability.22.39.619]
+title = "Give the hosted gateway and its store the names of the certificate roster"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform", "deploy/rollout.kvx", "tools/rollout/tests", "tools/deploy/tests/projects/test_platform_router.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py && bash tools/rollout/tests/rollout.test.sh"
+do_1 = "do_1 Gotcha 4482, decision 3567. Read tools/bringup/ca-services.tsv, tools/bringup/roster.go, deploy/projects/platform/router.kvx, deploy/projects/platform/faucet.kvx, deploy/rollout.kvx, tools/deploy/tests/projects/test_platform_router.py, tools/deploy/tests/projects/test_platform_folder.py and under tools/rollout/tests the files rollout.test.sh and retained.kvx with the entries they replay."
+symbols = []
+
+[capability.22.39.618]
+title = "Let the perps project tool name itself in its requests"
+reqs = ["22998.1"]
+touches = ["tools/deploy/railway-perps-project.py", "tools/deploy/tests/railway-perps-project.test.sh"]
+tests = []
+verification_contract = "bash tools/deploy/tests/*-perps-project.test.sh"
+do_1 = "do_1 Gotcha 4480, decision 3565. Read tools/deploy/*-perps-project.py and tools/deploy/tests/*-perps-project.test.sh."
+symbols = []
+
+[capability.22.39.617]
+title = "Bring the wallet wire vectors and their copies into one form"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-wire/tests/support/wallet_vectors", "services/wallet/attestor/internal/lxwire/testdata", "services/wallet/attestor/internal/lxwire", "services/agent/crates/layerx-wire/tests"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py -k test_other_intentional_copies_match_sources && (cd services/wallet/attestor && go test -count=1 ./internal/lxwire/) && make -s agent-test AGENT_TEST_SCOPE='-p layerx-wire'"
+do_1 = "do_1 Gotcha 4481, decision 3566. Read the rows of tests/ci/data/intentional_copies.txt that name services/agent/crates/layerx-wire/tests/support/wallet_vectors, the source of services/agent/crates/layerx-wire that derives native account names and identifiers, services/agent/crates/layerx-wire/tests/hashing.rs, services/agent/crates/layerx-wire/tests/historical_codec_boundaries.rs, and under services/wallet/attestor/internal/lxwire the files lxwire_test.go and native_account_names_test.go with the code they test."
+symbols = []
+
+[capability.22.39.616]
+title = "Let the project tool speak the forms of the hosting platform for a repo row"
+reqs = ["22998.1"]
+touches = ["tools/deploy/platform-project.py", "tools/deploy/tests/test_platform_project.py", "tools/deploy/tests/fixtures/platform-project"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+do_1 = "do_1 Gotcha 4480, decision 3565. Read tools/deploy/platform-project.py whole and tools/deploy/tests/test_platform_project.py with the fixtures under tools/deploy/tests/fixtures/platform-project."
+symbols = []
+
+[capability.22.39.615]
+title = "Let the definitions of the project sites load through the project tool"
+reqs = ["22998.1"]
+touches = ["deploy/projects/sites", "tools/deploy/tests/projects"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_*.py"
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/sites and the tests of the folder under tools/deploy/tests/projects."
+symbols = []
+
+[capability.22.39.614]
+title = "Let the definitions of the project explorer load through the project tool"
+reqs = ["22998.1"]
+touches = ["deploy/projects/explorer", "tools/deploy/tests/projects"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_*.py"
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/explorer and the tests of the folder under tools/deploy/tests/projects."
+symbols = []
+
+[capability.22.39.613]
+title = "Let the definitions of the project interop load through the project tool"
+reqs = ["22998.1"]
+touches = ["deploy/projects/interop", "tools/deploy/tests/projects"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_*.py"
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/interop and the tests of the folder under tools/deploy/tests/projects."
+symbols = []
+
+[capability.22.39.612]
+title = "Let the definitions of the project wallet load through the project tool"
+reqs = ["22998.1"]
+touches = ["deploy/projects/wallet", "tools/deploy/tests/projects", "apps/wallet/src/app/api/health"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_*.py"
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/wallet and the tests of the folder under tools/deploy/tests/projects."
+symbols = []
+
+[capability.22.39.611]
+title = "Let the definitions of the project platform load through the project tool"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform", "tools/deploy/tests/projects"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_*.py"
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/platform and the tests of the folder under tools/deploy/tests/projects."
+symbols = []
+
+[capability.22.39.610]
+title = "Let the project tool name inputs by the folder and take the repository from the project file"
+reqs = ["22998.1"]
+touches = ["tools/deploy/platform-project.py", "tools/deploy/tests/test_platform_project.py", "tools/deploy/tests/fixtures/platform-project", "deploy/projects/README.md", "deploy/projects/platform/project.kvx", "deploy/projects/wallet/project.kvx", "deploy/projects/interop/project.kvx", "deploy/projects/explorer/project.kvx", "deploy/projects/sites/project.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py, tools/deploy/tests/test_platform_project.py with the fixtures under tools/deploy/tests/fixtures/platform-project, deploy/projects/README.md, the five project files under deploy/projects and three definitions of different folders with their tests under tools/deploy/tests/projects."
+symbols = []
 
 [capability.22.39.609]
 title = "Let the system map generator of the documentation site run where the inventory is not in reach"
@@ -172146,7 +172302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.609]
 title = "Let the system map generator of the documentation site run where the inventory is not in reach"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172178,7 +172334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.607]
 title = "Add the container file of the service inference-peer and define it in the project sites for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172225,7 +172381,7 @@ do_5 = "do_5 Add docker/names-web/Dockerfile with its ignore file as decision 35
 symbols = []
 touches = ["apps/names", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
 tests = []
-planned_paths = ["deploy/projects/sites/names.kvx", "tools/deploy/tests/projects/test_sites_names.py", "docker/names-web/Dockerfile"]
+planned_paths = ["deploy/projects/sites/names.kvx", "tools/deploy/tests/projects/test_sites_names.py", "docker/names-web/Dockerfile", "docker/names-web/Dockerfile.dockerignore"]
 build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_sites_names.py"
 verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_names.py && test -s docker/names-web/Dockerfile"
 gate_kind = "planned"
@@ -172242,7 +172398,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.601]
 title = "Add the container file of the service bridge-web and define it in the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197146,6 +197302,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.617]
+title = "Bring the wallet wire vectors and their copies into one form"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.617"]
+interfaces = []
+do_1 = "do_1 Gotcha 4481, decision 3566. Read the rows of tests/ci/data/intentional_copies.txt that name services/agent/crates/layerx-wire/tests/support/wallet_vectors, the source of services/agent/crates/layerx-wire that derives native account names and identifiers, services/agent/crates/layerx-wire/tests/hashing.rs, services/agent/crates/layerx-wire/tests/historical_codec_boundaries.rs, and under services/wallet/attestor/internal/lxwire the files lxwire_test.go and native_account_names_test.go with the code they test."
+do_2 = "do_2 Compare each pair of the inventory under services/agent/crates/layerx-wire/tests/support/wallet_vectors and services/wallet/attestor/internal/lxwire/testdata by bytes and list the pairs that differ. For each differing row establish from the source of the wire library which account name and identifier the library derives, and make the source file under services/agent/crates/layerx-wire/tests/support/wallet_vectors state that row. Change no code of the library and no rule of either language."
+do_3 = "do_3 Make each copy under services/wallet/attestor/internal/lxwire/testdata the same bytes as its source. Where a test under services/wallet/attestor/internal/lxwire or under services/agent/crates/layerx-wire/tests names a row of a vector file in another form than the file writes it, bring the test in line with the file. A test that states a rule of account names on its own and reads no vector file stays as it is."
+do_4 = "do_4 Run the tests of services/wallet/attestor/internal/lxwire and of the wire library once and give their last lines in the final message, with the list of do_2. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-wire/tests/support/wallet_vectors", "services/wallet/attestor/internal/lxwire/testdata", "services/wallet/attestor/internal/lxwire", "services/agent/crates/layerx-wire/tests", "tests/ci/data/intentional_copies.txt"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/wallet/attestor && go build ./internal/lxwire/..."
+verify_cmd = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py -k test_other_intentional_copies_match_sources && (cd services/wallet/attestor && go test -count=1 ./internal/lxwire/) && make -s agent-test AGENT_TEST_SCOPE='-p layerx-wire'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Gotcha 4483. tests/ci/data/intentional_copies.txt is in the paths. Remove from it every row whose source or whose copy is no longer in the tree, and no other row; give the count of removed rows in the final message. A file that was the copy of a removed source stays where it is. Run the build once and the verification once at the final revision."
+
+[task.22.39.612]
+title = "Let the definitions of the project wallet load through the project tool"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.610", "22.39.594", "22.39.595", "22.39.596", "22.39.597"]
+reqs = ["22998.1"]
+capabilities = ["22.39.612"]
+interfaces = []
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/wallet and the tests of the folder under tools/deploy/tests/projects."
+do_2 = "do_2 Load the folder through the load function of the tool and bring each definition the tool does not take into the form of decision 3564: watch and needs as lists in brackets, needs by the section name of a service of the folder or a name of deploy/rollout.kvx, an order not below the order of a needed service, a health path without a query that the service serves, no empty value, no key the tool does not know. The env names stay as they are. A row with target = other states health only as a path or as tcp with the port of its listener. Change no value a definition states for a variable."
+do_3 = "do_3 The wallet application answers its liveness form only through a query of apps/wallet/src/app/api/health/route.ts. Add apps/wallet/src/app/api/health/live/route.ts, which answers the same liveness form at a path of its own through the code the present route uses, with a test beside it in the form of the tests of that folder, and let the definition name the new path with the base path the application is served under. The present route keeps its behaviour. Run the tests of that folder once by hand and give their last lines in the final message."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_wallet_folder.py: it loads deploy/projects/wallet through the load function of the tool, requires one service in the result for every service section of every definition file of the folder, requires the repository of each repo row to be the one of the project file, and finds the files by listing the folder, so a definition added later is covered. Where a test of a definition under tools/deploy/tests/projects states a form this task changes, bring that test in line and change nothing else of it."
+do_5 = "do_5 Run the plan of the tool once over the folder with the recorded transport or with no token set and give in the final message its exit code and the count of services and of inputs it names. Print no value. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/wallet", "tools/deploy/tests/projects", "apps/wallet/src/app/api/health"]
+tests = []
+planned_paths = ["tools/deploy/tests/projects/test_wallet_folder.py", "apps/wallet/src/app/api/health/live/route.ts"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_wallet_folder.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_*.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.583]
 title = "Add the container file of the service ai-evaluator and define it in the project platform for the hosting platform"
 status = "pending"
@@ -197180,7 +197400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.574]
 title = "Send registry credentials only where a row asks and follow a replaced deployment in the perps project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197273,7 +197493,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.568]
 title = "Make the reviewed Go builder of the launchpad images and the Go directives of the launchpad modules agree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377837,9 +378057,264 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.619]
+title = "Give the hosted gateway and its store the names of the certificate roster"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.611"]
+reqs = ["22998.1"]
+capabilities = ["22.39.619"]
+interfaces = []
+do_1 = "do_1 Gotcha 4482, decision 3567. Read tools/bringup/ca-services.tsv, tools/bringup/roster.go, deploy/projects/platform/router.kvx, deploy/projects/platform/faucet.kvx, deploy/rollout.kvx, tools/deploy/tests/projects/test_platform_router.py, tools/deploy/tests/projects/test_platform_folder.py and under tools/rollout/tests the files rollout.test.sh and retained.kvx with the entries they replay."
+do_2 = "do_2 Move deploy/projects/platform/router.kvx to deploy/projects/platform/gateway.kvx with git mv. In it the sections are service.gateway, vars.gateway and inputs.gateway, every input is named PLATFORM_GATEWAY_ followed by the variable part it has now, the needs list and the reference to the private name of the store say redis-gateway, and the comments say redis-gateway. Change no other value of the definition."
+do_3 = "do_3 In every other definition under deploy/projects/platform replace a need of or a reference to redis-router or router by the roster name. In deploy/rollout.kvx the rows of the two services take the roster names, with their service names on the hosting platform, and every needs entry that names them follows. A row of another service stays as it is."
+do_4 = "do_4 Move tools/deploy/tests/projects/test_platform_router.py to tools/deploy/tests/projects/test_platform_gateway.py with git mv and bring it in line with the new names; it requires in addition that no definition under deploy/projects/platform and no row of deploy/rollout.kvx uses a name the roster function of tools/bringup/roster.go lists as retired, reading that list from the source file. Bring the tests and recorded entries under tools/rollout/tests in line with the new row names. A fixture that states the retained names of an earlier rollout on purpose keeps them; say so in the final message."
+do_5 = "do_5 List in the final message every definition under deploy/projects whose service has no row in the roster, with its file. Change none of them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform", "deploy/rollout.kvx", "tools/rollout/tests", "tools/deploy/tests/projects/test_platform_router.py"]
+tests = []
+planned_paths = ["deploy/projects/platform/gateway.kvx", "tools/deploy/tests/projects/test_platform_gateway.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_gateway.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py && bash tools/rollout/tests/rollout.test.sh"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.618]
+title = "Let the perps project tool name itself in its requests"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.618"]
+interfaces = []
+do_1 = "do_1 Gotcha 4480, decision 3565. Read tools/deploy/*-perps-project.py and tools/deploy/tests/*-perps-project.test.sh."
+do_2 = "do_2 Let the function of the perps project tool that sends a request to the hosting platform state a User-Agent header with the value perps-project. Change nothing else of the request."
+do_3 = "do_3 Add to the test script one case that takes the request the sending function builds, without sending it, and requires the header. The cases the script has now keep passing. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/railway-perps-project.py", "tools/deploy/tests/railway-perps-project.test.sh"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/*-perps-project.py"
+verify_cmd = "bash tools/deploy/tests/*-perps-project.test.sh"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.616]
+title = "Let the project tool speak the forms of the hosting platform for a repo row"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.610"]
+reqs = ["22998.1"]
+capabilities = ["22.39.616"]
+interfaces = []
+do_1 = "do_1 Gotcha 4480, decision 3565. Read tools/deploy/platform-project.py whole and tools/deploy/tests/test_platform_project.py with the fixtures under tools/deploy/tests/fixtures/platform-project."
+do_2 = "do_2 Change the part of tools/deploy/platform-project.py that states the wanted instance of a repo row: it holds dockerfilePath, rootDirectory, watchPatterns, the health path with its timeout, the restart policy and the replica count. It holds no builder. Repository and branch are kept beside it as the wanted connection of the row. An image row stays as it is."
+do_3 = "do_3 Change the part that reads the present state: the instance query asks for source with image and repo, dockerfilePath, rootDirectory, watchPatterns, healthcheckPath, healthcheckTimeout, restartPolicyType, numReplicas and latestDeployment with id, status and meta. It asks for no branch and no builder. The present branch of a repo row is the value of the key branch in meta of the latest deployment, and is not set where there is none. The present repository is the repo of source. Repository names are compared without regard to case."
+do_4 = "do_4 Change plan and apply for a repo row: a new service is created with the input keys projectId, name, source with repo, and branch. The instance update of a repo row sends only the keys of do_2 that differ. Where the present repository or branch differs from the wanted one or is not set, the plan shows one step connect with repository and branch, and apply sends after the instance update the mutation serviceConnect with the arguments id, the service id, and input with repo and branch, before the variables and the deployment. A repo row whose settings, connection and variables agree stays unchanged in the plan."
+do_5 = "do_5 Let the function that sends a request state a User-Agent header with the value platform-project. Keep the masking and every refusal as they are."
+do_6 = "do_6 Bring tools/deploy/tests/test_platform_project.py and its recorded entries in line with the forms above and add cases: a repo row is created with source and branch and no builder is sent in any call; an existing repo row on another branch plans and applies one connect call and no create; a repository name that differs only in case plans no connect; a repo row without a deployment plans a connect; the request of the sending function carries the header. The recorded transport refuses an instance query that asks for branch or builder and an instance update that holds branch, builder or a source with repo. The cases the test has now keep passing in the new forms. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/platform-project.py", "tools/deploy/tests/test_platform_project.py", "tools/deploy/tests/fixtures/platform-project"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/platform-project.py tools/deploy/tests/test_platform_project.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.615]
+title = "Let the definitions of the project sites load through the project tool"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.610", "22.39.606", "22.39.607", "22.39.608"]
+reqs = ["22998.1"]
+capabilities = ["22.39.615"]
+interfaces = []
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/sites and the tests of the folder under tools/deploy/tests/projects."
+do_2 = "do_2 Load the folder through the load function of the tool and bring each definition the tool does not take into the form of decision 3564: watch and needs as lists in brackets, needs by the section name of a service of the folder or a name of deploy/rollout.kvx, an order not below the order of a needed service, a health path without a query that the service serves, no empty value, no key the tool does not know. The env names stay as they are. A row with target = other states health only as a path or as tcp with the port of its listener. Change no value a definition states for a variable."
+do_3 = "do_3 Where a service answers its liveness form only through a query and no route of it answers at a path alone, leave the row as it is and name service and route in the final message."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_sites_folder.py: it loads deploy/projects/sites through the load function of the tool, requires one service in the result for every service section of every definition file of the folder, requires the repository of each repo row to be the one of the project file, and finds the files by listing the folder, so a definition added later is covered. Where a test of a definition under tools/deploy/tests/projects states a form this task changes, bring that test in line and change nothing else of it."
+do_5 = "do_5 Run the plan of the tool once over the folder with the recorded transport or with no token set and give in the final message its exit code and the count of services and of inputs it names. Print no value. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/sites", "tools/deploy/tests/projects"]
+tests = []
+planned_paths = ["tools/deploy/tests/projects/test_sites_folder.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_sites_folder.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_*.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.614]
+title = "Let the definitions of the project explorer load through the project tool"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.610", "22.39.602", "22.39.603", "22.39.604", "22.39.605"]
+reqs = ["22998.1"]
+capabilities = ["22.39.614"]
+interfaces = []
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/explorer and the tests of the folder under tools/deploy/tests/projects."
+do_2 = "do_2 Load the folder through the load function of the tool and bring each definition the tool does not take into the form of decision 3564: watch and needs as lists in brackets, needs by the section name of a service of the folder or a name of deploy/rollout.kvx, an order not below the order of a needed service, a health path without a query that the service serves, no empty value, no key the tool does not know. The env names stay as they are. A row with target = other states health only as a path or as tcp with the port of its listener. Change no value a definition states for a variable."
+do_3 = "do_3 Where a service answers its liveness form only through a query and no route of it answers at a path alone, leave the row as it is and name service and route in the final message."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_explorer_folder.py: it loads deploy/projects/explorer through the load function of the tool, requires one service in the result for every service section of every definition file of the folder, requires the repository of each repo row to be the one of the project file, and finds the files by listing the folder, so a definition added later is covered. Where a test of a definition under tools/deploy/tests/projects states a form this task changes, bring that test in line and change nothing else of it."
+do_5 = "do_5 Run the plan of the tool once over the folder with the recorded transport or with no token set and give in the final message its exit code and the count of services and of inputs it names. Print no value. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/explorer", "tools/deploy/tests/projects"]
+tests = []
+planned_paths = ["tools/deploy/tests/projects/test_explorer_folder.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_explorer_folder.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_*.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.613]
+title = "Let the definitions of the project interop load through the project tool"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.610", "22.39.598", "22.39.599", "22.39.600", "22.39.601"]
+reqs = ["22998.1"]
+capabilities = ["22.39.613"]
+interfaces = []
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/interop and the tests of the folder under tools/deploy/tests/projects."
+do_2 = "do_2 Load the folder through the load function of the tool and bring each definition the tool does not take into the form of decision 3564: watch and needs as lists in brackets, needs by the section name of a service of the folder or a name of deploy/rollout.kvx, an order not below the order of a needed service, a health path without a query that the service serves, no empty value, no key the tool does not know. The env names stay as they are. A row with target = other states health only as a path or as tcp with the port of its listener. Change no value a definition states for a variable."
+do_3 = "do_3 Where a service answers its liveness form only through a query and no route of it answers at a path alone, leave the row as it is and name service and route in the final message."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_interop_folder.py: it loads deploy/projects/interop through the load function of the tool, requires one service in the result for every service section of every definition file of the folder, requires the repository of each repo row to be the one of the project file, and finds the files by listing the folder, so a definition added later is covered. Where a test of a definition under tools/deploy/tests/projects states a form this task changes, bring that test in line and change nothing else of it."
+do_5 = "do_5 Run the plan of the tool once over the folder with the recorded transport or with no token set and give in the final message its exit code and the count of services and of inputs it names. Print no value. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/interop", "tools/deploy/tests/projects"]
+tests = []
+planned_paths = ["tools/deploy/tests/projects/test_interop_folder.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_interop_folder.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_interop_*.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.611]
+title = "Let the definitions of the project platform load through the project tool"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.610", "22.39.576", "22.39.577", "22.39.578", "22.39.579", "22.39.580", "22.39.581", "22.39.582", "22.39.583", "22.39.584", "22.39.585", "22.39.586", "22.39.587", "22.39.588", "22.39.589", "22.39.590", "22.39.591", "22.39.592", "22.39.593"]
+reqs = ["22998.1"]
+capabilities = ["22.39.611"]
+interfaces = []
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py as it is on the main line after task 22.39.610, deploy/projects/README.md, every file under deploy/projects/platform and the tests of the folder under tools/deploy/tests/projects."
+do_2 = "do_2 Load the folder through the load function of the tool and bring each definition the tool does not take into the form of decision 3564: watch and needs as lists in brackets, needs by the section name of a service of the folder or a name of deploy/rollout.kvx, an order not below the order of a needed service, a health path without a query that the service serves, no empty value, no key the tool does not know. The env names stay as they are. A row with target = other states health only as a path or as tcp with the port of its listener. Change no value a definition states for a variable."
+do_3 = "do_3 Where a service answers its liveness form only through a query and no route of it answers at a path alone, leave the row as it is and name service and route in the final message."
+do_4 = "do_4 Add tools/deploy/tests/projects/test_platform_folder.py: it loads deploy/projects/platform through the load function of the tool, requires one service in the result for every service section of every definition file of the folder, requires the repository of each repo row to be the one of the project file, and finds the files by listing the folder, so a definition added later is covered. Where a test of a definition under tools/deploy/tests/projects states a form this task changes, bring that test in line and change nothing else of it."
+do_5 = "do_5 Run the plan of the tool once over the folder with the recorded transport or with no token set and give in the final message its exit code and the count of services and of inputs it names. Print no value. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform", "tools/deploy/tests/projects"]
+tests = []
+planned_paths = ["tools/deploy/tests/projects/test_platform_folder.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_folder.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_*.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.610]
+title = "Let the project tool name inputs by the folder and take the repository from the project file"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.575"]
+reqs = ["22998.1"]
+capabilities = ["22.39.610"]
+interfaces = []
+do_1 = "do_1 Gotcha 4479, decision 3564. Read tools/deploy/platform-project.py, tools/deploy/tests/test_platform_project.py with the fixtures under tools/deploy/tests/fixtures/platform-project, deploy/projects/README.md, the five project files under deploy/projects and three definitions of different folders with their tests under tools/deploy/tests/projects."
+do_2 = "do_2 Change the load function of tools/deploy/platform-project.py as decision 3564 states: the env name is formed from the name of the folder that was loaded; the meta section accepts the key repo in the form owner/repository; a repo row takes the repository of the meta section where it has none of its own and is refused with file and row where neither states one; a row with target = other requires kind and order alone. Every other refusal of the tool stays as it is. Plan and apply send for a repo row the repository the load function resolved."
+do_3 = "do_3 State repo = sidiora-labs/paxeer-monorepo in the meta section of the five project files under deploy/projects, as the readme example writes the name. Change no definition file of a service."
+do_4 = "do_4 Extend tools/deploy/tests/test_platform_project.py and its fixtures: an env name by the folder name is taken and one by the project key is refused; a destination project replaced by the option leaves the env names as they are; a repo row without the key takes the repository of the project file and the plan shows it; a repo row with neither is refused; a row with target = other without health, restart and replicas loads; a row with target = other and a health value that is neither a path nor tcp with a port is refused. The cases the test has now keep passing."
+do_5 = "do_5 Bring deploy/projects/README.md in line: the example, the sentence on input names and the sentence on the repository. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/platform-project.py", "tools/deploy/tests/test_platform_project.py", "tools/deploy/tests/fixtures/platform-project", "deploy/projects/README.md", "deploy/projects/platform/project.kvx", "deploy/projects/wallet/project.kvx", "deploy/projects/interop/project.kvx", "deploy/projects/explorer/project.kvx", "deploy/projects/sites/project.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/platform-project.py tools/deploy/tests/test_platform_project.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/test_platform_project.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.608]
 title = "Define the service docs of the project sites for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377871,7 +378346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.605]
 title = "Define the service smart-contract-verifier of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377903,7 +378378,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.604]
 title = "Define the service sig-provider of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377935,7 +378410,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.603]
 title = "Define the service frontend of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377967,7 +378442,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.602]
 title = "Define the service backend of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377999,7 +378474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.600]
 title = "Define the service bridge-relayer of the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378031,7 +378506,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.599]
 title = "Define the service mirror of the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378063,7 +378538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.598]
 title = "Define the service interop of the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378127,7 +378602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.596]
 title = "Define the service wallet-attestor of the project wallet for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378159,7 +378634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.595]
 title = "Define the service gas-station of the project wallet for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378223,7 +378698,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.593]
 title = "Define the service hpx-registry of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378319,7 +378794,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.590]
 title = "Define the service paxeer-boundary of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378351,7 +378826,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.589]
 title = "Define the service receipt-authority of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378383,7 +378858,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.588]
 title = "Define the service core-boundary of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378415,7 +378890,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.587]
 title = "Define the service agent-boundary of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378447,7 +378922,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.586]
 title = "Define the service testnet-control of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378479,7 +378954,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.585]
 title = "Define the service faucet of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378511,7 +378986,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.584]
 title = "Define the service ramp of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378607,7 +379082,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.580]
 title = "Define the service dashboard-web of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378639,7 +379114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.579]
 title = "Define the service dashboard of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378671,7 +379146,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.578]
 title = "Define the service webhooks-public of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378864,7 +379339,7 @@ title = "Point the asset and hygiene checks at the files of the trading workspac
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.617"]
 reqs = ["22998.1"]
 capabilities = ["22.39.566"]
 interfaces = []
@@ -457130,6 +457605,127 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.623]
+title = "Keep the indexed counters quiet where no endpoint runs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.623"]
+interfaces = []
+do_1 = "do_1 Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/blocks_indexed_counter.ex and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/internal_transactions_indexed_counter.ex, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex with broadcast_indexed_ratio, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/application.ex with the children it starts when the web application is switched off, and one test under services/explorer/backend/apps/block_scout_web/test/repair for the form."
+do_2 = "do_2 Where the endpoint and its publisher are not started, the two counters compute their ratio and send no broadcast, without a failed process and without a line of level error in the log. Where the endpoint runs they broadcast as now. Decide by whether the publisher of the endpoint is running, not by a setting of its own."
+do_3 = "do_3 Add the test services/explorer/backend/apps/block_scout_web/test/repair/indexed_counters_without_endpoint_test.exs: with the publisher absent each of the two functions returns without raising and the log holds no error line; with the publisher present a subscriber receives the ratio on the topics it receives now. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/indexed_counters_without_endpoint_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/indexed_counters_without_endpoint_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.622]
+title = "Let the acceptance replay take several blocks at a time and read a pruned height as unavailable"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.621"]
+reqs = ["22998.1"]
+capabilities = ["22.39.622"]
+interfaces = []
+do_1 = "do_1 Gotcha 4485. Read services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex with get_json, get_once, node_error and pick_error, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex with price_updates_supervisor.ex beside it, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, and the tests services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs, services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs and services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs."
+do_2 = "do_2 In services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex a node that no longer holds a height is read as height_unavailable in every form the node gives: the text height N is not available, lowest height is M, and the text height is not available (requested height: N, base height: M), in a body of status 200 with code, message and data as well as in a body of another status. Such an answer never ends the round before the other URLs were asked, and it is the result only when every URL answered so."
+do_3 = "do_3 The replay takes up to a set number of blocks in one step, four unless the start option acceptance_backfill_concurrency says otherwise, each block in its own transaction and each block by one process only. A block that fails is held with its reason as now and does not stop the other blocks of the step. After a step that completed work the next step starts without the wait; the waits after a deferred and after a failed step stay. The order stays: blocks without a recorded reason first by number, held blocks after them."
+do_4 = "do_4 Add the test services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_pace_test.exs with these cases: a body of status 200 with the base height text from the first URL and the results from the second URL gives the results; every URL with that text gives height_unavailable; a step over six waiting blocks with the option at three completes three blocks; with one of the three failing it completes two and holds one with its reason; two steps called at the same time complete no block twice. Bring the tests named in do_1 in line where they state the earlier pace or the earlier reading, and say so in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/paxeer_x", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs", "services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_pace_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_pace_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.621]
+title = "Make the accepted column optional on every database and index the replay queue"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.621"]
+interfaces = []
+do_1 = "do_1 Gotcha 4485, decision 3568. Read the migrations 20261028000000 and 20261104000000 under services/explorer/backend/apps/explorer/priv/repo/migrations, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, the schema services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex and under services/explorer/backend/apps/explorer/test/repair the tests historical_price_acceptance_replay_test.exs and price_acceptance_replay_lifecycle_test.exs."
+do_2 = "do_2 Add the migration services/explorer/backend/apps/explorer/priv/repo/migrations/20261115000000_relax_paxeer_x_price_observation_accepted.exs. Its up makes the accepted column of paxeer_x_price_observations optional and without default whatever form the column has, and creates, only if it is missing, the index paxeer_x_price_acceptance_backfill_next_job_index on paxeer_x_price_acceptance_backfill over the expression error IS NOT NULL, then block_number, then block_hash, for the rows where completed is false. Its down drops that index and leaves the column. No statement rewrites a row of either table. Change no migration that is on main."
+do_3 = "do_3 Add the test services/explorer/backend/apps/explorer/test/repair/price_acceptance_column_test.exs: it brings the column to the required form with the default true inside its own transaction, runs the up of the new migration and requires an optional column without default and the index with its three parts in the order the query that picks the next job sorts by; it runs the up a second time and requires no change and no error; on that table one step of the replay completes a block that carries an accepted and a refused observation and leaves both values as the results of the node state them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/priv/repo/migrations/20261115000000_relax_paxeer_x_price_observation_accepted.exs", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_column_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_column_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.620]
+title = "Import a block whose receipts hold entries of the chain itself"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.620"]
+interfaces = []
+do_1 = "do_1 Gotcha 4484. Read services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex with the functions that validate receipts and logs, services/explorer/backend/apps/indexer/lib/indexer/block/fetcher/receipts.ex, services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex with fetch_by_block_numbers, services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex and the test services/explorer/backend/apps/indexer/test/repair/receipt_log_identity_validation_test.exs."
+do_2 = "do_2 Where receipts are read by block, a receipt whose type is 0xffffffff and whose transaction hash is not among the transactions the block lists is left out together with its logs before the receipts are joined to the transactions and validated. Take the type from the answer of the node where the decoded form does not carry it. Every other rule stays: a receipt of another type that belongs to no listed transaction, a duplicate, a wrong index and a missing receipt still refuse the range, and the path that reads receipts by transaction is unchanged."
+do_3 = "do_3 Add the test services/explorer/backend/apps/indexer/test/repair/block_receipts_chain_entries_test.exs with these cases, each against the code that reads by block: an answer with the receipts of two listed transactions and one receipt of type 0xffffffff with three logs and an unlisted hash gives the two receipts with their logs and none of the three logs; the same answer with the extra receipt of type 0x2 is refused as before; an answer that lacks the receipt of a listed transaction is refused as before. Run services/explorer/backend/apps/indexer/test/repair/receipt_log_identity_validation_test.exs once by hand and give its last line in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/indexer/lib/indexer/block", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/indexer/test/repair/block_receipts_chain_entries_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/repair/block_receipts_chain_entries_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

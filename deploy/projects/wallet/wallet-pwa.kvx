@@ -3,7 +3,7 @@ kind = "repo"
 dockerfile = "docker/wallet-pwa/Dockerfile"
 root = "."
 watch = ["docker/wallet-pwa/**", "apps/wallet/**", "sdk/wallet/**", "services/wallet/**", "services/agent/sdk/typescript/**"]
-health = "/wallet/api/health?mode=liveness"
+health = "/wallet/api/health/live"
 restart = "ON_FAILURE"
 replicas = 1
 volume = "/data/paxport"

@@ -143,7 +143,7 @@ def test_service_matches_container_and_deployment():
     assert service["root"] == "."
     assert (ROOT / service["dockerfile"]).is_file()
     deployment = json.loads((APP / "railway.json").read_text())["deploy"]
-    assert service["health"] == deployment["healthcheckPath"]
+    assert service["health"] == "/wallet/api/health/live"
     assert service["restart"] == deployment["restartPolicyType"]
     assert service["replicas"] == 1
     assert service["public"] == 1
@@ -244,9 +244,21 @@ def test_health_route_and_persistent_state_match_definition():
     route = APP / "src/app" / health.path.removeprefix(base).lstrip("/") / "route.ts"
     source = route.read_text()
     assert "export async function GET(" in source
-    assert health.query == "mode=liveness"
-    assert re.search(r"mode === ['\"]liveness['\"]", source)
-    assert "NextResponse.json(" in source
+    assert health.query == ""
+    helper_import = re.search(
+        r"import\s+\{\s*(\w+)\s*\}\s+from\s+['\"]([^'\"]+)['\"]", source
+    )
+    assert helper_import
+    helper_name, helper_module = helper_import.groups()
+    assert f"return {helper_name}();" in source
+    helper_route = (route.parent / helper_module).with_suffix(".ts")
+    helper_source = helper_route.read_text()
+    helper = re.search(
+        rf"export function {helper_name}\(\)\s*\{{(.*?)\n\}}", helper_source, re.S
+    )
+    assert helper
+    assert "NextResponse.json(" in helper[1]
+    assert re.search(r"check:\s*['\"]liveness['\"]", helper[1])
     for path in (APP / "src/server/push-store.ts", APP / "src/lib/rateLimit.ts"):
         defaults = re.findall(r"process\.env\.\w+\s*\?\?\s*['\"]([^'\"]+)['\"]", path.read_text())
         assert defaults

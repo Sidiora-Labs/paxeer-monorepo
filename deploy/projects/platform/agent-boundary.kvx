@@ -1,0 +1,50 @@
+# Agent boundary service definition for the paxeer-x-platform project.
+
+[service.agent-boundary]
+kind = "repo"
+container = "docker/platform-agent-boundary/Dockerfile"
+root = "."
+watch = ["docker/platform-agent-boundary/**", "docker/common/**", "services/platform/**", "services/agent/**", "services/human/crates/layerx-intents/**", "services/interop/crates/layerx-fiat/**"]
+health = "/livez"
+restart = "ALWAYS"
+replicas = 1
+order = 5
+needs = ["identity", "archive"]
+
+[vars.agent-boundary]
+LAYERX_AGENT_BOUNDARY_LISTEN = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_PORT"
+LAYERX_AGENT_BOUNDARY_TLS_CERT_DER = "/data/tls/agent-boundary/cert.der"
+LAYERX_AGENT_BOUNDARY_TLS_KEY_DER = "/data/tls/agent-boundary/key.der"
+LAYERX_AGENT_BOUNDARY_GATEWAY_TOKEN_FILE = "/run/layerx/agent-boundary/gateway-token"
+LAYERX_AGENT_BOUNDARY_REGISTRY_TOKEN_FILE = "/run/layerx/agent-boundary/registry-token"
+LAYERX_AGENT_BOUNDARY_WEBHOOK_TOKEN_FILE = "/run/layerx/agent-boundary/webhook-token"
+LAYERX_AGENT_BOUNDARY_NETWORK_ID = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_LAYERX_AGENT_BOUNDARY_NETWORK_ID"
+LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL"
+LAYERX_AGENT_BOUNDARY_RECEIPT_KEYS_FILE = "/data/agent-boundary/receipt-keys.json"
+PORT = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_PORT"
+AGENT_BOUNDARY_TLS_CERT_DER = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_TLS_CERT_DER"
+AGENT_BOUNDARY_TLS_KEY_DER = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_TLS_KEY_DER"
+AGENT_BOUNDARY_GATEWAY_TOKEN = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_GATEWAY_TOKEN"
+AGENT_BOUNDARY_REGISTRY_TOKEN = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_REGISTRY_TOKEN"
+AGENT_BOUNDARY_WEBHOOK_TOKEN = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_WEBHOOK_TOKEN"
+AGENT_BOUNDARY_RECEIPT_KEYS = "env:PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_RECEIPT_KEYS"
+
+[inputs.agent-boundary]
+# The hosting platform's assigned TCP port, as a positive decimal number.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_PORT = "operator"
+# The inbound server certificate in DER form, supplied as padded base64.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_TLS_CERT_DER = "operator"
+# The inbound PKCS#8 private key in DER form, supplied as padded base64.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_TLS_KEY_DER = "operator"
+# The gateway bearer token, supplied as padded base64 secret text.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_GATEWAY_TOKEN = "generated"
+# The registry bearer token, supplied as padded base64 secret text.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_REGISTRY_TOKEN = "generated"
+# The webhook bearer token, supplied as padded base64 secret text.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_WEBHOOK_TOKEN = "generated"
+# The governed receipt-key JSON document, supplied as padded base64.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_AGENT_BOUNDARY_RECEIPT_KEYS = "chain"
+# The canonical network label used in boundary responses.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_LAYERX_AGENT_BOUNDARY_NETWORK_ID = "chain"
+# The chain JSON-RPC URL used for receipt lookups.
+PAXEER_X_PLATFORM_AGENT_BOUNDARY_LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL = "chain"

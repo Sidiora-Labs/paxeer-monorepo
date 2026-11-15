@@ -13,10 +13,13 @@ FROM debian:bookworm-slim
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends ca-certificates libssl3 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 65532 --home-dir /nonexistent --shell /usr/sbin/nologin layerx
+    && useradd --system --uid 65532 --home-dir /nonexistent --shell /usr/sbin/nologin layerx \
+    && install -d -o 65532 -g 65532 -m 0700 /etc/layerx-mirror /var/lib/layerx-mirror
 COPY --from=build /src/.lane-target/release/layerx-mirror-publisher /usr/local/bin/layerx-mirror-publisher
 COPY --from=build /src/.lane-target/release/layerx-mirror-verify /usr/local/bin/layerx-mirror-verify
 COPY --from=build /src/.lane-target/release/layerx-mirror-signer /usr/local/bin/layerx-mirror-signer
+COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files
+COPY docker/interop-mirror/files.tsv /etc/layerx/files.tsv
 USER 65532:65532
-ENTRYPOINT ["/usr/local/bin/layerx-mirror-publisher"]
+ENTRYPOINT ["/usr/local/bin/layerx-env-files", "/usr/local/bin/layerx-mirror-publisher"]
 CMD ["/etc/layerx-mirror/config.json"]

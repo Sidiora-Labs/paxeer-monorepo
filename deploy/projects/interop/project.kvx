@@ -2,3 +2,4 @@
 kind = "railway-project"
 project = "paxeer-x-interop"
 environment = "production"
+repo = "sidiora-labs/paxeer-monorepo"

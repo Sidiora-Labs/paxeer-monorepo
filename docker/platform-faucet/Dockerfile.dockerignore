@@ -21,6 +21,12 @@ consensus
 custodyproof
 daemon
 docker
+!docker/
+!docker/common/
+!docker/common/env-files.sh
+!docker/platform-faucet/
+!docker/platform-faucet/files.tsv
+!docker/platform-faucet/entrypoint.sh
 engine
 tests/fixtures/example
 hpx

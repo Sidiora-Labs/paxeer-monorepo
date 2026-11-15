@@ -6,8 +6,8 @@ order = 1
 
 [vars.store]
 POSTGRES_DB = "platform"
-POSTGRES_PASSWORD = "env:PAXEER_X_PLATFORM_STORE_POSTGRES_PASSWORD"
+POSTGRES_PASSWORD = "env:PLATFORM_STORE_POSTGRES_PASSWORD"
 
 [inputs.store]
 # Database password: a random string shared with database clients.
-PAXEER_X_PLATFORM_STORE_POSTGRES_PASSWORD = "generated"
+PLATFORM_STORE_POSTGRES_PASSWORD = "generated"

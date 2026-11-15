@@ -105,13 +105,17 @@ async function checkWalletHealth(url: string, signal: AbortSignal): Promise<stri
   return body.version;
 }
 
+export function livenessResponse() {
+  return NextResponse.json(
+    { status: 'ok', check: 'liveness', timestamp: new Date().toISOString() },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
+}
+
 export async function GET(request: Request) {
   const mode = new URL(request.url).searchParams.get('mode') ?? 'readiness';
   if (mode === 'liveness') {
-    return NextResponse.json(
-      { status: 'ok', check: 'liveness', timestamp: new Date().toISOString() },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
+    return livenessResponse();
   }
   if (mode !== 'readiness') {
     return NextResponse.json(

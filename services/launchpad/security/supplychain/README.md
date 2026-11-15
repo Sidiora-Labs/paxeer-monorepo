@@ -73,7 +73,7 @@ It runs on relevant pushes to `main` or manual dispatch:
 - `plan` checks the configured base-image digest pins and selects rows that pass
   the image table's checks. Failed rows are reported as unbuilt.
 - `images` depends on `plan`. Its matrix builds and pushes selected images to
-  the workflow's configured GHCR namespace, tagged with the 12-character source revision and
+  `ghcr.io/sidiora-labs`, tagged with the 12-character source revision and
   `git describe`. It has `contents: read` and `packages: write`, logs into GHCR
   with the workflow token and uses `push: true`.
 - `digests` depends on `plan` and `images`. After a successful plan, when the run
@@ -86,22 +86,27 @@ absent so rollout cannot treat them as published images.
 Image publication and release admission are separate operations. A
 `digests.json` entry identifies a published image; policy admission consumes
 the independently authenticated evidence described above. Publication runs on
-push or manual dispatch, while admission requires push evidence. External
-actions are pinned to full revisions.
+push or manual dispatch, while admission requires push evidence. Publication does not
+invoke the six-check release admission policy and proves neither policy admission nor deployment approval.
+The admission policies' independent requirement for push evidence remains separate.
+External actions are pinned to full revisions.
 
 ## Reviewed toolchain and container builds
 
-[ci_tools.py](ci_tools.py) pins Go 1.26.4, Node 24.16.0 and pnpm 9.15.0, the
+[ci_tools.py](ci_tools.py) pins Go 1.27.0, Node 24.16.0 and pnpm 9.15.0, the
 reviewed tool baseline. It verifies reviewed executable hashes
 and versions rather than inferring trust from PATH. A leaf module's Go 1.25.0
 language directive is not an instruction to downgrade that tool baseline.
+The api, indexer, notifications, social and user modules and `go.work` declare
+Go 1.27.0 because their module graphs include `github.com/elliots/go-pglite`,
+which requires Go 1.27.0.
 
 [build.py](build.py) requires explicit immutable build/runtime image references,
 a service/binary allowlist and a reviewed secret-excluding Docker ignore file.
 It builds [Dockerfile.svc](../../../../deploy/launchpad/Dockerfile.svc) from the
 monorepo root. The Dockerfile also has digest-pinned defaults; CI supplies its
 reviewed image variables explicitly. The build image must contain Python 3 and
-Go 1.26.4. The Dockerfile validates the target, checks module manifest integrity,
+Go 1.27.0. The Dockerfile validates the target, checks module manifest integrity,
 downloads and verifies modules, disables CGO, VCS metadata and the build ID,
 uses trimpath and fixes the source epoch. The runtime runs as UID/GID 65532.
 Metadata uses the separate

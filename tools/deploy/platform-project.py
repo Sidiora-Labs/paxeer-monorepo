@@ -86,13 +86,16 @@ def load(folder, rollout=ROLLOUT):
     folder = Path(folder)
     project = Document(folder / "project.kvx")
     meta = project.sections.get("meta", {})
-    for key in set(meta) - {"name", "kind", "project", "environment"}:
+    for key in set(meta) - {"name", "kind", "project", "environment", "repo"}:
         project.fail("meta", key, f"unknown key {key}")
     for key in ("project", "environment"):
         if not isinstance(meta.get(key), str) or not re.fullmatch(NAME, meta[key]):
             project.fail("meta", key, f"{key} must be a lowercase name")
     if "kind" in meta and meta["kind"] != "railway-project":
         project.fail("meta", "kind", "kind must be railway-project")
+    if "repo" in meta and (not isinstance(meta["repo"], str) or
+                            not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", meta["repo"])):
+        project.fail("meta", "repo", "repo must be owner/repository")
     documents = [project] + [Document(p) for p in sorted(folder.glob("*.kvx")) if p.name != "project.kvx"]
     services, variables, inputs = {}, {}, {}
     for doc in documents:
@@ -121,7 +124,11 @@ def load(folder, rollout=ROLLOUT):
             doc.fail(section, "kind", "unknown kind; expected database, image or repo")
         for key in set(values) - KEYS[kind]:
             doc.fail(section, key, f"unknown key {key}")
-        missing = REQUIRED[kind] - set(values)
+        target = values.get("target", "railway")
+        required = {"kind", "order"} if target == "other" else set(REQUIRED[kind])
+        if kind == "repo":
+            required.discard("repo")
+        missing = required - set(values)
         if missing:
             doc.fail(section, None, f"missing keys {', '.join(sorted(missing))}")
         for key in (KEYS[kind] - {"order", "replicas", "public", "credentials", "needs", "watch"}) & set(values):
@@ -133,16 +140,19 @@ def load(folder, rollout=ROLLOUT):
         for key in ("public", "credentials"):
             if key in values and (type(values[key]) is not int or values[key] not in (0, 1)):
                 doc.fail(section, key, f"{key} must be 0 or 1")
-        if values.get("target", "railway") not in ("railway", "other"):
+        if target not in ("railway", "other"):
             doc.fail(section, "target", "target must be railway or other")
         for key in ("watch", "needs"):
             if key in values and (not isinstance(values[key], list) or
                                   not all(isinstance(v, str) and v for v in values[key])):
                 doc.fail(section, key, f"{key} must be a list of names or paths")
         if kind == "repo":
-            if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", values["repo"]):
+            repo = values.get("repo", meta.get("repo"))
+            if repo is None and target != "other":
+                doc.fail(section, "repo", "repo must be stated on the service or project")
+            if repo is not None and not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
                 doc.fail(section, "repo", "repo must be owner/repository")
-            if not values["watch"]:
+            if "watch" in values and not values["watch"]:
                 doc.fail(section, "watch", "watch must contain at least one pattern")
         if "restart" in values and values["restart"] not in ("ALWAYS", "ON_FAILURE", "NEVER"):
             doc.fail(section, "restart", "unknown restart policy")
@@ -166,7 +176,7 @@ def load(folder, rollout=ROLLOUT):
                 vars_doc.fail(f"vars.{name}", key, f"{key} must be an uppercase variable with a string value")
             if value.startswith("env:"):
                 source = value[4:]
-                expected = input_name(meta["project"], name, key)
+                expected = input_name(folder.name, name, key)
                 if source != expected:
                     vars_doc.fail(f"vars.{name}", key, f"env name must be {expected}")
                 if source not in inputs_:
@@ -177,7 +187,10 @@ def load(folder, rollout=ROLLOUT):
                 inputs_doc.fail(f"inputs.{name}", key, f"inputs row {key} has no use")
             if not isinstance(value, str) or value not in INPUTS:
                 inputs_doc.fail(f"inputs.{name}", key, "input must be generated, provider, chain or operator")
-        out.append(dict(values, name=name, railway_service=remote, vars=vars_, inputs=inputs_))
+        resolved = dict(values)
+        if kind == "repo" and "repo" not in resolved and "repo" in meta:
+            resolved["repo"] = meta["repo"]
+        out.append(dict(resolved, name=name, railway_service=remote, vars=vars_, inputs=inputs_))
     for svc in out:
         doc = services[svc["name"]][1]
         section = f"service.{svc['name']}"
@@ -222,7 +235,8 @@ def http_transport(token):
     def call(query, variables):
         request = urllib.request.Request(
             API, data=json.dumps({"query": query, "variables": variables}).encode(),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}",
+                     "User-Agent": "platform-project"})
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
                 body = json.load(response)
@@ -317,8 +331,8 @@ def current_state(gql, meta, services):
             continue
         instance = gql(
             "query Instance($s: String!, $e: String!) { serviceInstance(serviceId: $s, environmentId: $e) { "
-            "source { image repo } branch builder dockerfilePath rootDirectory watchPatterns "
-            "healthcheckPath healthcheckTimeout restartPolicyType numReplicas latestDeployment { id status } } }",
+            "source { image repo } dockerfilePath rootDirectory watchPatterns "
+            "healthcheckPath healthcheckTimeout restartPolicyType numReplicas latestDeployment { id status meta } } }",
             {"s": sid, "e": env["id"]})["serviceInstance"] or {}
         variables = gql(
             "query Variables($p: String!, $e: String!, $s: String!) { "
@@ -347,10 +361,9 @@ def load_digests(path):
     return digests
 
 
-def desired_instance(svc, digests, branch):
+def desired_instance(svc, digests):
     if svc["kind"] == "repo":
-        want = {"source": {"repo": svc["repo"]}, "branch": branch, "builder": "DOCKERFILE",
-                "dockerfilePath": svc["dockerfile"], "rootDirectory": svc["root"], "watchPatterns": svc["watch"]}
+        want = {"dockerfilePath": svc["dockerfile"], "rootDirectory": svc["root"], "watchPatterns": svc["watch"]}
     else:
         image = svc["image"]
         if svc["kind"] == "image" and image in digests:
@@ -365,13 +378,20 @@ def desired_instance(svc, digests, branch):
 
 
 def plan_service(svc, cur, digests, branch):
-    want = desired_instance(svc, digests, branch)
+    want = desired_instance(svc, digests)
+    connection = {"repo": svc["repo"], "branch": branch} if svc["kind"] == "repo" else None
     have = (cur or {}).get("instance") or {}
     diff = {key: value for key, value in want.items() if have.get(key) != value}
     if "source" in diff and {key: (have.get("source") or {}).get(key) for key in want["source"]} == want["source"]:
         diff.pop("source")
     steps = [("create", svc["railway_service"])] if cur is None else []
     steps.extend(("setting", key) for key in sorted(diff))
+    if connection:
+        repository = (have.get("source") or {}).get("repo")
+        metadata = (have.get("latestDeployment") or {}).get("meta") or {}
+        if (repository is None or repository.casefold() != connection["repo"].casefold()
+                or metadata.get("branch") != connection["branch"]):
+            steps.append(("connect", f"{connection['repo']} {connection['branch']}"))
     if svc.get("credentials") and (cur is None or "source" in diff):
         steps.append(("registry", "GHCR_USERNAME GHCR_TOKEN"))
     volume = (cur or {}).get("volume")
@@ -395,10 +415,10 @@ def plan_service(svc, cur, digests, branch):
         latest = have.get("latestDeployment") or {}
         if not latest.get("id") or latest.get("status") in FAILED | REPLACED:
             steps.append(("redeploy", svc["railway_service"]))
-    return want, diff, steps, upsert, missing
+    return want, connection, diff, steps, upsert, missing
 
 
-def apply_service(gql, svc, state, want, diff, steps, upsert):
+def apply_service(gql, svc, state, want, connection, diff, steps, upsert):
     project, env = state["project"]["id"], state["env"]["id"]
     cur = state["services"].get(svc["railway_service"])
 
@@ -408,9 +428,16 @@ def apply_service(gql, svc, state, want, diff, steps, upsert):
         say(f"applied {svc['railway_service']} {operation}")
         return data
 
-    sid = cur["id"] if cur else write(
-        "mutation ServiceCreate($i: ServiceCreateInput!) { serviceCreate(input: $i) { id } }",
-        {"i": {"projectId": project, "name": svc["railway_service"], "source": want["source"]}})["serviceCreate"]["id"]
+    if cur:
+        sid = cur["id"]
+    else:
+        create = {"projectId": project, "name": svc["railway_service"]}
+        if connection:
+            create.update(source={"repo": connection["repo"]}, branch=connection["branch"])
+        else:
+            create["source"] = want["source"]
+        sid = write("mutation ServiceCreate($i: ServiceCreateInput!) { serviceCreate(input: $i) { id } }",
+                    {"i": create})["serviceCreate"]["id"]
     ids = {"s": sid, "e": env}
     update = dict(want) if cur is None else dict(diff)
     kinds = {kind for kind, _ in steps}
@@ -419,6 +446,9 @@ def apply_service(gql, svc, state, want, diff, steps, upsert):
     if update:
         write("mutation InstanceUpdate($s: String!, $e: String!, $i: ServiceInstanceUpdateInput!) { "
               "serviceInstanceUpdate(serviceId: $s, environmentId: $e, input: $i) }", dict(ids, i=update))
+    if "connect" in kinds:
+        write("mutation ServiceConnect($s: String!, $i: ServiceConnectInput!) { "
+              "serviceConnect(id: $s, input: $i) { id } }", {"s": sid, "i": connection})
     if "volume" in kinds:
         write("mutation VolumeCreate($i: VolumeCreateInput!) { volumeCreate(input: $i) { id } }",
               {"i": {"projectId": project, "environmentId": env, "serviceId": sid, "mountPath": svc["volume"]}})
@@ -523,13 +553,15 @@ def main(argv, transport=None):
                 say(f"service {svc['order']} {svc['railway_service']} {svc['kind']} target=other")
                 continue
             cur = state["services"].get(svc["railway_service"])
-            want, diff, steps, upsert, unset = plan_service(svc, cur, digests, args.branch)
+            want, connection, diff, steps, upsert, unset = plan_service(svc, cur, digests, args.branch)
             missing.update(unset)
             status = "create" if cur is None else "update" if steps else "unchanged"
             say(f"service {svc['order']} {svc['railway_service']} {svc['kind']} {status}")
+            if svc["kind"] == "repo":
+                say(f"  repo {svc['repo']}")
             for kind, detail in steps:
                 say(f"  {kind} {detail}")
-            rows.append((svc, want, diff, steps, upsert))
+            rows.append((svc, want, connection, diff, steps, upsert))
         say(f"services={len(services)}")
         if args.plan:
             if missing:
