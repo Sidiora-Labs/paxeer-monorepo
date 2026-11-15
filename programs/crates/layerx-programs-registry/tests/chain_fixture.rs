@@ -344,7 +344,7 @@ fn support_fixture_verifies_through_public_verifier() {
         assert_eq!(evidence.programs_root(), evidence.state_root());
         assert_eq!(
             evidence.receipt_digest(),
-            code_hash(&fixture.proof.state.transaction)
+            code_hash(&support::deployment::raw_transaction(&fixture.proof))
         );
         assert_eq!(
             evidence.freshness(),

@@ -61,7 +61,7 @@ func validLabel(label string) bool {
 	}
 	for i := range label {
 		c := label[i]
-		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
 			return false
 		}
 	}
@@ -79,7 +79,7 @@ func namehash(label string) []byte {
 	return keccak(append(node, keccak([]byte(label))...))
 }
 
-func (h *Handler) rpc(ctx context.Context, method string, params any) (string, error) {
+func (h *Handler) rpc(ctx context.Context, method string, params any) (result string, err error) {
 	request, err := json.Marshal(struct {
 		Version string `json:"jsonrpc"`
 		ID      int    `json:"id"`
@@ -102,11 +102,15 @@ func (h *Handler) rpc(ctx context.Context, method string, params any) (string, e
 	if err != nil {
 		return "", err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); err == nil {
+			err = closeErr
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("RPC HTTP status %d", response.StatusCode)
 	}
-	var result struct {
+	var responseResult struct {
 		Version string  `json:"jsonrpc"`
 		ID      int     `json:"id"`
 		Result  *string `json:"result"`
@@ -115,16 +119,16 @@ func (h *Handler) rpc(ctx context.Context, method string, params any) (string, e
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&result); err != nil {
+	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&responseResult); err != nil {
 		return "", err
 	}
-	if result.Error != nil {
-		return "", fmt.Errorf("RPC %d: %s", result.Error.Code, result.Error.Message)
+	if responseResult.Error != nil {
+		return "", fmt.Errorf("RPC %d: %s", responseResult.Error.Code, responseResult.Error.Message)
 	}
-	if result.Version != "2.0" || result.ID != 1 || result.Result == nil {
+	if responseResult.Version != "2.0" || responseResult.ID != 1 || responseResult.Result == nil {
 		return "", errors.New("invalid RPC response")
 	}
-	return *result.Result, nil
+	return *responseResult.Result, nil
 }
 
 func (h *Handler) call(ctx context.Context, address, signature string, node []byte, block string) ([]byte, error) {
@@ -283,7 +287,9 @@ func (h *Handler) serveUDP(conn net.PacketConn) error {
 		go func() {
 			defer func() { <-workers }()
 			if answer, err := h.answerWire(buf[:n], true); err == nil {
-				conn.WriteTo(answer, peer)
+				if _, err := conn.WriteTo(answer, peer); err != nil {
+					return
+				}
 			}
 		}()
 	}
@@ -312,13 +318,13 @@ func (h *Handler) serveTCP(listener net.Listener) error {
 		default:
 			// Refuse overload by closing immediately. Reading a question to
 			// send a DNS error would itself admit unbounded slow-peer work.
-			conn.Close()
+			_ = conn.Close()
 		}
 	}
 }
 
 func (h *Handler) serveTCPConn(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	for {
 		if err := conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
 			return
@@ -333,6 +339,9 @@ func (h *Handler) serveTCPConn(conn net.Conn) {
 		}
 		answer, err := h.answerWire(wire, false)
 		if err != nil {
+			return
+		}
+		if len(answer) > 1<<16-1 {
 			return
 		}
 		binary.BigEndian.PutUint16(size[:], uint16(len(answer)))

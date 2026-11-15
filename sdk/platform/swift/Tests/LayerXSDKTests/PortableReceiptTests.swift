@@ -319,7 +319,7 @@ final class PortableReceiptTests: XCTestCase {
 
   func testPortableReceiptRoundTripsAtReceipted() throws {
     let cases = try vectors()
-    XCTAssertEqual(cases.count, 4)
+    XCTAssertEqual(cases.count, 5)
     for v in cases {
       let exported = try export(v)
       XCTAssertEqual(exported.verificationLevel, "receipted", v.id)
@@ -397,7 +397,7 @@ final class PortableReceiptTests: XCTestCase {
 
   func testPortableReceiptRefusesVersionOneFormat() throws {
     let cases = try vectors()
-    XCTAssertEqual(cases.count, 4)
+    XCTAssertEqual(cases.count, 5)
     for v in cases {
       let exported = try export(v)
       let pinned = try key(v)

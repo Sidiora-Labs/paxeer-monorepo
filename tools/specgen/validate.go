@@ -27,7 +27,7 @@ func Validate(wf, spec *Doc) []string {
 		reqs[id] = true
 	}
 
-	var ids []string
+	ids := make([]string, 0, len(spec.SectionsWithPrefix("task")))
 	waves := map[string]uint64{}
 	for _, id := range spec.SectionsWithPrefix("task") {
 		sec := "task." + id

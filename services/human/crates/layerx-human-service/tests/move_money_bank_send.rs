@@ -1,24 +1,12 @@
-use layerx_client::runtime_clock::RuntimeClock;
-use layerx_types::clock::{Clock, Deadline};
-use std::collections::BTreeMap;
-use std::fs::{self, OpenOptions};
-use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
+#[path = "support/live_bank_node.rs"]
+mod live_bank_node;
+use live_bank_node::{native_pointer, pending, submit, BankNode};
 
-use base64::Engine as _;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
-use layerx_client::rpc::receipt::{
-    lookup_authenticated, AuthenticatedReceipt, Lookup, LookupContext,
-};
-use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
+use layerx_client::rpc::receipt::AuthenticatedReceipt;
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_crypto::disclosure::call::ledger_selector;
-use layerx_crypto::evm_transaction::{
-    decode_signed, recover_sender, transaction_hash, Eip1559Call,
-};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_human_service::custody::{KeyId, Operation};
 use layerx_human_service::journeys::{
     Endpoint, MoveJourneyError, MoveLegExecution, MovePlan, Relationship, RouteRequest, SendRoute,
@@ -32,8 +20,9 @@ use layerx_types::intent::{
     SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
 };
 use layerx_types::rung::Rung;
-use serde_json::Value;
 use sha2::Digest as _;
+use std::fs;
+use std::path::Path;
 
 fn execution(key: u8, nonce: u64, ceiling: u128) -> MoveLegExecution {
     MoveLegExecution::new(
@@ -68,7 +57,7 @@ fn request(nonce: u64, to: u8, amount: u128) -> RouteRequest {
                 network_id: NetworkId::new(125).or_fail("network"),
                 protocol_version: ProtocolVersion::new(2).or_fail("protocol"),
             },
-            pointer: EvmAddress::new(BANK_ADDRESS),
+            pointer: EvmAddress::new([0x88; 20]),
             denom: "uhpx".to_owned(),
             chain_id: 125,
             max_priority_fee_per_gas: 1,
@@ -105,31 +94,23 @@ fn move_plan_is_one_bank_transfer_per_leg() {
     assert_eq!(movement.bank_transfers().len(), 2);
     assert!(movement.route().legs().is_empty());
     for (index, call) in movement.bank_transfers().iter().enumerate() {
-        assert_eq!(call.to, BANK_ADDRESS);
+        assert_eq!(call.to, [0x88; 20]);
         assert_eq!(call.nonce, 7 + index as u64);
         assert_eq!(movement.executions()[index].pending_nonce(), call.nonce);
         assert_eq!(call.chain_id, 125);
         assert_eq!(
             &call.data[..4],
-            &ledger_selector("send(address,address,string,uint256)")
+            &ledger_selector("transfer(address,uint256)")
         );
-        assert_eq!(call.data.len(), 196);
+        assert_eq!(call.data.len(), 68);
         assert_eq!(&call.data[4..16], &[0; 12]);
-        assert_eq!(&call.data[16..36], &[0x11; 20]);
-        assert_eq!(&call.data[36..48], &[0; 12]);
         assert_eq!(
-            &call.data[48..68],
+            &call.data[16..36],
             &[if index == 0 { 0x22 } else { 0x55 }; 20]
         );
-        assert_eq!(&call.data[68..99], &[0; 31]);
-        assert_eq!(call.data[99], 128);
         let amount = if index == 0 { 90_u128 } else { 40_u128 };
-        assert_eq!(&call.data[100..116], &[0; 16]);
-        assert_eq!(&call.data[116..132], &amount.to_be_bytes());
-        assert_eq!(&call.data[132..163], &[0; 31]);
-        assert_eq!(call.data[163], 4);
-        assert_eq!(&call.data[164..168], b"uhpx");
-        assert_eq!(&call.data[168..], &[0; 28]);
+        assert_eq!(&call.data[36..52], &[0; 16]);
+        assert_eq!(&call.data[52..68], &amount.to_be_bytes());
         let raw = call.sign(&[0x66; 32]).or_fail("real EIP-1559 signing");
         assert_eq!(
             decode_signed(&raw).or_fail("decode signed bank call").0,
@@ -204,171 +185,6 @@ fn move_plan_is_one_bank_transfer_per_leg() {
     .is_err());
 }
 
-fn unhex(text: &str) -> Vec<u8> {
-    text.strip_prefix("0x")
-        .or_fail("hex prefix")
-        .as_bytes()
-        .chunks_exact(2)
-        .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).or_fail("hex text"), 16)
-                .or_fail("hex byte")
-        })
-        .collect()
-}
-
-struct BankNode {
-    clock: Arc<RuntimeClock>,
-    script: PathBuf,
-    home: PathBuf,
-    endpoint: SequencerEndpoint,
-    secret: [u8; 32],
-}
-
-impl BankNode {
-    fn start() -> Self {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .ancestors()
-            .nth(4)
-            .or_fail("repository root");
-        let script = root.join("tools/qualification/localnode/v6120-node.sh");
-        let environment = std::env::temp_dir()
-            .join("lx-localnode")
-            .join(format!("move-bank-{}.env", std::process::id()));
-        let evidence = layerx_human_test_support::directory("move-bank-node");
-        fs::create_dir_all(&evidence).or_fail("node evidence directory");
-        fs::set_permissions(&evidence, fs::Permissions::from_mode(0o700))
-            .or_fail("private evidence directory");
-        let log_path = evidence.join("startup.log");
-        let log = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .mode(0o600)
-            .open(&log_path)
-            .or_fail("private node log");
-        let status = Command::new("bash")
-            .arg(&script)
-            .arg("--sequencer")
-            .arg("--env-out")
-            .arg(&environment)
-            .stdout(Stdio::from(log.try_clone().unwrap_or_else(|error| {
-                panic!("{}: {error:?}", "node log clone")
-            })))
-            .stderr(Stdio::from(log))
-            .status()
-            .or_fail("start genuine disposable sequencer");
-        assert!(
-            status.success(),
-            "node startup failed; evidence: {}",
-            log_path.display()
-        );
-        let text = fs::read_to_string(&environment).or_fail("disposable node environment");
-        let fields: BTreeMap<_, _> = text
-            .lines()
-            .map(|line| line.split_once('=').or_fail("node environment entry"))
-            .collect();
-        let node = Self {
-            clock: RuntimeClock::from_environment().or_fail("bank node clock"),
-            script,
-            home: PathBuf::from(fields["LOCAL_NODE_HOME"]),
-            endpoint: SequencerEndpoint::new(fields["LOCAL_NODE_SEQUENCER_RPC"], &[])
-                .or_fail("genuine sequencer endpoint"),
-            secret: unhex(fields["LOCAL_NODE_KEY"])
-                .try_into()
-                .or_fail("EVM secret width"),
-        };
-        fs::remove_file(environment).or_fail("remove copied private environment");
-        node
-    }
-
-    fn receipt_keys(&self) -> Vec<ReceiptKeyEntry> {
-        let genesis: Value = serde_json::from_slice(
-            &fs::read(self.home.join("config/genesis.json")).or_fail("governed genesis"),
-        )
-        .or_fail("genesis JSON");
-        genesis["app_state"]["sequencer"]["receipt_keys"]
-            .as_array()
-            .or_fail("governed receipt key list")
-            .iter()
-            .map(|key| ReceiptKeyEntry {
-                key_id: base64::engine::general_purpose::STANDARD
-                    .decode(key["key_id"].as_str().or_fail("governed key ID"))
-                    .or_fail("base64 key ID")
-                    .try_into()
-                    .or_fail("key ID width"),
-                public_key: base64::engine::general_purpose::STANDARD
-                    .decode(key["public_key"].as_str().or_fail("governed public key"))
-                    .or_fail("base64 public key")
-                    .try_into()
-                    .or_fail("public key width"),
-                first_height: key["first_height"].as_u64().or_fail("first key height"),
-                last_height: key["last_height"].as_u64().or_fail("last key height"),
-            })
-            .collect()
-    }
-
-    fn receipt(
-        &self,
-        hash: [u8; 32],
-        keys: &[ReceiptKeyEntry],
-        rung: Rung,
-    ) -> AuthenticatedReceipt {
-        let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(60))
-            .or_fail("receipt deadline");
-        loop {
-            match lookup_authenticated(&self.endpoint, hash, LookupContext { receipt_keys: keys })
-                .unwrap_or_else(|error| {
-                    panic!("{}: {error:?}", "authenticate real sequencer receipt")
-                }) {
-                Lookup::Verified(receipt) if receipt.rung() >= rung => return receipt,
-                Lookup::Absent | Lookup::Submitted { .. } | Lookup::Verified(_) => {}
-            }
-            assert!(
-                !deadline
-                    .remaining(self.clock.as_ref())
-                    .or_fail("receipt clock")
-                    .is_zero(),
-                "transaction did not reach {rung:?}; evidence: {}",
-                self.home.display()
-            );
-            thread::sleep(Duration::from_millis(10));
-        }
-    }
-}
-
-impl Drop for BankNode {
-    fn drop(&mut self) {
-        let status = Command::new("bash")
-            .arg(&self.script)
-            .arg("--stop")
-            .arg(&self.home)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .or_fail("stop disposable sequencer");
-        assert!(status.success(), "disposable sequencer did not stop");
-    }
-}
-
-fn pending<T>(clock: &dyn Clock, mut operation: impl FnMut() -> Result<T, SequencerError>) -> T {
-    let mut deadline = Deadline::start(clock, Duration::from_secs(20)).or_fail("pending deadline");
-    loop {
-        match operation() {
-            Ok(value) => return value,
-            Err(SequencerError::Rpc(refusal))
-                if refusal.message == "pending block unavailable: sequencer: no block is open"
-                    || refusal.message == "sequencer: no block is open" =>
-            {
-                assert!(
-                    !deadline.remaining(clock).or_fail("pending clock").is_zero(),
-                    "sequencer did not open a block"
-                );
-                thread::sleep(Duration::from_millis(10));
-            }
-            Err(error) => panic!("real sequencer refused bank operation: {error:?}"),
-        }
-    }
-}
-
 fn live_request(
     nonce: u64,
     to: u8,
@@ -394,67 +210,6 @@ fn live_request(
     *max_fee_per_gas = 1_000_000_000_000;
     *gas_limit = 1_000_000;
     request
-}
-
-fn native_pointer(node: &BankNode, sender: [u8; 20], keys: &[ReceiptKeyEntry]) -> [u8; 20] {
-    let mut view = [0; 20];
-    view[18..].copy_from_slice(&0x100a_u16.to_be_bytes());
-    let mut data = ledger_selector("getNativePointer(string)").to_vec();
-    let mut offset = [0; 32];
-    offset[31] = 32;
-    data.extend(offset);
-    let mut length = [0; 32];
-    length[31] = 4;
-    data.extend(length);
-    let mut denom = [0; 32];
-    denom[..4].copy_from_slice(b"uhpx");
-    data.extend(denom);
-    let mut result = pending(node.clock.as_ref(), || {
-        node.endpoint.call_pending(&view, &data)
-    });
-    assert_eq!(result.len(), 96, "native pointer view ABI");
-    if result[64..] == [0; 32] {
-        let mut registry = [0; 20];
-        registry[18..].copy_from_slice(&0x100b_u16.to_be_bytes());
-        let mut registration_data = data.clone();
-        registration_data[..4].copy_from_slice(&ledger_selector("addNativePointer(string)"));
-        let call = Eip1559Call {
-            chain_id: 125,
-            nonce: pending(node.clock.as_ref(), || node.endpoint.pending_nonce(&sender)),
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 1_000_000_000_000,
-            gas_limit: 5_000_000,
-            to: registry,
-            data: registration_data,
-        };
-        let raw = call
-            .sign(&node.secret)
-            .or_fail("sign native pointer registration");
-        let hash = transaction_hash(&raw);
-        assert_eq!(
-            pending(node.clock.as_ref(), || node
-                .endpoint
-                .send_raw_transaction(&raw)),
-            hash
-        );
-        let receipt = node.receipt(hash, keys, Rung::Receipted);
-        assert!(
-            receipt.execution().success,
-            "native pointer registration reverted: {:?}; node evidence: {}",
-            String::from_utf8_lossy(&receipt.execution().return_data),
-            node.home.display()
-        );
-        result = pending(node.clock.as_ref(), || {
-            node.endpoint.call_pending(&view, &data)
-        });
-    }
-    assert_eq!(result.len(), 96, "registered native pointer view ABI");
-    assert_eq!(&result[..12], &[0; 12]);
-    assert_eq!(&result[64..95], &[0; 31]);
-    assert_eq!(result[95], 1, "native pointer must exist");
-    let pointer = result[12..32].try_into().or_fail("native pointer address");
-    assert_ne!(pointer, [0; 20]);
-    pointer
 }
 
 #[derive(Clone, Copy)]
@@ -483,12 +238,7 @@ fn complete_receipted_leg(
         .sign(&node.secret)
         .or_fail("sign planned bank transfer");
     let hash = transaction_hash(&raw);
-    assert_eq!(
-        pending(node.clock.as_ref(), || node
-            .endpoint
-            .send_raw_transaction(&raw)),
-        hash
-    );
+    assert_eq!(submit(node, &raw), hash);
     let receipted = node.receipt(hash, keys, Rung::Receipted);
     assert_eq!(receipted.rung(), Rung::Receipted);
     assert!(
@@ -556,6 +306,8 @@ fn complete_receipted_leg(
     assert!(!recovered.complete());
     fs::write(root.join(format!("transaction-{index}")), &raw)
         .or_fail("persist signed transaction");
+    let committed = node.receipt(hash, keys, Rung::Committed);
+    assert_eq!(committed.canonical_bytes(), receipted.canonical_bytes());
     (raw, receipted)
 }
 
@@ -581,12 +333,7 @@ fn assert_reverted_transfer(
         .sign(&node.secret)
         .or_fail("sign reverting bank call");
     let hash = transaction_hash(&raw);
-    assert_eq!(
-        pending(node.clock.as_ref(), || node
-            .endpoint
-            .send_raw_transaction(&raw)),
-        hash
-    );
+    assert_eq!(submit(node, &raw), hash);
     let reverted = node.receipt(hash, keys, Rung::Receipted);
     assert!(!reverted.execution().success);
     assert!(execution(4, reverted.execution().nonce, ceiling)
@@ -610,7 +357,7 @@ fn move_leg_completes_from_its_receipt() {
     assert!(!keys.is_empty());
     let native = native_pointer(&node, sender, &keys);
     assert_ne!(native, BANK_ADDRESS);
-    let pointer = BANK_ADDRESS;
+    let pointer = native;
     let nonce = pending(node.clock.as_ref(), || node.endpoint.pending_nonce(&sender));
     let ceiling = 1_000_000_000_000_000_000;
     let requests = vec![

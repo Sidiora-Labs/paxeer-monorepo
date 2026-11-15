@@ -1,0 +1,8 @@
+[lint_format]
+rule = "The chain lint format step skips the same dependency, build-output and fixture directories as the manifest lint format step."
+changed_files = ["chain.mk"]
+command = "make -s paxeer-lint"
+format_command = "make -s -f chain.mk lint-format"
+vet_command = "make -s -f chain.mk lint-vet"
+module_command = "make -s -f chain.mk lint-mod"
+steps = "lint-run lint-format lint-vet lint-mod run in order under parallel make; LINT_VET_SCOPE defaults to ./..."

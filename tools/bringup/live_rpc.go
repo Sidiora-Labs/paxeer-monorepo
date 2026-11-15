@@ -3,7 +3,9 @@ package bringup
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -14,6 +16,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -21,6 +24,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	gethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 func protectedURL(endpoint string) error {
@@ -372,14 +376,16 @@ func waitCommittedTransaction(ctx context.Context, client *http.Client, endpoint
 }
 
 type SearchOffer struct {
-	Scheme  string `json:"scheme"`
-	Network string `json:"network"`
-	Amount  string `json:"amount"`
-	Asset   string `json:"asset"`
-	PayTo   string `json:"payTo"`
-	Extra   struct {
+	Scheme            string `json:"scheme"`
+	Network           string `json:"network"`
+	Amount            string `json:"amount"`
+	Asset             string `json:"asset"`
+	PayTo             string `json:"payTo"`
+	MaxTimeoutSeconds uint64 `json:"maxTimeoutSeconds"`
+	Extra             struct {
 		LayerX struct {
 			Currency string `json:"currency"`
+			Payer    string `json:"payer"`
 		} `json:"layerx"`
 	} `json:"extra"`
 }
@@ -408,7 +414,7 @@ func ValidateSearchPrice(offer SearchOffer, assets json.RawMessage) error {
 	if err != nil {
 		return err
 	}
-	if offer.Scheme != "metered" || offer.Network != "eip155:125" || offer.Extra.LayerX.Currency != "PAX" {
+	if offer.Scheme != "exact" || offer.Network != "eip155:125" || offer.Extra.LayerX.Currency != "PAX" {
 		return errors.New("search offer or hosted asset response malformed")
 	}
 	found := 0
@@ -433,10 +439,119 @@ func ValidateSearchPrice(offer SearchOffer, assets json.RawMessage) error {
 	return nil
 }
 
-func CheckSearchPayment(ctx context.Context, client *http.Client, endpoint, gateway, payer, grant, token string, output io.Writer) error {
-	if !common.IsHexAddress(payer) || !isHexWord("0x"+strings.TrimPrefix(grant, "0x")) {
-		return errors.New("payer EVM address and standing grant id required")
+const searchLedgerPrecompile = "0x000000000000000000000000000000000000101a"
+
+func readSearchPayerKey(path string) (*ecdsa.PrivateKey, error) {
+	if path == "" {
+		return nil, errors.New("search payer key file required")
 	}
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+		return nil, errors.New("search payer key file refused")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errors.New("search payer key file unreadable")
+	}
+	text := strings.TrimSpace(string(raw))
+	if len(text) != 64 {
+		return nil, errors.New("search payer key encoding invalid")
+	}
+	key, err := gethcrypto.HexToECDSA(text)
+	if err != nil {
+		return nil, errors.New("search payer key encoding invalid")
+	}
+	return key, nil
+}
+
+func searchPayerAccount(address common.Address) string {
+	var owner [32]byte
+	copy(owner[12:], address.Bytes())
+	name := "agent:did:layerx:" + hex.EncodeToString(owner[:]) + ":main"
+	hash := sha256.New()
+	hash.Write([]byte("LX:ACCOUNT:v1"))
+	var length [4]byte
+	binary.BigEndian.PutUint32(length[:], uint32(len(name)))
+	hash.Write(length[:])
+	hash.Write([]byte(name))
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func searchWord(value, name string) ([]byte, error) {
+	text := strings.TrimPrefix(value, "0x")
+	decoded, err := hex.DecodeString(text)
+	if err != nil || len(decoded) != 32 {
+		return nil, fmt.Errorf("%s encoding invalid", name)
+	}
+	return decoded, nil
+}
+
+func searchAmount(value string) (*big.Int, error) {
+	amount, ok := new(big.Int).SetString(value, 10)
+	if !ok || amount.Sign() < 0 || amount.BitLen() > 128 {
+		return nil, errors.New("search offer amount invalid")
+	}
+	return amount, nil
+}
+
+func searchPayExactData(offer SearchOffer, payer common.Address, reference []byte, expires uint64) ([]byte, error) {
+	asset, err := searchWord(offer.Asset, "search offer asset")
+	if err != nil {
+		return nil, err
+	}
+	payTo, err := searchWord(offer.PayTo, "search offer payee")
+	if err != nil {
+		return nil, err
+	}
+	amount, err := searchAmount(offer.Amount)
+	if err != nil {
+		return nil, err
+	}
+	selector := gethcrypto.Keccak256([]byte("payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)"))[:4]
+	data := make([]byte, 4+32*6)
+	copy(data, selector)
+	payerAccount, err := searchWord("0x"+searchPayerAccount(payer), "search payer account")
+	if err != nil {
+		return nil, err
+	}
+	copy(data[4:36], payerAccount)
+	copy(data[36:68], payTo)
+	copy(data[68:100], asset)
+	amount.FillBytes(data[116:132])
+	binary.BigEndian.PutUint64(data[156:164], expires)
+	copy(data[164:196], reference)
+	return data, nil
+}
+
+type searchReceipt struct {
+	Rung    string `json:"rung"`
+	TxHash  string `json:"txHash"`
+	Status  string `json:"status"`
+	Receipt string `json:"receipt"`
+}
+
+var errSearchReceiptPending = errors.New("search payment receipt pending")
+
+func readSearchReceipt(raw json.RawMessage, hash string) ([]byte, error) {
+	var receipt searchReceipt
+	if json.Unmarshal(raw, &receipt) != nil || !strings.EqualFold(receipt.TxHash, hash) {
+		return nil, errors.New("search payment receipt unavailable")
+	}
+	if receipt.Rung == "submitted" {
+		return nil, errSearchReceiptPending
+	}
+	if (receipt.Rung != "receipted" && receipt.Rung != "committed") || receipt.Status != "0x1" {
+		return nil, errors.New("search payment receipt unavailable")
+	}
+	encoded := strings.TrimPrefix(receipt.Receipt, "0x")
+	decoded, err := hex.DecodeString(encoded)
+	if err != nil || len(decoded) == 0 {
+		return nil, errors.New("search payment receipt malformed")
+	}
+	return decoded, nil
+}
+
+func CheckSearchPayment(ctx context.Context, client *http.Client, endpoint, gateway, node, keyFile, payerAddress, token string, output io.Writer) error {
 	searchURL, err := url.Parse(endpoint)
 	if err != nil {
 		return errors.New("search URL malformed")
@@ -449,12 +564,23 @@ func CheckSearchPayment(ctx context.Context, client *http.Client, endpoint, gate
 	if err := protectedURL(gateway); err != nil {
 		return err
 	}
+	if err := protectedURL(node); err != nil {
+		return err
+	}
+	key, err := readSearchPayerKey(keyFile)
+	if err != nil {
+		return err
+	}
+	payer := gethcrypto.PubkeyToAddress(key.PublicKey)
+	if payerAddress != "" && (!common.IsHexAddress(payerAddress) || !strings.EqualFold(common.HexToAddress(payerAddress).Hex(), payer.Hex())) {
+		return errors.New("configured search payer address differs from key")
+	}
 	fetch := func(payment string) (*http.Response, error) {
 		request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 		if err != nil {
 			return nil, err
 		}
-		request.Header.Set("LAYERX-PAYER-ADDRESS", payer)
+		request.Header.Set("LAYERX-PAYER-ADDRESS", payer.Hex())
 		if payment != "" {
 			request.Header.Set("PAYMENT-SIGNATURE", payment)
 		}
@@ -486,16 +612,16 @@ func CheckSearchPayment(ctx context.Context, client *http.Client, endpoint, gate
 	var offer SearchOffer
 	for _, raw := range challenge.Accepts {
 		var candidate SearchOffer
-		if json.Unmarshal(raw, &candidate) == nil && candidate.Scheme == "metered" && candidate.Extra.LayerX.Currency == "PAX" {
+		if json.Unmarshal(raw, &candidate) == nil && candidate.Scheme == "exact" && candidate.Network == "eip155:125" && candidate.Extra.LayerX.Currency == "PAX" {
 			if selected != nil {
-				return errors.New("ambiguous metered PAX offers")
+				return errors.New("ambiguous exact PAX offers")
 			}
 			selected = raw
 			offer = candidate
 		}
 	}
 	if selected == nil {
-		return errors.New("metered PAX offer absent")
+		return errors.New("exact PAX offer absent")
 	}
 	assets, err := callRPC(ctx, client, gateway, "px_listAssets", []any{}, token, true)
 	if err != nil {
@@ -504,11 +630,111 @@ func CheckSearchPayment(ctx context.Context, client *http.Client, endpoint, gate
 	if err := ValidateSearchPrice(offer, assets); err != nil {
 		return err
 	}
+	if offer.MaxTimeoutSeconds == 0 || offer.MaxTimeoutSeconds > 3600 {
+		return errors.New("search offer timeout invalid")
+	}
+	if offer.Extra.LayerX.Payer != "" && !strings.EqualFold(strings.TrimPrefix(offer.Extra.LayerX.Payer, "0x"), searchPayerAccount(payer)) {
+		return errors.New("search offer payer account mismatch")
+	}
 	correlation, err := randomCorrelation()
 	if err != nil {
 		return err
 	}
-	payment, err := json.Marshal(map[string]any{"x402Version": 2, "accepted": selected, "payload": map[string]string{"grantId": strings.TrimPrefix(grant, "0x"), "idempotencyKey": correlation}})
+	expires := uint64(time.Now().Add(time.Duration(offer.MaxTimeoutSeconds)*time.Second - time.Millisecond).UnixMilli())
+	reference, err := hex.DecodeString(correlation)
+	if err != nil || len(reference) != 32 {
+		return errors.New("search payment reference generation failed")
+	}
+	data, err := searchPayExactData(offer, payer, reference, expires)
+	if err != nil {
+		return err
+	}
+	chain, err := callRPC(ctx, client, node, "eth_chainId", []any{}, "", false)
+	if err != nil || string(chain) != `"0x7d"` {
+		return errors.New("search node chain id mismatch")
+	}
+	nonceRaw, err := callRPC(ctx, client, node, "eth_getTransactionCount", []any{payer.Hex(), "pending"}, "", false)
+	if err != nil {
+		return err
+	}
+	var nonceText string
+	if json.Unmarshal(nonceRaw, &nonceText) != nil {
+		return errors.New("search payer nonce unreadable")
+	}
+	nonce, err := quantity(nonceText)
+	if err != nil || !nonce.IsUint64() {
+		return errors.New("search payer nonce invalid")
+	}
+	gasPriceRaw, err := callRPC(ctx, client, node, "eth_gasPrice", []any{}, "", false)
+	if err != nil {
+		return err
+	}
+	var gasPriceText string
+	if json.Unmarshal(gasPriceRaw, &gasPriceText) != nil {
+		return errors.New("search gas price unreadable")
+	}
+	gasPrice, err := quantity(gasPriceText)
+	if err != nil {
+		return err
+	}
+	to := common.HexToAddress(searchLedgerPrecompile)
+	estimateRaw, err := callRPC(ctx, client, node, "eth_estimateGas", []any{map[string]string{"from": payer.Hex(), "to": to.Hex(), "data": "0x" + hex.EncodeToString(data), "value": "0x0"}}, "", false)
+	if err != nil {
+		return err
+	}
+	var estimateText string
+	if json.Unmarshal(estimateRaw, &estimateText) != nil {
+		return errors.New("search gas estimate unreadable")
+	}
+	estimate, err := quantity(estimateText)
+	if err != nil || !estimate.IsUint64() || estimate.Sign() == 0 {
+		return errors.New("search gas estimate invalid")
+	}
+	tx := types.NewTx(&types.LegacyTx{Nonce: nonce.Uint64(), GasPrice: gasPrice, Gas: estimate.Uint64(), To: &to, Value: new(big.Int), Data: data})
+	signed, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(125)), key)
+	if err != nil {
+		return errors.New("search payment signing failed")
+	}
+	rawTransaction, err := signed.MarshalBinary()
+	if err != nil {
+		return errors.New("search payment serialization failed")
+	}
+	acceptedHash, err := callRPC(ctx, client, node, "eth_sendRawTransaction", []string{"0x" + hex.EncodeToString(rawTransaction)}, "", false)
+	if err != nil {
+		return err
+	}
+	var hash string
+	if json.Unmarshal(acceptedHash, &hash) != nil || !strings.EqualFold(hash, signed.Hash().Hex()) {
+		return errors.New("search node accepted a different transaction")
+	}
+	deadline := time.NewTimer(time.Duration(offer.MaxTimeoutSeconds) * time.Second)
+	defer deadline.Stop()
+	var receiptBytes []byte
+	for receiptBytes == nil {
+		raw, callErr := callRPC(ctx, client, gateway, "pax_sequencerReceipt", []string{signed.Hash().Hex()}, token, true)
+		if callErr == nil {
+			receiptBytes, err = readSearchReceipt(raw, signed.Hash().Hex())
+			if err != nil && !errors.Is(err, errSearchReceiptPending) {
+				return err
+			}
+		}
+		if receiptBytes != nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return errors.New("search payment receipt deadline exceeded")
+		case <-deadline.C:
+			return errors.New("search payment receipt deadline exceeded")
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	receipt, err := codec.DecodeReceipt(receiptBytes)
+	if err != nil {
+		return errors.New("search payment receipt refused")
+	}
+	digest := receipt.Digest()
+	payment, err := json.Marshal(map[string]any{"x402Version": 2, "accepted": selected, "payload": map[string]string{"txHash": signed.Hash().Hex(), "receiptDigest": hex.EncodeToString(digest[:]), "verificationLevel": "receipted", "idempotencyKey": correlation}})
 	if err != nil {
 		return err
 	}
@@ -529,9 +755,9 @@ func CheckSearchPayment(ctx context.Context, client *http.Client, endpoint, gate
 		Success     bool   `json:"success"`
 		Transaction string `json:"transaction"`
 	}
-	if json.Unmarshal(settlement, &result) != nil || !result.Success || !isHexWord(result.Transaction) {
+	if json.Unmarshal(settlement, &result) != nil || !result.Success || !strings.EqualFold(result.Transaction, signed.Hash().Hex()) {
 		return errors.New("paid search lacks successful transaction evidence")
 	}
-	_, err = fmt.Fprintf(output, "pass paid-search asset=%s amount=%s currency=PAX payment-response=success node=%s\n", offer.Asset, offer.Amount, paid.Header.Get("X-Search-Node"))
+	_, err = fmt.Fprintf(output, "pass paid-search asset=%s amount=%s currency=PAX payment-response=success node=%s transaction=%s\n", offer.Asset, offer.Amount, paid.Header.Get("X-Search-Node"), signed.Hash().Hex())
 	return err
 }

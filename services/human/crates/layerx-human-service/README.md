@@ -47,9 +47,11 @@ retained for retry rather than preparing a different transaction after submissio
 See [production_components.rs](src/server/production_components.rs).
 
 Bank sends are zero-value EIP-1559 calls on chain **125** to
-`0x0000000000000000000000000000000000001001`, using
-`send(address,address,string,uint256)`. The disclosure binds sender, recipient,
-denomination and amount. The executor reads the sender's **pending nonce** using
+the denomination’s native pointer, using
+`transfer(address,uint256)`. The service reads `getNativePointer(string)` at
+`0x000000000000000000000000000000000000100a`, requires the pointer to exist, and
+binds the denomination to its asset digest. The disclosure binds sender, pointer,
+recipient and amount. The executor reads the sender's **pending nonce** using
 `eth_getTransactionCount` with the `pending` block tag; the kernel account sequence
 is not an EVM nonce. Multi-leg plans bind consecutive pending nonces and reject
 nonce mismatches. Retries reconcile the retained transaction hash and signed bytes

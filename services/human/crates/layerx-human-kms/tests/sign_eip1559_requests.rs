@@ -12,6 +12,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
 use std::time::Duration;
 
 #[allow(dead_code)]
@@ -47,6 +48,7 @@ struct Host {
     runtime: Option<Runtime>,
     binding: ClockBinding,
     clock: Arc<RuntimeClock>,
+    _fixture: MutexGuard<'static, ()>,
 }
 impl Drop for Host {
     fn drop(&mut self) {
@@ -57,7 +59,7 @@ impl Drop for Host {
 }
 impl Host {
     fn new() -> Result<Self> {
-        let _fixture = ATTESTOR_FIXTURE
+        let fixture = ATTESTOR_FIXTURE
             .lock()
             .map_err(|_| "attestor fixture lock poisoned")?;
         let _ = rustls::crypto::ring::default_provider().install_default();
@@ -110,6 +112,7 @@ impl Host {
             runtime: Some(runtime),
             binding,
             clock,
+            _fixture: fixture,
         };
         host.provision_tls()?;
         let mut seal = [0; 32];
@@ -305,6 +308,7 @@ impl Host {
             builder.with_no_client_auth()
         };
         let tcp = TcpStream::connect(self.address)?;
+        tcp.set_nodelay(true)?;
         tcp.set_read_timeout(Some(Duration::from_secs(3)))?;
         tcp.set_write_timeout(Some(Duration::from_secs(3)))?;
         Ok(StreamOwned::new(

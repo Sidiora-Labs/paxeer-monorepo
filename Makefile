@@ -2852,7 +2852,7 @@ PROGRAMS_RELEASE_RUNTIME_LIB := programs/target/release/liblayerx_programs_sandb
 PROGRAMS_NATIVE_LDLIBS := -lssl
 
 .PHONY: programs-build programs-lint programs-test programs-core-test programs-protocol-regression programs-adversarial programs-conservation programs-qualify programs-module-boundaries programs-abi-drift programs-porting-v2-references \
-	programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-bench programs-interpreter-bench programs-quickstart programs-sdk-rust programs-sdk-c programs-sdk-assemblyscript
+	programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-bench programs-interpreter-bench programs-quickstart programs-sdk-rust programs-sdk-rust-artifacts programs-sdk-c programs-sdk-assemblyscript
 
 .PHONY: programs-js-install
 programs-js-install:
@@ -3152,7 +3152,14 @@ programs-interpreter-bench:
 	cd programs && $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-interpreter-compiled-equivalent
 	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' LAYERX_COMPILED_EQUIVALENT_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_interpreter_compiled_equivalent.wasm' $(PROGRAMS_CARGO) bench --locked -p layerx-programs-runtime --bench interpreter
 
-programs-test: programs-module-boundaries programs-abi-drift programs-core-test programs-protocol-regression programs-adversarial programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-sdk-rust programs-sdk-c programs-sdk-assemblyscript programs-porting-v2-references
+PROGRAMS_REGISTRY_TRANSACTION_PRODUCER := $(abspath $(BUILD_DIR)/tests/programs_registry_transactions)
+.PHONY: programs-registry-fixtures
+programs-registry-fixtures:
+	@mkdir -p $(dir $(PROGRAMS_REGISTRY_TRANSACTION_PRODUCER))
+	go build -mod=readonly -o '$(PROGRAMS_REGISTRY_TRANSACTION_PRODUCER)' ./programs/crates/layerx-programs-registry/tests/support/chain_transactions
+
+programs-test: export LAYERX_REGISTRY_TRANSACTION_PRODUCER = $(PROGRAMS_REGISTRY_TRANSACTION_PRODUCER)
+programs-test: programs-registry-fixtures paxai-host-boundary-build $(BUILD_DIR)/tests/kernel/codec/lxp_test_result_codes programs-module-boundaries programs-abi-drift programs-core-test programs-protocol-regression programs-adversarial programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-sdk-rust programs-sdk-c programs-sdk-assemblyscript programs-porting-v2-references
 	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' $(PROGRAMS_CARGO) test --locked --workspace
 
 programs-porting-v2-references: $(BUILD_DIR)/tests/programs_call_activity
@@ -3189,13 +3196,15 @@ programs-reference-web-reader:
 programs-reference-fixtures:
 	sh scripts/programs/program-fixtures.sh
 
-programs-sdk-rust:
+programs-sdk-rust-artifacts:
 	npm --prefix programs/sdk/rust ci --ignore-scripts --no-audit --no-fund
 	sh programs/sdk/rust/quickstart/build.sh all
 	sh programs/sdk/rust/response-fixture/build.sh
 	sh programs/sdk/rust/examples/escrow/build.sh
 	sh programs/sdk/rust/examples/vault/build.sh
-	cd programs && $(PROGRAMS_CARGO) test --locked -p layerx-program-sdk --test bindgen_conformance generated_client_guest_and_typescript_are_compiler_inputs -- --ignored --exact
+
+programs-sdk-rust: programs-sdk-rust-artifacts
+	cd programs && $(PROGRAMS_CARGO) test --locked -p layerx-program-sdk --test bindgen_conformance generated_client_guest_and_typescript_are_compiler_inputs -- --exact
 
 programs-sdk-assemblyscript:
 	npm --prefix programs/sdk/assemblyscript run test:source
