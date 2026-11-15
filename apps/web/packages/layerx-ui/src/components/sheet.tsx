@@ -16,6 +16,7 @@ export interface SheetProps {
  * Bottom sheet — the mobile overlay of the design set: drag handle,
  * rounded top corners, slides up over a dimmed page.
  * Esc, overlay tap, and the close affordance all dismiss (focus-trapped).
+ * The shared safe-area token includes env(safe-area-inset-bottom) for mobile browsers.
  */
 export function Sheet({ open, onOpenChange, children, portalContainer }: SheetProps) {
   const dragStartY = React.useRef<number | null>(null);
@@ -42,7 +43,7 @@ export function Sheet({ open, onOpenChange, children, portalContainer }: SheetPr
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={portalContainer ?? undefined}>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
         <Dialog.Content
           onPointerDown={startDrag}
           onPointerUp={finishDrag}
@@ -50,7 +51,7 @@ export function Sheet({ open, onOpenChange, children, portalContainer }: SheetPr
             dragStartY.current = null;
           }}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[calc(100dvh-env(safe-area-inset-top))] w-full max-w-lg flex-col overscroll-contain",
+            "fixed inset-x-0 bottom-0 z-50 mx-auto flex lx-sheet-content w-full max-w-lg flex-col overscroll-contain",
             "rounded-t-sheet bg-surface shadow-overlay outline-none",
             "data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down",
           )}
@@ -99,7 +100,7 @@ export function SheetDescription({
   return (
     <Dialog.Description asChild>
       <p
-        className={cn("text-[15px] leading-relaxed text-foreground-secondary", className)}
+        className={cn("text-body-sm leading-relaxed text-foreground-secondary", className)}
         {...props}
       />
     </Dialog.Description>
@@ -110,7 +111,7 @@ export function SheetBody({ className, ...props }: React.HTMLAttributes<HTMLDivE
   return (
     <div
       className={cn(
-        "lx-scroll flex-1 overflow-y-auto px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+        "lx-scroll flex-1 overflow-y-auto px-5 pt-4 lx-safe-bottom-min",
         className,
       )}
       {...props}
@@ -126,7 +127,7 @@ export function SheetFooter({ className, ...props }: React.HTMLAttributes<HTMLDi
   return (
     <div
       className={cn(
-        "grid auto-cols-fr grid-flow-col gap-3 border-t border-border/0 px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+        "grid auto-cols-fr grid-flow-col gap-3 border-t border-border/0 px-5 pt-2 lx-safe-bottom-roomy",
         className,
       )}
       {...props}

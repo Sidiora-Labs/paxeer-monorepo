@@ -37,7 +37,7 @@ export function QuickActions({
           <span className="inline-flex size-12 items-center justify-center rounded-full border border-border bg-surface text-foreground transition-colors group-hover:bg-surface-sunken group-focus-visible:ring-2 group-focus-visible:ring-accent/30 [&_svg]:size-5">
             {a.icon}
           </span>
-          <span className="text-[13px] font-medium text-foreground-secondary">{a.label}</span>
+          <span className="text-label font-medium text-foreground-secondary">{a.label}</span>
         </button>
       ))}
     </div>
