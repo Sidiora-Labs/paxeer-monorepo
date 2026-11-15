@@ -212027,7 +212027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.690]
 title = "Let the gateway keep the index of the requests of each principal that the dashboard API reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
