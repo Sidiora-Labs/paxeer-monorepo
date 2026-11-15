@@ -22220,3 +22220,13 @@ fix = "Decision 3563 and task 22.39.609: the script reads the inventory where it
 title = "The project tool and the definitions state the env name and the repository in two ways"
 symptom = "Decision 3560 names the env name of an input as the project name, the service name and the variable name. The definitions under deploy/projects read the project name as the name of their folder; tools/deploy/platform-project.py reads it as the project key of project.kvx. The definitions state no repository in a repo row; the tool asks for one in each row. A health path with a query and a list written as one string are further forms the tool does not take."
 fix = "Decision 3564 and tasks 22.39.610 to 22.39.615: the tool follows the folder name and the project file, and each folder has a test that loads it through the tool."
+
+[gotcha.4480]
+title = "The hosting platform takes the repository of a service through its connect call"
+symptom = "The interface of the hosting platform has no branch on a service instance and no builder value for a build from a Dockerfile: a service builds from a Dockerfile where its Dockerfile path is set. The repository and the branch of a service are set where the service is created and through the connect call of the service afterwards; the branch of a running service is read from the record of its latest deployment. The platform returns a repository name in the case its owner wrote it. Its edge takes a request only with a header that names the client."
+fix = "Decision 3565 and tasks 22.39.616 and 22.39.618."
+
+[gotcha.4481]
+title = "A wire vector file and its copy change in one commit"
+symptom = "The copy inventory tests/ci/data/intentional_copies.txt pairs the wallet vectors under services/agent/crates/layerx-wire/tests/support/wallet_vectors with their copies under services/wallet/attestor/internal/lxwire/testdata and compares each pair by bytes. A change to one file of a pair without the other leaves the pair apart, and every verification that runs the copy test stops on it."
+fix = "Decision 3566 and task 22.39.617."

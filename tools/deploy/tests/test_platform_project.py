@@ -25,21 +25,7 @@ SECRETS = {
     "PLATFORM_API_AUTH_SECRET": 'example-auth-secret-"quoted"\nsecond-line',
 }
 NAMES = ("store", "worker", "api")
-INSTANCES = {
-    "store": {"source": {"image": "ghcr.io/railwayapp-templates/postgres-ssl:18"}},
-    "worker": {
-        "source": {"image": "ghcr.io/sidiora-labs/platform-worker@" + DIGEST},
-        "healthcheckPath": "/healthz", "healthcheckTimeout": 300,
-        "restartPolicyType": "ON_FAILURE", "numReplicas": 2,
-    },
-    "api": {
-        "source": {"repo": "sidiora-labs/paxeer-monorepo"}, "branch": "main", "builder": "DOCKERFILE",
-        "dockerfilePath": "docker/platform-gateway/Dockerfile", "rootDirectory": "/",
-        "watchPatterns": ["/docker/platform-gateway/**", "/docker/common/**", "/services/platform/**"],
-        "healthcheckPath": "/healthz", "healthcheckTimeout": 300,
-        "restartPolicyType": "ALWAYS", "numReplicas": 1,
-    },
-}
+INSTANCES = json.loads((FIXTURES / "instances.json").read_text())
 VARIABLES = {
     "store": {"POSTGRES_DB": "platform", "POSTGRES_PASSWORD": SECRETS["PLATFORM_STORE_POSTGRES_PASSWORD"]},
     "worker": {
@@ -72,6 +58,16 @@ class RecordedTransport:
         match = re.match(r"\s*(query|mutation)\s+(\w+)\(", query)
         assert match, query
         kind, operation = match.groups()
+        if operation == "Instance":
+            assert not re.search(r"\b(?:branch|builder)\b", query)
+            assert re.search(r"source\s*\{\s*image\s+repo\s*\}", query)
+            assert re.search(r"latestDeployment\s*\{\s*id\s+status\s+meta\s*\}", query)
+            for field in ("dockerfilePath", "rootDirectory", "watchPatterns", "healthcheckPath",
+                          "healthcheckTimeout", "restartPolicyType", "numReplicas"):
+                assert re.search(r"\b" + field + r"\b", query)
+        if operation == "InstanceUpdate":
+            assert not {"branch", "builder"} & variables["i"].keys()
+            assert "repo" not in (variables["i"].get("source") or {})
         assert self.entries, f"unexpected request {operation}"
         expected = self.entries.pop(0)
         assert operation == expected["op"]
@@ -118,7 +114,10 @@ def read_entries(node=None, instances=None, variables=None, statuses=None):
         if name not in instances:
             continue
         instance = copy.deepcopy(instances[name])
-        instance["latestDeployment"] = {"id": "dep-" + name, "status": (statuses or {}).get(name, "SUCCESS")}
+        if "latestDeployment" not in instance:
+            instance["latestDeployment"] = {"id": "dep-" + name, "status": "SUCCESS", "meta": {}}
+        if name in (statuses or {}):
+            instance["latestDeployment"]["status"] = statuses[name]
         records += [
             entry("Instance", {"s": "s-" + name, "e": "e1"}, {"serviceInstance": instance}),
             entry("Variables", {"p": "p1", "e": "e1", "s": "s-" + name}, {"variables": variables[name]}),
@@ -137,17 +136,28 @@ def status_entry(name, status="SUCCESS", deployment=None):
     return entry("DeploymentStatus", {"id": deployment or "dep-" + name}, {"deployment": {"status": status}})
 
 
+def connect_entry(branch="main"):
+    return entry("ServiceConnect", {"s": "s-api", "i": {
+        "repo": "sidiora-labs/paxeer-monorepo", "branch": branch}}, {"serviceConnect": {"id": "s-api"}})
+
+
 def service_writes(name, branch="main", credentials=None, create=True):
     records = []
     want = copy.deepcopy(INSTANCES[name])
+    want.pop("latestDeployment", None)
+    source = want["source"]
     if name == "api":
-        want["branch"] = branch
+        want.pop("source")
     if create:
-        records.append(entry("ServiceCreate", {"i": {
-            "projectId": "p1", "name": name, "source": want["source"]}}, {"serviceCreate": {"id": "s-" + name}}))
+        create_input = {"projectId": "p1", "name": name, "source": source}
+        if name == "api":
+            create_input["branch"] = branch
+        records.append(entry("ServiceCreate", {"i": create_input}, {"serviceCreate": {"id": "s-" + name}}))
     if credentials and name == "worker":
         want["registryCredentials"] = credentials
     records.append(entry("InstanceUpdate", {"s": "s-" + name, "e": "e1", "i": want}, {"serviceInstanceUpdate": True}))
+    if name == "api":
+        records.append(connect_entry(branch))
     if name in VOLUMES:
         records.append(entry("VolumeCreate", {"i": {
             "projectId": "p1", "environmentId": "e1", "serviceId": "s-" + name, "mountPath": VOLUMES[name]}},
@@ -275,6 +285,103 @@ def test_repo_branch_override_and_health_wave(client):
     transport.exhausted()
 
 
+def test_repo_creation_sends_connection_and_instance_settings_separately(client):
+    result, transport = invoke(client, creation_entries(branch="release"), extra=("--branch", "release"))
+    assert result[0] == 0 and result[2] == ""
+    creates = [variables["i"] for _, operation, variables, _ in transport.calls
+               if operation == "ServiceCreate" and variables["i"]["name"] == "api"]
+    assert creates == [{"projectId": "p1", "name": "api", "source": {
+        "repo": "sidiora-labs/paxeer-monorepo"}, "branch": "release"}]
+    updates = [variables["i"] for _, operation, variables, _ in transport.calls
+               if operation == "InstanceUpdate" and variables["s"] == "s-api"]
+    assert updates == [{key: value for key, value in INSTANCES["api"].items()
+                        if key not in {"source", "latestDeployment"}}]
+    assert transport.mutations().count("ServiceConnect") == 1
+    for _, _, variables, query in transport.calls:
+        assert not re.search(r"\bbuilder\b", query)
+        assert '"builder"' not in json.dumps(variables)
+    transport.exhausted()
+
+
+@pytest.mark.parametrize("branch", ["release", "Main"])
+def test_existing_repo_branch_change_connects_without_create(client, branch):
+    instances = copy.deepcopy(INSTANCES)
+    instances["api"]["latestDeployment"]["meta"]["branch"] = branch
+    records = read_entries(project_node(), instances=instances)
+    result, plan = invoke(client, records, mode="--plan")
+    assert result[0] == 0 and result[2] == ""
+    assert result[1].count("  connect sidiora-labs/paxeer-monorepo main\n") == 1
+    assert "setting branch" not in result[1] and "setting source" not in result[1]
+    assert plan.mutations() == []
+    plan.exhausted()
+    records += [status_entry("store"), status_entry("worker"), connect_entry(),
+                deploy_entry("api"), status_entry("api")]
+    result, applied = invoke(client, records)
+    assert result[0] == 0 and result[2] == ""
+    assert applied.mutations() == ["ServiceConnect", "Deploy"]
+    connect = next(call for call in applied.calls if call[1] == "ServiceConnect")
+    assert "serviceConnect(id: $s, input: $i)" in connect[3]
+    assert connect[2] == {"s": "s-api", "i": {"repo": "sidiora-labs/paxeer-monorepo", "branch": "main"}}
+    applied.exhausted()
+
+
+def test_repo_name_case_keeps_connection_unchanged(client):
+    instances = copy.deepcopy(INSTANCES)
+    instances["api"]["source"]["repo"] = "Sidiora-Labs/Paxeer-Monorepo"
+    records = read_entries(project_node(), instances=instances)
+    result, plan = invoke(client, records, mode="--plan")
+    assert result[0] == 0 and result[2] == ""
+    assert result[1].count(" unchanged\n") == 3
+    assert "  connect " not in result[1]
+    assert plan.mutations() == []
+    plan.exhausted()
+    result, applied = invoke(client, records + [status_entry(name) for name in NAMES])
+    assert result[0] == 0 and result[2] == ""
+    assert applied.mutations() == []
+    applied.exhausted()
+
+
+@pytest.mark.parametrize("deployment", [
+    None,
+    {"id": "dep-api", "status": "SUCCESS", "meta": None},
+    {"id": "dep-api", "status": "SUCCESS", "meta": {}},
+])
+def test_repo_without_deployment_branch_plans_and_applies_connect(client, deployment):
+    instances = copy.deepcopy(INSTANCES)
+    instances["api"]["latestDeployment"] = deployment
+    records = read_entries(project_node(), instances=instances)
+    result, plan = invoke(client, records, mode="--plan")
+    assert result[0] == 0 and result[2] == ""
+    assert result[1].count("  connect sidiora-labs/paxeer-monorepo main\n") == 1
+    assert plan.mutations() == []
+    plan.exhausted()
+    records += [status_entry("store"), status_entry("worker"), connect_entry(),
+                deploy_entry("api"), status_entry("api")]
+    result, applied = invoke(client, records)
+    assert result[0] == 0 and result[2] == ""
+    assert applied.mutations() == ["ServiceConnect", "Deploy"]
+    applied.exhausted()
+
+
+@pytest.mark.parametrize("source", [None, {}, {"repo": None}, {"repo": "sidiora-labs/another-repository"}])
+def test_repo_connection_is_set_when_repository_differs_or_is_absent(client, source):
+    instances = copy.deepcopy(INSTANCES)
+    instances["api"]["source"] = source
+    records = read_entries(project_node(), instances=instances)
+    result, plan = invoke(client, records, mode="--plan")
+    assert result[0] == 0 and result[2] == ""
+    assert result[1].count("  connect sidiora-labs/paxeer-monorepo main\n") == 1
+    assert "setting source" not in result[1]
+    assert plan.mutations() == []
+    plan.exhausted()
+    records += [status_entry("store"), status_entry("worker"), connect_entry(),
+                deploy_entry("api"), status_entry("api")]
+    result, applied = invoke(client, records)
+    assert result[0] == 0 and result[2] == ""
+    assert applied.mutations() == ["ServiceConnect", "Deploy"]
+    applied.exhausted()
+
+
 def test_apply_updates_only_differences(client, monkeypatch):
     _, folder, _ = client
     replace(folder, "worker.kvx", 'image = "platform-worker"', 'image = "platform-worker"\ncredentials = 1')
@@ -283,10 +390,12 @@ def test_apply_updates_only_differences(client, monkeypatch):
     monkeypatch.setenv("GHCR_TOKEN", password)
     instances = copy.deepcopy(INSTANCES)
     instances["worker"]["source"]["image"] = "ghcr.io/sidiora-labs/platform-worker@sha256:" + "b" * 64
-    instances["api"].update(branch="old", rootDirectory="/old", watchPatterns=["/old/**"],
+    instances["api"]["latestDeployment"]["meta"]["branch"] = "old"
+    instances["api"].update(rootDirectory="/old", watchPatterns=["/old/**"],
                             dockerfilePath="old/Dockerfile", healthcheckPath="/old", numReplicas=2)
     variables = copy.deepcopy(VARIABLES)
     variables["store"]["POSTGRES_PASSWORD"] = "previous-database-password"
+    variables["api"]["PORT"] = "9090"
     records = read_entries(project_node(volumes={"store": "/old", "api": "/cache"}), instances, variables)
     records += [
         entry("VolumeMount", {"v": "v-store", "e": "e1", "i": {"mountPath": VOLUMES["store"]}}, {"volumeInstanceUpdate": True}),
@@ -299,8 +408,11 @@ def test_apply_updates_only_differences(client, monkeypatch):
             {"serviceInstanceUpdate": True}),
         deploy_entry("worker"), status_entry("worker"),
         entry("InstanceUpdate", {"s": "s-api", "e": "e1", "i": {
-            key: INSTANCES["api"][key] for key in ("branch", "rootDirectory", "watchPatterns", "dockerfilePath", "healthcheckPath", "numReplicas")}},
+            key: INSTANCES["api"][key] for key in ("rootDirectory", "watchPatterns", "dockerfilePath", "healthcheckPath", "numReplicas")}},
             {"serviceInstanceUpdate": True}),
+        connect_entry(),
+        entry("VariablesUpsert", {"i": {"projectId": "p1", "environmentId": "e1", "serviceId": "s-api",
+              "variables": {"PORT": "8080"}, "skipDeploys": True}}, {"variableCollectionUpsert": True}),
         deploy_entry("api"), status_entry("api"),
     ]
     result, transport = invoke(client, records)
@@ -642,6 +754,7 @@ def railway_http(records, error_operation=None, error_shape="messages", status=2
                 assert self.path == "/graphql/v2"
                 assert self.headers["Authorization"] == "Bearer " + SECRETS["RAILWAY_API_TOKEN"]
                 assert self.headers["Content-Type"] == "application/json"
+                assert self.headers["User-Agent"] == "platform-project"
                 request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 assert set(request) == {"query", "variables"}
                 requests.append(request)
@@ -688,6 +801,18 @@ def test_real_http_transport_sends_and_consumes_recording(client, monkeypatch):
         transport.exhausted()
         assert len(requests) == len(transport.calls)
         assert len(requests) > 10
+
+
+def test_http_transport_identifies_platform_project_in_user_agent(client, monkeypatch):
+    tool, _, _ = client
+    with railway_http([projects_entry()]) as (endpoint, transport, requests):
+        monkeypatch.setattr(tool, "API", endpoint)
+        data = tool.http_transport(SECRETS["RAILWAY_API_TOKEN"])(
+            "query Projects($w: String!, $a: String) { projects(workspaceId: $w, after: $a) { edges { node { id } } } }",
+            {"w": "workspace-1", "a": None})
+        assert data == projects_entry()["data"]
+        assert len(requests) == 1
+        transport.exhausted()
 
 
 @pytest.mark.parametrize("operation", ["Projects", "InstanceUpdate", "VariablesUpsert"])
