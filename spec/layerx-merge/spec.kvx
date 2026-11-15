@@ -382920,7 +382920,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.696]
 title = "Let the public role of the webhooks service serve behind the front of the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -462762,7 +462762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.686]
 title = "Let the suite of the web app of the explorer backend pass whole in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
