@@ -2623,9 +2623,9 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 			return nil, original, fmt.Errorf("giga execution: %w", evmSchedErr)
 		}
 
-		for _, r := range evmBatchResult {
+		for i, r := range evmBatchResult {
 			if r.Codespace == gigaInfrastructureCodespace {
-				return nil, original, errors.New(r.Log)
+				return nil, original, fmt.Errorf("execution infrastructure failure at index %d: %s", i, r.Log)
 			}
 			if r.Code == gigautils.GigaAbortCode && r.Codespace == gigautils.GigaAbortCodespace {
 				fallbackToV2 = true
@@ -3009,8 +3009,10 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 
 	// Determine result code based on VM error
 	code := uint32(0)
+	codespace := ""
 	if execResult.Err != nil {
 		code = sdkerrors.ErrEVMVMError.ABCICode()
+		codespace = sdkerrors.RootCodespace
 	}
 
 	// GasWanted should be set to the transaction's gas limit to match standard executor behavior.
@@ -3071,6 +3073,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 		GasUsed:   gasUsed,
 		Log:       resultLog,
 		Events:    resultEvents,
+		Codespace: codespace,
 		EvmTxInfo: &abci.EvmTxInfo{
 			SenderAddress: sender.Hex(),
 			TxHash:        ethTx.Hash().Hex(),
@@ -3156,7 +3159,7 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 				resp = abci.ResponseDeliverTx{
 					Codespace: gigaInfrastructureCodespace,
 					Code:      sdkerrors.ErrPanic.ABCICode(),
-					Log:       fmt.Sprintf("recovered: %v\nstack:\n%v", r, string(debug.Stack())),
+					Log:       "internal error",
 				}
 			}
 		}()

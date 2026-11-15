@@ -150,6 +150,12 @@ common audit entry and recovers retained entries in the background at startup.
 A principal with neither a version nor index entries has an empty request list.
 Its overview has empty key and recent-request lists when it has no keys.
 
+Receipt lookups read `webhooks:principal:DIGEST:activities` and its
+`webhooks:principal:DIGEST:activities:version` key. Webhooks writes both as one
+index update; version `1` is the supported format. A principal with neither a
+version nor the requested activity field receives `receipt_not_found`, while an
+activity field without version metadata is refused as unavailable.
+
 A payment's `settled` flag is true only when the `state` fact equals
 `settled`, that fact is at least `receipt-verified`, and a receipt
 digest stands behind that exact fact.

@@ -91,7 +91,7 @@ export function ListItem({
           : undefined
       }
       className={cn(
-        "flex w-full items-center gap-3 py-3.5 text-left",
+        "flex w-full flex-wrap items-center gap-3 py-3.5 text-left",
         interactive && "cursor-pointer transition-colors hover:bg-surface-sunken/40 -mx-2 px-2 rounded-md",
         className,
       )}
@@ -105,13 +105,13 @@ export function ListItem({
         )}
       </span>
       {(trailing || navigates) && (
-        <span className="flex shrink-0 flex-col items-end gap-0.5">
+        <span className="flex w-2/5 min-w-0 max-w-full shrink-0 flex-col items-end gap-0.5 overflow-hidden">
           <span className="flex items-center gap-1.5">
             {trailing}
             {navigates && <ChevronRight className="size-4 text-faint-foreground" aria-hidden />}
           </span>
           {trailingCaption && (
-            <span className="text-xs text-faint-foreground">{trailingCaption}</span>
+            <span className="max-w-full text-right text-xs text-faint-foreground">{trailingCaption}</span>
           )}
         </span>
       )}

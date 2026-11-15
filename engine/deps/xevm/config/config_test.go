@@ -16,17 +16,17 @@ func TestGetEVMChainID(t *testing.T) {
 		{
 			name:            "pacific-1 chain ID",
 			cosmosChainID:   "pacific-1",
-			expectedChainID: 1329,
+			expectedChainID: 125,
 		},
 		{
 			name:            "atlantic-2 chain ID",
 			cosmosChainID:   "atlantic-2",
-			expectedChainID: 1328,
+			expectedChainID: 125,
 		},
 		{
 			name:            "arctic-1 chain ID",
 			cosmosChainID:   "arctic-1",
-			expectedChainID: 713715,
+			expectedChainID: 125,
 		},
 		{
 			name:            "unknown chain ID returns default",
@@ -59,14 +59,14 @@ func TestGetVersionWthDefault(t *testing.T) {
 	}{
 		{
 			name:           "live chain ID with override - override ignored",
-			chainID:        "pacific-1",
+			chainID:        "hyperpax_125-1",
 			override:       100,
 			defaultVersion: 50,
 			expected:       50,
 		},
 		{
 			name:           "live chain ID with zero override - uses default",
-			chainID:        "atlantic-2",
+			chainID:        "hyperpax_125-1",
 			override:       0,
 			defaultVersion: 50,
 			expected:       50,
@@ -86,8 +86,8 @@ func TestGetVersionWthDefault(t *testing.T) {
 			expected:       50,
 		},
 		{
-			name:           "arctic-1 (live) with override - override ignored",
-			chainID:        "arctic-1",
+			name:           "hyperpax_125-1 (live) with override - override ignored",
+			chainID:        "hyperpax_125-1",
 			override:       200,
 			defaultVersion: 75,
 			expected:       75,
@@ -117,19 +117,19 @@ func TestIsLiveChainID(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "pacific-1 is live",
+			name:     "pacific-1 is not live",
 			chainID:  "pacific-1",
-			expected: true,
+			expected: false,
 		},
 		{
-			name:     "atlantic-2 is live",
+			name:     "atlantic-2 is not live",
 			chainID:  "atlantic-2",
-			expected: true,
+			expected: false,
 		},
 		{
-			name:     "arctic-1 is live",
+			name:     "arctic-1 is not live",
 			chainID:  "arctic-1",
-			expected: true,
+			expected: false,
 		},
 		{
 			name:     "unknown chain ID is not live",
@@ -169,24 +169,24 @@ func TestIsLiveEVMChainID(t *testing.T) {
 		expected   bool
 	}{
 		{
-			name:       "pacific-1 EVM chain ID (1329) is live",
+			name:       "pacific-1 EVM chain ID (1329) is not live",
 			evmChainID: 1329,
-			expected:   true,
-		},
-		{
-			name:       "atlantic-2 EVM chain ID (1328) is live",
-			evmChainID: 1328,
-			expected:   true,
-		},
-		{
-			name:       "arctic-1 EVM chain ID (713715) is live",
-			evmChainID: 713715,
-			expected:   true,
-		},
-		{
-			name:       "default chain ID (713714) is not live",
-			evmChainID: DefaultChainID,
 			expected:   false,
+		},
+		{
+			name:       "atlantic-2 EVM chain ID (1328) is not live",
+			evmChainID: 1328,
+			expected:   false,
+		},
+		{
+			name:       "arctic-1 EVM chain ID (713715) is not live",
+			evmChainID: 713715,
+			expected:   false,
+		},
+		{
+			name:       "default chain ID (125) is live",
+			evmChainID: DefaultChainID,
+			expected:   true,
 		},
 		{
 			name:       "random chain ID is not live",
@@ -283,7 +283,7 @@ func TestGetVersionWthDefault_EdgeCases(t *testing.T) {
 		},
 		{
 			name:           "max uint16 default on live chain",
-			chainID:        "pacific-1",
+			chainID:        "hyperpax_125-1",
 			override:       100,
 			defaultVersion: 65535,
 			expected:       65535,

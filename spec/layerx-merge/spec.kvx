@@ -14770,6 +14770,12 @@ value = "A case on the chain id of the fast path states what the table of module
 basis = "Gotcha 4526. Decisions 3606 and 3572."
 affects = []
 
+[decision.3610]
+title = "The dashboard web issues, rotates and revokes keys through routes of its own that carry the session"
+value = "The dashboard web serves POST /keys, POST /keys/ID/rotate and DELETE /keys/ID beside its session routes. Each route holds the rules of the session routes for Origin, content type, body size and upstream time limit, reads the session from the cookie of the web, and calls the route of the gateway of the same name under /v1 with the session as Bearer authorization and the idempotency key of the page. A refusal returns only a reason name. The secret of a key is returned once in the answer of the route, marked as not to be stored, and is written to no log, no store of the browser and no address. The Keys view holds the controls: a form that issues a key with its signer, scopes and quota window, the secret shown once with a copy control, and rotate and revoke for each active key, revoke behind a confirmation. The overview of a developer without an active key states that no key holds a quota and leads to the Keys view."
+basis = "Gotcha 4527. Decisions 3587 and 3605."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44430,6 +44436,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.694]
+title = "Let a developer issue, rotate and revoke keys in the dashboard web"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard/web", "docs/wiki/HostedDashboard.md"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && grep -q key-routes services/platform/hosted/dashboard/web/package.json && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+do_1 = "do_1 Gotcha 4527, decision 3610. Read in services/platform/hosted/gateway/src/main.rs the functions manage_keys, issue_key, list_keys and rotate_key with the request type of an issue, the answers and every reason name they return, and the sections Tokens and Scopes of docs/wiki/HostedGateway.md. Read services/platform/hosted/dashboard/web/app/session-server.ts with services/platform/hosted/dashboard/web/tests/session-routes.mjs as the form of a route of the web and of its cases, services/platform/hosted/dashboard/web/app/runtime-config.ts, services/platform/hosted/dashboard/web/app/browser-key.ts and the function KeysPanel with the overview in services/platform/hosted/dashboard/web/app/dashboard-client.tsx."
+symbols = []
 
 [capability.22.39.693]
 title = "Let the chain id cases of the fast path state the table of the product"
@@ -173635,6 +173650,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.694]
+title = "Let a developer issue, rotate and revoke keys in the dashboard web"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.694"]
+interfaces = []
+do_1 = "do_1 Gotcha 4527, decision 3610. Read in services/platform/hosted/gateway/src/main.rs the functions manage_keys, issue_key, list_keys and rotate_key with the request type of an issue, the answers and every reason name they return, and the sections Tokens and Scopes of docs/wiki/HostedGateway.md. Read services/platform/hosted/dashboard/web/app/session-server.ts with services/platform/hosted/dashboard/web/tests/session-routes.mjs as the form of a route of the web and of its cases, services/platform/hosted/dashboard/web/app/runtime-config.ts, services/platform/hosted/dashboard/web/app/browser-key.ts and the function KeysPanel with the overview in services/platform/hosted/dashboard/web/app/dashboard-client.tsx."
+do_2 = "do_2 Add services/platform/hosted/dashboard/web/app/keys-server.ts and the route files under services/platform/hosted/dashboard/web/app/keys: POST /keys issues a key, POST /keys/ID/rotate rotates one, DELETE /keys/ID revokes one. Each route requires the Origin and the content type the session routes require, bounds the body at 8192 bytes, takes the session from the cookie of the web and answers 401 with a reason name without it, requires an idempotency key header of the form the gateway takes for an issue and a rotation and passes it on, and calls the gateway origin of the runtime setting with the session as Bearer authorization within the time limit of the session routes. Without the gateway origin the routes answer 503 with a reason name. A refusal of the gateway is passed on as its status class with the reason name alone; a limit stays 429."
+do_3 = "do_3 The answer of an issue and of a rotation holds what the gateway returns for the key with its secret, carries the header that forbids storing, and nothing of it is written to a log or an error text. The key id of a path is checked against the form the gateway takes before any call."
+do_4 = "do_4 In the Keys view of services/platform/hosted/dashboard/web/app/dashboard-client.tsx add the controls with the components of the interface package: a form that issues a key with the signer public key, taken from the key this browser holds where there is one, the six scopes of the gateway as labelled check boxes, and the count of requests and the seconds of the quota window with the bounds the gateway states; the secret of a new or rotated key shown once in a dialog with a copy control and the statement that it is not shown again; for each active key a rotate control and a revoke control, revoke behind a confirmation dialog. Each action carries a fresh idempotency key, shows its progress and its refusal by reason in words, and reads the dashboard again after success. The secret stays in the memory of the page until the dialog closes and goes to no store of the browser. Every control has a visible label, a visible focus and a target of at least 44 by 44 CSS pixels, in both colour schemes."
+do_5 = "do_5 In the overview a developer without an active key gets, in place of the two request counters, the statement that no key holds a quota and a control that opens the Keys view. With an active key the counters stay as they are. At a width of 360 the tab row lets every one of its five tabs be reached: the active tab is brought into view and the row shows that it continues."
+do_6 = "do_6 Add services/platform/hosted/dashboard/web/tests/key-routes.mjs in the form of services/platform/hosted/dashboard/web/tests/session-routes.mjs with a stand-in gateway: an issue passes the session, the idempotency key and the body on and returns the secret once with the header that forbids storing; a missing cookie, a foreign Origin, another content type, a body above the bound, a missing idempotency key and a key id of another form are refused before any call; each reason name of the gateway functions of do_1 is passed on by name; a rotation and a revocation call the path of the key; a time out answers with the reason of an upstream failure. The answers of the stand-in take their fields from the gateway source, and the file names the functions it follows. Add the file to the script test:static of services/platform/hosted/dashboard/web/package.json and bring services/platform/hosted/dashboard/web/tests/ui-contract.mjs in line with the new controls. No present case is removed or weakened."
+do_7 = "do_7 State the three routes with input, result and refusals in the table of routes of services/platform/hosted/dashboard/web/README.md, and the key controls in docs/wiki/HostedDashboard.md."
+do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard/web", "docs/wiki/HostedDashboard.md"]
+tests = []
+planned_paths = ["services/platform/hosted/dashboard/web/app/keys-server.ts", "services/platform/hosted/dashboard/web/tests/key-routes.mjs"]
+build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && grep -q key-routes services/platform/hosted/dashboard/web/package.json && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.51]
 title = "Tell the class merge of the wallet application the names of its theme"
 status = "done"
@@ -173668,7 +173718,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.50]
 title = "Tell the class merge of the launchpad the names of its theme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174027,7 +174077,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.43]
 title = "Close the human web application on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.31", "22.44.37"]
@@ -212027,7 +212077,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.690]
 title = "Let the gateway keep the index of the requests of each principal that the dashboard API reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247022,7 +247072,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.693]
 title = "Let the chain id cases of the fast path state the table of the product"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.692"]
@@ -247053,7 +247103,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.692]
 title = "Give the prefix purge of the keeper of the fast path the form of the keeper of the ordinary path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247150,7 +247200,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.679]
 title = "Compare the fast execution path with the ordinary path over a state without stored parameter values"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.678"]
@@ -382745,7 +382795,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.683]
 title = "Name the gateway tenant of the dashboard web in its definition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.682"]

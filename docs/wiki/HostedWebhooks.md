@@ -177,6 +177,19 @@ shard before transmission. Identical republishing returns `duplicate = true`;
 reusing an ID with different content yields `EventConflict`. A new event must
 advance its subject sequence or publication yields `OrderViolation`.
 
+### Receipt activity index
+
+For every payment event carrying an `activity_id` fact, the publication CAS
+script writes the event JSON into
+`webhooks:principal:DIGEST:activities` under that activity ID and sets
+`webhooks:principal:DIGEST:activities:version` to `1`. A later event for the
+same activity replaces the hash field; an unchanged duplicate does not create a
+second record. Retention removes the field when it removes the event.
+
+At startup the service asynchronously rebuilds a missing index from each
+principal shard. The rebuild is idempotent and its failures are reported under
+the activity-index worker stage while request serving continues.
+
 ### Committed AI market events
 
 `src/ai_market.rs` adds a durable per-principal market outbox. Enable it with
