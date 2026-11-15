@@ -22430,3 +22430,8 @@ fix = "Decision 3603. Task 22.44.1 holds the presets in its paths."
 title = "A decimal parameter of the virtual machine without a stored value is an empty decimal"
 symptom = "The readers of the decimal parameters in modules/evm/keeper/params.go return the stored field as it is: the priority normalizer, the base fee, the minimum and the maximum fee for a unit of gas and the two adjustments of the dynamic base fee. Without a stored value the field is an empty decimal, a computation with it does not end, and the block is refused. The ordinary path and the fast path report a refused block through different layers, so the texts of the two refusals differ while the outcome is the same."
 fix = "Decision 3604. Tasks 22.39.679 and 22.39.689."
+
+[gotcha.4522]
+title = "The dashboard API reads an index of each principal, and the writer of the entries keeps that index"
+symptom = "The dashboard API reads the requests of a principal from the stream gateway:principal:DIGEST:audit and the receipt of an activity from the hash webhooks:principal:DIGEST:activities, where DIGEST is the audit digest of the principal, and beside each key a key of the same name followed by :version with the value 1. The gateway appends its audit entries to the common stream gateway:audit, and the webhooks service stores the events of a principal in the document of the principal. A reader and the writer of its entries name the same keys, and a case of the reader that fills the keys by itself does not show that the writer fills them."
+fix = "Decision 3605. Tasks 22.39.690 and 22.39.691."
