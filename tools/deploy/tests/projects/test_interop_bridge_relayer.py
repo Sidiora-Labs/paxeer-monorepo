@@ -159,7 +159,7 @@ def test_bridge_relayer_tcp_transport_and_health():
     routes = re.search(r'route @ \(([^)]+)\)', api)
     assert routes
     assert "health" not in routes.group(1)
-    assert service["health"] == ""
+    assert "health" not in service
     assert service["public"] == 0
     variables = definition()["vars"][SERVICE]
     assert "PORT" not in variables

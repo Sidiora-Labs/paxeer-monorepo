@@ -2,15 +2,9 @@
 
 [service.smart-contract-verifier]
 kind = "repo"
-repository = "https://github.com/Sidiora-Labs/paxeer-monorepo"
-branch = "main"
-container = "docker/explorer-smart-contract-verifier/Dockerfile"
+dockerfile = "docker/explorer-smart-contract-verifier/Dockerfile"
 root = "."
-watch = [
-    "docker/explorer-smart-contract-verifier/**",
-    "docker/common/**",
-    "services/explorer/services/smart-contract-verifier/**",
-]
+watch = ["docker/explorer-smart-contract-verifier/**", "docker/common/**", "services/explorer/services/smart-contract-verifier/**"]
 health = "/health"
 restart = "ALWAYS"
 replicas = 1
