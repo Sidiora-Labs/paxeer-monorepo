@@ -9,7 +9,7 @@ replicas = 1
 volume = "/data"
 public = 1
 order = 15
-needs = ["human-service", "router"]
+needs = ["human", "router"]
 
 [vars.human-web]
 PORT = "3000"
