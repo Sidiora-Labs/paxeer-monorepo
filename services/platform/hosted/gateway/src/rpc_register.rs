@@ -8,9 +8,9 @@ use std::sync::Mutex;
 use zeroize::Zeroizing;
 
 const TOKEN_VARIABLE: &str = "LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE";
-const BINDING_DOMAIN: &[u8] = b"layerx-register-binding-v1";
-const SUBJECT_DOMAIN: &[u8] = b"layerx-register-subject-v1";
-const REGISTRATIONS_PER_MINUTE: u32 = 30;
+pub(super) const BINDING_DOMAIN: &[u8] = b"layerx-register-binding-v1";
+pub(super) const SUBJECT_DOMAIN: &[u8] = b"layerx-register-subject-v1";
+pub(super) const REGISTRATIONS_PER_MINUTE: u32 = 30;
 
 static REGISTER_WINDOW: Mutex<(u64, u32)> = Mutex::new((0, 0));
 
@@ -59,20 +59,24 @@ fn trusted(proxies: &[(IpAddr, u8)], ip: IpAddr) -> bool {
     })
 }
 
-fn tagged(domain: &[u8], tenant: &str, signer_public_key: &[u8; 32]) -> [u8; 32] {
+pub(super) fn tagged_parts(domain: &[u8], parts: &[&[u8]]) -> [u8; 32] {
     let mut hash = Sha256::new();
-    for part in [domain, tenant.as_bytes(), signer_public_key.as_slice()] {
+    for part in std::iter::once(domain).chain(parts.iter().copied()) {
         hash.update((part.len() as u64).to_be_bytes());
         hash.update(part);
     }
     hash.finalize().into()
 }
 
-fn binding(tenant: &str, signer_public_key: &[u8; 32]) -> [u8; 32] {
+pub(super) fn tagged(domain: &[u8], tenant: &str, signer_public_key: &[u8; 32]) -> [u8; 32] {
+    tagged_parts(domain, &[tenant.as_bytes(), signer_public_key.as_slice()])
+}
+
+pub(super) fn binding(tenant: &str, signer_public_key: &[u8; 32]) -> [u8; 32] {
     tagged(BINDING_DOMAIN, tenant, signer_public_key)
 }
 
-fn subject(tenant: &str, signer_public_key: &[u8; 32]) -> String {
+pub(super) fn subject(tenant: &str, signer_public_key: &[u8; 32]) -> String {
     format!("{tenant}.{}", &super::hex(&tagged(SUBJECT_DOMAIN, tenant, signer_public_key))[..32])
 }
 
@@ -132,7 +136,7 @@ pub(super) fn client_ip(proxies: &[(IpAddr, u8)], peer: Option<SocketAddr>, forw
     current.to_string()
 }
 
-fn register_params(params: Option<&Value>) -> Result<([u8; 32], [u8; 64]), i32> {
+pub(super) fn register_params(params: Option<&Value>) -> Result<([u8; 32], [u8; 64]), i32> {
     let Some(Value::Array(args)) = params else {
         return Err(-32602);
     };
@@ -178,7 +182,7 @@ fn refusal(id: &Value, code: i32, message: &str, reason: &str) -> Value {
     refused
 }
 
-fn principal_result(tenant: &str, id: &Value, sub: &str, signer: &str, status: u16, content_type: &str, body: &[u8]) -> Value {
+pub(super) fn principal_result(tenant: &str, id: &Value, sub: &str, signer: &str, status: u16, content_type: &str, body: &[u8]) -> Value {
     if content_type != "application/json" {
         return error(id, -32603, "Invalid upstream response");
     }
@@ -201,7 +205,7 @@ fn principal_result(tenant: &str, id: &Value, sub: &str, signer: &str, status: u
     json!({"jsonrpc":"2.0", "id":id, "result":document})
 }
 
-fn principal_request(tenant: &str, sub: &str, signer: &str) -> String {
+pub(super) fn principal_request(tenant: &str, sub: &str, signer: &str) -> String {
     json!({
         "tenant": tenant,
         "sub": sub,
@@ -302,7 +306,7 @@ pub(super) fn configured_token() -> Result<Option<Zeroizing<String>>, String> {
     super::read_secret(TOKEN_VARIABLE).map(Some)
 }
 
-fn configured_tenant() -> Result<String, String> {
+pub(super) fn configured_tenant() -> Result<String, String> {
     let tenant = std::env::var("LAYERX_GATEWAY_TENANT").map_err(|_| "registration requires trusted LAYERX_GATEWAY_TENANT".to_owned())?;
     if tenant.is_empty() || tenant.len() > 95 || !tenant.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-_.".contains(&byte)) {
         return Err("invalid gateway registration tenant".into());

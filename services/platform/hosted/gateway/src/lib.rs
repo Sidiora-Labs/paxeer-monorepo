@@ -16,7 +16,7 @@ pub mod explorer_target;
 pub mod http;
 pub mod store;
 
-pub const ROUTER_METHODS: [&str; 17] = [
+pub const ROUTER_METHODS: [&str; 18] = [
     "pax_sequencerReceipt",
     "px_getAccount",
     "px_getBalances",
@@ -31,6 +31,7 @@ pub const ROUTER_METHODS: [&str; 17] = [
     "px_getValidators",
     "px_listAssets",
     "px_listHolderRecords",
+    "px_openSession",
     "px_register",
     "px_requestFunds",
     "px_resolveAccount",
@@ -1046,7 +1047,7 @@ mod tests {
 
     #[test]
     fn router_methods_are_sorted_unique_and_namespaced() {
-        assert_eq!(ROUTER_METHODS.len(), 17);
+        assert_eq!(ROUTER_METHODS.len(), 18);
         for pair in ROUTER_METHODS.windows(2) {
             assert!(pair[0].as_bytes() < pair[1].as_bytes(), "{pair:?}");
         }
