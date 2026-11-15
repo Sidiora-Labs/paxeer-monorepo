@@ -51,4 +51,5 @@ def test_platform_folder_loads_every_service_with_project_repository() -> None:
     assert web["inputs"] == {
         "PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN": "operator",
         "PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN": "operator",
+        "PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT": "operator",
     }
