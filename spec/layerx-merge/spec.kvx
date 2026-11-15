@@ -172866,7 +172866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.656]
 title = "Give the wallet demo tests the JSX setting their present transformer reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -198032,7 +198032,7 @@ do_6 = "do_6 Decision 3577, gotcha 4496. The verification now runs the four file
 
 [task.22.39.650]
 title = "Compose the startup documents of the launchpad livestream service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
