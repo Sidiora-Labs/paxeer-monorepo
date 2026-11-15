@@ -197343,7 +197343,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.617]
 title = "Bring the wallet wire vectors and their copies into one form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
