@@ -1,5 +1,6 @@
 {
   "generator": "services/agent/crates/layerx-wire/tests/wallet_vectors.rs",
+  "account_protocol_version": 3,
   "activities": [
     {
       "name": "native-send",

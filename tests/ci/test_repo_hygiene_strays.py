@@ -50,6 +50,23 @@ EMPTY_SOURCE_ALLOWLIST = {
     "tools/launchpad/production/feature-acceptance/__init__.py": (
         "Python package marker for the feature acceptance tooling"
     ),
+    "apps/perps/packages/core/src/eventBus.ts": "Trading package extension marker",
+    "apps/perps/packages/default-evm-adapter/src/constants.ts": "Trading package extension marker",
+    "apps/perps/packages/hooks/src/next/orderBook/orderBookStore.ts": "Trading package extension marker",
+    "apps/perps/packages/perp/src/types.ts": "Trading package extension marker",
+    "apps/perps/packages/portfolio/src/pages/overview/distribution/useDistributionHistoryHook.ts": "Trading package extension marker",
+    "apps/perps/packages/trading-next/src/components/mobile/tips/index.ts": "Trading package extension marker",
+    "apps/perps/packages/trading/src/components/mobile/tips/index.ts": "Trading package extension marker",
+    "apps/perps/packages/types/src/types/base.ts": "Trading package extension marker",
+    "apps/perps/packages/ui-order-entry/src/components/slippage/index.ts": "Trading package extension marker",
+    "apps/perps/packages/ui-tpsl/src/tpslDetail/components/handle.tsx": "Trading package extension marker",
+    "apps/perps/packages/ui/src/carousel/index.ts": "Trading package extension marker",
+    "apps/perps/packages/ui/src/dropdown/radioGroup.tsx": "Trading package extension marker",
+    "apps/perps/packages/ui/src/dropdown/tokens.tsx": "Trading package extension marker",
+    "apps/perps/packages/ui/src/radio/index.ts": "Trading package extension marker",
+    "apps/perps/packages/ui/src/tag/index.ts": "Trading package extension marker",
+    "apps/perps/packages/ui/src/typography/typography.tsx": "Trading package extension marker",
+    "apps/perps/packages/wallet-connector/index.ts": "Trading package extension marker",
 }
 DATED_PATCH_DIRECTORY = re.compile(r"^patches/\d{8}(?:_\d+)?/")
 # Spell the signatures as escapes so the guard also scans its own source.
@@ -120,13 +137,13 @@ def test_no_tracked_git_bundles_or_patch_dirs():
     assert not unexpected, (
         "Tracked Git bundles or dated patch directories:\n" + "\n".join(unexpected)
     )
-    assert not (ROOT / "apps/perps/public/model.gltf").exists(), (
+    assert not (ROOT / "apps/perps/apps/web/public/model.gltf").exists(), (
         "The unreferenced perps model must remain removed"
     )
 
 
 def test_removed_model_has_no_size_allowances(allowlist: dict[str, int]):
-    removed_model = "apps/perps/public/model.gltf"
+    removed_model = "apps/perps/apps/web/public/model.gltf"
     assert not (ROOT / removed_model).exists(), (
         "The unreferenced perps model must remain removed"
     )

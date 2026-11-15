@@ -53,17 +53,36 @@ LARGE_ASSET_ALLOWLIST = {
         787_624,
         "Existing airdrop artwork",
     ),
-    "apps/perps/public/Dark.png": (859_279, "Existing theme preview"),
-    "apps/perps/public/Hotline.png": (840_119, "Existing theme preview"),
-    "apps/perps/public/Model_Compressed.glb": (2_074_912, "Existing 3D model"),
-    "apps/perps/public/OLED.png": (859_279, "Existing theme preview"),
-    "apps/perps/public/assets/airdrop_background.png": (
+    "apps/perps/apps/web/public/Dark.png": (859_279, "Existing theme preview"),
+    "apps/perps/apps/web/public/Hotline.png": (840_119, "Existing theme preview"),
+    "apps/perps/apps/web/public/OLED.png": (859_279, "Existing theme preview"),
+    "apps/perps/apps/web/public/Paxify.png": (524_288, "Existing application artwork"),
+    "apps/perps/apps/web/public/assets/airdrop_background.png": (
         787_624,
         "Existing airdrop artwork",
     ),
-    "apps/perps/public/assets/logo.svg": (1_626_439, "Existing perps brand export"),
-    "apps/perps/public/image.png": (1_842_773, "Existing perps artwork"),
-    "apps/perps/public/static/charting_library/charting_library.d.ts": (
+    "apps/perps/apps/web/public/image.png": (1_842_773, "Existing perps artwork"),
+    "apps/perps/apps/web/public/leaderboard/campaign_120.png": (
+        890_077,
+        "Existing leaderboard artwork",
+    ),
+    "apps/perps/apps/web/public/pnl/poster_bg_1.png": (
+        581_524,
+        "Existing performance artwork",
+    ),
+    "apps/perps/apps/web/public/pnl/poster_bg_2.png": (
+        575_235,
+        "Existing performance artwork",
+    ),
+    "apps/perps/apps/web/public/pnl/poster_bg_3.png": (
+        569_754,
+        "Existing performance artwork",
+    ),
+    "apps/perps/apps/web/public/pnl/poster_bg_4.png": (
+        788_851,
+        "Existing performance artwork",
+    ),
+    "apps/perps/apps/web/public/static/charting_library/charting_library.d.ts": (
         1_023_620,
         "Vendored charting declarations",
     ),
@@ -135,14 +154,13 @@ def tracked_paths() -> set[str]:
 
 def is_visitor_asset(name: str) -> bool:
     parts = Path(name).parts
-    if len(parts) < 4 or parts[0] != "apps":
+    if len(parts) < 3 or parts[0] != "apps":
         return False
-    for offset in (2, 3):
-        if parts[offset : offset + 1] == ("public",):
-            return True
-        if parts[offset : offset + 2] == ("src", "assets"):
-            return True
-    return False
+    tail = parts[2:]
+    return "public" in tail or any(
+        tail[index : index + 2] == ("src", "assets")
+        for index in range(len(tail) - 1)
+    )
 
 
 def test_public_assets_under_weight_cap(tracked_paths: set[str]):

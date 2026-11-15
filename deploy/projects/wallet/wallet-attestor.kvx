@@ -2,7 +2,7 @@
 
 [service.wallet-attestor]
 kind = "repo"
-container = "docker/wallet-attestor/Dockerfile"
+dockerfile = "docker/wallet-attestor/Dockerfile"
 root = "."
 watch = ["docker/wallet-attestor/**", "docker/common/**", "services/wallet/attestor/**", "services/wallet/deploy/attestor-policy.json", "services/wallet/deploy/attestor-kernel-policy.json", "layerxproof/**", "go.mod", "go.sum"]
 health = "/health"

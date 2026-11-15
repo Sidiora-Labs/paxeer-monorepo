@@ -14518,6 +14518,24 @@ value = "The name of a hosted service in tools/bringup/ca-services.tsv is its na
 basis = "Gotcha 4482. The roster is the list certificates are issued from, and the bring-up tools read it."
 affects = []
 
+[decision.3568]
+title = "A migration on main keeps its content"
+value = "A migration file under services/explorer/backend/apps/explorer/priv/repo/migrations that is on main is not changed. A change of the schema is a new migration with a later version, written so that a database in either earlier state ends in the same state: it states the target form of the column or index and applies it only where it is missing."
+basis = "Gotcha 4485. A database applies a version once."
+affects = []
+
+[decision.3569]
+title = "A reader of block contents outside the node takes the entries from the consensus block route"
+value = "A component outside the node that needs the transactions of a block reads the entries from the consensus route /block, decodes the entries that are transactions itself in the protobuf wire form and joins the results of /block_results by position. An entry that is not a transaction keeps its position and its result and is left out of the transactions. The component does not depend on the transaction service for the contents of a block."
+basis = "Gotcha 4486. The consensus routes give every entry of a block in every kind."
+affects = []
+
+[decision.3570]
+title = "A verification of one crate without a node calls cargo for that crate"
+value = "Where the verification of a task tests one crate of the agent workspace and no test of it starts a node, it calls cargo test with the locked manifest of services/agent and the package, not the make target for the agent tests. The verification of task 22.39.617 takes this form; its build stays as it is."
+basis = "Gotcha 4489."
+affects = ["22.39.617"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44178,6 +44196,69 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.626]
+title = "Answer the block route of the transaction service for a block with the sequence batch entry"
+reqs = ["22998.1"]
+touches = ["sdk/x/auth/tx"]
+tests = []
+verification_contract = "go test -count=1 -v -run '^TestRepair_626_' ./sdk/x/auth/tx/ > /tmp/repair-626.log 2>&1; s=$?; tail -n 80 /tmp/repair-626.log; grep -q -- '--- PASS: TestRepair_626_' /tmp/repair-626.log && test $s -eq 0"
+do_1 = "do_1 Gotcha 4486. Read sdk/x/auth/tx/service.go with GetBlockWithTxs, sdk/x/auth/tx/gas_estimate_block_pagination_test.go and sdk/x/auth/tx/service_test.go for the form of a service test, and modules/sequencer/types/msgs.go with SequenceBatchDomain."
+symbols = []
+
+[capability.22.39.625]
+title = "Build the backend image of the explorer from the repository root in every caller"
+reqs = ["22998.1"]
+touches = [".github/workflows/explorer-images.yml", "docker/explorer-backend", "tests/ci/test_explorer_test_step.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_explorer_backend_image_context.py"
+do_1 = "do_1 Gotcha 4487. Read .github/workflows/explorer-images.yml, docker/explorer-backend/Dockerfile with the ignore file beside it, deploy/projects/explorer/backend.kvx, tests/ci/test_image_copy_sources_in_context.py and tests/ci/test_explorer_test_step.py."
+symbols = []
+
+[capability.22.39.624]
+title = "Read the price submissions of a block from the consensus block route"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/paxeer_x", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy", "services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_block_entries_test.exs"
+do_1 = "do_1 Gotcha 4486, decision 3569. Read services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex whole, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_updates.ex, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs where it calls the reader, services/explorer/backend/config/runtime.exs where it reads PAXEER_X_COSMOS_REST_URLS and PAXEER_X_COMETBFT_RPC_URLS, api/pricefeed/tx.proto, modules/sequencer/types/msgs.go with SequenceBatchDomain, and the tests services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs and services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs."
+symbols = []
+
+[capability.22.39.623]
+title = "Keep the indexed counters quiet where no endpoint runs"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/indexed_counters_without_endpoint_test.exs"
+do_1 = "do_1 Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/blocks_indexed_counter.ex and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/internal_transactions_indexed_counter.ex, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex with broadcast_indexed_ratio, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/application.ex with the children it starts when the web application is switched off, and one test under services/explorer/backend/apps/block_scout_web/test/repair for the form."
+symbols = []
+
+[capability.22.39.622]
+title = "Let the acceptance replay take several blocks at a time and read a pruned height as unavailable"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/paxeer_x", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs", "services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_pace_test.exs"
+do_1 = "do_1 Gotcha 4485. Read services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex with get_json, get_once, node_error and pick_error, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex with price_updates_supervisor.ex beside it, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, and the tests services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs, services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs and services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs."
+symbols = []
+
+[capability.22.39.621]
+title = "Make the accepted column optional on every database and index the replay queue"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_column_test.exs"
+do_1 = "do_1 Gotcha 4485, decision 3568. Read the migrations 20261028000000 and 20261104000000 under services/explorer/backend/apps/explorer/priv/repo/migrations, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, the schema services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex and under services/explorer/backend/apps/explorer/test/repair the tests historical_price_acceptance_replay_test.exs and price_acceptance_replay_lifecycle_test.exs."
+symbols = []
+
+[capability.22.39.620]
+title = "Import a block whose receipts hold entries of the chain itself"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/indexer/lib/indexer/block", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/repair/block_receipts_chain_entries_test.exs"
+do_1 = "do_1 Gotcha 4484. Read services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex with the functions that validate receipts and logs, services/explorer/backend/apps/indexer/lib/indexer/block/fetcher/receipts.ex, services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex with fetch_by_block_numbers, services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex and the test services/explorer/backend/apps/indexer/test/repair/receipt_log_identity_validation_test.exs."
+symbols = []
 
 [capability.22.39.619]
 title = "Give the hosted gateway and its store the names of the certificate roster"
@@ -172324,7 +172405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.606]
 title = "Add the container file of the service names and define it in the project sites for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172339,7 +172420,7 @@ do_5 = "do_5 Add docker/names-web/Dockerfile with its ignore file as decision 35
 symbols = []
 touches = ["apps/names", "services/platform/hosted/tests/beta-images.sh", "tools/containers/check.sh"]
 tests = []
-planned_paths = ["deploy/projects/sites/names.kvx", "tools/deploy/tests/projects/test_sites_names.py", "docker/names-web/Dockerfile"]
+planned_paths = ["deploy/projects/sites/names.kvx", "tools/deploy/tests/projects/test_sites_names.py", "docker/names-web/Dockerfile", "docker/names-web/Dockerfile.dockerignore"]
 build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_sites_names.py"
 verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_sites_names.py && test -s docker/names-web/Dockerfile"
 gate_kind = "planned"
@@ -197274,11 +197355,11 @@ do_2 = "do_2 Compare each pair of the inventory under services/agent/crates/laye
 do_3 = "do_3 Make each copy under services/wallet/attestor/internal/lxwire/testdata the same bytes as its source. Where a test under services/wallet/attestor/internal/lxwire or under services/agent/crates/layerx-wire/tests names a row of a vector file in another form than the file writes it, bring the test in line with the file. A test that states a rule of account names on its own and reads no vector file stays as it is."
 do_4 = "do_4 Run the tests of services/wallet/attestor/internal/lxwire and of the wire library once and give their last lines in the final message, with the list of do_2. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-wire/tests/support/wallet_vectors", "services/wallet/attestor/internal/lxwire/testdata", "services/wallet/attestor/internal/lxwire", "services/agent/crates/layerx-wire/tests"]
+touches = ["services/agent/crates/layerx-wire/tests/support/wallet_vectors", "services/wallet/attestor/internal/lxwire/testdata", "services/wallet/attestor/internal/lxwire", "services/agent/crates/layerx-wire/tests", "tests/ci/data/intentional_copies.txt"]
 tests = []
 planned_paths = []
 build_cmd = "cd services/wallet/attestor && go build ./internal/lxwire/..."
-verify_cmd = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py -k test_other_intentional_copies_match_sources && (cd services/wallet/attestor && go test -count=1 ./internal/lxwire/) && make -s agent-test AGENT_TEST_SCOPE='-p layerx-wire'"
+verify_cmd = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py -k test_other_intentional_copies_match_sources && (cd services/wallet/attestor && go test -count=1 ./internal/lxwire/) && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-wire"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-wallet"
@@ -197290,10 +197371,12 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Gotcha 4483. tests/ci/data/intentional_copies.txt is in the paths. Remove from it every row whose source or whose copy is no longer in the tree, and no other row; give the count of removed rows in the final message. A file that was the copy of a removed source stays where it is. Run the build once and the verification once at the final revision."
+do_6 = "do_6 Decision 3570, gotcha 4489. The verification now calls cargo for the wire crate. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.612]
 title = "Let the definitions of the project wallet load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.594", "22.39.595", "22.39.596", "22.39.597"]
@@ -197325,7 +197408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.583]
 title = "Add the container file of the service ai-evaluator and define it in the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197357,7 +197440,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.574]
 title = "Send registry credentials only where a row asks and follow a replaced deployment in the perps project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -242751,6 +242834,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.626]
+title = "Answer the block route of the transaction service for a block with the sequence batch entry"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.626"]
+interfaces = []
+do_1 = "do_1 Gotcha 4486. Read sdk/x/auth/tx/service.go with GetBlockWithTxs, sdk/x/auth/tx/gas_estimate_block_pagination_test.go and sdk/x/auth/tx/service_test.go for the form of a service test, and modules/sequencer/types/msgs.go with SequenceBatchDomain."
+do_2 = "do_2 GetBlockWithTxs answers for a block that holds the sequence batch entry: an entry that begins with the sequence batch domain is not decoded and is left out of the list of transactions; every other entry is decoded as now, and an entry that does not decode gives the error as now. The transactions keep the order of the block. Offset, limit, reverse and the total of the page answer count the transactions, not the entries, and the block of the answer keeps every entry. A block whose only entry is the sequence batch entry answers as a block without transactions."
+do_3 = "do_3 The domain text has one statement the service reaches. Where the package cannot import the package of modules/sequencer/types/msgs.go, state the text once under sdk/x/auth/tx and add a case that reads modules/sequencer/types/msgs.go and requires the same text."
+do_4 = "do_4 Add sdk/x/auth/tx/repair_626_test.go with tests whose names begin with TestRepair_626_ and these cases: a block of the sequence batch entry and two transactions gives the two transactions in order with the total 2; offset 1 with limit 1 gives the second transaction; reverse gives them in reverse order; a block of the sequence batch entry alone gives an empty list, the total 0 and no error; an entry that is neither the sequence batch entry nor a transaction gives the decode error; the block of each answer holds every entry. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/x/auth/tx"]
+tests = []
+planned_paths = ["sdk/x/auth/tx/repair_626_test.go"]
+build_cmd = "go build ./sdk/x/auth/tx/..."
+verify_cmd = "go test -count=1 -v -run '^TestRepair_626_' ./sdk/x/auth/tx/ > /tmp/repair-626.log 2>&1; s=$?; tail -n 80 /tmp/repair-626.log; grep -q -- '--- PASS: TestRepair_626_' /tmp/repair-626.log && test $s -eq 0"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.560]
 title = "Pay the paid search of the live check with the exact scheme"
@@ -378014,6 +378128,37 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.625]
+title = "Build the backend image of the explorer from the repository root in every caller"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.625"]
+interfaces = []
+do_1 = "do_1 Gotcha 4487. Read .github/workflows/explorer-images.yml, docker/explorer-backend/Dockerfile with the ignore file beside it, deploy/projects/explorer/backend.kvx, tests/ci/test_image_copy_sources_in_context.py and tests/ci/test_explorer_test_step.py."
+do_2 = "do_2 The backend image has one build context, the repository root, as its Dockerfile states its sources. The publish row of the workflow passes that context. The ignore file beside the Dockerfile states its patterns from the repository root and keeps the context to what the Dockerfile copies: services/explorer/backend without build outputs, dependency directories, test directories and environment files. The Dockerfile keeps its content unless one of its paths names nothing in the tree."
+do_3 = "do_3 The step of the test job that provides the container runtime installs one only where none answers: where docker version answers on the runner the step installs nothing and prints the server version, and where it does not answer the step installs as now. The access rule for the socket is set only where the user of the job cannot reach the socket."
+do_4 = "do_4 Add tests/ci/test_explorer_backend_image_context.py with these cases: every source of a COPY line of the Dockerfile that does not come from a stage exists under the context of the publish row and is not left out by the ignore file; a build output directory and a dependency directory under services/explorer/backend match the ignore file; a path outside services/explorer/backend matches the ignore file; the context of the publish row, the root of deploy/projects/explorer/backend.kvx and the Dockerfile agree; in the runtime step the check comes before the install and the install is inside the branch for a missing runtime. Bring tests/ci/test_explorer_test_step.py in line where it states the earlier step. Run tests/ci/test_image_copy_sources_in_context.py and tests/ci/test_explorer_test_step.py once by hand and give their last lines in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/explorer-images.yml", "docker/explorer-backend", "tests/ci/test_explorer_test_step.py"]
+tests = []
+planned_paths = ["tests/ci/test_explorer_backend_image_context.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_explorer_backend_image_context.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_explorer_backend_image_context.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.619]
 title = "Give the hosted gateway and its store the names of the certificate roster"
 status = "pending"
@@ -378048,7 +378193,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.618]
 title = "Let the perps project tool name itself in its requests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378078,7 +378223,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.616]
 title = "Let the project tool speak the forms of the hosting platform for a repo row"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610"]
@@ -378111,7 +378256,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.615]
 title = "Let the definitions of the project sites load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.606", "22.39.607", "22.39.608"]
@@ -378143,7 +378288,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.614]
 title = "Let the definitions of the project explorer load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.602", "22.39.603", "22.39.604", "22.39.605"]
@@ -378175,7 +378320,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.613]
 title = "Let the definitions of the project interop load through the project tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.610", "22.39.598", "22.39.599", "22.39.600", "22.39.601"]
@@ -378367,7 +378512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.603]
 title = "Define the service frontend of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378399,7 +378544,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.602]
 title = "Define the service backend of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378463,7 +378608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.599]
 title = "Define the service mirror of the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378495,7 +378640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.598]
 title = "Define the service interop of the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378751,7 +378896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.590]
 title = "Define the service paxeer-boundary of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378847,7 +378992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.587]
 title = "Define the service agent-boundary of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -379039,7 +379184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.580]
 title = "Define the service dashboard-web of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -379071,7 +379216,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.579]
 title = "Define the service dashboard of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -379103,7 +379248,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.578]
 title = "Define the service webhooks-public of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -457562,6 +457707,160 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.624]
+title = "Read the price submissions of a block from the consensus block route"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.622"]
+reqs = ["22998.1"]
+capabilities = ["22.39.624"]
+interfaces = []
+do_1 = "do_1 Gotcha 4486, decision 3569. Read services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex whole, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_updates.ex, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs where it calls the reader, services/explorer/backend/config/runtime.exs where it reads PAXEER_X_COSMOS_REST_URLS and PAXEER_X_COMETBFT_RPC_URLS, api/pricefeed/tx.proto, modules/sequencer/types/msgs.go with SequenceBatchDomain, and the tests services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs and services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs."
+do_2 = "do_2 The reader takes the entries of a block from the consensus route GET /block?height=N over the consensus URL list: the list block.data.txs of base64 entries, in the answer with a result object and in the answer without one, with the same reading of a height the node no longer holds, of a height above the head and of a node that cannot be reached as for the block results. It decodes each entry itself in the protobuf wire form: the raw transaction with the body bytes in field 1, the auth info bytes in field 2 and the signatures in field 3; the body with its messages in field 1, each with the type URL in field 1 and the value in field 2; the fee in field 2 of the auth info with the gas limit in field 2; the submission as api/pricefeed/tx.proto states it, the feeder in field 1 and the observations in field 2 with market id, sequence, index price, mark price and source time in fields 1 to 5. A number field that is absent is zero."
+do_3 = "do_3 An entry that is not a transaction, such as the sequence batch entry at the start of a block, gives no submission and keeps its place: the index of a submission is its position among all entries of the block, its hash is the SHA-256 of its raw bytes, and the results of GET /block_results join by that position and are as many as the entries. A transaction without a submission gives no submission. An entry that carries the type URL of the submission and does not decode to a feeder and observations is the error malformed, never an empty result. A submission gives the values the reader gave before for the same transaction: the feeder in both forms, the gas limit, and for each market the last observation, sorted by market."
+do_4 = "do_4 The price scanner and the acceptance replay need the consensus URL list only and send no request to the REST URLs. PAXEER_X_COSMOS_REST_URLS stays an accepted setting that nothing requires: with the price feed enabled and the setting empty the application starts, and a value that is not a list of http or https URLs is refused as now. Say so where the setting is described under services/explorer/deploy: in services/explorer/deploy/env/backend.example.env and in the README there that names the setting. Change no file under services/explorer/deploy/tools. The option cosmos_rest_urls may stay in the function heads its callers use."
+do_5 = "do_5 Add the test services/explorer/backend/apps/explorer/test/repair/price_block_entries_test.exs. It builds its entries by encoding the wire form in the test itself and serves them from a local HTTP stub. Cases: a block of a sequence batch entry followed by a submission with two observations, one of them for market 0 with the field absent, gives one update with index 1, the hash of its bytes, the feeder, the gas limit and both observations, joined with the result at position 1 whose refused event names one of the two markets; a block that holds only the sequence batch entry gives no update and asks for no results; a block without entries gives none; a transaction of another message type between two submissions leaves the indexes 0 and 2; the answer without a result object reads the same; an entry with the type URL of the submission that is cut short gives malformed; with the stub answering status 500 on every path under /cosmos the block is read as before."
+do_6 = "do_6 Bring the tests under services/explorer/backend/apps/explorer/test, services/explorer/backend/apps/indexer/test and services/explorer/backend/apps/block_scout_web/test that serve the earlier route in line with the new source and change no assertion about stored values. Name each changed file in the final message and run each changed file once by hand. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/paxeer_x", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy", "services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/test/repair/price_block_entries_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_block_entries_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.623]
+title = "Keep the indexed counters quiet where no endpoint runs"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.623"]
+interfaces = []
+do_1 = "do_1 Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/blocks_indexed_counter.ex and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters/internal_transactions_indexed_counter.ex, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex with broadcast_indexed_ratio, services/explorer/backend/apps/block_scout_web/lib/block_scout_web/application.ex with the children it starts when the web application is switched off, and one test under services/explorer/backend/apps/block_scout_web/test/repair for the form."
+do_2 = "do_2 Where the endpoint and its publisher are not started, the two counters compute their ratio and send no broadcast, without a failed process and without a line of level error in the log. Where the endpoint runs they broadcast as now. Decide by whether the publisher of the endpoint is running, not by a setting of its own."
+do_3 = "do_3 Add the test services/explorer/backend/apps/block_scout_web/test/repair/indexed_counters_without_endpoint_test.exs: with the publisher absent each of the two functions returns without raising and the log holds no error line; with the publisher present a subscriber receives the ratio on the topics it receives now. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/counters", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/indexed_counters_without_endpoint_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/indexed_counters_without_endpoint_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.622]
+title = "Let the acceptance replay take several blocks at a time and read a pruned height as unavailable"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.621"]
+reqs = ["22998.1"]
+capabilities = ["22.39.622"]
+interfaces = []
+do_1 = "do_1 Gotcha 4485. Read services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex with get_json, get_once, node_error and pick_error, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex with price_updates_supervisor.ex beside it, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, and the tests services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs, services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs and services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs."
+do_2 = "do_2 In services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex a node that no longer holds a height is read as height_unavailable in every form the node gives: the text height N is not available, lowest height is M, and the text height is not available (requested height: N, base height: M), in a body of status 200 with code, message and data as well as in a body of another status. Such an answer never ends the round before the other URLs were asked, and it is the result only when every URL answered so."
+do_3 = "do_3 The replay takes up to a set number of blocks in one step, four unless the start option acceptance_backfill_concurrency says otherwise, each block in its own transaction and each block by one process only. A block that fails is held with its reason as now and does not stop the other blocks of the step. After a step that completed work the next step starts without the wait; the waits after a deferred and after a failed step stay. The order stays: blocks without a recorded reason first by number, held blocks after them."
+do_4 = "do_4 Add the test services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_pace_test.exs with these cases: a body of status 200 with the base height text from the first URL and the results from the second URL gives the results; every URL with that text gives height_unavailable; a step over six waiting blocks with the option at three completes three blocks; with one of the three failing it completes two and holds one with its reason; two steps called at the same time complete no block twice. Bring the tests named in do_1 in line where they state the earlier pace or the earlier reading, and say so in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/paxeer_x", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_node_failover_test.exs", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs", "services/explorer/backend/apps/explorer/test/explorer/paxeer_x/cosmos_rest_test.exs"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_pace_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_pace_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.621]
+title = "Make the accepted column optional on every database and index the replay queue"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.621"]
+interfaces = []
+do_1 = "do_1 Gotcha 4485, decision 3568. Read the migrations 20261028000000 and 20261104000000 under services/explorer/backend/apps/explorer/priv/repo/migrations, services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, the schema services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex and under services/explorer/backend/apps/explorer/test/repair the tests historical_price_acceptance_replay_test.exs and price_acceptance_replay_lifecycle_test.exs."
+do_2 = "do_2 Add the migration services/explorer/backend/apps/explorer/priv/repo/migrations/20261115000000_relax_paxeer_x_price_observation_accepted.exs. Its up makes the accepted column of paxeer_x_price_observations optional and without default whatever form the column has, and creates, only if it is missing, the index paxeer_x_price_acceptance_backfill_next_job_index on paxeer_x_price_acceptance_backfill over the expression error IS NOT NULL, then block_number, then block_hash, for the rows where completed is false. Its down drops that index and leaves the column. No statement rewrites a row of either table. Change no migration that is on main."
+do_3 = "do_3 Add the test services/explorer/backend/apps/explorer/test/repair/price_acceptance_column_test.exs: it brings the column to the required form with the default true inside its own transaction, runs the up of the new migration and requires an optional column without default and the index with its three parts in the order the query that picks the next job sorts by; it runs the up a second time and requires no change and no error; on that table one step of the replay completes a block that carries an accepted and a refused observation and leaves both values as the results of the node state them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/priv/repo/migrations/20261115000000_relax_paxeer_x_price_observation_accepted.exs", "services/explorer/backend/apps/explorer/test/repair/price_acceptance_column_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_column_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.620]
+title = "Import a block whose receipts hold entries of the chain itself"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.620"]
+interfaces = []
+do_1 = "do_1 Gotcha 4484. Read services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex with the functions that validate receipts and logs, services/explorer/backend/apps/indexer/lib/indexer/block/fetcher/receipts.ex, services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex with fetch_by_block_numbers, services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex and the test services/explorer/backend/apps/indexer/test/repair/receipt_log_identity_validation_test.exs."
+do_2 = "do_2 Where receipts are read by block, a receipt whose type is 0xffffffff and whose transaction hash is not among the transactions the block lists is left out together with its logs before the receipts are joined to the transactions and validated. Take the type from the answer of the node where the decoded form does not carry it. Every other rule stays: a receipt of another type that belongs to no listed transaction, a duplicate, a wrong index and a missing receipt still refuse the range, and the path that reads receipts by transaction is unchanged."
+do_3 = "do_3 Add the test services/explorer/backend/apps/indexer/test/repair/block_receipts_chain_entries_test.exs with these cases, each against the code that reads by block: an answer with the receipts of two listed transactions and one receipt of type 0xffffffff with three logs and an unlisted hash gives the two receipts with their logs and none of the three logs; the same answer with the extra receipt of type 0x2 is refused as before; an answer that lacks the receipt of a listed transaction is refused as before. Run services/explorer/backend/apps/indexer/test/repair/receipt_log_identity_validation_test.exs once by hand and give its last line in the final message. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/indexer/lib/indexer/block", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipts.ex", "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/receipt.ex"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/indexer/test/repair/block_receipts_chain_entries_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/repair/block_receipts_chain_entries_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

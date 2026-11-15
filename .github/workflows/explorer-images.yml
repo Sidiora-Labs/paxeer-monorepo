@@ -13,6 +13,7 @@ on:
       - 'precompiles/**'
       - '.github/workflows/explorer-images.yml'
       - 'tests/ci/test_explorer_test_step.py'
+      - 'tests/ci/test_explorer_backend_image_context.py'
   pull_request:
     paths:
       - 'apps/explorer/**'
@@ -23,6 +24,7 @@ on:
       - 'tools/release/version.json'
       - '.github/workflows/explorer-images.yml'
       - 'tests/ci/test_explorer_test_step.py'
+      - 'tests/ci/test_explorer_backend_image_context.py'
   workflow_dispatch:
 
 permissions:
@@ -43,12 +45,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install and verify the container runtime
+      - name: Ensure the container runtime is available
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes docker.io acl
-          sudo systemctl start docker
-          sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+          if ! docker version >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes docker.io acl
+            sudo systemctl start docker
+            if [ ! -r /var/run/docker.sock ] || [ ! -w /var/run/docker.sock ]; then
+              sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+            fi
+          fi
           docker version --format '{{.Server.Version}}'
       - name: Run umbrella tests (explorer and ethereum_jsonrpc) in the builder
         env:
@@ -68,7 +74,7 @@ jobs:
       matrix:
         include:
           - image: paxeer-x-explorer-backend
-            context: services/explorer/backend
+            context: .
             dockerfile: docker/explorer-backend/Dockerfile
             build_args: |
               RELEASE_VERSION=10.2.6
