@@ -383,7 +383,10 @@ defmodule Explorer.PaxeerX.CosmosRest do
         case {status, Jason.decode(body)} do
           {200, {:ok, %{"code" => _, "message" => message} = decoded}}
           when is_binary(message) and not is_map_key(decoded, "result") ->
-            {:error, {:node_error, url, message}}
+            case node_error(status, body, url) do
+              {:error, {:height_unavailable, _}} = error -> error
+              _ -> {:error, {:node_error, url, message}}
+            end
 
           {200, {:ok, %{"error" => _}}} ->
             node_error(status, body, url)
@@ -406,15 +409,20 @@ defmodule Explorer.PaxeerX.CosmosRest do
     end
   end
 
-  # CometBFT answers "height N is not available, lowest height is M" below its retained
-  # history and "height N must be less than or equal to the current blockchain height M"
-  # above its head; the Cosmos REST route wraps the same texts or says the height is
-  # greater than the current height.
+  # CometBFT answers with one of several pruned-height messages below its retained
+  # history. The Cosmos REST route wraps those texts in both successful and failed
+  # response envelopes. A height above the node's head has a separate retryable error.
   defp node_error(status, body, url) do
     cond do
-      body =~ ~r/height \d+ is not available, lowest height is \d+/ -> {:error, {:height_unavailable, url}}
-      body =~ ~r/must be less than or equal to|greater than the current height/ -> {:error, {:height_ahead, url}}
-      true -> {:error, {:http_status, status, url}}
+      body =~ ~r/height \d+ is not available(?:, lowest height is \d+)?/ or
+          String.contains?(body, "height is not available") ->
+        {:error, {:height_unavailable, url}}
+
+      body =~ ~r/must be less than or equal to|greater than the current height/ ->
+        {:error, {:height_ahead, url}}
+
+      true ->
+        {:error, {:http_status, status, url}}
     end
   end
 end
