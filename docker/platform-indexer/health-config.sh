@@ -1,9 +1,14 @@
 #!/bin/sh
 set -eu
 
+if [ "$#" -ne 0 ]; then
+	[ "$#" -eq 1 ] && [ "$1" = backfill ] || {
+		echo "usage: indexer-health-config [backfill]" >&2
+		exit 2
+	}
+fi
+
 : "${PORT:?HTTP health port is required}"
-: "${LAYERX_INDEXER_LISTEN:?TLS listener is required}"
-: "${LAYERX_INDEXER_HEALTH_SERVER_NAME:?TLS health server name is required}"
 
 port() {
 	case "$1" in
@@ -13,6 +18,35 @@ port() {
 }
 
 port "$PORT" || { echo "indexer: invalid HTTP health port" >&2; exit 2; }
+
+if [ "$#" -eq 1 ]; then
+	cat <<EOF
+pid /run/indexer-health/nginx.pid;
+error_log /dev/stderr warn;
+events { worker_connections 32; }
+http {
+	access_log off;
+	client_body_temp_path /run/indexer-health/client;
+	proxy_temp_path /run/indexer-health/proxy;
+	fastcgi_temp_path /run/indexer-health/fastcgi;
+	uwsgi_temp_path /run/indexer-health/uwsgi;
+	scgi_temp_path /run/indexer-health/scgi;
+	server {
+		listen [::]:${PORT} ipv6only=off;
+		location = /healthz {
+			default_type text/plain;
+			return 200 "backfill";
+		}
+		location / { return 404; }
+	}
+}
+EOF
+	exit 0
+fi
+
+: "${LAYERX_INDEXER_LISTEN:?TLS listener is required}"
+: "${LAYERX_INDEXER_HEALTH_SERVER_NAME:?TLS health server name is required}"
+
 case "$LAYERX_INDEXER_LISTEN" in
 \[::\]:*) tls_port=${LAYERX_INDEXER_LISTEN##*:} ;;
 *) echo "indexer: TLS listener must use all IPv6 interfaces" >&2; exit 2 ;;
