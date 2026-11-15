@@ -246594,7 +246594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.678]
 title = "Take the storage gas value of the ordinary path in the fast execution path when the parameter holds no value"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
