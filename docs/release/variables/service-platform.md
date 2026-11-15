@@ -1211,6 +1211,8 @@ The root `.env.example` inventories the components together; select the settings
 | `LAYERX_INDEXER_AI_CONFIG / root / allow_remote_plaintext` | Root allow remote plaintext. | `false` | No | [hosted/indexer/src/ai_runtime.rs](../../../services/platform/hosted/indexer/src/ai_runtime.rs) |
 | `LAYERX_INDEXER_AI_CONFIG / root / ca_der` | Root CA DER. | Unset | No | [hosted/indexer/src/ai_runtime.rs](../../../services/platform/hosted/indexer/src/ai_runtime.rs) |
 | `LAYERX_INDEXER_ALLOW_REMOTE_PLAINTEXT` | Indexer allow remote plaintext. | `0` | No | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
+| `LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS` | Indexer backfill batch blocks. | `50` (1 to 200) | No | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
+| `LAYERX_INDEXER_BACKFILL_READERS` | Indexer backfill readers. | `8` (1 to 32) | No | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
 | `LAYERX_INDEXER_BACKFILL_RANGE_BLOCKS` | Indexer backfill range blocks. | `1000` | No | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
 | `LAYERX_INDEXER_CHAINS_PRECOMPILE` | Indexer chains precompile. | Built-in chains registry precompile | No | [hosted/indexer/src/chains.rs](../../../services/platform/hosted/indexer/src/chains.rs) |
 | `LAYERX_INDEXER_CLIENT_CA_DER` | Indexer client CA DER. | Unset | No | [hosted/internal/src/tls.rs](../../../services/platform/hosted/internal/src/tls.rs) |

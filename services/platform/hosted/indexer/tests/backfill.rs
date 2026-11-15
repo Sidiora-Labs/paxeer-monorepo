@@ -1,7 +1,8 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -112,7 +113,24 @@ fn read_request(stream: &mut TcpStream) -> Option<Vec<u8>> {
     Some(bytes[header_end..header_end + length].to_vec())
 }
 
-fn serve(handler: Arc<Handler>) -> String {
+#[derive(Default)]
+struct NodeCounts {
+    connections: AtomicUsize,
+    requests: Mutex<Vec<(bool, Value)>>,
+    batch_sizes: Mutex<Vec<usize>>,
+}
+
+#[derive(Clone, Copy)]
+enum BatchReply {
+    Complete,
+    MissingBlock,
+    ErrorBlock,
+    MissingReceipt,
+    ErrorReceipt,
+    ForeignId,
+}
+
+fn serve(handler: Arc<Handler>, counts: Arc<NodeCounts>) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("bind: {error}"));
     let address = listener
         .local_addr()
@@ -122,6 +140,7 @@ fn serve(handler: Arc<Handler>) -> String {
             let Ok(mut stream) = incoming else {
                 continue;
             };
+            counts.connections.fetch_add(1, Ordering::Relaxed);
             let handler = Arc::clone(&handler);
             thread::spawn(move || {
                 let Some(body) = read_request(&mut stream) else {
@@ -173,73 +192,261 @@ enum TxIndex {
 /// A JSON-RPC node answering from the recorded `paxeer_blocks.json` and
 /// `tx_search.json` fixtures, serving hash-only blocks for verification.
 fn node(tx_index: TxIndex) -> String {
-    let chain = fixture("paxeer_blocks.json");
+    counted_node(tx_index, BatchReply::Complete, &blockscout()).0
+}
+
+fn counted_node(
+    tx_index: TxIndex,
+    reply: BatchReply,
+    rows: &BlockscoutRange,
+) -> (String, Arc<NodeCounts>) {
+    let mut chain = fixture("paxeer_blocks.json");
+    for (height, block) in rpc_blocks(rows).unwrap_or_else(|error| panic!("{error}")) {
+        if height > 3 {
+            chain["canonical"]["blocks"][height.to_string()] = block.block;
+        }
+    }
     let search = fixture("tx_search.json");
-    serve(Arc::new(move |body| {
-        let request: Value = serde_json::from_slice(body).unwrap_or_else(|error| panic!("{error}"));
-        let params = &request["params"];
-        let view = &chain["canonical"];
-        let answer =
-            |result: Value| json!({"jsonrpc": "2.0", "id": request["id"], "result": result});
-        match request["method"].as_str().unwrap_or_default() {
-            "eth_chainId" => answer(chain["chain_id"].clone()),
-            "eth_blockNumber" => answer(view["head"].clone()),
-            "eth_getBlockByNumber" => {
-                let quantity = params[0].as_str().unwrap_or_default();
-                let height =
-                    u64::from_str_radix(quantity.trim_start_matches("0x"), 16).unwrap_or(u64::MAX);
-                let mut block = view["blocks"]
-                    .get(height.to_string())
-                    .cloned()
-                    .unwrap_or(Value::Null);
-                if params[1] == Value::Bool(false) {
-                    if let Some(transactions) =
-                        block.get_mut("transactions").and_then(Value::as_array_mut)
-                    {
-                        for transaction in transactions.iter_mut() {
-                            *transaction = transaction["hash"].clone();
+    let counts = Arc::new(NodeCounts::default());
+    let recorded = Arc::clone(&counts);
+    let url = serve(
+        Arc::new(move |body| {
+            let request: Value =
+                serde_json::from_slice(body).unwrap_or_else(|error| panic!("{error}"));
+            let is_batch = request.is_array();
+            let requests = request.as_array().cloned().unwrap_or_else(|| vec![request]);
+            recorded
+                .requests
+                .lock()
+                .unwrap_or_else(|error| panic!("{error}"))
+                .extend(requests.iter().cloned().map(|request| (is_batch, request)));
+            if is_batch {
+                recorded
+                    .batch_sizes
+                    .lock()
+                    .unwrap_or_else(|error| panic!("{error}"))
+                    .push(requests.len());
+            }
+            let mut answers: Vec<Value> = requests
+            .iter()
+            .map(|request| {
+                let params = &request["params"];
+                let view = &chain["canonical"];
+                let answer =
+                    |result: Value| json!({"jsonrpc": "2.0", "id": request["id"], "result": result});
+                match request["method"].as_str().unwrap_or_default() {
+                    "eth_chainId" => answer(chain["chain_id"].clone()),
+                    "eth_blockNumber" => answer(view["head"].clone()),
+                    "eth_getBlockByNumber" => {
+                        let quantity = params[0].as_str().unwrap_or_default();
+                        let height = u64::from_str_radix(
+                            quantity.trim_start_matches("0x"),
+                            16,
+                        )
+                        .unwrap_or(u64::MAX);
+                        let mut block = view["blocks"]
+                            .get(height.to_string())
+                            .cloned()
+                            .unwrap_or(Value::Null);
+                        if params[1] == Value::Bool(false) {
+                            if let Some(transactions) =
+                                block.get_mut("transactions").and_then(Value::as_array_mut)
+                            {
+                                for transaction in transactions.iter_mut() {
+                                    *transaction = transaction["hash"].clone();
+                                }
+                            }
                         }
+                        answer(block)
+                    }
+                    "eth_getTransactionReceipt" => {
+                        let hash = params[0].as_str().unwrap_or_default();
+                        answer(chain["receipts"].get(hash).cloned().unwrap_or(Value::Null))
+                    }
+                    "tx_search" => match tx_index {
+                        TxIndex::Off => json!({
+                            "jsonrpc": "2.0",
+                            "id": request["id"],
+                            "error": {"code": -32603, "message": "Internal error", "data": TX_INDEX_DISABLED}
+                        }),
+                        TxIndex::Broken => json!({
+                            "jsonrpc": "2.0",
+                            "id": request["id"],
+                            "error": {"code": -32603, "message": "Internal error", "data": "database is locked"}
+                        }),
+                        TxIndex::On => {
+                            let (low, high) = tx_search_range(params["query"].as_str().unwrap_or_default());
+                            let matching: Vec<Value> = search["result"]["txs"]
+                                .as_array()
+                                .map_or(&[][..], Vec::as_slice)
+                                .iter()
+                                .filter(|tx| {
+                                    let height: u64 = tx["height"]
+                                        .as_str()
+                                        .and_then(|text| text.parse().ok())
+                                        .unwrap_or(0);
+                                    (low..=high).contains(&height)
+                                })
+                                .cloned()
+                                .collect();
+                            let total = matching.len();
+                            answer(json!({ "txs": matching, "total_count": total.to_string() }))
+                        }
+                    },
+                    other => panic!("unexpected JSON-RPC method {other}"),
+                }
+            })
+            .collect();
+            if is_batch {
+                let method = match reply {
+                    BatchReply::MissingBlock | BatchReply::ErrorBlock => "eth_getBlockByNumber",
+                    BatchReply::MissingReceipt | BatchReply::ErrorReceipt => {
+                        "eth_getTransactionReceipt"
+                    }
+                    BatchReply::Complete | BatchReply::ForeignId => "",
+                };
+                if let Some(index) = requests.iter().position(|request| {
+                    request["method"] == method
+                        && match reply {
+                            BatchReply::MissingBlock | BatchReply::ErrorBlock => {
+                                request["params"][0] == "0x2"
+                            }
+                            _ => {
+                                request["params"][0]
+                                    == chain["canonical"]["blocks"]["2"]["transactions"][0]["hash"]
+                            }
+                        }
+                }) {
+                    match reply {
+                        BatchReply::MissingBlock | BatchReply::MissingReceipt => {
+                            answers.remove(index);
+                        }
+                        BatchReply::ErrorBlock | BatchReply::ErrorReceipt => {
+                            answers[index] = json!({"jsonrpc":"2.0", "id":requests[index]["id"],
+                            "error":{"code":-32000,"message":"entry unavailable"}});
+                        }
+                        _ => {}
                     }
                 }
-                answer(block)
-            }
-            "eth_getTransactionReceipt" => {
-                let hash = params[0].as_str().unwrap_or_default();
-                answer(chain["receipts"].get(hash).cloned().unwrap_or(Value::Null))
-            }
-            "tx_search" => match tx_index {
-                TxIndex::Off => json!({
-                    "jsonrpc": "2.0",
-                    "id": request["id"],
-                    "error": {"code": -32603, "message": "Internal error", "data": TX_INDEX_DISABLED}
-                }),
-                TxIndex::Broken => json!({
-                    "jsonrpc": "2.0",
-                    "id": request["id"],
-                    "error": {"code": -32603, "message": "Internal error", "data": "database is locked"}
-                }),
-                TxIndex::On => {
-                    let (low, high) = tx_search_range(params["query"].as_str().unwrap_or_default());
-                    let matching: Vec<Value> = search["result"]["txs"]
-                        .as_array()
-                        .map_or(&[][..], Vec::as_slice)
-                        .iter()
-                        .filter(|tx| {
-                            let height: u64 = tx["height"]
-                                .as_str()
-                                .and_then(|text| text.parse().ok())
-                                .unwrap_or(0);
-                            (low..=high).contains(&height)
-                        })
-                        .cloned()
-                        .collect();
-                    let total = matching.len();
-                    answer(json!({ "txs": matching, "total_count": total.to_string() }))
+                if matches!(reply, BatchReply::ForeignId) {
+                    answers.push(json!({"jsonrpc":"2.0","id":0,"result":null}));
                 }
-            },
-            other => panic!("unexpected JSON-RPC method {other}"),
+                answers.reverse();
+                Value::Array(answers)
+            } else {
+                answers.into_iter().next().unwrap_or(Value::Null)
+            }
+        }),
+        Arc::clone(&counts),
+    );
+    (url, counts)
+}
+
+fn long_range() -> BlockscoutRange {
+    let mut rows = blockscout();
+    for height in 4..=120 {
+        let mut block = rows
+            .blocks
+            .last()
+            .cloned()
+            .unwrap_or_else(|| panic!("block"));
+        block.parent_hash = block.hash;
+        block.hash = layerx_indexer::codec::unhex(&format!("0x{:064x}", height + 0x1000))
+            .unwrap_or_else(|error| panic!("{error}"));
+        block.number = height;
+        block.timestamp += 1;
+        block.gas_used = "0".to_owned();
+        rows.blocks.push(block);
+    }
+    rows
+}
+
+struct RangeStore {
+    store: Store,
+    path: PathBuf,
+    created_at: i64,
+}
+
+fn unix_seconds() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_else(|error| panic!("{error}"))
+        .as_secs()
+        .try_into()
+        .unwrap_or_else(|error| panic!("{error}"))
+}
+
+impl RangeStore {
+    fn new() -> Self {
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "indexer-backfill-{}-{}.sqlite",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let created_at = unix_seconds();
+        let store = Store::open(&path).unwrap_or_else(|error| panic!("{error}"));
+        Self {
+            store,
+            path,
+            created_at,
         }
-    }))
+    }
+
+    fn chain_rows(&self) -> Vec<(String, Vec<Vec<rusqlite::types::Value>>)> {
+        let connection =
+            rusqlite::Connection::open(&self.path).unwrap_or_else(|error| panic!("{error}"));
+        let mut tables = connection
+            .prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name")
+            .unwrap_or_else(|error| panic!("{error}"));
+        let names: Vec<String> = tables
+            .query_map([], |row| row.get(0))
+            .unwrap_or_else(|error| panic!("{error}"))
+            .map(|name| name.unwrap_or_else(|error| panic!("{error}")))
+            .collect();
+        names
+            .into_iter()
+            .map(|name| {
+                let mut statement = connection
+                    .prepare(&format!(
+                        "SELECT * FROM \"{}\" ORDER BY rowid",
+                        name.replace('"', "\"\"")
+                    ))
+                    .unwrap_or_else(|error| panic!("{error}"));
+                let columns: Vec<bool> = statement
+                    .column_names()
+                    .map(|column| {
+                        (name == "assets" && column == "first_seen")
+                            || (name == "backfill_cursors" && column == "updated_at")
+                    })
+                    .collect();
+                let observed_at = unix_seconds();
+                let rows = statement
+                    .query_map([], |row| {
+                        let mut data = Vec::new();
+                        for (column, ingestion_time) in columns.iter().enumerate() {
+                            if *ingestion_time {
+                                let stamp: i64 = row.get(column)?;
+                                assert!((self.created_at..=observed_at).contains(&stamp));
+                            } else {
+                                data.push(row.get::<_, rusqlite::types::Value>(column)?);
+                            }
+                        }
+                        Ok(data)
+                    })
+                    .unwrap_or_else(|error| panic!("{error}"))
+                    .map(|row| row.unwrap_or_else(|error| panic!("{error}")))
+                    .collect();
+                (name, rows)
+            })
+            .collect()
+    }
+}
+
+impl Drop for RangeStore {
+    fn drop(&mut self) {
+        std::fs::remove_file(&self.path).unwrap_or_else(|error| panic!("{error}"));
+    }
 }
 
 fn store() -> Store {
@@ -418,6 +625,168 @@ fn backfill_from_the_blockscout_fixture_writes_the_live_rows() {
     assert!(kinds(&backfilled.0).contains(&"erc20_transfer".to_owned()));
     assert!(kinds(&backfilled.0).contains(&"native_transfer".to_owned()));
     assert!(kinds(&backfilled.0).contains(&"pointer_transfer".to_owned()));
+}
+
+#[test]
+fn backfill_batch_readers_preserve_single_reader_rows() {
+    let rows = blockscout();
+    let batched_node_url = node(TxIndex::On);
+    let batched_node = ingester(&batched_node_url);
+    let batched_store = store();
+    Backfill::with_options(&batched_node, 3, 3, 4, 25)
+        .apply_range(&batched_store, 1, 3, &rows)
+        .unwrap_or_else(|error| panic!("{error}"));
+
+    let single_node_url = node(TxIndex::On);
+    let single_node = ingester(&single_node_url);
+    let single_store = store();
+    Backfill::with_options(&single_node, 3, 3, 1, 1)
+        .apply_range(&single_store, 1, 3, &rows)
+        .unwrap_or_else(|error| panic!("{error}"));
+
+    assert_eq!(history(&batched_store), history(&single_store));
+}
+
+#[test]
+fn backfill_120_heights_use_bounded_batches_and_preserve_stored_chain_rows() {
+    let rows = long_range();
+    let (url, counts) = counted_node(TxIndex::On, BatchReply::Complete, &rows);
+    let batched_node = ingester(&url);
+    let batched = RangeStore::new();
+    Backfill::with_options(&batched_node, 120, 120, 4, 25)
+        .apply_range(&batched.store, 1, 120, &rows)
+        .unwrap_or_else(|error| panic!("{error}"));
+
+    let (url, single_counts) = counted_node(TxIndex::On, BatchReply::Complete, &rows);
+    let single_node = ingester(&url);
+    let single = RangeStore::new();
+    Backfill::with_options(&single_node, 120, 120, 1, 1)
+        .apply_range(&single.store, 1, 120, &rows)
+        .unwrap_or_else(|error| panic!("{error}"));
+
+    assert_eq!(batched.chain_rows(), single.chain_rows());
+    assert_eq!(
+        batched
+            .store
+            .backfill_cursor("paxeer")
+            .unwrap_or_else(|error| panic!("{error}"))
+            .unwrap_or_else(|| panic!("backfill cursor"))
+            .position,
+        120
+    );
+    assert!(counts.connections.load(Ordering::Relaxed) < 120);
+    let batches = counts
+        .batch_sizes
+        .lock()
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert!(batches.iter().all(|size| (1..=25).contains(size)));
+    assert_eq!(batches.iter().filter(|size| **size == 25).count(), 4);
+    assert!(single_counts
+        .batch_sizes
+        .lock()
+        .unwrap_or_else(|error| panic!("{error}"))
+        .is_empty());
+    let calls = counts
+        .requests
+        .lock()
+        .unwrap_or_else(|error| panic!("{error}"));
+    let singles = single_counts
+        .requests
+        .lock()
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(calls.len(), singles.len());
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|(_, call)| call["method"] == "eth_getBlockByNumber")
+            .count(),
+        120
+    );
+    assert!(singles.iter().all(|(batch, _)| !batch));
+}
+
+#[test]
+fn backfill_missing_and_error_batch_entries_read_only_the_entry_again() {
+    let rows = long_range();
+    let (url, _) = counted_node(TxIndex::On, BatchReply::Complete, &rows);
+    let baseline_node = ingester(&url);
+    let baseline = RangeStore::new();
+    Backfill::with_options(&baseline_node, 120, 120, 1, 1)
+        .apply_range(&baseline.store, 1, 120, &rows)
+        .unwrap_or_else(|error| panic!("{error}"));
+    let expected = baseline.chain_rows();
+    for reply in [
+        BatchReply::MissingBlock,
+        BatchReply::ErrorBlock,
+        BatchReply::MissingReceipt,
+        BatchReply::ErrorReceipt,
+    ] {
+        let (url, counts) = counted_node(TxIndex::On, reply, &rows);
+        let node = ingester(&url);
+        let store = RangeStore::new();
+        Backfill::with_options(&node, 120, 120, 4, 25)
+            .apply_range(&store.store, 1, 120, &rows)
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(store.chain_rows(), expected);
+        let requests = counts
+            .requests
+            .lock()
+            .unwrap_or_else(|error| panic!("{error}"));
+        let singles: Vec<_> = requests
+            .iter()
+            .filter(|(batch, request)| !batch && request["method"] != "tx_search")
+            .collect();
+        assert_eq!(singles.len(), 1);
+        let request = &singles[0].1;
+        match reply {
+            BatchReply::MissingBlock | BatchReply::ErrorBlock => {
+                assert_eq!(request["method"], "eth_getBlockByNumber");
+                assert_eq!(request["params"], json!(["0x2", true]));
+            }
+            BatchReply::MissingReceipt | BatchReply::ErrorReceipt => {
+                let chain = fixture("paxeer_blocks.json");
+                assert_eq!(request["method"], "eth_getTransactionReceipt");
+                assert_eq!(
+                    request["params"],
+                    json!([chain["canonical"]["blocks"]["2"]["transactions"][0]["hash"]])
+                );
+            }
+            _ => panic!("entry fallback"),
+        }
+    }
+}
+
+#[test]
+fn backfill_batch_hash_mismatch_and_foreign_ids_leave_store_rows_unchanged() {
+    let rows = long_range();
+    for reply in [BatchReply::Complete, BatchReply::ForeignId] {
+        let (url, _) = counted_node(TxIndex::On, reply, &rows);
+        let node = ingester(&url);
+        let store = RangeStore::new();
+        let before = store.chain_rows();
+        let mut explorer = rows.clone();
+        if matches!(reply, BatchReply::Complete) {
+            explorer.blocks[119].hash[31] ^= 1;
+        }
+        let error = Backfill::with_options(&node, 120, 120, 4, 25)
+            .apply_range(&store.store, 1, 120, &explorer)
+            .err()
+            .unwrap_or_else(|| panic!("range must refuse invalid node answers"));
+        match reply {
+            BatchReply::Complete => assert!(
+                matches!(&error, IndexError::Integrity(message)
+                if message.contains("paxscan block 120 hash")),
+                "{error}"
+            ),
+            BatchReply::ForeignId => assert!(
+                matches!(&error, IndexError::Source(message)
+                if message.contains("another request")),
+                "{error}"
+            ),
+            _ => panic!("range integrity"),
+        }
+        assert_eq!(store.chain_rows(), before);
+    }
 }
 
 #[test]
