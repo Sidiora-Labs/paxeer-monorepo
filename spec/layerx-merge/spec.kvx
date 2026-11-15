@@ -173833,7 +173833,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.37]
 title = "Add the render check that closes a surface on the device list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174075,7 +174075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.31]
 title = "Close the human web application: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.30"]
@@ -246594,7 +246594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.678]
 title = "Take the storage gas value of the ordinary path in the fast execution path when the parameter holds no value"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
