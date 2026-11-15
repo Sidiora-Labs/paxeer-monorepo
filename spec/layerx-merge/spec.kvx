@@ -198094,7 +198094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.648]
 title = "Compose the startup documents of the launchpad social service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -198156,7 +198156,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.646]
 title = "Compose the startup documents of the launchpad media gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
@@ -198280,7 +198280,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.642]
 title = "Compose the startup documents of the launchpad charts service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.639"]
