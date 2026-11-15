@@ -297,16 +297,30 @@ fn go_signed_positive_and_revert_receipts_verify_with_identical_fields() {
             }
             "V2" => {
                 assert_eq!(protocol.result_code(), 1);
-                let code = text(case, "lxpCode");
-                let reason = revert_reason(&hex(case, "receiptJson.returnData"));
-                assert_eq!(reason, format!("{code}: insufficient balance"));
-                assert_eq!(code, "LXP_INSUFFICIENT_BALANCE");
+                match id(case) {
+                    "V2-layerxledger-revert" => {
+                        let code = text(case, "lxpCode");
+                        let reason = revert_reason(&hex(case, "receiptJson.returnData"));
+                        assert_eq!(reason, format!("{code}: insufficient balance"));
+                        assert_eq!(code, "LXP_INSUFFICIENT_BALANCE");
+                    }
+                    "V2-pax-transfer-insufficient-funds" => {
+                        assert!(case.path("lxpCode").is_err());
+                        assert_eq!(
+                            text(case, "receiptJson.vmError"),
+                            "insufficient balance for transfer"
+                        );
+                        assert!(hex(case, "receiptJson.returnData").is_empty());
+                        assert_eq!(quantity_u64(case, "receiptJson.gasUsed"), 0);
+                    }
+                    other => panic!("unexpected revert case {other}"),
+                }
                 seen.1 += 1;
             }
             other => panic!("unexpected vector {other}"),
         }
     }
-    assert_eq!(seen, (5, 1));
+    assert_eq!(seen, (5, 2));
     assert_eq!(
         cases(&document)
             .iter()

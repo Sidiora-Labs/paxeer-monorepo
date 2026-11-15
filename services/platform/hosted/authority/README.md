@@ -11,8 +11,9 @@ configured group of `/v1/agent/*` routes answers the human agent contract used
 by `RemoteHumanAuthority` in
 [`services/agent/crates/layerx-agentd/src/human_runtime.rs`](../../../../services/agent/crates/layerx-agentd/src/human_runtime.rs).
 
-Paxeer is one BFT network with EVM chain ID **125** (`0x7d`). Its kernel is part
-of `paxd` and proposes blocks. Block commit is finality; this verifier does not
+Paxeer uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd`
+executes and orders each transaction and builds each block; validators check and
+commit it. Block commit is finality; this verifier does not
 provide a second settlement domain. `submitted` is an acknowledgement,
 `receipted` is signed execution evidence, and `committed` carries block
 inclusion. Tenant domains are database namespaces within the network. See the

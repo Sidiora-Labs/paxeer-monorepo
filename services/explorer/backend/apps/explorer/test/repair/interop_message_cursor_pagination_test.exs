@@ -7,7 +7,7 @@ defmodule Explorer.Repair.InteropMessageCursorPaginationTest do
   alias Explorer.{PagingOptions, Repo}
 
   # Schema transcript from the committed Optimism interop recordings in
-  # block_scout_web/test/repair/repair_22_33_398_test.exs. Regression variants
+  # block_scout_web/test/repair/api_input_validation_test.exs. Regression variants
   # vary the message identity, sender, target and relay outcome explicitly.
   @recording ~S({
     "nonce": 1,

@@ -2,8 +2,9 @@
 
 The bridge moves assets between foreign custody contracts or a Solana custody
 program and the native bridge module of the single Paxeer network. Paxeer's
-EVM chain ID is **125 (`0x7d`)**; its committed blocks determine receipt
-finality. The kernel is part of that network and proposes blocks. The
+EVM chain ID is **125 (`0x7d`)**; a receipt is final when the validators
+commit its block. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. The
 foreign-chain `finality_depth` setting controls deposit confirmation policy;
 it does not create another Paxeer finality layer.
 

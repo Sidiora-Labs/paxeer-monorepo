@@ -8,7 +8,7 @@ from layerx_sdk.mirror import decode_mirror_process_result, MirrorVerificationEr
 class MirrorProcessTests(unittest.TestCase):
     def test_process_exit_and_requested_batch_bind_success(self):
         transcript = json.loads((Path(__file__).resolve().parents[4]
-            / "sdk/platform/go/testdata/repair141/mirror-transcript.json").read_text())
+            / "sdk/platform/go/testdata/receipt_transport/mirror-transcript.json").read_text())
         exchange = transcript["exchanges"][0]
         response = exchange["response"]
         output = json.dumps(response).encode()

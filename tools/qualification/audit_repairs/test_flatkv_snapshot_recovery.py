@@ -315,8 +315,7 @@ def test_real_producer_formats_and_safe_discard_match_consumer():
 
 def test_record_maps_every_finding_and_records_proof_limits():
     record = (
-        ROOT / "spec/layerx-merge/programme/records"
-        / "tools/qualification/audit_repairs/repair_22_33_741.kvx"
+        ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_741.kvx"
     ).read_text()
     for finding in ("statesync-kill-window", "statesync-restored-row", "statesync-resume-fallback",
                     "total-loss-restored-row", "total-loss-path-label"):

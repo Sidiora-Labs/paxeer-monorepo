@@ -15,7 +15,7 @@ import sys
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
 TESTS = ROOT / 'programs/crates/layerx-programs-runtime/tests'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 SUITE = 'namespace_drop'
 MANIFEST_ENTRY = '\\0storage_drop_scoped(i32)->i32\\0'
 UNIT = {
@@ -102,7 +102,7 @@ def production_path():
 
 try:
     count = production_path()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.29.4'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'storage::reclaim::', 'occupancy::tests::property_drop_charges_through_commit_and_never_after',
                          'occupancy::tests::gaps_refuse_and_committed_drop_stops_future_accrual'], 'drop unit suites', env)

@@ -8,6 +8,8 @@ ENV_OUT=$BASE/localnode.env
 GATEWAY=http://127.0.0.1:0
 NODE_HOME=
 SEQUENCER=0
+FOLLOWER=0
+LAST_RECEIPT_HEIGHT=0
 SUCCESS=0
 FAILED_COMMAND=
 USDL=0x85FcD13735F4309833A503EE804ea32395851479
@@ -20,10 +22,14 @@ fail() {
 }
 
 stop_node() {
-    local dir pid role command attempt
+    local dir pid role command attempt force=0
     dir=$(realpath -e "$1")
     [[ "$dir" == "$BASE"/node.* ]] && [ -f "$dir/.localnode" ] || fail "not a disposable localnode home: $dir"
     shift
+    if [ "${1:-}" = --force ]; then
+        force=1
+        shift
+    fi
     if [ "$#" = 0 ]; then
         set -- feeder node standby bootstrap-peer
     fi
@@ -36,13 +42,18 @@ stop_node() {
             command=$(tr '\0' ' ' < "/proc/$pid/cmdline")
             [[ "$command" == *"$dir"* ]] || fail "$role pid no longer belongs to $dir"
             kill "$pid"
-            for ((attempt = 0; attempt < 100; attempt++)); do
+            for ((attempt = 0; attempt < 600; attempt++)); do
                 kill -0 "$pid" 2>/dev/null || break
                 [ "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" != Z ] || break
                 sleep 0.1
             done
             if kill -0 "$pid" 2>/dev/null && [ "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" != Z ]; then
-                fail "$role did not stop; see $dir/$role.log"
+                if [ "$force" = 1 ]; then
+                    kill -KILL "$pid"
+                    wait "$pid" 2>/dev/null || true
+                else
+                    fail "$role did not stop; see $dir/$role.log"
+                fi
             fi
         fi
     done
@@ -52,6 +63,21 @@ rpc() {
     curl --fail --silent --show-error --max-time 3 -H 'Content-Type: application/json' \
         --data "$(jq -nc --arg method "$1" --argjson params "${2:-[]}" \
             '{jsonrpc:"2.0",id:1,method:$method,params:$params}')" "$EVM"
+}
+
+follower_alive() {
+    local pid
+    pid=$(cat "$NODE_HOME/bootstrap-peer.pid") || return 1
+    kill -0 "$pid" 2>/dev/null && [ "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" != Z ]
+}
+
+follower_evidence() {
+    if follower_alive; then
+        printf 'v6120-node: follower process is alive\n' >&2
+    else
+        printf 'v6120-node: follower process is not alive\n' >&2
+    fi
+    tail -n 40 "$NODE_HOME/bootstrap-peer.log" >&2
 }
 
 require_merge_precompiles() {
@@ -150,6 +176,9 @@ wait_receipt() {
         receipt=$(rpc eth_getTransactionReceipt "[\"$hash\"]")
         if jq -e '.result != null' <<< "$receipt" >/dev/null; then
             [ "$(jq -r '.result.status' <<< "$receipt")" = 0x1 ] || fail "EVM transaction reverted: $hash"
+            if [ "$FOLLOWER" = 1 ]; then
+                LAST_RECEIPT_HEIGHT=$(jq -er '.result.blockNumber' <<< "$receipt")
+            fi
             return
         fi
         sleep 0.2
@@ -315,6 +344,7 @@ fi
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --sequencer) SEQUENCER=1; shift ;;
+        --follower) FOLLOWER=1; shift ;;
         --env-out) [ "$#" -ge 2 ] || fail '--env-out requires a file'; ENV_OUT=$2; shift 2 ;;
         --gateway-url) [ "$#" -ge 2 ] || fail '--gateway-url requires a URL'; GATEWAY=$2; shift 2 ;;
         --stop) [ "$#" = 2 ] || fail '--stop requires a home'; stop_node "$2"; SUCCESS=1; exit ;;
@@ -322,8 +352,13 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
+[ "$FOLLOWER" = 0 ] || [ "$SEQUENCER" = 1 ] || fail '--follower requires --sequencer'
 ENV_OUT=$(realpath -m "$ENV_OUT")
-[[ "$ENV_OUT" == "$BASE"/* ]] || fail "env file must be beneath $BASE"
+if [ "$FOLLOWER" = 1 ]; then
+    [[ "$ENV_OUT" == "$(realpath -m "${TMPDIR:-/tmp}")"/* ]] || fail 'follower env file must be beneath the temporary directory'
+else
+    [[ "$ENV_OUT" == "$BASE"/* ]] || fail "env file must be beneath $BASE"
+fi
 [[ "$BASE/" != "$ROOT/"* ]] || fail 'node homes must be outside the repository'
 [[ "$GATEWAY" =~ ^https?://[^[:space:]\'\"]+$ ]] || fail 'invalid gateway URL'
 for tool in jq curl python3 openssl; do
@@ -350,6 +385,10 @@ cp "$NODE_HOME/config/genesis.json" "$NODE_HOME/init-genesis.json"
 if [ "$SEQUENCER" = 1 ]; then
     BOOTSTRAP_HOME=$NODE_HOME/bootstrap-peer
     "$PAXD" init local-v6120-bootstrap --chain-id "$CHAIN" --mode full --home "$BOOTSTRAP_HOME" >> "$NODE_HOME/init.log" 2>&1
+    if [ "$FOLLOWER" = 1 ]; then
+        SYNC_HOME=$NODE_HOME/standby
+        "$PAXD" init local-v6120-sync --chain-id "$CHAIN" --mode full --home "$SYNC_HOME" >> "$NODE_HOME/init.log" 2>&1
+    fi
 fi
 
 NAMES=(deployer test validator)
@@ -563,10 +602,10 @@ if [ "$SEQUENCER" = 1 ]; then
 fi
 "$PAXD" validate-genesis "$NODE_HOME/validation-genesis.json" --home "$NODE_HOME" > "$NODE_HOME/validate-genesis.log" 2>&1
 
-read -r RPC_PORT P2P_PORT EVM_PORT GRPC_PORT WEB_PORT BOOTSTRAP_RPC_PORT BOOTSTRAP_P2P_PORT BOOTSTRAP_EVM_PORT BOOTSTRAP_GRPC_PORT BOOTSTRAP_WEB_PORT PRIMARY_PROFILE_PORT < <(python3 - "$SEQUENCER" <<'PY'
+read -r RPC_PORT P2P_PORT EVM_PORT GRPC_PORT WEB_PORT BOOTSTRAP_RPC_PORT BOOTSTRAP_P2P_PORT BOOTSTRAP_EVM_PORT BOOTSTRAP_GRPC_PORT BOOTSTRAP_WEB_PORT PRIMARY_PROFILE_PORT SYNC_RPC_PORT SYNC_P2P_PORT SYNC_EVM_PORT SYNC_GRPC_PORT SYNC_WEB_PORT < <(python3 - "$SEQUENCER" "$FOLLOWER" <<'PY'
 import socket
 import sys
-listeners = [socket.socket() for _ in range(11 if sys.argv[1] == "1" else 5)]
+listeners = [socket.socket() for _ in range(16 if sys.argv[2] == "1" else 11 if sys.argv[1] == "1" else 5)]
 for listener in listeners:
     listener.bind(('127.0.0.1', 0))
 print(*(listener.getsockname()[1] for listener in listeners))
@@ -623,6 +662,9 @@ configure_node() {
     if [ "$SEQUENCER" = 1 ]; then
         set_toml "$APP" state-commit sc-async-commit-buffer 0
     fi
+    if [ "$FOLLOWER" = 1 ]; then
+        set_toml "$CONFIG" consensus.sequencer timeout-commit '"1s"'
+    fi
 }
 configure_node "$NODE_HOME" "$RPC_PORT" "$P2P_PORT" "$EVM_PORT" "$GRPC_PORT" "$WEB_PORT" validator
 HEIGHT=$(jq -er '.initial_height | tonumber | select(. > 0)' "$GENESIS")
@@ -632,7 +674,9 @@ if [ "$SEQUENCER" = 1 ]; then
     BOOTSTRAP_HEIGHT=$((HEIGHT + 1))
     configure_node "$BOOTSTRAP_HOME" "$BOOTSTRAP_RPC_PORT" "$BOOTSTRAP_P2P_PORT" \
         "$BOOTSTRAP_EVM_PORT" "$BOOTSTRAP_GRPC_PORT" "$BOOTSTRAP_WEB_PORT" full
-    set_toml "$BOOTSTRAP_HOME/config/app.toml" grpc enable false
+    if [ "$FOLLOWER" = 0 ]; then
+        set_toml "$BOOTSTRAP_HOME/config/app.toml" grpc enable false
+    fi
     primary_id=$("$PAXD" tendermint show-node-id --home "$NODE_HOME")
     bootstrap_id=$("$PAXD" tendermint show-node-id --home "$BOOTSTRAP_HOME")
     for home in "$NODE_HOME" "$BOOTSTRAP_HOME"; do
@@ -665,8 +709,27 @@ if [ "$SEQUENCER" = 1 ]; then
     esac
     grep -Eq "halting node per configuration.*height=$BOOTSTRAP_HEIGHT time=0$" "$NODE_HOME/bootstrap.log" \
         || fail "bootstrap did not reach its halt height: $NODE_HOME/bootstrap.log"
-    stop_node "$NODE_HOME" bootstrap-peer
+    stop_node "$NODE_HOME" --force bootstrap-peer
     cp -a "$NODE_HOME/data/." "$BOOTSTRAP_HOME/data/"
+    if [ "$FOLLOWER" = 1 ]; then
+        configure_node "$SYNC_HOME" "$SYNC_RPC_PORT" "$SYNC_P2P_PORT" \
+            "$SYNC_EVM_PORT" "$SYNC_GRPC_PORT" "$SYNC_WEB_PORT" full
+        set_toml "$SYNC_HOME/config/app.toml" grpc enable false
+        set_toml "$SYNC_HOME/config/app.toml" evm http_enabled false
+        cp "$GENESIS" "$SYNC_HOME/config/genesis.json"
+        cp -a "$NODE_HOME/data/." "$SYNC_HOME/data/"
+        sync_id=$("$PAXD" tendermint show-node-id --home "$SYNC_HOME")
+        set_toml "$SYNC_HOME/config/config.toml" p2p allow-duplicate-ip true
+        set_toml "$SYNC_HOME/config/config.toml" p2p persistent-peers \
+            "\"$primary_id@127.0.0.1:$P2P_PORT,$bootstrap_id@127.0.0.1:$BOOTSTRAP_P2P_PORT\""
+        set_toml "$NODE_HOME/config/config.toml" p2p persistent-peers \
+            "\"$bootstrap_id@127.0.0.1:$BOOTSTRAP_P2P_PORT,$sync_id@127.0.0.1:$SYNC_P2P_PORT\""
+        set_toml "$BOOTSTRAP_HOME/config/config.toml" p2p persistent-peers \
+            "\"$primary_id@127.0.0.1:$P2P_PORT,$sync_id@127.0.0.1:$SYNC_P2P_PORT\""
+        set_toml "$SYNC_HOME/config/config.toml" consensus.sequencer enable true
+        nohup "$PAXD" start --home "$SYNC_HOME" > "$NODE_HOME/standby.log" 2>&1 < /dev/null &
+        echo "$!" > "$NODE_HOME/standby.pid"
+    fi
     for home in "$NODE_HOME" "$BOOTSTRAP_HOME"; do
         set_toml "$home/config/config.toml" consensus.sequencer enable true
     done
@@ -725,7 +788,9 @@ if (len(expected) != 1 or int(result['total']) != 1 or len(actual) != 1
         != [(v['address'], v['pub_key'], int(v['power'])) for v in expected]):
     raise SystemExit('primary RPC committee must contain only the bonded primary sequencer leader')
 PYCOMMITTEE
-    stop_node "$NODE_HOME" bootstrap-peer
+    if [ "$FOLLOWER" = 0 ]; then
+        stop_node "$NODE_HOME" bootstrap-peer
+    fi
 fi
 printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
 evm_call deployer "$USDL" "$MINT_DATA"
@@ -788,6 +853,33 @@ done
 if [ "$SEQUENCER" = 0 ]; then
     activate_merge
 fi
+if [ "$FOLLOWER" = 1 ]; then
+    FOLLOWER_EVM=http://127.0.0.1:$BOOTSTRAP_EVM_PORT
+    deadline=$((SECONDS + 180))
+    while :; do
+        if ! follower_alive; then
+            follower_evidence
+            fail "follower exited before readiness: $NODE_HOME/bootstrap-peer.log"
+        fi
+        if status=$(curl --fail --silent --show-error --max-time 3 \
+            "http://127.0.0.1:$BOOTSTRAP_RPC_PORT/status") \
+            && follower_height=$(jq -er '.sync_info.latest_block_height | tonumber' <<< "$status") \
+            && (( follower_height >= LAST_RECEIPT_HEIGHT )) \
+            && follower_block=$(curl --fail --silent --show-error --max-time 3 \
+                -H 'Content-Type: application/json' \
+                --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' "$FOLLOWER_EVM" \
+                | jq -er '.result | strings | select(test("^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"))') \
+            && primary_block=$(rpc eth_blockNumber | jq -er '.result | strings | select(test("^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"))') \
+            && (( follower_block >= LAST_RECEIPT_HEIGHT && follower_block + 3 >= primary_block )); then
+            break
+        fi
+        if (( SECONDS >= deadline )); then
+            follower_evidence
+            fail "follower EVM readiness timed out at $FOLLOWER_EVM: consensus=${follower_height:-unavailable} EVM=${follower_block:-unavailable} sequencer=${primary_block:-unavailable} receipt=$((LAST_RECEIPT_HEIGHT))"
+        fi
+        sleep 0.2
+    done
+fi
 {
     printf 'LOCAL_NODE_RPC=%q\n' "$EVM"
     printf 'LOCAL_NODE_HOME=%q\n' "$NODE_HOME"
@@ -796,6 +888,10 @@ fi
         printf 'LOCAL_NODE_SEQUENCER_RPC=%q\n' "$EVM"
         printf 'LOCAL_NODE_ADDRESS=%q\n' "${ETH_ADDRESSES[1]}"
         printf 'LOCAL_NODE_PROFILE_RPC=%q\n' "http://127.0.0.1:$PRIMARY_PROFILE_PORT"
+    fi
+    if [ "$FOLLOWER" = 1 ]; then
+        printf 'LOCAL_NODE_FOLLOWER_COMET=%q\n' "http://127.0.0.1:$BOOTSTRAP_RPC_PORT"
+        printf 'LOCAL_NODE_FOLLOWER_RPC=%q\n' "$FOLLOWER_EVM"
     fi
     printf 'PERPS_DATA_TEST_RPC=%q\n' "$EVM"
     printf 'PERPS_DATA_TEST_COMET=%q\n' "http://127.0.0.1:$RPC_PORT"

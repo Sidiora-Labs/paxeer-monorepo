@@ -6,9 +6,11 @@ import sys
 from pathlib import Path
 import tomllib
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
-RECORD = ROOT / "tools/ci/tests/repair_22_39_54.kvx"
+RECORD = ROOT / "spec/layerx-merge/programme/records/tools/ci/tests/repair_22_39_54.kvx"
 DESELECT_FILE = ROOT / "tests/ci/data/tools_ci_deselect.txt"
 LEDGER_TEST = (
     "tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest::"
@@ -23,6 +25,7 @@ def tools_ci_deselections():
     return deselections
 
 
+@pytest.mark.native
 def test_tools_ci_suite_collects_and_passes():
     command = [sys.executable, "-m", "pytest", "-q", "tools/ci/tests"]
     deselections = tools_ci_deselections()

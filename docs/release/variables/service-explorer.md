@@ -1,6 +1,6 @@
 # Explorer service variables
 
-The Paxeer X explorer service in `services/explorer` contains the Blockscout Elixir backend, the Rust signature provider and smart-contract verifier, and deployment scripts. It indexes the single Paxeer mainnet-beta BFT network with EVM chain id 125; the kernel runs in the node and a receipt is final when its block is committed. The deployment also passes a frontend environment file to `apps/explorer`.
+The Paxeer X explorer service in `services/explorer` contains the Blockscout Elixir backend, the Rust signature provider and smart-contract verifier, and deployment scripts. It indexes Paxeer mainnet-beta with EVM chain id 125; the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when its block is committed. The deployment also passes a frontend environment file to `apps/explorer`.
 
 Environment names and configuration keys are listed below in name order. A configuration entry names its file, section and leaf key. Elixir application settings are loaded from the named `.exs` file; development and client-specific files apply only in that mode. Runtime configuration overrides compile-time defaults. For the merged network, select `paxeer_x` for `CHAIN_TYPE` and `ETHEREUM_JSONRPC_VARIANT`; their generic source defaults remain listed.
 

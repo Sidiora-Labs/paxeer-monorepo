@@ -152,11 +152,24 @@ const manifest = JSON.parse(fs.readFileSync('.next/routes-manifest.json', 'utf8'
 console.log(JSON.stringify({origin: process.env.DASHBOARD_API_ORIGIN,
                            rewrites: manifest.rewrites}));
 """
+    image = "layerx-dashboard-web:local"
+    try:
+        available = subprocess.run(
+            ["docker", "image", "inspect", image],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        ).returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        available = False
+    if not available:
+        pytest.skip(f"container image {image} is not available")
     for runtime_origin in (None, "https://runtime-api.example.net"):
         command = ["docker", "run", "--rm", "--network", "none", "--entrypoint", "node"]
         if runtime_origin is not None:
             command.extend(["--env", f"DASHBOARD_API_ORIGIN={runtime_origin}"])
-        command.extend(["layerx-dashboard-web:issue-1818", "--eval", inspect_script])
+        command.extend([image, "--eval", inspect_script])
         result = subprocess.run(
             command,
             cwd=ROOT,

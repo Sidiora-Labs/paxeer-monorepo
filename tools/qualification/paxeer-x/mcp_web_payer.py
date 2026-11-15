@@ -154,11 +154,12 @@ def build(directory):
     platform = Path(needed(os.environ.get(PREFIX + 'PLATFORM_TARGET'), 'private CLI target required')).absolute()
     require(target != platform and ROOT not in target.parents and ROOT not in platform.parents,
             'distinct external compilation targets required')
-    cargo = os.environ.get(PREFIX + 'CARGO', '/root/.cargo/bin/cargo')
-    commands = [(['flock', '/root/lx-cargo/agent-build.lock', cargo, 'build', '--locked', '--manifest-path', 'services/agent/Cargo.toml',
+    cargo = os.environ.get(PREFIX + 'CARGO', "cargo")
+    (ROOT / 'build/locks').mkdir(parents=True, exist_ok=True)
+    commands = [(['flock', str(ROOT / "build/locks/agent-build.lock"), cargo, 'build', '--locked', '--manifest-path', 'services/agent/Cargo.toml',
         '-p', 'layerx-agentd-host', '--bin', 'layerx-agentd', '-p', 'layerx-mcp',
         '--bin', 'layerx-mcp', '--message-format=json'], target),
-        (['flock', '/root/lx-cargo/platform-build.lock', cargo, 'build', '--locked', '--manifest-path', 'tools/platform/Cargo.toml',
+        (['flock', str(ROOT / "build/locks/platform-build.lock"), cargo, 'build', '--locked', '--manifest-path', 'tools/platform/Cargo.toml',
          '-p', 'layerx-platform-cli', '--bin', 'layerx', '--message-format=json'], platform)]
     rows, binaries = [], {}
     deadline = time.monotonic() + 1200

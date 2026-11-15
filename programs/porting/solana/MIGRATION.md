@@ -1,8 +1,9 @@
 # Porting a Solana program to LayerX programs
 
 This guide maps Anchor accounts, instructions and payments onto the programs
-runtime in Paxeer. Paxeer mainnet-beta is one BFT network, with EVM chain ID
-125 (`0x7d`). The kernel is part of the network and proposes blocks; a receipt
+runtime in Paxeer. Paxeer mainnet-beta uses EVM chain ID
+125 (`0x7d`). The LayerX kernel inside every `paxd` node executes and orders each
+transaction and builds each block; validators check and commit it; a receipt
 is final when its block is committed. Program execution, storage changes and
 payments belong to that network's transaction processing.
 

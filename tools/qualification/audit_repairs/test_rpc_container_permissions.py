@@ -12,8 +12,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[3]
 RPC = ROOT / "docker/rpcnode"
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_769.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_769.kvx"
 )
 
 

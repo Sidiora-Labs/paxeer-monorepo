@@ -261,7 +261,7 @@ def test_plain_history_contract_matches_recorded_fields_and_producer():
     assert "fn answer_tags_every_unified_history_row_with_side_and_no_plain_history_row()" in producer
     assert 'row.remove("side");' in producer
     assert "assert_eq!(*plain, untagged);" in producer
-    prior = (GATEWAY / "tests/repair_22_31_202.rs").read_text()
+    prior = (GATEWAY / "tests/producer_paths.rs").read_text()
     assert 'for method in ["px_getHistory", "px_getUnifiedHistory"]' in prior
     assert 'matches_schema(&answer["result"], &schema)' in prior
     assert "closed history consumer DTO" in prior

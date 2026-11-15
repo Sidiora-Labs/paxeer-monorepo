@@ -644,11 +644,11 @@
       "reason": "Repair record files across the repository describe audited findings and qualification evidence rather than production callers."
     },
     {
-      "pattern": "services/platform/hosted/authority/src/repair_22_31_207/**",
+      "pattern": "services/platform/hosted/authority/src/native_receipt_producer/**",
       "reason": "Repair 22.31.207 holds the recorded producer used to qualify the retired authority boundary."
     },
     {
-      "pattern": "services/platform/ramps/toolkit/src/repair_22_31_211/**",
+      "pattern": "services/platform/ramps/toolkit/src/native_payment_overlays/**",
       "reason": "Repair 22.31.211 holds the recorded node and payment evidence used to qualify the retired transport boundary."
     },
     {
@@ -672,7 +672,7 @@
       "reason": "Decision 3125 classifies this historical repair record, including its lx_getSequence test-contract finding, as documentation rather than a live caller."
     },
     {
-      "pattern": "tools/bringup/repair-*.kvx",
+      "pattern": "spec/layerx-merge/programme/records/tools/bringup/repair-*.kvx",
       "reason": "The bringup repair records document historical findings and transport removals rather than production callers."
     },
     {
@@ -694,6 +694,74 @@
     {
       "path": "CODEMAP.md",
       "reason": "history records quote retired names by design"
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/checkpoints/page.tsx",
+      "reason": "The checkpoints page records that the anchor selectors are disabled and that committed blocks provide finality."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/contracts/page.tsx",
+      "reason": "The contracts page records that custody and checkpoint precompile calls are disabled on the merged network."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/custody/page.tsx",
+      "reason": "The custody page records the disabled precompile, its refused methods and its replacement funding paths."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/docker/page.tsx",
+      "reason": "The Docker page links the retained archive evidence page for historical records."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/mirrors/page.tsx",
+      "reason": "The mirrors page directs readers to retained chain history and archive evidence."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/modules/page.tsx",
+      "reason": "The modules page identifies custody and anchor as retired and names their current replacements."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/node-troubleshooting/page.tsx",
+      "reason": "The troubleshooting page links historical-state readers to retained archive access."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/operators/page.tsx",
+      "reason": "The operators page describes historical queries through retained node state and archive access."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/relay-archive/page.tsx",
+      "reason": "The chain-history page records full and archive nodes as the source of retained history and receipt evidence."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/run-node/page.tsx",
+      "reason": "The node guide links archive history as the retained source for historical reads."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/components/nav.ts",
+      "reason": "The documentation navigation labels the relay archive route as retired."
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/lib/seo-pages.json",
+      "reason": "The documentation metadata retains the chain-history route for archive evidence."
+    },
+    {
+      "path": "docs/site/paxeer-docs/.generated/assistant-docs.json",
+      "reason": "This generated documentation copy preserves the retirement statements from the documentation pages."
+    },
+    {
+      "path": "docs/site/paxeer-docs/public/llms-full.txt",
+      "reason": "This generated documentation copy preserves the retirement statements from the documentation pages."
+    },
+    {
+      "path": "docs/site/paxeer-docs/public/llms.txt",
+      "reason": "This generated documentation copy preserves the retirement statements from the documentation pages."
+    },
+    {
+      "path": "docs/site/paxeer-docs/public/search-index.json",
+      "reason": "This generated documentation copy preserves the retirement statements from the documentation pages."
+    },
+    {
+      "path": "docs/site/paxeer-docs/public/sitemap.xml",
+      "reason": "This generated documentation copy preserves the retired archive route from the documentation pages."
     }
   ],
   "allowed_references": [
@@ -1044,8 +1112,15 @@
         "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify\"",
         "ecommon.HexToAddress(layerxverify.LayerXVerifyAddress):   layerxverify.GetVersioned(latestUpgrade, keepers),",
         "ecommon.HexToAddress(layerxcustody.LayerXCustodyAddress): layerxcustody.GetVersioned(latestUpgrade, keepers),",
-        "ecommon.HexToAddress(layerxanchor.LayerXAnchorAddress):   layerxanchor.GetVersioned(latestUpgrade, keepers),"
-      ]
+        "ecommon.HexToAddress(layerxanchor.LayerXAnchorAddress):   layerxanchor.GetVersioned(latestUpgrade, keepers),",
+        "\"layerxVerify\":    {layerxverify.LayerXVerifyAddress, \"layerxverify/abi.json\"},",
+        "\"layerxCustody\":   {layerxcustody.LayerXCustodyAddress, \"layerxcustody/abi.json\"},",
+        "\"layerxAnchor\":    {layerxanchor.LayerXAnchorAddress, \"layerxanchor/abi.json\"},",
+        "layerxverifyp, err := layerxverify.NewPrecompile(keepers)",
+        "layerxanchorp, err := layerxanchor.NewPrecompile(keepers)",
+        "layerxcustodyp, err := layerxcustody.NewPrecompile(keepers)"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
     },
     {
       "path": "custodyproof/verify.go",
@@ -1455,15 +1530,37 @@
       "citation": "Decision 3125 retains the live sign_disclosed_call helper that validates disclosure-bound EIP-1559 transactions and signs through the secp256k1 Signer trait."
     },
     {
-      "path": "services/platform/hosted/indexer",
-      "symbols": [
-        "FINALIZED_RANK",
-        "LNI",
-        "layerxanchor",
-        "layerxcustody",
-        "layerxverify"
+      "path": "services/platform/hosted/indexer/src/abi.rs",
+      "lines": [
+        "\"layerxverify\" | \"layerxcustody\" | \"layerxanchor\"",
+        "(\"layerxverify\", 0x1012),",
+        "(\"layerxcustody\", 0x1013),",
+        "(\"layerxanchor\", 0x1014),"
       ],
-      "citation": "Decision 3125 retains disabled-precompile ABI exclusions and historical decoder regression rows, the committed-block publication rank, and obsolete socket input used to assert node RPC configuration ignores it."
+      "citation": "The ABI loader excludes disabled precompiles, and the regression declarations assert that their addresses and event ABIs remain absent."
+    },
+    {
+      "path": "services/platform/hosted/indexer/src/ai_market.rs",
+      "lines": [
+        "CURSOR_TOKEN_BYTES, FINALIZED_RANK, PAGE_MAX_BYTES, PAGE_MAX_ROWS,",
+        "pub const MINIMUM_PUBLICATION_RANK: u8 = FINALIZED_RANK;"
+      ],
+      "citation": "The retained publication rank names authenticated block commit and native membership verification, which replace checkpoint finality."
+    },
+    {
+      "path": "services/platform/hosted/indexer/src/ai_reputation.rs",
+      "lines": [
+        "FINALIZED_RANK,",
+        "rank: FINALIZED_RANK,"
+      ],
+      "citation": "The retained binding rank is earned by the authenticated committed block and store proof, which replace checkpoint finality."
+    },
+    {
+      "path": "services/platform/hosted/indexer/src/config.rs",
+      "lines": [
+        "(\"LAYERX_INDEXER_LNI_SOCKET\", \"\"),"
+      ],
+      "citation": "The obsolete socket setting is input to the regression assertion that node RPC configuration never reads it."
     },
     {
       "path": "services/platform/hosted/registry",
@@ -2207,26 +2304,6 @@
       "citation": "Decisions 3104, 3125 and 3130: The auth integration fixture calls production program fee-schedule staging, activation and runtime resolution declared in include/layerx/programs.h, rather than the retired relay activity."
     },
     {
-      "path": "precompiles/setup.go",
-      "lines": [
-        "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor\"",
-        "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxcustody\"",
-        "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify\"",
-        "ecommon.HexToAddress(layerxverify.LayerXVerifyAddress):   layerxverify.GetVersioned(latestUpgrade, keepers),",
-        "ecommon.HexToAddress(layerxcustody.LayerXCustodyAddress): layerxcustody.GetVersioned(latestUpgrade, keepers),",
-        "ecommon.HexToAddress(layerxanchor.LayerXAnchorAddress):   layerxanchor.GetVersioned(latestUpgrade, keepers),"
-      ],
-      "symbols": [
-        "layerxAnchor",
-        "layerxCustody",
-        "layerxVerify",
-        "layerxanchor",
-        "layerxcustody",
-        "layerxverify"
-      ],
-      "citation": "Decisions 3104, 3125 and 3130: The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
-    },
-    {
       "path": "precompiles/utils",
       "symbols": [
         "layerxAnchor",
@@ -2242,6 +2319,91 @@
         "layerxcustody"
       ],
       "citation": "Decisions 3104, 3125 and 3130: These strings are immutable on-disk store names still mounted by node/app.go; changing them would break compatibility state and store migration."
+    },
+    {
+      "path": "apps/launchpad/qualification/records/live-fee-accounting.kvx",
+      "symbols": [
+        "recordDeposit",
+        "statusOf"
+      ],
+      "citation": "The qualification record preserves earlier launchpad fee-accounting and mirror references together with the live replacements that qualify them."
+    },
+    {
+      "path": "precompiles/common/README.md",
+      "citation": "The common precompile index records the DA-missing refusal test as a distinct compatibility error entry.",
+      "lines": [
+        "- [lxp_da_missing_row_test.go](lxp_da_missing_row_test.go): checks that the DA missing registry entry is distinct from kernel results."
+      ]
+    },
+    {
+      "path": "precompiles/layerxauth/internal/nativefixtures/native.go",
+      "citation": "The native fixture exercises the live governance fee-schedule stage, activation and runtime resolution that replaced the retired relay activity.",
+      "lines": [
+        "STEP(lxp_programs_fee_governance_stage(&ctx, &proposed, payload + 61,",
+        "STEP(lxp_programs_fee_governance_activate(&ctx, 2));",
+        "runtime.resolve_occupancy_parameters = lxp_programs_fee_governance_resolve_runtime;"
+      ]
+    },
+    {
+      "path": "services/agent/.env.example",
+      "citation": "The example configuration marks the obsolete handover and settlement-domain settings as rejected and unset.",
+      "lines": [
+        "# LAYERX_AGENT_HANDOVER_FINALITY=",
+        "# LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN="
+      ]
+    },
+    {
+      "path": "services/platform/hosted/authority/README.md",
+      "citation": "The authority guide describes the current receipt-authority service and its retained receipt evidence path.",
+      "lines": [
+        "evidence. The [receipt key rotation, retention and replay tests](tests/native_receipt_authority.rs)"
+      ]
+    },
+    {
+      "path": "tools/qualification/paxeer-x/inference_market_room.py",
+      "citation": "The qualification room imports the current receipt-authority fixture used to establish receipt evidence.",
+      "lines": [
+        "from fixtures.receipt_authority_fixture import der_pair, https"
+      ]
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/lib/systems.json",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Generated by docs/site/paxeer-docs/scripts/generate-systems.mjs from docs/release/7.0.0-systems.kvx, this inventory lists module and precompile trees that still ship in the node build."
+    },
+    {
+      "path": "precompiles/README.md",
+      "citation": "The directory inventory labels the anchor, custody and verification directories as retained interfaces that still ship.",
+      "lines": [
+        "- `layerxanchor/` — retained LayerX anchor interface.",
+        "- `layerxcustody/` — retained LayerX custody interface.",
+        "- `layerxverify/` — retained LayerX verification interface."
+      ]
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/sdk/page.tsx",
+      "citation": "The SDK page inventories module source directories that still ship and are linked into the node by node/app.go.",
+      "lines": [
+        "<li><code>layerxagent</code>, <code>layerxanchor</code>, <code>layerxauth</code>, <code>layerxbridge</code>, <code>layerxchains</code>, <code>layerxcustody</code>, <code>layerxexchange</code>, <code>layerxgov</code>, <code>layerxledger</code>, <code>layerxpay</code></li>"
+      ]
+    },
+    {
+      "path": "docs/site/paxeer-docs/src/app/accounts/page.tsx",
+      "citation": "The accounts page lists system:paxeer-reserve as an identifier recognized by the account namespace decoder AccountKind in layerxproof/codec/state.go.",
+      "lines": [
+        "<tr><td><code>system:paxeer-reserve</code>, <code>system:paxeer-withdrawals</code></td><td>System reserve and withdrawal identifiers recognized by the account namespace decoder.</td></tr>"
+      ]
+    },
+    {
+      "path": "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py",
+      "citation": "The isolated-chain fixture reads and writes the genesis document to add an asset record to the custody module's genesis state; it calls no retired method.",
+      "lines": [
+        "custody = genesis['app_state']['layerxcustody']"
+      ]
     }
   ]
 }

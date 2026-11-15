@@ -372,6 +372,14 @@ impl Keystore {
                 && to == recipient
                 && disclosed_denom == denom
                 && disclosed_amount == amount => {}
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
+                pointer,
+                to,
+                amount: disclosed_amount,
+            }) if to == recipient && disclosed_amount == amount => {
+                layerx_human_kms::verify_native_pointer(&denom, pointer, tx.chain_id)
+                    .map_err(|_| CustodyError::Kms(KmsError::Refused))?;
+            }
             _ => return Err(CustodyError::Kms(KmsError::Refused)),
         }
         let authorization = EvmSendAuthorization {

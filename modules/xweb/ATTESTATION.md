@@ -11,8 +11,9 @@ ASCII string with no length prefix and no terminator. This is Solidity
 corpus, and [`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json)
 carries the shared signing vectors.
 
-The same layout serves both origins on one network. The kernel runs inside
-`paxd` and participates in block proposal. Both origins use the xweb precompile
+The same layout serves both origins on one network. The LayerX kernel inside
+every `paxd` node executes and orders each transaction and builds each block;
+validators check and commit it. Both origins use the xweb precompile
 at `0x0000000000000000000000000000000000001019` and the persisted xweb keeper:
 
 - Origin 1: a contract calls `request`; `fulfil` delegates signature verification

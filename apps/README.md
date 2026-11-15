@@ -2,9 +2,7 @@
 
 This directory holds the wallet, explorer, bridge, trading, launchpad, name-site,
 inference-peer and Human interface applications for the Paxeer network. They use
-the repository's SDKs, node APIs and application services. Paxeer mainnet-beta is
-one BFT network running `paxd`, with EVM chain ID `125`; its kernel participates in
-block proposal, and receipts are final when their blocks commit.
+the repository's SDKs, node APIs and application services. These applications talk to `paxd`, whose LayerX kernel executes each transaction on arrival and returns a signed execution receipt. A receipt is final when the block that covers it is committed. The EVM chain ID is `125`.
 
 ## Layout
 

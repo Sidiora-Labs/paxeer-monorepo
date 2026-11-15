@@ -196,8 +196,9 @@ fn fixture_value<'a>(fixture: &'a str, key: &str) -> &'a str {
 #[test]
 fn generator_retired_lifecycle_generated_request_reaches_101d_transport() {
     // The recorded producer used RFC6979 secp256k1 signing on chain 125.
-    let transcript =
-        include_str!("../../../../../sdk/platform/go/testdata/repair141/native-deprecate.json");
+    let transcript = include_str!(
+        "../../../../../sdk/platform/go/testdata/receipt_transport/native-deprecate.json"
+    );
     let raw = fixture_value(transcript, "rawTransaction");
     let hash = fixture_value(transcript, "transactionHash");
     assert!(raw.starts_with("0x02"));

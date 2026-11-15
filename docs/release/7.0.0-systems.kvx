@@ -90,7 +90,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
-change = "changed"
+change = "retired"
 
 [system.module-layerx-auth]
 title = "LayerX auth module"
@@ -142,7 +142,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/chain-modules.md", "docs/site/paxeer-docs/src/app/modules/page.tsx", "/modules"]
-change = "changed"
+change = "retired"
 
 [system.module-layerx-exchange]
 title = "LayerX exchange module"
@@ -454,7 +454,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
-change = "changed"
+change = "retired"
 
 [system.precompile-layerx-auth]
 title = "LayerX auth precompile"
@@ -506,7 +506,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
-change = "changed"
+change = "retired"
 
 [system.precompile-layerx-exchange]
 title = "LayerX exchange precompile"
@@ -571,7 +571,7 @@ ports = []
 health = "paxd status"
 depends = ["chain-node"]
 docs = ["docs/system/precompiles.md", "docs/site/paxeer-docs/src/app/precompiles/page.tsx", "/precompiles"]
-change = "changed"
+change = "retired"
 
 [system.precompile-oracle]
 title = "Oracle precompile"

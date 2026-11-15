@@ -1,6 +1,6 @@
 # Chain history and archive access
 
-Paxeer is one BFT network: the kernel participates in `paxd` block proposal, and a receipt is final when its block commits. Mainnet-beta uses EVM chain ID 125 (`0x7d`). Full and archive `paxd` nodes provide retained chain history. Tenant domains are database namespaces within the network.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it, and a receipt is final when its block commits. Mainnet-beta uses EVM chain ID 125 (`0x7d`). Full and archive `paxd` nodes provide retained chain history. Tenant domains are database namespaces within the network.
 
 Use [hosted history and indexing](platform-hosted.md#indexer-http-routes) for application projections and [the gateway](platform-gateway.md#gateway-jsonrpc-methods) for hosted history methods. An indexer's ingestion position and a node's retained state describe different data availability boundaries.
 

@@ -4,9 +4,10 @@ order: 9
 
 # Client
 
-The `staking` module is part of `paxd` on the merged Paxeer network. The kernel
-participates in the same network and proposes blocks; a receipt is final when its
-block is committed. This page describes the native Cosmos staking CLI, gRPC
+The `staking` module is part of `paxd` on the merged Paxeer network. The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when validators commit its
+block. This page describes the native Cosmos staking CLI, gRPC
 service and REST gateway.
 
 The public EVM JSON-RPC uses the root URL, for example

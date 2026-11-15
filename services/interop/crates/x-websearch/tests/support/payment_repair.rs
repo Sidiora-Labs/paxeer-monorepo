@@ -1,3 +1,6 @@
+#[path = "ledger_assets.rs"]
+mod ledger_assets;
+
 mod test_network {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
 }
@@ -144,19 +147,27 @@ impl Replay {
                     .map_err(|error| error.to_string())?
                     .push(request.clone());
                 let rules = served_rules.lock().map_err(|error| error.to_string())?;
-                let rule = rules
-                    .iter()
-                    .find(|rule| {
-                        rule["method"] == request["method"] && rule["params"] == request["params"]
-                    })
-                    .ok_or_else(|| format!("unrecorded request: {request}"))?;
                 let mut reply = json!({"jsonrpc": "2.0", "id": request["id"]});
-                let field = if rule.get("error").is_some() {
-                    "error"
+                if let Some(result) = (request["method"] == "eth_call")
+                    .then(|| ledger_assets::get_asset_answer(&request["params"]))
+                    .flatten()
+                {
+                    reply["result"] = result;
                 } else {
-                    "result"
-                };
-                reply[field] = rule[field].clone();
+                    let rule = rules
+                        .iter()
+                        .find(|rule| {
+                            rule["method"] == request["method"]
+                                && rule["params"] == request["params"]
+                        })
+                        .ok_or_else(|| format!("unrecorded request: {request}"))?;
+                    let field = if rule.get("error").is_some() {
+                        "error"
+                    } else {
+                        "result"
+                    };
+                    reply[field] = rule[field].clone();
+                }
                 let body = serde_json::to_vec(&reply).map_err(|error| error.to_string())?;
                 stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).as_bytes())
                     .and_then(|()| stream.write_all(&body)).map_err(|error| error.to_string())?;

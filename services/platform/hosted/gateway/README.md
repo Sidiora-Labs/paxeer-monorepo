@@ -2,9 +2,9 @@
 
 `layerx-platform-gateway` builds the `layerx-gateway` binary in the
 [platform Cargo workspace](../../Cargo.toml). It provides hosted APIs and a
-JSON-RPC ingress to the single Paxeer network. `paxd` contains the kernel,
-executes transactions and proposes blocks; receipt finality is BFT block
-commit. Tenant domains are database namespaces in that network.
+JSON-RPC ingress to Paxeer. The LayerX kernel inside `paxd` executes and orders
+each transaction and builds each block; validators check and commit it. Receipt
+finality is block commit. Tenant domains are database namespaces in that network.
 
 Public node JSON-RPC is served at the root path, with EVM chain ID **125**
 (`0x7d`); see the [public RPC reference](../../../../docs/readme/PUBLIC-RPC.md).

@@ -166,7 +166,7 @@
       "docs/site/paxeer-docs/src/app/modules/page.tsx",
       "/modules"
     ],
-    "change": "changed",
+    "change": "retired",
     "siteDocs": [
       "/modules"
     ],
@@ -262,7 +262,7 @@
       "docs/site/paxeer-docs/src/app/modules/page.tsx",
       "/modules"
     ],
-    "change": "changed",
+    "change": "retired",
     "siteDocs": [
       "/modules"
     ],
@@ -838,7 +838,7 @@
       "docs/site/paxeer-docs/src/app/precompiles/page.tsx",
       "/precompiles"
     ],
-    "change": "changed",
+    "change": "retired",
     "siteDocs": [
       "/precompiles"
     ],
@@ -934,7 +934,7 @@
       "docs/site/paxeer-docs/src/app/precompiles/page.tsx",
       "/precompiles"
     ],
-    "change": "changed",
+    "change": "retired",
     "siteDocs": [
       "/precompiles"
     ],
@@ -1054,7 +1054,7 @@
       "docs/site/paxeer-docs/src/app/precompiles/page.tsx",
       "/precompiles"
     ],
-    "change": "changed",
+    "change": "retired",
     "siteDocs": [
       "/precompiles"
     ],

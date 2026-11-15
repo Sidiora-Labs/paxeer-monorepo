@@ -670,8 +670,25 @@ fn all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget() {
     }
     assert_eq!(h.book().counts(), [16, 64, 64, 0]);
     assert!(h.book().counts()[2] < BID_CAPACITY);
+    let mut capacity = Harness {
+        current: h.current.clone(),
+        height: h.height,
+        request: h.request,
+    };
     let bid = h.bid_request(digest(100), digest(65), PEER_A);
-    h.refuse(
+    capacity.apply(
+        dispatch::LockBond,
+        PEER_A,
+        &layerx_programs_ai_market::bonds::LockBondRequest {
+            room: bid.room_id,
+            bid: bid.bid_id,
+            amount: bid.bond_amount,
+        }
+        .encode()
+        .required(),
+        Presence::Absent,
+    );
+    capacity.refuse(
         dispatch::PostBid,
         PEER_A,
         &payload(130, |out| bid.encode(out)),
@@ -684,11 +701,24 @@ fn all_room_ask_and_bid_capacities_fit_together_in_the_shared_state_budget() {
     for room in [digest(100), digest(108)] {
         let bid = h.bid_request(room, digest(129), PEER_A);
         h.refuse(
+            dispatch::LockBond,
+            PEER_A,
+            &layerx_programs_ai_market::bonds::LockBondRequest {
+                room,
+                bid: bid.bid_id,
+                amount: bid.bond_amount,
+            }
+            .encode()
+            .required(),
+            Presence::Absent,
+            CAPACITY,
+        );
+        h.refuse(
             dispatch::PostBid,
             PEER_A,
             &payload(130, |out| bid.encode(out)),
             Presence::Absent,
-            CAPACITY,
+            F11_BOND_INSUFFICIENT,
         );
     }
     assert_eq!(h.book().counts(), [16, 64, 128, 0]);

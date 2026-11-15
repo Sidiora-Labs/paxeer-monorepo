@@ -27,6 +27,10 @@ RETIRING_TASKS = {
 }
 
 
+def test_interop_baseline_is_current():
+    assert read_baseline() == []
+
+
 def read_baseline(baseline_path=BASELINE):
     baseline_path = Path(baseline_path)
     entries = json.loads(baseline_path.read_text())

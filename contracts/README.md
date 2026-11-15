@@ -1,6 +1,6 @@
 # Contracts
 
-This directory contains Solidity sources, external-chain bridge programs, chain integration tests and interface documentation for Paxeer X Network. Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). The kernel is part of the node and proposes blocks; a receipt is final when its block is committed. Funding uses native bank balances and derived sub-accounts, while these contracts provide token pointers, wrapped PAX, sponsored account batches, names, governance and application interfaces.
+This directory contains Solidity sources, external-chain bridge programs, chain integration tests and interface documentation for Paxeer X Network. Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it; a receipt is final when its block is committed. Funding uses native bank balances and derived sub-accounts, while these contracts provide token pointers, wrapped PAX, sponsored account batches, names, governance and application interfaces.
 
 ## Layout
 

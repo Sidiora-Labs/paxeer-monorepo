@@ -2,7 +2,9 @@
 
 This document is included in `layerx_crypto` crate documentation. Paths below
 are relative to `services/agent/crates`. Public network transactions use the
-root Paxeer JSON-RPC endpoint, chain ID 125, on the single BFT chain.
+root Paxeer JSON-RPC endpoint, chain ID 125, on the single chain. The LayerX
+kernel inside paxd executes and orders each transaction and builds each block;
+validators check and commit it.
 
 ## Crypto
 

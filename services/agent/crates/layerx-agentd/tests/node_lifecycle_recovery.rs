@@ -1,5 +1,5 @@
 //! Task 22.31.219: production codecs, socket transport, durable owners and native proofs.
-//! Finding/test mapping and cross-domain wiring are in `src/repair_22_31_219.kvx`.
+//! Finding/test mapping and cross-domain wiring are in `spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/repair_22_31_219.kvx`.
 fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
     result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
 }

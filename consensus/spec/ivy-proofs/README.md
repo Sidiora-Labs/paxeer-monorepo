@@ -12,8 +12,7 @@ They model rounds, prevotes, precommits and locking. They do not model the whole
 Paxeer application, its in-process `FinalizeBlock`/`Commit` boundary, or Autobahn
 certificates, availability, committee configuration and crash recovery.
 
-Paxeer mainnet-beta is one BFT network run by `paxd`, with EVM chain ID 125. The
-kernel participates in the network and proposes blocks; committed blocks give
+Paxeer mainnet-beta uses EVM chain ID 125. The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Committed blocks give
 transaction receipts finality. The proofs here are not a conformance claim for
 that whole implementation. Autobahn's current types and persistence are in
 [`autobahn/types`](../../autobahn/types/) and

@@ -6,11 +6,11 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1139.kvx"
 
 
@@ -45,18 +45,20 @@ def assert_facts(text, facts):
 def test_merged_paxd_network_and_commit_finality():
     overview = section("What is Paxeer X Network?", 2)
     assert_facts(overview, (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
-        "no router and no separate LayerX interface",
         "Sub-chains are tenant domains stored in the database",
     ))
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
     assert len(diagrams) == 2
     topology, _ = diagrams
     assert_facts(topology, (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ))
@@ -70,28 +72,14 @@ def test_merged_paxd_network_and_commit_finality():
 def test_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
     assert_facts(quickstart, (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "https://api-mainnet-beta.paxeer.network",
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix",
+        "Configure more than one node and compare `eth_blockNumber`",
     ))
-    hosts = {"api-mainnet-beta.paxeer.network"}
-    hosts.update(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15))
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    public = [urlsplit(url) for url in urls
-              if urlsplit(url).hostname.endswith("mainnet-beta.paxeer.network")]
-    assert public
-    for url in public:
-        assert url.hostname in hosts
-        assert url.scheme == "https" and url.path in ("", "/")
-        assert not url.query and not url.fragment
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
     assert argv[0] == "curl"
-    assert "https://api1.mainnet-beta.paxeer.network" in argv
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
@@ -174,7 +162,7 @@ def test_native_funding_and_proof_guidance():
         "docs/site/paxeer-docs/src/app/checkpoints/page.tsx",
     ))
     for target in re.findall(r"\]\(([^)]+)\)", funding + proof):
-        assert (ROOT / target).exists(), target
+        assert (README_PATH.parent / target).resolve().exists(), target
     assert "ed25519.Sign(k.private, digest[:])" in source("node/sequencer/receiptkey.go")
     assert "codec.DecodeReceipt(receiptBytes)" in source("layerxproof/verify/receipt.go")
     proof_root = "programs/crates/layerx-programs-registry/src/chain_proof/"
@@ -188,7 +176,7 @@ def test_native_funding_and_proof_guidance():
 def test_retired_executors_and_no_separate_deployment():
     assert "no separate kernel daemon, sequencer service or checkpoint deployment" in README
     assert "External checkpoint settlement is retired" in README
-    assert not re.search(r"\blayerxd\b|/rpc\b|\blx_\w*", README, re.I)
+    assert not re.search(r"\blayerxd\b|\blx_\w*", README, re.I)
     assert not re.search(r"merge is (?:only )?(?:a )?(?:draft|future)", README, re.I)
     paragraphs = [p for p in README.split("\n\n") if p.startswith("The pre-merge ")]
     assert len(paragraphs) == 1

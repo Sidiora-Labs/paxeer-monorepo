@@ -41,9 +41,10 @@ fn authenticated_commit_raises_only_committed_without_altering_receipt() {
     let (bytes, key) = receipt();
     let receipt = must(VerifiedReceipt::verify(TX_HASH, &bytes, &[key]));
     let (commit, validators) = commit(&[1, 1, 1, 1], &[0, 1, 2]);
-    let verified = must(VerifiedBlock::verify(
+    let verified = must(VerifiedBlock::verify_with_header(
         &block(),
         &commit,
+        &header(&validators),
         CHAIN_ID,
         &validators,
     ));
@@ -66,7 +67,7 @@ fn authenticated_commit_raises_only_committed_without_altering_receipt() {
         .unwrap_or_else(|| panic!("missing finality record"))
         .bytes()
         .to_vec();
-    assert_eq!(&encoded[..4], b"LXF2");
+    assert_eq!(&encoded[..4], b"LXF3");
     drop(durable);
     let mut reopened = must(Store::open(&root));
     assert_eq!(
@@ -86,10 +87,12 @@ fn authenticated_commit_raises_only_committed_without_altering_receipt() {
     assert_eq!(repeated, record);
     assert!(matches!(
         augment_verified(&mut reopened, tenant(), IDEMPOTENCY_KEY, &receipt, None),
-        Err(FinalityError::Corrupt)
+        Err(FinalityError::InvalidCommit)
     ));
     let mut conflicting_block = block();
-    conflicting_block.hash[0] ^= 1;
+    let mut conflicting_header = header(&validators);
+    conflicting_header.app_hash[0] ^= 1;
+    conflicting_block.hash = conflicting_header.block_hash();
     let mut conflicting_commit = commit.clone();
     conflicting_commit.block_hash = conflicting_block.hash;
     for (index, signature) in conflicting_commit.signatures.iter_mut().enumerate() {
@@ -109,9 +112,10 @@ fn authenticated_commit_raises_only_committed_without_altering_receipt() {
             }))
             .to_bytes();
     }
-    let conflicting = must(VerifiedBlock::verify(
+    let conflicting = must(VerifiedBlock::verify_with_header(
         &conflicting_block,
         &conflicting_commit,
+        &conflicting_header,
         CHAIN_ID,
         &validators,
     ));

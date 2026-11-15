@@ -31,7 +31,11 @@ def test_platform_workflow_does_not_pass_ordinal_to_release_gate():
         _, job = release_gate_job(ROOT, job_name)
         for step in job["steps"]:
             assert "--ordinal" not in step.get("run", "")
-            assert "release-gate.sh" not in step.get("run", "")
+        producers = [
+            step["run"] for step in job["steps"]
+            if f"scripts/ci/release-gate.sh --job {job_name}" in step.get("run", "")
+        ]
+        assert len(producers) == 1
 
 
 @pytest.mark.parametrize("job_name,target", RELEASE_GATES)
@@ -79,7 +83,20 @@ def test_platform_release_gate_jobs_run_existing_make_targets(job_name, target):
     tokens = invocations[0]
     make_index = tokens.index("make")
     assert tokens[make_index + 1] == target
-    assert tokens[0] == "make" or tokens[:2] == ["sudo", "env"]
+    gate_index = tokens.index("scripts/ci/release-gate.sh")
+    assert tokens[gate_index + 1 : make_index] == [
+        "--job", job_name,
+        "--spec", "${LAYERX_RELEASE_GATE_SPEC:?Set LAYERX_RELEASE_GATE_SPEC "
+        "to the gate task spec}",
+        "--task", "${LAYERX_RELEASE_GATE_TASK:?Set LAYERX_RELEASE_"
+        + job_name.upper().replace("-", "_") + "_TASK}",
+        "--ledger", "$evidence_root/qualification.kvx",
+        "--evidence-root", "$evidence_root", "--timeout", "1800", "--",
+    ]
+    if job_name == "agent-sanitizers":
+        assert tokens[:2] == ["sudo", "env"]
+    else:
+        assert gate_index == 0
     assert tokens[make_index + 2 : make_index + 5] == ["2>&1", "|", "tee"]
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")

@@ -63,6 +63,6 @@ export default function Commerce() {
       <li>Store signed canonical receipts, transaction hashes, logs, receipt-key authorizations and merchant currency bindings for checkout completion and order reads.</li>
       <li>Connect fulfillment and webhook delivery to durable application records.</li>
     </ol>
-    <p>Use <Link href="/evm">EVM applications</Link> for contract-facing experiences and <Link href="/sdk">the SDK</Link> for network integration. Commerce adapters preserve protocol-specific identities while submitting typed payment operations. Paxeer mainnet-beta is one BFT chain, and its receipts are final when their blocks are committed.</p>
+    <p>Use <Link href="/evm">EVM applications</Link> for contract-facing experiences and <Link href="/sdk">the SDK</Link> for network integration. Commerce adapters preserve protocol-specific identities while submitting typed payment operations. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta receipts are final when validators commit their blocks.</p>
   </DocsLayout>
 }

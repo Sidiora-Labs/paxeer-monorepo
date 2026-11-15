@@ -16,7 +16,7 @@ XDK is the Paxeer X developer toolkit across native activities, payments, Progra
 | MCP | Tool calls from assistants through the same agent daemon gates. | [22 catalogue tools, plus 11 session tools in Full mode (33 total)](https://docs.paxeer.app/mcp) |
 | Offline verification | Independent signed-receipt and block-commitment evidence checks. | Language-specific local verifiers |
 
-The hosted gateway in `services/platform/hosted/gateway` serves `px_register` and `px_requestFunds`. Platform SDK receipt verifiers bind signed receipt bytes to the raw transaction and independently trusted receipt keys. That signature check reaches `receipted`; `committed` verification also requires authenticated block and inclusion evidence. Paxeer is one BFT network, and a receipt is final when its block is committed. Rust `layerx-sdk` also exposes `production::verify_receipt` with an independently supplied `AuthorizedBatch`.
+The hosted gateway in `services/platform/hosted/gateway` serves `px_register` and `px_requestFunds`. Platform SDK receipt verifiers bind signed receipt bytes to the raw transaction and independently trusted receipt keys. That signature check reaches `receipted`; `committed` verification also requires authenticated block and inclusion evidence. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when its block is committed. Rust `layerx-sdk` also exposes `production::verify_receipt` with an independently supplied `AuthorizedBatch`.
 
 ## Seven language SDKs
 

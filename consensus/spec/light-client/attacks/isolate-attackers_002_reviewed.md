@@ -7,8 +7,7 @@ classic evidence implementation in this tree. Its trust, validator and timing
 assumptions are essential. It is not a specification of Autobahn certificates,
 validator punishment or recovery.
 
-Paxeer mainnet-beta is one BFT network run by `paxd`, with EVM chain ID 125
-(`0x7d`). The kernel is part of the network and proposes blocks; a receipt is
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is
 final when its block is committed. The research model below does not introduce
 another finality stage.
 

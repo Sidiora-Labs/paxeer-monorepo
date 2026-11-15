@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-EVIDENCE = Path(os.environ.get("LAYERX_MARKET_SANDBOX_EVIDENCE", "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task1043533"))
+EVIDENCE = Path(os.environ.get("LAYERX_MARKET_SANDBOX_EVIDENCE", ROOT / "build/qualification/market-sandbox-profile"))
 DECLARED = (
     "programs/sdk/rust/src/arbiter.rs",
     "programs/crates/layerx-programs-market/src/arbitration.rs",
@@ -71,13 +71,12 @@ def main():
     if EVIDENCE.stat().st_mode & 0o077:
         raise RuntimeError("private evidence required")
     environment = dict(os.environ)
-    environment["PATH"] = "/root/.cargo/bin:" + environment.get("PATH", "")
     environment["CARGO_BUILD_JOBS"] = "4"
-    environment["CARGO_TARGET_DIR"] = environment.get("LAYERX_MARKET_SANDBOX_TARGET", "/root/lx-target/arbiter-prestate/rust")
+    environment["CARGO_TARGET_DIR"] = environment.get("LAYERX_MARKET_SANDBOX_TARGET", environment.get("CARGO_TARGET_DIR", str(ROOT / "programs/target")))
     if args.build:
         inputs = sources()
         output = execute([
-            "/root/.cargo/bin/cargo", "test", "--locked", "--manifest-path", "programs/Cargo.toml",
+            "cargo", "test", "--locked", "--manifest-path", "programs/Cargo.toml",
             "-p", "layerx-programs-arbiter", "--test", "market_sandbox_profile", "--no-run", "--message-format=json",
         ], EVIDENCE / "build.log", environment, 1140)
         binary = artifact(output)

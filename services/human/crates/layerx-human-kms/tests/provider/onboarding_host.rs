@@ -289,7 +289,7 @@ impl Host {
     pub fn start(&mut self) -> Result<()> {
         let store = Arc::new(Mutex::new(checked(store::Store::open(&self.config))?));
         let config = self.config.clone();
-        let clock = self.clock.clone();
+        let clock = RuntimeClock::connect(self.clock_service.binding.clone())?;
         let listener = TcpListener::bind(self.address)?;
         self.kms = Some(Worker::spawn(listener, move |tcp| {
             // Production connection authenticates mTLS, decodes and validates the

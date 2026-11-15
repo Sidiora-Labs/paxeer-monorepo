@@ -8,7 +8,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
 PROGRAMME_TASK_ID = re.compile(r"\btasks?\s+22\.\d+(?:\.\d+)*\b", re.IGNORECASE)
-DECISION_ID = re.compile(r"\bdecisions?[\s.#-]+\d+\b", re.IGNORECASE)
+DECISION_ID = re.compile(r"\bdecisions?[\t .#-]+\d+\b", re.IGNORECASE)
 README_PROGRAMME_ID = re.compile(
     r"\b(?:decisions?|gotchas?)[\s.#-]+\d+\b|\btasks?\s+22\.\d+(?:\.\d+)*\b",
     re.IGNORECASE,
@@ -16,6 +16,7 @@ README_PROGRAMME_ID = re.compile(
 INTERNAL_CODE_INDEX = re.compile(r"\bcodify\b", re.IGNORECASE)
 VENDORED_PARTS = {"vendor", "vendored", "third_party", "third-party", "node_modules", "deps"}
 INLINE_CODE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
+MARKDOWN_LINK = re.compile(r"\[[^\]\n]*\]\(([^)\s]+)\)")
 PATH_TOKEN = re.compile(r"[\w.@+/-]+(?::\d+)?")
 
 
@@ -122,7 +123,8 @@ def test_inference_market_guides_name_only_tracked_files():
     checked = 0
     for guide in guides:
         text = guide.read_text(encoding="utf-8")
-        for match in INLINE_CODE.finditer(text):
+        references = list(INLINE_CODE.finditer(text)) + list(MARKDOWN_LINK.finditer(text))
+        for match in references:
             token = match.group(1)
             if PATH_TOKEN.fullmatch(token) is None:
                 continue

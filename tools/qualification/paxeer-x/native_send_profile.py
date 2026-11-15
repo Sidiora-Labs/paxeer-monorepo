@@ -88,7 +88,7 @@ def main():
     hashes = fixture.get('source_hashes', {})
     require(all(hashes.get(source) == digest(ROOT / source) for source in SOURCES),
             'genuine fixture must bind all final native Send implementation sources')
-    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/agent')).resolve()
+    target = Path(os.environ.get('CARGO_TARGET_DIR', str(ROOT / ".lane-target"))).resolve()
     candidates = [path for path in (target / 'debug/deps').glob('native_send_profile-*')
                   if path.is_file() and os.access(path, os.X_OK) and not path.name.endswith('.d')]
     require(len(candidates) == 1, 'exact current prebuilt native Send corpus required; gate never builds')

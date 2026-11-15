@@ -7,7 +7,8 @@ files under `golden/` describe wire shapes, including retained historical
 shapes. A historical vector does not make a retired operation active.
 
 Human operates on the merged Paxeer network, chain ID **125** (`0x7d`). The
-kernel is part of the network and proposes blocks; block commit is finality.
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it. Block commit is finality.
 The Human HTTPS API described here is an application contract. Public node
 JSON-RPC uses the node root URL; see [Public JSON-RPC](PublicRpc.md).
 

@@ -294,7 +294,7 @@ def test_lifecycle_recovery_uses_retained_receipt_verification(program_execution
 
 
 def test_retained_receipt_and_commit_verification_are_public(program_execution_evidence):
-    from test_repair_22_31_147 import commit_producer, finality_bundle
+    from test_committed_receipt_consumers import commit_producer, finality_bundle
     vector, key, _ = program_execution_evidence
     raw = bytes.fromhex(vector["rawTransaction"][2:])
     receipt = bytes.fromhex(vector["signedReceipt"][2:])

@@ -98,4 +98,4 @@ Use the RPC endpoint supplied by your node operator. The [HPX distribution and p
 
 ## Kernel Integration
 
-The node executes EVM transactions and kernel activities within one BFT network. `modules/lxphost/` connects kernel execution to the chain. See [Paxeer and LayerX](https://docs.paxeer.app/paxeer-vs-layerx) for the integrated architecture.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. `modules/lxphost/` connects kernel execution to the chain. See [Paxeer and LayerX](https://docs.paxeer.app/paxeer-vs-layerx) for the integrated architecture.

@@ -5,9 +5,10 @@ This page documents the explorer's account REST API, mounted at
 and [AccountRouter](lib/block_scout_web/routers/account_router.ex). All paths
 below are relative to the explorer's origin.
 
-The explorer indexes Paxeer mainnet-beta, one BFT network with EVM chain ID
-125 (`0x7d`). The kernel is part of the network and proposes blocks; a receipt
-is final when its block is committed. Account preferences live in the explorer
+The explorer indexes Paxeer mainnet-beta with EVM chain ID 125 (`0x7d`). The
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it. A receipt is final when its block is
+committed. Account preferences live in the explorer
 database. Sub-chains are tenant domains in the database, not additional node
 infrastructure. Node access is documented in
 [EthereumJSONRPC](../ethereum_jsonrpc/README.md); the

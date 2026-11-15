@@ -117,9 +117,9 @@ def build(directory):
     jobs = os.environ.get('CARGO_BUILD_JOBS', '3')
     require(jobs in {'1', '2', '3', '4'}, 'bounded compiler job count required')
     environment = dict(os.environ, CARGO_BUILD_JOBS=jobs,
-        CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/programs'),
-        PATH='/root/.cargo/bin:' + os.environ.get('PATH', ''))
-    cargo = os.environ.get('CARGO', '/root/.cargo/bin/cargo')
+        CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'),
+        PATH=os.environ.get('PATH', ''))
+    cargo = os.environ.get('CARGO', 'cargo')
     commands = [[cargo, 'build', '--locked', '--offline', '--manifest-path', 'programs/Cargo.toml', '-p', package,
                  '--release', '--target', 'wasm32-unknown-unknown', '--message-format=json']
                 for package, _ in WASM.values()]
@@ -128,7 +128,7 @@ def build(directory):
     binaries, compiler = {}, []
     capture_dir = directory / ('compiled-' + revision[:12] + '-' + str(time.time_ns()))
     capture_dir.mkdir(mode=0o700)
-    lock_path = Path('/root/lx-cargo/native-build.lock')
+    lock_path = ROOT / 'build/qualification/cargo/native-build.lock'
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open('a') as lock:
         while True:

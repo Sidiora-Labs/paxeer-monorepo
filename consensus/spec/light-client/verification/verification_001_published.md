@@ -18,8 +18,7 @@ available.
 
 ## Applicability to the merged network
 
-Paxeer mainnet-beta is one BFT network run by `paxd`. The kernel is part of the
-network and proposes blocks; a receipt is final once its block is committed.
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final once its block is committed.
 The EVM chain ID is `125` (`0x7d`). Public EVM JSON-RPC uses the node names at
 the root path, for example `https://api1.mainnet-beta.paxeer.network/`.
 The `commit` and `validators` operations discussed below belong to the

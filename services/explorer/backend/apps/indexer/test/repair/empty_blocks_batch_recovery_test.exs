@@ -6,7 +6,7 @@ defmodule Indexer.EmptyBlocksBatchRecoveryTest do
   alias Explorer.Chain.Cache.BlockNumber
   alias Indexer.Fetcher.EmptyBlocksSanitizer
 
-  @fixture Path.expand("../../lib/indexer/fetcher/repair_22_33_316_blocks.json", __DIR__)
+  @fixture Path.expand("../../lib/indexer/fetcher/empty_block_sanitizer_blocks.json", __DIR__)
   @moduletag capture_log: true
 
   setup do

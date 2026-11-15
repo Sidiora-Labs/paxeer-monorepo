@@ -1,4 +1,4 @@
-//! Clients for the merged `paxd` BFT chain (EVM chain id 125).
+//! Clients for the merged `paxd` chain (EVM chain id 125).
 //!
 //! [`sequencer`] and [`rpc`] use the node's root JSON-RPC endpoint for chain
 //! reads, signed transactions and committed-block evidence. [`px`] joins account,

@@ -12,7 +12,7 @@ export default function Payments() {
         <p className="page-description">Build transfers, paid APIs, merchant checkout, metered usage, and subscriptions on Paxeer X with explicit approval, bounded fees, and verifiable settlement.</p>
       </div>
       <h2>One payment lifecycle</h2>
-      <p>Paxeer X settles native Asset payments on one BFT chain. Applications quote a move, commit the accepted quote under a stable idempotency key, and track a journey whose outcome is backed by evidence. The native wallet prepares a ledger precompile call, discloses its terms, signs an EIP-1559 transaction, submits it to the node and verifies receipt progress.</p>
+      <p>For native Asset payments on Paxeer X, the LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Applications quote a move, commit the accepted quote under a stable idempotency key, and track a journey whose outcome is backed by evidence. The native wallet prepares a ledger precompile call, discloses its terms, signs an EIP-1559 transaction, submits it to the node and verifies receipt progress.</p>
       <ol>
         <li><strong>Quote:</strong> identify payer, recipient, Asset or currency, amount, mechanism, fee ceiling, expected arrival, and irreversible legs.</li>
         <li><strong>Approve and commit:</strong> bind approval to those terms. An expired quote returns <code>quote-expired</code> rather than silently changing the payment.</li>

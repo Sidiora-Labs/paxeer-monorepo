@@ -5,8 +5,9 @@ external chains. The `layerxBridge` precompile calls its keeper to mint bridged
 tokenfactory denominations for accepted deposits and burn them for outbound
 transfers. Governance controls chain registration, attestors, asset caps and pause
 state; the keeper persists consumed deposit events, outstanding supply and outbound
-nonces. The module runs within Paxeer's BFT network, where receipts are final when
-their block is committed.
+nonces. The LayerX kernel inside `paxd` executes and orders each transaction and
+builds each block; validators check and commit it. Receipts are final when
+validators commit their block.
 
 ## Layout
 

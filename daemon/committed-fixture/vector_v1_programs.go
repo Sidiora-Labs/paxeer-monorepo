@@ -45,6 +45,7 @@ var v1ProgramsABI = pcommon.MustGetABI(fixtureProgramsABI, "programs_abi.json")
 
 const v1ProgramsName = "vector-v1-programs-positive"
 const v1ProgramsCaseID = "V1-layerxprograms-call"
+const expectedVerifier = "accepts"
 
 // Match TestProgramsDeployRegistersProgram's deploy payload ABI 1 and
 // LayerX/program-interface/v1 encoding. The EVM deploy call reaches submit.go,
@@ -467,7 +468,7 @@ func canonicalV1Programs(v *v1ProgramsVector) (*v1ProgramsSource, error) {
 		return nil, errors.New("V1 Programs signer has no pin")
 	}
 	c := v1ProgramsSourceCase{V1ProgramsCaseVector: v, ID: v1ProgramsCaseID, Vector: "V1", Description: "real layerxprograms deployment and accepted call with ProgramCallOutcome", SignedReceipt: bytes.Clone(v.Receipt.Receipt), ReceiptDigest: common.Hash(verified.Digest), PrevSeqHash: common.Hash(verified.Receipt.PreviousStateRoot), PinnedKey: pinned}
-	c.Expected.Rung, c.Expected.Verifier = string(v.Receipt.Rung), "accepts"
+	c.Expected.Rung, c.Expected.Verifier = string(v.Receipt.Rung), expectedVerifier
 	return &v1ProgramsSource{"sequencer-receipt-v1", v.ChainID.ToInt().Uint64(), verified.Receipt.ModuleID, v.Receipt.FeeDenom, []v1ProgramsSourceCase{c}}, nil
 }
 

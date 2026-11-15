@@ -2,9 +2,9 @@
 
 # Network operations
 
-Operate Paxeer mainnet-beta nodes and the optional hosted services, monitor readiness, and preserve durable state.
+Operate paxd nodes with the LayerX kernel that executes and orders transactions and builds blocks for validators to check and commit.
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID 125. The kernel runs inside `paxd` and participates in block proposal and execution. A receipt is final when its block is committed. Hosted identity, Human, gateway, registry, signing, and event-delivery services support applications around that network. The control routes below belong to `services/platform/hosted/testnet/`, the control service for an isolated hosted environment.
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when its block is committed. Hosted identity, Human, gateway, registry, signing, and event-delivery services support applications around that network. The control routes below belong to `services/platform/hosted/testnet/`, the control service for an isolated hosted environment.
 
 ## Service architecture
 

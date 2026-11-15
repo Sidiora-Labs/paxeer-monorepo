@@ -2,8 +2,9 @@
 
 The maintained frontend configuration lives under
 [apps/explorer/configs](../apps/explorer/configs/). It describes the explorer
-for the single Paxeer network, EVM chain ID **125 (`0x7d`)**. The kernel is part
-of the network and proposes blocks; finality follows committed BFT blocks.
+for the single Paxeer network, EVM chain ID **125 (`0x7d`)**. The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when the validators commit its block.
 Frontend settings select presentation and clients. They do not change the
 network's consensus or provision a tenant domain.
 

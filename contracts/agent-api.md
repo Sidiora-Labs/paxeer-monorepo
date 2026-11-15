@@ -1,10 +1,11 @@
 # Agent API contract
 
 The agent API provides authenticated preparation, signing, submission, reads,
-approvals and subscriptions for Paxeer mainnet-beta. There is one BFT network:
-`paxd` includes the kernel that proposes blocks, and a receipt is final when its
-block commits. The EVM chain ID is **125** (`0x7d`). Sub-chains are tenant domains
-in the database, rather than separately provisioned chains.
+approvals and subscriptions for Paxeer mainnet-beta. The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it, and a receipt is final when its block commits. The EVM
+chain ID is **125** (`0x7d`). Sub-chains are tenant domains in the database,
+rather than separately provisioned chains.
 
 Public node JSON-RPC uses HTTPS at the root path of
 `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`,

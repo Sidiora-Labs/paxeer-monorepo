@@ -2,10 +2,10 @@
   "producer": "services/wallet/gateway/src/provision/state.ts:produceIdentityBinding",
   "peer": "committed TestChain and in-memory SQL rows; production issuer, RpcPool and readUnifiedAccount are unchanged",
   "sources": {
-    "services/wallet/gateway/src/provision/state.ts": "76ac57500f1bd79b7afea423d5548f0fbf8cc54e8f45a86e4b554bf19b5858af",
-    "services/wallet/gateway/src/provision/bind.ts": "6c0062399baab3c1322725163e62fd05e27535b5cb385969106a77defca63b45",
-    "services/wallet/gateway/src/rpc/pool.ts": "2fbdead20e49ca1a74dfbcca0634c23b3ebf456bf8cde71d378c9e6dc2ac3e7d",
-    "services/wallet/gateway/test/support/chain.ts": "ed31d9a66fd217108aeeeaa25fb19e9bf93707f2f2b22b1790b6b030acb64348"
+    "services/wallet/gateway/src/provision/state.ts": "ca583b1721eefb293ff307a4d45263b082e949a2d4fecca00fa7a8cef0ac7043",
+    "services/wallet/gateway/src/provision/bind.ts": "b9ee101864041badd464bbeee4e9e112815416e386e6786f659f49f30e19969f",
+    "services/wallet/gateway/src/rpc/pool.ts": "9b34a7cfdf8c2b9d313c86dfb2d34fa2ff35dedd16d0682a4a0acae42e6ee37b",
+    "services/wallet/gateway/test/support/chain.ts": "1c1b3aa4c8ed3d1dd7fea568eb4698b0965f8738f350464f45e05f6734e64fd3"
   },
   "issuer": "https://identity.example.test/auth/v1",
   "subject": "supabase-user-a",
@@ -13,9 +13,9 @@
   "did": "did:layerx:3f1c0a9e5b7d2468ace013579bdf2468ace013579bdf2468ace013579bdf2468",
   "address": "0x1111111111111111111111111111111111111111",
   "mainAccountId": "167194996f62f02469532e70fb866daf3b51f3243de624f74f29dbcf78dde1c1",
-  "publicKey": "0456bd52cc96768842e2a9fb9c59c47d1875f8f370e03c74be65b676036a3067bb7eea0ffe0bac9e47563b4e106ed2a66b567109853183e30eec2442c43f895555",
-  "binding": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImxheWVyeC13YWxsZXQtYmluZGluZytqd3QifQ.eyJpc3MiOiJodHRwczovL2lkZW50aXR5LmV4YW1wbGUudGVzdC9hdXRoL3YxIiwic3ViIjoic3VwYWJhc2UtdXNlci1hIiwiZGlkIjoiZGlkOmxheWVyeDozZjFjMGE5ZTViN2QyNDY4YWNlMDEzNTc5YmRmMjQ2OGFjZTAxMzU3OWJkZjI0NjhhY2UwMTM1NzliZGYyNDY4IiwidGVuYW50IjoiaHVtYW4tcHJvdmlkZXIifQ.nQf3N_ZVsu2CuSmuAkYs1YOj0uDyRlnq-gy1oToGCPRpwLF4YLMtfKCIHCOxHYOwoG-h6rfFMuDEKqt0GGXe0A",
-  "crossTenant": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImxheWVyeC13YWxsZXQtYmluZGluZytqd3QifQ.eyJpc3MiOiJodHRwczovL2lkZW50aXR5LmV4YW1wbGUudGVzdC9hdXRoL3YxIiwic3ViIjoic3VwYWJhc2UtdXNlci1hIiwiZGlkIjoiZGlkOmxheWVyeDozZjFjMGE5ZTViN2QyNDY4YWNlMDEzNTc5YmRmMjQ2OGFjZTAxMzU3OWJkZjI0NjhhY2UwMTM1NzliZGYyNDY4IiwidGVuYW50Ijoib3RoZXItdGVuYW50In0.bMPPfL9j9QQZgdUjrHsf4ThVyD57xGT0vQ98ptxeIkyzShd_Nbdo6beM6rtSFe7At2fOH5qpXwiqV142Zpw29Q",
+  "publicKey": "045e3e95f8c2d1ff510717915d11be31d73d23767290bd0682b4a3da6986857feff67fe1efa30990776c290d7df735cdf761b667076accf7f7e4b48d12ad16e359",
+  "binding": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImxheWVyeC13YWxsZXQtYmluZGluZytqd3QifQ.eyJpc3MiOiJodHRwczovL2lkZW50aXR5LmV4YW1wbGUudGVzdC9hdXRoL3YxIiwic3ViIjoic3VwYWJhc2UtdXNlci1hIiwiZGlkIjoiZGlkOmxheWVyeDozZjFjMGE5ZTViN2QyNDY4YWNlMDEzNTc5YmRmMjQ2OGFjZTAxMzU3OWJkZjI0NjhhY2UwMTM1NzliZGYyNDY4IiwidGVuYW50IjoiaHVtYW4tcHJvdmlkZXIifQ.FmwsIG4Ky-Ifhv881weLSBqQcUITtYdK1Rf2_FZbCM_d2GAqwXCGi4QpYmM-b5cFXF56QanUzReA3eJt-ZCTHw",
+  "crossTenant": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImxheWVyeC13YWxsZXQtYmluZGluZytqd3QifQ.eyJpc3MiOiJodHRwczovL2lkZW50aXR5LmV4YW1wbGUudGVzdC9hdXRoL3YxIiwic3ViIjoic3VwYWJhc2UtdXNlci1hIiwiZGlkIjoiZGlkOmxheWVyeDozZjFjMGE5ZTViN2QyNDY4YWNlMDEzNTc5YmRmMjQ2OGFjZTAxMzU3OWJkZjI0NjhhY2UwMTM1NzliZGYyNDY4IiwidGVuYW50Ijoib3RoZXItdGVuYW50In0.6Wp2ocJfWDtvB8qo2q2gy149zEcMCPSjhcTfTW3l64saDrebAeoNR_Gg8udRUftW67huUQe2BHstN8Nt79VUkA",
   "account": {
     "calldata": "0x357feed60000000000000000000000001111111111111111111111111111111111111111",
     "observations": [

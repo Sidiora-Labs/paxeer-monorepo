@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SCHEMA = 'paxeer-x.human-unified-custody-shapes.v1'
 MANIFEST = Path(os.environ.get('PAXEER_X_UNIFIED_SHAPES_MANIFEST',
                                ROOT / 'services/human/target/paxeer-x/human-unified-custody-shapes.json'))
-EVIDENCE = Path(os.environ.get('PAXEER_X_UNIFIED_SHAPES_EVIDENCE', '/root/lx-fleet/logs/10.4/evidence'))
+EVIDENCE = Path(os.environ.get('PAXEER_X_UNIFIED_SHAPES_EVIDENCE', ROOT / "build/qualification/human_unified_custody_shapes"))
 SOURCES = ['services/human/Cargo.toml', 'services/human/Cargo.lock', 'services/human/crates', 'services/agent/crates', 'services/human/schema/human-api',
            'tools/qualification/paxeer-x/human_unified_custody_shapes.py']
 FILTER = 'unified_shape_'

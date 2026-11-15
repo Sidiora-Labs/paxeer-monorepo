@@ -214,11 +214,23 @@ go.sum: go.mod
 		@echo "--> Ensure dependencies have not been modified"
 		@go mod verify
 
-lint: paxd-native-libs
+LINT_VET_SCOPE ?= ./...
+
+.PHONY: lint lint-run lint-format lint-vet lint-mod
+.NOTPARALLEL: lint
+lint: lint-run lint-format lint-vet lint-mod
+
+lint-run: paxd-native-libs
 	@command -v "$(GOLANGCI_LINT)" >/dev/null || { echo "golangci-lint is required; run make workspace-install" >&2; exit 1; }
 	GOPROXY=off "$(GOLANGCI_LINT)" run
-	@test -z "$$(find . \( -path ./.git -o -path ./services/platform -o -path ./spec -o -name node_modules \) -prune -o -type f -name '*.go' -print0 | xargs -0 gofmt -l)"
-	GOPROXY=off go vet ./...
+
+lint-format:
+	@test -z "$$(find . \( -path ./.git -o -path ./services/platform -o -path ./spec -o -path ./core/deps -o -path ./build -o -path ./tools/hyperfide/tests/fixtures -o -name node_modules \) -prune -o -type f -name '*.go' -print0 | xargs -0 gofmt -l)"
+
+lint-vet: paxd-native-libs
+	GOPROXY=off go vet $(LINT_VET_SCOPE)
+
+lint-mod:
 	GOPROXY=off go mod tidy -diff
 	go mod verify
 

@@ -16,8 +16,7 @@ witnesses. It verifies a target against trusted state, cross-checks it, then
 stores the trusted result. The application supplies the initial trust anchor;
 agreement among untrusted providers cannot establish that anchor by itself.
 
-Paxeer mainnet-beta is one BFT network run by `paxd`. The kernel is part of that
-network and proposes blocks. A receipt is final once its block is committed;
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final once its block is committed;
 light-client verification is how an observer checks a history, not another
 finality stage. The EVM chain ID is 125 (`0x7d`). Sub-chains are tenant domains
 in the database, not an instruction to run another consensus service.

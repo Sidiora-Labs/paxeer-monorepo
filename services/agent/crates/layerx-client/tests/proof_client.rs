@@ -25,26 +25,26 @@ use std::fs;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::pin;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
 use layerx_client::ai_market::{
     AiClientError, CommitFinality, NativeTerms, ObservedSnapshot, OperationJournal,
-    OperationRecord, OperationRequest, OperationState, PreparedOperation, PROGRAM_CALL_ORDINAL,
+    OperationRecord, OperationRequest, OperationState, PROGRAM_CALL_ORDINAL, PreparedOperation,
 };
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::evm_transaction;
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::Signer;
-use layerx_programs_ai_market::codec::{decode_envelope, derive_market, encode_envelope, Envelope};
+use layerx_programs_ai_market::codec::{Envelope, decode_envelope, derive_market, encode_envelope};
 use layerx_programs_ai_market::dispatch;
 use layerx_programs_ai_market::errors::ApplicationError;
-use layerx_programs_ai_market::policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES};
-use layerx_programs_ai_market::queries::{read_state_chunk, QueryError, ReadProof, FINALIZED_RANK};
-use layerx_programs_ai_market::registry::{derive_rewards_account, F01_SECTION_CAP};
+use layerx_programs_ai_market::policy::{PolicyCommitments, TASK_POLICY_BYTES, TaskPolicyV1};
+use layerx_programs_ai_market::queries::{FINALIZED_RANK, QueryError, ReadProof, read_state_chunk};
+use layerx_programs_ai_market::registry::{F01_SECTION_CAP, derive_rewards_account};
 use layerx_programs_ai_market::registry_ops::{self, Outcome};
-use layerx_programs_ai_market::rewards::{FundRequest, FUNDING_POLICY_VERSION};
+use layerx_programs_ai_market::rewards::{FUNDING_POLICY_VERSION, FundRequest};
 use layerx_programs_ai_market::state::{self, Section, SharedState};
 use layerx_programs_ai_market::types::{
     AssetId, Authentication, ChainDomain, Digest32, MarketId, Presence, PrincipalId, ProgramId,
@@ -335,7 +335,7 @@ fn observed() -> Checked<ObservedSnapshot> {
 
 #[test]
 fn real_market_state_reaches_finalized_consumer_twice() -> Checked {
-    use layerx_client::ai_market::{decode_snapshot_binding, FinalizedSnapshot, Freshness};
+    use layerx_client::ai_market::{FinalizedSnapshot, Freshness, decode_snapshot_binding};
     use layerx_programs_ai_market::queries::BINDING_MAX_BYTES;
     let (_, commit) = market_repair::verified_market(&created_state()?, 9);
     let mut previous = None;
@@ -463,15 +463,15 @@ fn signed_producer_survives_journal_reopen_and_refuses_corruption() -> Checked {
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
-use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use layerx_client::px::PxEndpoint;
 use layerx_client::rpc::history as consumer_history;
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[path = "support/gateway_evm_22_39_219.rs"]
 mod gateway_evm;
@@ -577,8 +577,12 @@ struct Crossing {
     worker: Option<JoinHandle<()>>,
 }
 
+#[track_caller]
 fn must<T, E: fmt::Debug>(result: Result<T, E>) -> T {
-    result.unwrap_or_else(|error| panic!("{error:?}"))
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{error:?}"),
+    }
 }
 
 impl Crossing {
@@ -645,7 +649,11 @@ impl Crossing {
                 drop(fault);
                 let answer = must(serde_json::to_vec(&document));
                 let mut stream = reader.into_inner();
-                must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", answer.len()));
+                must(write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    answer.len()
+                ));
                 must(stream.write_all(&answer));
                 must(stream.flush());
             }
@@ -703,6 +711,15 @@ fn number(value: &Value) -> u64 {
     }
 }
 
+fn account_digest(value: &Value) -> [u8; 32] {
+    let text = value
+        .as_str()
+        .unwrap_or_else(|| panic!("account digest: {value}"));
+    assert_eq!(text.len(), 64);
+    assert!(text.bytes().all(|byte| byte.is_ascii_hexdigit()));
+    must(market_repair::unhex(text).try_into())
+}
+
 fn word(value: &Value) -> [u8; 32] {
     let hex = value
         .as_str()
@@ -742,7 +759,14 @@ fn px_getNetwork() {
             iteration,
         );
     }
-    assert_network_read_refusals(&crossing, &sequencer, &px, &account, &address);
+    assert_network_read_refusals(
+        &crossing,
+        &sequencer,
+        &px,
+        &account,
+        &address,
+        &history_account,
+    );
 }
 
 fn assert_network_read_iteration(
@@ -771,7 +795,9 @@ fn assert_network_read_iteration(
     assert_eq!(joined.account.evm_address, Some(*address));
     assert_eq!(
         joined.account.layerx_account,
-        Some(word(&exchange.result["account"]["layerx_account"]))
+        Some(account_digest(
+            &exchange.result["account"]["layerx_account"]
+        ))
     );
     assert_eq!(
         joined.account.layerx_did.as_deref(),
@@ -922,9 +948,11 @@ fn assert_history_read_iteration(
     assert_eq!(history.account, history_account);
     assert_eq!(history.freshness, exchange.result["freshness"]);
     let exchanges = must(crossing.exchanges.lock());
-    assert!(exchanges
-        .iter()
-        .all(|exchange| exchange.method != "eth_blockNumber"));
+    assert!(
+        exchanges
+            .iter()
+            .all(|exchange| exchange.method != "eth_blockNumber")
+    );
     for method in [
         "eth_chainId",
         "eth_getBalance",
@@ -950,6 +978,7 @@ fn assert_network_read_refusals(
     px: &PxEndpoint,
     account: &str,
     address: &[u8; 20],
+    history_account: &str,
 ) {
     crossing.corrupt_next("eth_chainId");
     assert_eq!(sequencer.chain_id(), Err(SequencerError::Malformed));
@@ -965,7 +994,7 @@ fn assert_network_read_refusals(
     assert_eq!(px.network(), Err(SequencerError::Malformed));
     crossing.corrupt_next("px_getHistory");
     assert_eq!(
-        consumer_history::history(sequencer, account, None, Some(2)),
+        consumer_history::history(sequencer, history_account, None, Some(2)),
         Err(SequencerError::Malformed)
     );
     let records = RecordedProducer::from_repository_records();
@@ -983,7 +1012,7 @@ fn assert_network_read_refusals(
     assert_eq!(px.network(), Err(SequencerError::Malformed));
     let transmitted = must(crossing.exchanges.lock()).len();
     assert_eq!(
-        consumer_history::history(sequencer, account, Some("invalid"), Some(2)),
+        consumer_history::history(sequencer, history_account, Some("invalid"), Some(2)),
         Err(SequencerError::Endpoint)
     );
     assert_eq!(must(crossing.exchanges.lock()).len(), transmitted);

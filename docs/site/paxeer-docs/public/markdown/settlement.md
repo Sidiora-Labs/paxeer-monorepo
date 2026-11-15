@@ -2,11 +2,11 @@
 
 # Settlement & committed evidence
 
-Verify signed execution, transaction inclusion, and committed block evidence on the Paxeer BFT chain.
+Verify signed execution, transaction inclusion, and committed block evidence on Paxeer X.
 
 ## Execution and settlement form one history
 
-Paxeer mainnet-beta has EVM chain ID `125`. Its kernel executes within the network, and receipts are final once their covering block is committed. Payments, program calls, transfers, and storage charges participate in the chain execution history.
+Paxeer mainnet-beta has EVM chain ID `125`. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Receipts are final once validators commit their covering block. Payments, program calls, transfers, and storage charges participate in the chain execution history.
 
 | Level | Evidence | Meaning |
 | --- | --- | --- |

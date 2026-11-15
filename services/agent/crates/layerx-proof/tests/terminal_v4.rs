@@ -93,7 +93,7 @@ fn logs(case: &JsonValue) -> Vec<SequencerLog> {
 fn retained_positive_and_revert_receipts_verify_byte_exactly() {
     for (name, result_code, count) in [
         ("vector-v1-receipted-positive.json", 0, 5),
-        // Task 9.27.4 follows rpc/repair_22_31_491.kvx: this fixture also
+        // Task 9.27.4 follows spec/layerx-merge/programme/records/rpc/repair_22_31_491.kvx: this fixture also
         // includes V2-pax-transfer-insufficient-funds.
         ("vector-v2-receipted-revert.json", 1, 2),
     ] {

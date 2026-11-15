@@ -2,8 +2,9 @@
 
 Java and Kotlin SDK (`com.sidiora.layerx:layerx-sdk`, package
 `com.sidiora.layerx.sdk`) for the Agent and Human APIs of Paxeer X Network.
-LayerX is merged into the network. The kernel is part of the `paxd` BFT node
-and proposes blocks; a receipt is final once its block is committed.
+LayerX is merged into the network. The LayerX kernel inside paxd executes and
+orders each transaction and builds each block; validators check and commit it.
+A receipt is final when the validators commit its block.
 
 ## Features
 

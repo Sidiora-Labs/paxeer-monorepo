@@ -4,8 +4,9 @@
 for Paxeer execution receipts and native state witnesses. These libraries let
 node and client code decode canonical evidence, authenticate receipts under a
 caller-supplied key and verify state against a trusted composite root. The
-kernel runs inside `paxd` as part of the BFT network; a receipt becomes final
-when its block commits. Receipt authentication and state-witness verification
+LayerX kernel inside `paxd` executes and orders each transaction and builds each
+block; validators check and commit it. A receipt becomes final when validators
+commit its block. Receipt authentication and state-witness verification
 each establish their own facts, while block commitment requires chain evidence.
 
 ## Layout

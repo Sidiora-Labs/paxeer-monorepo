@@ -1,6 +1,6 @@
 # Paxeer SDK
 
-`sdk/` contains the Cosmos SDK fork embedded by `paxd` and the network's client SDKs. The Go fork supplies application execution, stores, modules, encoding and client context; the client packages provide transactions, receipt verification and service integrations. Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). The LayerX kernel runs inside `paxd`, participating in block proposal and execution, and a receipt is final once its covering block is committed.
+`sdk/` contains the Cosmos SDK fork embedded by `paxd` and the network's client SDKs. The Go fork supplies application execution, stores, modules, encoding and client context; the client packages provide transactions, receipt verification and service integrations. Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final once its covering block is committed.
 
 ## Layout
 

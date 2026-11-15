@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DOTNET_PROJECTS = (
     "sdk/platform/dotnet/LayerX.Sdk.csproj",
     "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj",
-    "sdk/platform/dotnet/tests/Repair138/Repair138.csproj",
+    "sdk/platform/dotnet/tests/AgentTransportConformance/AgentTransportConformance.csproj",
     "services/platform/examples/samples/first-payment-csharp/FirstPayment.csproj",
 )
 

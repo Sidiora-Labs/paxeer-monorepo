@@ -86,7 +86,7 @@ def main():
         args.candidate_manifest = os.environ.get('PAXEER_X_CANDIDATE_MANIFEST')
         B.require(args.candidate_manifest, 'actual published candidate manifest required')
     destination = Path(os.environ.get('PAXEER_X_NATIVE_SEND_ARTIFACT_DIRECTORY',
-                                      '/root/lx-ops/paxeer-x-integration-2026-10-03/native-send-purpose-artifacts'))
+                                      ROOT / "build/qualification/native_send_purpose"))
     if args.build:
         destination.mkdir(mode=0o700, parents=True, exist_ok=False)
         B.private(str(destination), True)
@@ -95,13 +95,13 @@ def main():
         revision = B.git('rev-parse', 'HEAD').decode().strip()
         source = source_digest(files)
         B.require(os.environ.get('PAXEER_X_MAINLINE') == revision, 'exact published mainline source pin required')
-        environment = dict(os.environ, CARGO_BUILD_JOBS='4', CARGO_TARGET_DIR='/root/lx-target/human',
-                           GOMAXPROCS='4', PATH='/root/lx-toolchains/node24/bin:/usr/local/go/bin:/root/.cargo/bin:' + os.environ.get('PATH', ''))
-        run(['/usr/local/go/bin/go', 'build', '-mod=readonly', '-p', '4', '-o', str(destination / 'attestor'), './cmd/attestor'],
+        environment = dict(os.environ, CARGO_BUILD_JOBS='4', CARGO_TARGET_DIR=os.environ.get("CARGO_TARGET_DIR", str(ROOT / "services/human/target")),
+                           GOMAXPROCS='4')
+        run(['go', 'build', '-mod=readonly', '-p', '4', '-o', str(destination / 'attestor'), './cmd/attestor'],
             destination / 'go-daemon-build.log', ROOT / 'services/wallet/attestor', environment)
-        run(['/usr/local/go/bin/go', 'test', '-mod=readonly', '-p', '4', '-c', '-o', str(destination / 'native-server.test'), './internal/server'],
+        run(['go', 'test', '-mod=readonly', '-p', '4', '-c', '-o', str(destination / 'native-server.test'), './internal/server'],
             destination / 'go-corpus-build.log', ROOT / 'services/wallet/attestor', environment)
-        command = ['/root/.cargo/bin/cargo', 'test', '--locked', '--manifest-path', 'services/human/Cargo.toml',
+        command = ["cargo", 'test', '--locked', '--manifest-path', 'services/human/Cargo.toml',
                    '-p', 'layerx-human-service', '--test', 'native_send_purpose', '--no-run', '--message-format=json']
         run(command, destination / 'rust-corpus-build.log', ROOT, environment)
         executables = []
@@ -129,8 +129,7 @@ def main():
     validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     material = B.load(os.environ.get('PAXEER_X_NATIVE_SEND_BUILD_MANIFEST', str(destination / 'build.json')))
     artifacts = admit_build(material, candidate['source']['revision'])
-    environment = dict(os.environ, PAXEER_X_NATIVE_SEND_RUST_TEST=str(artifacts['rust_corpus']),
-                       PATH='/root/lx-toolchains/node24/bin:/usr/local/go/bin:/root/.cargo/bin:' + os.environ.get('PATH', ''))
+    environment = dict(os.environ, PAXEER_X_NATIVE_SEND_RUST_TEST=str(artifacts['rust_corpus']))
     log = destination / 'native-send-purpose-verify.log'
     run([str(artifacts['go_corpus']), '-test.run=^TestNativeSendPurposeRealProfiles$', '-test.count=1', '-test.v',
          '-test.timeout=' + str(max(1, int(B.remaining()))) + 's'], log, ROOT / 'services/wallet/attestor', environment)

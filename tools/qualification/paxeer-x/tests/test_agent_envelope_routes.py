@@ -295,7 +295,7 @@ def test_retired_public_routes_and_rpc_identity_are_strict(tmp_path):
             owner.public_rpc_cases()
         assert owner.results == []
     for suffix in ('/rpc', '/rpc/schema', '/?key=secret'):
-        with pytest.raises(RuntimeError, match='root RPC origin'):
+        with pytest.raises(RuntimeError, match='owned loopback chain RPC origin'):
             ENVELOPE.fixture.RootRpc('http://127.0.0.1:8545' + suffix)
 
 

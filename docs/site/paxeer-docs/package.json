@@ -1,6 +1,6 @@
 {
   "name": "paxeer-docs",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Paxeer X documentation for the EVM chain, LayerX agent economy, payments, markets and deterministic programs",
   "scripts": {

@@ -5,8 +5,7 @@ research drafts. It also maps that design to the timestamp checks in the
 embedded Paxeer consensus engine. The drafts are not a qualification result
 for the running network or a specification of Autobahn.
 
-Paxeer is one BFT network run by `paxd` (EVM chain ID 125). The kernel is part
-of the network and proposes blocks. A receipt is final once its block is
+Paxeer uses EVM chain ID 125. The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final once its block is
 committed; the clock assumptions discussed here do not add a finality stage.
 
 ## Current runtime

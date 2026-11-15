@@ -14,7 +14,7 @@ for (const system of systems) {
   if (group) group.push(system)
   else groups.set(system.kind, [system])
 }
-const changeLabels = { new: 'New', changed: 'Changed', unchanged: 'Unchanged' }
+const changeLabels = { new: 'New', changed: 'Changed', unchanged: 'Unchanged', retired: 'Retired' }
 
 export function SystemMap() {
   const [query, setQuery] = useState('')
@@ -86,7 +86,7 @@ export function SystemMap() {
     {Array.from(groups, ([groupKind, members]) => <section key={groupKind} hidden={!members.some(matches)} aria-labelledby={`kind-${groupKind}`}>
       <h2 id={`kind-${groupKind}`} className={styles.kind}>{groupKind} <span>({members.filter(matches).length})</span></h2>
       {members.map(system => <details key={system.id} id={`system-${system.id}`} hidden={!matches(system)} className={styles.system}>
-        <summary><strong>{system.title}</strong> <span className={styles.change}>{changeLabels[system.change as keyof typeof changeLabels]}</span></summary>
+        <summary><strong>{system.title}</strong> <span className={styles.change} data-change={system.change}>{changeLabels[system.change as keyof typeof changeLabels]}</span></summary>
         <div className={styles.details}>
           <p><code>{system.id}</code></p>
           <dl>

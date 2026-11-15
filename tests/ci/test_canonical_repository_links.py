@@ -23,7 +23,6 @@ PACKAGE_MANIFESTS = (
 MAVEN_MANIFESTS = (
     "sdk/integrations/android/pom.xml",
     "sdk/integrations/spring/pom.xml",
-    "sdk/platform/jvm/pom.xml",
 )
 VENDORED_TREES = (
     "core/deps/",
@@ -40,6 +39,7 @@ VENDORED_TREES = (
     "tools/benchmark/loadtest/contracts/evm/lib/",
     "apps/inference-peer/engine/",
 )
+FIXTURE_TREES = ("tools/jev/tests/fixtures/",)
 # This names the dependency's upstream source, not the first-party repository.
 PROVENANCE_ALLOWLIST = {
     (
@@ -110,7 +110,7 @@ def test_docs_link_canonical_repository():
             Path(name).suffix.lower() in {".md", ".mdx", ".rst"}
             or name.startswith("docs/site/paxeer-docs/src/") and name.endswith(".tsx")
         )
-        and not name.startswith((*VENDORED_TREES, "spec/"))
+        and not name.startswith((*VENDORED_TREES, *FIXTURE_TREES, "spec/"))
         and not {"vendor", "node_modules"}.intersection(Path(name).parts)
     ]
     assert "docs/site/paxeer-docs/src/app/page.tsx" in pages

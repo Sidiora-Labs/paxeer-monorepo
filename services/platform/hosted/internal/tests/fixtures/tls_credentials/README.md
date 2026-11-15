@@ -1,5 +1,1 @@
-# Internal service TLS fixtures
-
-The DER certificates, private keys and PKCS#12 identities in this directory are
-public test data for configured and unconfigured service peers. They have no
-production use.
+# Internal service TLS fixtures: the DER certificates, private keys and PKCS#12 identities in this directory are public, generated test data for configured and unconfigured service peers with no production use.

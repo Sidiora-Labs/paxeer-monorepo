@@ -1,8 +1,9 @@
 # EVM JSON-RPC contract
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID **125 (`0x7d`)**.
-Its kernel is part of the network and proposes blocks; a receipt is final
-once its block is committed. The node API is implemented under [rpc](../rpc/).
+Paxeer mainnet-beta uses EVM chain ID **125 (`0x7d`)**. The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it; a receipt is final once its block is committed. The node
+API is implemented under [rpc](../rpc/).
 
 ## HTTP endpoint
 

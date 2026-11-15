@@ -958,11 +958,14 @@ mod tests {
 
     #[test]
     fn malformed_and_replayed_sequences_are_not_canonical_submissions() {
-        let protocol =
-            SandboxProtocolContext::new(2, 3).unwrap_or_else(|error| panic!("protocol: {error:?}"));
+        let protocol = SandboxProtocolContext::new(
+            OCCUPANCY_PROTOCOL_VERSION,
+            SANDBOX_PROGRAMS_REGISTRATION_ABI,
+        )
+        .unwrap_or_else(|error| panic!("protocol: {error:?}"));
         let mut call = vec![0; CALL_FIXED_BYTES];
         call[..32].copy_from_slice(&[9; 32]);
-        call[32..34].copy_from_slice(&2u16.to_be_bytes());
+        call[32..34].copy_from_slice(&SANDBOX_PROGRAMS_REGISTRATION_ABI.to_be_bytes());
         call[34..36].copy_from_slice(&1u16.to_be_bytes());
         call[40..42].copy_from_slice(&4u16.to_be_bytes());
         call[46..50].copy_from_slice(&1u32.to_be_bytes());
@@ -996,8 +999,8 @@ mod tests {
             SandboxSubmission::decode(
                 &payload,
                 SandboxProtocolContext {
-                    protocol_version: 1,
-                    active_programs_abi: 3
+                    protocol_version: OCCUPANCY_PROTOCOL_VERSION - 1,
+                    active_programs_abi: SANDBOX_PROGRAMS_REGISTRATION_ABI - 1
                 }
             ),
             Err(SandboxActivityRefusal::ProtocolMismatch)

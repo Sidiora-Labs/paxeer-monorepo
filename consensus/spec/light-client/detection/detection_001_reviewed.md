@@ -11,8 +11,7 @@ light-client update becomes trusted.
 
 ## Context of this document
 
-Paxeer mainnet-beta is one BFT network run by `paxd`, with EVM chain ID 125
-(`0x7d`). The kernel is part of the network and proposes blocks. A receipt is
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is
 final once its block is committed; the detector does not define a second
 execution or settlement stage.
 

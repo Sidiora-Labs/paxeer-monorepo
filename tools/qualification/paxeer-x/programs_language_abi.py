@@ -297,7 +297,8 @@ $(BUILD_DIR)/tests/programs_language_abi: tests/programs/test_language_abi.c $(L
 \t@mkdir -p $(@D)
 \t$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lssl -lcrypto -pthread -ldl -lm -o $@
 """)
-    run(["flock", "/root/lx-cargo/native-build.lock", "make", "-j6", "-f", "Makefile", "-f", fragment,
+    (ROOT / "build/locks").mkdir(parents=True, exist_ok=True)
+    run(["flock", str(ROOT / "build/locks/native-build.lock"), "make", "-j6", "-f", "Makefile", "-f", fragment,
         "BUILD_DIR=" + str(target / "native"), "PROGRAMS_TARGET_DIR=" + str(target / "runtime"),
         "PROGRAMS_RUNTIME_LIB=" + str(target / "runtime/debug/liblayerx_programs_sandbox.a"),
         "programs-language-abi-build"], evidence, "build-native", deadline)
@@ -380,13 +381,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
     arguments = parser.parse_args()
-    evidence = Path(os.environ.get("PAXEER_X_PROGRAMS_LANGUAGE_EVIDENCE", "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task7.3"))
+    evidence = Path(os.environ.get("PAXEER_X_PROGRAMS_LANGUAGE_EVIDENCE", ROOT / "build/qualification/programs_language_abi"))
     evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
     info = evidence.stat()
     if info.st_uid != os.geteuid() or info.st_mode & 0o077 or ROOT in evidence.resolve().parents:
         raise RuntimeError("protected evidence outside source checkout required")
     deadline = min(float(os.environ.get("PAXEER_X_TASK_DEADLINE_EPOCH", str(time.time() + 1800))), time.time() + 1800)
-    target = Path(os.environ.get("PAXEER_X_PROGRAMS_LANGUAGE_TARGET", "/root/lx-target/task7.3"))
+    target = Path(os.environ.get("PAXEER_X_PROGRAMS_LANGUAGE_TARGET", os.environ.get("CARGO_TARGET_DIR", str(ROOT / "build/programs-language-abi"))))
     try:
         if arguments.build:
             build(evidence, target, deadline)

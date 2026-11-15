@@ -42,8 +42,10 @@ browser → perps data gateway (REST / WebSocket / GraphQL)
 browser / wallet → Paxeer node JSON-RPC at the node root
 ```
 
-Paxeer mainnet-beta is one BFT chain, EVM chain ID **125 (`0x7d`)**. The kernel
-is part of block proposal; receipts are final at block commit. Public JSON-RPC
+Paxeer mainnet-beta is one chain, EVM chain ID **125 (`0x7d`)**. The LayerX kernel
+inside paxd executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when the validators commit
+its block. Public JSON-RPC
 uses the node root URLs declared in [`core/rpc.ts`](../src/core/rpc.ts). The data gateway origin is a separate
 application configuration, not another chain or finality stage. Sub-chains are
 tenant domains in the database and do not require a frontend-specific node.

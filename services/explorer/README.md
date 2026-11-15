@@ -1,6 +1,6 @@
 # Paxeer X Network Explorer
 
-This directory holds the Blockscout-based explorer backend, supporting Rust services, and deployment configuration for Paxeer mainnet-beta. The frontend lives in [`apps/explorer`](../../apps/explorer/). These components run as independent processes and communicate over HTTP; the backend indexes the single BFT network running `paxd`, with EVM chain id **125** (`0x7d`). The kernel is part of the network and proposes blocks, and a transaction receipt is final once its block is committed.
+This directory holds the Blockscout-based explorer backend, supporting Rust services, and deployment configuration for Paxeer mainnet-beta. The frontend lives in [`apps/explorer`](../../apps/explorer/). These components run as independent processes and communicate over HTTP; the backend indexes Paxeer running `paxd`, with EVM chain id **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction receipt is final once its block is committed.
 
 ## Layout
 

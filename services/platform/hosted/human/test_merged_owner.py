@@ -113,8 +113,7 @@ def merged_environment(private):
         document(registry, dict(schema_version=2, network_id=125, assets=[dict(asset=asset)],
             modules=[dict(module=1, ordinals=[1, 4, 5, 10]), dict(module=3, ordinals=[1, 6]), dict(module=7, ordinals=[1, 3])]))
 
-        # Adjacent naming input is an unchanged, signed deployment recording.
-        # This task checks its preservation/pairing, not naming admission semantics.
+        # Naming input retains its signed deployment receipt and admission pairing.
         recorded = json.loads((ROOT / 'services/platform/hosted/authority/tests/fixtures/real-program-deploy-receipt.json').read_text())
         receipt = bytes.fromhex(recorded['receipt_hex'])
         recorded_fields = owner_native.receipt_fields(receipt, bytes.fromhex(recorded['sequencer_public_key_hex']), 'recorded naming receipt')

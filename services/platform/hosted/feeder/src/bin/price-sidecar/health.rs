@@ -27,6 +27,7 @@ pub struct Metrics {
     refused: bool,
     pending_hash: String,
     proposed_height: u64,
+    pending_count: usize,
 }
 
 /// Locks the shared metrics; a panicked holder leaves plain counters behind.
@@ -69,13 +70,15 @@ impl Metrics {
         self.last_accepted_ms = at_ms;
     }
 
-    pub fn pending(&mut self, hash: &str, proposed_height: u64) {
+    pub fn pending(&mut self, hash: &str, proposed_height: u64, count: usize) {
         hash.clone_into(&mut self.pending_hash);
         self.proposed_height = proposed_height;
+        self.pending_count = count;
     }
 
     pub fn clear_pending(&mut self) {
         self.pending_hash.clear();
+        self.pending_count = 0;
     }
 
     #[must_use]
@@ -137,6 +140,12 @@ impl Metrics {
                 self.pending_hash
             );
         }
+        let _ = writeln!(out, "# TYPE price_sidecar_pending_submissions gauge");
+        let _ = writeln!(
+            out,
+            "price_sidecar_pending_submissions {}",
+            self.pending_count
+        );
         out
     }
 }
@@ -242,7 +251,9 @@ mod tests {
              price_sidecar_confirmed_height 812\n\
              # TYPE price_sidecar_proposed_target_height gauge\n\
              price_sidecar_proposed_target_height 0\n\
-             # TYPE price_sidecar_pending_submission gauge\n"
+             # TYPE price_sidecar_pending_submission gauge\n\
+             # TYPE price_sidecar_pending_submissions gauge\n\
+             price_sidecar_pending_submissions 0\n"
         );
         let response = respond(b"GET /metrics HTTP/1.1\r\n\r\n", &metrics, ACCEPTED, 1000);
         let body = metrics.metrics_text(ACCEPTED);

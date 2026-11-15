@@ -4,7 +4,7 @@
 
 The signed, canonical unit of agent action across the Paxeer X execution system.
 
-The kernel represents native operations as activities with an actor, authority, payload, sequence, and receipt. Public clients submit signed EVM transactions to node JSON-RPC; native precompiles invoke the kernel within those transactions. The kernel is part of the Paxeer mainnet-beta BFT node and proposes blocks. Kernel state changes commit with the node's blocks, and a receipt is final when its block is committed.
+The kernel represents native operations as activities with an actor, authority, payload, sequence, and receipt. Public clients submit signed EVM transactions to node JSON-RPC; native precompiles invoke the kernel within those transactions. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Kernel state changes commit with the node's blocks, and a receipt is final when validators commit its block.
 
 ## The exact envelope
 

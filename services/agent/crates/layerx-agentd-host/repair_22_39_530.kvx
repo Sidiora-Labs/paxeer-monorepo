@@ -1,0 +1,4 @@
+[repair.22.39.530]
+acceptance = "22998.1"
+rules = ["Native Comet RPC proof responses use proofOps and bind each requested key and height to the corresponding namespace or content-addressed value.", "Signed RPC headers, validator sets, committed snapshots and chain trust describe the same market state.", "Inference startup uses a serialized room offer, protected deal configuration and admitted workers and evaluators in an opened market epoch.", "Each disposable native-read producer uses an independent random startup directory and the native node binary named by PAXD."]
+changed_files = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]

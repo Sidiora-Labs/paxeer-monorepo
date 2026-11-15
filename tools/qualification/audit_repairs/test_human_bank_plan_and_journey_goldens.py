@@ -96,7 +96,7 @@ def test_supported_request_uses_authoritative_bank_producer_path():
              "self.intent_transactions", "intent_plan_json"]
     positions = [execute.index(call) for call in calls]
     assert positions == sorted(positions)
-    facts(execute, 'money_field(&request.body, "money")?.1 != currency',
+    facts(execute, "verify_intent_currency(&request.body, &currency)?",
           'result: intent_plan_json(&planned, &currency, &transactions)')
     observed = function(PRODUCTION, "intent_observed_state")
     facts(observed, "let balance = agent.balance().map_err(agent_failure)?;",
@@ -192,7 +192,7 @@ def test_plan_contains_every_transaction_field_and_exact_bank_call():
           "abi_amount(128)", "abi_amount(amount)", "denom.as_bytes().to_vec()")
     native = function(PRODUCTION, "intent_bank_golden_request_produces_exact_eip1559_response")
     facts(native, "ProductionComponents::intent_from_request", "crate::journeys::plan(&intent, &observed)",
-          "bank_send_calldata(sender, recipient,", "decode_unsigned(&call.encode_unsigned())",
+          "assert_bank_transaction(&transaction, &context, sender, recipient,", "decode_unsigned(&call.encode_unsigned())",
           "assert_eq!(decoded, call)", "bind_call(&decoded, sender)",
           'assert_eq!(transported, expected["body"]["result"])')
 
@@ -254,7 +254,9 @@ def test_current_journey_matches_route_projection_and_never_uses_retired_finalit
     assert re.fullmatch(r"0x[0-9a-f]{64}", leg["tx_hash"])
     assert re.fullmatch(r"0x[0-9a-f]{64}", leg["receipt_hash"])
     route = PRODUCTION.split('if request.operation.name == "journey.get" {', 1)[1].split("for journey in", 1)[0]
-    facts(route, "self.advance_evm_intent(scope, &id, self.now()?)?;",
+    facts(route, "self.journey_get_projection(request, scope)?")
+    projection = function(PRODUCTION, "journey_get_projection")
+    facts(projection, "self.advance_evm_intent(scope, &id, self.now()?)?;",
           "serde_json::from_slice(row.bytes())", "super::production_reads::intent_journey_json(&record)?")
     projector = function(READS, "intent_journey_json")
     facts(projector, '("refused", "refused", "layerx-receipt", "receipt-verified")',
@@ -262,9 +264,11 @@ def test_current_journey_matches_route_projection_and_never_uses_retired_finalit
           '("submitted", "processing", "submission-record", "unverified")',
           'leg["receipt_hash"]', 'format!("evd_{digest}")', 'format!("stg_{id}_{index}")')
     advance = function(PRODUCTION, "advance_evm_intent")
-    facts(advance, "material.rung == Rung::Committed", "ProductionAgentCreation::protocol_evidence(",
+    facts(advance, "verify_evm_leg(&mut agent, &mut record[\"legs\"][index], raw, hash)?")
+    verifier = function(PRODUCTION, "verify_evm_leg")
+    facts(verifier, "material.rung == Rung::Committed", "ProductionAgentCreation::protocol_evidence(",
           "verify_move_evm_outcome(&evidence, disclosure.activity_type)?", 'leg["verified"] = json!(true)')
-    assert advance.index("verify_move_evm_outcome") < advance.index('leg["verified"] = json!(true)')
+    assert verifier.index("verify_move_evm_outcome") < verifier.index('leg["verified"] = json!(true)')
     for forbidden in ("paxeer-finality", "paxeer-finalised", "settlement-anchored", "raw_transaction"):
         assert forbidden not in projector
         assert forbidden not in json.dumps(journey)

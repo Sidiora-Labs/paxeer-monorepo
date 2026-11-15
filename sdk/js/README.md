@@ -87,8 +87,9 @@ The checked-in tests read [package.json](package.json) for the package export
 map and use TypeScript compiler options declared in the test files. They read
 no environment variables or separate application configuration files.
 
-Paxeer mainnet-beta is one BFT network running `paxd`. The kernel is part of
-the network and proposes blocks. A transaction receipt is final once its
+Paxeer mainnet-beta runs `paxd`. The LayerX kernel inside `paxd` executes and
+orders each transaction and builds each block; validators check and commit it.
+A transaction receipt is final once its
 block is committed. The EVM chain ID is `125` (`0x7d`), and public EVM
 JSON-RPC uses HTTPS at the node's root path.
 

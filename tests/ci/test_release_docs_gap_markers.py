@@ -66,15 +66,10 @@ def test_upgrade_plan_has_no_gap_for_version_json():
 
 def test_gap_table_lists_only_open_ids():
     text = _read_doc("upgrade-plan")
-    gaps = _table_rows(_section(text, "Known gaps"))
-    assert gaps[0] == ["ID", "Path", "Gap"]
-    assert [row[0] for row in gaps[1:]] == ["D5"]
-    assert gaps[1][1] == "spec/layerx-merge/spec.kvx"
-    assert "17.0.9" in gaps[1][2]
-    assert "no runnable command" in gaps[1][2]
-    assert "7.0.0-candidate-report.md" in gaps[1][2]
-
-    support = _table_rows(_section(text, "Implemented release support"))
+    assert "The release tools and node provide these operations." in _section(
+        text, "Release support"
+    )
+    support = _table_rows(_section(text, "Release support"))
     assert support[0] == ["ID", "Present support", "Source"]
     assert {row[0] for row in support[1:]} == CLOSED_IDS
     assert len(support[1:]) == len(CLOSED_IDS)
@@ -122,16 +117,17 @@ def test_validator_runbook_has_no_closed_gaps():
 def test_checklist_has_no_closed_gaps():
     text = _read_doc("readiness-checklist")
     _assert_no_closed_gap_markers(text)
-    gap_items = [
-        line for line in text.splitlines() if "**Gap" in line and "- [ ]" in line
-    ]
-    assert len(gap_items) == 2
-    assert [re.findall(r"\bD\d+\b", line) for line in gap_items] == [
-        ["D5"],
-        [],
-    ]
-    assert "17.0.9" in gap_items[0]
-    assert "check-attestor-manifest.py" in gap_items[1]
+    release_checks = _section(text, "Release checks and rehearsal evidence")
+    assert (
+        "- [ ] Programme release qualification passes at the candidate revision."
+    ) in release_checks
+    assert (
+        "Use the acceptance criteria in the "
+        "[merge specification](../../spec/layerx-merge/spec.kvx)."
+    ) in release_checks
+    services = _section(text, "Services")
+    assert "The bridge signer set is governed, or the bridge stays paused." in services
+    assert "check-attestor-manifest.py" in services
     assert "7.0.0-candidate-report.md" in text
     for source in (
         "tools/release/version.json:2",
@@ -146,7 +142,7 @@ def test_checklist_has_no_closed_gaps():
         "sdk/wallet/src/endpoint.ts:66",
     ):
         assert source in text
-    assert "plan-info --check --plan-height <H>" in text
+    assert "plan-info --check <plan-info.json> --plan-height <H>" in text
     assert "equals SHA-256 of its `public_key`" not in text
     assert "wallet keeps `NEXT_PUBLIC_PAXEER_HOSTED_URL` set through" not in text
     assert "only the release binary" in text
@@ -155,33 +151,20 @@ def test_checklist_has_no_closed_gaps():
 def test_matrix_current_version_is_v7():
     text = _read_doc("readiness-matrix")
     rows = _table_rows(_section(text, "Versions"))
-    assert rows[0] == ["Artifact", "Current version", "Expected for the 7.0.0 upgrade"]
-    for field, version in (("version", "v7.0.0"), ("upgrade", "v7.0")):
-        row = next(
-            row
-            for row in rows[1:]
-            if row[0].startswith(f"`tools/release/version.json` `{field}`")
-        )
-        assert row[1:] == [f"`{version}`", f"`{version}`"]
-        assert "tools/release/version.json:" in row[0]
-    ledger = next(
-        row
-        for row in rows[1:]
-        if row[0].startswith("`docs/release/consensus-commits.md`")
-    )
-    assert "**v7.0.0**" in ledger[1]
-    assert "**v7.0**" in ledger[1]
-    assert "v6.12.0" not in ledger[1]
-    assert ledger[2] == "7.0.0"
+    assert rows[0] == ["Artifact", "Declared value", "Source"]
+    release = next(row for row in rows[1:] if row[0] == "Node release")
+    assert release[1:] == ["`v7.0.0`", "`tools/release/version.json`"]
+    merge = next(row for row in rows[1:] if row[0] == "Merge plan")
+    assert merge[1:] == [
+        "`v7.0`", "`precompiles/common/precompiles.go`, `tools/release/version.json`"
+    ]
+    ledger = (RELEASE_DOCS / "consensus-commits.md").read_text(encoding="utf-8")
+    assert "v7.0.0" in ledger and "v7.0" in ledger
 
 
 def test_service_operator_runbook_has_only_open_gaps():
     text = _read_doc("service-operator-runbook")
-    gaps = _section(text, "Gaps in this runbook")
-    assert "No open implementation gaps are listed in this runbook." in gaps
-    assert not any(line.startswith("|") for line in gaps.splitlines())
-    marked = [line for line in text.splitlines() if "**Gap" in line]
-    assert len(marked) == 1  # Definition only.
+    _assert_no_closed_gap_markers(text)
     support = _table_rows(_section(text, "Implemented service support"))
     assert len(support[1:]) == 6
     for path in (
@@ -193,17 +176,15 @@ def test_service_operator_runbook_has_only_open_gaps():
     ):
         assert any(path in row[0] for row in support[1:])
     manifest = next(row for row in support[1:] if "attestors.json" in row[0])
-    assert "Decision 3042" in manifest[1]
     assert "threshold 1" in manifest[1]
-    assert "all nine configurations agree" in manifest[1]
-    assert "check exits 0" in manifest[1]
+    assert "the checker compares all chain configurations" in manifest[1]
     bridge = _section(text, "Bridge")
-    assert "0x12598F221f1e645322C7665537D4Ab130281f51d" in bridge
     assert "threshold `1`" in bridge
     assert "exits 0 on the committed manifest" in bridge
     assert "**Gap" not in bridge
-    assert "pending governance" not in bridge
-    assert "deployment inputs" in bridge
+    assert (
+        "Supply the chain owners, Solana program ID and deployment environment"
+    ) in bridge
     gateway = _section(text, "Hosted gateway")
     assert "`api1` to `api14`" in gateway
     assert (
@@ -236,29 +217,23 @@ def test_exported_state_rehearsal_waiver_retains_candidate_evidence():
     checklist = _section(
         _read_doc("readiness-checklist"), "Release checks and rehearsal evidence"
     )
-    for evidence in (" ".join(timeline), go, checklist):
-        assert "release owner" in evidence
-        assert "decision 3020" in evidence
-        assert "waiv" in evidence
-        assert "exported-state rehearsal" in evidence.lower()
-        assert "halt and swap evidence" in evidence.lower()
-        assert "candidate release report" in evidence
-        assert PROGRAMME_REHEARSAL_TEST in evidence
+    assert (
+        "Review halt, binary swap, first sequenced block and recovery"
+    ) in " ".join(timeline)
+    assert "paxeer-x-fork.md#4-rehearsal-must-pass-before-go" in " ".join(timeline)
+    for evidence in (go, checklist):
+        assert "candidate" in evidence
         positions = [evidence.index(name) for name in ORDERED_REHEARSAL_TESTS]
         assert positions == sorted(positions)
-    assert "spec/layerx-merge/programme/tests/test_rehearsal_run.py::" in go
-    waiver_items = [
-        line
-        for line in checklist.splitlines()
-        if "- [ ]" in line and "waiv" in line
-    ]
-    assert len(waiver_items) == 2
-    for item in waiver_items:
-        assert "decision 3020" in item
-        assert "candidate release report" in item
-        assert PROGRAMME_REHEARSAL_TEST in item
-        assert "**Gap" not in item
-    assert 'UPGRADE "v7.0" NEEDED' in waiver_items[1]
+    for evidence in (checklist, _read_doc("candidate-report")):
+        assert PROGRAMME_REHEARSAL_TEST in evidence
+        assert "spec/layerx-merge/programme/tests/test_rehearsal_run.py::" in evidence
+    assert "candidate report](7.0.0-candidate-report.md)" in go
+    assert "Aggregate rehearsal checks also passed." in go
+    assert "Review halt, swap, first sequenced block and recovery behavior" in checklist
+    assert (
+        "the presence of a check in this list does not establish that it passed."
+    ) in checklist
 
 
 def test_candidate_report_names_the_proven_checks_and_open_evidence():
@@ -266,96 +241,77 @@ def test_candidate_report_names_the_proven_checks_and_open_evidence():
     checklist = _section(
         _read_doc("readiness-checklist"), "Release checks and rehearsal evidence"
     )
-    rows = _table_rows(report)
-    assert rows[0] == ["Check", "Command", "Exit", "Private evidence reference"]
+    rows = _table_rows(_section(report, "Release checks"))
+    assert rows[0] == ["Coverage", "Command"]
     expected = {
-        "First sequenced block": "TestMergeRehearsalFirstSequencedBlock",
-        "Export and re-import sequencing state": (
-            "TestExportAfterMergeKeepsSequencerState"
+        (
+            "First sequenced block, export/import, activation, store deletion, "
+            "bond returns and constructor refusal"
+        ): (
+            *ORDERED_REHEARSAL_TESTS,
+            "TestMergePlanReturnsGuarantorBonds",
+            "TestMergePlanRefusesMissingMergeConstructors",
         ),
-        "Merge-gated precompile activation": "TestMergePlanActivatesGatedPrecompiles",
-        "Anchor-store deletion order": "TestAnchorStoreDeletedAtStep",
-        "Guarantor bond returns": "TestMergePlanReturnsGuarantorBonds",
-        "Missing merge constructors refuse": (
-            "TestMergePlanRefusesMissingMergeConstructors"
+        "Retired anchor writes and selector refusals": (
+            "TestRetiredWritesRevertAfterMerge", "TestEveryAnchorSelectorRetired",
         ),
-        "Retired anchor writes revert": "TestRetiredWritesRevertAfterMerge",
-        "Every anchor selector is retired": "TestEveryAnchorSelectorRetired",
-        "Custodied balances move to the authority": (
-            "TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority"
+        "Retired custody balance release": (
+            "TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority",
         ),
-        "Retired-caller inventory": "tools/paxeer-x/tests/retired_callers_test.py",
-        "Programme ABI and refusal goldens": "tools/release/tests/test_programme.py",
-        "Ordered programme rehearsal": PROGRAMME_REHEARSAL_TEST,
-        "Pool-parity comparison rules": "case_pool_parity_units",
-        "Consensus-commit coverage": "tools/ci/consensus_commit_gate.py",
-        "Release documentation consistency": "tests/ci/test_release_docs_gap_markers.py",
+        "Retired-caller inventory": ("tools/paxeer-x/tests/retired_callers_test.py",),
+        "ABI selectors, calldata, decoded results and refusal encodings": (
+            "tools/release/tests/test_programme.py",
+        ),
+        "Ordered merge rehearsal": (PROGRAMME_REHEARSAL_TEST,),
+        "Pool-parity comparison rules": ("case_pool_parity_units",),
+        "Consensus-commit coverage": ("tools/ci/consensus_commit_gate.py",),
     }
     assert [row[0] for row in rows[1:]] == list(expected)
-    for check, command, status, evidence in rows[1:]:
+    for coverage, command in rows[1:]:
         assert command.startswith("`") and command.endswith("`")
-        assert expected[check] in command
-        assert status == "0"
-        assert re.fullmatch(r"Candidate evidence [A-Z]\d", evidence)
-    revision = re.search(r"Checked revision: `([0-9a-f]{40})`", report)[1]
-    record = (RELEASE_DOCS / "repair_22_39_182.kvx").read_text(encoding="utf-8")
-    assert f'source_revision = "{revision}"' in record
-    assert "full node rehearsal" in report
-    assert "after-cutover" in report
-    assert "owner inputs" in report
-    assert "test_programme_gate.py" in report
-    assert "no runnable command" in report
-    assert "tests/parity/kernel_chain/" in report
-    assert "Pool-parity comparison rules" in report
-    assert "- [ ] Parity checks" in checklist
-    assert "- [ ] Programme release qualification" in checklist
-    for item in (
-        "Candidate release evidence",
-        "Golden-vector checks",
-        "The retired-caller scan",
-        "The four ordered rehearsal tests",
-        "Bond return and custody release tests",
-        "Retired anchor writes",
-        "Retired custody balances",
-        "Refusal tests",
-        "The programme rehearsal",
-        "Pool-parity comparison rules",
+        for symbol in expected[coverage]:
+            assert symbol in command
+    for fact in (
+        "after preparing the native dependencies with `make paxd-native-libs`",
+        "Pool-parity unit checks cover pool counts, reserve caps and mismatch refusals",
+        "service readiness and network acceptance are deployment checks.",
     ):
-        line = next(
-            line
-            for line in checklist.splitlines()
-            if line.startswith(f"- [x] {item}")
-        )
-        assert f"revision `{revision}`" in line
-        assert "exit 0" in line
-        assert "7.0.0-candidate-report.md" in line
-        assert re.search(r"Candidate evidence [A-Z]\d", line)
+        assert fact in report
+    for item in (
+        "Candidate release evidence", "Golden-vector checks", "The retired-caller scan",
+        "The four ordered rehearsal tests", "Bond return and custody release tests",
+        "Retired anchor writes", "Retired custody balances", "Refusal tests",
+        "The programme rehearsal", "Pool-parity comparison rules",
+    ):
+        assert sum(
+            line.startswith(f"- [ ] {item}") for line in checklist.splitlines()
+        ) == 1
 
 
 def test_candidate_record_identifies_every_ticked_line():
     record = tomllib.loads(
-        (RELEASE_DOCS / "repair_22_39_182.kvx").read_text(encoding="utf-8")
+        (ROOT / "spec/layerx-merge/programme/records/docs/release/repair_22_39_182.kvx").read_text(
+            encoding="utf-8"
+        )
     )
     lines = _read_doc("readiness-checklist").splitlines()
     recorded = record["checklist"]
     assert len(recorded["ticked_lines"]) == len(recorded["ticked_items"]) == 11
     assert recorded["ticked_lines"] == sorted(set(recorded["ticked_lines"]))
-    for number, item in zip(recorded["ticked_lines"], recorded["ticked_items"]):
-        assert lines[number - 1].startswith(f"- [x] {item}")
-        assert record["release_candidate"]["source_revision"] in lines[number - 1]
+    for item in recorded["ticked_items"]:
+        assert sum(line.startswith(f"- [ ] {item}") for line in lines) == 1, item
     assert (
         record["release_candidate"]["report"]
         == "docs/release/7.0.0-candidate-report.md"
     )
-    assert record["release_candidate"]["build_reference"] == "Candidate evidence B1"
-    assert record["release_candidate"]["verification_reference"] == "Candidate evidence V1"
+    assert (ROOT / record["release_candidate"]["report"]).is_file()
 
 
 def test_agent_daemon_qualification_is_after_s_acceptance():
     agent = _section(_read_doc("service-operator-runbook"), "Agent daemon")
-    acceptance = agent.split("**Acceptance after `S` (decision 3020).**", 1)[1]
+    acceptance = agent.split("**Acceptance after `S`.**", 1)[1]
     for evidence in (
-        "exact deployed revision",
+        "exact deployed\nrevision",
         "before opening writes",
         "only after `px_getReceiptKeys` returns the plan's keys",
         "readiness result and receipt-key response",
@@ -369,5 +325,5 @@ def test_agent_daemon_qualification_is_after_s_acceptance():
     checklist = _read_doc("readiness-checklist")
     after_s = _section(checklist, "After `S` (acceptance)")
     assert "agent daemon passes release qualification after `S`" in after_s
-    assert "exact deployed revision" in after_s
+    assert "for the deployed release" in after_s
     assert "agent daemon passes" not in _section(checklist, "Services")

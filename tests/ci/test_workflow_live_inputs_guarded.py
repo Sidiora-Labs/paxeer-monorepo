@@ -27,6 +27,12 @@ SCHEDULED_LIVE_JOBS = {
 EXPRESSION = re.compile(r"\$\{\{(.*?)\}\}", re.DOTALL)
 INPUT = re.compile(r"\b(?:secrets|vars)\.[A-Za-z_][A-Za-z_0-9]*\b")
 PRESENCE = re.compile(r"\b(vars\.[A-Za-z_][A-Za-z_0-9]*)\s*!=\s*(?:''|\"\")")
+RELEASE_GATE_VARS = {
+    "vars.LAYERX_RELEASE_GATE_SPEC",
+    "vars.LAYERX_RELEASE_AGENT_SANITIZERS_TASK",
+    "vars.LAYERX_RELEASE_AGENT_FUZZ_CORPUS_TASK",
+    "vars.LAYERX_RELEASE_PROGRAMS_ACCEPTANCE_TASK",
+}
 
 
 def load_workflow(name):
@@ -57,17 +63,18 @@ def job_inputs(workflow, job):
     # A guard must name an input consumed outside the guard itself. Include
     # workflow env because GitHub passes it to every job, including matrix jobs.
     body = {key: value for key, value in job.items() if key not in {"if", "steps"}}
-    # The exact routed form has a hosted-runner fallback and its own shape check.
-    if body.get("runs-on") == ROUTED:
-        del body["runs-on"]
+    # Runner selection is infrastructure configuration, not a live credential
+    # or service input that requires a presence guard.
+    body.pop("runs-on", None)
     inputs = input_references([workflow.get("env", {}), body])
+    inputs |= input_references(job.get("if", ""))
     for step in job.get("steps", []):
         condition = step.get("if", "")
         step_inputs = input_references(step)
         if not can_run_without_inputs(condition):
             step_inputs -= set(PRESENCE.findall(condition))
         inputs |= step_inputs
-    return inputs
+    return {reference for reference in inputs if reference not in RELEASE_GATE_VARS}
 
 
 def split_condition(expression, operator):

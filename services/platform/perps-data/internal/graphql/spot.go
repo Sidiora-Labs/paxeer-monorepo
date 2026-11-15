@@ -16,6 +16,22 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 )
 
+const (
+	spotMarketsError       = "spot markets: %w"
+	blockField             = "block"
+	spotOrdersError        = "spot orders: %w"
+	spotOrderFillsError    = "spot order fills: %w"
+	spotCollateralError    = "spot collateral movements: %w"
+	queryError             = "%s: %w"
+	positionIDField        = "positionId"
+	userAddressField       = "userAddress"
+	marketMarginTiersError = "market margin tiers: %w"
+	marketStateError       = "market state: %w"
+	txHashField            = "tx_hash"
+	accountField           = "account"
+	accountParameter       = "$1::bytea"
+)
+
 // Paging bounds of the list roots (contracts/data-services.md section 13).
 const (
 	spotDefaultLimit = 50
@@ -26,7 +42,7 @@ const (
 // spotDecimal is a BigDecimal value: the decimal string of a raw integer column.
 type spotDecimal string
 
-func (spotDecimal) ImplementsGraphQLType(name string) bool { return name == "BigDecimal" }
+func (spotDecimal) ImplementsGraphQLType(name string) bool { return name == bigDecimalTypeName }
 
 func (d *spotDecimal) UnmarshalGraphQL(input any) error {
 	s, ok := input.(string)
@@ -45,7 +61,7 @@ func (d spotDecimal) MarshalJSON() ([]byte, error) { return json.Marshal(string(
 // spotTime is a DateTime value, written as RFC 3339 in UTC.
 type spotTime time.Time
 
-func (spotTime) ImplementsGraphQLType(name string) bool { return name == "DateTime" }
+func (spotTime) ImplementsGraphQLType(name string) bool { return name == dateTimeTypeName }
 
 func (t *spotTime) UnmarshalGraphQL(input any) error {
 	s, ok := input.(string)
@@ -228,12 +244,16 @@ WHERE ($1::bytea IS NULL OR r.token = $1::bytea)
 ORDER BY r.block, r.tx_index, r.log_index, r.sub
 LIMIT $3 OFFSET $4`
 
-func (r *Resolver) spotMarkets(ctx context.Context, token, status any, limit, offset int32) ([]*spotMarket, error) {
+func (r *Resolver) spotMarkets(ctx context.Context, token, status any, limit, offset int32) (result0 []*spotMarket, resultErr error) {
 	rows, err := r.DB.QueryContext(ctx, spotMarketsSQL, token, status, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("spot markets: %w", err)
+		return nil, fmt.Errorf(spotMarketsError, err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	quote := strings.ToLower(store.USDL.Hex())
 	markets := []*spotMarket{}
 	for rows.Next() {
@@ -244,9 +264,9 @@ func (r *Resolver) spotMarkets(ctx context.Context, token, status any, limit, of
 			paused      bool
 		)
 		if err := rows.Scan(&tok, &block, &txHash, &at, &paused); err != nil {
-			return nil, fmt.Errorf("spot markets: %w", err)
+			return nil, fmt.Errorf(spotMarketsError, err)
 		}
-		b, err := spotInt32(block, "block")
+		b, err := spotInt32(block, blockField)
 		if err != nil {
 			return nil, err
 		}
@@ -260,7 +280,7 @@ func (r *Resolver) spotMarkets(ctx context.Context, token, status any, limit, of
 		})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("spot markets: %w", err)
+		return nil, fmt.Errorf(spotMarketsError, err)
 	}
 	return markets, nil
 }
@@ -307,12 +327,16 @@ LIMIT $5 OFFSET $6`
 // spotOrderTypes maps the spot order kinds to the SpotOrder orderType values.
 var spotOrderTypes = map[string]int32{"limit": 0, "stop_limit": 1, "stop_loss": 2}
 
-func (r *Resolver) spotOrders(ctx context.Context, orderID, trader, token, status any, limit, offset int32) ([]*spotOrder, error) {
+func (r *Resolver) spotOrders(ctx context.Context, orderID, trader, token, status any, limit, offset int32) (result0 []*spotOrder, resultErr error) {
 	rows, err := r.DB.QueryContext(ctx, spotOrdersSQL, orderID, trader, token, status, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("spot orders: %w", err)
+		return nil, fmt.Errorf(spotOrdersError, err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	orders := []*spotOrder{}
 	for rows.Next() {
 		var (
@@ -326,7 +350,7 @@ func (r *Resolver) spotOrders(ctx context.Context, orderID, trader, token, statu
 		)
 		if err := rows.Scan(&id, &account, &tok, &side, &kind, &amount, &st, &placedAt, &placedBlock, &placedHash,
 			&resolvedAt, &resolvedBlock, &resolvedHash); err != nil {
-			return nil, fmt.Errorf("spot orders: %w", err)
+			return nil, fmt.Errorf(spotOrdersError, err)
 		}
 		orderType, ok := spotOrderTypes[kind]
 		if !ok {
@@ -340,7 +364,7 @@ func (r *Resolver) spotOrders(ctx context.Context, orderID, trader, token, statu
 		default:
 			return nil, fmt.Errorf("spot order %s: unknown side %q", id, side)
 		}
-		pb, err := spotInt32(placedBlock, "block")
+		pb, err := spotInt32(placedBlock, blockField)
 		if err != nil {
 			return nil, err
 		}
@@ -355,7 +379,7 @@ func (r *Resolver) spotOrders(ctx context.Context, orderID, trader, token, statu
 			PlacedAt: spotTime(placedAt), PlacedBlock: pb, PlacedTxHash: spotHex(placedHash), db: r.DB,
 		}
 		if resolvedBlock.Valid {
-			rb, err := spotInt32(resolvedBlock.Int64, "block")
+			rb, err := spotInt32(resolvedBlock.Int64, blockField)
 			if err != nil {
 				return nil, err
 			}
@@ -365,7 +389,7 @@ func (r *Resolver) spotOrders(ctx context.Context, orderID, trader, token, statu
 		orders = append(orders, o)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("spot orders: %w", err)
+		return nil, fmt.Errorf(spotOrdersError, err)
 	}
 	return orders, nil
 }
@@ -421,12 +445,16 @@ WHERE e.kind IN ('limit_executed', 'stop_limit_executed', 'stop_loss_executed')
 ORDER BY e.block DESC, e.tx_index DESC, e.log_index DESC, e.sub DESC
 LIMIT $4 OFFSET $5`
 
-func (r *Resolver) spotOrderFills(ctx context.Context, orderID, trader, token any, limit, offset int32) ([]*spotOrderFill, error) {
+func (r *Resolver) spotOrderFills(ctx context.Context, orderID, trader, token any, limit, offset int32) (result0 []*spotOrderFill, resultErr error) {
 	rows, err := r.DB.QueryContext(ctx, spotOrderFillsSQL, orderID, trader, token, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("spot order fills: %w", err)
+		return nil, fmt.Errorf(spotOrderFillsError, err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	fills := []*spotOrderFill{}
 	for rows.Next() {
 		var (
@@ -437,13 +465,13 @@ func (r *Resolver) spotOrderFills(ctx context.Context, orderID, trader, token an
 			at                   time.Time
 		)
 		if err := rows.Scan(&rowID, &id, &account, &tok, &amount, &price, &block, &txHash, &logIndex, &at); err != nil {
-			return nil, fmt.Errorf("spot order fills: %w", err)
+			return nil, fmt.Errorf(spotOrderFillsError, err)
 		}
 		rid, err := spotInt32(rowID, "row id")
 		if err != nil {
 			return nil, err
 		}
-		b, err := spotInt32(block, "block")
+		b, err := spotInt32(block, blockField)
 		if err != nil {
 			return nil, err
 		}
@@ -454,7 +482,7 @@ func (r *Resolver) spotOrderFills(ctx context.Context, orderID, trader, token an
 		})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("spot order fills: %w", err)
+		return nil, fmt.Errorf(spotOrderFillsError, err)
 	}
 	return fills, nil
 }
@@ -498,7 +526,7 @@ ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC
 LIMIT $4 OFFSET $5`
 
 // SpotCollateralMovements resolves Query.spotCollateralMovements.
-func (r *Resolver) SpotCollateralMovements(ctx context.Context, args spotCollateralArgs) ([]*spotCollateralMovement, error) {
+func (r *Resolver) SpotCollateralMovements(ctx context.Context, args spotCollateralArgs) (result0 []*spotCollateralMovement, resultErr error) {
 	user, ok := spotAddressArg(args.UserAddress)
 	if !ok {
 		return []*spotCollateralMovement{}, nil
@@ -510,9 +538,13 @@ func (r *Resolver) SpotCollateralMovements(ctx context.Context, args spotCollate
 	limit, offset := spotPage(args.spotPageArgs)
 	rows, err := r.DB.QueryContext(ctx, spotCollateralSQL, user, token, spotTextArg(args.EventType), limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("spot collateral movements: %w", err)
+		return nil, fmt.Errorf(spotCollateralError, err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	moves := []*spotCollateralMovement{}
 	for rows.Next() {
 		var (
@@ -523,7 +555,7 @@ func (r *Resolver) SpotCollateralMovements(ctx context.Context, args spotCollate
 			at                  time.Time
 		)
 		if err := rows.Scan(&rowID, &kind, &holder, &tok, &amount, &block, &txHash, &logIndex, &at); err != nil {
-			return nil, fmt.Errorf("spot collateral movements: %w", err)
+			return nil, fmt.Errorf(spotCollateralError, err)
 		}
 		if holder == nil || tok == nil {
 			return nil, fmt.Errorf("spot collateral movement %d: %s row has no account or token", rowID, kind)
@@ -532,7 +564,7 @@ func (r *Resolver) SpotCollateralMovements(ctx context.Context, args spotCollate
 		if err != nil {
 			return nil, err
 		}
-		b, err := spotInt32(block, "block")
+		b, err := spotInt32(block, blockField)
 		if err != nil {
 			return nil, err
 		}
@@ -542,7 +574,7 @@ func (r *Resolver) SpotCollateralMovements(ctx context.Context, args spotCollate
 		})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("spot collateral movements: %w", err)
+		return nil, fmt.Errorf(spotCollateralError, err)
 	}
 	return moves, nil
 }

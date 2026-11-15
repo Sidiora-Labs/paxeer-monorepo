@@ -43,7 +43,7 @@ def packages():
 
 @pytest.fixture(scope="module")
 def task_record():
-    record = json.loads((WORKSPACE / "repair_22_31_449.json").read_text())
+    record = json.loads((ROOT / "spec/layerx-merge/programme/records/contracts/bridge/solana/dependency-advisories.json").read_text())
     assert record["task"] == "22.31.449"
     return record
 

@@ -1,5 +1,7 @@
 import re
 
+import pytest
+
 from retired_tests import REPO_ROOT, assert_paths_absent, build_and_run_c_suite
 
 
@@ -64,6 +66,7 @@ def test_qual_replay_table_matches_header():
     assert 0x0003000B not in values
 
 
+@pytest.mark.native
 def test_no_handover_genesis_case():
     kernel = (REPO_ROOT / "tests/protocol/lxp_test_kernel.c").read_text(
         encoding="utf-8"

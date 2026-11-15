@@ -5,7 +5,7 @@ fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
-pub const CORPUS_READ_EXPECTATION: &str = "committed authority corpus must be readable; first run the producer test: cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 repair_22_31_535_producers_emit_committed_documents";
+pub const CORPUS_READ_EXPECTATION: &str = "committed authority corpus must be readable; first run the producer test: cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test committed_human_documents producers_emit_committed_documents";
 
 pub fn corpus_path(repository: &Path) -> PathBuf {
     let repository = require_ok(repository.canonicalize(), "repository root");
@@ -14,7 +14,7 @@ pub fn corpus_path(repository: &Path) -> PathBuf {
     for source in [
         "services/platform/hosted/authority/src/human.rs",
         "services/platform/hosted/authority/src/human/budget_state.rs",
-        "services/platform/hosted/authority/tests/repair_22_31_535.rs",
+        "services/platform/hosted/authority/tests/committed_human_documents.rs",
     ] {
         identity.update(require_ok(
             std::fs::read(repository.join(source)),

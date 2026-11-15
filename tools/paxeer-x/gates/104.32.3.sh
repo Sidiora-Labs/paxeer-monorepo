@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 ROOT = Path.cwd()
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 INJECT = 'meter::inject::golden_vectors::'
 REQUIRED_UNIT = {
     INJECT + 'loop_charges_at_function_entry_and_every_back_edge_are_frozen',

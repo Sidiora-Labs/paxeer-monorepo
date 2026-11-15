@@ -62,6 +62,54 @@ public final class ConformanceEntryPointTest {
     }
 
     @Test
+    void intentBindingsFollowProducerIntegerEncoding() throws Exception {
+        Path golden = root.resolve("services/human/schema/human-api/golden");
+        JsonNode body = read(golden.resolve("intent.submit.request.json")).required("body");
+        var request = JSON.treeToValue(body, GeneratedSchema.HumanOperations.INTENT_SUBMIT.requestType());
+        assertEquals(2, request.bindings().size());
+        assertEquals(7, request.bindings().get(0).account_sequence());
+        assertEquals(8, request.bindings().get(1).account_sequence());
+        assertEquals(body.required("bindings"), JSON.readTree(JSON.writeValueAsBytes(request.bindings())));
+        invoke("verifyTriplet", golden, "intent.submit", OperationCatalog.HUMAN_ROUTES.get("intent.submit"));
+        for (String encoded : List.of("-1", "1.5", "\"7\"", "null", "9223372036854775808")) {
+            ObjectNode changed = body.deepCopy();
+            ((ObjectNode) changed.required("bindings").required(0)).set("account_sequence", JSON.readTree(encoded));
+            assertThrows(IllegalStateException.class,
+                () -> invoke("rejectNumericMoney", changed, "body", "intent.submit"));
+        }
+        ObjectNode numericMoney = body.deepCopy();
+        ((ObjectNode) numericMoney.required("bindings").required(0).required("fee_limit")).put("amount", 125);
+        assertThrows(IllegalStateException.class,
+            () -> invoke("rejectNumericMoney", numericMoney, "body", "intent.submit"));
+        assertThrows(IllegalStateException.class,
+            () -> invoke("rejectNumericMoney", body, "body"));
+    }
+
+    @Test
+    void agentVersionGoldensBindCurrentAndHistoricalContracts() throws Exception {
+        Path golden = root.resolve("services/agent/schema/agent-api/golden");
+        assertTrue((Integer) invoke("verifyAgentGoldens", golden) > 0);
+        for (String kind : List.of("request", "response")) {
+            String section = "[golden." + kind + ".version]";
+            byte[] wire = HexFormat.of().parseHex(Files.readString(golden.resolve("version-" + kind + ".hex")).trim());
+            invoke("verifyAgentVersionVector", section, wire);
+            for (int index = 0; index < wire.length; index++) {
+                byte[] changed = wire.clone();
+                changed[index] ^= 1;
+                assertThrows(IllegalStateException.class, () -> invoke("verifyAgentVersionVector", section, changed));
+            }
+            for (int length : List.of(wire.length - 1, wire.length + 1)) {
+                byte[] changed = java.util.Arrays.copyOf(wire, length);
+                assertThrows(IllegalStateException.class, () -> invoke("verifyAgentVersionVector", section, changed));
+            }
+            assertThrows(IllegalStateException.class,
+                () -> invoke("verifyAgentVersionVector", "[golden." + kind + ".version_1_1]", wire));
+            assertThrows(IllegalStateException.class,
+                () -> invoke("verifyAgentVersionVector", "[golden." + kind + ".version_3]", wire));
+        }
+    }
+
+    @Test
     void producerFullResponsesAndSeparateFeeAssetVerify() throws Exception {
         invoke("invokeLocalVerification", root);
         assertEquals(5, invoke("verifyReceiptViews", root));
@@ -165,13 +213,14 @@ public final class ConformanceEntryPointTest {
         return corpus;
     }
 
-    private static Object invoke(String name, Path... arguments) throws Exception {
-        Class<?>[] types = new Class<?>[arguments.length];
-        java.util.Arrays.fill(types, Path.class);
+    private static Object invoke(String name, Object... arguments) throws Exception {
+        Class<?>[] types = java.util.Arrays.stream(arguments)
+            .map(value -> value instanceof Path ? Path.class : value instanceof JsonNode ? JsonNode.class : value.getClass())
+            .toArray(Class<?>[]::new);
         Method method = conformance.getDeclaredMethod(name, types);
         method.setAccessible(true);
         try {
-            return method.invoke(null, (Object[]) arguments);
+            return method.invoke(null, arguments);
         } catch (InvocationTargetException error) {
             if (error.getCause() instanceof Exception cause) throw cause;
             if (error.getCause() instanceof Error cause) throw cause;

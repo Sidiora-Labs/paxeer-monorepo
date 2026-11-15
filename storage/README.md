@@ -1,6 +1,6 @@
 # PaxDB
 
-PaxDB is the storage layer of the Paxeer X chain (`paxd`). This directory holds the Go packages for active state commitment, historical state queries, ledger data, write-ahead logging, and database tools. The node connects these packages through [`node/app.go`](../node/app.go) and [`node/paxdb.go`](../node/paxdb.go). Paxeer is one BFT network with the kernel integrated into the node; a receipt is final once its block is committed.
+PaxDB is the storage layer of the Paxeer X chain (`paxd`). This directory holds the Go packages for active state commitment, historical state queries, ledger data, write-ahead logging, and database tools. The node connects these packages through [`node/app.go`](../node/app.go) and [`node/paxdb.go`](../node/paxdb.go). The LayerX kernel inside every `paxd` node executes and orders each transaction and builds each block; validators check and commit it; a receipt is final once its block is committed.
 
 ## Layout
 

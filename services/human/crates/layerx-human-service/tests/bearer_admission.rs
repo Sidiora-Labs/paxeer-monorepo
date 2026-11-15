@@ -35,9 +35,9 @@ use support::{directory, install_and_open, retention_uniform, tenancy};
 
 const ISSUER: &str = "https://identity.example.test/auth/v1";
 const AUDIENCE: &str = "authenticated";
-const SUBJECT: &str = "wallet-user-0001";
+const SUBJECT: &str = "supabase-user-a";
 const WALLET_DID: &str =
-    "did:layerx:0102030405060708091011121314151617181920212223242526272829303132";
+    "did:layerx:3f1c0a9e5b7d2468ace013579bdf2468ace013579bdf2468ace013579bdf2468";
 const APP_ORIGIN: &str = "https://app.wallet.example";
 const ORIGINS: &str = "https://app.wallet.example,https://wallet.example";
 const FOREIGN_ORIGIN: &str = "https://other.example";
@@ -377,22 +377,39 @@ impl Fixture {
             ),
             "provider state",
         );
-        required(
-            state.enable_assertion(required(
-                AssertionVerifier::new(AssertionConfig {
-                    jwks_url: keys.url(),
-                    issuer: ISSUER.to_owned(),
-                    audience: AUDIENCE.to_owned(),
-                    clock_skew_seconds: 30,
-                    refresh_interval_seconds: 300,
-                }),
-                "assertion verifier",
+        let binding: Value = required(
+            serde_json::from_str(include_str!(
+                "../../layerx-human-identity-provider/tests/fixtures/wallet_binding_22_33_35.json"
             )),
+            "wallet producer recording",
+        );
+        required(
+            state.enable_assertion(
+                required(
+                    AssertionVerifier::new_with_clock(
+                        AssertionConfig {
+                            jwks_url: keys.url(),
+                            issuer: ISSUER.to_owned(),
+                            audience: AUDIENCE.to_owned(),
+                            clock_skew_seconds: 30,
+                            refresh_interval_seconds: 300,
+                        },
+                        clock.clone(),
+                    ),
+                    "assertion verifier",
+                )
+                .with_binding_producer_key(
+                    binding["publicKey"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("producer key")),
+                )
+                .unwrap_or_else(|error| panic!("binding verifier: {error}")),
+            ),
             "enable assertion",
         );
         let token = signer.mint(&claims(SUBJECT, now));
         let (account, _) = required(
-            state.open_or_create_by_assertion(&token, Some(WALLET_DID), now),
+            state.open_or_create_by_assertion(&token, None, now),
             "create account by assertion",
         );
         let principal = account.principal().to_owned();
@@ -407,6 +424,16 @@ impl Fixture {
             ),
             "bind identity provider",
         );
+        let server = required(
+            server.with_binding_reader(
+                &provider_root.join("binding.sock"),
+                binding["tenant"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("binding tenant")),
+                &[rustix::process::geteuid().as_raw()],
+            ),
+            "binding reader",
+        );
         let shutdown = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&shutdown);
         let provider = ProviderRun {
@@ -414,6 +441,29 @@ impl Fixture {
             worker: Some(thread::spawn(move || server.run(&flag))),
         };
 
+        let identity = required(
+            RemoteIdentityProvider::new(IdentityProviderConfig {
+                socket: socket.clone(),
+                deadline: Duration::from_secs(2),
+                maximum_frame_bytes: 65_536,
+                peer_uid: rustix::process::geteuid().as_raw(),
+                peer_gid: rustix::process::getegid().as_raw(),
+            }),
+            "identity client",
+        );
+        let bound = required(
+            identity.resolve_assertion_with_binding(
+                &token,
+                Some(
+                    binding["binding"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("producer binding")),
+                ),
+            ),
+            "bind wallet",
+        );
+        assert_eq!(bound.principal.as_str(), principal);
+        assert_eq!(bound.did.as_deref(), Some(WALLET_DID));
         let (component_shutdown, client, router) =
             Self::start_components(&principal, socket, clock);
         Self {

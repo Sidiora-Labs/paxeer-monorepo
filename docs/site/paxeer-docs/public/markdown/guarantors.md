@@ -2,9 +2,9 @@
 
 # Validators and commitment
 
-BFT block commitment, signed execution receipts, and independent evidence verification.
+The LayerX kernel executes and orders transactions and builds blocks; validators check and commit them. Verify execution receipts and commitment evidence.
 
-Paxeer validators commit blocks on one network. The kernel participates in block production. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.
+The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Paxeer validators commit blocks on one network. Applications verify execution receipts and the committed blocks covering them; finality comes from BFT commitment.
 
 ## Verify the execution outcome
 
@@ -35,7 +35,7 @@ Verification checks the exact signed bytes and their bindings. Receipt output da
 
 ## Consensus membership
 
-Validator membership is part of the BFT network. The hosted gateway declares `px_getValidators` and `px_getCommit` in `services/platform/hosted/gateway/openrpc.json`; use their verified chain data when inspecting consensus evidence.
+Paxeer validators check and commit the blocks the kernel builds. The hosted gateway declares `px_getValidators` and `px_getCommit` in `services/platform/hosted/gateway/openrpc.json`; use their verified chain data when inspecting consensus evidence.
 
 The public EVM chain ID is `125`. Bind transaction signatures and receipt verification to the intended chain and obtain current consensus state from that network.
 

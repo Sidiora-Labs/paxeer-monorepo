@@ -15,7 +15,7 @@ import sys
 ROOT = Path.cwd()
 RUNTIME = ROOT / 'programs/crates/layerx-programs-runtime/src'
 SDK = ROOT / 'programs/sdk/rust/src'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 MANIFEST = ['--locked', '--manifest-path', 'programs/Cargo.toml']
 REQUIRED = {
     'runtime-lib': ['abi::response::tests::unpublished_region_returns_the_entry_code_with_empty_bytes',
@@ -105,7 +105,7 @@ def tally(output, label, expected_binaries, required):
 try:
     count = contract()
     skipped = 0
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.28.3'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     runtime = [CARGO, 'test'] + MANIFEST + ['-p', 'layerx-programs-runtime']
     for label, argv in [
         ('runtime-lib', runtime + ['--lib', '--', 'abi::response::']),

@@ -6,11 +6,10 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1442.kvx"
 
 
@@ -21,10 +20,10 @@ def source(path):
 def section(heading, level=3):
     """Extract a Markdown section without treating shell comments as headings."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fenced = False
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         if line.startswith("```"):
             fenced = not fenced
         elif not fenced and re.match(r"^#{1," + str(level) + r"} ", line):
@@ -53,13 +52,15 @@ def make_rule(path, target):
 
 def test_doc_readme_one_paxd_chain_with_linked_kernel():
     assert_facts(section("What is Paxeer X Network?", 2), (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ))
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert "-llayerx -llayerx_programs_sandbox" in source("modules/lxphost/host.go")
@@ -67,41 +68,20 @@ def test_doc_readme_one_paxd_chain_with_linked_kernel():
         "node/sequencer/consensus_source.go"
     )
     for obsolete in (r"\blayerxd\b", r"\blx_[\w*]+", r"merge is (?:only )?a draft"):
-        assert not re.search(obsolete, README, re.I), obsolete
+        assert not re.search(obsolete, NETWORK, re.I), obsolete
 
 
 def test_doc_readme_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "root path of these hosts, without a route suffix" in quickstart
-    bounds = re.search(
-        r"numbered nodes `https://api(\d+)\.mainnet-beta\.paxeer\.network` "
-        r"through `https://api(\d+)\.mainnet-beta\.paxeer\.network`", quickstart,
-    )
-    assert bounds is not None
-    assert tuple(map(int, bounds.groups())) == (1, 14)
-    hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
-    hosts.add("api-mainnet-beta.paxeer.network")
-    public_urls = [
-        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)
-        if urlsplit(url).hostname in hosts
-    ]
-    assert {url.hostname for url in public_urls} == {
-        "api-mainnet-beta.paxeer.network", "api1.mainnet-beta.paxeer.network",
-        "api2.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
-    }
-    for url in public_urls:
-        assert url.scheme == "https"
-        assert url.path in ("", "/") and not url.query and not url.fragment
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].replace("\\\n", " "), comments=True)
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
@@ -229,7 +209,7 @@ def test_doc_readme_linked_node_build_start_and_upgrade():
     ))
     assert_facts(section("Releases and Network Upgrades"), (
         "merged runtime executes kernel activity inside `paxd`",
-        "commits it with the BFT chain state",
+        "validators commit it in the same block",
         "`v7.0` merge handler activates the merged interfaces",
         "retires the old custody/checkpoint write paths",
         "`v7.0-anchor-store-delete` removes the historical anchor store",

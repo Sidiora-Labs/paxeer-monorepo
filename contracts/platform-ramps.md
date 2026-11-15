@@ -4,7 +4,7 @@ The [reference ramp](../services/platform/ramps/reference/src/main.rs) and [tool
 
 > External custody: this independent market maker controls the off-platform funds and payout.
 
-Paxeer mainnet-beta is one BFT network, chain ID **125** (`0x7d`), whose kernel participates in block proposal. A receipt is final when its block commits. The historical `layerx` and `paxeer` configuration sections name client and operator-inventory adapters; they do not describe two execution and settlement networks. See [payment middleware](platform-middleware.md), [the gateway](platform-gateway.md) and [hosted services](platform-hosted.md).
+Paxeer mainnet-beta uses chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when its block commits. The historical `layerx` and `paxeer` configuration sections name client and operator-inventory adapters; they do not describe two execution and settlement networks. See [payment middleware](platform-middleware.md), [the gateway](platform-gateway.md) and [hosted services](platform-hosted.md).
 
 ## Ramp reference HTTP routes
 

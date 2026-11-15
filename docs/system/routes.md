@@ -1,7 +1,8 @@
 # Network and hosted service routes
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`).
-The kernel runs as part of the network and proposes blocks. A receipt is final
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`).
+The LayerX kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final
 when its block is committed. Hosted services provide application APIs and views
 of that network; they do not form a second execution or settlement network.
 Sub-chains are tenant domains in the database, launchable without new infrastructure.
@@ -450,7 +451,8 @@ no longer deploy that service. Retained explorer archive routes are listed in
 
 ### kernel
 
-The kernel is part of the network. The hosted gateway retains a small
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. The hosted gateway retains a small
 compatibility production parser in
 [lib.rs](../../services/platform/hosted/gateway/src/lib.rs):
 

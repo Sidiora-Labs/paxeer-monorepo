@@ -84,7 +84,7 @@ def test_route_locations_match_openrpc_and_real_catalogue_producer():
     assert 'serde_json::from_str(include_str!("../route-locations.json"))' in producer
     assert "let locations: serde_json::Map<String, serde_json::Value>" in producer
     assert re.search(
-        r'catalogue\s*\.as_object_mut\(\)\s*\.expect\("route catalogue is an object"\)'
+        r'catalogue\s*\.as_object_mut\(\)\s*\.unwrap_or_else\(\|\| panic!\("route catalogue is an object"\)\)'
         r'\s*\.extend\(locations\);', producer,
     )
     assert producer.index(".extend(locations)") < producer.rindex("catalogue\n")
@@ -97,10 +97,10 @@ def test_retired_rpc_subtree_is_omitted_and_refused_by_production_ingress():
     producer = rust_function("lib.rs", "unified_service_catalogue")
     assert re.search(
         r'catalogue\["routes"\]\s*\.as_array_mut\(\)'
-        r'\s*\.expect\("route catalogue has a routes array"\)'
+        r'\s*\.unwrap_or_else\(\|\| panic!\("route catalogue has a routes array"\)\)'
         r'\s*\.retain\(\|route\| \{', producer,
     )
-    assert 'let path = route["path"].as_str().expect("route path is a string");' in producer
+    assert 'let path = route["path"].as_str().unwrap_or_else(|| panic!("route path is a string"));' in producer
     assert 'path != "/rpc" && !path.starts_with("/rpc/")' in producer
     ingress = rust_function("main.rs", "route_with_peer")
     assert re.search(
@@ -167,7 +167,7 @@ def test_account_alias_wording_preserves_exact_lookup_selectors_and_refusals():
     assert 'account.strip_prefix("did:layerx:")' in selector
     assert "Selector::NativeAccount(key)" in selector
     resolve = rust_function("paxeer.rs", "resolve")
-    assert "Selector::NativeAccount(account)" in resolve
+    assert "Selector::NativeAccount(_) => {" in resolve
     assert 'return Err("native_account_reverse_resolution_unsupported");' in resolve
 
 
@@ -188,7 +188,9 @@ def test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved(
     assert '"result": {"account": resolution.document(), "height": height, "balances": balances}' in bank
     assert "let balances = match decode_coins(&answer)" in bank
     contract = (ROOT / "tools/platform/cli/src/wallet_gateway.rs").read_text()
-    assert '"balances":balances' in contract
+    constructor = contract.split("pub fn balances(", 1)[1].split("\n}", 1)[0]
+    assert 'result["account"] = account;' in constructor
+    assert 'result["balances"] = Value::Array(balances);' in constructor
     assert "evm::uint256_decimal(&amount)" in rust_function("paxeer.rs", "decode_coins")
     assert "word: &[u8; 32]" in rust_function("evm.rs", "uint256_decimal")
 
@@ -219,7 +221,7 @@ def test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved(
 def test_all_unrelated_openrpc_contracts_match_the_recorded_base():
     snapshot = read_json(Path(__file__).with_name("fixtures") / "gateway_openrpc_contract_baseline.json")
     assert snapshot["base_revision"] == "716e8dfe1518af0033ed3d0e2b7b4f34fa81f0aa"
-    assert snapshot["pin_source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
+    assert snapshot["pin_source_revision"] == "f210675f121b1d1e6b66ec46a6e59286320dd35e"
     document = copy.deepcopy(read_json(GATEWAY / "openrpc.json"))
     document["methods"] = [
         item for item in document["methods"] if item["name"] != "px_getRouteCatalogue"

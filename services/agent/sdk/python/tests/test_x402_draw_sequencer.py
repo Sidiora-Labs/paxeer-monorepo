@@ -196,7 +196,7 @@ def test_x402_draw_refuses_a_receipt_under_an_unknown_key():
 
 @contextmanager
 def _receipt_rpc(vector):
-    from test_repair_22_33_17 import ReceiptNode, http_server
+    from test_receipt_authority_recovery import ReceiptNode, http_server
     from layerx_sdk.x402_rpc import PaymentRpc
     node = ReceiptNode()
     node.add_recording(vector)
@@ -272,7 +272,7 @@ def _grant_inputs(vector):
 
 
 def test_grant_draws_verify_through_receipt_keys(tmp_path):
-    from test_repair_22_33_17 import draw_inputs
+    from test_receipt_authority_recovery import draw_inputs
     vector = _payment_vector()
     signed, raw, key = _bytes(vector["signedReceipt"]), _bytes(vector["rawTransaction"]), _key(vector)
     receive, body, offer, values, transaction, actor = draw_inputs()
@@ -310,7 +310,7 @@ def test_grant_draws_verify_through_receipt_keys(tmp_path):
 
 @pytest.mark.parametrize("rung", ("unknown", "submitted", "receipted"))
 def test_grant_draw_recovery_uses_payment_rpc_without_resubmission(tmp_path, rung):
-    from test_repair_22_33_17 import draw_inputs, seed_legacy_journal
+    from test_receipt_authority_recovery import draw_inputs, seed_legacy_journal
     from layerx_sdk.evm_transaction import decode_signed
     receive, body, offer, values, transaction, actor = draw_inputs()
     identity = "0x" + keccak256(transaction).hex()

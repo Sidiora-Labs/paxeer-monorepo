@@ -1,0 +1,3 @@
+[repair.22.39.540]
+dependency = "serde_json.workspace = true"
+targets = ["intent_chain_domain", "proof_human_intents"]

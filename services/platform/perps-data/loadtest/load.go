@@ -30,18 +30,24 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ws"
 )
 
+const (
+	httpScheme  = "http"
+	httpsScheme = "https"
+	wssScheme   = "wss"
+)
+
 var ErrNoSymbols = errors.New("loadtest: GET /api/markets returned no symbols")
 
-func FeedSymbols(ctx context.Context, gateway string) ([]string, error) {
+func FeedSymbols(ctx context.Context, gateway string) (result0 []string, resultErr error) {
 	u, err := url.Parse(gateway)
 	if err != nil || u.Host == "" {
 		return nil, errors.New("loadtest: invalid gateway URL")
 	}
 	switch u.Scheme {
-	case "http", "ws":
-		u.Scheme = "http"
-	case "https", "wss":
-		u.Scheme = "https"
+	case httpScheme, "ws":
+		u.Scheme = httpScheme
+	case httpsScheme, wssScheme:
+		u.Scheme = httpsScheme
 	default:
 		return nil, errors.New("loadtest: gateway URL needs http, https, ws or wss")
 	}
@@ -56,7 +62,11 @@ func FeedSymbols(ctx context.Context, gateway string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loadtest: GET /api/markets: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("loadtest: GET /api/markets: HTTP %s", resp.Status)
 	}
@@ -197,10 +207,10 @@ func SocketURL(gateway string) (string, error) {
 		return "", fmt.Errorf("loadtest: invalid gateway URL")
 	}
 	switch u.Scheme {
-	case "http", "ws":
+	case httpScheme, "ws":
 		u.Scheme = "ws"
-	case "https", "wss":
-		u.Scheme = "wss"
+	case httpsScheme, wssScheme:
+		u.Scheme = wssScheme
 	default:
 		return "", fmt.Errorf("loadtest: gateway URL needs http, https, ws or wss")
 	}
@@ -322,7 +332,7 @@ func Run(ctx context.Context, socketURL string, p Profile) (*Report, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}
-	if u, err := url.Parse(socketURL); err != nil || (u.Scheme != "ws" && u.Scheme != "wss") || u.Host == "" {
+	if u, err := url.Parse(socketURL); err != nil || (u.Scheme != "ws" && u.Scheme != wssScheme) || u.Host == "" {
 		return nil, errors.New("loadtest: socket URL needs ws or wss")
 	}
 	r := &runner{

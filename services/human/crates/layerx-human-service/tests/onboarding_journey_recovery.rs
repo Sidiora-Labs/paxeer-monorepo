@@ -949,8 +949,7 @@ fn runtime_nonce_matches_both_durable_preparation_fields_after_restart() {
     let mut fixture = Fixture::new("repair-22-33-49-nonce");
     let socket = fixture.root.join("nonce.sock");
     let pending_nonce = 17;
-    let mut payload = HumanResponse::pending_nonce(pending_nonce).bytes().to_vec();
-    payload.push(Rung::Receipted.wire_rank());
+    let payload = HumanResponse::pending_nonce(pending_nonce).bytes().to_vec();
     let server = peer(
         &socket,
         HumanResponse::new(payload).unwrap_or_else(|error| panic!("unexpected error: {error:?}")),

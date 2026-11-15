@@ -63,7 +63,7 @@ interface NativeHttpTranscript {
 
 async function producer(context: TestContext) {
   const transcript: NativeHttpTranscript = JSON.parse(readFileSync(
-    new URL("../src/explorer/fixtures/repair-22-31-383-native-http.json", import.meta.url), "utf8",
+    new URL("../src/explorer/fixtures/account-history-http.json", import.meta.url), "utf8",
   ));
   // Validate the committed peer responses with the same codecs as the HTTP consumer.
   for (const document of [transcript.firstPage, transcript.secondPage]) {

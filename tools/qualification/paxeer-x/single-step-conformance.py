@@ -88,12 +88,11 @@ def main():
     if info.st_mode & 0o077 or info.st_uid != os.geteuid():
         raise RuntimeError("evidence directory must be private and owned")
     environment = dict(os.environ)
-    environment["PATH"] = "/root/.cargo/bin:" + environment.get("PATH", "")
     environment.setdefault("CARGO_BUILD_JOBS", "4")
-    environment.setdefault("CARGO_TARGET_DIR", "/root/lx-target/single-step-conformance")
+    environment.setdefault("CARGO_TARGET_DIR", str(ROOT / "programs/target"))
     if args.build:
         inputs = sources()
-        output = execute(["/root/.cargo/bin/cargo", "test", "--locked", "--manifest-path",
+        output = execute(["cargo", "test", "--locked", "--manifest-path",
             "programs/Cargo.toml", "-p", "layerx-programs-runtime", "--lib", "--test",
             "step_conformance", "--no-run", "--message-format=json"],
             evidence / "build.log", environment, 1200)

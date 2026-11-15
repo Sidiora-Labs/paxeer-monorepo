@@ -101,7 +101,7 @@ RECEIPT_KEY = ReceiptKey(
 EXACT_RPC = _fixture("gateway/exact.json")
 METERED_RPC = _fixture("gateway/metered.json")
 LEDGER_RPC = json.loads(
-    (_FIXTURES.parents[1] / "src/repair_22_31_169_ledger.json").read_text()
+    (_FIXTURES.parents[1] / "src/metered_payment_ledger.json").read_text()
 )
 ACCOUNT_RPC = json.loads(
     (_REPO_ROOT / "services/agent/sdk/typescript/test/recorded-web-ledger.json").read_text()

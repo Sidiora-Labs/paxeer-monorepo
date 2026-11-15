@@ -128,7 +128,7 @@ def test_precompile_documented_provenance_matches_real_generator(generated_inven
             assert len(matches) == 1, item
             raw = matches[0]
         for entry in json.loads(raw):
-            if entry["type"] in ("function", "event"):
+            if entry["type"] in ("function", "event", "error"):
                 expected.add(json.dumps(entry, sort_keys=True))
     assert {json.dumps(entry, sort_keys=True) for entry in embedded["abi"]} == expected
     generator = (SOURCES / "generate_precompiles.py").read_text()
@@ -199,8 +199,8 @@ def test_precompile_unknown_and_unavailable_documented_outcomes():
 
 def test_precompile_real_rust_integration_is_registered():
     manifest = tomllib.loads(source("sig-provider-server/Cargo.toml"))
-    targets = [item for item in manifest["test"] if item["name"] == "repair_22_33_312"]
-    assert targets == [{"name": "repair_22_33_312", "path": "../tests/documented_abi_http.rs"}]
+    targets = [item for item in manifest["test"] if item["path"] == "../tests/documented_abi_http.rs"]
+    assert targets == [{"name": "documented_abi_http", "path": "../tests/documented_abi_http.rs"}]
     rust = source("tests/documented_abi_http.rs")
     assert "use sig_provider_server::{new_service, Service, SourcesSettings};" in rust
     assert "route_abi_service(config, service.clone());" in rust

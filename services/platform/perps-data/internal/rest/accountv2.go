@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
@@ -17,6 +18,14 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/auth"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/bigint"
+)
+
+const (
+	pnlMetric            = "pnl"
+	allPeriods           = "all"
+	closeRowsMessage     = "close query rows"
+	internalErrorMessage = "internal error"
+	tradesField          = "trades"
 )
 
 type AccountV2 struct {
@@ -71,21 +80,25 @@ func (s *AccountV2) dailyPnl(w http.ResponseWriter, r *http.Request) {
         FROM perps.user_pnl_daily WHERE account = $1 ORDER BY day DESC LIMIT $2) d ORDER BY day`,
 		common.HexToAddress(raw).Bytes(), maxDailyPnlDays)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, internalErrorMessage)
 		return
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			slog.Error(closeRowsMessage, "err", closeErr)
+		}
+	}()
 	out := []dailyPnlRow{}
 	for rows.Next() {
 		var row dailyPnlRow
 		if err := rows.Scan(&row.Date, &row.Pnl, &row.Volume, &row.Trades); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			writeError(w, http.StatusInternalServerError, internalErrorMessage)
 			return
 		}
 		out = append(out, row)
 	}
 	if err := rows.Err(); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, internalErrorMessage)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"dailyPnl": out})
@@ -104,16 +117,16 @@ func (s *AccountV2) leaderboard(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	metric, period := q.Get("metric"), q.Get("period")
 	if metric == "" {
-		metric = "pnl"
+		metric = pnlMetric
 	}
 	if period == "" {
-		period = "all"
+		period = allPeriods
 	}
-	if metric != "pnl" && metric != "volume" {
+	if metric != pnlMetric && metric != "volume" {
 		writeError(w, http.StatusBadRequest, "invalid metric")
 		return
 	}
-	if period != "all" && period != "30d" && period != "7d" {
+	if period != allPeriods && period != "30d" && period != "7d" {
 		writeError(w, http.StatusBadRequest, "invalid period")
 		return
 	}
@@ -128,21 +141,25 @@ func (s *AccountV2) leaderboard(w http.ResponseWriter, r *http.Request) {
         trunc(volume_usd)::text, trades_count, win_rate
         FROM perps.leaderboard WHERE "window" = $1 ORDER BY 1 LIMIT $3`, period, metric, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, internalErrorMessage)
 		return
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			slog.Error(closeRowsMessage, "err", closeErr)
+		}
+	}()
 	out := []accountLeaderboardRow{}
 	for rows.Next() {
 		var row accountLeaderboardRow
 		if err := rows.Scan(&row.Rank, &row.Address, &row.Pnl, &row.Volume, &row.Trades, &row.WinRate); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			writeError(w, http.StatusInternalServerError, internalErrorMessage)
 			return
 		}
 		out = append(out, row)
 	}
 	if err := rows.Err(); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, internalErrorMessage)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"leaderboard": out})
@@ -216,7 +233,7 @@ func (s *AccountV2) alerts(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "alert not found")
 		} else if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			writeError(w, http.StatusInternalServerError, internalErrorMessage)
 		} else {
 			writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		}
@@ -249,7 +266,7 @@ func (s *AccountV2) alerts(w http.ResponseWriter, r *http.Request) {
         (address, alert_type, market_id, threshold, enabled, created_at)
         VALUES ($1, $2, $3, $4, true, $5) RETURNING id`, address, request.AlertType, market, threshold, s.now().UTC()).Scan(&id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, internalErrorMessage)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "id": id})
@@ -263,7 +280,7 @@ func (s *AccountV2) referrals(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/v2/referrals/generate" {
 		var entropy [16]byte
 		if _, err := rand.Read(entropy[:]); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			writeError(w, http.StatusInternalServerError, internalErrorMessage)
 			return
 		}
 		var code string
@@ -272,7 +289,7 @@ func (s *AccountV2) referrals(w http.ResponseWriter, r *http.Request) {
             SET referral_code = COALESCE(perps.referrals.referral_code, EXCLUDED.referral_code)
             RETURNING referral_code`, address, hex.EncodeToString(entropy[:])).Scan(&code)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			writeError(w, http.StatusInternalServerError, internalErrorMessage)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"referralCode": code})
@@ -296,7 +313,7 @@ func (s *AccountV2) referrals(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusBadRequest, "invalid or already applied referral code")
 	} else if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, internalErrorMessage)
 	} else {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -319,7 +336,7 @@ func (s *AccountV2) competitions(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusBadRequest, "competition unavailable")
 	} else if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, internalErrorMessage)
 	} else {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}

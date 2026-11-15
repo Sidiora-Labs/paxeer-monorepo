@@ -12,7 +12,7 @@ registerHooks({
    if (existsSync(fileURLToPath(url))) return { url, shortCircuit: true };
   }
   if (!specifier.startsWith('.') && !specifier.startsWith('/') && !specifier.startsWith('node:') && !specifier.startsWith('file:')) {
-   return nextResolve(specifier, context.parentURL?.startsWith(pathToFileURL(root).href) && !context.parentURL.includes('/node_modules/') ? {...context,parentURL:pathToFileURL(root+'services/wallet/gateway/package.json').href} : context);
+   return nextResolve(specifier, context.parentURL === import.meta.url ? {...context,parentURL:pathToFileURL(root+'services/wallet/gateway/package.json').href} : context);
   }
   return nextResolve(specifier, context);
  },

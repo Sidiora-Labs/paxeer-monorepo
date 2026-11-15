@@ -15,7 +15,7 @@ export default function Configuration() {
 
       <DocArt name="configuration" />
       <h2>Configuration across the unified network</h2>
-      <p>The chain configuration below controls <code>paxd</code>. Hosted service configuration is maintained separately under <code>services/platform/hosted/</code> and the component workspaces. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel runs within the network. Configure hosted dependencies for that network and preserve their service-specific authorization settings.</p>
+      <p>The chain configuration below controls <code>paxd</code>. Hosted service configuration is maintained separately under <code>services/platform/hosted/</code> and the component workspaces. Paxeer mainnet-beta uses EVM chain ID 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Configure hosted dependencies for that network and preserve their service-specific authorization settings.</p>
       <table><thead><tr><th>Surface</th><th>Configure</th><th>Boundary</th></tr></thead><tbody>
         <tr><td>Core boundary</td><td>Network ID, node and replica connections, TLS material, and separate admin credentials</td><td>Core and admin listeners are separate planes</td></tr>
         <tr><td>Gateway</td><td>Public TLS, upstream dependencies, receipt verification, request policy, and shared coordination storage</td><td>Public application ingress</td></tr>

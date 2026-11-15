@@ -1,9 +1,10 @@
 # LayerX Portable Verification Guide
 
 This guide covers offline verification of signed network receipts and the typed
-boundary for importing external evidence. Paxeer mainnet-beta is one BFT network
-(chain ID 125, `0x7d`); the kernel is part of the network and proposes blocks.
-A transaction is final when its block commits. A portable signature proof alone
+boundary for importing external evidence. Paxeer mainnet-beta uses chain ID 125,
+`0x7d`. The LayerX kernel inside `paxd` executes and orders each transaction and
+builds each block; validators check and commit it. A transaction is final when its
+block commits. A portable signature proof alone
 does not establish that commit.
 
 ## Overview

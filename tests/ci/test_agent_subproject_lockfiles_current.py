@@ -2,6 +2,8 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -58,6 +60,7 @@ def test_tools_policy_harness_lockfile_resolves_locked():
     _assert_lockfile_resolves_locked("tools/policy-harness")
 
 
+@pytest.mark.native
 def test_sdk_registry_is_dev_only_and_consumers_resolve_locked():
     with (ROOT / "services/agent/crates/layerx-sdk/Cargo.toml").open("rb") as source:
         manifest = tomllib.load(source)

@@ -1,9 +1,12 @@
 from retired_tests import assert_symbols_unreferenced, build_and_run_c_suite
 
+import pytest
+
 
 LXP_LOG_BATCH_HEADER = "LXP_LOG_BATCH_HEADER"
 
 
+@pytest.mark.native
 def test_log_batch_header_retired():
     assert_symbols_unreferenced(
         [LXP_LOG_BATCH_HEADER], ["tests/storage/lxp_test_recovery.c"]

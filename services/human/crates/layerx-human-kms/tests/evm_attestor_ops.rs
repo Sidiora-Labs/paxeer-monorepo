@@ -86,7 +86,9 @@ impl Fixture {
             .collect();
         fs::write(
             root.join("attestor.json"),
-            serde_json::to_vec(&json!({
+            serde_json::to_vec(&json!({"bindings":[{
+                "binding": BINDING, "tenant": "tenant", "principal": OWNER,
+                "assertion_file": root.join("assertion"), "config": {
                 "nodes": nodes,
                 "trust_anchors": [cluster.pki.path("node-ca.der")],
                 "client_certificate_chain": [cluster.pki.path("gateway.der")],
@@ -94,7 +96,7 @@ impl Fixture {
                 "key_id": "ed25519-owner", "public_key": public,
                 "evm_key_id": EVM_KEY, "evm_address": wallet,
                 "signers": attestor_cluster::SIGNERS, "network_id":125, "timeout_seconds":60
-            }))?,
+            }}]}))?,
         )?;
         for entry in fs::read_dir(&root)? {
             fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
@@ -326,7 +328,11 @@ fn lxkp_evm_wallet_holds_no_local_seed() -> Result<()> {
     let state = fixture.state()?;
     let wallet = &state["records"][hex(&BINDING)]["wallet"];
     let fields = wallet.as_object().ok_or("missing persisted wallet")?;
-    assert_eq!(fields.len(), 4);
+    assert_eq!(fields.len(), 8);
+    assert_eq!(wallet["tenant"], "tenant");
+    assert_eq!(wallet["principal"], OWNER);
+    assert_eq!(wallet["assertion_subject"], OWNER);
+    assert_eq!(wallet["archived"], json!({}));
     assert!(fields.contains_key("evm_key_id"));
     assert!(fields.contains_key("address"));
     assert!(fields.contains_key("next_nonce"));
@@ -378,11 +384,12 @@ fn lxkp_evm_sign_returns_an_attestor_signature() -> Result<()> {
         Some(transaction_hash(&action.raw_transaction))
     );
     let after = fixture.cluster.audit(&client)?;
-    for (previous, current) in before.iter().zip(&after) {
-        assert!(
-            current > previous,
-            "every quorum member must record the real signing"
-        );
+    for (index, (previous, current)) in before.iter().zip(&after).enumerate() {
+        if attestor_cluster::SIGNERS.contains(&fixture.cluster.nodes[index].0.as_str()) {
+            assert!(current > previous, "each selected signer records signing");
+        } else {
+            assert_eq!(current, previous, "unselected audit sequence is preserved");
+        }
     }
     assert_eq!(fixture.action(8)?, action);
     assert_eq!(fixture.cluster.audit(&client)?, after);
@@ -408,12 +415,22 @@ fn lxkp_evm_sign_returns_an_attestor_signature() -> Result<()> {
 #[test]
 fn lxkp_evm_sign_for_another_chain_is_refused() -> Result<()> {
     let fixture = Fixture::new()?;
-    fixture.authorize(1)?;
+    let authorization = fixture.authorize(125)?;
+    let mut foreign = authorization.clone();
+    foreign.transaction.chain_id = 1;
+    assert_eq!(
+        fixture.exchange(
+            3,
+            7,
+            &fixture.reference,
+            Some(&serde_json::to_vec(&foreign)?)
+        )?,
+        b"LXKP\0\x03\x07\x01"
+    );
     let client = fixture.cluster.client()?;
     let before = fixture.cluster.audit(&client)?;
-    let payload = serde_json::to_vec(&ACTION)?;
-    let response = fixture.exchange(3, 8, &fixture.reference, Some(&payload))?;
-    assert_eq!(response, [b"LXKP".as_slice(), &[0, 3, 8, 1]].concat());
+    let action = fixture.action(10)?;
+    assert_eq!(action.authorization, authorization);
     assert_eq!(fixture.cluster.audit(&client)?, before);
     let action = fixture.action(10)?;
     assert!(action.raw_transaction.is_empty());

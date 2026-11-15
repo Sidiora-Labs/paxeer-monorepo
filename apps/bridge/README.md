@@ -118,9 +118,9 @@ settings are listed under Layout.
 
 ### Network and routes
 
-Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID **125**
-(`0x7d`) and native currency **PAX**. The kernel participates in the network and
-proposes blocks. A Paxeer receipt is final when its block is committed. Transfers
+Paxeer mainnet-beta runs `paxd` with EVM chain ID **125** (`0x7d`) and native
+currency **PAX**. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A Paxeer receipt is final when its block is committed. Transfers
 across chains additionally require source-chain confirmation depth and threshold
 attestor signatures; those bridge requirements do not change Paxeer consensus
 finality.

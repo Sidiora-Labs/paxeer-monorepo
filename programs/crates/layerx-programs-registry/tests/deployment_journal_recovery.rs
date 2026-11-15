@@ -252,7 +252,7 @@ fn admission(
 fn admission_state_proof(
     fixture: &ChainFixture,
     record: &DeploymentRecord,
-    interface: &ProgramInterface,
+    _interface: &ProgramInterface,
     tx_root: [u8; 32],
 ) -> DeploymentProof {
     let commitment = decode_commitment_proof(
@@ -296,11 +296,17 @@ fn admission_state_proof(
                 aunts: vec![],
             },
         },
-        deployment: ChainDeploymentProof {
-            program_state: state,
-            code: record.module.clone(),
-            interface: Some(interface.canonical_encoding().to_vec()),
-        },
+        deployment: ChainDeploymentProof::from_state_proofs(
+            state,
+            record.module.clone(),
+            &decode_commitment_proof(
+                &fixture
+                    .encode_key(&programs_state_key(&interface_state_key(program())))
+                    .expect("interface commitment"),
+            )
+            .expect("decoded interface commitment"),
+        )
+        .expect("authenticated interface witness"),
     };
     proof
 }

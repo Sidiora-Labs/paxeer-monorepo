@@ -225,15 +225,15 @@ def test_bft_consumer_admits_only_authenticated_commit_as_completion():
     producer = producer[producer.index("fn rebalance_presentation("):producer.index("fn rebalance(")]
     keys = set(re.findall(r'^\s*"([a-z_]+)":', producer, re.M))
     assert keys == set(observation("committed")) | {"external_custody_label"}
-    assert_facts(producer, '"rung": snapshot.rung.map(|rung| rung.name())',
+    assert_facts(producer, '"rung": snapshot.rung.map(Rung::name)',
                  '"block_height": snapshot.block_height', '"status": snapshot.stage')
     engine = source("toolkit/src/engine.rs")
     poll = engine[engine.index("    pub fn poll("):]
     assert poll.index('.authenticate_settlement(transaction_hash, receipt)?') < poll.index('self.journal.observe_paxeer(')
     clients = source("toolkit/src/clients.rs")
     auth = clients[clients.index("pub fn authenticate_settlement"):clients.index("fn verify_customer_budget(")]
-    assert_facts(auth, 'verify_sequencer_signature', 'block.hash != *block_hash',
-                 '.find(|raw| transaction_hash(raw) == transaction)', '!receipt.success',
+    assert_facts(auth, 'verify_sequencer_signature', 'SequencerAuthorization::new',
+                 'protocol.activity_id() != transaction', '!receipt.success',
                  'receipt.tx_hash != transaction')
     full, _ = full_journey()
     assert_facts(full, 'committed = observe_rebalance(observed, rebalance, previous)',

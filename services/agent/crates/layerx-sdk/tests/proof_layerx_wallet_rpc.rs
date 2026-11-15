@@ -147,6 +147,16 @@ fn request(input: &[u8], clock: Option<&ClockProducer>) -> Result<(bool, Value),
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
+    let mut stdout = child.stdout.take().ok_or("missing child stdout")?;
+    let mut stderr = child.stderr.take().ok_or("missing child stderr")?;
+    let stdout_reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout.read_to_end(&mut bytes).map(|_| bytes)
+    });
+    let stderr_reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stderr.read_to_end(&mut bytes).map(|_| bytes)
+    });
     let sent = child
         .stdin
         .take()
@@ -164,16 +174,18 @@ fn request(input: &[u8], clock: Option<&ClockProducer>) -> Result<(bool, Value),
         }
         std::thread::sleep(Duration::from_millis(2));
     }
-    let output = child.wait_with_output()?;
+    let status = child.wait()?;
+    let stdout = stdout_reader.join().map_err(|_| "wallet output reader")??;
+    let stderr = stderr_reader.join().map_err(|_| "wallet error reader")??;
     sent?;
     assert!(
-        output.stderr.is_empty(),
+        stderr.is_empty(),
         "wallet must not log request/key material"
     );
-    let reply: Value = serde_json::from_slice(&output.stdout)?;
-    assert_eq!(reply["ok"], output.status.success());
+    let reply: Value = serde_json::from_slice(&stdout)?;
+    assert_eq!(reply["ok"], status.success());
     assert_eq!(reply.as_object().ok_or("reply object")?.len(), 2);
-    Ok((output.status.success(), reply))
+    Ok((status.success(), reply))
 }
 
 fn call(value: &Value, clock: Option<&ClockProducer>) -> Result<(bool, Value), Box<dyn Error>> {
@@ -244,7 +256,7 @@ fn malformed_and_retired_requests_are_refused_before_transport() -> Outcome {
     for action in ["accounts", "balance"] {
         refused(&call(
             &json!({"action":action, "configuration":config,
-            "did":"did:layerx:alice", "asset":"03".repeat(32)}),
+            "did":"", "asset":"03".repeat(32)}),
             None,
         )?);
     }
@@ -975,7 +987,10 @@ impl NodeState {
                         .debit_balance_after(),
                     None => 100,
                 };
-                json!({"balances":[{"account_id":hex(&self.debit.from), "asset_id":hex(&self.debit.asset), "balance":balance.to_string()}]})
+                json!({"account":{"layerx_did":did,"bound":true,"evm_address":format!("0x{}",hex(&self.sender))},
+                    "height":1,"units":"base","evidence":"committed_eth_call",
+                    "balances":[{"account_id":hex(&self.debit.from), "asset_id":hex(&self.debit.asset),
+                    "denom":hex(&self.debit.asset),"amount":balance.to_string(),"balance":balance.to_string()}]})
             }
             "eth_sendRawTransaction" => self.submit(params, sequence),
             "pax_sequencerReceipt" => {

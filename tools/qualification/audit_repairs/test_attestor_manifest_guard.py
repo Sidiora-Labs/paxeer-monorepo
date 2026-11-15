@@ -248,7 +248,7 @@ def test_entry_points_guard_first(tmp_path, entry, invocation, manifest_kind):
 
 
 def test_task_record_names_only_governance_signer_set_wiring():
-    record = tomllib.loads((DEPLOY / "repair_22_31_446.kvx").read_text())[
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/bridge/deploy/repair_22_31_446.kvx").read_text())[
         "repair"
     ]["22"]["31"]["446"]
     assert record["status"] == "governed-manifest-live"

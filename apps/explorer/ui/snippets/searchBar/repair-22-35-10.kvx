@@ -12,7 +12,7 @@ verified_revision = "revision in the final verify row of the ledger"
 gate_results = "command, exit and log in the build and verify rows of the ledger"
 build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
 verify_command = "cg spec done 22.35.10 -f layerx-merge --root /work/paxeer-monorepo"
-verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run nextjs/pages-tests/api/assistant.spec.ts ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run nextjs/pages-tests/api/assistant.spec.ts ui/snippets/searchBar/SearchBarAssistant.spec.tsx"
 build_log = "/out/logs/build-1.log (repair reruns increment the suffix)"
 verify_log = "/out/logs/verify-1.log (repair reruns increment the suffix)"
 

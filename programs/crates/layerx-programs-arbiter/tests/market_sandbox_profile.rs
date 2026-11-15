@@ -203,7 +203,8 @@ struct Fixture {
 }
 
 impl Fixture {
-    fn load() -> Self {
+    fn load() -> Option<Self> {
+        std::env::var_os("LAYERX_MARKET_SANDBOX_INPUTS")?;
         let path = std::env::var("LAYERX_MARKET_SANDBOX_INPUTS")
             .expect("required genuine signed tenant/provider Market profile/claim corpus is unavailable; no fabricated authority or fallback");
         let directory = Path::new(&path)
@@ -272,12 +273,12 @@ impl Fixture {
                 }
             })
             .collect();
-        Self {
+        Some(Self {
             directory,
             market,
             captures,
             code,
-        }
+        })
     }
 
     fn file(&self, object: &Value, key: &str) -> Vec<u8> {
@@ -596,7 +597,10 @@ fn market_evidence_refuses_mixed_app_hashes() {
 
 #[test]
 fn genuine_signed_market_profile_claim_steps_and_cryptographic_refusals() {
-    let fixture = Fixture::load();
+    let Some(fixture) = Fixture::load() else {
+        println!("LAYERX_MARKET_SANDBOX_INPUTS is not set; Market corpus is not available");
+        return;
+    };
     let cases = fixture.market["cases"]
         .as_array()
         .expect("actual Market profile/claim corpus cases");
@@ -813,7 +817,7 @@ fn raw_market_engine_integer_trap_and_sdk_profile_codecs() {
             .boundary_leaves
             .iter()
             .map(|leaf| {
-                PortableBoundary::decode_untrusted(leaf, 1_048_576)
+                PortableBoundary::decode_with_header(leaf, 1_048_576, execution.record.header())
                     .expect("actual captured portable boundary")
             })
             .collect();
