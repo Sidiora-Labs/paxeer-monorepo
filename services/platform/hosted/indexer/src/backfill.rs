@@ -35,6 +35,8 @@ pub struct Backfill<'a> {
     node: &'a PaxeerIngester,
     cutover: u64,
     range_blocks: u64,
+    readers: usize,
+    batch_blocks: usize,
 }
 
 fn hash_of(value: &Value, what: &str) -> Result<String, IndexError> {
@@ -68,10 +70,24 @@ impl<'a> Backfill<'a> {
     /// most `range_blocks` heights per step.
     #[must_use]
     pub const fn new(node: &'a PaxeerIngester, cutover: u64, range_blocks: u64) -> Self {
+        Self::with_options(node, cutover, range_blocks, 1, 1)
+    }
+
+    /// Creates a backfill with bounded concurrent readers and batch size.
+    #[must_use]
+    pub const fn with_options(
+        node: &'a PaxeerIngester,
+        cutover: u64,
+        range_blocks: u64,
+        readers: usize,
+        batch_blocks: usize,
+    ) -> Self {
         Self {
             node,
             cutover,
             range_blocks,
+            readers: if readers == 0 { 1 } else { readers },
+            batch_blocks: if batch_blocks == 0 { 1 } else { batch_blocks },
         }
     }
 
@@ -197,13 +213,22 @@ impl<'a> Backfill<'a> {
             )));
         }
         let cosmos = self.node.cosmos_range(from, to)?;
+        let heights: Vec<u64> = (from..=to).collect();
+        let node_blocks = self
+            .node
+            .blocks_with_receipts(&heights, self.batch_blocks, self.readers)?
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
         let is_pointer = |address: &str| store.is_pointer(address);
         let mut units: Vec<Unit> = Vec::new();
         let mut filled = 0;
         for height in from..=to {
-            let (block, receipts) = self.node.block_with_receipts(height)?.ok_or_else(|| {
-                IndexError::Source(format!("the node has no block {height} to verify or fill"))
-            })?;
+            let (block, receipts) = node_blocks
+                .get(&height)
+                .and_then(Option::as_ref)
+                .ok_or_else(|| {
+                    IndexError::Source(format!("the node has no block {height} to verify or fill"))
+                })?;
             if let Some(paxscan) = converted.remove(&height) {
                 let header = &block;
                 let node_hash = hash_of(header.get("hash").unwrap_or(&Value::Null), "hash")?;
