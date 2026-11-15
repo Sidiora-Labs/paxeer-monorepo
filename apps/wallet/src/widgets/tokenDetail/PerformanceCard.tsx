@@ -25,7 +25,7 @@ export function PerformanceCard({ stats }: PerformanceCardProps) {
       <div className="col-span-2 px-1 pt-1">
         <SectionLabel text="24h Performance" />
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-xl  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         <InfoRow
           label="Volume"
           value={

@@ -9,9 +9,6 @@
 
 import { formatPrice } from '@/lib/format';
 
-const POS_COLOR = 'var(--color-status-success)';
-const NEG_COLOR = 'var(--color-status-danger)';
-
 export interface PriceChangeInfo {
   pct: number;
   dollar: number;
@@ -62,10 +59,10 @@ export function PriceHero({
     );
   }
 
-  const colorClass = change?.positive ? `text-[${POS_COLOR}]` : `text-[${NEG_COLOR}]`;
+  const colorClass = change?.positive ? 'text-pax-success' : 'text-pax-error';
   const bgColorClass = change?.positive
-    ? `bg-[${POS_COLOR}]/15 text-[${POS_COLOR}]`
-    : `bg-[${NEG_COLOR}]/15 text-[${NEG_COLOR}]`;
+    ? 'bg-pax-success-muted text-pax-success'
+    : 'bg-pax-error-muted text-pax-error';
 
   return (
     <div className="px-5 pt-3 pb-1">
@@ -80,7 +77,7 @@ export function PriceHero({
         </p>
       )}
       <p
-        className={`text-3xl font-bold leading-tight tracking-tight transition-opacity duration-100 ${
+        className={`text-3xl font-bold leading-tight tracking-tight transition-opacity duration-fast ${
           isScrubbing ? 'text-pax-light' : ''
         }`}
       >

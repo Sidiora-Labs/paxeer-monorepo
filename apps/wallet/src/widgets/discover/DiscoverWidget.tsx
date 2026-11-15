@@ -48,7 +48,7 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
       <button
         type="button"
         onClick={() => openExternalUrl('https://www.kindlelaunch.com')}
-        className="row-span-2 bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-[200px]"
+        className="row-span-2 bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-featured"
       >
         <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0">
           <Image
@@ -68,7 +68,7 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
       <button
         type="button"
         onClick={() => openExplorerPath()}
-        className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-[95px]"
+        className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-medium"
       >
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
           <Image
@@ -87,7 +87,7 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
       <button
         type="button"
         onClick={() => onNavigate('pns')}
-        className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-[95px]"
+        className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-medium"
       >
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
           <Image
@@ -110,7 +110,7 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
         <Link
           key={route.id}
           href={route.href}
-          className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-[80px]"
+          className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-small"
         >
           <p className="text-sm font-bold">{route.label}</p>
           <p className="text-xs text-pax-muted mt-1">{route.description}</p>
@@ -120,7 +120,7 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
       <DiscoverCarousel slides={BANNER_SLIDES} />
 
       <div className="col-span-2 flex items-center gap-2 px-1 pt-1">
-        <Flame className="w-4 h-4 text-orange-400" />
+        <Flame className="w-4 h-4 text-pax-warning" />
         <h3 className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
           Discover Tokens
         </h3>

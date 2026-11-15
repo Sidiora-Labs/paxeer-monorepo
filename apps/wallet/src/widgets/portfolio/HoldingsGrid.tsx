@@ -75,7 +75,7 @@ export function HoldingsGrid({
 
       {holdings.length === 0 && (
         <>
-          <div className="bg-pax-surface rounded-xl p-4 flex items-center justify-center min-h-[110px]">
+          <div className="bg-pax-surface rounded-xl p-4 flex items-center justify-center min-h-card-token">
             <p className="text-xs text-pax-muted">No tokens yet</p>
           </div>
           <div />

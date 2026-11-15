@@ -16,6 +16,7 @@ import { useSwapBalances } from './useSwapBalances';
 import type { UseSwapQuotesResult } from './useSwapQuotes';
 import { formatBalanceFull, parseAmountToWei } from './util';
 import { formatUsd } from '@/lib/format';
+import { motionDurations } from '@/theme/motion';
 
 function TokenIcon({ token }: { token: SwapToken }) {
   return (
@@ -62,7 +63,7 @@ function TokenSelectorSheet({
       <div className="absolute inset-0 bg-pax-scrim backdrop-blur-sm" onClick={onClose} />
       <div
         className="relative w-full max-w-[430px] bg-pax-surface rounded-t-3xl flex flex-col"
-        style={{ maxHeight: '70vh' }}
+        style={{ maxHeight: 'var(--size-modal-max-height)' }}
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3  ">
           <span className="text-sm font-semibold">{title}</span>
@@ -323,11 +324,13 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
                         opacity: 1,
                         scale: 1,
                         x: [0, -5, 5, -3, 3, 0],
-                        transition: { x: { delay: 0.2, times: [0, 0.2, 0.4, 0.6, 0.8, 1] } },
+                        transition: {
+                          x: { delay: motionDurations.normal, times: [0, 0.2, 0.4, 0.6, 0.8, 1] },
+                        },
                       }}
                       exit={{ opacity: 0, scale: 0 }}
                       style={{ transformOrigin: 'bottom center' }}
-                      className="font-lg w-max text-center font-semibold tracking-tight text-red-500"
+                      className="font-lg w-max text-center font-semibold tracking-tight text-pax-error"
                     >
                       {errorMessage}
                     </motion.p>

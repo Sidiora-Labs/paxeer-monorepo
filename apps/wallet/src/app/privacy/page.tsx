@@ -183,8 +183,13 @@ export default function PrivacyPage() {
               injected wallet provider, the wallet server stores push subscription records with your
               wallet address, and OpenAI processes assistant chat messages.
             </p>
-            <div className="mt-3 rounded-xl bg-pax-control overflow-hidden">
-              <table className="w-full text-xs">
+            <div
+              className="mt-3 overflow-x-auto rounded-xl bg-pax-control"
+              role="region"
+              tabIndex={0}
+              aria-label="Third-party services"
+            >
+              <table className="min-w-table w-full text-xs">
                 <thead>
                   <tr className=" ">
                     <th scope="col" className="text-left px-4 py-2.5 text-pax-muted font-medium">
@@ -198,7 +203,7 @@ export default function PrivacyPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className=" divide-white/5">
+                <tbody className="divide-pax-line">
                   <tr>
                     <td className="px-4 py-2.5">Supabase</td>
                     <td className="px-4 py-2.5">Sign-in and authentication sessions</td>

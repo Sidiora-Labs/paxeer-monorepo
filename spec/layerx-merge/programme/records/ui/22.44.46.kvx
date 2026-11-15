@@ -1,0 +1,32 @@
+[manifest]
+task = "22.44.46"
+surface = "apps/names/src"
+routes = 2
+views = 2
+status = "served"
+
+[view.status]
+route = "/"
+states = ["default", "verification error"]
+sizes = ["360x900", "390x900", "430x900", "768x900", "834x900", "1024x900", "1280x900", "1440x900", "1920x900", "2560x900", "844x390"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[view.published_site]
+route = "/_pns/[label]/[[...path]]"
+states = ["default"]
+sizes = ["360x900", "390x900", "430x900", "768x900", "834x900", "1024x900", "1280x900", "1440x900", "1920x900", "2560x900", "844x390"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[render]
+count = 102
+result = "pass"
+
+[review]
+screenshots = 102
+corrected = [
+  "The light and dark token values now meet text and control contrast thresholds.",
+  "The focus ring and touch targets remain visible and usable across the device sizes.",
+  "The status header wraps cleanly when text is doubled, and the published page keeps its content within the viewport."
+]

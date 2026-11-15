@@ -134,7 +134,7 @@ Compose loads [prometheus.yaml](docker_compose_monitoring/prometheus.yaml) and [
 | Bridge relayer | [bridge-relayer/files.tsv](bridge-relayer/files.tsv) |
 | Interoperability gateway | [interop-gateway/files.tsv](interop-gateway/files.tsv) |
 | Dashboard | [platform-dashboard/files.tsv](platform-dashboard/files.tsv) |
-| Hosted gateway | [platform-gateway/files.tsv](platform-gateway/files.tsv) |
+| Hosted gateway | [platform-gateway/files.tsv](platform-gateway/files.tsv), [platform-gateway/native-files.tsv](platform-gateway/native-files.tsv) |
 | Identity | [platform-identity/files.tsv](platform-identity/files.tsv) |
 | Indexer | [platform-indexer/files.tsv](platform-indexer/files.tsv) |
 | Internal services | [platform-internal/files.tsv](platform-internal/files.tsv) |
@@ -144,6 +144,29 @@ Compose loads [prometheus.yaml](docker_compose_monitoring/prometheus.yaml) and [
 | Search proxy | [search-front/files.tsv](search-front/files.tsv) |
 | Wallet attestor | [wallet-attestor/files.tsv](wallet-attestor/files.tsv) |
 | Wallet gateway | [wallet-gateway/files.tsv](wallet-gateway/files.tsv) |
+
+The hosted gateway [project definition](../deploy/projects/platform/gateway.kvx)
+selects `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` and `LAYERX_ROLE=identity`.
+The native table has four `*` rows for the outbound CA, Redis username, Redis
+password and receipt keys, plus these four `identity` rows with mode `0600`:
+
+| File input | Destination | Staged gateway variable | Input category and format |
+| --- | --- | --- | --- |
+| `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of identity-service token text |
+| `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by identity |
+| `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 client bundle written by the launcher |
+| `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client password written by the launcher |
+
+Each file input comes from the launch input named `PLATFORM_GATEWAY_` plus
+the file input name. The operator also supplies
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL` as the absolute HTTPS identity
+service address for `LAYERX_GATEWAY_IDENTITY_URL`, and
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT` as `LAYERX_GATEWAY_TENANT`, containing
+1–95 lowercase letters, digits, dots, underscores or hyphens. The entrypoint
+stages the selected files before dropping privileges. A native start without
+the role and identity settings selects the four `*` rows, serves the chain
+methods, and answers `px_register` and `px_openSession` with
+`registration_not_configured`.
 
 Additional entrypoint inputs and configuration sources include:
 

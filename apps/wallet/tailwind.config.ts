@@ -81,6 +81,21 @@ const config: Config = {
         sheet: 'var(--elevation-sheet)',
         popover: 'var(--elevation-popover)',
       },
+      height: {
+        'card-compact': 'var(--size-card-compact)',
+        'card-row': 'var(--size-card-row)',
+        'card-expanded': 'var(--size-card-expanded)',
+        'chart-area': 'var(--size-chart-area)',
+      },
+      minHeight: {
+        'card-featured': 'var(--size-card-featured)',
+        'card-small': 'var(--size-card-small)',
+        'card-medium': 'var(--size-card-medium)',
+        'card-token': 'var(--size-card-token)',
+      },
+      minWidth: {
+        table: 'var(--size-table-min)',
+      },
       fontWeight: {
         light: 'var(--font-weight-light)',
         normal: 'var(--font-weight-regular)',
