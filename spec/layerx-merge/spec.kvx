@@ -247260,7 +247260,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.689]
 title = "Give the decimal parameters of the virtual machine the default of the parameter set when no value is stored"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.679"]
