@@ -72,19 +72,22 @@ describe('layoutColumns', () => {
     const layout = layoutColumns(1400, left, right);
     expect(layout.left).toMatchObject({ mode: 'open', width: 296, autoCollapsed: false });
     expect(layout.right).toMatchObject({ mode: 'open', width: 312, autoCollapsed: false });
-    expect(layout.left.max).toBe(1400 - 16 - 560 - 312);
+    expect(layout.left.max).toBe(1400 - 96 - 560 - 312);
     expect(layoutColumns(2400, left, right).left.max).toBe(columnLimits.sideMax);
   });
   it('shrinks the right then the left column toward their minimums before collapsing', () => {
-    const layout = layoutColumns(1150, left, right);
+    const layout = layoutColumns(1230, left, right);
     expect(layout.right.width).toBe(280);
-    expect(layout.left.width).toBe(1150 - 16 - 560 - 280);
+    expect(layout.left.width).toBe(1230 - 96 - 560 - 280);
+    const narrow = layoutColumns(1150, left, right);
+    expect(narrow.left.width).toBe(240);
+    expect(narrow.right).toMatchObject({ mode: 'collapsed', width: 44, autoCollapsed: true });
   });
   it('collapses the right column for this render when even the minimums do not fit', () => {
     const layout = layoutColumns(968, left, right);
-    expect(layout.right).toMatchObject({ mode: 'collapsed', width: 24, autoCollapsed: true });
+    expect(layout.right).toMatchObject({ mode: 'collapsed', width: 44, autoCollapsed: true });
     expect(layout.left.mode).toBe('open');
-    expect(layout.left.width + 24 + 560 + 16).toBeLessThanOrEqual(968);
+    expect(layout.left.width + 44 + 560 + 96).toBeLessThanOrEqual(968);
   });
   it('treats missing sides as absent', () => {
     const layout = layoutColumns(800, { ...left, present: false }, { ...right, present: false });

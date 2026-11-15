@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -17,7 +18,7 @@ const heroStageClass = 'relative md:px-16 lg:px-24';
 /** One surface for player and meta: stacked below lg, side by side (about 65/35) from lg. */
 const heroFrameClass = 'grid w-full grid-cols-1 overflow-hidden rounded-lg bg-surface-1 lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]';
 /** Still tile of the next slide, in the right gutter beside the frame. */
-const heroPeekClass = 'absolute inset-y-4 left-[calc(100%+16px)] hidden w-12 overflow-hidden rounded-lg bg-surface-1 md:block';
+const heroPeekClass = 'absolute inset-y-4 left-[calc(100%+var(--sl-space-4))] hidden w-12 overflow-hidden rounded-lg bg-surface-1 md:block';
 
 /** Wrap-around step through `length` slides. */
 export function stepIndex(current: number, delta: number, length: number): number {
@@ -184,13 +185,13 @@ export function HeroCarousel({ entries, creatorLabel, className }: HeroCarouselP
 export function HeroCarouselSkeleton() {
   return (
     <div aria-hidden="true" className={heroStageClass}>
-      <div className={cn(heroFrameClass, 'mx-auto max-w-[1000px]')}>
+      <div className={cn(heroFrameClass, 'mx-auto max-w-250')}>
         <Skeleton variant="block" className="aspect-video h-auto w-full rounded-none" />
         <div className="flex flex-col gap-4 p-4 lg:p-5">
           <Skeleton variant="pill" />
           <Skeleton variant="text" width="80%" />
-          <Skeleton variant="block" height={48} />
-          <Skeleton variant="block" height={72} />
+          <Skeleton variant="block" height={surfaceSpacing(12)} />
+          <Skeleton variant="block" height={surfaceSpacing(18)} />
         </div>
       </div>
     </div>
@@ -211,8 +212,8 @@ export interface HeroFramePlaceholderProps {
 export function HeroFramePlaceholder({ children, className }: HeroFramePlaceholderProps) {
   return (
     <section data-live-hero aria-label="Featured live streams" className={cn(heroStageClass, className)}>
-      <div data-live-hero-frame className={cn(heroFrameClass, 'mx-auto max-w-[1000px]')}>
-        <div className="flex aspect-video min-h-56 min-w-0 items-center justify-center bg-surface-2 p-4">
+      <div data-live-hero-frame className={cn(heroFrameClass, 'mx-auto max-w-250')}>
+        <div className="flex aspect-video min-h-56 min-w-0 w-full items-center justify-center bg-surface-2 p-4">
           {children}
         </div>
         <div aria-hidden="true" className="hidden flex-col gap-4 p-5 lg:flex">

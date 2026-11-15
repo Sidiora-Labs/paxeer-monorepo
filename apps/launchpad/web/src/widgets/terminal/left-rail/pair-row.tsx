@@ -15,13 +15,13 @@ export interface PairRowProps {
   now: number;
 }
 
-/** Dense 44px pair row: the symbol link covers the row; social links sit above it. */
+/** The symbol link covers the pair row; social links sit above it. */
 export function PairRow({ row, active, now }: PairRowProps) {
   const { change } = row;
   return (
     <li
       data-pool={row.poolAddress}
-      className={cn('relative flex h-11 items-center gap-2 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}
+      className={cn('relative grid min-h-11 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 px-2 py-1 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}
     >
       <Avatar src={row.image} name={row.name} size="md" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} decorative surface={active ? 3 : 1} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
@@ -30,7 +30,7 @@ export function PairRow({ row, active, now }: PairRowProps) {
             href={row.href}
             aria-current={active ? 'page' : undefined}
             title={row.name}
-            className="shrink-0 truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
+            className="min-w-0 truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
           >
             {row.symbol}
             <span className="sr-only">{`, ${row.name}, market cap ${row.mcap === null ? 'not available yet' : formatCompactUsd(row.mcap)}`}</span>
@@ -62,7 +62,7 @@ export function PairRow({ row, active, now }: PairRowProps) {
           })}
         </div>
       </div>
-      <div className="flex shrink-0 flex-col items-end justify-center gap-0.5">
+      <div className="col-span-2 flex flex-wrap items-center justify-between gap-2">
         <span data-numeric className={cn('text-sm font-bold tabular-nums', row.mcap === null ? 'text-text-faint' : 'text-text')}>{formatCompactUsd(row.mcap)}</span>
         {change.reason === null
           ? <PercentPill value={change.value} variant="text" decimals={1} />

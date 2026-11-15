@@ -104,7 +104,7 @@ export function FeedPauseButton({ state, compact = false, className }: { state: 
       className={cn('inline-flex h-control-height-sm shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill text-xs font-bold', compact ? 'px-2' : 'px-3', paused ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-muted hover:bg-surface-hover hover:text-text', className)}
     >
       {paused ? <Play aria-hidden="true" className="size-3" /> : <Pause aria-hidden="true" className="size-3" />}
-      <span className={cn(compact && 'sr-only @min-[340px]:not-sr-only')}>{paused ? (pending > 0 ? `Paused, ${pending} new` : 'Paused') : 'Live'}</span>
+      <span className={cn(compact && 'sr-only @min-column-icon:not-sr-only')}>{paused ? (pending > 0 ? `Paused, ${pending} new` : 'Paused') : 'Live'}</span>
     </button>
   );
 }

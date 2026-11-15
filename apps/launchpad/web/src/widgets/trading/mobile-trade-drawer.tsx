@@ -57,6 +57,7 @@ export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProp
       <div
         ref={drawer}
         id="mobile-trade-drawer"
+        hidden={!open}
         onKeyDown={event => {
           if (event.key === 'Escape') { event.preventDefault(); setOpen(false); return; }
           if (event.key !== 'Tab' || !open) return;
@@ -72,7 +73,7 @@ export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProp
         aria-hidden={!open}
         className={`fixed inset-x-0 bottom-0 z-50 md:left-rail-width transition-transform duration-slow ease-out lg:hidden ${open ? 'translate-y-0' : 'translate-y-full'}`}
       >
-        <div className="max-h-[85dvh] overflow-y-auto rounded-t-lg bg-surface-1" style={{ paddingBottom: 'calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="max-h-[var(--sl-drawer-max-height)] overflow-y-auto rounded-t-lg bg-surface-1" style={{ paddingBottom: 'calc(var(--sl-space-6) + env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex items-center justify-center pb-1 pt-3">
             <div className="h-1 w-10 rounded-pill bg-surface-3" aria-hidden="true" />
           </div>

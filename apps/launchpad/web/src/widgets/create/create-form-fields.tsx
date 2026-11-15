@@ -59,7 +59,7 @@ export function CreateFormFields({ draft, errors, locked, onEdit, registeredOpti
         <p className="text-xs text-text-faint">Choose carefully, the name and ticker can&apos;t be changed once the coin is created</p>
       </div>
       <div data-create-form-card className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4">
-        <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))] gap-4">
           <FormField
             id="create-name"
             label="Coin name"
@@ -113,12 +113,12 @@ export const FEE_RIGHTS_DETAIL = 'When you create a coin, you get a creator rewa
 /** One line plus an info tooltip, at the reference's "Share creator rewards" density. */
 export function FeeRightsNote() {
   return (
-    <div className="flex items-start gap-3 rounded-md bg-surface-2 px-3 py-2.5">
+    <div className="flex flex-wrap items-start gap-3 rounded-md bg-surface-2 px-3 py-2.5">
       <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-surface-3 text-text-muted">
         <KeyRound className="size-icon-md" />
       </span>
-      <div className="min-w-0">
-        <p className="flex items-center gap-1 text-sm font-bold text-text">
+      <div className="min-w-0 flex-1 basis-40">
+        <p className="flex flex-wrap items-center gap-1 text-sm font-bold text-text">
           Creator rewards
           <InfoTip label="About creator rewards" content={FEE_RIGHTS_DETAIL} />
         </p>

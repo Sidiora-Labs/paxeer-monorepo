@@ -98,8 +98,8 @@ export function PaletteInput({
   pasteState: 'idle' | 'denied' | 'empty';
 }) {
   return (
-    <div className="sl-field flex items-center gap-2 rounded-md bg-surface-3 px-3 focus-within:outline-2 focus-within:outline-focus">
-      <Search aria-hidden="true" className="size-icon-md shrink-0 text-text-faint" />
+    <div className="@container/search-field sl-field flex min-w-0 flex-wrap items-center gap-2 rounded-md bg-surface-3 px-2 focus-within:outline-2 focus-within:outline-focus">
+      <Search aria-hidden="true" className="hidden size-icon-md shrink-0 text-text-faint @xs/search-field:block" />
       <input
         ref={inputRef}
         role="combobox"
@@ -116,7 +116,7 @@ export function PaletteInput({
         spellCheck={false}
         maxLength={80}
         placeholder="Search coins and users"
-        className="min-h-control-height-lg min-w-0 flex-1 bg-transparent text-md text-text placeholder:text-text-faint outline-none"
+        className="min-h-control-height-lg min-w-0 flex-1 basis-40 bg-transparent text-md text-text placeholder:text-text-faint outline-none"
       />
       {value ? (
         <IconButton label="Clear search" icon={<X />} size="sm" onClick={() => onChange('')} />
@@ -351,14 +351,14 @@ export function PaletteStatus({
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs text-text-faint"
+      className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 py-1.5 text-xs text-text-faint"
     >
-      <span>{text}</span>
+      <span className="min-w-0 flex-1 basis-40">{text}</span>
       {error && !hint ? (
         <button
           type="button"
           onClick={onRetry}
-          className="text-xs font-bold text-accent hover:underline"
+          className="max-w-full shrink-0 text-xs font-bold text-accent hover:underline"
         >
           Try again
         </button>

@@ -47,9 +47,9 @@ export function FilterPanel({ id, filters, onChange, loadedCount, matchCount, on
 
   const active = activeFilterCount(filters);
   return (
-    <section id={id} aria-labelledby={headingId} className="flex flex-col gap-4 rounded-md bg-surface-2 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <section id={id} aria-labelledby={headingId} className="flex flex-col gap-4 rounded-md bg-surface-2 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-40">
           <h2 id={headingId} className="text-md font-bold text-text">Filter</h2>
           <p role="status" className="text-xs text-text-faint">
             {active === 0
@@ -59,7 +59,7 @@ export function FilterPanel({ id, filters, onChange, loadedCount, matchCount, on
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>Done</Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))] gap-3">
         {fields.map(field => (
           <FormField
             key={field.id}

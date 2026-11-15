@@ -148,11 +148,33 @@
   --sl-tint-scrim: rgb(0 0 0 / 0.72);
   --sl-tint-media-overlay: rgb(7 9 13 / 0.88);
   --sl-on-media: #f4f5f9;
+  --sl-on-media-success: var(--sl-accent-dark);
+  --sl-brand-metamask-highlight: #e17726;
+  --sl-brand-metamask: #e27625;
+  --sl-brand-coinbase: #0052ff;
+  --sl-brand-phantom: #ab9ff2;
+  --sl-brand-trust: #0500ff;
+  --sl-brand-mark: #ffffff;
   --sl-tint-accent-fill-chart: color-mix(in srgb, var(--sl-accent) 18%, transparent);
   --sl-tint-danger-fill-chart: color-mix(in srgb, var(--sl-danger) 18%, transparent);
   --sl-tint-accent-row-wash: color-mix(in srgb, var(--sl-accent) 7%, transparent);
   --sl-tint-danger-row-wash: color-mix(in srgb, var(--sl-danger) 7%, transparent);
   --sl-tint-marquee-fade: transparent;
+  --sl-skeleton-text-height: 1em;
+  --sl-panel-max-height: 70dvh;
+  --sl-drawer-max-height: 85dvh;
+  --sl-message-max-width: 42rem;
+  --sl-prose-measure: 62ch;
+  --sl-bounty-notice-bottom: 8.5rem;
+  --sl-chat-max-height: 26.25rem;
+  --sl-trade-cta-clearance: calc(var(--sl-bottom-nav-height) + var(--sl-control-height-lg) + var(--sl-space-12));
+  --sl-weight-normal: 400;
+  --sl-tracking-wide: 0.025em;
+  --sl-tracking-wider: 0.05em;
+  --sl-leading-relaxed: 1.625;
+  --sl-board-seam: 0.125rem;
+  --sl-recent-columns: minmax(0, 1fr) minmax(0, 1fr) var(--sl-touch-target-min);
+
   /* type */
   --sl-font-sans: 'Manrope', 'Manrope Fallback', ui-sans-serif, system-ui, sans-serif;
   --sl-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -288,6 +310,7 @@
   --sl-space-4: calc(var(--sl-space) * 4);
   --sl-space-6: calc(var(--sl-space) * 6);
   --sl-space-8: calc(var(--sl-space) * 8);
+  --sl-space-12: calc(var(--sl-space) * 12);
   --sl-weight-medium: 500;
   --sl-weight-semibold: 600;
   --sl-weight-bold: 700;
@@ -303,6 +326,11 @@
   --sl-popover-gap: 0.25rem;
   --sl-viewport-gutter: 0.75rem;
   --sl-menu-min-width: 12.5rem;
+  --sl-form-field-min-width: 12.5rem;
+  --sl-strategy-option-min-width: 7.5rem;
+  --sl-text-page-title: clamp(var(--sl-text-md), 6cqi, var(--sl-text-xl));
+  --sl-text-card-title: clamp(var(--sl-text-sm), 6cqi, var(--sl-text-md));
+  --sl-text-prize-placeholder: clamp(var(--sl-text-md), 8cqi, var(--sl-text-xl));
   --sl-select-min-width: 10rem;
   --sl-search-max-width: 30rem;
   --sl-dialog-max-height: calc(100dvh - var(--sl-space-6));
@@ -412,6 +440,20 @@
   }
 }
 @theme inline {
+  --container-xs: var(--sl-token-card-min-width);
+  --container-sm: var(--sl-modal-width-sm);
+  --container-md: var(--sl-modal-width-sm);
+  --container-lg: var(--sl-modal-width-md);
+  --container-xl: var(--sl-modal-width-md);
+  --container-2xl: var(--sl-message-max-width);
+  --container-3xl: var(--sl-modal-width-lg);
+  --container-4xl: var(--sl-form-max-width);
+  --font-weight-normal: var(--sl-weight-normal);
+  --leading-none: var(--sl-leading-none);
+  --leading-relaxed: var(--sl-leading-relaxed);
+  --tracking-wide: var(--sl-tracking-wide);
+  --tracking-wider: var(--sl-tracking-wider);
+  --ease-out: var(--sl-ease);
   --default-transition-duration: var(--sl-duration-base);
   --default-transition-timing-function: var(--sl-ease);
   --animate-spin: sl-spin var(--sl-duration-spinner) linear infinite;
@@ -429,6 +471,8 @@
   --text-3xl: var(--sl-text-2xl);
   --text-3xl--line-height: var(--sl-leading-2xl);
   --color-on-media: var(--sl-on-media);
+  --color-on-media-success: var(--sl-on-media-success);
+  --spacing-badge-height-sm: var(--sl-badge-height-sm);
   --spacing-bottom-nav: var(--sl-bottom-nav-height);
   --spacing-menu-min: var(--sl-menu-min-width);
   --spacing-select-min: var(--sl-select-min-width);
@@ -598,6 +642,13 @@
   --spacing-touch-target-min: var(--sl-touch-target-min);
 
   /* Responsive breakpoints share the rem unit. */
+  --breakpoint-board-wide: 112.5rem;
+  --breakpoint-board-ultrawide: 150rem;
+  --container-market-two: 52rem;
+  --container-market-three: 84rem;
+  --container-market-wide: 112rem;
+  --container-column-icon: 21.25rem;
+  --container-column-timeframes: 23.5rem;
   --breakpoint-2xl: 90rem; /* 1440px */
   --breakpoint-3xl: 120rem; /* 1920px */
 
@@ -655,13 +706,15 @@
     select,
     [role='tab'],
     [role='menuitem'],
-    [role='menuitemradio']
+    [role='menuitemradio'],
+    nav a
   ) {
     min-block-size: var(--sl-touch-target-min);
     min-inline-size: var(--sl-touch-target-min);
   }
   :where(input:not([type='checkbox']):not([type='radio']):not([type='range']), textarea, select) {
     font-size: var(--sl-text-md);
+    min-block-size: var(--sl-touch-target-min);
   }
   :where(dialog:modal) {
     overscroll-behavior: contain;
@@ -828,5 +881,24 @@
   *::after {
     animation: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (width < 64rem) {
+  .foundation-shell[data-shell-route-id='coin'] [data-shell-main] {
+    padding-block-end: var(--sl-trade-cta-clearance);
+  }
+  .foundation-shell[data-shell-route-id='coin'] main :focus-visible {
+    scroll-margin-block-end: var(--sl-trade-cta-clearance);
+  }
+}
+
+@media (height < 32rem) {
+  [data-mobile-trade-cta] {
+    position: static;
+    padding-inline: 0;
+  }
+  .foundation-shell[data-shell-route-id='coin'] main :focus-visible {
+    scroll-margin-block-end: var(--sl-space-4);
   }
 }

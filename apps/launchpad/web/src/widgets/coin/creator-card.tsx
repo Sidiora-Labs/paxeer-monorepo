@@ -30,11 +30,11 @@ export default function CreatorCard({ poolAddress }: { poolAddress: string }) {
       {snapshot.isSuccess && !creator ? <UnavailableState variant="inline" title="Creator info" operation={snapshot.data.unavailable.registry?.operation ?? 'IF_POOL_DETAIL'} status={snapshot.data.unavailable.registry?.status ?? null} /> : null}
       {snapshot.isError ? <UnavailableState variant="chip" wrap title="Creator info" plural="auto" operation="IF_POOL_STATS" status={null} onRetry={() => { void snapshot.refetch(); }} className="self-start" /> : null}
       {creator ? (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link href={`/profile/${creator}`} className="shrink-0 rounded-pill focus-visible:outline-2 focus-visible:outline-accent" aria-label={`${name} profile`}>
             <Avatar src={avatar} name={name} size="lg" decorative loading={identity?.resolution === 'pending'} />
           </Link>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
             <Link href={`/profile/${creator}`} className="truncate text-sm font-bold text-text hover:underline">{name}</Link>
             <ShortAddress address={creator} explorerHref={safeExternalDestination(`https://paxscan.paxeer.app/address/${creator}`)} />
             {share ? (

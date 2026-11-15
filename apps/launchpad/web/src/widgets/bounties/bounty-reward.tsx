@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useQueries } from '@tanstack/react-query';
 import { Chip, Skeleton } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
@@ -85,7 +86,7 @@ export function BountyReward({ bounty, context, size = 'md', className }: Bounty
           {formatUsdl(valuation.usdlRaw, { compact: true })}
         </span>
       ) : pending ? (
-        <Skeleton width={72} height={size === 'lg' ? 28 : 24} label="Loading reward value" />
+        <Skeleton width={surfaceSpacing(18)} height={size === 'lg' ? 28 : 24} label="Loading reward value" />
       ) : (
         <span className="text-xs text-text-faint">Value not available yet</span>
       )}

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { BackendConfigurationError } from '@/ui/shared/backend-configuration-error';
 import { backendConfigurationProblems } from '@/core/backend-origins';
+import { launchpadCanvasColors } from './presentation-tokens';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -14,13 +15,17 @@ export const metadata: Metadata = {
     apple: '/Kindle-Launch-logo-dark.png',
   },
   manifest: '/manifest.json',
+  other: { 'color-scheme': 'light dark' },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#07090D',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: launchpadCanvasColors.light },
+    { media: '(prefers-color-scheme: dark)', color: launchpadCanvasColors.dark },
+  ],
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

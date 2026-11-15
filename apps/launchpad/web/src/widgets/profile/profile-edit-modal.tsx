@@ -271,7 +271,7 @@ function ImagePicker({ kind, currentAssetId, upload, disabled, autoFocus, onSele
           </div>
         </div>
       </div>
-      <input ref={inputRef} id={inputId} type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} className="sr-only" aria-label={`${label} image file`} onChange={e => { onSelect(e.target.files?.[0]); e.target.value = ''; }} />
+      <input ref={inputRef} id={inputId} type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} hidden aria-label={`${label} image file`} onChange={e => { onSelect(e.target.files?.[0]); e.target.value = ''; }} />
     </div>
   );
 }
