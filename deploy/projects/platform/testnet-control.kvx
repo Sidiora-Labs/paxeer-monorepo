@@ -1,0 +1,72 @@
+[service.testnet-control]
+kind = "repo"
+railway_service = "testnet-control"
+dockerfile = "docker/platform-testnet/Dockerfile"
+root = "/"
+watch = ["/docker/platform-testnet/**", "/docker/common/**", "/services/**", "/programs/**", "/include/**", "/spec/layerx-merge/contracts/**"]
+health = "/livez"
+restart = "ALWAYS"
+replicas = 2
+order = 15
+needs = ["identity", "faucet", "gateway"]
+
+[vars.testnet-control]
+CARGO_BUILD_JOBS = "4"
+PORT = "8080"
+LAYERX_TESTNET_PUBLIC_LISTEN = "[::]:9443"
+LAYERX_TESTNET_ADMIN_LISTEN = "[::]:9444"
+LAYERX_PENDING_PACKAGE_SEMVER = "env:PLATFORM_TESTNET_CONTROL_LAYERX_PENDING_PACKAGE_SEMVER"
+LAYERX_PENDING_WIRE_PROTOCOL_VERSION = "env:PLATFORM_TESTNET_CONTROL_LAYERX_PENDING_WIRE_PROTOCOL_VERSION"
+LAYERX_TESTNET_IDENTITY_URL = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_IDENTITY_URL"
+LAYERX_TESTNET_FAUCET_URL = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_FAUCET_URL"
+LAYERX_TESTNET_CORE_URL = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_CORE_URL"
+LAYERX_TESTNET_CORE_ADMIN_URL = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_CORE_ADMIN_URL"
+LAYERX_TESTNET_RECEIPT_AUTHORITY_URL = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_RECEIPT_AUTHORITY_URL"
+LAYERX_TESTNET_REDIS_URL = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_REDIS_URL"
+LAYERX_TESTNET_GATEWAY_URL = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_GATEWAY_URL"
+LAYERX_TESTNET_PAXEER_URL = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_PAXEER_URL"
+LAYERX_TESTNET_TLS_CERT_DER = "/run/layerx/testnet/server.crt.der"
+LAYERX_TESTNET_TLS_KEY_DER = "/run/layerx/testnet/server.key.der"
+LAYERX_OUTBOUND_CA_DER = "/run/layerx/testnet/ca.crt.der"
+LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_FILE = "/run/layerx/testnet/backend-admin-token"
+LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_FILE = "/run/layerx/testnet/control-admin-token"
+LAYERX_TESTNET_TLS_CERT_DER_B64 = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_TLS_CERT_DER_B64"
+LAYERX_TESTNET_TLS_KEY_DER_B64 = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_TLS_KEY_DER_B64"
+LAYERX_OUTBOUND_CA_DER_B64 = "env:PLATFORM_TESTNET_CONTROL_LAYERX_OUTBOUND_CA_DER_B64"
+LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_B64 = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_B64"
+LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_B64 = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_B64"
+LAYERX_TESTNET_HEALTH_SERVER_NAME = "env:PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_HEALTH_SERVER_NAME"
+
+[inputs.testnet-control]
+# Pending package release, as a semantic version matching the control package.
+PLATFORM_TESTNET_CONTROL_LAYERX_PENDING_PACKAGE_SEMVER = "operator"
+# Pending LXP wire protocol version, as an unsigned decimal integer.
+PLATFORM_TESTNET_CONTROL_LAYERX_PENDING_WIRE_PROTOCOL_VERSION = "operator"
+# Identity introspection service origin, as an HTTPS URL trusted by the outbound CA.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_IDENTITY_URL = "operator"
+# Faucet service origin, as an HTTPS URL trusted by the outbound CA.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_FAUCET_URL = "operator"
+# Native core boundary origin, as an HTTPS URL trusted by the outbound CA.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_CORE_URL = "operator"
+# Private core administration origin, as an HTTPS URL trusted by the outbound CA.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_CORE_ADMIN_URL = "operator"
+# Hosted receipt authority origin, as an HTTPS URL trusted by the outbound CA.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_RECEIPT_AUTHORITY_URL = "operator"
+# Faucet Redis endpoint, as a rediss URL without credentials or a path.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_REDIS_URL = "operator"
+# Router origin, as an HTTPS URL trusted by the outbound CA.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_GATEWAY_URL = "operator"
+# Paxeer boundary origin, as an HTTPS URL trusted by the outbound CA.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_PAXEER_URL = "operator"
+# TLS server certificate, as base64-encoded DER bytes issued by the outbound CA.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_TLS_CERT_DER_B64 = "operator"
+# TLS server private key, as base64-encoded PKCS#8 DER bytes.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_TLS_KEY_DER_B64 = "operator"
+# Outbound and probe trust anchor, as a base64-encoded DER CA certificate.
+PLATFORM_TESTNET_CONTROL_LAYERX_OUTBOUND_CA_DER_B64 = "operator"
+# Backend admin bearer shared with core, as base64-encoded UTF-8 token bytes.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_B64 = "generated"
+# Control admin bearer shared with faucet and reset callers, as base64-encoded UTF-8 token bytes.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_B64 = "generated"
+# Control TLS certificate DNS name, as a hostname covered by its subject alternative names.
+PLATFORM_TESTNET_CONTROL_LAYERX_TESTNET_HEALTH_SERVER_NAME = "operator"

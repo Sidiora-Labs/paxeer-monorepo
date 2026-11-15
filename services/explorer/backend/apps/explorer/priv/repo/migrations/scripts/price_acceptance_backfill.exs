@@ -42,7 +42,7 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   @impl GenServer
-  def init(options), do: {:ok, options}
+  def init(options), do: {:ok, Keyword.put_new(options, :acceptance_backfill_concurrency, 4)}
 
   @impl GenServer
   def handle_call({:retain, number, transactions, results}, _from, options) do
@@ -77,11 +77,36 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
         end
 
       job ->
-        replay(job, batch_size, options)
+        run_jobs(job, Keyword.get(options, :acceptance_backfill_concurrency, 4), batch_size, options, 0, nil)
     end
   rescue
     error -> {:error, {:replay_failed, Exception.message(error)}}
   end
+
+  defp run_jobs(_job, 0, _batch_size, _options, count, nil), do: {:ok, count}
+  defp run_jobs(_job, 0, _batch_size, _options, _count, reason), do: {:error, reason}
+
+  defp run_jobs(job, remaining, batch_size, options, count, reason) do
+    result = replay(job, batch_size, options)
+
+    {count, reason} =
+      case result do
+        {:ok, completed} -> {count + completed, reason}
+        {:error, failure} -> {count, reason || failure}
+        :deferred -> {count, reason || :deferred}
+      end
+
+    case {remaining - 1, next_job(), reason} do
+      {_remaining, _next, :deferred} -> :deferred
+      {0, _next, _reason} -> finalize_step(count, reason)
+      {_remaining, nil, _reason} -> finalize_step(count, reason)
+      {left, next, _reason} -> run_jobs(next, left, batch_size, options, count, reason)
+    end
+  end
+
+  defp finalize_step(_count, :deferred), do: :deferred
+  defp finalize_step(_count, reason) when not is_nil(reason), do: {:error, reason}
+  defp finalize_step(count, nil), do: {:ok, count}
 
   defp next_job do
     case Repo.query!("""
@@ -119,7 +144,7 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   defp retained(hash, nil, nil, number, options) do
-    with {:ok, transactions} <- CosmosRest.fetch_block_txs(Keyword.get(options, :cosmos_rest_urls, []), number),
+    with {:ok, transactions} <- CosmosRest.fetch_block_txs(Keyword.get(options, :cometbft_rpc_urls, []), number),
          {:ok, results} <- CosmosRest.fetch_block_results(Keyword.get(options, :cometbft_rpc_urls, []), number),
          {:ok, _updates} <- decode(transactions, results) do
       Repo.query!(
@@ -141,13 +166,21 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
     do: {:ok, transactions, results}
 
   defp decode(%{"txs" => txs, "raw" => raw} = transactions, results)
-       when is_list(txs) and is_list(raw) and is_list(results) and length(txs) == length(raw) do
-    with {:ok, submissions} <- CosmosRest.decode_block_txs(transactions) do
-      CosmosRest.decode_price_updates(submissions, results, length(raw))
-    end
-  end
+       when is_list(txs) and is_list(raw) and is_list(results) and length(txs) == length(raw),
+       do: decode_entries(transactions, results)
+
+  defp decode(%{"txs" => _}, _results), do: {:error, :malformed_retained_block}
+
+  defp decode(%{"raw" => raw} = transactions, results) when is_list(raw) and is_list(results),
+    do: decode_entries(transactions, results)
 
   defp decode(_transactions, _results), do: {:error, :malformed_retained_block}
+
+  defp decode_entries(transactions, results) do
+    with {:ok, submissions} <- CosmosRest.decode_block_txs(transactions) do
+      CosmosRest.decode_price_updates(submissions, results, length(transactions["raw"]))
+    end
+  end
 
   defp apply_batch(hash, updates, batch_size) do
     decoded =

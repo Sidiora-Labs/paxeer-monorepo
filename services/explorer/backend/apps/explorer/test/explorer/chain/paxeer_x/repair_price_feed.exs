@@ -115,14 +115,14 @@ defmodule Explorer.Chain.PaxeerX.Repair2233523.PriceFeedCases do
     {:ok, mode} = Agent.start_link(fn -> :refuse end)
     empty = Path.join(@fixtures, "block_txs_empty.json") |> File.read!()
 
-    Bypass.expect(server, "GET", "/cosmos/tx/v1beta1/txs/block/#{start + 2}", fn conn ->
+    Bypass.expect(server, "GET", "/block", fn conn ->
       current = Agent.get(mode, & &1)
       send(parent, {:price_scan, current})
-      assert conn.query_string == "pagination.offset=0&pagination.limit=100"
+      assert conn.query_string == "height=#{start + 2}"
 
       if current == :refuse,
         do: Plug.Conn.resp(conn, 400, ~s({"code":13,"message":"internal"})),
-        else: Plug.Conn.resp(conn, 400, empty)
+        else: Plug.Conn.resp(conn, 200, empty)
     end)
 
     state = %{

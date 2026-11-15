@@ -1,0 +1,20 @@
+# Mirror publisher service for the interop hosting project.
+
+[service.mirror]
+kind = "repo"
+dockerfile = "docker/interop-mirror/Dockerfile"
+root = "."
+watch = ["docker/interop-mirror/**", "docker/common/**", "services/interop/**", "services/agent/crates/layerx-agent-api/**", "services/agent/crates/layerx-client/**", "services/agent/crates/layerx-crypto/**", "services/agent/crates/layerx-proof/**", "services/agent/crates/layerx-types/**", "services/agent/crates/layerx-wire/**", "services/human/crates/layerx-intents/**", "programs/**", "services/platform/hosted/gateway/**"]
+health = "/readyz"
+restart = "ALWAYS"
+replicas = 1
+volume = "/var/lib/layerx-mirror"
+order = 11
+
+[vars.mirror]
+INTEROP_MIRROR_CONFIG = "env:INTEROP_MIRROR_INTEROP_MIRROR_CONFIG"
+
+# Base64-encoded JSON publisher configuration, including its authenticated
+# source endpoints and the selected remote signer transport.
+[inputs.mirror]
+INTEROP_MIRROR_INTEROP_MIRROR_CONFIG = "operator"

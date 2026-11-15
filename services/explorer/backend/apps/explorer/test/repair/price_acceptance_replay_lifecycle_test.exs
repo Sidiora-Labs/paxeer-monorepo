@@ -36,7 +36,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
       {status, response} =
         if Agent.get(availability, & &1) do
           case {role, conn.request_path} do
-            {:rest, "/cosmos/tx/v1beta1/txs/block/37715713"} -> {200, body}
+            {:rpc, "/block"} -> {200, body}
             {:rpc, "/block_results"} -> {200, results}
           end
         else
@@ -133,7 +133,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     other_before = observations(@height + 1)
     migrate()
 
-    worker = start_supervised!({PriceAcceptanceBackfill, []})
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     failed_results = Enum.map(context.results, &Map.put(&1, "code", 5))
     # The stored status must agree with the real failed-transaction decoder.
     Repo.query!("UPDATE paxeer_x_price_updates SET status = 0 WHERE block_hash = $1", [context.block.hash.bytes])
@@ -166,6 +166,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
       start_block: @height,
       cosmos_rest_urls: [rest_url],
       cometbft_rpc_urls: [rpc_url],
+      acceptance_backfill_concurrency: 1,
       markets_refresh_seconds: 3600,
       acceptance_backfill_batch_size: 9,
       acceptance_backfill_interval: 1_000,
@@ -179,7 +180,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
 
     assert is_pid(runner)
     monitor = Process.monitor(runner)
-    assert_receive {:node_request, "/cosmos/tx/v1beta1/txs/block/37715713", _}, 5_000
+    assert_receive {:node_request, "/block", _}, 5_000
     await(fn -> match?([[-1, -1, false, error]] when is_binary(error), cursor()) end)
     assert accepted_values() == List.duplicate(true, 18)
     assert PriceAcceptanceBackfill.pending?()
@@ -199,7 +200,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     end)
 
     assert Process.alive?(Process.whereis(PriceUpdates))
-    assert Enum.all?(drain_node_requests(), fn {path, _query} -> path == "/cosmos/tx/v1beta1/txs/block/37715713" end)
+    assert Enum.all?(drain_node_requests(), fn {path, _query} -> path == "/block" end)
     refute_receive {:node_request, _, _}, 350
   end
 
@@ -211,7 +212,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert Repo.aggregate(PriceUpdate, :count) == 2
     assert Repo.aggregate(PriceObservation, :count) == 36
 
-    worker = start_supervised!({PriceAcceptanceBackfill, []})
+    worker = start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1]})
     assert :ok = PriceAcceptanceBackfill.retain(worker, @height, context.transactions, context.results)
     assert {:ok, 9} = PriceAcceptanceBackfill.step(worker, 9)
     assert %{expired: 0} = PriceFeedMaintenance.run_once(@height, 5)
@@ -241,7 +242,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert :ok = PriceAcceptanceBackfill.retain(worker, orphan.number, context.transactions, context.results)
     payload = retained_payload(orphan.number)
     await(fn -> cursor() == [[0, 17, true, nil]] end)
-    assert_receive {:node_request, "/cosmos/tx/v1beta1/txs/block/37715713", _}, 5_000
+    assert_receive {:node_request, "/block", _}, 5_000
     assert_receive {:node_request, "/block_results", "height=37715713"}, 5_000
     assert :deferred = PriceAcceptanceBackfill.step(worker, 9)
     refute PriceAcceptanceBackfill.pending?()
@@ -318,7 +319,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     refute PriceAcceptanceBackfill.pending?()
     assert observations(@height) == before_orphan
     assert cursor() == [[0, 8, false, nil]]
-    assert_receive {:node_request, "/cosmos/tx/v1beta1/txs/block/37715713", _}, 5_000
+    assert_receive {:node_request, "/block", _}, 5_000
     assert_receive {:node_request, "/block_results", "height=37715713"}, 5_000
 
     stop_supervised!(PriceAcceptanceReplay)
@@ -406,6 +407,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     [
       cosmos_rest_urls: [serve(context, availability, :rest)],
       cometbft_rpc_urls: [serve(context, availability, :rpc)],
+      acceptance_backfill_concurrency: 1,
       acceptance_backfill_batch_size: 9,
       acceptance_backfill_interval: 25,
       acceptance_backfill_retry_interval: 25

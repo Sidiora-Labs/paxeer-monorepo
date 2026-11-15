@@ -1,0 +1,33 @@
+# Paxeer Names shell hosted service.
+
+[service.names]
+kind = "repo"
+dockerfile = "docker/names-web/Dockerfile"
+root = "/"
+watch = ["apps/names/**", "sdk/names/**", "services/wallet/tsconfig.base.json", "docker/names-web/**"]
+health = "/"
+restart = "ALWAYS"
+replicas = 1
+public = 1
+order = 1
+needs = []
+
+[vars.names]
+NAMES_BUCKET_BASE_URL = "env:SITES_NAMES_NAMES_BUCKET_BASE_URL"
+NAMES_CONSENSUS_RPC_URL = "env:SITES_NAMES_NAMES_CONSENSUS_RPC_URL"
+NAMES_RESOLVER = "env:SITES_NAMES_NAMES_RESOLVER"
+NAMES_RPC_URL = "env:SITES_NAMES_NAMES_RPC_URL"
+NAMES_SHELL_DOMAIN = "env:SITES_NAMES_NAMES_SHELL_DOMAIN"
+PORT = "3000"
+
+[inputs.names]
+# Public base URL for published manifests and content objects.
+SITES_NAMES_NAMES_BUCKET_BASE_URL = "operator"
+# Consensus RPC endpoint used for storage-proof verification.
+SITES_NAMES_NAMES_CONSENSUS_RPC_URL = "operator"
+# Resolver contract address used for name resolution.
+SITES_NAMES_NAMES_RESOLVER = "chain"
+# EVM JSON-RPC endpoint used for name resolution and storage proofs.
+SITES_NAMES_NAMES_RPC_URL = "operator"
+# Domain suffix used to route published .pax sites.
+SITES_NAMES_NAMES_SHELL_DOMAIN = "operator"

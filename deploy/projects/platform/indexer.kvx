@@ -1,0 +1,47 @@
+[service.indexer]
+kind = "repo"
+dockerfile = "docker/platform-indexer/Dockerfile"
+root = "/"
+watch = ["/docker/platform-indexer/**", "/docker/common/**", "/services/**", "/programs/**", "/precompiles/**"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 1
+volume = "/data"
+public = 0
+order = 11
+needs = ["archive"]
+
+[vars.indexer]
+PORT = "8080"
+LAYERX_INDEXER_DB = "/data/state/indexer.sqlite"
+LAYERX_INDEXER_LISTEN = "[::]:8095"
+LAYERX_INDEXER_TLS_CERT_DER = "/data/tls/indexer/cert.der"
+LAYERX_INDEXER_TLS_KEY_DER = "/data/tls/indexer/key.der"
+LAYERX_INDEXER_HEALTH_CA_DER = "/data/tls/indexer/health-ca.der"
+LAYERX_INDEXER_HEALTH_SERVER_NAME = "${{RAILWAY_PRIVATE_DOMAIN}}"
+LAYERX_INDEXER_EVM_URL = "env:PLATFORM_INDEXER_LAYERX_INDEXER_EVM_URL"
+LAYERX_INDEXER_COMET_URL = "env:PLATFORM_INDEXER_LAYERX_INDEXER_COMET_URL"
+LAYERX_INDEXER_EVM_CA_DER = "/usr/local/share/layerx/isrg-root-x1.der"
+LAYERX_INDEXER_COMET_CA_DER = "/usr/local/share/layerx/isrg-root-x1.der"
+LAYERX_INDEXER_ABI_DIR = "/usr/local/share/layerx/precompiles"
+PAXSCAN_DATABASE_PUBLIC_URL = "env:PLATFORM_INDEXER_PAXSCAN_DATABASE_PUBLIC_URL"
+LAYERX_INDEXER_PAXSCAN_CERT_SHA256 = "env:PLATFORM_INDEXER_LAYERX_INDEXER_PAXSCAN_CERT_SHA256"
+INDEXER_TLS_CERT_DER = "env:PLATFORM_INDEXER_INDEXER_TLS_CERT_DER"
+INDEXER_TLS_KEY_DER = "env:PLATFORM_INDEXER_INDEXER_TLS_KEY_DER"
+INDEXER_HEALTH_CA_DER = "env:PLATFORM_INDEXER_INDEXER_HEALTH_CA_DER"
+
+[inputs.indexer]
+# Archive node EVM JSON-RPC endpoint, as an HTTPS URL.
+PLATFORM_INDEXER_LAYERX_INDEXER_EVM_URL = "operator"
+# Archive node CometBFT JSON-RPC endpoint, as an HTTPS URL.
+PLATFORM_INDEXER_LAYERX_INDEXER_COMET_URL = "operator"
+# Read-only Paxscan database connection, as a PostgreSQL URL with credentials.
+PLATFORM_INDEXER_PAXSCAN_DATABASE_PUBLIC_URL = "operator"
+# Paxscan database TLS leaf certificate SHA-256 digest, as 64 hexadecimal characters.
+PLATFORM_INDEXER_LAYERX_INDEXER_PAXSCAN_CERT_SHA256 = "operator"
+# Indexer server certificate with its private service DNS SAN, as base64-encoded DER.
+PLATFORM_INDEXER_INDEXER_TLS_CERT_DER = "operator"
+# Indexer server private key, as base64-encoded PKCS#8 DER.
+PLATFORM_INDEXER_INDEXER_TLS_KEY_DER = "operator"
+# CA issuing the indexer server certificate, as base64-encoded DER.
+PLATFORM_INDEXER_INDEXER_HEALTH_CA_DER = "operator"

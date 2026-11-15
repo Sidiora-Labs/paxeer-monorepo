@@ -22155,3 +22155,158 @@ fix = "Decision 3551. Task 22.39.561 adds the cases on the local network."
 title = "The web search service offers payment in assets without reading their records"
 symptom = "resolve_receiver in services/interop/crates/x-websearch/src/payment.rs reads the identity of the receiver and derives one account for each accepted asset through accountId. It does not read the record of an asset, and it reads once: after the first success the state stays ready. An asset that the ledger does not hold, or holds as paused, is therefore offered, and a buyer cannot pay such an offer."
 fix = "Decision 3552. Task 22.39.562 reads the records and withholds such assets."
+
+[gotcha.4467]
+title = "The trading workspace under apps/perps addresses a contract venue instead of the native markets"
+symptom = "The package at apps/perps/packages/paxeer-backend holds the address of a contract venue, its facet interfaces and the endpoints of an index service of that venue, and the adapters beside its layers and the folder apps/perps/apps/web/src/native present that venue to the screens. The chain serves the perpetual and the spot markets through precompiles, and market data through the perps data gateway. contracts/perps-client.md describes that client, and the application the workspace replaced implemented it."
+fix = "Decision 3553. Task 22.39.563 binds the workspace to the native markets and the gateway."
+
+[gotcha.4468]
+title = "The trading workspace has no container file, deployment folder or identity route"
+symptom = "The image perps-web of tools/deploy/offchain-images.sh builds from apps/perps/Dockerfile with the values of apps/perps/deploy/build-args.production.env, and the web service of the perps project file under deploy is checked at /api/build-id. The workspace holds none of these files and its web application has no such route."
+fix = "Decision 3554. Task 22.39.564 adds them."
+
+[gotcha.4469]
+title = "Trees outside apps/perps name files of the application the workspace replaced"
+symptom = "Tests under precompiles, modules/pricefeed, services/platform/perps-data and services/platform/ramps, checks under tests/ci, tools/containers, tools/deps and tools/qualification/audit_repairs, the files deploy/launchpad/Dockerfile.web and docker/web/Dockerfile, the wallet workspace and the documents name paths such as apps/perps/src, apps/perps/public, apps/perps/tests and apps/perps/swagger_spot.json. The client code now lies under apps/perps/packages/paxeer-backend/src and the public files under apps/perps/apps/web/public."
+fix = "Decision 3555. Tasks 22.39.563, 22.39.565, 22.39.566 and 22.39.569 to 22.39.573 move the readers or return the files they name."
+
+[gotcha.4470]
+title = "The wallet workspace lists apps/perps as a member"
+symptom = "services/wallet/pnpm-workspace.yaml lists ../../apps/perps, and docker/web/Dockerfile copies its manifest for the install of the wallet workspace. apps/perps is a workspace root of its own with its own lockfile and does not consume the wallet packages through that workspace."
+fix = "Decision 3555. Task 22.39.565 removes the member."
+
+[gotcha.4471]
+title = "The trading workspace has no legal pages and no consent notice"
+symptom = "The application the workspace replaced served the terms, the privacy policy and the cookie policy and asked for consent before optional storage. The web application of the workspace serves none of them, and tools/qualification/audit_repairs/test_documentation_link_contracts.py names the earlier cookie policy file."
+fix = "Decision 3556. Task 22.39.567 carries the pages and the notice."
+
+[gotcha.4472]
+title = "Five launchpad modules state a Go version above the reviewed builder of the launchpad images"
+symptom = "deploy/launchpad/Dockerfile.svc builds with the reviewed image of go1.26.4 and the local toolchain only, and the supply chain files of services/launchpad/security pin that version. The modules api, indexer, notifications, social and user under services/launchpad and services/launchpad/go.work state go 1.27.0."
+fix = "Decision 3557. Task 22.39.568 makes builder and directives agree."
+
+[gotcha.4473]
+title = "The perps project tool sends registry credentials with every image row and waits only on the deployment it started"
+symptom = "The tool requires both registry credential variables and attaches them to every image row, also when the images of the row are public. After a deploy call it reads the state of the deployment it started. When the hosting platform replaces that deployment with a newer one of the same service, the first one ends in a removed state while the service runs the newer one."
+fix = "Decision 3558. Task 22.39.574 changes the tool."
+
+[gotcha.4474]
+title = "The message bus rows of the perps project file do not match what the message bus image reads"
+symptom = "services/platform/perps-data/deploy/nats/nats.conf reads the route variable as a list in brackets, the form services/platform/perps-data/deploy/nats_test.go sets. The rows of the perps project file under deploy give the routes as one string with a comma. The image runs as a user without privileges and stores under /data, and a volume of the hosting platform is mounted with user 0 as owner. The rows name the health path /healthz, which a server answers only after it has met the other servers, while the hosting platform routes to a server only after its health path answers."
+fix = "Decision 3558. Task 22.39.574 changes the rows."
+
+[gotcha.4475]
+title = "Most services of the repository have no definition that creates them on the hosting platform"
+symptom = "deploy/rollout.kvx and the two rollout files beside it move services that exist to a pinned image, and the perps project file under deploy is the one definition that creates services. The other services of deploy/rollout.kvx that run on the hosting platform, the remaining container folders under docker and the web applications under apps have no such definition, and the variables each of them reads are stated only in its sources and in the pages under docs/release/variables."
+fix = "Decisions 3559 and 3560. Tasks 22.39.575 to 22.39.608 add the tool and the definitions."
+
+[gotcha.4476]
+title = "Four services have no container file"
+symptom = "The evaluator under services/platform/hosted/ai-evaluator, which deploy/rollout.kvx lists with an image, and the applications apps/bridge, apps/names and apps/inference-peer have no container file in the repository."
+fix = "Decision 3561. Tasks 22.39.583, 22.39.601, 22.39.606 and 22.39.607 add them."
+
+[gotcha.4477]
+title = "The type check of the trading workspace needs the build output of one of its packages"
+symptom = "The web application under apps/perps/apps/web imports @sidioralabs/chainflow-data-gateway from the package under apps/perps/packages/chainflow. The scripts dev and build of the workspace build that package first; the type check script of the workspace root does not, and then reports the import."
+fix = "Decision 3562. Task 22.39.567 waits for task 22.39.563, which holds the manifest of the workspace root."
+
+[gotcha.4478]
+title = "The image build of the documentation site does not hold the systems inventory"
+symptom = "The container file under docs/site/paxeer-docs builds with the folder docs/site as its context and copies docs-assistant and paxeer-docs from it. The build of the site runs docs/site/paxeer-docs/scripts/generate-systems.mjs first, and that script reads docs/release/7.0.0-systems.kvx by a path above the site folder. The file it writes, src/lib/systems.json, is committed and is copied into the image with the sources."
+fix = "Decision 3563 and task 22.39.609: the script reads the inventory where it is present and keeps the committed file where it is not."
+
+[gotcha.4479]
+title = "The project tool and the definitions state the env name and the repository in two ways"
+symptom = "Decision 3560 names the env name of an input as the project name, the service name and the variable name. The definitions under deploy/projects read the project name as the name of their folder; tools/deploy/platform-project.py reads it as the project key of project.kvx. The definitions state no repository in a repo row; the tool asks for one in each row. A health path with a query and a list written as one string are further forms the tool does not take."
+fix = "Decision 3564 and tasks 22.39.610 to 22.39.615: the tool follows the folder name and the project file, and each folder has a test that loads it through the tool."
+
+[gotcha.4480]
+title = "The hosting platform takes the repository of a service through its connect call"
+symptom = "The interface of the hosting platform has no branch on a service instance and no builder value for a build from a Dockerfile: a service builds from a Dockerfile where its Dockerfile path is set. The repository and the branch of a service are set where the service is created and through the connect call of the service afterwards; the branch of a running service is read from the record of its latest deployment. The platform returns a repository name in the case its owner wrote it. Its edge takes a request only with a header that names the client."
+fix = "Decision 3565 and tasks 22.39.616 and 22.39.618."
+
+[gotcha.4481]
+title = "A wire vector file and its copy change in one commit"
+symptom = "The copy inventory tests/ci/data/intentional_copies.txt pairs the wallet vectors under services/agent/crates/layerx-wire/tests/support/wallet_vectors with their copies under services/wallet/attestor/internal/lxwire/testdata and compares each pair by bytes. A change to one file of a pair without the other leaves the pair apart, and every verification that runs the copy test stops on it."
+fix = "Decision 3566 and task 22.39.617."
+
+[gotcha.4482]
+title = "The certificate roster and the definitions name the hosted gateway in two ways"
+symptom = "The certificate roster tools/bringup/ca-services.tsv names the hosted gateway service gateway and its store redis-gateway, and the bring-up tools take those names alone. The definition deploy/projects/platform/router.kvx, the rows of deploy/rollout.kvx and their tests name the same two services router and redis-router. A certificate of the roster is issued to a service by its roster name, so a service created under the other name receives none."
+fix = "Decision 3567 and task 22.39.619."
+
+[gotcha.4483]
+title = "The copy inventory names files that left the tree"
+symptom = "Rows of tests/ci/data/intentional_copies.txt name a source or a copy under apps/perps/public that is no longer in the tree since apps/perps holds the Xtrades workspace. The copy check reads every row and requires both files of a row."
+fix = "Task 22.39.617 removes the rows whose source or copy left the tree."
+
+[gotcha.4484]
+title = "The receipts of a block can hold more entries than its transaction list"
+symptom = "The node answers eth_getBlockReceipts with one receipt for every transaction of the block and with the receipts the chain writes itself. Those carry the type 0xffffffff and a transaction hash that eth_getBlockByNumber does not list and eth_getTransactionByHash does not return. The explorer indexer in services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex requires every receipt of a block range to belong to a listed transaction, so with receipts read by block a range that holds such a receipt is not imported."
+fix = "Task 22.39.620."
+
+[gotcha.4485]
+title = "A changed migration does not reach a database that applied its first form"
+symptom = "The explorer migration 20261028000000 was published with the accepted column of paxeer_x_price_observations required and true by default and was later changed in place to an optional column without default. A database records a migration version once, so a database that applied the first form keeps the required column. The acceptance replay in services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs sets the column to unknown at the start of each block and needs the optional form. The replay also picks its next block by an order over the whole queue that no index of the table serves, and takes one block per step."
+fix = "Decision 3568 and tasks 22.39.621 and 22.39.622."
+
+[gotcha.4486]
+title = "The data of a block holds entries of more than one kind"
+symptom = "The data of a block begins with the sequence batch entry of the kernel, the text PAXEER/v1/sequence-batch and a zero byte followed by the batch (modules/sequencer/types/msgs.go, SequenceBatchDomain), and the transactions follow it. The consensus routes give the entries as they are: /block lists the raw entries and /block_results one result for each entry by position. The route /cosmos/tx/v1beta1/txs/block of the transaction service decodes every entry of the block as a transaction (sdk/x/auth/tx/service.go, GetBlockWithTxs). The price reader of the explorer in services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex takes the transactions of a block from that route."
+fix = "Decision 3569 and tasks 22.39.624 and 22.39.626."
+
+[gotcha.4487]
+title = "The backend image of the explorer states its sources from the repository root"
+symptom = "docker/explorer-backend/Dockerfile names its sources from the repository root, the form deploy/projects/explorer/backend.kvx builds with. The publish row of .github/workflows/explorer-images.yml passes services/explorer/backend as the build context and the ignore file beside the Dockerfile states its patterns from that directory. The test job of the same file installs a container runtime on every runner, also on one where a runtime answers."
+fix = "Task 22.39.625."
+
+[gotcha.4488]
+title = "The record of a done task lives in the spec file"
+symptom = "The spec tool writes the status of a task into spec/layerx-merge/spec.kvx when the task is recorded as done. A restore of that file from the index after the record removes the record, and the task counts as open although build and verification passed."
+fix = "Task texts say to leave the file as the spec tool wrote it."
+
+[gotcha.4489]
+title = "The make target for the agent tests prepares the tests against a real node first"
+symptom = "The make target agent-test runs the prepare step of services/agent/tools/run-real-node-tests.sh before any crate, whatever the scope, and that step needs the contract tools. A verification that tests one crate without a node needs none of them."
+fix = "Decision 3570. The verification of such a task calls cargo for the crate."
+
+[gotcha.4490]
+title = "Three definitions of the folder platform state env names by the project key and one input under two keys"
+symptom = "The definitions agent-boundary, dashboard and webhooks-public of deploy/projects/platform form their env names with the project key in front of the folder name, and agent-boundary reads one input under two keys. The rule of decision 3564 forms the name from folder, service and variable, one name for one key. The definition webhooks-public also states two certificate variables in PEM form that no file of the service reads; its own test requires every variable to have a reader."
+fix = "Decision 3571. Task 22.39.611 brings the three definitions in line."
+
+[gotcha.4491]
+title = "Cases of the explorer backend share state within the whole suite"
+symptom = "The suite of the apps explorer and ethereum_jsonrpc runs whole in the builder as services/explorer/deploy/tools/mix-in-builder.sh test with no path. Within the whole suite the files share what a single file has to itself: the ownership mode of the database connections, the application settings, named processes and caches, and the mock expectations of the JSON-RPC client. Some cases also name a file or directory by a path the tree no longer has, or state a value of a source that a later task changed."
+fix = "Decision 3572. Tasks 22.39.627 to 22.39.634."
+
+[gotcha.4492]
+title = "The store of the price updates of a block reads the number of all stored submissions"
+symptom = "The price feed of the explorer keeps the number of submissions stored since the first scan in a counter row. The store of the submissions of a block in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex reads the number of all stored submissions as the first value of that counter on every store that changes the number, although the first value is used only when the counter row does not exist yet. The acceptance replay takes the blocks of one step one after the other."
+fix = "Decision 3573. Tasks 22.39.635 and 22.39.636."
+
+[gotcha.4493]
+title = "A whole compile of the explorer app stops on a default argument no call uses"
+symptom = "The apps of the explorer backend compile with warnings as errors outside the development environment. The private request function of services/explorer/backend/apps/explorer/lib/explorer/market/source/chainflow.ex states a default for its query that no call uses, which is a compiler warning. A compile that takes only changed files does not reach the file; a compile of the whole app does, for example after a change in the JSON-RPC client the app depends on."
+fix = "Decision 3574. Task 22.39.637."
+
+[gotcha.4494]
+title = "The variable contract of the launchpad names startup documents that no tool composes"
+symptom = "On the hosting platform a launchpad service takes each startup document as a variable that holds the standard base64 of the JSON bytes, beside a variable that holds the digest of those bytes. The variable contract of the launchpad services (variables.json in the platform directory under deploy/launchpad) requires these variables for all twelve services, but no tool of the tree writes them, and no command applies the registered migrations under migrations to a database outside a test. The expected schema document of a service carries values that only a migrated database gives."
+fix = "Decision 3575. Tasks 22.39.638 to 22.39.650."
+
+[gotcha.4495]
+title = "A test job gives each tool its input in the form the tool reads"
+symptom = "The options of a service container of a workflow reach the container tool as words without a shell, so a health command of several words is written with double quotes or as one word, never with single quotes. A path selector of the package manager is resolved from the directory the manager runs in, and a selector is right only when the manager lists exactly one project for it. A Go build inside a directory that a workspace file covers follows the Go version of the workspace file unless the workspace is off, whatever the module states. A test case that takes its input through a flag from a proof has no input in a plain run of its package. A proof that runs a command of the tree must call it with the options the command requires today."
+fix = "Decision 3576. Tasks 22.39.651 to 22.39.654."
+
+[gotcha.4496]
+title = "A case that reads every package manifest of the repository counts the manifests of every tree"
+symptom = "The case test_js_test_scripts_have_runner of tests/ci/test_js_suites_have_runner.py reads every package manifest of the repository, among them the manifests of the trading packages under apps/perps/packages. The runners and the exclusion list for those packages are the work of task 22.39.571. A task on the launchpad test job that verifies with this case would take on that work."
+fix = "Decision 3577. The verification of the launchpad task selects the other cases of the file."
+
+[gotcha.4497]
+title = "A case keeps its input only while it follows the side that produces it"
+symptom = "A test that builds a call environment by hand holds only the fields it sets, and an entry point that reads the chain configuration of the environment needs one. A setting of a test configuration that is named after one transformer is read only by that transformer; when the version of the test runner brings another transformer the setting has no effect and a file with JSX no longer parses. A case whose input comes from another test through the environment has no input in a plain run of its package. A relative import into the tree of another application ends when that tree is replaced. An answer with a status outside the success range can carry a JSON object, and it is still not an answer to the request."
+fix = "Decision 3578. Tasks 22.39.655 to 22.39.658."

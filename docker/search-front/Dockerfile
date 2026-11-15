@@ -6,7 +6,8 @@
 FROM nginx:1.28.3@sha256:146adea4768b83c607d0bdfa4188464e3da6e0a3ad4475db1d1d8f64f27c29cc
 ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1 \
     NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/search/conf.d
-COPY services/interop/deploy/search-front/nginx.conf /etc/nginx/nginx.conf
+COPY services/interop/deploy/search-front/nginx.conf /etc/nginx/nginx.conf.template
+COPY --chmod=0555 docker/search-front/listen-port.sh /docker-entrypoint.d/05-listen-port.sh
 COPY docker/search-front/resolver.conf.template /etc/nginx/templates/resolver.conf.template
 COPY docker/search-front/files.tsv /etc/layerx/files.tsv
 COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files

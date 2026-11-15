@@ -1,5 +1,5 @@
 defmodule Explorer.Chain.Supply.RSKTest do
-  use Explorer.DataCase
+  use Explorer.DataCase, async: false
 
   import Mox
 
@@ -11,6 +11,12 @@ defmodule Explorer.Chain.Supply.RSKTest do
 
   setup :verify_on_exit!
 
+  setup do
+    ConCache.delete(RSK.cache_name(), :balance)
+    on_exit(fn -> ConCache.delete(RSK.cache_name(), :balance) end)
+    :ok
+  end
+
   test "total is 21_000_000" do
     assert Decimal.equal?(RSK.total(), Decimal.new(21_000_000))
   end
@@ -20,8 +26,36 @@ defmodule Explorer.Chain.Supply.RSKTest do
     @tag :no_geth
     test "calculates market_cap" do
       EthereumJSONRPC.Mox
-      |> expect(:json_rpc, fn [%{id: id, method: "eth_getBalance"}], _options ->
-        {:ok, [%{id: id, result: "20999999999900000000000000"}]}
+      |> expect(:json_rpc, fn [%{id: id, method: "eth_getBlockByNumber", params: ["latest", false]}], _options ->
+        {:ok,
+         [
+           %{
+             id: id,
+             result: %{
+               "difficulty" => "0x0",
+               "gasLimit" => "0x0",
+               "gasUsed" => "0x0",
+               "hash" => "0x29c850324e357f3c0c836d79860c5af55f7b651e5d7ee253c1af1b14908af49c",
+               "extraData" => "0x0",
+               "logsBloom" => "0x0",
+               "miner" => "0x0",
+               "number" => "0x0",
+               "parentHash" => "0x0",
+               "receiptsRoot" => "0x0",
+               "size" => "0x0",
+               "sha3Uncles" => "0x0",
+               "stateRoot" => "0x0",
+               "timestamp" => "0x0",
+               "totalDifficulty" => "0x0",
+               "transactions" => [],
+               "transactionsRoot" => "0x0",
+               "uncles" => []
+             }
+           }
+         ]}
+      end)
+      |> expect(:json_rpc, fn [%{id: id, method: "eth_getBalance", params: [@coin_address, "0x0"]}], _options ->
+        {:ok, [%{id: id, result: EthereumJSONRPC.integer_to_quantity(20_999_999_999_900_000_000_000_000)}]}
       end)
 
       exchange_rate = %{Token.null() | fiat_value: Decimal.new(1_000_000)}

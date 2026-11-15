@@ -1,0 +1,93 @@
+[service.gas-station]
+kind = "repo"
+dockerfile = "docker/gas-station/Dockerfile"
+root = "."
+watch = ["docker/gas-station/**", "docker/common/**", "services/interop/**", "services/agent/**", "services/platform/hosted/internal/**", "services/human/**"]
+health = "/healthz"
+restart = "ALWAYS"
+replicas = 1
+volume = "/data"
+public = 1
+order = 11
+needs = []
+
+[vars.gas-station]
+GAS_STATION_LISTEN = "env:WALLET_GAS_STATION_GAS_STATION_LISTEN"
+GAS_STATION_CHAIN_ID = "env:WALLET_GAS_STATION_GAS_STATION_CHAIN_ID"
+GAS_STATION_ENDPOINTS = "env:WALLET_GAS_STATION_GAS_STATION_ENDPOINTS"
+GAS_STATION_PAYMASTER = "env:WALLET_GAS_STATION_GAS_STATION_PAYMASTER"
+GAS_STATION_TOKEN = "env:WALLET_GAS_STATION_GAS_STATION_TOKEN"
+GAS_STATION_DECIMALS = "env:WALLET_GAS_STATION_GAS_STATION_DECIMALS"
+GAS_STATION_MAX_RATE_AGE = "env:WALLET_GAS_STATION_GAS_STATION_MAX_RATE_AGE"
+GAS_STATION_SPREAD_BPS = "env:WALLET_GAS_STATION_GAS_STATION_SPREAD_BPS"
+GAS_STATION_MARGIN_BPS = "env:WALLET_GAS_STATION_GAS_STATION_MARGIN_BPS"
+GAS_STATION_PER_ACCOUNT_LIMIT = "env:WALLET_GAS_STATION_GAS_STATION_PER_ACCOUNT_LIMIT"
+GAS_STATION_PER_INTERVAL_LIMIT = "env:WALLET_GAS_STATION_GAS_STATION_PER_INTERVAL_LIMIT"
+GAS_STATION_PER_QUOTE_LIMIT = "env:WALLET_GAS_STATION_GAS_STATION_PER_QUOTE_LIMIT"
+GAS_STATION_INTERVAL_SECONDS = "env:WALLET_GAS_STATION_GAS_STATION_INTERVAL_SECONDS"
+GAS_STATION_BALANCE_FLOOR = "env:WALLET_GAS_STATION_GAS_STATION_BALANCE_FLOOR"
+GAS_STATION_GAS_LIMIT = "env:WALLET_GAS_STATION_GAS_STATION_GAS_LIMIT"
+GAS_STATION_MAX_PRIORITY_FEE_PER_GAS = "env:WALLET_GAS_STATION_GAS_STATION_MAX_PRIORITY_FEE_PER_GAS"
+GAS_STATION_DID_GAS_LIMIT = "env:WALLET_GAS_STATION_GAS_STATION_DID_GAS_LIMIT"
+GAS_STATION_RELAYER_KEY_ENV = "GAS_STATION_RELAYER_KEY"
+GAS_STATION_RELAYER_KEY = "env:WALLET_GAS_STATION_GAS_STATION_RELAYER_KEY"
+GAS_STATION_RATE_OWNER_KEY_ENV = "GAS_STATION_RATE_OWNER_KEY"
+GAS_STATION_RATE_OWNER_KEY = "env:WALLET_GAS_STATION_GAS_STATION_RATE_OWNER_KEY"
+GAS_STATION_RATE_CADENCE_SECONDS = "env:WALLET_GAS_STATION_GAS_STATION_RATE_CADENCE_SECONDS"
+GAS_STATION_RATE_GAS_BUDGET_PER_DAY = "env:WALLET_GAS_STATION_GAS_STATION_RATE_GAS_BUDGET_PER_DAY"
+GAS_STATION_RATE_BALANCE_FLOOR = "env:WALLET_GAS_STATION_GAS_STATION_RATE_BALANCE_FLOOR"
+GAS_STATION_RATE_MAX_FEE_PER_GAS = "env:WALLET_GAS_STATION_GAS_STATION_RATE_MAX_FEE_PER_GAS"
+GAS_STATION_RATE_CONFIRMATION_RETRY_SECONDS = "env:WALLET_GAS_STATION_GAS_STATION_RATE_CONFIRMATION_RETRY_SECONDS"
+GAS_STATION_BROWSER_ORIGINS = "env:WALLET_GAS_STATION_GAS_STATION_BROWSER_ORIGINS"
+
+[inputs.gas-station]
+# Listener socket in [::]:port form.
+WALLET_GAS_STATION_GAS_STATION_LISTEN = "operator"
+# Paxeer chain identifier in decimal form.
+WALLET_GAS_STATION_GAS_STATION_CHAIN_ID = "chain"
+# Space-separated HTTPS node-root RPC URLs.
+WALLET_GAS_STATION_GAS_STATION_ENDPOINTS = "operator"
+# Paymaster contract address in 0x-prefixed hexadecimal form.
+WALLET_GAS_STATION_GAS_STATION_PAYMASTER = "chain"
+# Fee token contract address in 0x-prefixed hexadecimal form.
+WALLET_GAS_STATION_GAS_STATION_TOKEN = "chain"
+# Fee token decimal exponent.
+WALLET_GAS_STATION_GAS_STATION_DECIMALS = "chain"
+# Maximum quotable rate age in seconds.
+WALLET_GAS_STATION_GAS_STATION_MAX_RATE_AGE = "operator"
+# Quote spread in basis points.
+WALLET_GAS_STATION_GAS_STATION_SPREAD_BPS = "operator"
+# Quote margin in basis points.
+WALLET_GAS_STATION_GAS_STATION_MARGIN_BPS = "operator"
+# Per-account sponsorship limit in token base units.
+WALLET_GAS_STATION_GAS_STATION_PER_ACCOUNT_LIMIT = "operator"
+# Per-interval sponsorship limit in token base units.
+WALLET_GAS_STATION_GAS_STATION_PER_INTERVAL_LIMIT = "operator"
+# Per-quote sponsorship limit in token base units.
+WALLET_GAS_STATION_GAS_STATION_PER_QUOTE_LIMIT = "operator"
+# Sponsorship policy interval in seconds.
+WALLET_GAS_STATION_GAS_STATION_INTERVAL_SECONDS = "operator"
+# Minimum sponsor balance in token base units.
+WALLET_GAS_STATION_GAS_STATION_BALANCE_FLOOR = "operator"
+# Sponsored transaction gas limit.
+WALLET_GAS_STATION_GAS_STATION_GAS_LIMIT = "operator"
+# Maximum transaction priority fee in wei per gas.
+WALLET_GAS_STATION_GAS_STATION_MAX_PRIORITY_FEE_PER_GAS = "operator"
+# Positive daily gas budget for one DID.
+WALLET_GAS_STATION_GAS_STATION_DID_GAS_LIMIT = "operator"
+# Sponsor secp256k1 private key in 64 hexadecimal characters, with an optional 0x prefix.
+WALLET_GAS_STATION_GAS_STATION_RELAYER_KEY = "chain"
+# Rate publication cadence in seconds.
+WALLET_GAS_STATION_GAS_STATION_RATE_CADENCE_SECONDS = "operator"
+# Daily gas budget for rate publications.
+WALLET_GAS_STATION_GAS_STATION_RATE_GAS_BUDGET_PER_DAY = "operator"
+# Minimum rate-publisher balance in token base units.
+WALLET_GAS_STATION_GAS_STATION_RATE_BALANCE_FLOOR = "operator"
+# Maximum rate-publication fee in wei per gas.
+WALLET_GAS_STATION_GAS_STATION_RATE_MAX_FEE_PER_GAS = "operator"
+# Retry interval for rate-publication confirmations in seconds.
+WALLET_GAS_STATION_GAS_STATION_RATE_CONFIRMATION_RETRY_SECONDS = "operator"
+# Comma-separated HTTPS browser origins allowed to submit sponsorship requests.
+WALLET_GAS_STATION_GAS_STATION_BROWSER_ORIGINS = "operator"
+# Paymaster owner secp256k1 private key in 64 hexadecimal characters, with an optional 0x prefix.
+WALLET_GAS_STATION_GAS_STATION_RATE_OWNER_KEY = "chain"
