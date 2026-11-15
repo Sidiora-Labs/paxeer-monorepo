@@ -69,12 +69,34 @@ for (const control of [
   "Sign in with a session token",
   "Sign out",
   "Copy public key",
+  "Issue key",
+  "Rotate",
+  "Revoke",
+  "Copy secret",
+  "This secret is shown once",
+  "No active key holds a request quota.",
 ]) {
   assert.ok(
     source.includes(control),
     `dashboard session control is present: ${control}`,
   );
 }
+for (const scope of [
+  "activity:write",
+  "program:call",
+  "program:read",
+  "program:simulate",
+  "receipt:read",
+  "state:read",
+]) {
+  assert.ok(source.includes(scope), `dashboard key scope is present: ${scope}`);
+}
+assert.match(source, /quota_requests|key-quota-requests/, "key issuance exposes request quota");
+assert.match(source, /quota_window_seconds|key-quota-window/, "key issuance exposes quota window");
+assert.match(source, /ConfirmDialog/, "revoke requires confirmation");
+assert.match(source, /ResponsiveDialog/, "key secret is shown in a dialog");
+assert.match(source, /operationKey\(\)/, "key writes use fresh idempotency keys");
+assert.match(source, /onRefresh\(\)/, "key writes refresh the dashboard");
 assert.match(
   source,
   /needsSession\s*\?\s*(?:\(\s*)?<SignInView/,
