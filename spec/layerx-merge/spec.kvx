@@ -173376,7 +173376,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.677]
 title = "Hold the semantic pairs of the human web application in both schemes and state the present browser configuration in the foundation suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.28"]
@@ -174185,7 +174185,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.27]
 title = "Bring the wallet demonstration pages to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
