@@ -174104,7 +174104,7 @@ do_5 = "do_5 Decision 3562. The type check script of apps/perps/package.json fir
 
 [task.22.44.36]
 title = "Bring the documentation site to the web platform guidance and close it on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174454,7 +174454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.26]
 title = "Close the wallet application: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.25"]
@@ -462165,7 +462165,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.687]
 title = "Let the suite of the media app of the explorer backend pass in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
