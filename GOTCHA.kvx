@@ -22300,3 +22300,13 @@ fix = "Decision 3575. Tasks 22.39.638 to 22.39.650."
 title = "A test job gives each tool its input in the form the tool reads"
 symptom = "The options of a service container of a workflow reach the container tool as words without a shell, so a health command of several words is written with double quotes or as one word, never with single quotes. A path selector of the package manager is resolved from the directory the manager runs in, and a selector is right only when the manager lists exactly one project for it. A Go build inside a directory that a workspace file covers follows the Go version of the workspace file unless the workspace is off, whatever the module states. A test case that takes its input through a flag from a proof has no input in a plain run of its package. A proof that runs a command of the tree must call it with the options the command requires today."
 fix = "Decision 3576. Tasks 22.39.651 to 22.39.654."
+
+[gotcha.4496]
+title = "A case that reads every package manifest of the repository counts the manifests of every tree"
+symptom = "The case test_js_test_scripts_have_runner of tests/ci/test_js_suites_have_runner.py reads every package manifest of the repository, among them the manifests of the trading packages under apps/perps/packages. The runners and the exclusion list for those packages are the work of task 22.39.571. A task on the launchpad test job that verifies with this case would take on that work."
+fix = "Decision 3577. The verification of the launchpad task selects the other cases of the file."
+
+[gotcha.4497]
+title = "A case keeps its input only while it follows the side that produces it"
+symptom = "A test that builds a call environment by hand holds only the fields it sets, and an entry point that reads the chain configuration of the environment needs one. A setting of a test configuration that is named after one transformer is read only by that transformer; when the version of the test runner brings another transformer the setting has no effect and a file with JSX no longer parses. A case whose input comes from another test through the environment has no input in a plain run of its package. A relative import into the tree of another application ends when that tree is replaced. An answer with a status outside the success range can carry a JSON object, and it is still not an answer to the request."
+fix = "Decision 3578. Tasks 22.39.655 to 22.39.658."

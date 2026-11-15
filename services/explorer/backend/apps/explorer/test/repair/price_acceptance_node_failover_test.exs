@@ -37,7 +37,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
       {kind, height} =
         case conn.path_info do
           ["block_results"] -> {:results, String.to_integer(conn.query_params["height"])}
-          ["cosmos", "tx", "v1beta1", "txs", "block", height] -> {:transactions, String.to_integer(height)}
+          ["block"] -> {:transactions, String.to_integer(conn.query_params["height"])}
         end
 
       {status, response} =
@@ -97,7 +97,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
     second = serve(context, :available)
 
     assert {:ok, transactions} = CosmosRest.fetch_block_txs([first, second], @height)
-    assert transactions == %{"txs" => context.body["txs"], "raw" => context.body["block"]["data"]["txs"]}
+    assert transactions == %{"raw" => context.body["block"]["data"]["txs"]}
     assert_receive {:node_request, :error, :transactions, @height}
     assert_receive {:node_request, :available, :transactions, @height}
   end

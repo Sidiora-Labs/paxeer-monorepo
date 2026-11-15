@@ -2,13 +2,11 @@ defmodule Explorer.PaxeerX.CosmosRest do
   @moduledoc """
   Reads the native price-feed submissions of one block from a node.
 
-  The transactions come from the Cosmos REST route `GET /cosmos/tx/v1beta1/txs/block/{height}`,
-  which carries each decoded transaction and the raw transaction bytes of the block but no
-  execution result; a block without transactions answers 400 with `cannot paginate 0 txs`,
-  which reads as an empty block. The execution result of each transaction - its code and
-  gas used, both omitted when zero - comes from the CometBFT route
-  `GET /block_results?height={height}`, which is read only when the block carries a
-  submission.
+  The entries come from the consensus route `GET /block?height={height}`. Each
+  transaction is decoded from its protobuf wire bytes; other entries keep their
+  position without producing a submission. Execution results come from
+  `GET /block_results?height={height}` only when the block carries a submission,
+  and join by the entry's position in the block.
 
   Every request starts at the URL that last answered for the same URL list and goes
   round the list at most `@rounds` times, so one dead node costs one short connect
@@ -19,10 +17,11 @@ defmodule Explorer.PaxeerX.CosmosRest do
   Otherwise the last failure other than `height_unavailable` is returned.
   """
 
+  import Bitwise
+
   alias Explorer.Chain.PaxeerX.Identity
 
   @submit_prices_type "/paxprotocol.paxchain.pricefeed.MsgSubmitPrices"
-  @page_limit 100
   @rounds 2
   @retry_delay_ms 200
   @max_body_bytes 33_554_432
@@ -65,8 +64,8 @@ defmodule Explorer.PaxeerX.CosmosRest do
   """
   @spec block_price_updates([String.t()], [String.t()], non_neg_integer()) ::
           {:ok, [price_update()]} | {:error, error()}
-  def block_price_updates(rest_urls, rpc_urls, height) when is_integer(height) and height >= 0 do
-    with {:ok, block_txs} <- fetch_block_txs(rest_urls, height),
+  def block_price_updates(_rest_urls, rpc_urls, height) when is_integer(height) and height >= 0 do
+    with {:ok, block_txs} <- fetch_block_txs(rpc_urls, height),
          {:ok, submissions} <- decode_block_txs(block_txs) do
       case submissions do
         [] ->
@@ -81,56 +80,26 @@ defmodule Explorer.PaxeerX.CosmosRest do
   end
 
   @doc """
-  Every page of the block's transactions merged into `%{"txs" => [...], "raw" => [...]}`,
-  where `raw` holds the base64 raw transaction bytes of the block.
+  The consensus block's base64 entries in their original order.
   """
   @spec fetch_block_txs([String.t()], non_neg_integer()) :: {:ok, map()} | {:error, error()}
-  def fetch_block_txs(urls, height), do: fetch_block_txs(urls, height, 0, [], nil)
-
-  defp fetch_block_txs(urls, height, offset, txs, raw) do
-    path = "/cosmos/tx/v1beta1/txs/block/#{height}?pagination.offset=#{offset}&pagination.limit=#{@page_limit}"
-
-    case get_json(urls, path, &empty_block?/2) do
-      {:ok, :empty} when offset == 0 ->
-        {:ok, %{"txs" => [], "raw" => []}}
-
-      {:ok, %{"txs" => page, "block" => %{"data" => %{"txs" => block_raw}}} = body}
-      when is_list(page) and is_list(block_raw) ->
-        collected = txs ++ page
-        total = total(body, block_raw)
-
-        cond do
-          length(collected) == total and total == length(block_raw) ->
-            {:ok, %{"txs" => collected, "raw" => raw || block_raw}}
-
-          page != [] and length(collected) < total ->
-            fetch_block_txs(urls, height, offset + length(page), collected, raw || block_raw)
-
-          true ->
-            {:error, {:malformed, "transaction count does not match the block"}}
-        end
-
-      {:ok, _} ->
-        {:error, {:malformed, "unexpected block transactions response"}}
-
-      error ->
-        error
+  def fetch_block_txs(urls, height) do
+    case get_json(urls, "/block?height=#{height}", fn _, _ -> false end) do
+      {:ok, %{"result" => %{} = result}} -> block_entries(result)
+      {:ok, %{} = result} -> block_entries(result)
+      error -> error
     end
   end
 
-  defp total(%{"pagination" => %{"total" => total}}, _block_raw) when is_binary(total) do
-    case Integer.parse(total) do
-      {value, ""} -> value
-      _ -> -1
+  defp block_entries(%{"block" => %{"data" => %{} = data}}) do
+    case Map.get(data, "txs") do
+      nil -> {:ok, %{"raw" => []}}
+      entries when is_list(entries) -> {:ok, %{"raw" => entries}}
+      _ -> {:error, {:malformed, "unexpected block entries response"}}
     end
   end
 
-  defp total(_body, block_raw), do: length(block_raw)
-
-  defp empty_block?(400, %{"message" => message}) when is_binary(message),
-    do: String.contains?(message, "cannot paginate 0 txs")
-
-  defp empty_block?(_status, _body), do: false
+  defp block_entries(_), do: {:error, {:malformed, "unexpected block entries response"}}
 
   @doc """
   The CometBFT execution results of the block's transactions, in transaction order.
@@ -149,8 +118,9 @@ defmodule Explorer.PaxeerX.CosmosRest do
   defp results(_), do: {:error, {:malformed, "unexpected block results response"}}
 
   @doc """
-  The price-feed submissions among merged block transactions, each with its index, its
-  hash and its declared gas limit, before the execution results are joined in.
+  The price-feed submissions among raw block entries, each with its index, hash and
+  declared gas limit, before execution results are joined in. Retained payloads
+  with decoded transactions are accepted for acceptance replay.
   """
   @spec decode_block_txs(map()) :: {:ok, [map()]} | {:error, error()}
   def decode_block_txs(%{"txs" => txs, "raw" => raw}) do
@@ -168,6 +138,158 @@ defmodule Explorer.PaxeerX.CosmosRest do
       error -> error
     end
   end
+
+  def decode_block_txs(%{"raw" => raw}) when is_list(raw) do
+    raw
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, []}, fn {entry, index}, {:ok, acc} ->
+      case decode_entry(entry, index) do
+        {:ok, nil} -> {:cont, {:ok, acc}}
+        {:ok, submission} -> {:cont, {:ok, [submission | acc]}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, submissions} -> {:ok, Enum.reverse(submissions)}
+      error -> error
+    end
+  end
+
+  def decode_block_txs(_), do: {:error, {:malformed, "unexpected block entries"}}
+
+  defp decode_entry(raw, index) when is_binary(raw) do
+    case Base.decode64(raw) do
+      {:ok, bytes} ->
+        case wire_transaction(bytes) do
+          {:ok, tx} ->
+            decode_tx(tx, raw, index)
+
+          :error ->
+            if :binary.match(bytes, @submit_prices_type) == :nomatch,
+              do: {:ok, nil},
+              else: {:error, {:malformed, "invalid submission wire bytes"}}
+        end
+
+      :error ->
+        {:error, {:malformed, "raw transaction is not base64"}}
+    end
+  end
+
+  defp decode_entry(_, _), do: {:error, {:malformed, "missing raw transaction"}}
+
+  defp wire_transaction(bytes) do
+    with {:ok, tx} <- wire_fields(bytes, %{1 => 2, 2 => 2, 3 => 2}),
+         {:ok, body} <- wire_fields(wire_value(tx, 1, 2, ""), %{1 => 2}),
+         {:ok, messages} <- wire_messages(wire_values(body, 1, 2)),
+         {:ok, auth} <- wire_fields(wire_value(tx, 2, 2, ""), %{1 => 2, 2 => 2}),
+         {:ok, fee} <- wire_fields(wire_value(auth, 2, 2, ""), %{2 => 0}) do
+      {:ok,
+       %{"body" => %{"messages" => messages}, "auth_info" => %{"fee" => %{"gas_limit" => wire_value(fee, 2, 0, 0)}}}}
+    end
+  end
+
+  defp wire_messages(messages) do
+    Enum.reduce_while(messages, {:ok, []}, fn bytes, {:ok, acc} ->
+      with {:ok, fields} <- wire_fields(bytes, %{1 => 2, 2 => 2}),
+           {:ok, message} <- wire_message(wire_value(fields, 1, 2, ""), wire_value(fields, 2, 2, "")) do
+        {:cont, {:ok, [message | acc]}}
+      else
+        :error -> {:halt, :error}
+      end
+    end)
+    |> case do
+      {:ok, messages} -> {:ok, Enum.reverse(messages)}
+      :error -> :error
+    end
+  end
+
+  defp wire_message(@submit_prices_type, bytes) do
+    with {:ok, fields} <- wire_fields(bytes, %{1 => 2, 2 => 2}),
+         [_ | _] = observations <- wire_values(fields, 2, 2),
+         {:ok, observations} <- wire_observations(observations) do
+      {:ok, %{"@type" => @submit_prices_type, "feeder" => wire_value(fields, 1, 2, ""), "observations" => observations}}
+    else
+      _ -> :error
+    end
+  end
+
+  defp wire_message(type, _), do: {:ok, %{"@type" => type}}
+
+  defp wire_observations(observations) do
+    Enum.reduce_while(observations, {:ok, []}, fn bytes, {:ok, acc} ->
+      case wire_fields(bytes, %{1 => 0, 2 => 0, 3 => 2, 4 => 2, 5 => 0}) do
+        {:ok, fields} ->
+          observation = %{
+            "market_id" => wire_value(fields, 1, 0, 0),
+            "sequence" => wire_value(fields, 2, 0, 0),
+            "index_price" => wire_value(fields, 3, 2, ""),
+            "mark_price" => wire_value(fields, 4, 2, ""),
+            "source_timestamp_ms" => wire_value(fields, 5, 0, 0)
+          }
+
+          {:cont, {:ok, [observation | acc]}}
+
+        :error ->
+          {:halt, :error}
+      end
+    end)
+    |> case do
+      {:ok, observations} -> {:ok, Enum.reverse(observations)}
+      :error -> :error
+    end
+  end
+
+  defp wire_value(fields, number, type, default), do: fields |> wire_values(number, type) |> List.last(default)
+
+  defp wire_values(fields, number, type) do
+    for {^number, ^type, value} <- fields, do: value
+  end
+
+  defp wire_fields(bytes, schema) do
+    with {:ok, fields} <- parse_wire_fields(bytes, []),
+         true <- Enum.all?(fields, fn {number, type, _} -> Map.get(schema, number, type) == type end) do
+      {:ok, fields}
+    else
+      _ -> :error
+    end
+  end
+
+  defp parse_wire_fields(<<>>, acc), do: {:ok, Enum.reverse(acc)}
+
+  defp parse_wire_fields(bytes, acc) do
+    case wire_varint(bytes, 0, 0) do
+      {:ok, key, rest} when key >>> 3 > 0 and key >>> 3 <= 536_870_911 ->
+        case wire_field(key &&& 7, rest) do
+          {:ok, value, tail} -> parse_wire_fields(tail, [{key >>> 3, key &&& 7, value} | acc])
+          :error -> :error
+        end
+
+      _ ->
+        :error
+    end
+  end
+
+  defp wire_field(0, bytes), do: wire_varint(bytes, 0, 0)
+  defp wire_field(1, <<value::binary-size(8), rest::binary>>), do: {:ok, value, rest}
+  defp wire_field(5, <<value::binary-size(4), rest::binary>>), do: {:ok, value, rest}
+
+  defp wire_field(2, bytes) do
+    with {:ok, size, rest} <- wire_varint(bytes, 0, 0),
+         <<value::binary-size(size), tail::binary>> <- rest do
+      {:ok, value, tail}
+    else
+      _ -> :error
+    end
+  end
+
+  defp wire_field(_, _), do: :error
+
+  defp wire_varint(<<byte, rest::binary>>, value, shift) when shift < 63 or (shift == 63 and byte <= 1) do
+    value = value ||| (byte &&& 127) <<< shift
+    if byte < 128, do: {:ok, value, rest}, else: wire_varint(rest, value, shift + 7)
+  end
+
+  defp wire_varint(_, _, _), do: :error
 
   defp decode_tx(%{"body" => %{"messages" => messages}} = tx, raw, index) when is_list(messages) do
     case Enum.filter(messages, &match?(%{"@type" => @submit_prices_type}, &1)) do

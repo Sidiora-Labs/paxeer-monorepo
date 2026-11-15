@@ -36,7 +36,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
       {status, response} =
         if Agent.get(availability, & &1) do
           case {role, conn.request_path} do
-            {:rest, "/cosmos/tx/v1beta1/txs/block/37715713"} -> {200, body}
+            {:rpc, "/block"} -> {200, body}
             {:rpc, "/block_results"} -> {200, results}
           end
         else
@@ -180,7 +180,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
 
     assert is_pid(runner)
     monitor = Process.monitor(runner)
-    assert_receive {:node_request, "/cosmos/tx/v1beta1/txs/block/37715713", _}, 5_000
+    assert_receive {:node_request, "/block", _}, 5_000
     await(fn -> match?([[-1, -1, false, error]] when is_binary(error), cursor()) end)
     assert accepted_values() == List.duplicate(true, 18)
     assert PriceAcceptanceBackfill.pending?()
@@ -200,7 +200,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     end)
 
     assert Process.alive?(Process.whereis(PriceUpdates))
-    assert Enum.all?(drain_node_requests(), fn {path, _query} -> path == "/cosmos/tx/v1beta1/txs/block/37715713" end)
+    assert Enum.all?(drain_node_requests(), fn {path, _query} -> path == "/block" end)
     refute_receive {:node_request, _, _}, 350
   end
 
@@ -242,7 +242,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert :ok = PriceAcceptanceBackfill.retain(worker, orphan.number, context.transactions, context.results)
     payload = retained_payload(orphan.number)
     await(fn -> cursor() == [[0, 17, true, nil]] end)
-    assert_receive {:node_request, "/cosmos/tx/v1beta1/txs/block/37715713", _}, 5_000
+    assert_receive {:node_request, "/block", _}, 5_000
     assert_receive {:node_request, "/block_results", "height=37715713"}, 5_000
     assert :deferred = PriceAcceptanceBackfill.step(worker, 9)
     refute PriceAcceptanceBackfill.pending?()
@@ -319,7 +319,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     refute PriceAcceptanceBackfill.pending?()
     assert observations(@height) == before_orphan
     assert cursor() == [[0, 8, false, nil]]
-    assert_receive {:node_request, "/cosmos/tx/v1beta1/txs/block/37715713", _}, 5_000
+    assert_receive {:node_request, "/block", _}, 5_000
     assert_receive {:node_request, "/block_results", "height=37715713"}, 5_000
 
     stop_supervised!(PriceAcceptanceReplay)
