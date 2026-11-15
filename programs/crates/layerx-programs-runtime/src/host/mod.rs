@@ -912,9 +912,6 @@ impl RuntimeState {
         remaining_bytes: u64,
         remaining_work: u64,
     ) -> Result<wasmi::ExecutionSupplement, wasmi::ExecutionObserverError> {
-        if self.boundary_capture.is_some() {
-            return Err(self.reject_supplement("execution_supplement.module_start"));
-        }
         self.execution_supplement_retained(*charge, charge, remaining_bytes, remaining_work)
     }
 

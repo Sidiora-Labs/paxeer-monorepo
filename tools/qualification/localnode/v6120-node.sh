@@ -106,11 +106,40 @@ require_merge_precompiles() {
         <<< "$response" >/dev/null || fail "native ledger accountId failed: $response"
 }
 
+enable_sequencer() {
+    local deadline=$((SECONDS + 120))
+    stop_node "$NODE_HOME" node
+    set_toml "$NODE_HOME/config/config.toml" consensus.sequencer enable true
+    export PAX_LOG_LEVEL=info PAX_LOG_OUTPUT=stderr
+    SEQUENCER_ARGS=(--log_level info --sequencer.enable --sequencer.mode sequential
+        --sequencer.replication-timeout 10s --sequencer.lease-duration 30s
+        --sequencer.nonce-queue-max-per-sender 16 --sequencer.nonce-queue-max-total 128
+        --sequencer.role primary --sequencer.wal-dir "$NODE_HOME/sequencer-wal"
+        --sequencer.receipt-key-file "$NODE_HOME/config/receipt-key.hex")
+    nohup "$PAXD" start --home "$NODE_HOME" "${SEQUENCER_ARGS[@]}" > "$NODE_HOME/node.log" 2>&1 < /dev/null &
+    echo "$!" > "$NODE_HOME/node.pid"
+    while :; do
+        kill -0 "$(cat "$NODE_HOME/node.pid")" 2>/dev/null || fail "node exited: $NODE_HOME/node.log"
+        if curl --fail --silent --show-error --max-time 3 "http://127.0.0.1:$RPC_PORT/status" \
+            | jq -e '.sync_info.catching_up == false' >/dev/null; then
+            break
+        fi
+        (( SECONDS < deadline )) || fail "sequencer primary did not restart: $NODE_HOME/node.log"
+        sleep 0.2
+    done
+}
+
 governance_tx() {
     local response hash deadline=$((SECONDS + 30))
-    response=$("$PAXD" tx gov "$@" --from validator --home "$NODE_HOME" \
-        --keyring-backend test --chain-id "$CHAIN" --node "$NODE" \
-        --gas 2000000 --fees 1000000uhpx -b sync -o json -y)
+    if [ "${2:-}" = layerx-proposal ]; then
+        response=$("$PAXD" tx --chain-id "$CHAIN" gov "$@" --from validator --home "$NODE_HOME" \
+            --keyring-backend test --node "$NODE" \
+            --gas 2000000 --fees 1000000uhpx -b sync -o json -y)
+    else
+        response=$("$PAXD" tx gov "$@" --from validator --home "$NODE_HOME" \
+            --keyring-backend test --chain-id "$CHAIN" --node "$NODE" \
+            --gas 2000000 --fees 1000000uhpx -b sync -o json -y)
+    fi
     jq -e '(.code // 0) == 0 and (.txhash | test("^[0-9A-Fa-f]{64}$"))' \
         <<< "$response" >/dev/null || fail "governance broadcast rejected: $response"
     hash=$(jq -r '.txhash' <<< "$response")
@@ -124,26 +153,37 @@ governance_tx() {
 }
 
 activate_merge() {
-    local height info proposal applied deadline=$((SECONDS + 120))
+    local height activation_height current info proposal applied deadline=$((SECONDS + 120))
     height=$(rpc eth_blockNumber | jq -er '.result')
+    current=$height
+    while [ "$current" = "$height" ]; do
+        (( SECONDS < deadline )) || fail "sequencer did not advance before merge activation"
+        sleep 0.2
+        current=$(rpc eth_blockNumber | jq -er '.result')
+    done
+    height=$current
     height=$((height + 20))
-    info=$(python3 - "$NODE_HOME/config/priv_validator_key.json" "$height" <<'PY'
+    activation_height=$(jq -er '.app_state.sequencer.activation_height' "$GENESIS")
+    info=$(python3 - "$NODE_HOME/config/priv_validator_key.json" "$height" "$activation_height" \
+        "$(jq -er '.public_key' "$NODE_HOME/receipt-public.json")" <<'PY'
 import base64
 import hashlib
 import json
 import sys
 with open(sys.argv[1]) as handle:
     public_key = json.load(handle)['pub_key']['value']
+receipt_public = base64.b64encode(bytes.fromhex(sys.argv[4].removeprefix('0x'))).decode()
 print(json.dumps({
     'upgradeType': 'minor',
     'leaders': [public_key],
     'receipt_keys': [{
-        'key_id': base64.b64encode(hashlib.sha256(base64.b64decode(public_key)).digest()).decode(),
-        'public_key': public_key,
-        'first_height': int(sys.argv[2]) + 1,
+        'key_id': base64.b64encode(hashlib.sha256(base64.b64decode(receipt_public)).digest()).decode(),
+        'public_key': receipt_public,
+        'first_height': 1,
         'last_height': 9223372036854775807,
     }],
     'last_seq': 0,
+    'activation_height': int(sys.argv[3]),
 }))
 PY
 )
@@ -166,6 +206,47 @@ PY
         sleep 0.5
     done
     require_merge_precompiles
+}
+
+configure_xweb() {
+    local params proposal_file proposal deadline
+    params=$("$PAXD" q xweb params --node "$NODE" -o json)
+    jq -e '.params.authority and .params.fee and .params.max_payload_bytes and
+        .params.max_callback_gas and .params.timeout_blocks' <<< "$params" >/dev/null \
+        || fail "xweb parameters are unavailable"
+    proposal_file="$NODE_HOME/xweb-program-settings.json"
+    jq -n \
+        --arg authority "$(jq -er '.params.authority' <<< "$params")" \
+        --arg fee "$(jq -er '.params.fee' <<< "$params")" \
+        --argjson payload "$(jq -er '.params.max_payload_bytes' <<< "$params")" \
+        --argjson callback "$(jq -er '.params.max_callback_gas' <<< "$params")" \
+        --argjson timeout "$(jq -er '.params.timeout_blocks' <<< "$params")" \
+        '{"@type":"/paxprotocol.paxchain.layerxgov.LayerXProposal",
+          title:"Configure xweb program settings",
+          description:"Set the local kernel network identity and supported program fee denoms.",
+          messages:[{"@type":"/paxprotocol.paxchain.xweb.MsgSetParams",
+            authority:$authority, fee:$fee, max_payload_bytes:$payload,
+            max_callback_gas:$callback, timeout_blocks:$timeout,
+            kernel_network_id:125, program_fee_denoms:["uhpx","usid","uusdc","uusdl"]},
+            {"@type":"/paxprotocol.paxchain.xweb.MsgUnpause", authority:$authority}]}' \
+        > "$proposal_file"
+    governance_tx submit-proposal layerx-proposal "$proposal_file" --deposit 10000000uhpx
+    proposal=$("$PAXD" q gov proposals --node "$NODE" -o json | jq -er \
+        '.proposals[] | select(.content.title == "Configure xweb program settings") | .proposal_id' | tail -n 1)
+    governance_tx vote "$proposal" yes
+    deadline=$((SECONDS + 90))
+    while :; do
+        kill -0 "$(cat "$NODE_HOME/node.pid")" 2>/dev/null || fail "node exited: $NODE_HOME/node.log"
+        if params=$("$PAXD" q xweb params --node "$NODE" -o json 2>/dev/null) \
+            && jq -e '.params.kernel_network_id == 125 and
+                (.params.program_fee_denoms | sort) == ["uhpx","usid","uusdc","uusdl"]' <<< "$params" >/dev/null; then
+            break
+        fi
+        if (( SECONDS >= deadline )); then
+            fail "xweb program settings did not become active: $NODE_HOME/xweb-program-settings.json"
+        fi
+        sleep 0.5
+    done
 }
 
 wait_receipt() {
@@ -538,18 +619,7 @@ if [ "$SEQUENCER" = 1 ]; then
         "$PAXD" add-genesis-receipt-key --home "$NODE_HOME" --public-key "$public" \
             --first-height 1 --last-height 9223372036854775807 >> "$NODE_HOME/init.log" 2>&1
     done
-    for home in "$NODE_HOME"; do
-        public=$(python3 - "$home/config/priv_validator_key.json" <<'PYKEY'
-import base64
-import json
-import sys
-with open(sys.argv[1]) as handle:
-    print(base64.b64decode(json.load(handle)['pub_key']['value'], validate=True).hex())
-PYKEY
-        )
-        "$PAXD" add-genesis-sequencer-leader --home "$NODE_HOME" --pubkey "$public" >> "$NODE_HOME/init.log" 2>&1
-    done
-    jq '.app_state.sequencer.activation_height = ((.initial_height | tonumber) + 2)' \
+    jq '.app_state.sequencer.activation_height = 0 | .app_state.sequencer.leaders = []' \
         "$GENESIS" > "$GENESIS.tmp"
     mv "$GENESIS.tmp" "$GENESIS"
     python3 - "$GENESIS" "$NODE_HOME/config/priv_validator_key.json" <<'PYIDENTITY'
@@ -578,7 +648,7 @@ if (primary['address'] != address
         or staking['last_validator_powers'] != [
             {'address': primary_validator['operator_address'], 'power': str(primary_power)}]
         or int(staking['last_total_power']) != primary_power
-        or genesis['app_state']['sequencer']['leaders'] != [public]):
+        or (genesis['app_state']['sequencer'].get('leaders') or []) != []):
     raise SystemExit('sequencer committee and leaders must contain only the primary')
 with open(sys.argv[1], 'w') as handle:
     json.dump(genesis, handle)
@@ -730,18 +800,11 @@ if [ "$SEQUENCER" = 1 ]; then
         nohup "$PAXD" start --home "$SYNC_HOME" > "$NODE_HOME/standby.log" 2>&1 < /dev/null &
         echo "$!" > "$NODE_HOME/standby.pid"
     fi
-    for home in "$NODE_HOME" "$BOOTSTRAP_HOME"; do
-        set_toml "$home/config/config.toml" consensus.sequencer enable true
-    done
+    set_toml "$NODE_HOME/config/config.toml" consensus.sequencer enable false
     set_toml "$NODE_HOME/config/config.toml" rpc pprof-laddr "\"127.0.0.1:$PRIMARY_PROFILE_PORT\""
     nohup "$PAXD" start --home "$BOOTSTRAP_HOME" >> "$NODE_HOME/bootstrap-peer.log" 2>&1 < /dev/null &
     echo "$!" > "$NODE_HOME/bootstrap-peer.pid"
-    export PAX_LOG_LEVEL=info PAX_LOG_OUTPUT=stderr
-    SEQUENCER_ARGS=(--log_level info --sequencer.enable --sequencer.mode sequential
-        --sequencer.replication-timeout 10s --sequencer.lease-duration 30s
-        --sequencer.nonce-queue-max-per-sender 16 --sequencer.nonce-queue-max-total 128)
-    SEQUENCER_ARGS+=(--sequencer.role primary --sequencer.wal-dir "$NODE_HOME/sequencer-wal"
-        --sequencer.receipt-key-file "$NODE_HOME/config/receipt-key.hex")
+    SEQUENCER_ARGS=()
 fi
 nohup "$PAXD" start --home "$NODE_HOME" "${SEQUENCER_ARGS[@]}" > "$NODE_HOME/node.log" 2>&1 < /dev/null &
 echo "$!" > "$NODE_HOME/node.pid"
@@ -792,6 +855,11 @@ PYCOMMITTEE
         stop_node "$NODE_HOME" bootstrap-peer
     fi
 fi
+if [ "$SEQUENCER" = 1 ]; then
+    activate_merge
+    enable_sequencer
+fi
+configure_xweb
 printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
 evm_call deployer "$USDL" "$MINT_DATA"
 PERPS=0x0000000000000000000000000000000000001015
