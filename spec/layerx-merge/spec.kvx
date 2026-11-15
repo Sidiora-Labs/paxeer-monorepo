@@ -174425,7 +174425,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.21]
 title = "Bring the home, explore, create, profile, bounty, leaderboard and community views of the launchpad to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.19"]
