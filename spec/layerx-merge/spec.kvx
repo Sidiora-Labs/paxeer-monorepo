@@ -198075,7 +198075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.639]
 title = "Add the composer of the launchpad startup documents with the budget and expected schema documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
