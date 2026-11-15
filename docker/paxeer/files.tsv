@@ -1,0 +1,2 @@
+LAYERX_PAXEER_BOUNDARY_TLS_CERT_B64	/run/layerx-paxeer/cert.der	0600	*
+LAYERX_PAXEER_BOUNDARY_TLS_KEY_B64	/run/layerx-paxeer/key.der	0600	*

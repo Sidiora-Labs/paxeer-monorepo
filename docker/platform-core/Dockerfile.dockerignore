@@ -21,6 +21,11 @@ consensus
 custodyproof
 daemon
 docker
+!docker/
+!docker/common/
+!docker/common/env-files.sh
+!docker/platform-core/
+!docker/platform-core/files.tsv
 engine
 tests/fixtures/example
 hpx

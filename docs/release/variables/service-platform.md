@@ -462,6 +462,7 @@ The root `.env.example` inventories the components together; select the settings
 | `PRICE_SIDECAR_FEED_KEY_FILE` | Feed key file; path to protected secret material. | None | No; secret file path | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
 | `PRICE_SIDECAR_STATE_DIR` | State directory. | None | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
 | `RAILWAY_SERVICE_NAME` | Railway service name. | None | No | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
+| `RAILWAY_RUN_UID` | Railway volume runtime user ID; the perps NATS services run as user 0 so they can write `/data`. | 0 | No | [deploy/railway-perps-project.kvx](../../../deploy/railway-perps-project.kvx) |
 | `RAMP_ACTOR_DID` | Actor did. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |
 | `RAMP_CLIENT_TIMEOUT_SECONDS` | Client timeout seconds. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |
 | `RAMP_COMPLIANCE_ENDPOINT` | Compliance endpoint. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |

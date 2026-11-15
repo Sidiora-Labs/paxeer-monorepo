@@ -1,0 +1,29 @@
+[service.human]
+kind = "repo"
+dockerfile = "docker/human-service/Dockerfile"
+root = "/"
+# The build copies the repository root, including the Rust workspaces and CLI.
+watch = ["/**"]
+health = "/readyz"
+restart = "ALWAYS"
+replicas = 1
+public = 1
+order = 1
+needs = []
+# The HTTP process needs a host-mounted Unix component socket with local peer credentials.
+target = "other"
+
+# The default container role is the stateless HTTP listener; its component stores live with the component process.
+[vars.human]
+CARGO_BUILD_JOBS = "4"
+PORT = "8080"
+LAYERX_HUMAN_BIND = "0.0.0.0:${{PORT}}"
+LAYERX_HUMAN_LISTENER = "plain"
+LAYERX_HUMAN_COMPONENT_SOCKET = "env:PLATFORM_HUMAN_LAYERX_HUMAN_COMPONENT_SOCKET"
+LAYERX_HUMAN_WEB_ORIGIN = "env:PLATFORM_HUMAN_LAYERX_HUMAN_WEB_ORIGIN"
+
+[inputs.human]
+# Absolute filesystem path to the co-located component server's Unix socket, accessible to UID 4020.
+PLATFORM_HUMAN_LAYERX_HUMAN_COMPONENT_SOCKET = "operator"
+# Comma-separated bare HTTPS browser origins, with no trailing slash, path, query or fragment.
+PLATFORM_HUMAN_LAYERX_HUMAN_WEB_ORIGIN = "operator"

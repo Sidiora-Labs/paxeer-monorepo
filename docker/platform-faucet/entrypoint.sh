@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+chown -R 4020:4020 /run/layerx
+
+if [ -z "${LAYERX_FAUCET_LISTEN:-}" ]; then
+	LAYERX_FAUCET_LISTEN="[::]:${PORT:-9443}"
+	export LAYERX_FAUCET_LISTEN
+fi
+
+LAYERX_FAUCET_TLS_CERT_DER=/run/layerx/tls/server.der
+LAYERX_FAUCET_TLS_KEY_DER=/run/layerx/tls/server-key.der
+LAYERX_OUTBOUND_CA_DER=/run/layerx/ca/outbound.der
+LAYERX_IDENTITY_SERVICE_TOKEN_FILE=/run/layerx/tokens/identity
+LAYERX_FAUCET_SERVICE_CLAIM_TOKEN_FILE=/run/layerx/tokens/service-claim
+LAYERX_TESTNET_ADMIN_TOKEN_FILE=/run/layerx/tokens/testnet-admin
+LAYERX_FAUCET_REDIS_USERNAME_FILE=/run/layerx/redis/username
+LAYERX_FAUCET_REDIS_PASSWORD_FILE=/run/layerx/redis/password
+export LAYERX_FAUCET_TLS_CERT_DER LAYERX_FAUCET_TLS_KEY_DER LAYERX_OUTBOUND_CA_DER \
+	LAYERX_IDENTITY_SERVICE_TOKEN_FILE LAYERX_FAUCET_SERVICE_CLAIM_TOKEN_FILE \
+	LAYERX_TESTNET_ADMIN_TOKEN_FILE LAYERX_FAUCET_REDIS_USERNAME_FILE \
+	LAYERX_FAUCET_REDIS_PASSWORD_FILE
+
+exec su-exec 4020:4020 /usr/local/bin/layerx-faucet
