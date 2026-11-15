@@ -1,0 +1,35 @@
+[metadata]
+pipeline = "sdk/platform/pipeline.kvx"
+description = "The SDK pipeline records the current schema, generator inputs, generated texts and shipped handwritten files."
+
+[source.human-api]
+root = "services/human/schema/human-api"
+digest = "f0e78fd42bc81ac6a2be6d378ddffa18fbf79ac1501494397142fc55d63d793f"
+description = "The source digest covers the current Human API schema texts."
+
+[generator.agent-sdk-gen]
+root = "services/agent/tools/sdk-gen"
+digest = "e069a6e704f29b4389015827c437e1a144a748bfbaebbc130012e73dc15aff4d"
+description = "The generator digest covers its current manifest, dependency lock, source and templates."
+
+[generator.human-api-gen]
+root = "services/human/tools/api-gen"
+digest = "c5b03569e351b6b1dabc0da83c8e6080acc83230e1fbc03aec5dcd1c9f936aa9"
+description = "The generator digest covers its current manifest, dependency lock and source."
+
+[output.agent-compatibility]
+path = "services/agent/sdk/COMPATIBILITY.md"
+digest = "248946d5364f94571d884b65565bb7a0d060b0da733d267e956fb8942150a9bb"
+description = "The output digest covers the current SDK compatibility text."
+
+[output.human-typescript]
+path = "apps/web/src/api/generated/index.ts"
+digest = "40d48b9b75af614aa26ad5168631e30b86b42ee2f3b5b976ee3fbbad9e2e3687"
+description = "The output digest covers the TypeScript declarations emitted from the current Human API schema."
+
+[handwritten]
+outputs = ["agent-api-rust", "agent-rust", "agent-compatibility", "platform-jvm"]
+description = "Handwritten declarations list shipped files in sorted order and omit absent paths."
+rust_fixture = "services/agent/crates/layerx-sdk/src/committed_receipt_fixture/committed.json"
+typescript_fixtures = "services/agent/sdk/typescript/test/fixtures/recorded-payment-evidence"
+fixture_files = ["client-exchange.json", "committed.json", "draw-recovery.json", "gateway-metered.json", "provenance.json"]

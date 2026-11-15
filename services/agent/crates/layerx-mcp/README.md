@@ -133,20 +133,56 @@ present, and standard input/output otherwise. The CLI serves standard
 input/output and may further narrow tools with `--read-only`. Both paths
 authenticate the session and retrieve the live catalogue before serving it.
 
-The binding is a closed JSON object. Its required top-level fields are:
+The binding is a closed JSON object. This example uses public illustrative identifiers and operator-provisioned paths:
+
+```json
+{
+  "mode": "full",
+  "tenant": "beta",
+  "store": "/var/lib/layerx/agentd/store",
+  "audit_root": "/var/lib/layerx/agentd/audit",
+  "session_id": "0707070707070707070707070707070707070707070707070707070707070707",
+  "session_token_file": "/etc/layerx/mcp-session-token",
+  "session_generation": 1,
+  "capability_id": "0909090909090909090909090909090909090909090909090909090909090909",
+  "core_height": 120,
+  "deadline_ms": 10000,
+  "agent": {
+    "endpoint": "127.0.0.1:8081",
+    "bearer_file": "/etc/layerx/agentd-bearer",
+    "probe_program": "5555555555555555555555555555555555555555555555555555555555555555",
+    "readiness": {
+      "endpoint": "https://gateway.example.invalid",
+      "gateway_key_file": "/etc/layerx/mcp-gateway-key"
+    }
+  },
+  "limit": {
+    "id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+    "name": "mcp",
+    "scope": "tenant",
+    "scope_id": "0101010101010101010101010101010101010101010101010101010101010101",
+    "ceiling": "1000",
+    "consumed": "0"
+  }
+}
+```
+
+The examples are kept in sync with the binding parser and served catalogue.
+
+Its required top-level fields are:
 
 | Field | Value |
 | --- | --- |
-| `mode` | `full` or `read-only` |
-| `tenant` | Session tenant name |
-| `store`, `audit_root` | Absolute paths to the owner's store and audit directory |
-| `session_id`, `capability_id` | Session and capability identifiers, each 32 bytes encoded as 64 hex characters |
-| `session_token_file` | Absolute path to the protected session token file |
-| `session_generation` | Unsigned session generation |
-| `core_height` | Unsigned height used by local owner operations |
-| `deadline_ms` | Positive unsigned deadline in milliseconds |
-| `agent` | Programs and gateway connection fields described below |
-| `limit` | Local spending limit fields described below |
+| Field `mode` | `full` or `read-only` |
+| Field `tenant` | Session tenant name |
+| Field `store`, `audit_root` | Absolute paths to the owner's store and audit directory |
+| Field `session_id`, `capability_id` | Session and capability identifiers, each 32 bytes encoded as 64 hex characters |
+| Field `session_token_file` | Absolute path to the protected session token file |
+| Field `session_generation` | Unsigned session generation |
+| Field `core_height` | Unsigned height used by local owner operations |
+| Field `deadline_ms` | Positive unsigned deadline in milliseconds |
+| Field `agent` | Programs and gateway connection fields described below |
+| Field `limit` | Local spending limit fields described below |
 
 The required `agent` fields are `endpoint`, `bearer_file` and `probe_program`.
 They identify the local IPv4 loopback Programs surface, its protected bearer
@@ -178,12 +214,24 @@ contents stay in their protected files.
 For a socket deployment, the optional top-level `listener` object has exactly
 these fields:
 
+```json
+{
+  "listener": {
+    "socket": "/run/layerx/mcp.sock",
+    "owner_uid": 0,
+    "owner_gid": 0,
+    "mode": "660",
+    "admitted_uids": [0]
+  }
+}
+```
+
 | Field | Value |
 | --- | --- |
-| `socket` | Absolute normalized Unix socket path inside a dedicated directory |
-| `owner_uid`, `owner_gid` | Unsigned 32-bit owner identifiers |
-| `mode` | Octal string granting owner read/write and optional group read/write, bounded by `600` and `660` |
-| `admitted_uids` | Array of 1 through 64 distinct unsigned 32-bit peer UIDs |
+| Field `socket` | Absolute normalized Unix socket path inside a dedicated directory |
+| Field `owner_uid`, `owner_gid` | Unsigned 32-bit owner identifiers |
+| Field `mode` | Octal string granting owner read/write and optional group read/write, bounded by `600` and `660` |
+| Field `admitted_uids` | Array of 1 through 64 distinct unsigned 32-bit peer UIDs |
 
 The canonical parent directory has the declared ownership and permits no
 group-write or world access.
@@ -194,17 +242,42 @@ The owner's full session needs a `web` section and an attached payer and
 approval registry to serve web scopes. The daemon host loads payer
 configuration through `LAYERX_AGENTD_MCP_PAYERS`. The `web` object requires:
 
+```json
+{
+  "web": {
+    "endpoint": "http://127.0.0.1:8090",
+    "payer_address": "0xabababababababababababababababababababab",
+    "receiver_address": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "network": "eip155:125",
+    "receipt_key_index": [
+      {
+        "keyId": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+        "publicKey": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "firstHeight": 1,
+        "lastHeight": 1000
+      }
+    ],
+    "sequencer_id": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+    "first_batch_number": 120,
+    "last_batch_number": 120,
+    "timeout_ms": 10000,
+    "pending_attempts": 3,
+    "approval_threshold": "1000"
+  }
+}
+```
+
 | Field | Value |
 | --- | --- |
-| `endpoint` | Configured x-websearch sidecar endpoint |
-| `payer_address`, `receiver_address` | EVM payment addresses encoded as `0x` plus 40 hex characters |
-| `network` | EIP-155 network identifier, `eip155:125` for mainnet-beta |
-| `receipt_key_index` | Independently obtained receipt key authorizations |
-| `sequencer_id` | Selected nonzero receipt key identifier, encoded as 64 hex characters |
-| `first_batch_number`, `last_batch_number` | Selected unsigned receipt height interval, with first no greater than last |
-| `timeout_ms` | Unsigned timeout from 1 through 60,000 milliseconds |
-| `pending_attempts` | Unsigned attempt count from 1 through 10 |
-| `approval_threshold` | Decimal string representing an unsigned 128-bit amount |
+| Field `endpoint` | Configured x-websearch sidecar endpoint |
+| Field `payer_address`, `receiver_address` | EVM payment addresses encoded as `0x` plus 40 hex characters |
+| Field `network` | EIP-155 network identifier, `eip155:125` for mainnet-beta |
+| Field `receipt_key_index` | Independently obtained receipt key authorizations |
+| Field `sequencer_id` | Selected nonzero receipt key identifier, encoded as 64 hex characters |
+| Field `first_batch_number`, `last_batch_number` | Selected unsigned receipt height interval, with first no greater than last |
+| Field `timeout_ms` | Unsigned timeout from 1 through 60,000 milliseconds |
+| Field `pending_attempts` | Unsigned attempt count from 1 through 10 |
+| Field `approval_threshold` | Decimal string representing an unsigned 128-bit amount |
 
 The key index contains 1 through 64 entries with unique nonzero key IDs and
 nonzero public keys. Each entry has exactly `keyId`, `publicKey`, `firstHeight`

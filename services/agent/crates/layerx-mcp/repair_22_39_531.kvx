@@ -1,0 +1,11 @@
+[native_reads]
+rule = "The disposable native-read node inherits PAXD so its producer uses the node binary supplied by the test target."
+changed_files = ["services/agent/crates/layerx-mcp/tests/support/native_reads.rs"]
+
+[ledger_sequences]
+rule = "Ledger nextSequence reads take the receiver account identifier and asset. Sequence observations preserve their recorded results and use the receiver account carried by the canonical grant for that asset."
+changed_files = ["services/agent/crates/layerx-mcp/tests/support/node_recording.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs"]
+
+[documentation_examples]
+rule = "Binding examples use the current core height, readiness, listener and receipt-key fields, while catalogue rows retain the four-column tool contract used by the served definitions."
+changed_files = ["services/agent/crates/layerx-mcp/README.md"]

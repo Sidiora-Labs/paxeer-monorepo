@@ -161,7 +161,17 @@ fn lifecycle_abi_round_trips_signed_chain_125_transactions() {
             [0; 20]
         );
         assert_eq!(request.bound_activity_id(), transaction_hash(&signed));
-        assert_eq!(request.bound_idempotency_key(), transaction_hash(&signed));
+        let expected_key: [u8; 32] = {
+            use sha2::{Digest as _, Sha256};
+            Sha256::new()
+                .chain_update(b"layerxprograms/idempotency/v1")
+                .chain_update(transaction_hash(&signed))
+                .chain_update(0_u32.to_be_bytes())
+                .chain_update(&call.data[..4])
+                .finalize()
+                .into()
+        };
+        assert_eq!(request.bound_idempotency_key(), expected_key);
         assert!(bind(
             &fixture,
             &transaction(payload.clone())

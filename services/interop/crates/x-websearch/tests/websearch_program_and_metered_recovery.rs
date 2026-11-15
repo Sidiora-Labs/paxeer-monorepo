@@ -1,3 +1,6 @@
+#[path = "support/ledger_assets.rs"]
+mod ledger_assets;
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -521,16 +524,23 @@ impl LedgerTranscript {
                     return Ok(requests);
                 }
                 let request = read_rpc(&mut stream).map_err(|e| e.to_string())?;
-                let exchange = exchanges
-                    .iter()
-                    .find(|exchange| {
-                        exchange["method"] == request["method"]
-                            && exchange["params"] == request["params"]
-                    })
-                    .ok_or_else(|| format!("unrecorded ledger request: {request}"))?;
-                let body = json!({"jsonrpc":"2.0", "id":request["id"],
-                    "result":exchange["result"]})
-                .to_string();
+                let result = if let Some(result) = (request["method"] == "eth_call")
+                    .then(|| ledger_assets::get_asset_answer(&request["params"]))
+                    .flatten()
+                {
+                    result
+                } else {
+                    exchanges
+                        .iter()
+                        .find(|exchange| {
+                            exchange["method"] == request["method"]
+                                && exchange["params"] == request["params"]
+                        })
+                        .ok_or_else(|| format!("unrecorded ledger request: {request}"))?["result"]
+                        .clone()
+                };
+                let body =
+                    json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
                 write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
                     .map_err(|e| e.to_string())?;
                 requests.push(request);

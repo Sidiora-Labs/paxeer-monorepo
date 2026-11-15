@@ -1,0 +1,5 @@
+[repair]
+rule = "Vector conformance uses the tracked codec inputs and the repository's replay generator to create the current corpus before loading it; the loader and version-rejection case read that generated codec path, and the corpus keeps retired budget pull excluded while preserving all accounting and rejection assertions."
+changed_files = [
+    "services/agent/crates/layerx-types/tests/vectors.rs",
+]

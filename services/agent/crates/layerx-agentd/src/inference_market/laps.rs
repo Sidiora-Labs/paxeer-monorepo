@@ -191,6 +191,9 @@ struct LapSession {
 
 pub trait LapTransport {
     fn state(&mut self) -> Result<Vec<u8>, LapError>;
+    fn height(&mut self) -> Result<Option<u64>, LapError> {
+        Ok(None)
+    }
     fn submit(&mut self, operation: &MarketOperation) -> Result<(), LapError>;
     fn meter(&mut self, report: &MeterReport) -> Result<bool, LapError>;
 }
@@ -216,6 +219,50 @@ pub struct LapEngine {
     session: LapSession,
     path: PathBuf,
 }
+
+#[derive(Debug, Eq, PartialEq)]
+enum BatchStage {
+    Seal,
+    AwaitCanaries,
+    Settle,
+    Meter,
+}
+
+impl BatchStage {
+    fn next(sealed: bool, settled: bool, canaries_ready: bool) -> Self {
+        if !sealed {
+            Self::Seal
+        } else if !canaries_ready {
+            Self::AwaitCanaries
+        } else if !settled {
+            Self::Settle
+        } else {
+            Self::Meter
+        }
+    }
+}
+
+#[cfg(test)]
+mod batch_stage_tests {
+    use super::BatchStage;
+
+    #[test]
+    fn batch_seals_before_canary_resolution_and_settles_after_it() {
+        assert_eq!(BatchStage::next(false, false, false), BatchStage::Seal);
+        assert_eq!(BatchStage::next(false, false, true), BatchStage::Seal);
+        assert_eq!(
+            BatchStage::next(true, false, false),
+            BatchStage::AwaitCanaries
+        );
+        assert_eq!(BatchStage::next(true, false, true), BatchStage::Settle);
+        assert_eq!(
+            BatchStage::next(true, true, false),
+            BatchStage::AwaitCanaries
+        );
+        assert_eq!(BatchStage::next(true, true, true), BatchStage::Meter);
+    }
+}
+
 impl LapEngine {
     pub fn open(
         path: &Path,
@@ -620,10 +667,19 @@ impl LapEngine {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(ReceiptBatch::from_receipts(&receipts)?)
     }
+    #[cfg(test)]
     pub fn seal_and_settle(
         &mut self,
         transport: &mut impl LapTransport,
         host: &HostMeterKey,
+    ) -> Result<bool, LapError> {
+        self.advance_batch(transport, host, true)
+    }
+    pub fn advance_batch(
+        &mut self,
+        transport: &mut impl LapTransport,
+        host: &HostMeterKey,
+        canaries_ready: bool,
     ) -> Result<bool, LapError> {
         if !self.ready_to_settle() {
             return Ok(false);
@@ -655,10 +711,38 @@ impl LapEngine {
             .artifact_manifest
             .as_ref()
             .ok_or(LapError::Invalid("no manifest"))?;
-        match evidence::require_sealed_artifact_chunk_root(&shared, frozen.epoch, manifest, &batch)
-        {
-            Ok(_) => {}
-            Err(error) if error == market::errors::F11_BATCH_UNSEALED => {
+        let sealed = match evidence::require_sealed_artifact_chunk_root(
+            &shared,
+            frozen.epoch,
+            manifest,
+            &batch,
+        ) {
+            Ok(_) => true,
+            Err(error) if error == market::errors::F11_BATCH_UNSEALED => false,
+            Err(error) => return Err(error.into()),
+        };
+        let settled = match market::laps::settlement_from_state(&bytes, batch.deal_id)? {
+            Some(settled) if settled.batch == batch => true,
+            Some(settled) if settled.batch.last_lap_index >= batch.first_lap_index => {
+                return Err(LapError::Invalid("conflicting on-chain settlement"))
+            }
+            _ => false,
+        };
+        match BatchStage::next(sealed, settled, canaries_ready) {
+            BatchStage::Seal => {
+                if let Some(height) = transport.height()? {
+                    let window = market::commit_reveal::canary_window(
+                        policy.header.origin_height,
+                        frozen.epoch,
+                        false,
+                    )?;
+                    if height < window.start {
+                        return Ok(false);
+                    }
+                    if height >= window.end {
+                        return Err(LapError::Invalid("evidence seal window closed"));
+                    }
+                }
                 let root = evidence::manifest_root(manifest)
                     .map_err(|_| LapError::Invalid("manifest root"))?;
                 let mut payload = 1_u16.to_be_bytes().to_vec();
@@ -674,20 +758,15 @@ impl LapEngine {
                 transport.submit(&client::seal_evidence(&payload)?)?;
                 return Ok(false);
             }
-            Err(error) => return Err(error.into()),
-        }
-        match market::laps::settlement_from_state(&bytes, batch.deal_id)? {
-            Some(settled) if settled.batch == batch => {}
-            Some(settled) if settled.batch.last_lap_index >= batch.first_lap_index => {
-                return Err(LapError::Invalid("conflicting on-chain settlement"))
-            }
-            _ => {
+            BatchStage::AwaitCanaries => return Ok(false),
+            BatchStage::Settle => {
                 transport.submit(&client::settle_laps(&SettleLapsRequest {
                     batch,
                     artifact_manifest: manifest,
                 })?)?;
                 return Ok(false);
             }
+            BatchStage::Meter => {}
         }
         self.archive_batch(&batch)?;
         if !self.report_meter(transport, host)? {
