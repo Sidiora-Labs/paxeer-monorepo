@@ -6,22 +6,112 @@
 
 @layer base {
   html {
+    box-sizing: border-box;
+    min-inline-size: 100%;
+    scrollbar-gutter: stable;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    text-wrap: pretty;
   }
-  body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-sans);
-  }
-}
 
-@media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+    box-sizing: inherit;
+  }
+
+  body {
+    min-block-size: 100dvh;
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    overflow-wrap: anywhere;
+  }
+
+  :where(button, input, select, textarea) {
+    font: inherit;
+    font-size: max(1rem, 1em);
+  }
+
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: var(--focus-ring-width) solid var(--accent-strong);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  :where(img, svg, video, canvas) {
+    display: block;
+    max-inline-size: 100%;
+  }
+
+  :where(table, [data-numeric], .tabular-nums) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :where(pre, code) {
+    overflow-wrap: anywhere;
+  }
+
+  :where(input, select, textarea) {
+    accent-color: var(--accent);
+  }
+}
+
+@layer components {
+  .human-table-scroll {
+    max-inline-size: 100%;
+    overflow: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .human-table-scroll:focus-visible {
+    outline: var(--focus-ring-width) solid var(--accent-strong);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  .human-data-table {
+    inline-size: 100%;
+    min-inline-size: max-content;
+  }
+
+  .human-data-table th,
+  .human-data-table td {
+    vertical-align: top;
+  }
+
+  .human-data-table thead {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+  }
+
+  /* Keep the support conversation usable as its host changes size. */
+  .human-support-shell-desktop {
+    position: fixed;
+    inset-block-end: var(--space-6);
+    inset-inline-end: var(--space-6);
+    z-index: 40;
+    display: flex;
+    inline-size: var(--space-notification-wide);
+    max-block-size: calc(100dvh - var(--space-20));
+    max-inline-size: calc(100vw - var(--space-12));
+    flex-direction: column;
+  }
+
+  .human-support-bubble {
+    max-inline-size: var(--space-notification-wide);
+  }
+
+  .human-support-history {
+    max-block-size: var(--space-notification);
+  }
+}
+
+@media (forced-colors: active) {
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: var(--focus-ring-width) solid CanvasText;
   }
 }

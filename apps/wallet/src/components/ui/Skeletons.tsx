@@ -4,7 +4,7 @@
 // Uses the .shimmer utility class from globals.css
 
 function Shimmer({ className = '' }: { className?: string }) {
-  return <div className={`shimmer rounded-lg ${className}`} />;
+  return <div className={`shimmer max-w-full rounded-lg ${className}`} />;
 }
 
 // ── Portfolio skeleton ───────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ export function PortfolioSkeleton() {
       </div>
 
       {/* Action buttons */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--space-16)),1fr))] gap-2">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex flex-col items-center gap-1.5">
             <Shimmer className="h-11 w-11 rounded-2xl" />
@@ -155,6 +155,12 @@ export function DiscoverRankingSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 // ── Single-line text skeleton (inline) ──────────────────────────────────────
-export function TextSkeleton({ width = 'w-24', height = 'h-3.5' }: { width?: string; height?: string }) {
-  return <div className={`shimmer rounded ${width} ${height}`} />;
+export function TextSkeleton({
+  width = 'w-24',
+  height = 'h-3.5',
+}: {
+  width?: string;
+  height?: string;
+}) {
+  return <div className={`shimmer max-w-full rounded ${width} ${height}`} />;
 }

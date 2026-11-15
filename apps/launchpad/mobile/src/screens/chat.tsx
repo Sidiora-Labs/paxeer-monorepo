@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Text } from 'react-native';
 import type { ChatConversation, ChatMessage } from '../runtime/routes/chat.ts';
 import { nativeRequestId } from '../platform/protected-storage.ts';
 import {
   Button,
+  Text,
   Card,
   ErrorNotice,
   Field,
@@ -12,13 +12,14 @@ import {
   showAction,
   useResource,
   useRetainedInput,
-  ui,
+  useSurface,
   type Runtime,
 } from '../navigation.tsx';
 type Row =
   | { kind: 'conversation'; value: ChatConversation }
   | { kind: 'message'; value: ChatMessage };
 export function Chat({ runtime }: { runtime: Runtime }) {
+  const { ui } = useSurface();
   const conversations = useResource(
     runtime,
     'conversations',
@@ -56,19 +57,24 @@ export function Chat({ runtime }: { runtime: Runtime }) {
       header={
         <>
           <ResourceStatus {...(room ? messages : conversations)} />
-          {error && <ErrorNotice message={error} />}{' '}
+          {error && <ErrorNotice message={error} />}
           {room && (
             <>
               <Button
                 label="Back to conversations"
                 onPress={() => setRoom('')}
               />
-              <Field label="Message" value={body} onChange={setBody} />
+              <Field
+                multiline
+                label="Message"
+                value={body}
+                onChange={setBody}
+              />
               <Button
                 label="Send message"
                 disabled={!body.trim() || messages.offline}
                 onPress={() =>
-                  void showAction(
+                  showAction(
                     async () => {
                       await runtime.services.sendMessage(
                         room,

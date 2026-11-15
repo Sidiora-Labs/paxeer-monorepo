@@ -14,7 +14,7 @@ export interface ModalProps {
 }
 
 /**
- * Desktop confirmation modal: centered, max 440px, rounded, Esc + overlay
+ * Desktop confirmation modal: centered, bounded, rounded, Esc + overlay
  * dismiss, focus-trapped (Radix Dialog).
  */
 export function Modal({ open, onOpenChange, children, portalContainer, className }: ModalProps) {

@@ -64,8 +64,8 @@ export function MarketTradeFeed({ pool, token, rows, watermark, contiguous, expl
       {newItems > 0 && <Chip pressed={false} onClick={reset} className="bg-accent-soft text-accent hover:bg-accent-soft-strong">Show {newItems} new trades</Chip>}
       <p role="status" className="ml-auto text-xs text-text-faint">{contiguous ? 'Live' : 'Catching up...'}</p>
     </div>
-    {matching.length ? <div data-market-scroller="fills" ref={scroller} className="max-h-[480px] overflow-auto" style={{ overflowAnchor: 'none' }} onScroll={event => setStart(Math.min(Math.max(0, matching.length - 1), Math.floor(event.currentTarget.scrollTop / rowHeight)))}>
-      <table className="w-full min-w-[720px] text-sm [&_td]:whitespace-nowrap [&_td]:px-3">
+    {matching.length ? <div data-market-scroller="fills" ref={scroller} role="region" aria-label="Trade history table" tabIndex={0} className="max-h-[var(--sl-list-max-height)] overflow-auto focus-visible:outline-2 focus-visible:outline-focus" style={{ overflowAnchor: 'none' }} onScroll={event => setStart(Math.min(Math.max(0, matching.length - 1), Math.floor(event.currentTarget.scrollTop / rowHeight)))}>
+      <table className="w-full min-w-[40rem] text-sm [&_td]:whitespace-nowrap [&_td]:px-3">
         <thead className="sticky top-0 z-[1] bg-surface-1"><tr>
           <SortHeader label="Block" />
           <SortHeader label="Type" />

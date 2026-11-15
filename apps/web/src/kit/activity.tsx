@@ -114,8 +114,8 @@ export function DesktopActivityFeed({ groups, onSelect, dateLabel, columns, amou
   );
 
   return (
-    <Card elevation="outline" padding="none" className="overflow-x-auto">
-      <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
+    <Card elevation="outline" padding="none" className="human-table-scroll" tabIndex={0}>
+      <table className="human-data-table border-collapse text-left text-sm">
         <thead className="bg-surface-sunken text-foreground-secondary">
           <tr>
             <th scope="col" aria-sort={activeSort === "activity" ? direction : "none"} className="border-b border-border px-4 py-2">{sortHeader("activity", columns.activity)}</th>

@@ -2,6 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 
 interface Props { params: Promise<{ poolAddress: string }>; }
 
+export const metadata = { title: 'Coin market' };
+
 /** Legacy pool route; coins live at /coin/[address]. */
 export default async function TokenMarketPage({ params }: Props) {
   const { poolAddress } = await params;

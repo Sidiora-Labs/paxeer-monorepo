@@ -1,0 +1,42 @@
+import { motionDurations } from './motion';
+
+export const surfaceTokens: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(
+    ['xs', 'sm', 'md', 'lg', 'xl'].map((step) => [
+      '--type-size-' + step,
+      `clamp(var(--font-size-${step}), calc(var(--font-size-${step}) + 0.05vw), calc(var(--font-size-${step}) * 1.125))`,
+    ])
+  ),
+  '--space-px': '1px',
+  '--space-1px': '1px',
+  '--font-size-2xl': 'clamp(2rem, 1.75rem + 0.5vw, 2.75rem)',
+  '--font-size-3xl': 'clamp(2.25rem, 2rem + 0.5vw, 3rem)',
+  '--font-size-display': 'clamp(2.25rem, 1.7rem + 2.2vw, 4rem)',
+  '--line-height-display': '1.08',
+  '--tracking-label': '0.06em',
+  '--size-icon-sm': '1rem',
+  '--size-icon-md': '1.25rem',
+  '--size-icon-lg': '1.5rem',
+  '--size-success-mark': '6.25rem',
+  '--size-slider-track': '0.375rem',
+  '--size-slider-thumb': '1.125rem',
+  '--offset-scan': '0.5rem',
+  '--motion-shimmer': `${motionDurations.shimmer}s`,
+  '--motion-scan': `${motionDurations.scan}s`,
+  '--safe-area-top': 'env(safe-area-inset-top, 0px)',
+  '--safe-area-bottom': 'env(safe-area-inset-bottom, 0px)',
+  '--safe-area-left': 'env(safe-area-inset-left, 0px)',
+  '--safe-area-right': 'env(safe-area-inset-right, 0px)',
+  '--color-focus-ring': 'var(--color-text-strong)',
+  '--color-icon': 'currentColor',
+  '--color-switch-thumb': 'var(--color-action-on-primary)',
+  '--size-scrollbar': '0.75rem',
+  '--size-focus-ring': '0.125rem',
+  '--offset-focus-ring': '0.1875rem',
+  '--size-dialog-max': '48rem',
+  '--size-dialog-width': '28rem',
+  '--size-glass-blur': '1.25rem',
+  '--space-bounce': '0.25rem',
+  '--space-typing': '0.3125rem',
+  '--scale-press': '0.97',
+};

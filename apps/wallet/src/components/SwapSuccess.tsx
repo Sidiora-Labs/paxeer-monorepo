@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ModalPanel } from '@/components/ui/primitives';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import Image from 'next/image';
 import { openExternalUrl } from '@/lib/security/navigation';
 import { isSwapReceiptResult, type SwapReceiptResult } from './swapReceiptResult';
+import { motionDurations, motionEase } from '@/theme/motion';
 
 const draw = {
   hidden: { pathLength: 0, opacity: 0 },
@@ -14,20 +16,20 @@ const draw = {
     opacity: 1,
     transition: {
       pathLength: {
-        delay: i * 0.2,
+        delay: i * motionDurations.normal,
         type: 'spring',
-        duration: 1.5,
+        duration: motionDurations.shimmer,
         bounce: 0.2,
-        ease: [0.22, 1, 0.36, 1],
+        ease: motionEase,
       },
-      opacity: { delay: i * 0.2, duration: 0.3 },
+      opacity: { delay: i * motionDurations.normal, duration: motionDurations.quick },
     },
   }),
 };
 
-function AnimatedCheckmark({ size = 80 }: { size?: number }) {
+function AnimatedCheckmark() {
   return (
-    <motion.svg animate="visible" height={size} initial="hidden" viewBox="0 0 100 100" width={size}>
+    <motion.svg animate="visible" className="h-20 w-20" initial="hidden" viewBox="0 0 100 100">
       <title>Success</title>
       <motion.circle
         custom={0}
@@ -107,24 +109,31 @@ export function SwapSuccess({
   const shortHash = txHash.length > 16 ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}` : txHash;
 
   return (
-    <div
+    <ModalPanel
+      onDismiss={() => {
+        if (phase === 'completed' || !verified) onDone();
+      }}
+      aria-label="Swap status"
       data-swap-quote={verified?.quoteId}
       data-swap-chain={verified?.chainId}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-pax-bg/95 backdrop-blur-sm px-6"
+      className="pax-result-panel fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-pax-bg backdrop-blur-sm px-6 py-6"
     >
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 'var(--space-5)' }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-sm flex flex-col items-center"
+        transition={{ duration: motionDurations.settle, ease: motionEase }}
+        className="my-auto w-full max-w-sm flex flex-col items-center"
       >
         {/* Icon */}
-        <div className="relative flex items-center justify-center h-[100px] w-[100px] mb-5">
+        <div className="relative flex items-center justify-center size-[var(--size-success-mark)] mb-5">
           <motion.div
             animate={{ opacity: [0, 0.8, 0.6] }}
-            className="absolute inset-0 rounded-full bg-emerald-500/10 blur-2xl"
+            className="absolute inset-0 rounded-full bg-pax-success-muted blur-2xl"
             initial={{ opacity: 0 }}
-            transition={{ duration: 1.5, times: [0, 0.5, 1] }}
+            transition={{
+              duration: motionDurations.shimmer,
+              times: [0, motionDurations.settle / motionDurations.shimmer, 1],
+            }}
           />
           <AnimatePresence mode="wait">
             {phase === 'completed' ? (
@@ -132,7 +141,7 @@ export function SwapSuccess({
                 key="check"
                 initial={{ opacity: 0, scale: 0.5, rotate: -90 }}
                 animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
+                transition={{ duration: motionDurations.settle, ease: motionEase }}
               >
                 <AnimatedCheckmark />
               </motion.div>
@@ -140,24 +149,19 @@ export function SwapSuccess({
               <motion.div
                 key="spinner"
                 exit={{ opacity: 0, scale: 0.5, rotate: 180 }}
-                transition={{ duration: 0.4 }}
+                transition={{ duration: motionDurations.fade }}
                 className="relative"
               >
                 <motion.div
                   animate={{ rotate: 360 }}
                   className="absolute inset-0 rounded-full  "
                   style={{}}
-                  transition={{ rotate: { duration: 2, repeat: Infinity, ease: 'linear' } }}
+                  transition={{
+                    rotate: { duration: motionDurations.scan, repeat: Infinity, ease: 'linear' },
+                  }}
                 />
                 <div className="rounded-full bg-pax-card p-4">
-                  <SvgIcon
-                    name="refresh"
-                    className="w-8 h-8"
-                    style={{
-                      filter:
-                        'invert(69%) sepia(61%) saturate(588%) hue-rotate(88deg) brightness(93%) contrast(93%)',
-                    }}
-                  />
+                  <SvgIcon name="refresh" className="w-8 h-8" />
                 </div>
               </motion.div>
             )}
@@ -168,10 +172,10 @@ export function SwapSuccess({
         <AnimatePresence mode="wait">
           <motion.h2
             key={phase}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 'var(--space-2-5)' }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.4 }}
+            exit={{ opacity: 0, y: 'calc(-1 * var(--space-2-5))' }}
+            transition={{ duration: motionDurations.fade }}
             className="text-lg font-bold mb-1"
           >
             {verified && phase === 'completed' ? 'Swap Completed' : 'Verifying Swap Output'}
@@ -181,11 +185,11 @@ export function SwapSuccess({
         <AnimatePresence mode="wait">
           <motion.p
             key={phase}
-            initial={{ opacity: 0, y: 5 }}
+            initial={{ opacity: 0, y: 'var(--space-1)' }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.3 }}
-            className="text-xs text-emerald-400 mb-5"
+            exit={{ opacity: 0, y: 'calc(-1 * var(--space-1))' }}
+            transition={{ duration: motionDurations.quick }}
+            className="text-xs text-pax-success mb-5"
           >
             {phase === 'completed' ? shortHash : 'Processing...'}
           </motion.p>
@@ -195,19 +199,19 @@ export function SwapSuccess({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
+          transition={{ delay: motionDurations.normal, duration: motionDurations.settle }}
           className="w-full"
         >
           <motion.div
-            animate={{ gap: phase === 'completed' ? '0px' : '8px' }}
+            animate={{ gap: phase === 'completed' ? 'var(--space-0)' : 'var(--space-2)' }}
             className="flex flex-col"
-            transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+            transition={{ duration: motionDurations.settle, ease: motionEase }}
           >
             {/* You pay */}
             <div
-              className={`glass-card p-3 transition-all duration-300 ${phase === 'completed' ? 'rounded-b-none ' : ''}`}
+              className={`glass-card p-3 transition-all duration-normal ${phase === 'completed' ? 'rounded-b-none ' : ''}`}
             >
-              <span className="flex items-center gap-1 text-[10px] text-pax-muted mb-1">
+              <span className="flex items-center gap-1 text-xs text-pax-muted mb-1">
                 <SvgIcon name="arrow-up" className="w-3 h-3" />{' '}
                 {verified ? 'You paid' : 'Quoted input'}
               </span>
@@ -216,7 +220,7 @@ export function SwapSuccess({
                   <Image
                     src={fromIconUrl}
                     alt={fromSymbol}
-                    className="h-7 w-7 rounded-full bg-white/10 object-cover"
+                    className="h-7 w-7 rounded-full bg-pax-control object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = '/wallet/default_icon.webp';
                     }}
@@ -224,15 +228,12 @@ export function SwapSuccess({
                     height={28}
                   />
                 ) : (
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-medium text-sm text-pax-accent">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-pax-control font-medium text-sm text-pax-accent">
                     {fromSymbol[0]}
                   </span>
                 )}
                 <div className="flex flex-col">
-                  <motion.span
-                    animate={{ opacity: phase === 'completed' ? 1 : 0.5 }}
-                    className="text-sm font-medium"
-                  >
+                  <motion.span animate={{ opacity: 1 }} className="text-sm font-medium">
                     {fromAmount} {fromSymbol}
                   </motion.span>
                 </div>
@@ -241,9 +242,9 @@ export function SwapSuccess({
 
             {/* You receive */}
             <div
-              className={`glass-card p-3 transition-all duration-300 ${phase === 'completed' ? 'rounded-t-none ' : ''}`}
+              className={`glass-card p-3 transition-all duration-normal ${phase === 'completed' ? 'rounded-t-none ' : ''}`}
             >
-              <span className="flex items-center gap-1 text-[10px] text-pax-muted mb-1">
+              <span className="flex items-center gap-1 text-xs text-pax-muted mb-1">
                 <SvgIcon name="arrow-down" className="w-3 h-3" />{' '}
                 {verified ? 'You received' : 'Estimated output'}
               </span>
@@ -252,7 +253,7 @@ export function SwapSuccess({
                   <Image
                     src={toIconUrl}
                     alt={toSymbol}
-                    className="h-7 w-7 rounded-full bg-white/10 object-cover"
+                    className="h-7 w-7 rounded-full bg-pax-control object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = '/wallet/default_icon.webp';
                     }}
@@ -260,14 +261,14 @@ export function SwapSuccess({
                     height={28}
                   />
                 ) : (
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-medium text-sm text-pax-accent">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-pax-control font-medium text-sm text-pax-accent">
                     {toSymbol[0]}
                   </span>
                 )}
                 <div className="flex flex-col">
                   <motion.span
-                    animate={{ opacity: phase === 'completed' ? 1 : 0.5 }}
-                    className="text-sm font-medium text-emerald-400"
+                    animate={{ opacity: 1 }}
+                    className="text-sm font-medium text-pax-success"
                   >
                     {toAmount} {toSymbol}
                   </motion.span>
@@ -287,10 +288,10 @@ export function SwapSuccess({
         <AnimatePresence>
           {(phase === 'completed' || !verified) && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 'var(--space-2-5)' }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.4 }}
-              className="flex gap-3 mt-6"
+              transition={{ delay: motionDurations.quick, duration: motionDurations.fade }}
+              className="flex flex-wrap justify-center gap-3 mt-6 w-full"
             >
               {(onExplorerView || explorerUrl) && (
                 <button
@@ -301,19 +302,14 @@ export function SwapSuccess({
                         ? openExternalUrl(explorerUrl)
                         : undefined
                   }
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
+                  className="flex flex-none items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-pax-control text-xs font-medium press-scale"
                 >
-                  <SvgIcon
-                    name="external-link"
-                    className="w-4 h-4"
-                    style={{ filter: 'brightness(0) invert(1)' }}
-                  />{' '}
-                  Explorer
+                  <SvgIcon name="external-link" className="w-4 h-4" /> Explorer
                 </button>
               )}
               <button
                 onClick={onDone}
-                className="px-6 py-2.5 rounded-xl bg-pax-accent text-black text-xs font-semibold press-scale"
+                className="flex-none px-6 py-2.5 rounded-xl bg-pax-accent text-pax-on-accent text-xs font-semibold press-scale"
               >
                 {verified ? 'Done' : 'Close'}
               </button>
@@ -321,6 +317,6 @@ export function SwapSuccess({
           )}
         </AnimatePresence>
       </motion.div>
-    </div>
+    </ModalPanel>
   );
 }

@@ -87,7 +87,7 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
         ) : null}
       </div>
 
-      <span title="Prices are shown in USDL" className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold uppercase tracking-[.04em] text-text-muted">USDL</span>
+      <span title="Prices are shown in USDL" className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold uppercase tracking-wider text-text-muted">USDL</span>
 
       <div role="status" aria-live="polite" className="ml-auto flex items-center gap-2 text-xs text-text-faint">
         <span className={cn('inline-flex items-center gap-1.5', live && 'text-success')}>

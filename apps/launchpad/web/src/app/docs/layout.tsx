@@ -6,11 +6,11 @@ import { DOC_LINKS } from './doc-links';
 export default function DocsLayout({ children }: { children: ReactNode }) {
   return (
     <div className="bg-canvas">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mx-auto w-full max-w-content-narrow-max-width px-4 py-8 sm:px-6">
         <div className="mb-7">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs text-text-faint hover:text-text transition"
+            className="inline-flex min-h-touch-target-min items-center gap-1.5 text-xs text-text-faint transition-colors duration-fast hover:text-text focus-visible:outline-2 focus-visible:outline-focus"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path

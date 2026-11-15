@@ -1,6 +1,12 @@
 package keeper_test
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -9,6 +15,67 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/stretchr/testify/require"
 )
+
+func TestStorageGasReaderWithoutValue(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
+	key := append([]byte(k.Paramstore.Name()+"/"), types.KeyPaxSstoreSetGasEIP2200...)
+	ctx.KVStore(k.GetStoreKey()).Delete(key)
+	require.False(t, k.Paramstore.Has(ctx, types.KeyPaxSstoreSetGasEIP2200))
+	require.Zero(t, k.GetParams(ctx).PaxSstoreSetGasEip2200)
+	require.Equal(t, uint64(20000), k.GetSstoreSetGasEIP2200(ctx))
+}
+
+func TestStorageGasReaderStoredValue(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
+	for _, value := range []uint64{72000, 10000, 0} {
+		t.Run(strconv.FormatUint(value, 10), func(t *testing.T) {
+			k.Paramstore.Set(ctx, types.KeyPaxSstoreSetGasEIP2200, value)
+			require.True(t, k.Paramstore.Has(ctx, types.KeyPaxSstoreSetGasEIP2200))
+			want := value
+			if want == 0 {
+				want = 20000
+			}
+			require.Equal(t, want, k.GetSstoreSetGasEIP2200(ctx))
+		})
+	}
+}
+
+func TestStorageGasReaderMatchesOrdinaryConstant(t *testing.T) {
+	_, source, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(filepath.Dir(source), "../../../../modules/evm/keeper/params.go"), nil, 0)
+	require.NoError(t, err)
+	var legacy uint64
+	found := false
+	for _, decl := range file.Decls {
+		constants, ok := decl.(*ast.GenDecl)
+		if !ok || constants.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range constants.Specs {
+			value := spec.(*ast.ValueSpec)
+			for i, name := range value.Names {
+				if name.Name != "LegacySstoreSetGasEIP2200" {
+					continue
+				}
+				cast, ok := value.Values[i].(*ast.CallExpr)
+				require.True(t, ok)
+				require.Equal(t, "uint64", cast.Fun.(*ast.Ident).Name)
+				require.Len(t, cast.Args, 1)
+				literal, ok := cast.Args[0].(*ast.BasicLit)
+				require.True(t, ok)
+				legacy, err = strconv.ParseUint(literal.Value, 0, 64)
+				require.NoError(t, err)
+				found = true
+			}
+		}
+	}
+	require.True(t, found)
+	k, ctx := newFeeAndReceiptKeeper(t)
+	ctx.KVStore(k.GetStoreKey()).Delete(append([]byte(k.Paramstore.Name()+"/"), types.KeyPaxSstoreSetGasEIP2200...))
+	require.False(t, k.Paramstore.Has(ctx, types.KeyPaxSstoreSetGasEIP2200))
+	require.Equal(t, legacy, k.GetSstoreSetGasEIP2200(ctx))
+}
 
 func TestParams(t *testing.T) {
 	k, ctx := testkeeper.MockEVMKeeper(t)

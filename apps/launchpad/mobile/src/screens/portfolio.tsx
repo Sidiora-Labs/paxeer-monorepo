@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Linking, Text } from 'react-native';
+import { Linking } from 'react-native';
 import {
   Button,
+  Text,
   Card,
   Copyable,
   ErrorNotice,
@@ -9,7 +10,7 @@ import {
   ResourceStatus,
   showAction,
   useResource,
-  ui,
+  useSurface,
   type Runtime,
 } from '../navigation.tsx';
 import type { PortfolioResponse } from '../runtime/routes/account.ts';
@@ -18,6 +19,7 @@ import {
   claimChainRevenueBatch,
 } from '../runtime/chain-launch.ts';
 export function Portfolio({ runtime }: { runtime: Runtime }) {
+  const { ui } = useSurface();
   const [claimError, setClaimError] = useState<string>();
   const [claimHash, setClaimHash] = useState<string>();
   const state = useResource<PortfolioResponse>(
@@ -55,7 +57,7 @@ export function Portfolio({ runtime }: { runtime: Runtime }) {
           <Button
             label="Launch a chain in the web app"
             onPress={() =>
-              void showAction(
+              showAction(
                 () =>
                   Linking.openURL(
                     `${runtime.services.config.canonicalOrigin}/create/chain`,
@@ -95,7 +97,7 @@ export function Portfolio({ runtime }: { runtime: Runtime }) {
                   !!runtime.pending.current
                 }
                 onPress={() =>
-                  void showAction(async () => {
+                  showAction(async () => {
                     if (!runtime.wallet || !runtime.session.account)
                       throw new Error('Connected wallet required');
                     const result = await claimChainRevenueBatch(

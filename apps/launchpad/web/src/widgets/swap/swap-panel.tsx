@@ -147,19 +147,20 @@ function TokenSelectorModal({
   });
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 z-[var(--sl-z-modal)] flex items-center justify-center">
       <div className="absolute inset-0 bg-scrim/70" onClick={onClose} />
-      <div className="relative w-full max-w-[420px] mx-4 bg-surface-1 rounded-2xl overflow-hidden flex flex-col max-h-[70vh]">
+      <div role="dialog" aria-modal="true" aria-labelledby="swap-selector-title" className="relative mx-4 flex max-h-[70dvh] w-full max-w-md flex-col overflow-hidden rounded-xl bg-surface-1">
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-bold text-text">Select a coin</span>
-            <button onClick={onClose} className="text-text-faint hover:text-text transition p-1">
+            <h2 id="swap-selector-title" className="text-base font-bold text-text">Select a coin</h2>
+            <button type="button" onClick={onClose} aria-label="Close coin selector" className="min-h-touch-target-min min-w-touch-target-min p-1 text-text-faint transition hover:text-text">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
           </div>
-          <input
+          <label htmlFor="swap-coin-search" className="sr-only">Search coins</label><input
+            id="swap-coin-search"
             ref={inputRef}
             type="text"
             value={search}
@@ -187,6 +188,7 @@ function TokenSelectorModal({
             return (
               <button
                 key={token.tokenAddress}
+                type="button"
                 onClick={() => { onSelect(token); onClose(); }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition text-left"
               >
@@ -668,7 +670,7 @@ export default function SwapPanel() {
       : null;
 
   return (
-    <div className="w-full max-w-[460px] mx-auto">
+    <div className="mx-auto w-full max-w-md">
       <div className="rounded-2xl bg-surface-1 overflow-hidden">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 flex items-center justify-between">

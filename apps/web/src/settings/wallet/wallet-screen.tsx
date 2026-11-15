@@ -28,7 +28,10 @@ export function WalletFeeChoice({ snapshot, onChange }: Readonly<{
         <>
           <TextField
             label={copyEntry("gas.sidiora.maximum").message}
+            name="sidiora_maximum"
             inputMode="decimal"
+            autoComplete="off"
+            required
             value={snapshot.maximum}
             errorMessage={snapshot.valid ? undefined : copyEntry("gas.sidiora.invalid").message}
             onChange={(event) => { onChange("sidiora", event.target.value); }}

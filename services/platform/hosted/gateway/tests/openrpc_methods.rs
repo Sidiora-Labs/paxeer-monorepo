@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-const ROUTER_METHODS: [&str; 17] = layerx_platform_gateway::ROUTER_METHODS;
+const ROUTER_METHODS: [&str; 18] = layerx_platform_gateway::ROUTER_METHODS;
 
 fn px_list_assets_schema() -> Value {
     let document: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap_or_else(|error| panic!("value required: {error:?}"));

@@ -271,8 +271,7 @@ func (k Keeper) applyEVMMessage(ctx sdk.Context, msg *core.Message, stateDB *sta
 	if domain, ok := ctx.Value(domainExecutionKey{}).(domainExecution); ok {
 		blockCtx.BaseFee = domain.baseFee.TruncateInt().BigInt()
 	}
-	sstore := k.GetSstoreSetGasEIP2200(ctx)
-	cfg := types.DefaultChainConfig().EthereumConfigWithSstore(k.ChainID(ctx), &sstore)
+	cfg := k.GetEVMChainConfig(ctx)
 	if domain, ok := ctx.Value(domainExecutionKey{}).(domainExecution); ok {
 		cfg.ChainID = chainstypes.ChainIDOf(domain.id)
 	}

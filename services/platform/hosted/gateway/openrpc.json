@@ -7,6 +7,123 @@
   },
   "methods": [
     {
+      "name": "px_openSession",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "signer_public_key",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        {
+          "name": "proof_time",
+          "required": true,
+          "description": "Unix time in canonical decimal seconds; it must be within 120 seconds of the gateway clock.",
+          "schema": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          }
+        },
+        {
+          "name": "session_signature",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "tenant",
+            "sub",
+            "token",
+            "csrf_token",
+            "expires_at"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "tenant": {
+              "type": "string"
+            },
+            "sub": {
+              "type": "string"
+            },
+            "token": {
+              "type": "string"
+            },
+            "csrf_token": {
+              "type": "string"
+            },
+            "expires_at": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "description": "Opens a developer identity session from a fresh Ed25519 proof by a registered signer. The proof signs the SHA-256 length-prefixed digest of \"layerx-session-open-v1\", the configured tenant, the 32-byte signer public key and proof_time in canonical decimal seconds. Proofs are accepted at both 120-second edges, each signer and time pair is accepted once while it remains in the bounded replay set, and identity mints the session with its configured lifetime. The result contains only tenant, sub, token, csrf_token and expires_at from identity.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32002,
+          "message": "Session refused"
+        },
+        {
+          "code": -32001,
+          "message": "Session unavailable"
+        },
+        {
+          "code": -32005,
+          "message": "Session unavailable"
+        },
+        {
+          "code": -32603,
+          "message": "Invalid upstream session response"
+        },
+        {
+          "code": -32010,
+          "message": "Kernel unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code",
+              "backend",
+              "reason"
+            ],
+            "properties": {
+              "code": {
+                "const": "kernel_unavailable"
+              },
+              "backend": {
+                "enum": [
+                  "core_agent_boundary",
+                  "public_core",
+                  "independent_receipt_authority",
+                  "identity",
+                  "program_registry"
+                ]
+              },
+              "reason": {
+                "enum": [
+                  "not_configured",
+                  "unreachable"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "px_register",
       "paramStructure": "by-position",
       "params": [

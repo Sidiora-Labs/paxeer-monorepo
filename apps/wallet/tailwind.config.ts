@@ -1,3 +1,4 @@
+import { themeCatalogue } from './src/theme/catalogue';
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
@@ -30,7 +31,35 @@ const config: Config = {
           'line-strong': 'var(--color-border-strong)',
           scrim: 'var(--color-overlay-scrim)',
           glass: 'var(--color-overlay-glass)',
+          'error-muted': 'var(--color-status-danger-muted)',
+          'success-muted': 'var(--color-status-success-muted)',
+          'warning-muted': 'var(--color-status-warning-muted)',
+          'info-muted': 'var(--color-status-info-muted)',
+          'error-surface': 'var(--color-status-danger-surface)',
+          'success-surface': 'var(--color-status-success-surface)',
+          'warning-surface': 'var(--color-status-warning-surface)',
+          'accent-muted': 'var(--color-action-primary-muted-surface)',
         },
+      },
+      textColor: { 'pax-accent': 'var(--color-action-text)' },
+      spacing: {
+        px: 'var(--space-px)',
+        ...Object.fromEntries(
+          Object.keys(themeCatalogue.layout.space).map((step) => [
+            step,
+            `var(--space-${step.replace('.', '-')})`,
+          ])
+        ),
+      },
+      fontSize: {
+        xs: ['var(--type-size-xs)', { lineHeight: 'var(--line-height-body)' }],
+        sm: ['var(--type-size-sm)', { lineHeight: 'var(--line-height-body)' }],
+        base: ['var(--type-size-md)', { lineHeight: 'var(--line-height-body)' }],
+        lg: ['var(--type-size-lg)', { lineHeight: 'var(--line-height-tight)' }],
+        xl: ['var(--type-size-xl)', { lineHeight: 'var(--line-height-tight)' }],
+        '2xl': ['var(--font-size-2xl)', { lineHeight: 'var(--line-height-tight)' }],
+        '3xl': ['var(--font-size-3xl)', { lineHeight: 'var(--line-height-tight)' }],
+        display: ['var(--font-size-display)', { lineHeight: 'var(--line-height-tight)' }],
       },
       fontFamily: {
         sans: ['var(--font-sans)'],
@@ -38,22 +67,50 @@ const config: Config = {
         mono: ['var(--font-mono)'],
       },
       borderRadius: {
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        full: 'var(--radius-full)',
         '2xl': 'var(--radius-lg)',
         '3xl': 'var(--radius-xl)',
       },
+      boxShadow: {
+        card: 'var(--elevation-card)',
+        menu: 'var(--elevation-menu)',
+        sheet: 'var(--elevation-sheet)',
+        popover: 'var(--elevation-popover)',
+      },
+      fontWeight: {
+        light: 'var(--font-weight-light)',
+        normal: 'var(--font-weight-regular)',
+        medium: 'var(--font-weight-medium)',
+        semibold: 'var(--font-weight-semibold)',
+        bold: 'var(--font-weight-bold)',
+      },
+      lineHeight: {
+        tight: 'var(--line-height-tight)',
+        snug: 'var(--line-height-body)',
+        normal: 'var(--line-height-body)',
+        relaxed: 'var(--line-height-body)',
+      },
+      letterSpacing: {
+        label: 'var(--tracking-label)',
+      },
       transitionDuration: {
-        DEFAULT: 'calc(150ms * var(--motion-scale))',
+        DEFAULT: 'var(--motion-fast)',
         fast: 'var(--motion-fast)',
         normal: 'var(--motion-normal)',
         slow: 'var(--motion-slow)',
+        spinner: 'var(--motion-shimmer)',
       },
       transitionTimingFunction: {
         pax: 'var(--pax-ease)',
       },
       animation: {
-        'fade-in': 'fadeIn 0.3s ease-out',
-        'slide-up': 'slideUp 0.35s cubic-bezier(0.16,1,0.3,1)',
-        'scale-in': 'scaleIn 0.2s ease-out',
+        'fade-in': 'fadeIn var(--motion-normal) var(--motion-ease-standard)',
+        'slide-up': 'slideUp var(--motion-slow) var(--motion-ease-standard)',
+        'scale-in': 'scaleIn var(--motion-fast) var(--motion-ease-standard)',
       },
       keyframes: {
         fadeIn: {

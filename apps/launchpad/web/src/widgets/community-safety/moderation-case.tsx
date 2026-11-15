@@ -44,12 +44,12 @@ export function ModerationCasePanel({ caseRecord, canResolve, action, onResolve 
       <fieldset disabled={busy} className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${id}-status`} className={labelClass}>Decision</label>
-          <select id={`${id}-status`} name="status" className={cn(fieldClass, 'h-control-height-md')} defaultValue={caseRecord.State === 'triaged' ? 'actioned' : 'triaged'}>
+          <select id={`${id}-status`} name="status" autoComplete="off" className={cn(fieldClass, 'h-control-height-md')} defaultValue={caseRecord.State === 'triaged' ? 'actioned' : 'triaged'}>
             {caseRecord.State === 'open' && <option value="triaged">Mark for review</option>}<option value="actioned">Take action</option><option value="dismissed">Dismiss report</option>
           </select>
         </div>
-        <div className="flex flex-col gap-1.5"><label htmlFor={`${id}-reason`} className={labelClass}>Reason</label><textarea id={`${id}-reason`} name="reason" required maxLength={1000} className={cn(fieldClass, 'min-h-24 resize-y py-2 leading-5')}/></div>
-        <div className="flex flex-col gap-1.5"><label htmlFor={`${id}-policy`} className={labelClass}>Policy version</label><input id={`${id}-policy`} name="policy" required maxLength={160} className={cn(fieldClass, 'h-control-height-md')}/></div>
+        <div className="flex flex-col gap-1.5"><label htmlFor={`${id}-reason`} className={labelClass}>Reason</label><textarea id={`${id}-reason`} name="reason" autoComplete="off" required maxLength={1000} className={cn(fieldClass, 'min-h-24 resize-y py-2 leading-5')}/></div>
+        <div className="flex flex-col gap-1.5"><label htmlFor={`${id}-policy`} className={labelClass}>Policy version</label><input id={`${id}-policy`} name="policy" autoComplete="off" required maxLength={160} className={cn(fieldClass, 'h-control-height-md')}/></div>
         <div className="flex justify-end"><Button type="submit" variant="primary" size="md" loading={busy}>Submit decision</Button></div>
       </fieldset>
     </form>}
