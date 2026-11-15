@@ -14806,6 +14806,12 @@ value = "The file table docker/platform-gateway/native-files.tsv holds the row E
 basis = "Gotcha 4532. Decisions 3046 and 3605."
 affects = []
 
+[decision.3616]
+title = "The render check measures what a person can see and takes a declared answer of a state as the state"
+value = "For the kind sideways an element clipped to nothing, the form of text kept for assistive technology alone, is not a visible element, and a descendant of a box that scrolls sideways is measured against that box while the box itself is measured against the viewport. For the kind focus an element larger than the viewport in one direction passes in that direction where its starting edge lies within the viewport after the focus; the visible change of the focus is asked as before. A state of a surface file may declare the responses it expects, each with method, pattern of the address and status. A declared response that arrives with its status is no finding of the kind load, nor is the console line the browser writes for it; a declared response that does not arrive is a finding of the kind load. This states the state and is no exemption: no limit changes, no kind is left out, and an undeclared response with a status from 400 on stays a finding. The browser context of the command grants the origin of the surface the writing of the clipboard. The kinds cut, contrast, touch, shift, motion and scale stay as they are, and a finding of these kinds is corrected in the surface."
+basis = "Gotcha 4533. Decisions 3587 and 3591."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44466,6 +44472,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.52]
+title = "Let the render check measure what a person can see and take the declared answers of a state"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4533, decision 3616. Read tools/ui-check/README.md, the measurement of the kinds sideways and focus in tools/ui-check/browser.mjs, the listeners of the kind load and the browser context in tools/ui-check/check.mjs, the reading of a surface file in tools/ui-check/config.mjs and the cases of tools/ui-check/test/check.test.mjs with their pages."
+symbols = []
 
 [capability.22.39.700]
 title = "Let the keys view of the dashboard web sign with the browser key right after a sign-in"
@@ -173730,6 +173745,41 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.52]
+title = "Let the render check measure what a person can see and take the declared answers of a state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.52"]
+interfaces = []
+do_1 = "do_1 Gotcha 4533, decision 3616. Read tools/ui-check/README.md, the measurement of the kinds sideways and focus in tools/ui-check/browser.mjs, the listeners of the kind load and the browser context in tools/ui-check/check.mjs, the reading of a surface file in tools/ui-check/config.mjs and the cases of tools/ui-check/test/check.test.mjs with their pages."
+do_2 = "do_2 In tools/ui-check/browser.mjs the kind sideways leaves out an element clipped to nothing: a box of at most one pixel in each direction with hidden overflow, or a clip or clip path that leaves no area. A descendant of a box whose overflow in the inline direction scrolls is measured against the box of that ancestor, and the ancestor is measured against the viewport. The document wider than the viewport stays a finding."
+do_3 = "do_3 In tools/ui-check/browser.mjs the kind focus lets an element larger than the viewport in one direction pass in that direction where its starting edge lies within the viewport after the focus. An element that fits the viewport and has a part outside stays a finding, and the visible change of the focus is asked as before."
+do_4 = "do_4 In tools/ui-check/config.mjs a state, and a view for its initial state, may hold the field expects: a list of entries with method, pattern in the form of the patterns of the fixed answers, and status from 400 to 599. Other fields stay refused. In tools/ui-check/check.mjs a response that matches an entry with its status is no finding of the kind load, nor is the console line of the browser for that address; an entry no response matched by the end of the render is a finding of the kind load that names the entry. An undeclared response with a status from 400 on stays a finding."
+do_5 = "do_5 In tools/ui-check/check.mjs the browser context grants the origin of the surface the writing of the clipboard, and reads of the clipboard stay ungranted."
+do_6 = "do_6 Add pages under tools/ui-check/test/fixtures and cases in tools/ui-check/test/check.test.mjs: a page with text clipped to nothing at a negative margin passes; a page with a row that scrolls sideways passes while the same row without scrolling is a finding of the kind sideways; a page with a focusable panel taller than the viewport passes while a small control that stays half outside after focus is a finding of the kind focus; a view that declares an answer of refusal passes where the answer arrives, reports the kind load where it does not arrive, and reports the kind load for a second undeclared answer of refusal; a page whose control writes to the clipboard and shows the result shows the success. Every present case stays and passes."
+do_7 = "do_7 In tools/ui-check/README.md state the field expects with one example, the new wording of the kinds sideways, focus and load in the table of measurements, and the grant of the clipboard. The sentence that a surface file cannot alter a limit or omit a kind stays true and stays in the text."
+do_8 = "do_8 Run the tests by hand before the counted verification and repair what they show. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = ["tools/ui-check/test/fixtures/hidden-text.html", "tools/ui-check/test/fixtures/scroll-row.html", "tools/ui-check/test/fixtures/tall-focus.html", "tools/ui-check/test/fixtures/expected-answer.html", "tools/ui-check/test/fixtures/clipboard.html"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
