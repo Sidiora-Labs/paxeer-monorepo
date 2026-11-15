@@ -111,7 +111,7 @@ function StripTile({ stat }: { stat: StripStat }) {
       value={value}
       unit={stat.value !== null && !stat.reason ? stat.unit : undefined}
       size="row"
-      className="min-w-16 [&>dd]:text-sm"
+      className="min-w-16 [&>dd]:text-sm [&>dd]:tabular-nums"
     />
   );
 }
