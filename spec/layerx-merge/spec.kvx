@@ -211635,7 +211635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.669]
 title = "Open a developer session at the hosted gateway by a fresh proof of the registered key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
