@@ -155,20 +155,22 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
         />
 
         <button
+          type="button"
           onClick={() => setSettingsOpen(true)}
-          className="flex items-center justify-between rounded-2xl   bg-white/5 px-4 py-2.5 text-sm hover:bg-white/[0.08] transition-colors w-full"
+          className="flex items-center justify-between rounded-2xl   bg-pax-control px-4 py-2.5 text-sm hover:bg-pax-overlay transition-colors w-full"
         >
           <span className="text-pax-muted">Slippage</span>
           <span className="font-semibold">{(slippageBps / 100).toFixed(2)}%</span>
         </button>
 
         <button
+          type="button"
           onClick={() => {
             execution.clearError();
             if (runPreflight()) openApproval();
           }}
           disabled={submitDisabled}
-          className="w-full rounded-full bg-pax-accent text-black font-bold py-3.5 text-sm press-scale disabled:opacity-40 transition-all"
+          className="w-full rounded-full bg-pax-accent text-pax-on-accent font-bold py-3 text-sm press-scale disabled:opacity-40 transition-all"
         >
           {!recipient
             ? 'Connect wallet'
@@ -185,17 +187,18 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
 
         {quotes.quoteSecondsLeft > 0 && quotes.quoteSecondsLeft <= 10 && (
           <button
+            type="button"
             onClick={quotes.refresh}
-            className="w-full text-xs text-amber-400 text-center py-1 press-scale"
+            className="min-h-[var(--touch-target)] w-full text-xs text-pax-warning text-center py-1 press-scale"
           >
             Quote expires in {quotes.quoteSecondsLeft}s — tap to refresh
           </button>
         )}
         <SwapRecoveryActions execution={execution} />
         {execution.execError && !execution.intent && (
-          <p className="text-xs text-red-400 text-center">{execution.execError}</p>
+          <p className="text-xs text-pax-error text-center">{execution.execError}</p>
         )}
-        {preflightError && <p className="text-xs text-red-400 text-center">{preflightError}</p>}
+        {preflightError && <p className="text-xs text-pax-error text-center">{preflightError}</p>}
       </div>
 
       {!execution.executing && execution.progress === 'confirmed' && execution.intent && (

@@ -1,0 +1,252 @@
+[manifest]
+task = "22.44.32"
+surface = "services/platform/hosted/dashboard/web"
+status = "served"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+reduced_motion = true
+text_scales = [1, 2]
+keyboard = true
+patterns = ["page layout", "cards", "statistics", "lists", "tabs", "sign-in forms", "field validation", "loading states", "scroll areas", "fonts", "motion", "system colour scheme"]
+
+[guide.css]
+id = "css"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.html]
+id = "html"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.forms]
+id = "forms"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.color]
+id = "color"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.typography]
+id = "typography"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.motion]
+id = "motion"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.performance]
+id = "performance"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.card]
+id = "card"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.autofill_sign_in_form]
+id = "autofill-sign-in-form"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.validate_input_after_interaction]
+id = "validate-input-after-interaction"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.browser_ui_theming]
+id = "browser-ui-theming"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.defer_rendering_heavy_content]
+id = "defer-rendering-heavy-content"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["services/platform/hosted/dashboard/web/app"]
+
+[view.overview]
+route = "/"
+state = "Requests used, remaining quota, live keys, endpoints, verified test payments and recent protocol activity."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.overview_empty]
+route = "/"
+state = "Zero quota counters and empty protocol activity."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.overview_loading]
+route = "/"
+state = "Quota and statistics placeholders with loading progress."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.overview_unavailable]
+route = "/"
+state = "Dashboard dependency refusal."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.keys]
+route = "/"
+state = "Active and revoked API keys with quota windows."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.keys_empty]
+route = "/"
+state = "No API keys."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.requests]
+route = "/"
+state = "Principal-isolated request log with full operation digests and timestamps."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.requests_empty]
+route = "/"
+state = "No requests."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.webhooks]
+route = "/"
+state = "Active and suspended endpoints with delivery states."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.webhooks_empty]
+route = "/"
+state = "No webhook endpoints or deliveries."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.payments]
+route = "/"
+state = "Verified and unverified payment facts and settlement status."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.payments_empty]
+route = "/"
+state = "No test payments."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.receipt_loading]
+route = "/"
+state = "Receipt action progress."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.receipt]
+route = "/"
+state = "Verified receipt activity, event and digest."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.receipt_unavailable]
+route = "/"
+state = "Receipt dependency refusal."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_in]
+route = "/"
+state = "Browser key creation and session token sign-in."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_in_held_key]
+route = "/"
+state = "Held public key with copy control and key sign-in."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_in_validation]
+route = "/"
+state = "Tenant and token field constraints after interaction."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_in_busy]
+route = "/"
+state = "Sign-in progress with controls disabled during submission."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_in_refused]
+route = "/"
+state = "Sign-in refusal with the session token path available."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_in_unsupported]
+route = "/"
+state = "Session token sign-in when Ed25519 is unavailable."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_in_storage]
+route = "/"
+state = "Session token sign-in when browser key storage is unavailable."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.signed_out]
+route = "/"
+state = "Sign-in after the session is cleared."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_out_busy]
+route = "/"
+state = "Sign-out progress."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.sign_out_refused]
+route = "/"
+state = "Sign-out refusal with the current dashboard visible."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.requests_long]
+route = "/"
+state = "Scrollable request log with full operation digests."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.payments_long]
+route = "/"
+state = "Scrollable payment facts with keyboard access to receipt actions."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
