@@ -1,0 +1,90 @@
+[service.bridge-relayer]
+kind = "repo"
+dockerfile = "docker/bridge-relayer/Dockerfile"
+root = "."
+watch = ["docker/bridge-relayer/**", "docker/common/**", "services/**", "programs/**", "include/**", "spec/layerx-merge/contracts/**", "rust-toolchain.toml"]
+# Cosign peers exchange binary frames over mutual TLS on a public TCP listener.
+target = "other"
+health = ""
+restart = "ALWAYS"
+replicas = 1
+volume = "/data"
+public = 0
+order = 1
+needs = []
+
+[vars.bridge-relayer]
+LAYERX_BRIDGE_ATTESTOR_INDEX = "env:INTEROP_BRIDGE_RELAYER_LAYERX_BRIDGE_ATTESTOR_INDEX"
+LAYERX_BRIDGE_ATTESTOR_SET_SIZE = "5"
+LAYERX_BRIDGE_ATTESTOR_THRESHOLD = "3"
+LAYERX_BRIDGE_ATTESTOR_KEY_FILE = "env:INTEROP_BRIDGE_RELAYER_LAYERX_BRIDGE_ATTESTOR_KEY_FILE"
+LAYERX_BRIDGE_RELAYER_CONFIG = "/run/secrets/bridge/relayer.json"
+LAYERX_BRIDGE_COSIGN_TRANSPORT_CONFIG = "/run/secrets/bridge/cosign/transport.json"
+LAYERX_BRIDGE_OPERATOR_INVENTORY = "/run/secrets/bridge/cosign/operators.json"
+LAYERX_BRIDGE_APPROVED_MEMBERSHIP = "/run/secrets/bridge/cosign/membership.json"
+BRIDGE_RELAYER_CONFIG = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_RELAYER_CONFIG"
+BRIDGE_RELAYER_RPC_TOKENS = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_RELAYER_RPC_TOKENS"
+BRIDGE_SIGNER_KEYS = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_KEYS"
+BRIDGE_SIGNER_ATTESTOR_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_ATTESTOR_KEY"
+BRIDGE_SIGNER_PAXEER_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_PAXEER_SUBMITTER_KEY"
+BRIDGE_SIGNER_ARBITRUM_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_ARBITRUM_SUBMITTER_KEY"
+BRIDGE_SIGNER_AVALANCHE_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_AVALANCHE_SUBMITTER_KEY"
+BRIDGE_SIGNER_BASE_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_BASE_SUBMITTER_KEY"
+BRIDGE_SIGNER_BNB_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_BNB_SUBMITTER_KEY"
+BRIDGE_SIGNER_ETHEREUM_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_ETHEREUM_SUBMITTER_KEY"
+BRIDGE_SIGNER_HYPEREVM_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_HYPEREVM_SUBMITTER_KEY"
+BRIDGE_SIGNER_OPTIMISM_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_OPTIMISM_SUBMITTER_KEY"
+BRIDGE_SIGNER_POLYGON_SUBMITTER_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_POLYGON_SUBMITTER_KEY"
+BRIDGE_SIGNER_SOLANA_FEE_PAYER_KEYPAIR = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_SOLANA_FEE_PAYER_KEYPAIR"
+BRIDGE_COSIGN_TRANSPORT_CONFIG = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_COSIGN_TRANSPORT_CONFIG"
+BRIDGE_COSIGN_TRUST_ANCHOR = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_COSIGN_TRUST_ANCHOR"
+BRIDGE_COSIGN_CERTIFICATE = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_COSIGN_CERTIFICATE"
+BRIDGE_COSIGN_PRIVATE_KEY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_COSIGN_PRIVATE_KEY"
+BRIDGE_OPERATOR_INVENTORY = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_OPERATOR_INVENTORY"
+BRIDGE_APPROVED_MEMBERSHIP = "env:INTEROP_BRIDGE_RELAYER_BRIDGE_APPROVED_MEMBERSHIP"
+
+[inputs.bridge-relayer]
+# Attestor position in the approved set, as a positive decimal integer.
+INTEROP_BRIDGE_RELAYER_LAYERX_BRIDGE_ATTESTOR_INDEX = "operator"
+# Attestor key path, as /run/secrets/bridge/signer/attestor-<index>.key.
+INTEROP_BRIDGE_RELAYER_LAYERX_BRIDGE_ATTESTOR_KEY_FILE = "operator"
+# Relayer settings, as base64-encoded JSON with journal_path under /data/relayer.
+INTEROP_BRIDGE_RELAYER_BRIDGE_RELAYER_CONFIG = "operator"
+# RPC bearer tokens, as base64-encoded lines of name=token.
+INTEROP_BRIDGE_RELAYER_BRIDGE_RELAYER_RPC_TOKENS = "provider"
+# Signer policy manifest for this attestor index, as base64-encoded JSON.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_KEYS = "operator"
+# Attestor signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_ATTESTOR_KEY = "chain"
+# Paxeer transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_PAXEER_SUBMITTER_KEY = "chain"
+# Arbitrum transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_ARBITRUM_SUBMITTER_KEY = "chain"
+# Avalanche transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_AVALANCHE_SUBMITTER_KEY = "chain"
+# Base transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_BASE_SUBMITTER_KEY = "chain"
+# BNB transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_BNB_SUBMITTER_KEY = "chain"
+# Ethereum transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_ETHEREUM_SUBMITTER_KEY = "chain"
+# HyperEVM transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_HYPEREVM_SUBMITTER_KEY = "chain"
+# Optimism transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_OPTIMISM_SUBMITTER_KEY = "chain"
+# Polygon transaction signing key, as base64-encoded 32-byte hexadecimal text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_POLYGON_SUBMITTER_KEY = "chain"
+# Solana fee-payer keypair, as base64-encoded JSON of 64 byte values.
+INTEROP_BRIDGE_RELAYER_BRIDGE_SIGNER_SOLANA_FEE_PAYER_KEYPAIR = "chain"
+# Cosign transport settings, as base64-encoded JSON using /data/cosign and /data/cosign-delivery.
+INTEROP_BRIDGE_RELAYER_BRIDGE_COSIGN_TRANSPORT_CONFIG = "operator"
+# Cosign trust anchor, as base64-encoded PEM certificates.
+INTEROP_BRIDGE_RELAYER_BRIDGE_COSIGN_TRUST_ANCHOR = "operator"
+# Cosign client and server certificate chain, as base64-encoded PEM certificates.
+INTEROP_BRIDGE_RELAYER_BRIDGE_COSIGN_CERTIFICATE = "operator"
+# Cosign TLS private key, as base64-encoded PEM key text.
+INTEROP_BRIDGE_RELAYER_BRIDGE_COSIGN_PRIVATE_KEY = "operator"
+# Approved bridge operator identities and policies, as base64-encoded JSON.
+INTEROP_BRIDGE_RELAYER_BRIDGE_OPERATOR_INVENTORY = "operator"
+# Approved attestor membership and threshold, as base64-encoded JSON.
+INTEROP_BRIDGE_RELAYER_BRIDGE_APPROVED_MEMBERSHIP = "operator"

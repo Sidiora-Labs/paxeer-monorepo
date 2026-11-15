@@ -42,3 +42,4 @@ apps/web
 tools/qualification/output
 !docker/common/env-files.sh
 !docker/ramps/files.tsv
+!docker/ramps/entrypoint.sh

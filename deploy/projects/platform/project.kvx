@@ -1,0 +1,5 @@
+[meta]
+kind = "railway-project"
+project = "paxeer-x-platform"
+environment = "production"
+repo = "sidiora-labs/paxeer-monorepo"

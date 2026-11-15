@@ -1,0 +1,139 @@
+[service.ramp]
+kind = "repo"
+railway_service = "ramp"
+dockerfile = "docker/ramps/Dockerfile"
+root = "."
+watch = ["docker/ramps/**", "docker/common/**", "services/**", "programs/**"]
+health = "/readyz"
+restart = "ALWAYS"
+replicas = 1
+volume = "/data"
+public = 1
+order = 14
+needs = ["identity", "router", "internal-kms"]
+
+[vars.ramp]
+PORT = "8080"
+RAMP_LISTEN = "[::]:${{PORT}}"
+RAMP_WORKER_ID = "env:PLATFORM_RAMP_RAMP_WORKER_ID"
+RAMP_LEASE_SECONDS = "env:PLATFORM_RAMP_RAMP_LEASE_SECONDS"
+RAMP_RECONCILE_SECONDS = "env:PLATFORM_RAMP_RAMP_RECONCILE_SECONDS"
+RAMP_CLIENT_TIMEOUT_SECONDS = "env:PLATFORM_RAMP_RAMP_CLIENT_TIMEOUT_SECONDS"
+RAMP_IDENTITY_ENDPOINT = "env:PLATFORM_RAMP_RAMP_IDENTITY_ENDPOINT"
+RAMP_IDENTITY_AUDIENCE = "env:PLATFORM_RAMP_RAMP_IDENTITY_AUDIENCE"
+RAMP_SEQUENCER_RPC_ENDPOINT = "env:PLATFORM_RAMP_RAMP_SEQUENCER_RPC_ENDPOINT"
+RAMP_RPC_CHAIN_ID = "env:PLATFORM_RAMP_RAMP_RPC_CHAIN_ID"
+RAMP_OPERATOR_ADDRESS = "env:PLATFORM_RAMP_RAMP_OPERATOR_ADDRESS"
+RAMP_MAX_FEE_PER_GAS = "env:PLATFORM_RAMP_RAMP_MAX_FEE_PER_GAS"
+RAMP_MAX_PRIORITY_FEE_PER_GAS = "env:PLATFORM_RAMP_RAMP_MAX_PRIORITY_FEE_PER_GAS"
+RAMP_GAS_LIMIT_CAP = "env:PLATFORM_RAMP_RAMP_GAS_LIMIT_CAP"
+RAMP_POLL_CADENCE_SECONDS = "env:PLATFORM_RAMP_RAMP_POLL_CADENCE_SECONDS"
+RAMP_OPERATOR_PRINCIPAL_ID = "env:PLATFORM_RAMP_RAMP_OPERATOR_PRINCIPAL_ID"
+RAMP_ACTOR_DID = "env:PLATFORM_RAMP_RAMP_ACTOR_DID"
+RAMP_LAYERX_SIGNER_KEY_HANDLE = "env:PLATFORM_RAMP_RAMP_LAYERX_SIGNER_KEY_HANDLE"
+RAMP_PAXEER_SIGNER_KEY_HANDLE = "env:PLATFORM_RAMP_RAMP_PAXEER_SIGNER_KEY_HANDLE"
+RAMP_COMPLIANCE_ENDPOINT = "env:PLATFORM_RAMP_RAMP_COMPLIANCE_ENDPOINT"
+RAMP_COMPLIANCE_PUBLIC_KEY = "env:PLATFORM_RAMP_RAMP_COMPLIANCE_PUBLIC_KEY"
+RAMP_PROVIDER_ENDPOINT = "env:PLATFORM_RAMP_RAMP_PROVIDER_ENDPOINT"
+RAMP_PROVIDER_CALLBACK_PUBLIC_KEY = "env:PLATFORM_RAMP_RAMP_PROVIDER_CALLBACK_PUBLIC_KEY"
+RAMP_CUSTODY_ENDPOINT = "env:PLATFORM_RAMP_RAMP_CUSTODY_ENDPOINT"
+RAMP_WALLET_ADDRESS = "env:PLATFORM_RAMP_RAMP_WALLET_ADDRESS"
+RAMP_VAULT_ID = "env:PLATFORM_RAMP_RAMP_VAULT_ID"
+RAMP_SIGNER_ENDPOINT = "env:PLATFORM_RAMP_RAMP_SIGNER_ENDPOINT"
+RAMP_RECEIPT_KEYS_JSON = "env:PLATFORM_RAMP_RAMP_RECEIPT_KEYS_JSON"
+RAMP_QUOTES = "env:PLATFORM_RAMP_RAMP_QUOTES"
+RAMP_CA_BUNDLE_PEM = "env:PLATFORM_RAMP_RAMP_CA_BUNDLE_PEM"
+RAMP_CLIENT_CERT = "env:PLATFORM_RAMP_RAMP_CLIENT_CERT"
+RAMP_CLIENT_P12 = "env:PLATFORM_RAMP_RAMP_CLIENT_P12"
+RAMP_CLIENT_PASSWORD = "env:PLATFORM_RAMP_RAMP_CLIENT_PASSWORD"
+RAMP_RPC_TRUST_ANCHOR_DER = "env:PLATFORM_RAMP_RAMP_RPC_TRUST_ANCHOR_DER"
+RAMP_IDENTITY_TOKEN = "env:PLATFORM_RAMP_RAMP_IDENTITY_TOKEN"
+RAMP_COMPLIANCE_TOKEN = "env:PLATFORM_RAMP_RAMP_COMPLIANCE_TOKEN"
+RAMP_PROVIDER_CREDENTIAL = "env:PLATFORM_RAMP_RAMP_PROVIDER_CREDENTIAL"
+RAMP_GATEWAY_KEY = "env:PLATFORM_RAMP_RAMP_GATEWAY_KEY"
+RAMP_AUTHORITY_TOKEN = "env:PLATFORM_RAMP_RAMP_AUTHORITY_TOKEN"
+RAMP_SIGNER_TOKEN = "env:PLATFORM_RAMP_RAMP_SIGNER_TOKEN"
+RAMP_CUSTODY_CREDENTIAL = "env:PLATFORM_RAMP_RAMP_CUSTODY_CREDENTIAL"
+RAMP_OPERATOR_CONTROL_TOKEN = "env:PLATFORM_RAMP_RAMP_OPERATOR_CONTROL_TOKEN"
+
+[inputs.ramp]
+# Worker identifier as a nonempty string of at most 128 bytes.
+PLATFORM_RAMP_RAMP_WORKER_ID = "operator"
+# Lease duration as positive decimal seconds, greater than five client timeouts.
+PLATFORM_RAMP_RAMP_LEASE_SECONDS = "operator"
+# Reconciliation interval as positive decimal seconds.
+PLATFORM_RAMP_RAMP_RECONCILE_SECONDS = "operator"
+# Outbound request timeout as positive decimal seconds.
+PLATFORM_RAMP_RAMP_CLIENT_TIMEOUT_SECONDS = "operator"
+# Identity service endpoint as an HTTPS URL covered by the outbound CA bundle.
+PLATFORM_RAMP_RAMP_IDENTITY_ENDPOINT = "operator"
+# Identity audience as a nonempty string.
+PLATFORM_RAMP_RAMP_IDENTITY_AUDIENCE = "operator"
+# Merged node root JSON-RPC TLS relay endpoint as an HTTPS URL.
+PLATFORM_RAMP_RAMP_SEQUENCER_RPC_ENDPOINT = "operator"
+# Merged chain identifier as a positive decimal integer.
+PLATFORM_RAMP_RAMP_RPC_CHAIN_ID = "operator"
+# Authenticated transaction signer address as 0x followed by 40 hexadecimal digits.
+PLATFORM_RAMP_RAMP_OPERATOR_ADDRESS = "chain"
+# Maximum transaction fee per gas as a positive decimal integer in wei.
+PLATFORM_RAMP_RAMP_MAX_FEE_PER_GAS = "operator"
+# Priority fee per gas as a decimal integer in wei, at most the maximum fee.
+PLATFORM_RAMP_RAMP_MAX_PRIORITY_FEE_PER_GAS = "operator"
+# Transaction gas limit cap as a positive decimal integer.
+PLATFORM_RAMP_RAMP_GAS_LIMIT_CAP = "operator"
+# Custody polling interval as positive decimal seconds.
+PLATFORM_RAMP_RAMP_POLL_CADENCE_SECONDS = "operator"
+# Operator principal identifier as a nonempty string.
+PLATFORM_RAMP_RAMP_OPERATOR_PRINCIPAL_ID = "operator"
+# Operator actor identifier as a did:layerx identifier with one nonempty suffix.
+PLATFORM_RAMP_RAMP_ACTOR_DID = "chain"
+# Native transaction signing key handle as a nonempty KMS string.
+PLATFORM_RAMP_RAMP_LAYERX_SIGNER_KEY_HANDLE = "chain"
+# Custody signing key handle as a nonempty KMS string.
+PLATFORM_RAMP_RAMP_PAXEER_SIGNER_KEY_HANDLE = "chain"
+# Compliance boundary endpoint as an HTTPS URL.
+PLATFORM_RAMP_RAMP_COMPLIANCE_ENDPOINT = "operator"
+# Compliance verification key as 64 hexadecimal digits without a prefix.
+PLATFORM_RAMP_RAMP_COMPLIANCE_PUBLIC_KEY = "provider"
+# Provider boundary endpoint as an HTTPS URL.
+PLATFORM_RAMP_RAMP_PROVIDER_ENDPOINT = "operator"
+# Provider callback verification key as 64 hexadecimal digits without a prefix.
+PLATFORM_RAMP_RAMP_PROVIDER_CALLBACK_PUBLIC_KEY = "provider"
+# Custody boundary endpoint as an HTTPS URL.
+PLATFORM_RAMP_RAMP_CUSTODY_ENDPOINT = "operator"
+# Custody wallet address as a nonempty opaque string of at most 512 bytes.
+PLATFORM_RAMP_RAMP_WALLET_ADDRESS = "chain"
+# Custody vault identifier as a nonempty opaque string of at most 512 bytes.
+PLATFORM_RAMP_RAMP_VAULT_ID = "operator"
+# Transaction signing boundary endpoint as an HTTPS URL.
+PLATFORM_RAMP_RAMP_SIGNER_ENDPOINT = "operator"
+# Receipt verification keys as a nonempty JSON array with keyId, publicKey, firstHeight and lastHeight.
+PLATFORM_RAMP_RAMP_RECEIPT_KEYS_JSON = "chain"
+# Quote catalogue as base64-encoded JSON containing a nonempty array of quote terms.
+PLATFORM_RAMP_RAMP_QUOTES = "operator"
+# Outbound trust roots as a base64-encoded PEM CA bundle.
+PLATFORM_RAMP_RAMP_CA_BUNDLE_PEM = "operator"
+# Outbound client certificate as a base64-encoded PEM certificate.
+PLATFORM_RAMP_RAMP_CLIENT_CERT = "operator"
+# Outbound client TLS identity as a base64-encoded PKCS#12 archive.
+PLATFORM_RAMP_RAMP_CLIENT_P12 = "operator"
+# PKCS#12 password as base64-encoded UTF-8 text matching the client identity.
+PLATFORM_RAMP_RAMP_CLIENT_PASSWORD = "operator"
+# RPC relay trust anchor as a base64-encoded DER CA certificate.
+PLATFORM_RAMP_RAMP_RPC_TRUST_ANCHOR_DER = "operator"
+# Identity service bearer token as base64-encoded random text shared with identity.
+PLATFORM_RAMP_RAMP_IDENTITY_TOKEN = "generated"
+# Compliance service bearer token as base64-encoded UTF-8 text.
+PLATFORM_RAMP_RAMP_COMPLIANCE_TOKEN = "provider"
+# Provider boundary credential as base64-encoded UTF-8 text.
+PLATFORM_RAMP_RAMP_PROVIDER_CREDENTIAL = "provider"
+# Gateway credential as base64-encoded random text shared within the project.
+PLATFORM_RAMP_RAMP_GATEWAY_KEY = "generated"
+# Receipt authority token as base64-encoded random text shared within the project.
+PLATFORM_RAMP_RAMP_AUTHORITY_TOKEN = "generated"
+# KMS bearer token as base64-encoded random text shared with the signing service.
+PLATFORM_RAMP_RAMP_SIGNER_TOKEN = "generated"
+# Custody boundary credential as base64-encoded UTF-8 text.
+PLATFORM_RAMP_RAMP_CUSTODY_CREDENTIAL = "provider"
+# Operator control bearer token as base64-encoded nonempty UTF-8 text.
+PLATFORM_RAMP_RAMP_OPERATOR_CONTROL_TOKEN = "operator"

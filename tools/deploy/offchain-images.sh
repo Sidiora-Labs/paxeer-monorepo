@@ -9,7 +9,7 @@
 #             that fail it>, with one ::error annotation per failing row on stderr; a value with whitespace fails
 #             only its row; exit 1 when no row passes
 # The web image's NEXT_PUBLIC_SENTRY_RELEASE is the build commit: BUILD_SHA, else the checkout's 12-character HEAD.
-# Base images come from the environment: REVIEWED_BUILD_IMAGE/REVIEWED_RUNTIME_IMAGE (go1.26.4 builder)
+# Base images come from the environment: REVIEWED_BUILD_IMAGE/REVIEWED_RUNTIME_IMAGE (go1.27.0 builder)
 # and PERPS_BUILD_IMAGE/PERPS_RUNTIME_IMAGE, each pinned by digest; an unset one is left out so the
 # Dockerfile's pinned default holds. Build arg values with whitespace are refused with exit 2 (except by --plan).
 set -euo pipefail

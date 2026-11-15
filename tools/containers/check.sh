@@ -62,11 +62,13 @@ explorer-elixir-builder|docker/explorer-elixir-builder/Dockerfile|services/explo
 localnode|docker/localnode/Dockerfile|docker/localnode/Dockerfile|.
 rpcnode|docker/rpcnode/Dockerfile|docker/rpcnode/Dockerfile|.
 bridge-relayer|docker/bridge-relayer/Dockerfile|docker/bridge-relayer/Dockerfile|.
+bridge-web|docker/bridge-web/Dockerfile|docker/bridge-web/Dockerfile|.
 gas-station|docker/gas-station/Dockerfile|docker/gas-station/Dockerfile|.
 human-service|docker/human-service/Dockerfile|docker/human-service/Dockerfile|.
 kernel|docker/kernel/Dockerfile|docker/kernel/Dockerfile|.
 platform-indexer|docker/platform-indexer/Dockerfile|docker/platform-indexer/Dockerfile|.
 search-front|docker/search-front/Dockerfile|docker/search-front/Dockerfile|.
+inference-peer-web|docker/inference-peer-web/Dockerfile|docker/inference-peer-web/Dockerfile|.
 '
 
 # ignore files that moved with their Dockerfile: service|new path|old path

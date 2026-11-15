@@ -1,0 +1,39 @@
+FROM node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152 AS build
+WORKDIR /src/apps/bridge
+COPY apps/bridge/package.json apps/bridge/pnpm-lock.yaml apps/bridge/pnpm-workspace.yaml apps/bridge/.pnpmfile.cjs ./
+RUN npm exec --yes --package=pnpm@10.34.9 -- pnpm install --frozen-lockfile
+COPY apps/bridge/next.config.ts apps/bridge/next-env.d.ts apps/bridge/tsconfig.json ./
+COPY apps/bridge/src ./src
+COPY apps/bridge/public ./public
+ARG NEXT_PUBLIC_BRIDGE_API_URL
+ARG NEXT_PUBLIC_BRIDGE_RPC_ARBITRUM
+ARG NEXT_PUBLIC_BRIDGE_RPC_AVALANCHE
+ARG NEXT_PUBLIC_BRIDGE_RPC_BASE
+ARG NEXT_PUBLIC_BRIDGE_RPC_BNB
+ARG NEXT_PUBLIC_BRIDGE_RPC_ETHEREUM
+ARG NEXT_PUBLIC_BRIDGE_RPC_HYPEREVM
+ARG NEXT_PUBLIC_BRIDGE_RPC_OPTIMISM
+ARG NEXT_PUBLIC_BRIDGE_RPC_POLYGON
+ARG NEXT_PUBLIC_BRIDGE_RPC_SOLANA
+ARG NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID
+ARG NEXT_PUBLIC_BRIDGE_VAULT_ARBITRUM
+ARG NEXT_PUBLIC_BRIDGE_VAULT_AVALANCHE
+ARG NEXT_PUBLIC_BRIDGE_VAULT_BASE
+ARG NEXT_PUBLIC_BRIDGE_VAULT_BNB
+ARG NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM
+ARG NEXT_PUBLIC_BRIDGE_VAULT_HYPEREVM
+ARG NEXT_PUBLIC_BRIDGE_VAULT_OPTIMISM
+ARG NEXT_PUBLIC_BRIDGE_VAULT_POLYGON
+ARG NEXT_PUBLIC_PAXEER_EXPLORER_URL
+ARG NEXT_PUBLIC_PAXEER_RPC_URL
+RUN npm run build
+
+FROM node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152 AS runtime
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+WORKDIR /app
+COPY --from=build --chown=65532:65532 /src/apps/bridge/.next/standalone ./
+COPY --from=build --chown=65532:65532 /src/apps/bridge/.next/static ./.next/static
+COPY --from=build --chown=65532:65532 /src/apps/bridge/public ./public
+USER 65532:65532
+EXPOSE 3000
+CMD ["node", "server.js"]

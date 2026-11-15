@@ -1,0 +1,17 @@
+[service.inference-peer]
+kind = "repo"
+railway_service = "inference-peer"
+dockerfile = "docker/inference-peer-web/Dockerfile"
+root = "/"
+watch = ["/docker/inference-peer-web/**", "/apps/inference-peer/**"]
+health = "/"
+restart = "ALWAYS"
+replicas = 1
+public = 1
+order = 1
+needs = []
+
+[vars.inference-peer]
+PORT = "8080"
+
+[inputs.inference-peer]
