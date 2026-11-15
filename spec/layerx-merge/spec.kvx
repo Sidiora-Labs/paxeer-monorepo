@@ -212058,7 +212058,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.691]
 title = "Let the webhooks service keep the index of the receipts of each principal that the dashboard API reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.690"]
