@@ -173792,7 +173792,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.700]
 title = "Let the keys view of the dashboard web sign with the browser key right after a sign-in"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -212217,7 +212217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.698]
 title = "Let the consensus route of the node front admit the calls of the receipt verifier of the webhooks ingress"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
