@@ -144,7 +144,7 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   defp retained(hash, nil, nil, number, options) do
-    with {:ok, transactions} <- CosmosRest.fetch_block_txs(Keyword.get(options, :cosmos_rest_urls, []), number),
+    with {:ok, transactions} <- CosmosRest.fetch_block_txs(Keyword.get(options, :cometbft_rpc_urls, []), number),
          {:ok, results} <- CosmosRest.fetch_block_results(Keyword.get(options, :cometbft_rpc_urls, []), number),
          {:ok, _updates} <- decode(transactions, results) do
       Repo.query!(
@@ -166,13 +166,21 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
     do: {:ok, transactions, results}
 
   defp decode(%{"txs" => txs, "raw" => raw} = transactions, results)
-       when is_list(txs) and is_list(raw) and is_list(results) and length(txs) == length(raw) do
-    with {:ok, submissions} <- CosmosRest.decode_block_txs(transactions) do
-      CosmosRest.decode_price_updates(submissions, results, length(raw))
-    end
-  end
+       when is_list(txs) and is_list(raw) and is_list(results) and length(txs) == length(raw),
+       do: decode_entries(transactions, results)
+
+  defp decode(%{"txs" => _}, _results), do: {:error, :malformed_retained_block}
+
+  defp decode(%{"raw" => raw} = transactions, results) when is_list(raw) and is_list(results),
+    do: decode_entries(transactions, results)
 
   defp decode(_transactions, _results), do: {:error, :malformed_retained_block}
+
+  defp decode_entries(transactions, results) do
+    with {:ok, submissions} <- CosmosRest.decode_block_txs(transactions) do
+      CosmosRest.decode_price_updates(submissions, results, length(transactions["raw"]))
+    end
+  end
 
   defp apply_batch(hash, updates, batch_size) do
     decoded =

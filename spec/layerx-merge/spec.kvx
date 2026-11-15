@@ -14572,6 +14572,12 @@ value = "In .github/workflows/launchpad-test.yml the health commands of the serv
 basis = "Gotcha 4495. Decision 2501 names the cases whose inputs come from a producer."
 affects = []
 
+[decision.3577]
+title = "The verification of a task selects the cases the task owns"
+value = "Where one case of a test file reads a tree that another task brings into line, the verification of a task outside that tree selects the other cases of the file. The case stays in the file unchanged and remains the work of the task on that tree. The verification of task 22.39.651 runs its four files without the case test_js_test_scripts_have_runner, which task 22.39.571 verifies; its build stays as it is."
+basis = "Gotcha 4496."
+affects = ["22.39.651"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197663,7 +197669,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.652]
 title = "Run every Go build of the joined services fixture of the launchpad web tests with the workspace off"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197712,7 +197718,7 @@ touches = [".github/workflows/launchpad-test.yml", "tests/ci/test_launchpad_go_t
 tests = []
 planned_paths = []
 build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py"
-verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_js_suites_have_runner.py --deselect tests/ci/test_js_suites_have_runner.py::test_js_test_scripts_have_runner"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -197724,6 +197730,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3577, gotcha 4496. The verification now runs the four files without the case test_js_test_scripts_have_runner; leave that case and the exclusion list as they are. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.650]
 title = "Compose the startup documents of the launchpad livestream service"
@@ -198068,7 +198075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.639]
 title = "Add the composer of the launchpad startup documents with the budget and expected schema documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -198100,7 +198107,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.638]
 title = "Add the command that applies the registered launchpad migrations and writes the expected schema document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -243626,7 +243633,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.653]
 title = "Skip the wallet policy case of the web search application proof when the proof passes no calldata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458875,7 +458882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.624]
 title = "Read the price submissions of a block from the consensus block route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.622"]

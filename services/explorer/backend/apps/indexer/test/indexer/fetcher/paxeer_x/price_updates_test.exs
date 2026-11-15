@@ -19,12 +19,12 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
   setup :verify_on_exit!
 
   setup do
-    rest = Bypass.open()
     rpc = Bypass.open()
+    rest = rpc
 
     state = %{
       json_rpc_named_arguments: [transport: EthereumJSONRPC.Mox, transport_options: [], variant: EthereumJSONRPC.Geth],
-      cosmos_rest_urls: ["http://localhost:#{rest.port}"],
+      cosmos_rest_urls: [],
       cometbft_rpc_urls: ["http://localhost:#{rpc.port}"],
       start_block: 5,
       precompile: @precompile,
@@ -52,7 +52,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     insert(:block, number: 13)
     Process.register(self(), PriceUpdates)
 
-    Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
+    Bypass.expect(rest, "GET", "/block", fn conn ->
       Plug.Conn.resp(conn, 400, ~s({"code":13,"message":"internal"}))
     end)
 
@@ -87,7 +87,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     insert(:block, number: 13)
     Process.register(self(), PriceUpdates)
 
-    Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
+    Bypass.expect(rest, "GET", "/block", fn conn ->
       Plug.Conn.resp(conn, 503, ~s({"code":13,"message":"internal"}))
     end)
 
@@ -104,15 +104,15 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
   def unquote(:"counts a definitive node error toward the cap in either node order")(%{rest: rest, state: state}) do
     insert(:block, number: 13)
     Process.register(self(), PriceUpdates)
-    unreachable_urls = down(state).cosmos_rest_urls
-    definitive_urls = state.cosmos_rest_urls
+    unreachable_urls = down(state).cometbft_rpc_urls
+    definitive_urls = state.cometbft_rpc_urls
 
-    Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
+    Bypass.expect(rest, "GET", "/block", fn conn ->
       Plug.Conn.resp(conn, 400, ~s({"code":13,"message":"internal"}))
     end)
 
     for urls <- [unreachable_urls ++ definitive_urls, definitive_urls ++ unreachable_urls] do
-      assert :ok = PriceUpdates.run([13], %{state | cosmos_rest_urls: urls})
+      assert :ok = PriceUpdates.run([13], %{state | cometbft_rpc_urls: urls})
       assert_receive {:buffer, [{13, 1, _, 1}], false}, 2_000
       assert Repo.get(PriceFeedScannedBlock, 13) == nil
     end
@@ -171,7 +171,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     insert(:block, number: 13)
     Process.register(self(), PriceUpdates)
 
-    Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
+    Bypass.expect(rest, "GET", "/block", fn conn ->
       Plug.Conn.resp(conn, 400, ~s({"code":13,"message":"internal"}))
     end)
 
@@ -187,7 +187,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
 
   test "a rescanned height publishes nothing new", %{rest: rest, rpc: rpc, state: state} do
     insert(:block, number: 10)
-    serve(rest, "/cosmos/tx/v1beta1/txs/block/10", 200, "block_txs.json")
+    serve_block(rest, 10, "block_txs.json")
     serve(rpc, "/block_results", 200, "block_results.json")
 
     PriceFeed.upsert_markets(Enum.map(0..17, &%{market_id: &1, symbol: to_string(&1), chainflow_symbol: to_string(&1)}))
@@ -208,7 +208,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
   describe "run/2" do
     test "stores the recorded submission and reads the market list", %{rest: rest, rpc: rpc, state: state} do
       block = insert(:block, number: 10)
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/10", 200, "block_txs.json")
+      serve_block(rest, 10, "block_txs.json")
       serve(rpc, "/block_results", 200, "block_results.json")
       expect_markets()
 
@@ -228,8 +228,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     test "publishes the height once its submissions are committed", %{rest: rest, rpc: rpc, state: state} do
       insert(:block, number: 10)
       insert(:block, number: 11)
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/10", 200, "block_txs.json")
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/11", 400, "block_txs_empty.json")
+      serve_block(rest, 10, "block_txs.json", [11])
       serve(rpc, "/block_results", 200, "block_results.json")
       expect_markets()
       Subscriber.to(:paxeer_x_price_updates, :realtime)
@@ -243,7 +242,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
 
     test "marks a block without transactions scanned without asking for block results", %{rest: rest, state: state} do
       insert(:block, number: 11)
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/11", 400, "block_txs_empty.json")
+      serve_block(rest, 11, "block_txs_empty.json")
 
       assert :ok = PriceUpdates.run([11], state)
       assert PriceFeed.block_updates(11) == []
@@ -252,7 +251,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
 
     test "a rescan after a reorg replaces the stored submission", %{rest: rest, rpc: rpc, state: state} do
       old = insert(:block, number: 12)
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/12", 200, "block_txs.json")
+      serve_block(rest, 12, "block_txs.json")
       serve(rpc, "/block_results", 200, "block_results.json")
       expect_markets()
       assert :ok = PriceUpdates.run([12], state)
@@ -313,7 +312,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
       insert(:block, number: 15)
       Process.register(self(), PriceUpdates)
 
-      Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/15", fn conn ->
+      Bypass.expect(rest, "GET", "/block", fn conn ->
         Plug.Conn.resp(conn, 500, ~s({"code":2,"message":"height 15 is not available, lowest height is 60"}))
       end)
 
@@ -331,7 +330,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
       insert(:block, number: 16)
       Process.register(self(), PriceUpdates)
 
-      Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/16", fn conn ->
+      Bypass.expect(rest, "GET", "/block", fn conn ->
         Plug.Conn.resp(
           conn,
           500,
@@ -350,7 +349,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
       state: state
     } do
       insert(:block, number: 10)
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/10", 200, "block_txs.json")
+      serve_block(rest, 10, "block_txs.json")
       serve(rpc, "/block_results", 200, "block_results.json")
       expect_markets(4, 17)
 
@@ -374,8 +373,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     } do
       insert(:block, number: 10)
       insert(:block, number: 11)
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/10", 200, "block_txs.json")
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/11", 400, "block_txs_empty.json")
+      serve_block(rest, 10, "block_txs.json", [11])
       serve(rpc, "/block_results", 200, "block_results.json")
 
       expect(EthereumJSONRPC.Mox, :json_rpc, 1, fn requests, _options ->
@@ -401,7 +399,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
       state: state
     } do
       insert(:block, number: 10)
-      serve(rest, "/cosmos/tx/v1beta1/txs/block/10", 200, "block_txs.json")
+      serve_block(rest, 10, "block_txs.json")
       serve(rpc, "/block_results", 200, "block_results.json")
       expect_markets(2, nil)
 
@@ -429,7 +427,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     reads = 2 * length(numbers)
     scans = :counters.new(1, [])
 
-    Bypass.stub(rest, "GET", "/cosmos/tx/v1beta1/txs/block/:height", fn conn ->
+    Bypass.stub(rest, "GET", "/block", fn conn ->
       :counters.add(scans, 1, 1)
       Plug.Conn.resp(conn, 503, ~s({"code":13,"message":"internal"}))
     end)
@@ -496,10 +494,20 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     end)
   end
 
+  defp serve_block(bypass, height, fixture, empty_heights \\ []) do
+    bodies = Map.new(empty_heights, &{to_string(&1), "block_txs_empty.json"}) |> Map.put(to_string(height), fixture)
+
+    Bypass.expect(bypass, "GET", "/block", fn conn ->
+      conn = Plug.Conn.fetch_query_params(conn)
+      fixture = Map.fetch!(bodies, conn.query_params["height"])
+      Plug.Conn.resp(conn, 200, File.read!(Path.join(@fixtures, fixture)))
+    end)
+  end
+
   defp down(state) do
     down = Bypass.open()
     Bypass.down(down)
-    %{state | cosmos_rest_urls: ["http://localhost:#{down.port}"]}
+    %{state | cometbft_rpc_urls: ["http://localhost:#{down.port}"]}
   end
 
   defp expect_markets(calls, failing_market_id) do
