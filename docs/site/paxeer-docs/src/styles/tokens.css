@@ -1,0 +1,213 @@
+/* Shared design values for the documentation and assistant. */
+:root {
+  color-scheme: light dark;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-text-xs-size: clamp(.8125rem, .8rem + .04vw, .875rem);
+  --font-text-sm-size: clamp(.9375rem, .92rem + .05vw, 1rem);
+  --font-text-md-size: clamp(1rem, .98rem + .08vw, 1.125rem);
+  --font-text-lg-size: clamp(1.125rem, 1.08rem + .16vw, 1.375rem);
+  --font-heading-sm-size: clamp(1.25rem, 1.2rem + .18vw, 1.5rem);
+  --font-heading-md-size: clamp(1.5rem, 1.42rem + .25vw, 1.875rem);
+  --font-heading-lg-size: clamp(1.75rem, 1.62rem + .45vw, 2.25rem);
+  --font-title-size: clamp(2rem, 1.75rem + .8vw, 2.75rem);
+  --font-display-size: clamp(2.375rem, 2rem + 1.4vw, 4.375rem);
+  --font-code-size: .9em;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-display: 1.12;
+  --line-height-heading: 1.25;
+  --line-height-compact: 1.5;
+  --line-height-body: 1.75;
+  --tracking-heading: -.035em;
+  --tracking-tight: -.02em;
+  --tracking-label: .08em;
+  --tracking-wide: .12em;
+  --radius-xs: .25rem;
+  --radius-sm: .5rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2.25rem;
+  --radius-pill: 9999px;
+  --border-width: 1px;
+  --border-width-strong: 2px;
+  --focus-width: 2px;
+  --focus-offset: 3px;
+  --target-size: 2.75rem;
+  --field-size: 3rem;
+  --icon-sm: 1rem;
+  --icon-md: 1.25rem;
+  --icon-lg: 2.75rem;
+  --header-height: 4.75rem;
+  --sidebar-width: 16.25rem;
+  --toc-width: 11rem;
+  --article-width: 48.75rem;
+  --page-width: 92.5rem;
+  --landing-width: 67.5rem;
+  --home-width: 72.5rem;
+  --content-width: 65ch;
+  --figure-width: 25rem;
+  --figure-height: 14.5rem;
+  --figure-compact-height: 8.75rem;
+  --art-width: 35rem;
+  --table-min-width: 36rem;
+  --wide-card-min-width: 24rem;
+  --card-min-width: 16rem;
+  --reference-min-width: 12rem;
+  --copy-feedback-width: var(--reference-min-width);
+  --field-min-width: 10rem;
+  --search-width: 40rem;
+  --search-height: 42rem;
+  --search-result-estimate: 8rem;
+  --navigation-width: 22rem;
+  --snippet-height: 29rem;
+  --assistant-floating-width: 29rem;
+  --assistant-floating-height: 45rem;
+  --composer-min-height: 4.5rem;
+  --composer-max-height: 10rem;
+  --brand-size: 1.75rem;
+  --section-estimate: 40rem;
+  --assistant-width: min(26.875rem, 40dvw);
+  --assistant-modal: 1;
+  --assistant-follow-distance: var(--space-20);
+  --duration-feedback: 2500ms;
+  --duration-fast: 150ms;
+  --duration-basic: 200ms;
+  --duration-enter: 220ms;
+  --duration-spinner: 850ms;
+  --ease-basic: ease;
+  --ease-enter: ease-out;
+  --ease-linear: linear;
+  --opacity-disabled: .6;
+  --underline-offset: .2em;
+  --shadow-color: rgb(0 0 0 / .22);
+  --shadow-sm: 0 .25rem 1.25rem var(--shadow-color);
+  --shadow-lg: 0 .75rem 3rem var(--shadow-color);
+  --control-active-background: var(--role-hover);
+  --color-transparent: transparent;
+  --color-backdrop: rgb(0 0 0 / .6);
+  --color-media-scrim: rgb(0 0 0 / .72);
+  --color-on-media: #ffffff;
+  --color-on-media-muted: #f8f9fc;
+  --color-media-hover: rgb(255 255 255 / .12);
+  --color-print-ink: #111111;
+  --color-print-canvas: #ffffff;
+  --color-print-surface: #f5f5f5;
+  --color-print-muted: #333333;
+  --color-print-line: #cccccc;
+  --color-forced-ink: CanvasText;
+  --color-forced-canvas: Canvas;
+  --color-forced-highlight: Highlight;
+  --color-forced-button: ButtonText;
+  --space-0: 0rem;
+  --space-half: 0.125rem;
+  --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
+  --space-8: 2rem;
+  --space-9: 2.25rem;
+  --space-10: 2.5rem;
+  --space-11: 2.75rem;
+  --space-12: 3rem;
+  --space-13: 3.25rem;
+  --space-14: 3.5rem;
+  --space-16: 4rem;
+  --space-18: 4.5rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --palette-canvas-light: #ffffff;
+  --palette-canvas-dark: #121317;
+  --role-canvas: var(--palette-canvas-light);
+  --palette-ink-light: #121317;
+  --palette-ink-dark: #f8f9fc;
+  --role-ink: var(--palette-ink-light);
+  --palette-muted-light: #45474d;
+  --palette-muted-dark: #b2bbc5;
+  --role-muted: var(--palette-muted-light);
+  --palette-surface-light: #f8f9fc;
+  --palette-surface-dark: #18191d;
+  --role-surface: var(--palette-surface-light);
+  --palette-raised-light: #eff2f7;
+  --palette-raised-dark: #212226;
+  --role-raised: var(--palette-raised-light);
+  --palette-hover-light: #e6eaf0;
+  --palette-hover-dark: #2f3034;
+  --role-hover: var(--palette-hover-light);
+  --palette-line-light: #d2d6de;
+  --palette-line-dark: #45474d;
+  --role-line: var(--palette-line-light);
+  --palette-control-light: #737680;
+  --palette-control-dark: #929baa;
+  --role-control: var(--palette-control-light);
+  --palette-error-light: #a21927;
+  --palette-error-dark: #ffb3bc;
+  --role-error: var(--palette-error-light);
+  --palette-error-surface-light: #fff0f1;
+  --palette-error-surface-dark: #381b23;
+  --role-error-surface: var(--palette-error-surface-light);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --role-canvas: var(--palette-canvas-dark);
+    --role-ink: var(--palette-ink-dark);
+    --role-muted: var(--palette-muted-dark);
+    --role-surface: var(--palette-surface-dark);
+    --role-raised: var(--palette-raised-dark);
+    --role-hover: var(--palette-hover-dark);
+    --role-line: var(--palette-line-dark);
+    --role-control: var(--palette-control-dark);
+    --role-error: var(--palette-error-dark);
+    --role-error-surface: var(--palette-error-surface-dark);
+  }
+}
+html.dark {
+  color-scheme: dark;
+  --role-canvas: var(--palette-canvas-dark);
+  --role-ink: var(--palette-ink-dark);
+  --role-muted: var(--palette-muted-dark);
+  --role-surface: var(--palette-surface-dark);
+  --role-raised: var(--palette-raised-dark);
+  --role-hover: var(--palette-hover-dark);
+  --role-line: var(--palette-line-dark);
+  --role-control: var(--palette-control-dark);
+  --role-error: var(--palette-error-dark);
+  --role-error-surface: var(--palette-error-surface-dark);
+}
+html.light { color-scheme: light; }
+@supports (color: light-dark(white, black)) {
+  :root, html.light, html.dark {
+    --role-canvas: light-dark(var(--palette-canvas-light), var(--palette-canvas-dark));
+    --role-ink: light-dark(var(--palette-ink-light), var(--palette-ink-dark));
+    --role-muted: light-dark(var(--palette-muted-light), var(--palette-muted-dark));
+    --role-surface: light-dark(var(--palette-surface-light), var(--palette-surface-dark));
+    --role-raised: light-dark(var(--palette-raised-light), var(--palette-raised-dark));
+    --role-hover: light-dark(var(--palette-hover-light), var(--palette-hover-dark));
+    --role-line: light-dark(var(--palette-line-light), var(--palette-line-dark));
+    --role-control: light-dark(var(--palette-control-light), var(--palette-control-dark));
+    --role-error: light-dark(var(--palette-error-light), var(--palette-error-dark));
+    --role-error-surface: light-dark(var(--palette-error-surface-light), var(--palette-error-surface-dark));
+  }
+}
+:root:has(> head > meta[name="color-scheme"][content="light"]) { color-scheme: light; }
+:root:has(> head > meta[name="color-scheme"][content="dark"]) { color-scheme: dark; }
+@media (min-width: 68.75em) { :root { --assistant-modal: 0; } }
+@media (forced-colors: active) {
+  :root, html.dark, html.light {
+    --role-canvas: var(--color-forced-canvas);
+    --role-ink: var(--color-forced-ink);
+    --role-muted: var(--color-forced-ink);
+    --role-surface: var(--color-forced-canvas);
+    --role-raised: var(--color-forced-canvas);
+    --role-hover: var(--color-forced-canvas);
+    --role-line: var(--color-forced-ink);
+    --role-control: var(--color-forced-ink);
+    --role-error: var(--color-forced-ink);
+    --role-error-surface: var(--color-forced-canvas);
+  }
+}

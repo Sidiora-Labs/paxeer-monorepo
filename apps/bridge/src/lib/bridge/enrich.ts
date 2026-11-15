@@ -1,7 +1,7 @@
 import type { TransactionReceipt } from 'viem';
 
 import { matchDepositLog, nonceFromBridgeOutLogs } from './import';
-import type { BridgeTransfer } from './transfers';
+import { transferIdOf, type BridgeTransfer } from './transfers';
 
 export function enrichRecord(transfer: BridgeTransfer, receipt: TransactionReceipt): BridgeTransfer {
   if (receipt.status !== 'success' || receipt.transactionHash.toLowerCase() !== transfer.sourceTxHash.toLowerCase()) {
@@ -10,12 +10,25 @@ export function enrichRecord(transfer: BridgeTransfer, receipt: TransactionRecei
   if (transfer.direction === 'in' && (transfer.logIndex === undefined || transfer.nonce === undefined)) {
     const hit = matchDepositLog(transfer, receipt.logs);
     if (hit && hit.logIndex !== null) {
-      return { ...transfer, logIndex: String(hit.logIndex), nonce: String(hit.args.nonce) };
+      const logIndex = String(hit.logIndex);
+      return {
+        ...transfer,
+        id: transferIdOf('in', transfer.sourceTxHash, transfer.foreignChainId, logIndex),
+        logIndex,
+        nonce: String(hit.args.nonce),
+      };
     }
   }
   if (transfer.direction === 'out' && transfer.bridgeOutNonce === undefined) {
     const nonce = nonceFromBridgeOutLogs(receipt.logs);
-    if (nonce !== undefined) return { ...transfer, bridgeOutNonce: String(nonce) };
+    if (nonce !== undefined) {
+      const bridgeOutNonce = String(nonce);
+      return {
+        ...transfer,
+        id: transferIdOf('out', transfer.sourceTxHash, transfer.foreignChainId, bridgeOutNonce),
+        bridgeOutNonce,
+      };
+    }
   }
   return transfer;
 }

@@ -33,7 +33,12 @@ import {
 const NetworkSwitcher = WalletNetworkSwitcher;
 
 type SettingsView =
-  'main' | 'preferences' | 'appearance' | 'network' | 'advanced' | 'notifications';
+  | 'main'
+  | 'preferences'
+  | 'appearance'
+  | 'network'
+  | 'advanced'
+  | 'notifications';
 
 interface SettingsWidgetProps {
   onNavigate?: (route: ShellRouteName) => void;
@@ -62,7 +67,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
 
   return (
     <div className="grid grid-cols-2 gap-2.5 px-3 pt-3 pb-4">
-      <div className="col-span-2 bg-pax-surface rounded-[20px] p-4 text-left w-full">
+      <div className="col-span-2 bg-pax-surface rounded-xl p-4 text-left w-full">
         <div className="flex items-center gap-3">
           <Image
             src={getAvatarPath(activeAccount?.address || '')}
@@ -77,7 +82,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
               {activeAccount ? shortenAddress(activeAccount.address, 6) : '—'}
             </p>
             {isEmbedded && (
-              <p className="text-[10px] text-pax-accent/80 mt-0.5">
+              <p className="text-xs text-pax-accent/80 mt-0.5">
                 Paxeer Wallet · {t.settings.managedCustody}
               </p>
             )}
@@ -86,19 +91,13 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
       </div>
 
       <div className="col-span-2 px-1 pt-1">
-        <p className="text-[13px] font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
           {t.settings.addressBook}
         </p>
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-[20px]  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         <SettingsRow
-          icon={
-            <SvgIcon
-              name="user"
-              className="w-4.5 h-4.5"
-              style={{ filter: 'brightness(0) invert(0.6)' }}
-            />
-          }
+          icon={<SvgIcon name="user" className="w-4.5 h-4.5" />}
           label={t.nav.contacts}
           subtitle={t.settings.contactsSubtitle}
           onClick={() => onNavigate?.('contacts')}
@@ -106,105 +105,72 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
       </div>
 
       <div className="col-span-2 px-1 pt-1">
-        <p className="text-[13px] font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
           {t.account.title}
         </p>
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-[20px]  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         {wallet.identity?.email && (
-          <div className="px-4 py-3.5 text-sm">
-            <p className="text-[11px] text-pax-muted uppercase tracking-wider">
+          <div className="px-4 py-3 text-sm">
+            <p className="text-xs text-pax-muted uppercase tracking-wider">
               {t.settings.signedInAs}
             </p>
             <p className="text-sm mt-0.5 truncate">{wallet.identity.email}</p>
           </div>
         )}
         <button
+          type="button"
           onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm press-scale transition-colors hover:bg-white/5"
+          className="min-h-[var(--touch-target)] w-full flex items-center gap-3 px-4 py-3 text-sm press-scale transition-colors hover:bg-pax-control"
         >
           <span className="text-pax-muted">
-            <LogOut className="w-[18px] h-[18px]" />
+            <LogOut className="w-5 h-5" />
           </span>
           <div className="flex-1 text-left min-w-0">
             <span className="block">{t.settings.signOut}</span>
-            <span className="block text-[11px] text-pax-muted">{t.settings.signOutSubtitle}</span>
+            <span className="block text-xs text-pax-muted">{t.settings.signOutSubtitle}</span>
           </div>
-          <SvgIcon
-            name="chevron-right"
-            className="w-4 h-4"
-            style={{ filter: 'brightness(0) invert(0.3)' }}
-          />
+          <SvgIcon name="chevron-right" className="w-4 h-4" />
         </button>
         <SettingsRow
-          icon={
-            <SvgIcon
-              name="external-link"
-              className="w-4.5 h-4.5"
-              style={{ filter: 'brightness(0) invert(0.6)' }}
-            />
-          }
+          icon={<SvgIcon name="external-link" className="w-4.5 h-4.5" />}
           label={t.settings.viewOnExplorer}
           onClick={() => onPaxscan?.(`/address/${activeAccount?.address}`)}
         />
       </div>
 
       <div className="col-span-2 px-1 pt-1">
-        <p className="text-[13px] font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
           {t.settings.general}
         </p>
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-[20px]  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         <SettingsRow
-          icon={
-            <SvgIcon
-              name="settings"
-              className="w-4.5 h-4.5"
-              style={{ filter: 'brightness(0) invert(0.6)' }}
-            />
-          }
+          icon={<SvgIcon name="settings" className="w-4.5 h-4.5" />}
           label={t.settings.displayPreferences}
           subtitle={`${t.settings.currency}, ${t.settings.language}`}
           onClick={() => setView('preferences')}
         />
         <SettingsRow
-          icon={<Palette className="w-[18px] h-[18px]" />}
+          icon={<Palette className="w-5 h-5" />}
           label="Appearance"
           subtitle="Theme, accent, font, size and density"
           onClick={() => setView('appearance')}
         />
         <SettingsRow
-          icon={
-            <SvgIcon
-              name="wifi"
-              className="w-4.5 h-4.5"
-              style={{ filter: 'brightness(0) invert(0.6)' }}
-            />
-          }
+          icon={<SvgIcon name="wifi" className="w-4.5 h-4.5" />}
           label={t.settings.networkRpc}
           subtitle={`${t.settings.network}, ${t.settings.customRpc}`}
           onClick={() => setView('network')}
         />
         <SettingsRow
-          icon={
-            <SvgIcon
-              name="sliders"
-              className="w-4.5 h-4.5"
-              style={{ filter: 'brightness(0) invert(0.6)' }}
-            />
-          }
+          icon={<SvgIcon name="sliders" className="w-4.5 h-4.5" />}
           label={t.settings.advanced}
           subtitle={t.settings.advancedSubtitle}
           onClick={() => setView('advanced')}
         />
         <SettingsRow
-          icon={
-            <SvgIcon
-              name="bell"
-              className="w-4.5 h-4.5"
-              style={{ filter: 'brightness(0) invert(0.6)' }}
-            />
-          }
+          icon={<SvgIcon name="bell" className="w-4.5 h-4.5" />}
           label={t.settings.notifications}
           subtitle={t.settings.notificationsSubtitle}
           onClick={() => setView('notifications')}
@@ -212,11 +178,11 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
       </div>
 
       <div className="col-span-2 px-1 pt-1">
-        <p className="text-[13px] font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
           {t.settings.about}
         </p>
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-[20px] p-1 space-y-1 overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl p-1 space-y-1 overflow-hidden">
         <NotificationToggle />
         <InstallPrompt />
       </div>
@@ -243,12 +209,12 @@ function SettingsSubPage({
   return (
     <div className="min-h-screen px-4 pt-4 pb-8">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={onBack} className="p-2 -ml-2 press-scale">
-          <SvgIcon
-            name="arrow-left"
-            className="w-5 h-5"
-            style={{ filter: 'brightness(0) invert(0.6)' }}
-          />
+        <button
+          type="button"
+          onClick={onBack}
+          className="min-h-[var(--touch-target)] p-2 -ml-2 press-scale"
+        >
+          <SvgIcon name="arrow-left" className="w-5 h-5" />
         </button>
         <h2 className="text-lg font-bold">{title}</h2>
       </div>
@@ -272,12 +238,13 @@ function PreferencesView({ onBack }: { onBack: () => void }) {
     <SettingsSubPage title={t.settings.displayPreferences} onBack={onBack}>
       <div className="space-y-5">
         <div>
-          <p className="text-[13px] font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
+          <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
             {t.settings.currency}
           </p>
-          <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-white/[0.04]">
+          <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-pax-line">
             {FIAT_CURRENCIES.map((c) => (
               <button
+                type="button"
                 key={c}
                 onClick={() => {
                   setCurrency(c);
@@ -285,54 +252,41 @@ function PreferencesView({ onBack }: { onBack: () => void }) {
                   announceCurrencyChanged();
                   void refreshRates();
                 }}
-                className="w-full flex items-center justify-between px-4 py-3 press-scale hover:bg-white/5"
+                className="w-full flex items-center justify-between px-4 py-3 press-scale hover:bg-pax-control"
               >
                 <span className="text-sm">{c}</span>
-                {currency === c && (
-                  <SvgIcon
-                    name="check"
-                    className="w-4 h-4"
-                    style={{
-                      filter:
-                        'brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(7388%) hue-rotate(222deg) brightness(98%) contrast(101%)',
-                    }}
-                  />
-                )}
+                {currency === c && <SvgIcon name="check" className="w-4 h-4" />}
               </button>
             ))}
           </div>
           <div className="mt-2 flex items-center justify-between px-1">
-            <p className="text-[11px] text-pax-muted">Live USD conversion rates: {rateStatus}</p>
-            <button onClick={refreshRates} className="text-[11px] text-pax-accent press-scale">
+            <p className="text-xs text-pax-muted">Live USD conversion rates: {rateStatus}</p>
+            <button
+              type="button"
+              onClick={refreshRates}
+              className="min-h-[var(--touch-target)] text-xs text-pax-accent press-scale"
+            >
               {t.common.retry}
             </button>
           </div>
         </div>
         <div>
-          <p className="text-[13px] font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
+          <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
             {t.settings.language}
           </p>
-          <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-white/[0.04]">
+          <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-pax-line">
             {SUPPORTED_LOCALES.map((l) => (
               <button
+                type="button"
                 key={l}
                 onClick={() => {
                   setLanguage(l);
                   applyLocale(l);
                 }}
-                className="w-full flex items-center justify-between px-4 py-3 press-scale hover:bg-white/5"
+                className="w-full flex items-center justify-between px-4 py-3 press-scale hover:bg-pax-control"
               >
                 <span className="text-sm">{LOCALE_DISPLAY_NAMES[l]}</span>
-                {language === l && (
-                  <SvgIcon
-                    name="check"
-                    className="w-4 h-4"
-                    style={{
-                      filter:
-                        'brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(7388%) hue-rotate(222deg) brightness(98%) contrast(101%)',
-                    }}
-                  />
-                )}
+                {language === l && <SvgIcon name="check" className="w-4 h-4" />}
               </button>
             ))}
           </div>
@@ -407,34 +361,44 @@ function NetworkView({ onBack }: { onBack: () => void }) {
         <NetworkSwitcher />
 
         <div className="bg-pax-surface rounded-2xl p-4 space-y-3">
-          <p className="text-sm font-semibold">{t.settings.customRpc}</p>
+          <label htmlFor="custom-rpc" className="text-sm font-semibold">
+            {t.settings.customRpc}
+          </label>
           <input
+            id="custom-rpc"
             type="url"
+            name="custom-rpc"
+            autoComplete="url"
+            aria-describedby="custom-rpc-hint"
+            aria-invalid={Boolean(error)}
             value={customRpc}
             onChange={(e) => setCustomRpc(e.target.value)}
             placeholder={t.settings.rpcPlaceholder}
-            className="w-full px-3 py-2.5 rounded-xl bg-white/[0.06]   text-sm outline-none  placeholder:text-white/20"
+            className="w-full px-3 py-2.5 rounded-xl bg-pax-control   text-sm outline-none  placeholder:text-pax-muted"
           />
-          <p className="text-[11px] text-pax-muted">{t.settings.rpcHint}</p>
+          <p id="custom-rpc-hint" className="text-xs text-pax-muted">
+            {t.settings.rpcHint}
+          </p>
           {status && (
-            <p className="text-[11px] text-emerald-400" role="status">
+            <p className="text-xs text-pax-success" role="status">
               {status}
             </p>
           )}
           {error && (
-            <p className="text-[11px] text-red-400" role="alert">
+            <p className="text-xs text-pax-error" role="alert">
               {error}
             </p>
           )}
           <button
+            type="button"
             onClick={handleSave}
             disabled={!customRpc.trim() || testing}
-            className="w-full py-2.5 rounded-xl bg-pax-accent text-black text-sm font-semibold press-scale disabled:opacity-30"
+            className="min-h-[var(--touch-target)] w-full py-2.5 rounded-xl bg-pax-accent text-pax-on-accent text-sm font-semibold press-scale disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-pax-accent"
           >
             {testing ? (
               p.testingRpc
             ) : saved ? (
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-2">
                 <Check aria-hidden="true" className="h-4 w-4" />
                 {t.settings.saved}
               </span>
@@ -443,9 +407,10 @@ function NetworkView({ onBack }: { onBack: () => void }) {
             )}
           </button>
           <button
+            type="button"
             onClick={handleReset}
             disabled={!preferencesRepository.read().customRpc}
-            className="w-full py-2.5 rounded-xl bg-white/[0.06] text-sm font-medium press-scale disabled:opacity-30"
+            className="min-h-[var(--touch-target)] w-full py-2.5 rounded-xl bg-pax-control text-sm font-medium press-scale disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-pax-accent"
           >
             {p.defaultRpc}
           </button>
@@ -517,7 +482,7 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
   return (
     <SettingsSubPage title={t.settings.advanced} onBack={onBack}>
       <div className="space-y-4">
-        <div className="bg-pax-surface rounded-2xl  divide-white/[0.04] overflow-hidden">
+        <div className="bg-pax-surface rounded-2xl  divide-pax-line overflow-hidden">
           <div className="px-4 py-2">
             <Switch
               checked={devMode}
@@ -550,9 +515,10 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
             <div className="grid grid-cols-2 gap-2">
               {(['auto', 'economy', 'priority', 'custom'] as const).map((mode) => (
                 <button
+                  type="button"
                   key={mode}
                   onClick={() => handleFeeMode(mode)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium capitalize ${feeMode === mode ? 'bg-pax-accent text-black' : 'bg-white/[0.06] text-pax-muted'}`}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium capitalize ${feeMode === mode ? 'bg-pax-accent text-pax-on-accent' : 'bg-pax-control text-pax-muted'}`}
                 >
                   {mode}
                 </button>
@@ -560,16 +526,16 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
             </div>
             {feeMode === 'custom' && (
               <div className="grid grid-cols-2 gap-2">
-                <label className="space-y-1 text-[11px] text-pax-muted">
+                <label className="space-y-1 text-xs text-pax-muted">
                   Max fee (Gwei)
                   <input
                     inputMode="decimal"
                     value={maxFee}
                     onChange={(event) => handleCustomFee('customMaxFeeGwei', event.target.value)}
-                    className="w-full rounded-lg bg-white/[0.06] px-3 py-2 text-sm text-white outline-none"
+                    className="w-full rounded-lg bg-pax-control px-3 py-2 text-sm text-pax-light outline-none"
                   />
                 </label>
-                <label className="space-y-1 text-[11px] text-pax-muted">
+                <label className="space-y-1 text-xs text-pax-muted">
                   Priority fee (Gwei)
                   <input
                     inputMode="decimal"
@@ -577,12 +543,12 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
                     onChange={(event) =>
                       handleCustomFee('customPriorityFeeGwei', event.target.value)
                     }
-                    className="w-full rounded-lg bg-white/[0.06] px-3 py-2 text-sm text-white outline-none"
+                    className="w-full rounded-lg bg-pax-control px-3 py-2 text-sm text-pax-light outline-none"
                   />
                 </label>
               </div>
             )}
-            <p className="text-[11px] text-pax-muted">
+            <p className="text-xs text-pax-muted">
               The selected fee policy is used by the self-custody signer and shown before
               confirmation.
             </p>
@@ -593,16 +559,18 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
           <div className="bg-pax-surface rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">{t.settings.customNonce}</p>
-              <div className="flex rounded-lg bg-white/[0.06] overflow-hidden">
+              <div className="flex rounded-lg bg-pax-control overflow-hidden">
                 <button
+                  type="button"
                   onClick={() => handleNonceModeChange('auto')}
-                  className={`px-3 py-1 text-xs font-medium ${nonceMode === 'auto' ? 'bg-pax-accent text-black' : 'text-pax-muted'}`}
+                  className={`px-3 py-1 text-xs font-medium ${nonceMode === 'auto' ? 'bg-pax-accent text-pax-on-accent' : 'text-pax-muted'}`}
                 >
                   Auto
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNonceModeChange('manual')}
-                  className={`px-3 py-1 text-xs font-medium ${nonceMode === 'manual' ? 'bg-pax-accent text-black' : 'text-pax-muted'}`}
+                  className={`px-3 py-1 text-xs font-medium ${nonceMode === 'manual' ? 'bg-pax-accent text-pax-on-accent' : 'text-pax-muted'}`}
                 >
                   Manual
                 </button>
@@ -620,27 +588,27 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
                   value={customNonce}
                   onChange={(e) => handleNonceChange(e.target.value)}
                   placeholder={t.settings.customNoncePlaceholder}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white/[0.06]   text-sm outline-none  placeholder:text-white/20"
+                  className="w-full px-3 py-2.5 rounded-xl bg-pax-control   text-sm outline-none  placeholder:text-pax-muted"
                 />
                 {nonceInvalid && (
-                  <p id="custom-nonce-error" role="alert" className="text-[11px] text-amber-400">
+                  <p id="custom-nonce-error" role="alert" className="text-xs text-pax-warning">
                     Enter a whole number from 0 to 9007199254740991. Automatic nonce selection is
                     used until a valid value is entered.
                   </p>
                 )}
-                <p className="flex items-start gap-2 text-[11px] text-amber-400/80">
+                <p className="flex items-start gap-2 text-xs text-pax-warning/80">
                   <TriangleAlert aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{t.settings.customNonceWarning}</span>
                 </p>
               </>
             )}
             {nonceMode === 'auto' && (
-              <p className="text-[11px] text-pax-muted">
+              <p className="text-xs text-pax-muted">
                 Nonce is managed automatically from the chain.
               </p>
             )}
             {nonceMode === 'manual' && (
-              <p className="text-[11px] text-pax-muted">
+              <p className="text-xs text-pax-muted">
                 The manual nonce is consumed once and then returns to automatic mode.
               </p>
             )}
@@ -675,7 +643,7 @@ function NotificationsView({ onBack }: { onBack: () => void }) {
 
   return (
     <SettingsSubPage title={t.settings.notifications} onBack={onBack}>
-      <div className="bg-pax-surface rounded-2xl  divide-white/[0.04] overflow-hidden">
+      <div className="bg-pax-surface rounded-2xl  divide-pax-line overflow-hidden">
         {prefs.map((p) => (
           <div key={p.key} className="px-4 py-2">
             <Switch
@@ -704,19 +672,16 @@ function SettingsRow({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3.5 text-sm press-scale transition-colors hover:bg-white/5"
+      className="min-h-[var(--touch-target)] w-full flex items-center gap-3 px-4 py-3 text-sm press-scale transition-colors hover:bg-pax-control"
     >
       <span className="text-pax-muted">{icon}</span>
       <div className="flex-1 text-left min-w-0">
         <span className="block">{label}</span>
-        {subtitle && <span className="block text-[11px] text-pax-muted">{subtitle}</span>}
+        {subtitle && <span className="block text-xs text-pax-muted">{subtitle}</span>}
       </div>
-      <SvgIcon
-        name="chevron-right"
-        className="w-4 h-4"
-        style={{ filter: 'brightness(0) invert(0.3)' }}
-      />
+      <SvgIcon name="chevron-right" className="w-4 h-4" />
     </button>
   );
 }

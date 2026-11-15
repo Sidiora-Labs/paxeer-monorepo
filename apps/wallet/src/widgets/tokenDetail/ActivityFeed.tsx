@@ -13,11 +13,6 @@ import { SvgIcon } from '@/components/ui/SvgIcon';
 import { SectionLabel } from './Atoms';
 import type { TokenDetailHistoryRow } from './detailQueries';
 
-const SENT_FILTER =
-  'invert(48%) sepia(79%) saturate(2476%) hue-rotate(338deg) brightness(118%) contrast(119%)';
-const RECEIVED_FILTER =
-  'invert(69%) sepia(61%) saturate(588%) hue-rotate(88deg) brightness(93%) contrast(93%)';
-
 export interface ActivityFeedProps {
   rows: TokenDetailHistoryRow[];
   walletAddress: string;
@@ -49,18 +44,19 @@ export function ActivityFeed({
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="col-span-2 bg-pax-surface rounded-[20px] py-10 text-center">
+        <div className="col-span-2 bg-pax-surface rounded-xl py-10 text-center">
           <p className="text-xs text-pax-muted">No activity yet</p>
         </div>
       ) : (
-        <div className="col-span-2 bg-pax-surface rounded-[20px]  divide-white/[0.04] overflow-hidden">
+        <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
           {rows.map((row, i) => {
             const isSent = row.fromAddress.toLowerCase() === addr;
             return (
               <button
+                type="button"
                 key={row.hash + i}
                 onClick={() => onTxDetail?.(row.hash)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 press-scale text-left transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 press-scale text-left transition-colors"
               >
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
@@ -70,12 +66,11 @@ export function ActivityFeed({
                   <SvgIcon
                     name={isSent ? 'arrow-up-right' : 'arrow-down-left'}
                     className="w-4 h-4"
-                    style={{ filter: isSent ? SENT_FILTER : RECEIVED_FILTER }}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold">{isSent ? 'Sent' : 'Received'}</p>
-                  <p className="text-[11px] text-pax-muted truncate">
+                  <p className="text-xs text-pax-muted truncate">
                     {isSent
                       ? `To ${shortenAddress(row.toAddress)}`
                       : `From ${shortenAddress(row.fromAddress)}`}

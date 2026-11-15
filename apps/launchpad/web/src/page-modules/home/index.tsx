@@ -8,7 +8,7 @@ export default function HomeModule() {
   return (
     <>
       <h1 className="sr-only">Sidiora dashboard</h1>
-      {compact ? <HomeFeed /> : <DashboardBoard />}
+      <div data-home-view className="min-w-0">{compact ? <HomeFeed /> : <DashboardBoard />}</div>
     </>
   );
 }

@@ -1,12 +1,11 @@
-import { CheckIcon, ChevronDownIcon, ExternalLinkIcon, XIcon } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { useId, useState, type ReactNode } from 'react';
-
 import { Numeral } from '@/components/trading/numeral';
 import { TokenIcon } from '@/components/trading/token-icon';
 import { SPRING_LAYOUT } from '@/lib/ease';
 import { shortenAddress } from '@/lib/trading';
 import { cn } from '@/lib/utils';
+import { CheckIcon, ChevronDownIcon, ExternalLinkIcon, XIcon } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useId, useState, type ReactNode } from 'react';
 
 function useControllable<T>(value: T | undefined, defaultValue: T, onChange?: (next: T) => void) {
   const [ inner, setInner ] = useState(defaultValue);
@@ -44,7 +43,7 @@ export type TransferStatusItem = {
 export type TransferStatusGroup = 'pending' | 'failed' | 'completed';
 
 export interface DepositStatusProps {
-  items: TransferStatusItem[];
+  items: Array<TransferStatusItem>;
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -80,8 +79,8 @@ const GROUP_TEXT: Record<TransferStatusGroup, [one: string, many: string]> = {
 
 const GROUP_DOT: Record<TransferStatusGroup, string> = {
   pending: 'bg-primary',
-  failed: 'bg-rose-500',
-  completed: 'bg-emerald-500',
+  failed: 'bg-destructive',
+  completed: 'bg-success',
 };
 
 const STEP_ORDER = [ 'submitted', 'confirming', 'attesting', 'ready', 'credited' ] as const;
@@ -100,43 +99,43 @@ export function TransferSteps({ item }: { item: TransferStatusItem }) {
     item.step === 'confirming' && item.requiredConfirmations ? Math.min(1, (item.confirmations ?? 0) / item.requiredConfirmations) : reached >= 2 ? 1 : 0;
 
   return (
-    <ol className="grid grid-cols-5 items-start" aria-label="Progress">
-      {labels.map((label, i) => {
+    <ol className="bridge-progress-steps items-start" aria-label="Progress">
+      { labels.map((label, i) => {
         const done = i < reached || (i === reached && item.step === 'credited');
         const current = i === reached && !done;
         const isFail = failed && current;
         const fill = i === 1 ? (reached >= 1 ? 1 : 0) : i === 2 ? confirmFraction : reached >= i ? 1 : 0;
         return (
-          <li key={label} className="relative flex flex-col items-center gap-1 text-center" aria-current={current ? 'step' : undefined}>
-            {i > 0 && (
-              <span aria-hidden="true" className="absolute top-[7px] right-[calc(50%+12px)] left-[calc(-50%+12px)] h-0.5 overflow-hidden rounded-full bg-border">
+          <li key={ label } className="relative flex flex-col items-center gap-1 text-center" aria-current={ current ? 'step' : undefined }>
+            { i > 0 && (
+              <span aria-hidden="true" className="hidden @min-[32rem]/status:block absolute top-[calc(var(--spacing)*1.75)] right-[calc(50%+var(--spacing)*3)] left-[calc(-50%+var(--spacing)*3)] h-0.5 overflow-hidden rounded-full bg-border">
                 <motion.span
-                  className="absolute inset-y-0 left-0 rounded-full bg-emerald-500"
-                  initial={false}
+                  className="absolute inset-y-0 left-0 rounded-full bg-success"
+                  initial={ false }
                   animate={{ width: `${ fill * 100 }%` }}
-                  transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
+                  transition={ reduce ? { duration: 0 } : SPRING_LAYOUT }
                 />
               </span>
-            )}
+            ) }
             <span
-              className={cn(
-                'grid size-4 place-items-center rounded-full border-[1.5px]',
-                done && 'border-emerald-500 bg-emerald-500 text-white dark:text-emerald-950',
+              className={ cn(
+                'grid size-4 place-items-center rounded-full border-(length:--border-step)',
+                done && 'border-success bg-success text-primary-foreground',
                 current && !isFail && 'border-primary',
-                isFail && 'border-rose-500 bg-rose-500 text-white',
+                isFail && 'border-destructive bg-destructive text-destructive-foreground',
                 !done && !current && 'border-border',
-              )}
+              ) }
             >
-              {done && <CheckIcon className="size-2.5" strokeWidth={3} />}
-              {isFail && <XIcon className="size-2.5" strokeWidth={3} />}
-              {current && !isFail && <span className={cn('size-1.5 rounded-full bg-primary', !reduce && 'animate-pulse')} />}
+              { done && <CheckIcon className="size-2.5" strokeWidth={ 3 }/> }
+              { isFail && <XIcon className="size-2.5" strokeWidth={ 3 }/> }
+              { current && !isFail && <span className={ cn('size-1.5 rounded-full bg-primary', !reduce && 'animate-pulse') }/> }
             </span>
-            <span className={cn('text-[10px] leading-tight', done || current ? 'text-foreground' : 'text-muted-foreground', isFail && 'text-rose-600 dark:text-rose-400')}>
-              {isFail ? 'Failed' : label}
+            <span className={ cn('text-caption leading-tight', done || current ? 'text-foreground' : 'text-muted-foreground', isFail && 'text-destructive') }>
+              { isFail ? 'Failed' : label }
             </span>
           </li>
         );
-      })}
+      }) }
     </ol>
   );
 }
@@ -153,96 +152,96 @@ export function DepositStatus({ items, open, defaultOpen = false, onOpenChange, 
     .filter((g) => g.list.length > 0);
 
   return (
-    <div data-slot="deposit-status" className={cn('flex w-full flex-col overflow-hidden rounded-xl border border-border bg-container text-xs', className)}>
-      {groups.map(({ group, list }) => {
+    <div data-slot="deposit-status" className={ cn('@container/status flex min-w-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-container text-xs', className) }>
+      { groups.map(({ group, list }) => {
         const single = list.length === 1;
         return (
-          <div key={group} className="flex items-center gap-1 border-b border-border/60 pr-1.5 last-of-type:border-0">
+          <div key={ group } className="flex items-center gap-1 border-b border-border/60 pr-1.5 last-of-type:border-0">
             <button
               type="button"
-              aria-expanded={isOpen}
-              aria-controls={listId}
-              onClick={() => setOpen(!isOpen)}
-              className="focus-ring flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 text-left text-foreground/80 hover:text-foreground"
+              aria-expanded={ isOpen }
+              aria-controls={ listId }
+              onClick={ () => setOpen(!isOpen) }
+              className="focus-ring flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 text-left text-foreground/80 hover:text-foreground"
             >
-              <span className={cn('size-2 shrink-0 rounded-full', GROUP_DOT[group], group === 'pending' && !reduce && 'animate-pulse')} />
-              <span className="truncate">{GROUP_TEXT[group][single ? 0 : 1]}</span>
+              <span className={ cn('size-2 shrink-0 rounded-full', GROUP_DOT[group], group === 'pending' && !reduce && 'animate-pulse') }/>
+              <span className="break-words">{ GROUP_TEXT[group][single ? 0 : 1] }</span>
               <span className="ml-auto flex items-center gap-1.5">
-                {group === 'pending' && single && list[0].eta ? (
-                  <span className="text-[11px] text-primary">{list[0].eta}</span>
+                { group === 'pending' && single && list[0].eta ? (
+                  <span className="text-caption text-primary">{ list[0].eta }</span>
                 ) : (
-                  <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-container-higher px-1 text-[10px] font-medium tabular-nums">{list.length}</span>
-                )}
-                <ChevronDownIcon className={cn('size-3.5 text-muted-foreground transition-transform duration-200', isOpen && 'rotate-180')} />
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-container-higher px-1 text-caption font-medium tabular-nums">{ list.length }</span>
+                ) }
+                <ChevronDownIcon className={ cn('size-3.5 text-muted-foreground transition-transform duration-(--duration-normal)', isOpen && 'rotate-180') }/>
               </span>
             </button>
-            {onDismiss && (
+            { onDismiss && (
               <button
                 type="button"
-                aria-label={`Dismiss ${ group } transactions`}
-                onClick={() => onDismiss(group)}
-                className="focus-ring grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-container-high hover:text-foreground"
+                aria-label={ `Dismiss ${ group } transactions` }
+                onClick={ () => onDismiss(group) }
+                className="focus-ring grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-container-high hover:text-foreground"
               >
-                <XIcon className="size-3.5" />
+                <XIcon className="size-3.5"/>
               </button>
-            )}
+            ) }
           </div>
         );
-      })}
+      }) }
 
-      <AnimatePresence initial={false}>
-        {isOpen && (
+      <AnimatePresence initial={ false }>
+        { isOpen && (
           <motion.div
-            id={listId}
+            id={ listId }
             key="list"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
+            transition={ reduce ? { duration: 0 } : SPRING_LAYOUT }
             className="overflow-hidden border-t border-border"
           >
             <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto p-1.5">
-              {items.map((item) => {
+              { items.map((item) => {
                 const href = item.txHash ? explorerUrl?.(item) : undefined;
                 return (
-                  <li key={item.id} className="flex flex-col gap-2.5 rounded-lg bg-container-high/60 p-2.5">
-                    <div className="flex items-start gap-2">
-                      <TokenIcon symbol={item.token} src={item.iconSrc} size="sm" />
-                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="flex items-baseline gap-1 text-xs font-medium">
-                          {item.type === 'withdraw' ? 'Withdraw' : 'Deposit'}
-                          <Numeral value={item.amount} dp={6} pad={false} unit={item.token} />
+                  <li key={ item.id } className="flex flex-col gap-2.5 rounded-lg bg-container-high/60 p-2.5">
+                    <div className="flex flex-wrap items-start gap-2">
+                      <TokenIcon symbol={ item.token } src={ item.iconSrc } size="sm"/>
+                      <div className="flex min-w-0 flex-[1_1_16ch] flex-col gap-0.5">
+                        <span className="flex flex-wrap items-baseline gap-1 text-xs font-medium">
+                          { item.type === 'withdraw' ? 'Withdraw' : 'Deposit' }
+                          <Numeral value={ item.amount } dp={ 6 } pad={ false } unit={ item.token }/>
                         </span>
-                        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                          {item.network}
-                          {item.network && item.time != null && <span aria-hidden="true">·</span>}
-                          {item.time}
+                        <span className="flex flex-wrap items-center gap-1.5 text-caption text-muted-foreground">
+                          <span>{ item.network }</span>
+                          { item.network && item.time != null && <span aria-hidden="true">·</span> }
+                          <span>{ item.time }</span>
                         </span>
                       </div>
-                      {item.txHash &&
+                      { item.txHash &&
                         (href ? (
                           <a
-                            href={href}
+                            href={ href }
                             target="_blank"
                             rel="noreferrer"
-                            className="focus-ring flex items-center gap-1 rounded font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                            className="focus-ring flex min-h-11 items-center gap-1 rounded font-mono text-caption text-muted-foreground hover:text-foreground"
                           >
-                            {shortenAddress(item.txHash, 6, 4)}
-                            <ExternalLinkIcon className="size-3" />
+                            { shortenAddress(item.txHash, 6, 4) }
+                            <ExternalLinkIcon className="size-3"/>
                             <span className="sr-only">View transaction on explorer</span>
                           </a>
                         ) : (
-                          <span className="font-mono text-[11px] text-muted-foreground">{shortenAddress(item.txHash, 6, 4)}</span>
-                        ))}
+                          <span className="font-mono text-caption text-muted-foreground">{ shortenAddress(item.txHash, 6, 4) }</span>
+                        )) }
                     </div>
-                    <TransferSteps item={item} />
+                    <TransferSteps item={ item }/>
                   </li>
                 );
-              })}
+              }) }
             </ul>
-            {footer && <div className="border-t border-border px-3 py-2">{footer}</div>}
+            { footer && <div className="border-t border-border px-3 py-2">{ footer }</div> }
           </motion.div>
-        )}
+        ) }
       </AnimatePresence>
     </div>
   );

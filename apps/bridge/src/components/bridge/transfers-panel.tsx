@@ -20,10 +20,11 @@ import {
   attestationApiConfigured,
   useDepositNullified,
 } from '@/lib/bridge/use-bridge-state';
+import { useHydratedAccount } from '@/lib/bridge/use-hydrated-account';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 import { queryOptions, useQueries, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useAccount, useChainId, useSwitchChain, useWriteContract } from 'wagmi';
+import { useChainId, useSwitchChain, useWriteContract } from 'wagmi';
 import { getTransactionReceipt } from 'wagmi/actions';
 
 import { ImportTransfer } from './import-transfer';
@@ -74,7 +75,7 @@ async function enrichTransfers(list: Array<BridgeTransfer>): Promise<Array<Bridg
     }
     const enriched = enrichRecord(transfer, receipt);
     if (enriched !== transfer) {
-      updateTransfer(enriched.id, {
+      updateTransfer(stored.id, {
         logIndex: enriched.logIndex,
         nonce: enriched.nonce,
         bridgeOutNonce: enriched.bridgeOutNonce,
@@ -174,7 +175,7 @@ export function TransferObservation({ transfer, live, error, retry, retrying = f
   return (
     <>
       { error ? (
-        <div role="alert" className="px-1 text-xs text-destructive">
+        <div role="alert" className="flex min-w-0 flex-col items-start gap-2 break-words px-1 text-xs text-destructive">
           RPC unavailable. Last verified progress is retained. { error.message }
           <Button size="sm" variant="tonal" disabled={ retrying } onClick={ retry }>Retry RPC</Button>
         </div>
@@ -293,21 +294,21 @@ export function TransferRow({
       <DepositStatus items={ [ statusItem ] } explorerUrl={ () => sourceUrl } defaultOpen={ phase === 'ready' }/>
       <TransferObservation transfer={ transfer } live={ live } error={ liveQuery.error } retrying={ liveQuery.isFetching } retry={ () => void liveQuery.refetch() }/>
       { !isSolanaWithdrawal && phase === 'attesting' && !attestationApiConfigured ? (
-        <p className="px-1 text-[11px] text-muted-foreground">
+        <p className="px-1 text-caption text-muted-foreground">
           Finality reached. The signature bundle comes from the bridge backend, which is not configured in this
           deployment — the { transfer.direction === 'in' ? 'claim' : 'release' } button appears once it is.
         </p>
       ) : null }
       { !isSolanaWithdrawal && phase === 'attesting' && attestationApiConfigured ? (
-        <p className="flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
+        <p className="flex items-center gap-1.5 px-1 text-caption text-muted-foreground">
           <Spinner className="size-3"/> Waiting for the attestor threshold…
         </p>
       ) : null }
       { phase === 'settling' ? (
-        <p className="px-1 text-[11px] text-muted-foreground">Settlement broadcast. Waiting for a committed receipt and the bridge nullifier. You can retry if the transaction was dropped or replaced.</p>
+        <p className="px-1 text-caption text-muted-foreground">Settlement broadcast. Waiting for a committed receipt and the bridge nullifier. You can retry if the transaction was dropped or replaced.</p>
       ) : null }
       { live?.settlementStatus === 'reverted' || live?.settlementStatus === 'dropped' ? (
-        <p className="px-1 text-[11px] text-destructive">The settlement attempt { live.settlementStatus }. Retry to submit another attempt.</p>
+        <p className="px-1 text-caption text-destructive">The settlement attempt { live.settlementStatus }. Retry to submit another attempt.</p>
       ) : null }
       { !isSolanaWithdrawal && (phase === 'ready' || phase === 'settling') && attestationReady ? (
         onSettleChain ? (
@@ -328,14 +329,14 @@ export function TransferRow({
         )
       ) : null }
       { phase === 'failed' ? (
-        <p className="px-1 text-[11px] text-destructive">The source transaction reverted. No funds moved.</p>
+        <p className="px-1 text-caption text-destructive">The source transaction reverted. No funds moved.</p>
       ) : null }
     </div>
   );
 }
 
 export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useHydratedAccount();
   const [ version, setVersion ] = useState(0);
   const onChanged = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -359,9 +360,9 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
 
   return (
     <section id="transfers" aria-label="Your bridge transfers" className="flex w-full flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">Your transfers</h2>
-        <span className="text-xs text-muted-foreground">This browser's record — chain state is re-read live.</span>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="text-title font-semibold tracking-tight">Your transfers</h2>
+        <span className="text-body-sm text-muted-foreground">This browser's record — chain state is re-read live.</span>
       </div>
 
       { !isConnected ? (

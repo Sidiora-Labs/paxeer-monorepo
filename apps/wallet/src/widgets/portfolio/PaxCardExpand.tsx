@@ -10,10 +10,10 @@ import { PAX_ICON_URL } from '@/lib/constants';
 import { formatUsd } from '@/lib/format';
 
 const CARD_COLORS = [
-  'bg-[var(--color-action-primary-muted)]',
-  'bg-[var(--color-surface-overlay)]',
-  'bg-amber-950',
-  'bg-emerald-950',
+  'bg-pax-accent-dim',
+  'bg-pax-overlay',
+  'bg-pax-warning-surface',
+  'bg-pax-success-surface',
 ];
 
 interface WalletItem {
@@ -114,19 +114,19 @@ export const PaxCardExpand = ({
         key={index}
         layoutId={`card-${index}`}
         onClick={() => !isExpanded && handleCardClick(index)}
-        className={`relative flex cursor-pointer flex-col items-start justify-between overflow-hidden p-3 text-white ${
+        className={`relative flex cursor-pointer flex-col items-start justify-between overflow-hidden p-3 text-pax-light ${
           isExpanded
-            ? 'h-[180px] w-full'
+            ? 'h-card-expanded w-full'
             : hasThreeBottomCards && isBottomRow
-              ? 'h-[100px] flex-1'
-              : 'h-[140px] flex-1'
-        } ${item.bgColor}`}
-        style={{ transformOrigin: '50% 50% 0px', transform: 'none', borderRadius: '24px' }}
+              ? 'h-card-compact flex-1'
+              : 'h-card-row flex-1'
+        } rounded-3xl ${item.bgColor}`}
+        style={{ transformOrigin: '50% 50% 0px' }}
       >
         <div className="flex w-full items-start justify-between">
           <motion.div
             layoutId={`icon-${index}`}
-            className={`${iconSize} rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center`}
+            className={`${iconSize} rounded-full bg-pax-overlay overflow-hidden shrink-0 flex items-center justify-center`}
           >
             {item.iconUrl ? (
               <Image
@@ -137,7 +137,7 @@ export const PaxCardExpand = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-xs font-bold text-white/70">{item.symbol.slice(0, 3)}</span>
+              <span className="text-xs font-bold text-pax-light">{item.symbol.slice(0, 3)}</span>
             )}
           </motion.div>
 
@@ -146,7 +146,7 @@ export const PaxCardExpand = ({
               initial={{ opacity: 0, filter: 'blur(2px)' }}
               animate={{ opacity: 1, filter: 'blur(0px)' }}
               exit={{ opacity: 0, filter: 'blur(2px)' }}
-              className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/20 p-0.5 transition-colors hover:bg-white/30"
+              className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full bg-pax-overlay p-0.5 transition-colors hover:bg-pax-overlay"
             >
               <Ellipsis className="size-3" />
             </motion.div>
@@ -168,7 +168,7 @@ export const PaxCardExpand = ({
                 <p className="text-sm">
                   {item.tokenId === 'pax' ? 'Copy Address' : 'Copy Contract'}
                 </p>
-                <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-pax-overlay hover:bg-pax-overlay">
                   <Copy className="size-3" />
                 </div>
               </motion.button>
@@ -182,7 +182,7 @@ export const PaxCardExpand = ({
                   onTokenDetail?.(item.tokenId, item.symbol);
                   setExpandedCard(null);
                 }}
-                className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold tracking-tight hover:bg-white/30"
+                className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full bg-pax-overlay px-3 py-1 text-sm font-semibold tracking-tight hover:bg-pax-overlay"
               >
                 <ExternalLink className="size-3.5" />
                 View Details
@@ -193,7 +193,7 @@ export const PaxCardExpand = ({
         <div className="flex flex-col items-start justify-center">
           <motion.span
             layoutId={`title-${index}`}
-            className={`font-openrunde select-none font-semibold text-white ${
+            className={`font-openrunde select-none font-semibold text-pax-light ${
               isExpanded ? 'text-xl' : hasThreeBottomCards && isBottomRow ? 'text-sm' : 'text-base'
             }`}
           >
@@ -201,14 +201,14 @@ export const PaxCardExpand = ({
           </motion.span>
           <motion.span
             layoutId={`desc-${index}`}
-            className={`font-openrunde select-none font-semibold text-white/50 ${
+            className={`font-openrunde select-none font-semibold text-pax-muted ${
               isExpanded ? 'text-lg' : hasThreeBottomCards && isBottomRow ? 'text-xs' : 'text-sm'
             }`}
           >
             {hidden ? '••••' : item.amount}
           </motion.span>
           {isExpanded && item.valueUsd !== null && item.valueUsd > 0 && !hidden && (
-            <motion.span className="text-sm text-white/40 mt-0.5">
+            <motion.span className="text-sm text-pax-muted mt-0.5">
               {formatUsd(item.valueUsd)}
             </motion.span>
           )}
@@ -232,8 +232,8 @@ export const PaxCardExpand = ({
   };
 
   return (
-    <div className="font-open-runde flex h-full w-full flex-col items-center justify-center gap-4 p-4">
-      <div ref={containerRef} className="flex h-[310px] w-full flex-col justify-end gap-4">
+    <div className="font-sans flex h-full w-full flex-col items-center justify-center gap-4 p-4">
+      <div ref={containerRef} className="flex h-chart-area w-full flex-col justify-end gap-4">
         <div className="flex gap-4">
           {getTopRowCards().map((item, index) => {
             const originalIndex = expandedCard !== null ? expandedCard : index;

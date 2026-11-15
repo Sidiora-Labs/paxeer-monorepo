@@ -14692,6 +14692,72 @@ value = "The fast execution path takes the storage gas value of the ordinary pat
 basis = "Gotcha 4514."
 affects = []
 
+[decision.3597]
+title = "The preflight of the return command copies the consensus stores in bounded writes"
+value = "The copy of a consensus store in the preflight of the return command is written in parts of a bounded size: a part is written and released before the next one is collected, and the last part is written with a sync. The memory of the copy does not grow with the store. The copy holds the same records as before, and the step on the copy and the order of the command stay as they are. The command prints one line when the copy of a store begins and one when it ends, with the number of records and the time."
+basis = "Gotcha 4515."
+affects = []
+
+[decision.3598]
+title = "A proof task of a surface holds the files the build of the surface reads"
+value = "The paths of task 22.44.42 gain the bundler configuration and the compiler configuration of the wallet demo, so that the demo builds from a clean tree with the wallet package resolved either from its built output or from its sources. The paths of task 22.44.47 gain the source file of the playground whose type check stands before the pages. In these files a proof task changes only what the build needs to start; the behaviour of the application does not change."
+basis = "Gotcha 4516. Decision 3591."
+affects = []
+
+[decision.3599]
+title = "The gateway definition carries the identity settings of registration and sessions under the role identity"
+value = "The native file table of the gateway gains four rows under the role identity: the identity token, the provisioning token, the client identity bundle and its password. The definition of the gateway on the hosting platform sets the role, the address of the identity service, the tenant and the paths of the four files. The address and the tenant are inputs of the operator, the two tokens are issued by the identity service and given by the operator, the bundle and its password are written by the launcher. The client identity is named through the pair of variables the entrypoint of the image already stages. A start without the role writes the four files of the chain methods and answers the two methods with registration_not_configured."
+basis = "Gotcha 4517. Decisions 3583 and 3584."
+affects = []
+
+[decision.3600]
+title = "The dashboard web names the gateway tenant itself"
+value = "The tenant under which the gateway registers developer keys is a setting of the operator and no knowledge of a developer. The dashboard web reads it from the runtime variable DASHBOARD_GATEWAY_TENANT at request time and uses it for the registration binding and for the session digest; the sign-in view holds no tenant field. Without the variable or without the gateway origin the view states that key sign-in is not configured and offers the session token path. The view renders a control only when it can act, and the label of a control in a busy state stays readable in both schemes."
+basis = "Decision 3584. Tasks 22.39.682 and 22.39.683."
+affects = []
+
+[decision.3601]
+title = "A session request is accepted when its Origin names the host the browser addressed"
+value = "The session routes of the dashboard web accept a request whose Origin is the https origin of the host header of the request, with the same port when one is named. They also accept a request whose Origin equals the origin of the request address, which is the direct form without a front. A request without an Origin, with another host, with another port or with the plain http scheme against the host header is refused with 403 and the reason origin_refused. The session cookie keeps its attributes. The app also serves an icon, so that the load of the page ends no request without a resource."
+basis = "Gotcha 4518. Decision 3584."
+affects = []
+
+[decision.3602]
+title = "Each app of the explorer backend has its suite task and one task runs the suite whole"
+value = "The verification of a suite task of the explorer backend names the test directories of the apps of its paths. Task 22.39.634 verifies the apps explorer and ethereum_jsonrpc. The apps indexer, block_scout_web and nft_media_handler each have a task of their own, and one closing task runs the suite with no path. Decision 3572 holds for the cases of every app under services/explorer/backend/apps. The test configuration of the app block_scout_web compiles the routers its cases address: the router of the pages, the admin panel, the API routers and the GraphQL routes. The default of each of these switches outside the test configuration stays as it is."
+basis = "Gotcha 4519. Decision 3572."
+affects = []
+
+[decision.3603]
+title = "The cases of the explorer theme follow the theme of the design brief and the presets follow the theme"
+value = "The theme under apps/explorer/toolkit/theme in the form the design brief gives is the source of the token values. A case under apps/explorer/toolkit/theme/foundations that states another value follows the theme; a case that states the order or the growth of a scale follows the scale the theme holds. The presets under apps/explorer/configs/envs declare every colour the theme declares with the value of the theme. A case of the toolkit that needs an observer of the browser the test environment lacks defines a stand-in of its own and imports no package the package file does not declare. No case is removed or skipped."
+basis = "Gotcha 4520. Decisions 3589 and 3572."
+affects = []
+
+[decision.3604]
+title = "A refused block is compared by its refusal, and a decimal parameter without a stored value takes the default of the parameter set"
+value = "A comparison of the ordinary path and the fast path over one state holds a refused block when both paths refuse it; the texts of the refusals are not part of the comparison. The readers of the decimal parameters of the virtual machine give the default of the parameter set in modules/evm/types/params.go when the store holds no value for the key, outside the reads of a trace at an earlier version, and the readers of the keeper of the fast path give the same value. A block over a state without these values is then applied by both paths with equal results."
+basis = "Gotcha 4521. Decision 3596."
+affects = []
+
+[decision.3605]
+title = "The writer of an entry keeps the index of its principal, and a principal without entries reads as empty"
+value = "The gateway writes each audit entry that names a principal to the stream gateway:principal:DIGEST:audit under the id and with the fields of the entry of the common stream, and sets the version of the index to 1, in the script that appends the entry. The webhooks service writes each payment event that states an activity to the hash webhooks:principal:DIGEST:activities under the id of the activity, and sets the version of the index to 1, in the script that stores the document of the principal. Each service brings the indexes in line with the entries its store already holds, outside the path of a request. The dashboard API reads a principal that has neither an index nor a version as a principal without entries: an empty list of requests, and no receipt for an activity. A version of another value, or entries without a version, stay a refusal."
+basis = "Gotcha 4522. Decision 3046."
+affects = []
+
+[decision.3606]
+title = "The keeper of the fast path purges a prefix in the form of the keeper of the ordinary path"
+value = "The prefix purge of the keeper of the fast path takes the form of the keeper of the ordinary path: the keys of the range come from the range key listing of the store, the gas charged is the gas of a forward scan of the range followed by the deletion of each key, and the keys are deleted after the listing has ended. The time of a purge grows with the keys of the range and with the count of stacked cache stores, each in a straight line. A block whose transaction destroys an account it created after many calls is applied by both paths with equal results. Task 22.39.692 holds the case TestPurgePrefixNotHang; the verifications of tasks 22.39.679 and 22.39.689 run the package without that case."
+basis = "Gotcha 4523. Decisions 3596 and 3604."
+affects = []
+
+[decision.3607]
+title = "The class merge helper of each surface is told the names of its theme"
+value = "The helper that merges the class names of a surface extends the merge by the names its theme gives to font sizes, and by the names of each other prefix the theme uses for two kinds of value. A case beside the helper reads the names from the source of the theme and holds for each name that a colour class and the class of the name both stay in both orders, and that of two classes of one kind the last stays. The helper in apps/bridge/src/lib/utils.ts gives the form. The trading workspace keeps the merge its baseline holds."
+basis = "Gotcha 4524. Decisions 3588 and 3589."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44352,6 +44418,150 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.51]
+title = "Tell the class merge of the wallet application the names of its theme"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src/lib/cn.ts"]
+tests = []
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/lib/cn.test.ts && pnpm --dir apps/wallet run typecheck"
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/wallet/src/lib/cn.ts, the font sizes, the shadows and the colours the theme names in apps/wallet/tailwind.config.ts, and apps/bridge/src/lib/utils.ts as the form."
+symbols = []
+
+[capability.22.44.50]
+title = "Tell the class merge of the launchpad the names of its theme"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/lib"]
+tests = []
+verification_contract = "pnpm --dir apps/launchpad/web exec vitest run src/lib/utils.test.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/launchpad/web/src/lib/utils.ts, the names the theme declares in apps/launchpad/web/src/app/tokens.css, and apps/bridge/src/lib/utils.ts as the form."
+symbols = []
+
+[capability.22.44.49]
+title = "Tell the class merge of the interface package of the human web application the names of its theme"
+reqs = ["22998.1"]
+touches = ["apps/web/packages/layerx-ui/src", "apps/web/packages/layerx-ui/README.md", "apps/web/e2e/ui-library.test.ts"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component"
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/web/packages/layerx-ui/src/lib/utils.ts, the names the theme declares in apps/web/packages/layerx-ui/src/styles/tokens.css, the variants and sizes in apps/web/packages/layerx-ui/src/components/button.tsx, and apps/bridge/src/lib/utils.ts as the form."
+symbols = []
+
+[capability.22.39.692]
+title = "Give the prefix purge of the keeper of the fast path the form of the keeper of the ordinary path"
+reqs = ["22998.1"]
+touches = ["engine/deps/xevm/keeper/keeper.go", "engine/deps/xevm/keeper/keeper_test.go", "node"]
+tests = []
+verification_contract = "go test -count=1 -timeout 20m ./engine/deps/xevm/keeper/ -run TestPurgePrefix && go test -count=1 -timeout 60m ./node/ -run TestGigaPurgeParity"
+do_1 = "do_1 Gotcha 4523, decision 3606. Read the function PurgePrefix in modules/evm/keeper/keeper.go with its comment, the function PurgePrefix and the store readers in engine/deps/xevm/keeper/keeper.go, the range deletion and the range key listing in sdk/store/gaskv/store.go, the places of engine/deps/xevm/state/state.go that purge the state of an account, and node/giga_storage_gas_test.go as the form of a case that applies one block through both paths."
+symbols = []
+
+[capability.22.39.691]
+title = "Let the webhooks service keep the index of the receipts of each principal that the dashboard API reads"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/webhooks/src", "services/platform/hosted/webhooks/tests", "services/platform/hosted/dashboard/src", "services/platform/hosted/dashboard/tests", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test activity_index --test hosted_delivery_lifecycle && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard"
+do_1 = "do_1 Gotcha 4522, decision 3605. Read services/platform/hosted/dashboard/src/receipts.rs with what it checks of an event, the cases of services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs on receipts, in services/platform/hosted/webhooks/src/hosted.rs the functions publish and compare_and_set with the script that stores the document of a principal, the removal of events by retention, and the facts of a payment event in services/platform/hosted/webhooks/src/events.rs."
+symbols = []
+
+[capability.22.39.690]
+title = "Let the gateway keep the index of the requests of each principal that the dashboard API reads"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/src", "services/platform/hosted/gateway/tests", "services/platform/hosted/dashboard/src", "services/platform/hosted/dashboard/tests", "docs/wiki/HostedGateway.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test principal_audit_index --test producer_paths && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard"
+do_1 = "do_1 Gotcha 4522, decision 3605. Read in services/platform/hosted/dashboard/src/gateway.rs the functions requests_page, requests and snapshot, the cases of services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs, in services/platform/hosted/gateway/src/store.rs every script that appends an entry to gateway:audit with the function audit_values, in services/platform/hosted/gateway/src/lib.rs the function gateway_audit_event, and how services/platform/hosted/gateway/tests/producer_paths.rs and services/platform/hosted/gateway/tests/key-store.py read the scripts."
+symbols = []
+
+[capability.22.39.689]
+title = "Give the decimal parameters of the virtual machine the default of the parameter set when no value is stored"
+reqs = ["22998.1"]
+touches = ["modules/evm/keeper", "engine/deps/xevm/keeper", "node", "engine/executor"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run '^(TestGigaParamsParity|TestGigaStorageGas)' && go test -count=1 ./engine/deps/xevm/keeper/ && go test -count=1 ./modules/evm/keeper/ -run 'Param|Fee'"
+do_1 = "do_1 Gotcha 4521, decisions 3604 and 3596. Read the readers of the decimal parameters in modules/evm/keeper/params.go, the defaults in modules/evm/types/params.go, every place under modules/evm/keeper that computes with one of these values, the readers of the keeper of the fast path in engine/deps/xevm/keeper/params.go, and node/giga_params_parity_test.go."
+symbols = []
+
+[capability.22.39.688]
+title = "Let the suite of the explorer backend pass whole with no path in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test"
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test with no path once, the form .github/workflows/explorer-images.yml uses, and list every case that does not pass with app, file and first message."
+symbols = []
+
+[capability.22.39.687]
+title = "Let the suite of the media app of the explorer backend pass in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/nft_media_handler/lib", "services/explorer/backend/apps/nft_media_handler/README.md"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/nft_media_handler/test"
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Read services/explorer/backend/apps/nft_media_handler/test/repair/readme_resizing_test.exs, the section of services/explorer/backend/apps/nft_media_handler/README.md it compiles and the resizer under services/explorer/backend/apps/nft_media_handler/lib."
+symbols = []
+
+[capability.22.39.686]
+title = "Let the suite of the web app of the explorer backend pass whole in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/block_scout_web/lib", "services/explorer/backend/apps/block_scout_web/config/test.exs"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/router.ex with the switches it reads when it is compiled, services/explorer/backend/apps/block_scout_web/config/config.exs and services/explorer/backend/apps/block_scout_web/config/test.exs, and the test helper of the app with the endpoint and the browser driver it starts."
+symbols = []
+
+[capability.22.39.685]
+title = "Let the suite of the indexer app of the explorer backend pass whole in the builder"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/indexer/lib"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test"
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test once and list every case that does not pass with file and first message. Group the list by cause before changing anything: state a case shares with another case, such as the ownership mode of the database connections, application settings, named processes, caches and mock expectations of the JSON-RPC client; a prepared statement or a type of the database that another case replaced while a connection still held it; a value a case states that the source no longer gives; a wait that is too short for the builder."
+symbols = []
+
+[capability.22.39.684]
+title = "Accept the session requests of a browser behind a front and serve the icon of the app"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard/web/app/session-server.ts", "services/platform/hosted/dashboard/web/app/session", "services/platform/hosted/dashboard/web/tests/session-routes.mjs", "services/platform/hosted/dashboard/web/README.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+do_1 = "do_1 Gotcha 4518, decision 3601. Read in services/platform/hosted/dashboard/web/app/session-server.ts the function requestDocument and how the routes under services/platform/hosted/dashboard/web/app/session call handleSessionRequest, the cases of services/platform/hosted/dashboard/web/tests/session-routes.mjs and the section Browser sign-in of services/platform/hosted/dashboard/web/README.md."
+symbols = []
+
+[capability.22.39.683]
+title = "Name the gateway tenant of the dashboard web in its definition"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform/dashboard-web.kvx", "tools/deploy/tests/projects/test_platform_dashboard_web.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard_web.py tools/deploy/tests/projects/test_platform_folder.py"
+do_1 = "do_1 Decision 3600. Read deploy/projects/platform/dashboard-web.kvx and the cases of tools/deploy/tests/projects/test_platform_dashboard_web.py, and in services/platform/hosted/dashboard/web where the variable DASHBOARD_GATEWAY_TENANT is read."
+symbols = []
+
+[capability.22.39.682]
+title = "Let the dashboard web name the gateway tenant from its runtime setting"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard/web", "docs/wiki/HostedDashboard.md"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+do_1 = "do_1 Decision 3600. Read in services/platform/hosted/dashboard/web the sign-in view in app/page.tsx, app/browser-key.ts, app/session-server.ts, the two route files under app/session, the tests of the package and the section Browser sign-in of README.md."
+symbols = []
+
+[capability.22.39.681]
+title = "Give the gateway definition the identity settings of developer registration and sessions"
+reqs = ["22998.1"]
+touches = ["docker/platform-gateway/native-files.tsv", "deploy/projects/platform/gateway.kvx", "tools/deploy/tests/projects/test_platform_gateway.py", "docker/README.md", "deploy/projects/README.md", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py tools/deploy/tests/projects/test_wallet_wallet_gateway.py"
+do_1 = "do_1 Gotcha 4517, decision 3599. Read in services/platform/hosted/gateway/src/main.rs the functions configured_identity and configured_service_identity, in services/platform/hosted/gateway/src/rpc_register.rs the functions configured_token and configured_tenant, in docker/common/env-files.sh how a row applies to a role, in docker/platform-gateway/entrypoint.sh the tuple FILE_VARIABLES, and the cases of tools/deploy/tests/projects/test_platform_gateway.py."
+symbols = []
+
+[capability.22.39.680]
+title = "Copy the consensus stores in bounded writes in the preflight of the return command"
+reqs = ["22998.1"]
+touches = ["sdk/server/rollback.go", "sdk/server/rollback_test.go"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./sdk/server/ -run '^(TestRollbackPreflightCopy|TestRollbackScenario|TestRollbackErrorCases|TestRollbackWithNumBlocks)'"
+do_1 = "do_1 Gotcha 4515, decision 3597. Read in sdk/server/rollback.go the functions prepareRollback, preflightConsensusRollback and snapshotRollbackDB, and in sdk/server/rollback_test.go how the cases build stores and run the command."
+symbols = []
 
 [capability.22.39.679]
 title = "Compare the fast execution path with the ordinary path over a state without stored parameter values"
@@ -173404,6 +173614,167 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.51]
+title = "Tell the class merge of the wallet application the names of its theme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.51"]
+interfaces = []
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/wallet/src/lib/cn.ts, the font sizes, the shadows and the colours the theme names in apps/wallet/tailwind.config.ts, and apps/bridge/src/lib/utils.ts as the form."
+do_2 = "do_2 In apps/wallet/src/lib/cn.ts the function cn merges with a merge extended by the font size names the theme gives beside the sizes the merge library knows, which today is display, and by the names of each other prefix the theme uses for two kinds of value, the shadow names among them. The function keeps its name and its parameters."
+do_3 = "do_3 Add apps/wallet/src/lib/cn.test.ts with cases over the function cn: for every font size name a colour class and the size class both stay, in both orders; of two size classes the last stays; of two colour classes the last stays; for every name of another prefix the helper was told, the class of that name and a colour class of the same prefix both stay. The cases read the names from the source of the theme, so that a name the theme gains later without the helper does not pass."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/wallet/src/lib/cn.ts"]
+tests = []
+planned_paths = ["apps/wallet/src/lib/cn.test.ts"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/lib/cn.test.ts && pnpm --dir apps/wallet run typecheck"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.50]
+title = "Tell the class merge of the launchpad the names of its theme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.50"]
+interfaces = []
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/launchpad/web/src/lib/utils.ts, the names the theme declares in apps/launchpad/web/src/app/tokens.css, and apps/bridge/src/lib/utils.ts as the form."
+do_2 = "do_2 In apps/launchpad/web/src/lib/utils.ts the function cn merges with a merge extended by the font size names the theme declares under the prefix --text- beside the sizes the merge library knows, which today are 2xs, md, num-sm, num-md and display, and by the names of each other prefix the theme uses for two kinds of value. The function keeps its name and its parameters."
+do_3 = "do_3 Add apps/launchpad/web/src/lib/utils.test.ts with cases over the function cn: for every font size name a colour class and the size class both stay, in both orders; of two size classes the last stays; of two colour classes the last stays; for every name of another prefix the helper was told, the class of that name and a colour class of the same prefix both stay. The cases read the names from the source of the theme, so that a name the theme gains later without the helper does not pass. One more case holds the class list of a numeric cell: text-num-sm beside text-text and beside text-text-faint keeps both classes."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/lib"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/lib/utils.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/lib/utils.test.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.49]
+title = "Tell the class merge of the interface package of the human web application the names of its theme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.49"]
+interfaces = []
+do_1 = "do_1 Gotcha 4524, decision 3607. Read apps/web/packages/layerx-ui/src/lib/utils.ts, the names the theme declares in apps/web/packages/layerx-ui/src/styles/tokens.css, the variants and sizes in apps/web/packages/layerx-ui/src/components/button.tsx, and apps/bridge/src/lib/utils.ts as the form."
+do_2 = "do_2 In apps/web/packages/layerx-ui/src/lib/utils.ts the function cn merges with a merge extended by the font size names the theme declares under the prefix --text-, which today are nano, micro, label, body-sm, body, title-sm, title and display, and by the names of each other prefix the theme uses for two kinds of value, the shadow names among them. The function keeps its name and its parameters."
+do_3 = "do_3 In apps/web/e2e/ui-library.test.ts add cases over the function cn: for every font size name a colour class and the size class both stay, in both orders; of two size classes the last stays; of two colour classes the last stays; for every name of another prefix the helper was told, the class of that name and a colour class of the same prefix both stay. The cases read the names from the source of the theme, so that a name the theme gains later without the helper does not pass. One more case holds the class lists of the button: for the primary variant at each size the merged list holds text-primary-foreground and the size class of that size, and for each other variant that names a text colour the list holds that colour class and the size class."
+do_4 = "do_4 Read the components under apps/web/packages/layerx-ui/src/components for a class list that restates a colour or a size because the merge dropped it, and take the restated class away where the helper now keeps both."
+do_5 = "do_5 State in apps/web/packages/layerx-ui/README.md in one short paragraph that cn is told the names of the theme and that a name the theme gains is added to the helper."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/web/packages/layerx-ui/src", "apps/web/packages/layerx-ui/README.md", "apps/web/e2e/ui-library.test.ts"]
+tests = []
+planned_paths = []
+build_cmd = "make human-js-install && make agent-sdk-ts-build"
+verify_cmd = "npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.684]
+title = "Accept the session requests of a browser behind a front and serve the icon of the app"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.684"]
+interfaces = []
+do_1 = "do_1 Gotcha 4518, decision 3601. Read in services/platform/hosted/dashboard/web/app/session-server.ts the function requestDocument and how the routes under services/platform/hosted/dashboard/web/app/session call handleSessionRequest, the cases of services/platform/hosted/dashboard/web/tests/session-routes.mjs and the section Browser sign-in of services/platform/hosted/dashboard/web/README.md."
+do_2 = "do_2 In services/platform/hosted/dashboard/web/app/session-server.ts the Origin check follows decision 3601: the Origin is accepted when it equals https, colon, two slashes and the value of the host header of the request, compared as parsed origins, or when it equals the origin of the request address. A host header that is absent, that holds more than one value or that does not parse as a host with an optional port gives no accepted origin of the first form. Every other request is refused with 403 and origin_refused before the body is read. Nothing else of the routes changes."
+do_3 = "do_3 In services/platform/hosted/dashboard/web/tests/session-routes.mjs add cases: a request whose address names a listening address and whose host header and Origin name one public name is accepted; the same with the plain http scheme in the Origin is refused; another host in the Origin is refused; another port in the Origin is refused; a request without an Origin is refused; a direct request whose Origin equals the origin of its address is accepted. The present cases pass unchanged."
+do_4 = "do_4 Add services/platform/hosted/dashboard/web/app/icon.svg, a small vector icon in the colours of the app mark, served by the app under its icon path, so that a load of the page asks for no resource that is absent."
+do_5 = "do_5 In services/platform/hosted/dashboard/web/README.md and in docs/wiki/HostedDashboard.md state the rule of the Origin in one short paragraph in place of the present sentence on the Origin."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard/web/app/session-server.ts", "services/platform/hosted/dashboard/web/app/session", "services/platform/hosted/dashboard/web/tests/session-routes.mjs", "services/platform/hosted/dashboard/web/README.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+planned_paths = ["services/platform/hosted/dashboard/web/app/icon.svg"]
+build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.682]
+title = "Let the dashboard web name the gateway tenant from its runtime setting"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.32", "22.39.684"]
+reqs = ["22998.1"]
+capabilities = ["22.39.682"]
+interfaces = []
+do_1 = "do_1 Decision 3600. Read in services/platform/hosted/dashboard/web the sign-in view in app/page.tsx, app/browser-key.ts, app/session-server.ts, the two route files under app/session, the tests of the package and the section Browser sign-in of README.md."
+do_2 = "do_2 The page reads the variable DASHBOARD_GATEWAY_TENANT on the server at request time and hands it to the sign-in view together with the fact whether DASHBOARD_GATEWAY_ORIGIN is set. A value counts when it holds one to 95 characters out of lower case letters, digits, dot, underscore and hyphen; any other value counts as unset. The value is never compiled into the build: a build made with one value and started with another serves the value of the start. The view uses the value for the registration binding and for the session digest. The tenant field, its label and its help line are removed."
+do_3 = "do_3 The view renders a control only when it can act. With key sign-in configured and no key held by the browser it shows one primary control that creates a key and signs in. With a key held it shows the public key with its copy control and one primary control that signs in with that key. Without the tenant or without the gateway origin it shows one sentence that key sign-in is not configured. The session token field and its control are always present; the control acts on press and an empty field is named in the message line. While a request runs, the pressed control shows a busy state whose label keeps a contrast of at least 4.5 to 1 against its ground in the light and in the dark scheme, set through the classes of the view; the interface package stays as it is."
+do_4 = "do_4 Tests of the package: a case that the tenant of the variable reaches the binding and the digest; a case that an absent or invalid variable gives the sentence and no key control; a case that the page source holds no element with the id gateway-tenant; a case that the busy state of the view names classes whose pair of colours meets the contrast in both schemes. The present cases of the session routes pass unchanged."
+do_5 = "do_5 In services/platform/hosted/dashboard/web/README.md and in docs/wiki/HostedDashboard.md state the variable, its form, that it is read at request time, and the states of the view."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard/web", "docs/wiki/HostedDashboard.md"]
+tests = []
+planned_paths = []
+build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.677]
 title = "Hold the semantic pairs of the human web application in both schemes and state the present browser configuration in the foundation suite"
 status = "done"
@@ -173438,7 +173809,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.676]
 title = "Bring the cases of the bridge application suite and the code they test into line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173517,7 +173888,7 @@ do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 76
 do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The pages keep working when opened as files."
 do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.47.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/inference-peer/index.html", "tools/wasm-tools/playground/pages", "tools/codebase-map/index.html", "tools/codebase-map/styles.css"]
+touches = ["apps/inference-peer/index.html", "tools/wasm-tools/playground/pages", "tools/codebase-map/index.html", "tools/codebase-map/styles.css", "tools/wasm-tools/playground/src/parse.ts"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/pages.json", "tools/ui-check/surfaces/pages", "spec/layerx-merge/programme/records/ui/22.44.47.kvx"]
 build_cmd = "test -s apps/inference-peer/index.html && test -s tools/codebase-map/index.html"
@@ -173536,7 +173907,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.46]
 title = "Close the names application on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.34", "22.44.37"]
@@ -173605,7 +173976,7 @@ title = "Close the developer dashboard on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.32", "22.44.37"]
+requires = ["22.44.32", "22.44.37", "22.39.683"]
 reqs = ["22998.1"]
 capabilities = ["22.44.44"]
 interfaces = []
@@ -173682,7 +174053,7 @@ do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 76
 do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The demonstration keeps its flows."
 do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.42.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/wallet/demo/src"]
+touches = ["services/wallet/demo/src", "services/wallet/demo/next.config.mjs", "services/wallet/demo/tsconfig.json"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/wallet-demo.json", "tools/ui-check/surfaces/wallet-demo", "spec/layerx-merge/programme/records/ui/22.44.42.kvx"]
 build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile)"
@@ -173833,7 +174204,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.37]
 title = "Add the render check that closes a surface on the device list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173900,7 +174271,7 @@ do_5 = "do_5 Decision 3562. The type check script of apps/perps/package.json fir
 
 [task.22.44.36]
 title = "Bring the documentation site to the web platform guidance and close it on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174005,7 +174376,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.33]
 title = "Bring the bridge application to the web platform guidance and close it on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.676"]
@@ -174040,7 +174411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.32]
 title = "Bring the developer dashboard to the web platform guidance and close it on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.670", "22.44.28"]
@@ -174075,7 +174446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.31]
 title = "Close the human web application: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.30"]
@@ -174110,7 +174481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.30]
 title = "Bring the routes and journeys of the human web application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.29"]
@@ -174250,7 +174621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.26]
 title = "Close the wallet application: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.25"]
@@ -174285,7 +174656,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.25]
 title = "Bring the portfolio, send, receive, swap, token and settings views of the wallet application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.24"]
@@ -174320,7 +174691,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.24]
 title = "Bring the theme, base components, navigation and global style of the wallet application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174425,7 +174796,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.21]
 title = "Bring the home, explore, create, profile, bounty, leaderboard and community views of the launchpad to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.19"]
@@ -174460,7 +174831,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.20]
 title = "Bring the token, terminal, trading, live and swap views of the launchpad to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.19"]
@@ -175141,7 +175512,7 @@ do_6 = "do_6 Tests of the paths that pin markup, class names or styles change to
 do_7 = "do_7 Write spec/layerx-merge/programme/records/ui/22.44.1.kvx in the form of the records beside its directory: a manifest with the task and the surface, one entry for each guide applied with its id and the directories it was applied in, and one entry for each view rendered with its route, the widths and the schemes. Present tense, no account of the work."
 do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/explorer/toolkit", "apps/explorer/nextjs"]
+touches = ["apps/explorer/toolkit", "apps/explorer/nextjs", "apps/explorer/configs/envs"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.1.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
@@ -175160,7 +175531,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.670]
 title = "Sign a developer in on the dashboard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.668", "22.39.669"]
@@ -211599,6 +211970,75 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.691]
+title = "Let the webhooks service keep the index of the receipts of each principal that the dashboard API reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.690"]
+reqs = ["22998.1"]
+capabilities = ["22.39.691"]
+interfaces = []
+do_1 = "do_1 Gotcha 4522, decision 3605. Read services/platform/hosted/dashboard/src/receipts.rs with what it checks of an event, the cases of services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs on receipts, in services/platform/hosted/webhooks/src/hosted.rs the functions publish and compare_and_set with the script that stores the document of a principal, the removal of events by retention, and the facts of a payment event in services/platform/hosted/webhooks/src/events.rs."
+do_2 = "do_2 In services/platform/hosted/webhooks/src/hosted.rs the script that stores the document of a principal also writes, for each payment event of the change that states a fact activity_id, the field of that activity in the hash webhooks:principal:DIGEST:activities with the JSON of the event, and sets the key of the same name followed by :version to 1. The two keys are passed among the keys of the script. A later payment event of the same activity takes the place of the field. An event stored again unchanged changes nothing. Where retention removes an event, the field that holds that event is removed in the same script."
+do_3 = "do_3 The webhooks service brings the index in line for each principal of the set webhooks:principals whose index has no version: the fields of the payment events of its document are written and the version is set, in one script for each principal. The step runs at the start outside the path of a request, a start does not wait for it, a second run changes nothing, and a failure of the step is reported with its stage and leaves serving as it is."
+do_4 = "do_4 In services/platform/hosted/dashboard/src/receipts.rs a principal that has no version and no field of the activity gets the answer of an unknown receipt. A version of the value 1 is read as now. A version of another value, or a field without a version, is refused as now."
+do_5 = "do_5 Add services/platform/hosted/webhooks/tests/activity_index.rs with a store process as services/platform/hosted/webhooks/tests/hosted_delivery_lifecycle.rs starts one: a settled payment event with a receipt verified activity is published and the hash holds the field with the event and the version 1; an event of another kind writes no field; a second principal has its own hash; an event published twice leaves one field; retention removes the field with its event; a document stored without the index gets its fields by the step of do_3. In services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs add cases: a principal without version and index gets the answer of an unknown receipt; a field without a version is refused. No present case is removed or weakened."
+do_6 = "do_6 State the two keys, the writer and the reading of a principal without entries in docs/wiki/HostedWebhooks.md and docs/wiki/HostedDashboard.md."
+do_7 = "do_7 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/webhooks/src", "services/platform/hosted/webhooks/tests", "services/platform/hosted/dashboard/src", "services/platform/hosted/dashboard/tests", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+planned_paths = ["services/platform/hosted/webhooks/tests/activity_index.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks -p layerx-platform-dashboard --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test activity_index --test hosted_delivery_lifecycle && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.690]
+title = "Let the gateway keep the index of the requests of each principal that the dashboard API reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.690"]
+interfaces = []
+do_1 = "do_1 Gotcha 4522, decision 3605. Read in services/platform/hosted/dashboard/src/gateway.rs the functions requests_page, requests and snapshot, the cases of services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs, in services/platform/hosted/gateway/src/store.rs every script that appends an entry to gateway:audit with the function audit_values, in services/platform/hosted/gateway/src/lib.rs the function gateway_audit_event, and how services/platform/hosted/gateway/tests/producer_paths.rs and services/platform/hosted/gateway/tests/key-store.py read the scripts."
+do_2 = "do_2 In services/platform/hosted/gateway/src/store.rs every script that appends an entry to gateway:audit appends the same fields under the id of that entry to the stream gateway:principal:DIGEST:audit, where DIGEST is the part of the event before its first colon, and sets the key of the same name followed by :version to 1, all in the same script. The two keys are passed among the keys of the script. The chain of the common stream with its head stays as it is, and an entry that is retried is written to the index once."
+do_3 = "do_3 The gateway brings the indexes in line with the entries the common stream already holds: from a position it keeps in the store it reads gateway:audit in pages of at most 256 entries and appends each entry to the index of its principal under the same id unless the last id of the index is not below it, then sets the version. The step runs at the start outside the path of a request, a start does not wait for it, a second run adds nothing, and a failure of the step is reported with its stage and leaves serving as it is."
+do_4 = "do_4 In services/platform/hosted/dashboard/src/gateway.rs the function requests_page gives an empty page for a principal that has no version and whose index holds no entry. A version of the value 1 is read as now. A version of another value, or an index with entries and no version, is refused as now. The overview of such a principal then holds empty lists."
+do_5 = "do_5 Add services/platform/hosted/gateway/tests/principal_audit_index.rs with a store process as services/platform/hosted/gateway/tests/tap_nonce.rs starts one: a key is issued, rotated and revoked, a request is reserved and completed, and one request is limited; the index of the principal then holds the ids and the fields of the entries of the common stream that name it and the version 1; the entries of a second principal are not in it; entries put into the common stream alone are in the index after the step of do_3, once, also after a second run. Bring services/platform/hosted/gateway/tests/fixtures/producer_paths/redis-scripts.json, services/platform/hosted/gateway/tests/key-store.py and every case that passes keys to these scripts in line with the new keys."
+do_6 = "do_6 In services/platform/hosted/dashboard/tests/audit_receipt_indexes.rs add cases: a principal without version and index gets an empty list of requests and an overview with empty lists; an index with entries and no version is refused; a version of another value is refused. No present case is removed or weakened."
+do_7 = "do_7 State the two keys, the writer and the reading of a principal without entries in the table of keys of docs/wiki/HostedGateway.md and in docs/wiki/HostedDashboard.md."
+do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/src", "services/platform/hosted/gateway/tests", "services/platform/hosted/dashboard/src", "services/platform/hosted/dashboard/tests", "docs/wiki/HostedGateway.md", "docs/wiki/HostedDashboard.md"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/tests/principal_audit_index.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway -p layerx-platform-dashboard --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test principal_audit_index --test producer_paths && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.673]
 title = "Read the blocks of a backfill range through several readers and in batches"
 status = "done"
@@ -211635,7 +212075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.669]
 title = "Open a developer session at the hosted gateway by a fresh proof of the registered key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246559,6 +246999,103 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.692]
+title = "Give the prefix purge of the keeper of the fast path the form of the keeper of the ordinary path"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.692"]
+interfaces = []
+do_1 = "do_1 Gotcha 4523, decision 3606. Read the function PurgePrefix in modules/evm/keeper/keeper.go with its comment, the function PurgePrefix and the store readers in engine/deps/xevm/keeper/keeper.go, the range deletion and the range key listing in sdk/store/gaskv/store.go, the places of engine/deps/xevm/state/state.go that purge the state of an account, and node/giga_storage_gas_test.go as the form of a case that applies one block through both paths."
+do_2 = "do_2 In engine/deps/xevm/keeper/keeper.go the function PurgePrefix takes the form of the keeper of the ordinary path over the store of the fast path: the keys come from the range key listing of the store below the gas metering, the scan is metered over a copy of the range with the gas meter and the gas configuration the store of the fast path charges, and each key is deleted through the store of the fast path after the listing has ended. The gas charged for a range equals the gas the keeper of the ordinary path charges for the same range. A read during a trace keeps the store the context selects."
+do_3 = "do_3 In engine/deps/xevm/keeper/keeper_test.go the case TestPurgePrefixNotHang stays as it is and passes within the default time of a test. Add cases: a purge under two hundred stacked cache stores with keys written in several of them ends, deletes every key of the prefix and leaves the keys of another prefix; a key deleted in an upper cache store is not listed; the gas charged for a range of ten keys equals the gas of a forward scan of the range followed by the deletion of each key."
+do_4 = "do_4 Add node/giga_purge_parity_test.go in the form of node/giga_storage_gas_test.go: one block whose transaction creates a contract, lets it write storage, makes at least sixty-four calls and destroys the created contract in the same transaction is applied through the ordinary path and through the fast path over the same state. The results are equal in status, gas used, logs and contract address, the state of the destroyed account is absent after both, and both applications reach the same application hash."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["engine/deps/xevm/keeper/keeper.go", "engine/deps/xevm/keeper/keeper_test.go", "node"]
+tests = []
+planned_paths = ["node/giga_purge_parity_test.go"]
+build_cmd = "go build ./node/... ./engine/..."
+verify_cmd = "go test -count=1 -timeout 20m ./engine/deps/xevm/keeper/ -run TestPurgePrefix && go test -count=1 -timeout 60m ./node/ -run TestGigaPurgeParity"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.689]
+title = "Give the decimal parameters of the virtual machine the default of the parameter set when no value is stored"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.679"]
+reqs = ["22998.1"]
+capabilities = ["22.39.689"]
+interfaces = []
+do_1 = "do_1 Gotcha 4521, decisions 3604 and 3596. Read the readers of the decimal parameters in modules/evm/keeper/params.go, the defaults in modules/evm/types/params.go, every place under modules/evm/keeper that computes with one of these values, the readers of the keeper of the fast path in engine/deps/xevm/keeper/params.go, and node/giga_params_parity_test.go."
+do_2 = "do_2 In modules/evm/keeper/params.go each reader of a decimal parameter gives the default of the parameter set when the stored field is an empty decimal: the priority normalizer, the base fee, the minimum fee and the maximum fee for a unit of gas, and the upward and the downward adjustment of the dynamic base fee. The reads of a trace at an earlier version keep their present rule. A stored value, also a stored zero, is returned as it is."
+do_3 = "do_3 In engine/deps/xevm/keeper/params.go the readers of the fast path give the same values by the same rule, and every place of the fast path that reads one of these parameters uses them."
+do_4 = "do_4 Add cases to modules/evm/keeper/params_test.go and engine/deps/xevm/keeper/params_test.go: for each of these keys the stored value is removed and the reader gives the default; a stored zero stays zero; a stored value stays as it is."
+do_5 = "do_5 In node/giga_params_parity_test.go the runs of these keys and the run of all keys now apply the block through both paths: every result is equal in status, gas used, logs and contract address, the base fee read after the block is equal, and both applications reach the same application hash. No run of a key of the parameter set ends in a refusal any more; where one still does, name the key, the place of the refusal and its text in the final message and change nothing outside the paths."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/evm/keeper", "engine/deps/xevm/keeper", "node", "engine/executor"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./engine/... ./modules/evm/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run '^(TestGigaParamsParity|TestGigaStorageGas)' && go test -count=1 -skip TestPurgePrefixNotHang ./engine/deps/xevm/keeper/ && go test -count=1 ./modules/evm/keeper/ -run 'Param|Fee'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.680]
+title = "Copy the consensus stores in bounded writes in the preflight of the return command"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.680"]
+interfaces = []
+do_1 = "do_1 Gotcha 4515, decision 3597. Read in sdk/server/rollback.go the functions prepareRollback, preflightConsensusRollback and snapshotRollbackDB, and in sdk/server/rollback_test.go how the cases build stores and run the command."
+do_2 = "do_2 In snapshotRollbackDB write the copy in parts: a part is written when the keys and values collected for it reach 64 megabytes, its batch is closed and a new one begins; the last part is written with a sync. The bound is a constant of the file that a test can lower through a variable of the package. Every error of a write or a close is returned, and the batch in use is closed on every way out."
+do_3 = "do_3 The function prints one line when the copy of a store begins, with the name of the store, and one when it ends, with the number of records, the number of parts and the time."
+do_4 = "do_4 Add sdk/server/rollback_preflight_test.go with cases whose names begin with TestRollbackPreflightCopy. Case parts: with the bound lowered to a few kilobytes, a source store of some thousand records with values of mixed sizes, one of them larger than the bound, is copied; the destination holds exactly the records of the source in the same order, and the number of parts is greater than one. Case empty: an empty source gives an empty destination and no error. Case memory: with a source of at least 64 megabytes of values and a bound of one megabyte, the heap in use measured during the copy stays below a quarter of the size of the source. Case command: the cases of sdk/server/rollback_test.go pass unchanged with the bound lowered, so that the preflight of each runs in several parts."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/server/rollback.go", "sdk/server/rollback_test.go"]
+tests = []
+planned_paths = ["sdk/server/rollback_preflight_test.go"]
+build_cmd = "go build ./sdk/server/..."
+verify_cmd = "go test -count=1 -timeout 30m ./sdk/server/ -run '^(TestRollbackPreflightCopy|TestRollbackScenario|TestRollbackErrorCases|TestRollbackWithNumBlocks)'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.679]
 title = "Compare the fast execution path with the ordinary path over a state without stored parameter values"
 status = "pending"
@@ -246579,7 +247116,7 @@ touches = ["node", "engine/deps/xevm/keeper", "engine/executor"]
 tests = []
 planned_paths = ["node/giga_params_parity_test.go"]
 build_cmd = "go build ./node/... ./engine/..."
-verify_cmd = "go test -count=1 -timeout 60m ./node/ -run '^(TestGigaParamsParity|TestGigaStorageGas)' && go test -count=1 ./engine/deps/xevm/keeper/"
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run '^(TestGigaParamsParity|TestGigaStorageGas)' && go test -count=1 -skip TestPurgePrefixNotHang ./engine/deps/xevm/keeper/"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-node-runtime"
@@ -246591,10 +247128,12 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3604, gotcha 4521. Where both paths refuse the block for a key without a value, the case asserts that both refuse it; the texts of the two refusals are not compared and the final message gives them. This takes the place of the sentence on the same message in the step of the test. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_8 = "do_8 Decision 3606, gotcha 4523. The verification now runs the package engine/deps/xevm/keeper without the case TestPurgePrefixNotHang, which task 22.39.692 holds. Change nothing in the prefix purge. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.678]
 title = "Take the storage gas value of the ordinary path in the fast execution path when the parameter holds no value"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -382151,6 +382690,71 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.683]
+title = "Name the gateway tenant of the dashboard web in its definition"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.682"]
+reqs = ["22998.1"]
+capabilities = ["22.39.683"]
+interfaces = []
+do_1 = "do_1 Decision 3600. Read deploy/projects/platform/dashboard-web.kvx and the cases of tools/deploy/tests/projects/test_platform_dashboard_web.py, and in services/platform/hosted/dashboard/web where the variable DASHBOARD_GATEWAY_TENANT is read."
+do_2 = "do_2 In deploy/projects/platform/dashboard-web.kvx add the variable DASHBOARD_GATEWAY_TENANT from the operator input PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT, with a comment line that names the form: the tenant of the hosted gateway, one to 95 characters out of lower case letters, digits, dot, underscore and hyphen."
+do_3 = "do_3 In tools/deploy/tests/projects/test_platform_dashboard_web.py the cases follow: the variable is a runtime input read by the sources of the web and no build argument of the image, its input is an operator input with a comment, and the set of variables of the definition equals what the sources and the image read."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform/dashboard-web.kvx", "tools/deploy/tests/projects/test_platform_dashboard_web.py", "tools/deploy/tests/projects/test_platform_folder.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_dashboard_web.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard_web.py tools/deploy/tests/projects/test_platform_folder.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 The work of the earlier candidate stays as it is. Two cases follow the product: the case of the build inventory in tools/deploy/tests/projects/test_platform_dashboard_web.py states the build script the package file of the web holds, with its step that clears the output of the development server; the case of tools/deploy/tests/projects/test_platform_folder.py that states the inputs of the folder takes the input of the tenant. No other case of that file changes. Run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+
+[task.22.39.681]
+title = "Give the gateway definition the identity settings of developer registration and sessions"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.681"]
+interfaces = []
+do_1 = "do_1 Gotcha 4517, decision 3599. Read in services/platform/hosted/gateway/src/main.rs the functions configured_identity and configured_service_identity, in services/platform/hosted/gateway/src/rpc_register.rs the functions configured_token and configured_tenant, in docker/common/env-files.sh how a row applies to a role, in docker/platform-gateway/entrypoint.sh the tuple FILE_VARIABLES, and the cases of tools/deploy/tests/projects/test_platform_gateway.py."
+do_2 = "do_2 In docker/platform-gateway/native-files.tsv add four rows with mode 0600 and the role identity: ENDPOINT_IDENTITY_TOKEN to /run/secrets/identity-token, ENDPOINT_IDENTITY_PROVISIONING_TOKEN to /run/secrets/identity-provisioning-token, ENDPOINT_CLIENT_P12 to /run/secrets/client.p12 and ENDPOINT_CLIENT_PASSWORD to /run/secrets/client-password. The four present rows stay as they are. No other file of the image directory changes."
+do_3 = "do_3 In deploy/projects/platform/gateway.kvx add to the variables: LAYERX_ROLE with the value identity; LAYERX_GATEWAY_IDENTITY_URL from the input PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL; LAYERX_GATEWAY_TENANT from the input PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT; LAYERX_GATEWAY_IDENTITY_TOKEN_FILE, LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE, LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12 and LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE with the paths of the four rows; and the four ENDPOINT variables of the rows from inputs named PLATFORM_GATEWAY_ and the name of the variable. Inputs: the address is an operator input, an absolute HTTPS address of the identity service; the tenant is an operator input of one to 95 characters out of lower case letters, digits, dot, underscore and hyphen; the two tokens are operator inputs, base64 of the token text issued by the identity service; the bundle and its password are generated inputs written by the launcher, as the client inputs of the dashboard definition are. Each input has a comment line in the form of the present ones."
+do_4 = "do_4 In tools/deploy/tests/projects/test_platform_gateway.py the cases follow the new form: the rows selected for the role of the definition are the eight rows, each with mode 0600, a role column that is either the sign of every role or identity, a variable of the definition and a path that a staged file variable consumes; a selection without a role gives the four present rows; the identity variables of the definition are the names the sources read; the new inputs carry their category and a comment. Keep what tools/deploy/tests/projects/test_wallet_wallet_gateway.py and tools/deploy/tests/projects/test_platform_folder.py read of the definition."
+do_5 = "do_5 In docker/README.md, deploy/projects/README.md and docs/wiki/HostedGateway.md state the role, the four rows, the variables and the inputs, and that a start without the role serves the chain methods and answers px_register and px_openSession with registration_not_configured."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/platform-gateway/native-files.tsv", "deploy/projects/platform/gateway.kvx", "tools/deploy/tests/projects/test_platform_gateway.py", "docker/README.md", "deploy/projects/README.md", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_gateway.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py tools/deploy/tests/projects/test_wallet_wallet_gateway.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.672]
 title = "Answer the health path of the indexer image during the first backfill"
 status = "done"
@@ -461798,6 +462402,133 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.688]
+title = "Let the suite of the explorer backend pass whole with no path in the builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.634", "22.39.685", "22.39.686", "22.39.687"]
+reqs = ["22998.1"]
+capabilities = ["22.39.688"]
+interfaces = []
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test with no path once, the form .github/workflows/explorer-images.yml uses, and list every case that does not pass with app, file and first message."
+do_2 = "do_2 A case that passes when its app runs alone and fails in the whole run reads state another app left: the database, application settings, named processes or a compiled setting. Bring it in line where the state is left or where it is read, whichever decision 3572 names. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why."
+do_3 = "do_3 Run the whole suite once more by hand and repair what it shows."
+do_4 = "do_4 Give in the final message the count of cases of each app in the last whole run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.687]
+title = "Let the suite of the media app of the explorer backend pass in the builder"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.687"]
+interfaces = []
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Read services/explorer/backend/apps/nft_media_handler/test/repair/readme_resizing_test.exs, the section of services/explorer/backend/apps/nft_media_handler/README.md it compiles and the resizer under services/explorer/backend/apps/nft_media_handler/lib."
+do_2 = "do_2 The case compiles the example of the README with the names the example reads. Where the example reads a name the case does not bind, the case binds the name the README states, or the README names what the resizer takes, whichever the source of the resizer shows to be right. The example in the README stays a form a reader can run."
+do_3 = "do_3 Run services/explorer/deploy/tools/mix-in-builder.sh test apps/nft_media_handler/test and bring every case to pass. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why."
+do_4 = "do_4 Give in the final message the count of cases of the last run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/nft_media_handler/lib", "services/explorer/backend/apps/nft_media_handler/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/nft_media_handler/test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.686]
+title = "Let the suite of the web app of the explorer backend pass whole in the builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.686"]
+interfaces = []
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/router.ex with the switches it reads when it is compiled, services/explorer/backend/apps/block_scout_web/config/config.exs and services/explorer/backend/apps/block_scout_web/config/test.exs, and the test helper of the app with the endpoint and the browser driver it starts."
+do_2 = "do_2 In services/explorer/backend/apps/block_scout_web/config/test.exs the test configuration compiles the routers the cases address, by decision 3602: the router of the pages, the admin panel, the API routers and the GraphQL routes. The defaults in services/explorer/backend/apps/block_scout_web/config/config.exs stay as they are. A case that states a route the router of the pages does not hold in any configuration follows the router."
+do_3 = "do_3 Run services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test once and list every case that does not pass with file and first message, grouped by cause. A group of cases that finds no table of the endpoint has lost the endpoint to an earlier case: find the case that stops or replaces the endpoint and let it put the endpoint back, or start the endpoint for the group as the test helper does."
+do_4 = "do_4 Bring each listed case in line cause by cause. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why. A case of a feature that drives a browser runs with the browser driver the builder holds; where the builder holds none the case is excluded by the tag the test helper already reads for it and by nothing else, and the final message names that tag and the count."
+do_5 = "do_5 Run the suite of the app twice more by hand with two different orders of the files and repair what the other order shows."
+do_6 = "do_6 Give in the final message the count of cases of the last run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/block_scout_web/lib", "services/explorer/backend/apps/block_scout_web/config/test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.685]
+title = "Let the suite of the indexer app of the explorer backend pass whole in the builder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.685"]
+interfaces = []
+do_1 = "do_1 Gotcha 4519, decisions 3602 and 3572. Run services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test once and list every case that does not pass with file and first message. Group the list by cause before changing anything: state a case shares with another case, such as the ownership mode of the database connections, application settings, named processes, caches and mock expectations of the JSON-RPC client; a prepared statement or a type of the database that another case replaced while a connection still held it; a value a case states that the source no longer gives; a wait that is too short for the builder."
+do_2 = "do_2 Bring each listed case in line cause by cause. Follow decision 3572 as decision 3602 extends it. No case is removed, skipped or tagged out, and no assertion about a stored or returned value is weakened. Change a source file only where the source is wrong, and say in the final message for each changed file whether case or source was brought in line and why."
+do_3 = "do_3 A case that waits for a process raises its wait only where the process is shown to finish; a time out is not answered by a longer wait alone. A case that reads the database after a migration or a type change of another case takes a fresh connection or runs apart from that case."
+do_4 = "do_4 Run the suite of the app twice more by hand with two different orders of the files and repair what the other order shows."
+do_5 = "do_5 Give in the final message the count of cases of the last run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/indexer/lib"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.637]
 title = "Let the apps of the explorer backend compile whole without a warning"
 status = "done"
@@ -461909,7 +462640,7 @@ touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/ba
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test apps/ethereum_jsonrpc/test"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -461921,6 +462652,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3602, gotcha 4519. The verification now names the test directories of the apps explorer and ethereum_jsonrpc. The work of the earlier candidate stays as it is: run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.633]
 title = "Let the price acceptance cases of the explorer own their connections within the whole suite"
