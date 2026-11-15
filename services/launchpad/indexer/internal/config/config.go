@@ -149,6 +149,9 @@ func Load() (Config, error) {
 	if err = cfg.registerInlineDocuments(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
+	if err = cfg.validateInlineDocuments(); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
 	cfg.WebhookURLs = cleanList(cfg.WebhookURLs)
 	cfg.WebhookHMACSecrets = cleanList(cfg.WebhookHMACSecrets)
 	cfg.RPCURLs = cleanList(cfg.RPCURLs)
@@ -495,6 +498,30 @@ func (c *Config) registerInlineDocuments() error {
 	inlineDocumentsMu.Lock()
 	inlineDocuments = documents
 	inlineDocumentsMu.Unlock()
+	return nil
+}
+
+// validateInlineDocuments verifies every inline document before configuration
+// is exposed to callers. File-backed documents are checked when they are read;
+// inline documents have no later read boundary, so Load must enforce the same
+// digest binding up front.
+func (c *Config) validateInlineDocuments() error {
+	for _, p := range []struct {
+		name, inline, digest string
+	}{
+		{"DB_BUDGET_DOCUMENT", c.RuntimeBudgetDocument, c.RuntimeBudgetSHA256},
+		{"EXPECTED_SCHEMA_DOCUMENT", c.ExpectedSchemaDocument, c.ExpectedSchemaSHA256},
+		{"DELIVERY_CONFIG_DOCUMENT", c.DeliveryConfigDocument, c.DeliveryConfigSHA256},
+		{"INDEXER_RECEIPT_CONFIG_DOCUMENT", c.ReceiptConfigDocument, c.ReceiptConfigSHA256},
+		{"INDEXER_LIFECYCLE_CONFIG_DOCUMENT", c.LifecycleConfigDocument, c.LifecycleConfigSHA256},
+	} {
+		if p.inline == "" {
+			continue
+		}
+		if _, err := boundBytes("", p.inline, p.digest); err != nil {
+			return fmt.Errorf("%s: %w", p.name, err)
+		}
+	}
 	return nil
 }
 
