@@ -10,8 +10,6 @@
  */
 // @vitest-environment jsdom
 
-import { attestationWireFixturesSurviveListenerReopening } from './bridge-lifecycle.proofs';
-
 import {
   AttestationApiError,
   attestationPollInterval,
@@ -23,9 +21,11 @@ import {
 import { inboundDigest, outboundDigest, paxeerRecipient, verifyThresholdSignatures } from '@/lib/bridge/digests';
 import { listTransfers, saveTransfer, transferIdOf } from '@/lib/bridge/transfers';
 import type { BridgeTransfer } from '@/lib/bridge/transfers';
-
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+
 import { expect, test, vi } from 'vitest';
+
+import { attestationWireFixturesSurviveListenerReopening } from './bridge-lifecycle.proofs';
 
 async function produceAttestations() {
   const signer = privateKeyToAccount(generatePrivateKey());
@@ -60,7 +60,7 @@ async function produceAttestations() {
     signatures: [ await signer.sign({ hash: releaseDigest }) ],
   };
   const depositTransfer: BridgeTransfer = {
-    id: transferIdOf('in', txHash),
+    id: transferIdOf('in', txHash, '8453', index.toString()),
     direction: 'in',
     foreignChainKey: 'base',
     foreignChainId: '8453',
@@ -78,7 +78,7 @@ async function produceAttestations() {
   };
   const releaseTransfer: BridgeTransfer = {
     ...depositTransfer,
-    id: transferIdOf('out', paxeerTxHash),
+    id: transferIdOf('out', paxeerTxHash, '8453', index.toString()),
     direction: 'out',
     sourceTxHash: paxeerTxHash,
     logIndex: undefined,
