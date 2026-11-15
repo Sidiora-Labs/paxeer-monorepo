@@ -175181,7 +175181,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.670]
 title = "Sign a developer in on the dashboard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.668", "22.39.669"]
