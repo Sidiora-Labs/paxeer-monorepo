@@ -49,3 +49,42 @@ fly deploy . --config services/platform/hosted/dashboard/web/fly.toml \
 
 The style sheet is built from the dashboard app files and the `src` directory
 of the UI package. The build checks the generated sheet for the UI classes.
+
+## Browser sign-in
+
+The page presents sign-in when a dashboard read returns 401. A developer can
+create an Ed25519 key in this browser and sign in, use the key this browser
+holds, or enter a session token. The key pair lives under one fixed name in
+IndexedDB; its private key is non-exportable. The public key has a copy control.
+The gateway tenant field takes the tenant configured by the gateway operator;
+the registration binding and session digest include that exact tenant.
+Browsers without Ed25519 offer the session token path with an explanation.
+A successful sign-in reads the dashboard again. The shell's sign-out control
+returns to the sign-in view.
+
+The web serves these routes beside the page:
+
+| Route | JSON input and result |
+| --- | --- |
+| `POST /session/registration` | `signer_public_key` and `registration_signature`; calls `px_register` and returns the confirmed public tenant, subject and signer key |
+| `POST /session` | `signer_public_key`, canonical decimal `proof_time` and `session_signature`; calls `px_openSession`. Alternatively, `token` alone checks `GET /v1/dashboard/overview` with Bearer authorization. Success returns 204 with no body. |
+| `DELETE /session` | Empty body or `{}`; returns 204 and clears the cookie |
+
+Requests require `Content-Type: application/json` and an Origin matching the
+request URL. Bodies are bounded at 8192 bytes. Upstream calls have a five-second
+time limit. Refusals return only a `reason` name; rejected proofs return 401,
+gateway limits return 429 and other upstream failures return 502.
+
+`DASHBOARD_GATEWAY_ORIGIN` is a server runtime variable naming the gateway
+origin. Without it, proof sign-in and registration return 503 with
+`sign_in_not_configured`; the view explains that key sign-in is not configured.
+Token sign-in and sign-out remain available. The API origin is the same
+build-time `DASHBOARD_API_ORIGIN` used by the dashboard rewrite.
+
+Successful sign-in sets `__Host-layerx-session` with `Secure`, `HttpOnly`,
+`SameSite=Strict`, `Path=/` and `Max-Age`, without a Domain attribute.
+The proof session lifetime ends at the gateway's `expires_at`; a token accepted
+by the API has a twelve-hour cookie lifetime. Sign-out sets an empty cookie with
+the same attributes and `Max-Age=0`. The cookie requires HTTPS. Session and CSRF
+tokens stay out of response bodies and error text; the session token is sent to
+the browser only in the HttpOnly cookie.
