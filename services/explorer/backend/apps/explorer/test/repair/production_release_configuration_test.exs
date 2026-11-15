@@ -5,6 +5,10 @@ defmodule Explorer.Repair.ProductionReleaseConfigurationTest do
   @runtime_config Path.join(@backend_dir, "apps/explorer/config/runtime/prod.exs")
   @ca_env "DATABASE_SSL_CA_CERT_FILE"
 
+  setup_all do
+    %{certificates: Explorer.Test.TLSCertificates.create!()}
+  end
+
   setup do
     ca_file = System.get_env(@ca_env)
 
@@ -31,11 +35,14 @@ defmodule Explorer.Repair.ProductionReleaseConfigurationTest do
     end
   end
 
-  test "runtime configuration supplies peer and hostname verification to every production repo at startup" do
+  test "runtime configuration supplies peer and hostname verification to every production repo at startup", %{
+    certificates: certificates
+  } do
     build_config = production_build_config()
     build_repos = repo_configs(build_config)
     assert Keyword.has_key?(build_repos, Explorer.Repo)
-    ca_path = Path.expand("../../config/repair_22_33_471/fixtures/trusted-ca.pem", __DIR__)
+    ca_path = Path.join(certificates, "trusted-ca.pem")
+    assert File.regular?(ca_path)
 
     for ca_file <- [nil, ca_path] do
       if ca_file, do: System.put_env(@ca_env, ca_file), else: System.delete_env(@ca_env)
@@ -58,11 +65,24 @@ defmodule Explorer.Repair.ProductionReleaseConfigurationTest do
   end
 
   test "production release writes a readable system configuration without build-time repo ssl_opts" do
-    release_path = Path.join([Mix.Project.build_path(), "rel", "blockscout"])
-    [_erts_version, version] = release_path |> Path.join("releases/start_erl.data") |> File.read!() |> String.split()
-    sys_config = Path.join([release_path, "releases", version, "sys.config"])
+    release_path = Path.join(System.tmp_dir!(), "explorer-release-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf!(release_path) end)
+    version = Mix.Project.config()[:version]
+
+    release = %Mix.Release{
+      name: :blockscout,
+      version: version,
+      path: release_path,
+      version_path: Path.join([release_path, "releases", version]),
+      config_providers: []
+    }
+
+    build_config = production_build_config()
+    assert :ok = Mix.Release.make_sys_config(release, build_config, {:system, "RELEASE_SYS_CONFIG", ".config"})
+    sys_config = Path.join(release.version_path, "sys.config")
     assert File.regular?(sys_config)
     assert {:ok, [config]} = :file.consult(String.to_charlist(sys_config))
+    assert config == build_config
     release_repos = repo_configs(config)
 
     for {repo, _opts} <- repo_configs(production_build_config()) do
