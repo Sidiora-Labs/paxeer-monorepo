@@ -80,7 +80,7 @@ def test_names_project_definition() -> None:
 
     assert service["kind"] == "repo"
     assert service["dockerfile"] == "docker/names-web/Dockerfile"
-    assert service["root"] == "."
+    assert service["root"] == "/"
     assert service["health"] == "/"
     assert service["restart"] == "ALWAYS"
     assert service["replicas"] == 1

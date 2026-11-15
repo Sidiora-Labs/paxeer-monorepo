@@ -3,7 +3,7 @@
 [service.names]
 kind = "repo"
 dockerfile = "docker/names-web/Dockerfile"
-root = "."
+root = "/"
 watch = ["apps/names/**", "sdk/names/**", "services/wallet/tsconfig.base.json", "docker/names-web/**"]
 health = "/"
 restart = "ALWAYS"
