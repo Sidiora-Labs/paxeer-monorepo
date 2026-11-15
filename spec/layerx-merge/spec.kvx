@@ -462778,7 +462778,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.634]
 title = "Let the suite of the explorer and JSON-RPC apps pass whole in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.627", "22.39.628", "22.39.629", "22.39.630", "22.39.631", "22.39.632", "22.39.633"]
