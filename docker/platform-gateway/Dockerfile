@@ -9,6 +9,7 @@ RUN apk add --no-cache ca-certificates libgcc openssl python3 su-exec && addgrou
 COPY --from=build /src/services/platform/target/release/layerx-gateway /usr/local/bin/layerx-gateway
 COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files
 COPY docker/platform-gateway/files.tsv /etc/layerx/files.tsv
+COPY docker/platform-gateway/native-files.tsv /etc/layerx/native-files.tsv
 COPY docker/platform-gateway/entrypoint.sh /usr/local/bin/layerx-gateway-entrypoint
 RUN chmod 0755 /usr/local/bin/layerx-gateway-entrypoint
 USER 0:0

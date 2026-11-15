@@ -41,3 +41,6 @@ apps/wallet
 apps/web
 tools/qualification/output
 !docker/bridge-relayer/entrypoint.sh
+!docker/bridge-relayer/env-entrypoint.sh
+!docker/bridge-relayer/files.tsv
+!docker/common/env-files.sh

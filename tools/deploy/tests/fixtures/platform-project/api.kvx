@@ -14,9 +14,9 @@ needs = ["worker", "identity"]
 
 [vars.api]
 PORT = "8080"
-AUTH_SECRET = "env:PAXEER_X_PLATFORM_API_AUTH_SECRET"
+AUTH_SECRET = "env:PLATFORM_API_AUTH_SECRET"
 DATABASE_URL = "${{store.DATABASE_URL}}"
 
 [inputs.api]
 # Authentication secret: an operator-supplied string.
-PAXEER_X_PLATFORM_API_AUTH_SECRET = "operator"
+PLATFORM_API_AUTH_SECRET = "operator"

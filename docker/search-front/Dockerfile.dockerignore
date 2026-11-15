@@ -3,4 +3,5 @@
 !docker/search-front/resolver.conf.template
 !docker/search-front/files.tsv
 !docker/search-front/real-ip.sh
+!docker/search-front/listen-port.sh
 !docker/common/env-files.sh

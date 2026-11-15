@@ -82,11 +82,11 @@ def test_supplychain_readme_paths_baseline_and_independent_constraints():
     for target in re.findall(r'\]\(([^)]+)\)', readme):
         assert (DIRECTORY / target).resolve().is_file(), target
     assert TOOLS == {
-        'go': (['version'], 'go1.26.4'),
+        'go': (['version'], 'go1.27.0'),
         'node': (['--version'], 'v24.16.0'),
         'pnpm': (['--version'], '9.15.0'),
     }
-    for version in ('Go 1.26.4', 'Node 24.16.0', 'pnpm 9.15.0'):
+    for version in ('Go 1.27.0', 'Node 24.16.0', 'pnpm 9.15.0'):
         assert version in readme
     for name in CHECK_NAMES:
         assert f'`{name}`' in readme
