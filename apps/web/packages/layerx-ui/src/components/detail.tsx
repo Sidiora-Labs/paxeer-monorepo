@@ -43,13 +43,13 @@ export function DetailDisclosure({
   // Inline expanding section (desktop docs-style)
   if (resolved === "desktop" && desktopVariant === "inline") {
     return (
-      <div className="overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="rounded-lg border border-border bg-surface">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={disclosureId}
           onClick={() => onOpenChange(!open)}
-          className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left font-semibold text-foreground transition-colors hover:bg-surface-sunken/40"
+          className="flex w-full items-center justify-between gap-3 rounded-lg px-5 py-4 text-left font-semibold text-foreground transition-colors focus-visible:bg-accent-soft hover:bg-surface-sunken/40"
         >
           <span>{summary ?? title}</span>
           <ChevronDown

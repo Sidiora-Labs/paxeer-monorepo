@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "trace": "trc_00000000000000000000000000000001",
+  "result": {
+    "account_id": "account-ui-check",
+    "money": { "amount": "125000", "currency": "PAX" },
+    "verification": "receipt-verified",
+    "freshness": {
+      "observed_at": "2026-11-15T00:00:00Z",
+      "age_seconds": 0,
+      "source_head": "fixture-head",
+      "within_bound": true
+    },
+    "evidence": [],
+    "rung": "receipted"
+  }
+}
