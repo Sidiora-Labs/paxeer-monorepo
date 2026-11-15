@@ -9,7 +9,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "next build",
+    "build": "next build && node tests/built-style.mjs",
     "test:static": "node tests/ui-contract.mjs && node tests/evidence-decoding.mjs && tsc --noEmit",
     "start": "next start"
   },

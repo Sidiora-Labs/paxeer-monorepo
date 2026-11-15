@@ -288,8 +288,23 @@ func TestInventoryLifecycle(t *testing.T) {
 		t.Fatalf("renewed token rejected after restart: %v", err)
 	}
 	writeFile(t, f.inventory, prior)
-	if _, err := server.NewInventory(f.inventory, f.public, "wallet-inventory-owner", "wallet-tenant", s, f.pins); err == nil {
-		t.Fatal("earlier token admitted after renewal and restart")
+	if _, err := server.NewInventory(f.inventory, f.public, "wallet-inventory-owner", "wallet-tenant", s, f.pins); err != nil {
+		t.Fatalf("retained renewal rejected with earlier configured token: %v", err)
+	}
+	sequence, token, err := agent.ReadPersisted(s, agent.InventoryAudience)
+	if err != nil || sequence != 4 {
+		t.Fatalf("retained renewal sequence = %d, error = %v", sequence, err)
+	}
+	verifier, err := agent.NewSignedVerifier(f.public, "wallet-inventory-owner", "wallet-tenant")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var retained server.WalletInventory
+	if err := verifier.Decode(token, agent.InventoryAudience, maxLifetime, &retained); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(retained, after) || token == strings.TrimSpace(string(prior)) {
+		t.Fatalf("retained inventory differs from renewal: %+v", retained)
 	}
 }
 
