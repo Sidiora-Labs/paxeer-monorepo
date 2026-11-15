@@ -459288,7 +459288,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.630]
 title = "Let the contract and import cases of the explorer state the calls the source makes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
