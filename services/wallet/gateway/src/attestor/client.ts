@@ -6,6 +6,8 @@ import {
   loadWalletInventory,
   publishCustodyAuthority,
   requireInventoryKey,
+  verifyWalletInventory,
+  type InventoryMemberResult,
 } from '../agent/authority.js';
 import { readFileSync } from 'node:fs';
 import {
@@ -41,6 +43,7 @@ export const ATTESTOR_API_VERSION = 1;
 
 export const ATTESTOR_PATHS = {
   health: '/health',
+  inventory: '/v1/inventory',
   generate: '/v1/keys/generate',
   refresh: '/v1/keys/refresh',
   sign: '/v1/sign',
@@ -682,6 +685,52 @@ export class AttestorClient {
 
   selectQuorum(): QuorumMember[] {
     return selectQuorum(this.nodes, this.opts.quorum);
+  }
+
+  async publishInventory(token: string, sequence: string): Promise<InventoryMemberResult[]> {
+    const candidate = verifyWalletInventory(token);
+    if (candidate.sequence !== sequence)
+      throw new CustodyAuthorityError('inventory publication sequence differs');
+    await this.refreshHealth();
+    const identities = this.nodes.map((node) => node.nodeId);
+    return Promise.all(
+      this.nodes.map(async (node): Promise<InventoryMemberResult> => {
+        const member = candidate.members.find(
+          (approved) =>
+            approved.id === node.nodeId &&
+            approved.spki_sha256 === this.peerPins.get(new URL(node.endpoint).origin)
+        );
+        if (
+          !member ||
+          node.latencyMs === null ||
+          identities.filter((id) => id === member.id).length !== 1
+        )
+          return { node_id: node.nodeId, sequence: null, error: 'inventory_member_unavailable' };
+        try {
+          return await this.post(
+            { endpoint: node.endpoint, nodeId: member.id, latencyMs: node.latencyMs },
+            ATTESTOR_PATHS.inventory,
+            JSON.stringify({ token }),
+            {},
+            (body) => {
+              if (
+                !struct(body) ||
+                body.node_id !== member.id ||
+                body.sequence !== sequence ||
+                (body.status !== 'admitted' && body.status !== 'held')
+              )
+                throw new AttestorSessionError(
+                  'inventory_ack_mismatch',
+                  'participant acknowledged another inventory'
+                );
+              return { node_id: member.id, sequence };
+            }
+          );
+        } catch {
+          return { node_id: member.id, sequence: null, error: 'inventory_refused' };
+        }
+      })
+    );
   }
 
   async publishAuthority(token: string, sequence: string, required: 3 | 5): Promise<void> {
