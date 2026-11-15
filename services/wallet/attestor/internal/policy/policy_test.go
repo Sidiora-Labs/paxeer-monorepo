@@ -10,6 +10,7 @@ import (
 	"flag"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -1898,6 +1899,9 @@ var xwebProofCalldata = flag.String("xweb-proof-calldata", "", "fulfilment emitt
 // TestXweb0x1019ApplicationPolicy consumes the exact fulfilment calldata the
 // application proof sent through the Solidity consumer to the precompile.
 func TestXweb0x1019ApplicationPolicy(t *testing.T) {
+	if *xwebProofCalldata == "" {
+		t.Skip("xweb-proof-calldata is empty; the application proof passes this fulfilment calldata")
+	}
 	data := common.FromHex(*xwebProofCalldata)
 	if len(data) < 4 {
 		t.Fatal("application proof must supply its real fulfilment calldata")
@@ -1941,6 +1945,29 @@ func TestXweb0x1019ApplicationPolicy(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), request), h.ledger), CodeAllowed)
 	if len(h.ledger.spends) != 0 {
 		t.Fatal("zero-value xweb calls recorded a spend")
+	}
+}
+
+func TestXweb0x1019ApplicationPolicyNeedsProofInput(t *testing.T) {
+	testBinary := os.Args[0]
+	runPolicy := func(args ...string) ([]byte, error) {
+		return exec.Command(testBinary, args...).CombinedOutput()
+	}
+
+	output, err := runPolicy("-test.run=^TestXweb0x1019ApplicationPolicy$", "-test.v")
+	if err != nil {
+		t.Fatalf("policy test without proof input: %v\n%s", err, output)
+	}
+	if !bytes.Contains(output, []byte("SKIP")) {
+		t.Fatalf("policy test without proof input did not skip:\n%s", output)
+	}
+
+	output, err = runPolicy("-test.run=^TestXweb0x1019ApplicationPolicy$", "-test.v", "-xweb-proof-calldata=0x0102")
+	if err == nil {
+		t.Fatalf("policy test with short proof input unexpectedly passed:\n%s", output)
+	}
+	if !bytes.Contains(output, []byte("FAIL")) {
+		t.Fatalf("policy test with short proof input did not fail:\n%s", output)
 	}
 }
 
