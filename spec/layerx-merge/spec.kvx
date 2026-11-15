@@ -171848,7 +171848,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.565]
 title = "Take the trading workspace out of the wallet workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
