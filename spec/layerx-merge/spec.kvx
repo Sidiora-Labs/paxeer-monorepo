@@ -14650,6 +14650,12 @@ value = "It keeps routes, data flows, texts and their meaning, and the names tha
 basis = "Gotchas 4506 and 4507."
 affects = []
 
+[decision.3590]
+title = "The root of the trading workspace declares what its root tests import, and holds the proofs other components start there"
+value = "Every package that a file under apps/perps/tests imports is a development dependency of apps/perps/package.json, at the version the web application of the workspace declares where it declares one; a test of the directory holds that. The proof of the mounted markets view that the perps data gateway starts lives at apps/perps/tests/proof_widgets.test.ts and mounts the view of the workspace with its real client; the readers of the trading client wait for the declaration, and the consumer proofs of the gateway wait for the file."
+basis = "Gotcha 4508."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44310,6 +44316,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.675]
+title = "Prove the mounted markets view of the trading workspace against the perps data gateway"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data/internal/feeds/proof_websocket_test.go", "apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && go test -count=1 ./services/platform/perps-data/internal/feeds/ -run '^TestMarketsNullableSnapshotsReachMountedView$'"
+do_1 = "do_1 Gotcha 4508, decision 3590. Read in services/platform/perps-data/internal/feeds/proof_websocket_test.go the case TestMarketsNullableSnapshotsReachMountedView: how it starts the test file from apps/perps, the name pattern, the four variables it passes, how it reads the lines that ask for a phase and writes the phase files, and the function that sets what the gateway serves in each phase. Read the markets list widget of the markets package of the workspace, the view and the data table it mounts, and the path a markets snapshot takes from the client of the workspace to that view."
+symbols = []
+
+[capability.22.39.674]
+title = "Declare at the root of the trading workspace the packages its root tests import"
+reqs = ["22998.1"]
+touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/root-imports.test.ts && pnpm --dir apps/perps typecheck"
+do_1 = "do_1 Gotcha 4508, decision 3590. Read apps/perps/package.json, the test script in it, the files under apps/perps/tests and the package file of the web application of the workspace."
+symbols = []
 
 [capability.22.44.36]
 title = "Bring the documentation site to the web platform guidance and close it on every device width"
@@ -173200,6 +173224,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.674]
+title = "Declare at the root of the trading workspace the packages its root tests import"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.674"]
+interfaces = []
+do_1 = "do_1 Gotcha 4508, decision 3590. Read apps/perps/package.json, the test script in it, the files under apps/perps/tests and the package file of the web application of the workspace."
+do_2 = "do_2 Add to the development dependencies of apps/perps/package.json every package that a file under apps/perps/tests imports and the root does not declare; at present these are @tanstack/react-query, react, react-dom and next. Each takes the version the web application of the workspace declares. Bring apps/perps/pnpm-lock.yaml along with the package manager at the version the workspace pins; no other version in the lockfile moves."
+do_3 = "do_3 Add apps/perps/tests/root-imports.test.ts for the test runner the other tests of the directory use. It reads every source file under apps/perps/tests, takes the package of each import that is neither relative nor a builtin of the runtime, and asserts that the package is a dependency or a development dependency of apps/perps/package.json and that it resolves from the tests directory. One assertion names the packages of do_2."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+tests = []
+planned_paths = ["apps/perps/tests/root-imports.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/root-imports.test.ts && pnpm --dir apps/perps typecheck"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.36]
 title = "Bring the documentation site to the web platform guidance and close it on every device width"
 status = "pending"
@@ -199692,6 +199747,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.675]
+title = "Prove the mounted markets view of the trading workspace against the perps data gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.674"]
+reqs = ["22998.1"]
+capabilities = ["22.39.675"]
+interfaces = []
+do_1 = "do_1 Gotcha 4508, decision 3590. Read in services/platform/perps-data/internal/feeds/proof_websocket_test.go the case TestMarketsNullableSnapshotsReachMountedView: how it starts the test file from apps/perps, the name pattern, the four variables it passes, how it reads the lines that ask for a phase and writes the phase files, and the function that sets what the gateway serves in each phase. Read the markets list widget of the markets package of the workspace, the view and the data table it mounts, and the path a markets snapshot takes from the client of the workspace to that view."
+do_2 = "do_2 Write apps/perps/tests/proof_widgets.test.ts for the test runner the other tests of the directory use, with the two tests marketsNullableSnapshotsReachMountedView and marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults. They mount the markets list widget of the workspace with the real client of the workspace bound to the gateway of NEXT_PUBLIC_PERPS_GATEWAY_URL and the market proxy of NEXT_PUBLIC_MARKET_PROXY_HOST. Nothing between the gateway and the table is replaced by a stand-in: client, stream, state and table are the ones the application uses."
+do_3 = "do_3 The phases: to ask for phase 1, 2 or 3, in that order, the file prints one line that holds PROOF_ADVANCE= followed by the number to standard output and waits until a file named by that number exists in the directory of PROOF_PHASE_DIR. A run prints each of the three lines once across the two tests and ends with two passing tests."
+do_4 = "do_4 The first test, with PROOF_NULLABLE_MARKETS set: the snapshots carry no value in their nullable fields; the mounted view shows a row for every market of the snapshot with the empty form of those fields, and no render fails. The second test: after each phase the table shows the rows of that phase with their values and no row or value of an earlier phase."
+do_5 = "do_5 Without NEXT_PUBLIC_PERPS_GATEWAY_URL the two tests report themselves as skipped, so that the test command of the root stays usable. A package the file needs for a document tree in the runtime is declared at the root as decision 3590 says, one the workspace already holds where it holds one. In services/platform/perps-data/internal/feeds/proof_websocket_test.go change only what the case of do_1 needs to start the file of the workspace, and nothing in the other cases."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data/internal/feeds/proof_websocket_test.go", "apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+tests = []
+planned_paths = ["apps/perps/tests/proof_widgets.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && go vet ./services/platform/perps-data/internal/feeds/"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && go test -count=1 ./services/platform/perps-data/internal/feeds/ -run '^TestMarketsNullableSnapshotsReachMountedView$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.667]
 title = "Approve the launchpad migration release through a mode of the schema command"
 status = "done"
@@ -200399,7 +200487,7 @@ title = "Run the consumer proofs of the perps data gateway against the client in
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563"]
+requires = ["22.39.563", "22.39.675"]
 reqs = ["22998.1"]
 capabilities = ["22.39.570"]
 interfaces = []
@@ -200429,7 +200517,7 @@ title = "Point the Go readers of the trading client at the workspace"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563"]
+requires = ["22.39.563", "22.39.674"]
 reqs = ["22998.1"]
 capabilities = ["22.39.569"]
 interfaces = []
