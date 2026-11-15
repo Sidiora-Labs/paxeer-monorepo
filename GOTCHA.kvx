@@ -22425,3 +22425,8 @@ fix = "Decision 3602. Tasks 22.39.685 to 22.39.688; the verification of task 22.
 title = "Cases of the explorer theme pin token values and read the presets of the product"
 symptom = "The cases under apps/explorer/toolkit/theme/foundations state the values of the colour, radius and shadow tokens and the routes of the semantic tokens, and they read the presets apps/explorer/configs/envs/paxeer-x.env and apps/explorer/configs/envs/paxeer-x-dev.env, which declare each colour the theme declares. A task that changes the form of the tokens changes these cases and the presets with it. The case apps/explorer/toolkit/components/forms/fields/colorAndRadioFields.spec.ts imports a package for the intersection observer that the package file of the explorer does not declare."
 fix = "Decision 3603. Task 22.44.1 holds the presets in its paths."
+
+[gotcha.4521]
+title = "A decimal parameter of the virtual machine without a stored value is an empty decimal"
+symptom = "The readers of the decimal parameters in modules/evm/keeper/params.go return the stored field as it is: the priority normalizer, the base fee, the minimum and the maximum fee for a unit of gas and the two adjustments of the dynamic base fee. Without a stored value the field is an empty decimal, a computation with it does not end, and the block is refused. The ordinary path and the fast path report a refused block through different layers, so the texts of the two refusals differ while the outcome is the same."
+fix = "Decision 3604. Tasks 22.39.679 and 22.39.689."
