@@ -174497,7 +174497,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.668]
 title = "Build the dashboard style sheet from the classes of the UI package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
