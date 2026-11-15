@@ -1,0 +1,9 @@
+# Base64 environment inputs are written to the paths consumed by the faucet.
+LAYERX_FAUCET_TLS_CERT_DER	/run/layerx/tls/server.der	0600	*
+LAYERX_FAUCET_TLS_KEY_DER	/run/layerx/tls/server-key.der	0600	*
+LAYERX_OUTBOUND_CA_DER	/run/layerx/ca/outbound.der	0600	*
+LAYERX_IDENTITY_SERVICE_TOKEN_FILE	/run/layerx/tokens/identity	0600	*
+LAYERX_FAUCET_SERVICE_CLAIM_TOKEN_FILE	/run/layerx/tokens/service-claim	0600	*
+LAYERX_TESTNET_ADMIN_TOKEN_FILE	/run/layerx/tokens/testnet-admin	0600	*
+LAYERX_FAUCET_REDIS_USERNAME_FILE	/run/layerx/redis/username	0600	*
+LAYERX_FAUCET_REDIS_PASSWORD_FILE	/run/layerx/redis/password	0600	*
