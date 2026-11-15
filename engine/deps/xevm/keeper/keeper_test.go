@@ -1,8 +1,10 @@
 package keeper_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -18,6 +20,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/xevm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/xevm/types/ethtx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/gaskv"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/mem"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,6 +40,129 @@ func TestPurgePrefixNotHang(t *testing.T) {
 		store.Set([]byte{0x03}, []byte("test"))
 	}
 	require.NotPanics(t, func() { k.PurgePrefix(ctx, types.StateKey(evmAddr)) })
+}
+
+func purgePrefixRawStore(k *evmkeeper.Keeper, ctx sdk.Context) sdk.KVStore {
+	if k.UseRegularStore {
+		return ctx.MultiStore().GetKVStore(k.GetStoreKey())
+	}
+	return ctx.GigaKVStore(k.GetStoreKey())
+}
+
+func TestPurgePrefixStackedCaches(t *testing.T) {
+	for _, regular := range []bool{false, true} {
+		t.Run(fmt.Sprintf("regular=%t", regular), func(t *testing.T) {
+			k, ctx := keeper.MockEVMKeeper(t)
+			k.UseRegularStore = regular
+			pref := types.StateKey(common.Address{1})
+			other := types.StateKey(common.Address{2})
+			parent := ctx
+			k.PrefixStore(ctx, pref).Set([]byte{0}, []byte("parent"))
+			k.PrefixStore(ctx, other).Set([]byte{0}, []byte("retained"))
+			keys := [][]byte{{0}}
+			for i := 0; i < 200; i++ {
+				ctx = ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore())
+				if i%25 == 0 || i == 199 {
+					key := []byte{1, byte(i)}
+					keys = append(keys, key)
+					k.PrefixStore(ctx, pref).Set(key, []byte("layer"))
+					k.PrefixStore(ctx, other).Set(key, []byte("retained"))
+				}
+				k.PrefixStore(ctx, pref).Set([]byte{2}, []byte{byte(i)})
+			}
+			keys = append(keys, []byte{2})
+			k.PurgePrefix(ctx, pref)
+			for _, key := range keys {
+				require.Nil(t, k.PrefixStore(ctx, pref).Get(key))
+			}
+			require.Empty(t, purgePrefixRawStore(k, ctx).GetAllKeyStrsInRange(pref, sdk.PrefixEndBytes(pref)))
+			for _, key := range keys[:len(keys)-1] {
+				require.Equal(t, []byte("retained"), k.PrefixStore(ctx, other).Get(key))
+			}
+			require.Equal(t, []byte("parent"), k.PrefixStore(parent, pref).Get([]byte{0}))
+		})
+	}
+}
+
+func TestPurgePrefixDeletedKey(t *testing.T) {
+	for _, regular := range []bool{false, true} {
+		t.Run(fmt.Sprintf("regular=%t", regular), func(t *testing.T) {
+			k, ctx := keeper.MockEVMKeeper(t)
+			k.UseRegularStore = regular
+			pref := types.StateKey(common.Address{1})
+			k.PrefixStore(ctx, pref).Set([]byte{0}, []byte("deleted"))
+			k.PrefixStore(ctx, pref).Set([]byte{1}, []byte("present"))
+			parent := ctx
+			ctx = ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore())
+			k.PrefixStore(ctx, pref).Delete([]byte{0})
+			require.Equal(t, []string{string(append(append([]byte{}, pref...), 1))},
+				purgePrefixRawStore(k, ctx).GetAllKeyStrsInRange(pref, sdk.PrefixEndBytes(pref)))
+			meter := sdk.NewInfiniteGasMeter(1, 1)
+			k.PurgePrefix(ctx.WithGasMeter(meter), pref)
+			config := storetypes.KVGasConfig()
+			want := 2*config.IterNextCostFlat + 2*config.ReadCostPerByte*uint64(len(pref)+1+len("present")) + config.DeleteCost
+			require.Equal(t, want, meter.GasConsumed())
+			require.Empty(t, purgePrefixRawStore(k, ctx).GetAllKeyStrsInRange(pref, sdk.PrefixEndBytes(pref)))
+			require.Equal(t, []byte("deleted"), k.PrefixStore(parent, pref).Get([]byte{0}))
+		})
+	}
+}
+
+func TestPurgePrefixGas(t *testing.T) {
+	for _, regular := range []bool{false, true} {
+		for _, count := range []int{0, 10} {
+			t.Run(fmt.Sprintf("regular=%t/keys=%d", regular, count), func(t *testing.T) {
+				a, ctx := keeper.MockApp(t)
+				k := &a.GigaEvmKeeper
+				k.UseRegularStore = regular
+				pref := types.StateKey(common.Address{1})
+				reference := mem.NewStore()
+				ordinary := ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore())
+				for i := 0; i < count; i++ {
+					key, value := []byte{byte(i)}, bytes.Repeat([]byte{byte(i + 1)}, i+1)
+					k.PrefixStore(ctx, pref).Set(key, value)
+					a.EvmKeeper.PrefixStore(ordinary, pref).Set(key, value)
+					reference.Set(append(append([]byte{}, pref...), key...), value)
+				}
+				meter := sdk.NewInfiniteGasMeter(1, 1)
+				store := gaskv.NewStore(reference, meter, storetypes.KVGasConfig(), k.GetStoreKey().Name(), nil)
+				iterator := store.Iterator(pref, sdk.PrefixEndBytes(pref))
+				var keys [][]byte
+				for ; iterator.Valid(); iterator.Next() {
+					keys = append(keys, bytes.Clone(iterator.Key()))
+				}
+				require.NoError(t, iterator.Close())
+				for _, key := range keys {
+					store.Delete(key)
+				}
+				want := meter.GasConsumed()
+				require.Positive(t, want)
+				meter = sdk.NewInfiniteGasMeter(1, 1)
+				k.PurgePrefix(ctx.WithGasMeter(meter), pref)
+				require.Equal(t, want, meter.GasConsumed())
+				meter = sdk.NewInfiniteGasMeter(1, 1)
+				a.EvmKeeper.PurgePrefix(ordinary.WithGasMeter(meter), pref)
+				require.Equal(t, want, meter.GasConsumed())
+			})
+		}
+	}
+}
+
+func TestPurgePrefixTracing(t *testing.T) {
+	k, ctx := keeper.MockEVMKeeper(t)
+	k.UseRegularStore = false
+	pref := types.StateKey(common.Address{1})
+	k.PrefixStore(ctx, pref).Set([]byte{0}, []byte("fast"))
+	ctx.KVStore(k.GetStoreKey()).Set(append(append([]byte{}, pref...), 0), []byte("current"))
+	next := ctx.MultiStore().CacheMultiStore()
+	nextCtx := ctx.WithMultiStore(next)
+	k.PrefixStore(nextCtx.WithIsTracing(true), pref).Set([]byte{0}, []byte("next"))
+	trace := ctx.WithIsTracing(true).WithNextMs(next, []string{k.GetStoreKey().Name()})
+	require.Equal(t, []byte("next"), k.PrefixStore(trace, pref).Get([]byte{0}))
+	k.PurgePrefix(trace, pref)
+	require.Nil(t, k.PrefixStore(trace, pref).Get([]byte{0}))
+	require.Equal(t, []byte("current"), k.PrefixStore(ctx.WithIsTracing(true), pref).Get([]byte{0}))
+	require.Equal(t, []byte("fast"), k.PrefixStore(ctx, pref).Get([]byte{0}))
 }
 
 func TestGetChainID(t *testing.T) {

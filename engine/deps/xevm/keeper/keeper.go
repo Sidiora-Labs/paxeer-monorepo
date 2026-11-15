@@ -17,7 +17,10 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/xevm/types"
 	ibctransferkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/keeper"
 	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/gaskv"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/mem"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
@@ -234,10 +237,10 @@ func (k *Keeper) IterateAll(ctx sdk.Context, pref []byte, cb func(key, val []byt
 // When UseRegularStore is true (for debugging/testing), returns regular KVStore.
 // Otherwise returns GigaKVStore.
 func (k *Keeper) GetKVStore(ctx sdk.Context) sdk.KVStore {
-	if k.UseRegularStore {
+	if k.UseRegularStore || ctx.IsTracing() {
 		return ctx.KVStore(k.GetStoreKey())
 	}
-	return ctx.GigaKVStore(k.GetStoreKey())
+	return gaskv.NewStore(ctx.GigaKVStore(k.GetStoreKey()), ctx.GasMeter(), storetypes.KVGasConfig(), k.storeKey.Name(), ctx.StoreTracer())
 }
 
 func (k *Keeper) PrefixStore(ctx sdk.Context, pref []byte) sdk.KVStore {
@@ -245,9 +248,28 @@ func (k *Keeper) PrefixStore(ctx sdk.Context, pref []byte) sdk.KVStore {
 }
 
 func (k *Keeper) PurgePrefix(ctx sdk.Context, pref []byte) {
-	store := k.PrefixStore(ctx, pref)
-	if err := store.DeleteAll(nil, nil); err != nil {
-		panic(err)
+	if ctx.IsTracing() {
+		if err := k.PrefixStore(ctx, pref).DeleteAll(nil, nil); err != nil {
+			panic(err)
+		}
+		return
+	}
+
+	var store sdk.KVStore
+	if k.UseRegularStore {
+		store = ctx.MultiStore().GetKVStore(k.storeKey)
+	} else {
+		store = ctx.GigaKVStore(k.storeKey)
+	}
+	end := sdk.PrefixEndBytes(pref)
+	snapshot := mem.NewStore()
+	for _, key := range store.GetAllKeyStrsInRange(pref, end) {
+		snapshot.Set([]byte(key), store.Get([]byte(key)))
+	}
+	metered := gaskv.NewStore(snapshot, ctx.GasMeter(), storetypes.KVGasConfig(), k.storeKey.Name(), ctx.StoreTracer())
+	keys := metered.GetAllKeyStrsInRange(pref, end)
+	for _, key := range keys {
+		k.GetKVStore(ctx).Delete([]byte(key))
 	}
 }
 
