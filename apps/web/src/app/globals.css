@@ -37,8 +37,8 @@
   }
 
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--accent-strong);
-    outline-offset: 2px;
+    outline: var(--focus-ring-width) solid var(--accent-strong);
+    outline-offset: var(--focus-ring-offset);
   }
 
   :where(img, svg, video, canvas) {
@@ -67,6 +67,11 @@
     scrollbar-gutter: stable;
   }
 
+  .human-table-scroll:focus-visible {
+    outline: var(--focus-ring-width) solid var(--accent-strong);
+    outline-offset: var(--focus-ring-offset);
+  }
+
   .human-data-table {
     inline-size: 100%;
     min-inline-size: max-content;
@@ -76,10 +81,37 @@
   .human-data-table td {
     vertical-align: top;
   }
+
+  .human-data-table thead {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+  }
+
+  /* Keep the support conversation usable as its host changes size. */
+  .human-support-shell-desktop {
+    position: fixed;
+    inset-block-end: var(--space-6);
+    inset-inline-end: var(--space-6);
+    z-index: 40;
+    display: flex;
+    inline-size: var(--space-notification-wide);
+    max-block-size: calc(100dvh - var(--space-20));
+    max-inline-size: calc(100vw - var(--space-12));
+    flex-direction: column;
+  }
+
+  .human-support-bubble {
+    max-inline-size: var(--space-notification-wide);
+  }
+
+  .human-support-history {
+    max-block-size: var(--space-notification);
+  }
 }
 
 @media (forced-colors: active) {
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline-color: CanvasText;
+    outline: var(--focus-ring-width) solid CanvasText;
   }
 }

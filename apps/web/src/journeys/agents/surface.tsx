@@ -168,7 +168,7 @@ function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: st
     );
   } else {
     body = (
-      <div className="grid grid-cols-[minmax(280px,360px)_1fr] items-start gap-6">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <AgentList
           items={items}
           {...(selected === undefined ? {} : { selected })}

@@ -14686,6 +14686,12 @@ value = "Task 22.44.1 requires task 22.35.8, the integration of the explorer vis
 basis = "Gotcha 4513. Decisions 3587 to 3589."
 affects = []
 
+[decision.3596]
+title = "The fast execution path reads the parameters of the virtual machine through the readers of the ordinary path"
+value = "The fast execution path takes the storage gas value of the ordinary path when the parameter holds no value: the keeper of the fast path has the reader GetSstoreSetGasEIP2200 with the rule and the value of the reader of the ordinary keeper, and the block cache of the fast path takes its value there. No source outside the two readers reads the stored field for execution. The same holds for every other parameter of the virtual machine: where the ordinary path gives a value for a parameter without a stored value, the fast path gives the same value, and a comparison of both paths over a state without stored values holds that."
+basis = "Gotcha 4514."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44346,6 +44352,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.679]
+title = "Compare the fast execution path with the ordinary path over a state without stored parameter values"
+reqs = ["22998.1"]
+touches = ["node", "engine/deps/xevm/keeper", "engine/executor"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run '^(TestGigaParamsParity|TestGigaStorageGas)' && go test -count=1 ./engine/deps/xevm/keeper/"
+do_1 = "do_1 Gotcha 4514, decision 3596. Read the readers of the ordinary keeper in modules/evm/keeper/params.go and of the keeper of the fast path in engine/deps/xevm/keeper/params.go, the parameter set of the virtual machine with its keys in modules/evm/types/params.go and engine/deps/xevm/types/params.go, every place under node and engine/executor where the fast path takes a parameter of the virtual machine, and the test file of task 22.39.678 for the way a block is applied through both paths from one state."
+symbols = []
+
+[capability.22.39.678]
+title = "Take the storage gas value of the ordinary path in the fast execution path when the parameter holds no value"
+reqs = ["22998.1"]
+touches = ["node/app.go", "engine/deps/xevm/keeper/params.go", "engine/deps/xevm/keeper/params_test.go", "node", "rpc", "modules/evm/keeper", "modules/layerxagent/keeper"]
+tests = []
+verification_contract = "go test -count=1 ./engine/deps/xevm/keeper/ -run '^TestStorageGasReader' && go test -count=1 -timeout 40m ./node/ -run '^TestGigaStorageGas'"
+do_1 = "do_1 Gotcha 4514, decision 3596. Read in modules/evm/keeper/params.go the constant LegacySstoreSetGasEIP2200 and the reader GetSstoreSetGasEIP2200 with its callers; in node/app.go the function newGigaBlockCache and where its chain configuration is used; in engine/deps/xevm/keeper/params.go the readers of the keeper of the fast path; and in node/giga_merge_fallback_test.go and node/giga_precompiles_test.go how a test applies a block through the fast path and through the ordinary path and reads the results."
+symbols = []
 
 [capability.22.39.677]
 title = "Hold the semantic pairs of the human web application in both schemes and state the present browser configuration in the foundation suite"
@@ -173414,7 +173438,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.676]
 title = "Bring the cases of the bridge application suite and the code they test into line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174051,7 +174075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.31]
 title = "Close the human web application: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.30"]
@@ -174086,7 +174110,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.30]
 title = "Bring the routes and journeys of the human web application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.29"]
@@ -174436,7 +174460,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.20]
 title = "Bring the token, terminal, trading, live and swap views of the launchpad to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.19"]
@@ -246534,6 +246558,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.679]
+title = "Compare the fast execution path with the ordinary path over a state without stored parameter values"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.678"]
+reqs = ["22998.1"]
+capabilities = ["22.39.679"]
+interfaces = []
+do_1 = "do_1 Gotcha 4514, decision 3596. Read the readers of the ordinary keeper in modules/evm/keeper/params.go and of the keeper of the fast path in engine/deps/xevm/keeper/params.go, the parameter set of the virtual machine with its keys in modules/evm/types/params.go and engine/deps/xevm/types/params.go, every place under node and engine/executor where the fast path takes a parameter of the virtual machine, and the test file of task 22.39.678 for the way a block is applied through both paths from one state."
+do_2 = "do_2 Write down, in the final message, for each key of the parameter set: the value the ordinary path uses when the store holds no value for the key, the value the fast path uses, and the file and function of each read."
+do_3 = "do_3 Where the two differ, the fast path takes the rule of the ordinary path: a reader on the keeper in engine/deps/xevm/keeper/params.go with the same rule, used at every place of the fast path that reads the parameter. The ordinary path does not change."
+do_4 = "do_4 Add node/giga_params_parity_test.go in the package of node/giga_merge_fallback_test.go with cases whose names begin with TestGigaParamsParity. For each key of the parameter set there is one case run: the stored value of that key is removed, and one block with a transfer of the native asset, a contract creation that writes storage, a call that writes storage, a call that reverts and a transaction with a priority fee is applied through the ordinary path on one application and through the fast path on a second application from the same state. Every result is equal in status, gas used, logs and contract address, the base fee read after the block is equal, and both applications reach the same application hash. Where both paths refuse the block for a key without a value, the case asserts that both refuse it with the same message. One further run removes the stored values of all keys at once."
+do_5 = "do_5 A case enumerates the keys from the parameter set itself, so that a key added later is part of the comparison without a change of the test."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node", "engine/deps/xevm/keeper", "engine/executor"]
+tests = []
+planned_paths = ["node/giga_params_parity_test.go"]
+build_cmd = "go build ./node/... ./engine/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run '^(TestGigaParamsParity|TestGigaStorageGas)' && go test -count=1 ./engine/deps/xevm/keeper/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.678]
+title = "Take the storage gas value of the ordinary path in the fast execution path when the parameter holds no value"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.678"]
+interfaces = []
+do_1 = "do_1 Gotcha 4514, decision 3596. Read in modules/evm/keeper/params.go the constant LegacySstoreSetGasEIP2200 and the reader GetSstoreSetGasEIP2200 with its callers; in node/app.go the function newGigaBlockCache and where its chain configuration is used; in engine/deps/xevm/keeper/params.go the readers of the keeper of the fast path; and in node/giga_merge_fallback_test.go and node/giga_precompiles_test.go how a test applies a block through the fast path and through the ordinary path and reads the results."
+do_2 = "do_2 Add to the keeper in engine/deps/xevm/keeper/params.go the reader GetSstoreSetGasEIP2200: it gives the stored value of the parameter, and 20000 when the parameter holds no value or zero. A case TestStorageGasReaderWithoutValue in engine/deps/xevm/keeper/params_test.go removes the stored value and reads 20000; a case TestStorageGasReaderStoredValue stores another value and reads that value; a case TestStorageGasReaderMatchesOrdinaryConstant holds that the value without a stored one equals the constant LegacySstoreSetGasEIP2200 of the ordinary keeper, read from the source of modules/evm/keeper/params.go where an import is not possible."
+do_3 = "do_3 In node/app.go newGigaBlockCache takes the storage gas value through the reader of do_2 and no longer from the stored field."
+do_4 = "do_4 Add node/giga_storage_gas_test.go in the package of node/giga_merge_fallback_test.go with cases whose names begin with TestGigaStorageGas. Case without value: in a state whose parameter store holds no value for the storage gas key, one block with a contract creation whose constructor writes three storage slots for the first time, and a later call that writes a further slot for the first time, is applied through the ordinary path on one application and through the fast path on a second application that starts from the same state. Gas used, status, logs and contract address of every result are equal, the gas of the creation includes 20000 for each of the three slots, and both applications reach the same application hash. Case stored value: the same block with a stored value other than 20000 compares equal on both paths and charges the stored value. Case sources: the test reads the Go sources under node, rpc, modules/evm/keeper, modules/layerxagent/keeper and engine/deps/xevm/keeper that are neither tests nor generated and asserts that the field PaxSstoreSetGasEip2200 is read only inside the two readers."
+do_5 = "do_5 Where another source of those directories reads the stored field for execution, it takes the reader of its keeper; the final message names each such place."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/app.go", "engine/deps/xevm/keeper/params.go", "engine/deps/xevm/keeper/params_test.go", "node", "rpc", "modules/evm/keeper", "modules/layerxagent/keeper"]
+tests = []
+planned_paths = ["node/giga_storage_gas_test.go"]
+build_cmd = "go build ./node/... ./engine/deps/xevm/..."
+verify_cmd = "go test -count=1 ./engine/deps/xevm/keeper/ -run '^TestStorageGasReader' && go test -count=1 -timeout 40m ./node/ -run '^TestGigaStorageGas'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.666]
 title = "Divide the eligible wallets of the custody ceremony by the state of their identity"

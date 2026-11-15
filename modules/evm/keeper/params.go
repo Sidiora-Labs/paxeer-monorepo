@@ -8,6 +8,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
+	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/mod/semver"
 )
 
@@ -277,6 +278,11 @@ func (k *Keeper) GetSstoreSetGasEIP2200(ctx sdk.Context) uint64 {
 		return LegacySstoreSetGasEIP2200
 	}
 	return sstore
+}
+
+func (k *Keeper) GetEVMChainConfig(ctx sdk.Context) *params.ChainConfig {
+	sstore := k.GetSstoreSetGasEIP2200(ctx)
+	return types.DefaultChainConfig().EthereumConfigWithSstore(k.ChainID(ctx), &sstore)
 }
 
 func (k *Keeper) GetAllowedFeeDenoms(ctx sdk.Context) []types.AllowedFeeDenom {

@@ -22390,3 +22390,8 @@ fix = "Decision 3594. The build of task 22.39.669 installs them."
 title = "A foundation task of a web surface waits for work on its own paths"
 symptom = "The explorer foundation of the web guidance series changes the theme, the base components and the global style under apps/explorer and verifies with the type check and the tests of the toolkit. The suite of the explorer backend lives under services/explorer/backend and shares neither a path nor a command with it. The work the foundation builds on is the visual system integration of the explorer, which closed both colour modes and the production build."
 fix = "Decision 3595."
+
+[gotcha.4514]
+title = "Two execution paths read one parameter with one rule"
+symptom = "The node that sequences executes a transaction through the ordinary path; a node without sequencing applies the block through the fast path. Both must charge the same gas, or the two reach different application hashes. The ordinary path reads the gas of a first write to a storage slot through a reader that gives the value 20000 when the parameter holds no value. A parameter holds no value in a state that began before the parameter existed; a state that starts from a present genesis holds the default, so a comparison on a new local network reads the stored value on both paths. A path that reads the stored field itself takes zero where the reader gives 20000."
+fix = "Decision 3596. Tasks 22.39.678 and 22.39.679."
