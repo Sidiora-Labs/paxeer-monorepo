@@ -106,7 +106,7 @@ function PasteCaButton() {
           onSubmit={submit}
           role="dialog"
           aria-label="Open a coin by address"
-          className="absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-1 flex w-72 flex-col gap-2 rounded-md bg-surface-2 p-3 shadow-pop"
+          className="absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-1 flex w-full max-w-menu-min flex-col gap-2 rounded-md bg-surface-2 p-3 shadow-pop"
         >
           <label htmlFor={inputId} className="text-xs font-bold text-text-muted">Paste the coin address.</label>
           <input

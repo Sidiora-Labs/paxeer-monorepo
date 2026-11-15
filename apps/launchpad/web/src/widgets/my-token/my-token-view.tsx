@@ -111,8 +111,9 @@ function CreatorPoolButton({
   const metadata = useCreatorPoolMetadata(creator, poolAddress);
   return (
     <button
+      type="button"
       onClick={onSelect}
-      className={`px-3 py-2 rounded-lg text-2xs font-bold whitespace-nowrap transition ${
+      className={`min-h-touch-target-min whitespace-nowrap rounded-lg px-3 py-2 text-2xs font-bold transition ${
         selected
           ? 'bg-info-soft text-info'
           : 'bg-surface-2 text-text-faint hover:bg-surface-hover hover:text-text'

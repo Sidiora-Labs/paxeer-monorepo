@@ -49,9 +49,9 @@ export function FillsTable({ rows, token, filter, wallets }: FillsTableProps) {
   return (
     <div className="flex flex-col">
       <p className="sr-only">{noTimeNote} {noValuationNote}</p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-xs [&_td]:whitespace-nowrap [&_td]:px-3" aria-label="Trades">
-          <thead className="sticky top-0 z-[1] bg-surface-1">
+      <div role="region" aria-label="Trades table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
+        <table className="w-full min-w-[36rem] text-xs [&_td]:whitespace-nowrap [&_td]:px-3" aria-label="Trades">
+          <thead className="sticky top-0 z-[var(--sl-z-raised)] bg-surface-1">
             <tr>
               <SortHeader className="h-6" label={<Tooltip content={noTimeNote}><span tabIndex={0}>Block</span></Tooltip>} sort={sort} onSort={() => setSort(sort === 'desc' ? 'asc' : 'desc')} />
               <SortHeader className="h-6" label="Type" />

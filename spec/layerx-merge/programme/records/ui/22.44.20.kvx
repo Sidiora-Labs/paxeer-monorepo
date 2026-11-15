@@ -1,0 +1,183 @@
+[manifest]
+task = "22.44.20"
+surface = "Sidiora Launchpad market, terminal, live, swap and creator views"
+paths = ["apps/launchpad/web/src/app/coin", "apps/launchpad/web/src/app/live", "apps/launchpad/web/src/app/meta-ag", "apps/launchpad/web/src/app/pnl", "apps/launchpad/web/src/app/swap", "apps/launchpad/web/src/app/terminal", "apps/launchpad/web/src/app/token", "apps/launchpad/web/src/app/tokens", "apps/launchpad/web/src/page-modules/live", "apps/launchpad/web/src/page-modules/meta-ag", "apps/launchpad/web/src/page-modules/swap", "apps/launchpad/web/src/page-modules/terminal", "apps/launchpad/web/src/page-modules/token", "apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/widgets/funding", "apps/launchpad/web/src/widgets/live", "apps/launchpad/web/src/widgets/meta-ag", "apps/launchpad/web/src/widgets/my-token", "apps/launchpad/web/src/widgets/pnl", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/terminal", "apps/launchpad/web/src/widgets/trade", "apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/widgets/voice-rooms"]
+
+[guide.css]
+id = "css"
+directories = ["apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets"]
+
+[guide.html]
+id = "html"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/launchpad/web/src/widgets/funding", "apps/launchpad/web/src/widgets/meta-ag", "apps/launchpad/web/src/widgets/pnl", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/trading"]
+
+[guide.color]
+id = "color"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/widgets/live", "apps/launchpad/web/src/widgets/terminal", "apps/launchpad/web/src/widgets/trading"]
+
+[guide.ime_safe_enter_submit]
+id = "ime-safe-enter-submit"
+directories = ["apps/launchpad/web/src/widgets/trading"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/launchpad/web/src/widgets/pnl", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/terminal"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/launchpad/web/src/page-modules/token", "apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/widgets/terminal"]
+
+[guide.sortable_table]
+id = "sortable-table"
+directories = ["apps/launchpad/web/src/page-modules/token", "apps/launchpad/web/src/widgets/terminal"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/launchpad/web/src/widgets/terminal", "apps/launchpad/web/src/widgets/coin"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/launchpad/web/src/widgets/terminal", "apps/launchpad/web/src/widgets/swap"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/launchpad/web/src/widgets/live", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/terminal"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/widgets/live", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/terminal"]
+
+[guide.card]
+id = "card"
+directories = ["apps/launchpad/web/src/widgets/coin", "apps/launchpad/web/src/widgets/live", "apps/launchpad/web/src/widgets/meta-ag", "apps/launchpad/web/src/widgets/pnl"]
+
+[guide.browser_ui_theming]
+id = "browser-ui-theming"
+directories = ["apps/launchpad/web/src/widgets/funding", "apps/launchpad/web/src/widgets/meta-ag", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/trading"]
+
+[view.live]
+route = "/live"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.live_all]
+route = "/live/all"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.swap]
+route = "/swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.meta_ag_swap]
+route = "/meta-ag/swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.meta_ag_orders]
+route = "/meta-ag/orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.terminal]
+route = "/terminal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.terminal_view]
+route = "/terminal/:slug"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.token]
+route = "/token"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.coin]
+route = "/coin/:address"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.metadata]
+route = "/tokens/:tokenAddress/metadata"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+
+[view.pnl]
+route = "/pnl/:cardId"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true

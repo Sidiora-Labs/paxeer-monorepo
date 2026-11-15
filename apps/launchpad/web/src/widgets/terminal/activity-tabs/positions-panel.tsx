@@ -37,8 +37,8 @@ export interface PositionsTableProps { positions: readonly PortfolioPosition[]; 
 export function PositionsTable({ positions, token, symbol }: PositionsTableProps) {
   const decimals = token.decimalsQuality === 'verified' ? token.decimals : null;
   return (
-    <div className="overflow-x-auto">
-      <table aria-label="Your positions in this pair" className="w-full min-w-[640px] text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
+    <div role="region" aria-label="Positions table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
+      <table aria-label="Your positions in this pair" className="w-full min-w-[36rem] text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
         <thead className="bg-surface-1">
           <tr>
             <SortHeader className="h-6" label="Token" />
@@ -53,7 +53,7 @@ export function PositionsTable({ positions, token, symbol }: PositionsTableProps
           {positions.map(position => {
             const value = positionValueRaw(position);
             return (
-              <tr key={position.positionId} data-position-id={position.positionId} className="h-9 bg-surface-1 transition-colors hover:bg-surface-hover">
+              <tr key={position.positionId} data-position-id={position.positionId} className="min-h-table-row-dense bg-surface-1 transition-colors hover:bg-surface-hover">
                 <td>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="font-bold text-text">{symbol}</span>
