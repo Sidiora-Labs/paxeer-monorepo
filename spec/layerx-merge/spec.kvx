@@ -14548,6 +14548,12 @@ value = "A test case of the apps explorer and ethereum_jsonrpc passes when its f
 basis = "Gotcha 4491. The workflow runs the suite whole."
 affects = []
 
+[decision.3573]
+title = "The total of stored price submissions takes its first value once and the acceptance replay reads its blocks side by side"
+value = "The store of the price submissions of a block adds its difference to the counter row without reading the table of submissions. The number of stored submissions is read only when the counter row does not exist, once, and two stores that meet at that moment end with one row that holds the right total. The acceptance replay reads the blocks of one step from the nodes side by side, up to the number the setting PAXEER_X_PRICE_FEED_REPLAY_CONCURRENCY gives, and applies them in the order of their heights; the default is 4 and a value below 1 is refused when the settings are read."
+basis = "Gotcha 4492. The cost of a store does not grow with the number of stored submissions."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44208,6 +44214,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.636]
+title = "Let the acceptance replay of the explorer read the blocks of one step side by side"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/test/repair", "services/explorer/backend/config", "services/explorer/backend/README.md"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_pace_test.exs apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs"
+do_1 = "do_1 Gotcha 4492, decision 3573. Read services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, its step and the option acceptance_backfill_concurrency, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex and the settings of the price feed in services/explorer/backend/config/runtime.exs."
+symbols = []
+
+[capability.22.39.635]
+title = "Let the store of the price submissions of a block add to the total without counting the table"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+do_1 = "do_1 Gotcha 4492, decision 3573. Read services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex, the function that stores the submissions of a block and the function that adds to the total counter, and the cases of services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs on the total."
+symbols = []
 
 [capability.22.39.634]
 title = "Let the suite of the explorer and JSON-RPC apps pass whole in the builder"
@@ -457792,6 +457816,69 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.636]
+title = "Let the acceptance replay of the explorer read the blocks of one step side by side"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.624"]
+reqs = ["22998.1"]
+capabilities = ["22.39.636"]
+interfaces = []
+do_1 = "do_1 Gotcha 4492, decision 3573. Read services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs, its step and the option acceptance_backfill_concurrency, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex and the settings of the price feed in services/explorer/backend/config/runtime.exs."
+do_2 = "do_2 Let one step read the retained or node-served contents of its blocks side by side, up to the number the option gives, and apply the results in the order of the heights, each block in its own transaction as today. A block whose read fails is held or deferred as today and does not stop the other blocks of the step. Change no reading of block entries task 22.39.624 made."
+do_3 = "do_3 Read the option from the setting PAXEER_X_PRICE_FEED_REPLAY_CONCURRENCY in services/explorer/backend/config/runtime.exs beside PAXEER_X_PRICE_FEED_CONCURRENCY, default 4, a value below 1 refused when the settings are read, and name the setting where the README of the backend names the other settings of the price feed."
+do_4 = "do_4 Add to services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_pace_test.exs a case with a node stub that answers each block after a fixed wait and shows that a step of eight blocks with the option at 8 ends in less than half the time of the same step with the option at 1, with the same stored result; and a case in which one block of the step fails and the others are applied. Keep the cases of services/explorer/backend/apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs passing."
+do_5 = "do_5 Give in the final message the blocks per step and the reads that run side by side. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/priv/repo/migrations/scripts", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x", "services/explorer/backend/apps/explorer/test/repair", "services/explorer/backend/config", "services/explorer/backend/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/price_acceptance_replay_pace_test.exs apps/explorer/test/repair/price_acceptance_replay_lifecycle_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.635]
+title = "Let the store of the price submissions of a block add to the total without counting the table"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.635"]
+interfaces = []
+do_1 = "do_1 Gotcha 4492, decision 3573. Read services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex, the function that stores the submissions of a block and the function that adds to the total counter, and the cases of services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs on the total."
+do_2 = "do_2 Let a store add its difference to the existing counter row by one statement that does not read the table of submissions. Read the number of stored submissions only when the counter row does not exist, and let two stores that meet at that moment end with one row that holds the right total. Keep the value the statistics response gives."
+do_3 = "do_3 Add to services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs a case that sets the counter row to a value that differs from the number of stored submissions, stores a block and finds the counter moved by the difference of that block only; a case that stores a block with no counter row and finds the number of stored submissions; and a case that watches the statements of the repository during a store with an existing row and finds no statement that counts the table of submissions."
+do_4 = "do_4 Give in the final message the statements one store issues before and after. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
