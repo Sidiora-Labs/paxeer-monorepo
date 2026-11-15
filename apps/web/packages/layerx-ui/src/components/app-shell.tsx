@@ -16,10 +16,10 @@ export interface NavItem {
 }
 
 const DEFAULT_ICONS: Record<string, React.ReactNode> = {
-  home: <Home className="size-[22px]" />,
-  agents: <Bot className="size-[22px]" />,
-  activity: <Activity className="size-[22px]" />,
-  more: <Grid2x2 className="size-[22px]" />,
+  home: <Home className="size-icon-md" />,
+  agents: <Bot className="size-icon-md" />,
+  activity: <Activity className="size-icon-md" />,
+  more: <Grid2x2 className="size-icon-md" />,
 };
 
 /* ----------------------------------------------------------- BottomTabBar */
@@ -57,18 +57,18 @@ export function BottomTabBar({
         className="relative flex min-w-16 flex-1 shrink-0 flex-col items-center gap-0.5 py-1 outline-none"
       >
         <span className={cn("transition-colors", active ? "text-accent" : "text-faint-foreground")}>
-          {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-[22px]" />}
+          {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-icon-md" />}
         </span>
         <span
           className={cn(
-            "text-[11px] font-semibold transition-colors",
+            "text-micro font-semibold transition-colors",
             active ? "text-accent" : "text-faint-foreground",
           )}
         >
           {item.label}
         </span>
         {!!item.badge && (
-          <span className="absolute -top-1 right-1/2 translate-x-4 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+          <span className="absolute -top-1 right-1/2 translate-x-4 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
             {item.badge}
           </span>
         )}
@@ -80,7 +80,7 @@ export function BottomTabBar({
     <nav
       aria-label="Primary"
       className={cn(
-        "relative z-30 flex items-end overflow-x-auto border-t border-border bg-surface px-2 pt-8 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        "relative z-30 flex items-end overflow-x-auto border-t border-border bg-surface px-2 pt-8 lx-safe-bottom-min",
         className,
       )}
     >
@@ -136,14 +136,14 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "flex h-full w-[248px] shrink-0 flex-col border-r border-border bg-surface",
+        "flex h-full w-sidebar shrink-0 flex-col border-r border-border bg-surface",
         className,
       )}
     >
       <div className="flex h-16 items-center px-5 text-lg font-extrabold tracking-tight text-foreground">
         {logo ?? (
           <span className="flex items-center gap-2">
-            <span className="inline-flex size-7 items-center justify-center rounded-md bg-primary text-[13px] font-black text-primary-foreground">
+            <span className="inline-flex size-7 items-center justify-center rounded-md bg-primary text-label font-black text-primary-foreground">
               LX
             </span>
             LayerX
@@ -161,7 +161,7 @@ export function Sidebar({
               onClick={() => onNavigate?.(item.id)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
                 active
                   ? "bg-surface-sunken text-foreground"
                   : "text-muted-foreground hover:bg-surface-sunken/60 hover:text-foreground",
@@ -183,7 +183,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onExplorer}
-          className="mt-4 flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-semibold text-muted-foreground transition-colors hover:bg-surface-sunken/60 hover:text-foreground"
+          className="mt-4 flex items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold text-muted-foreground transition-colors hover:bg-surface-sunken/60 hover:text-foreground"
         >
           <Compass className="size-5 text-faint-foreground" />
           <span className="flex-1 text-left">{explorerLabel}</span>
@@ -194,7 +194,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onSettings}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-semibold text-muted-foreground transition-colors hover:bg-surface-sunken/60 hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold text-muted-foreground transition-colors hover:bg-surface-sunken/60 hover:text-foreground"
         >
           <Settings className="size-5 text-faint-foreground" />
           <span className="flex-1 text-left">{settingsLabel}</span>
@@ -276,12 +276,12 @@ export function AppShell({
   if (resolved === "mobile") {
     return (
       <div className={cn("flex h-dvh flex-col bg-background", className)}>
-        <header className="flex items-center gap-3 border-b border-border bg-surface px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+        <header className="flex items-center gap-3 border-b border-border bg-surface px-4 lx-safe-top-min pb-3">
           <Avatar alt={user?.name ?? "Account"} src={user?.avatarSrc} initials={user?.initials} size="sm" tone="primary" />
           <button
             type="button"
             onClick={onSearch}
-            className="flex h-10 flex-1 items-center gap-2.5 rounded-full border border-border bg-surface px-4 text-[15px] text-faint-foreground transition-colors hover:bg-surface-sunken/50"
+            className="flex h-10 flex-1 items-center gap-2.5 rounded-full border border-border bg-surface px-4 text-body-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
           >
             <Search className="size-4" aria-hidden />
             Search
@@ -292,7 +292,7 @@ export function AppShell({
                 <Bell />
               </IconButton>
               {!!notificationCount && (
-                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
                   {notificationCount}
                 </span>
               )}
@@ -339,7 +339,7 @@ export function AppShell({
           >
             <Search className="size-4" aria-hidden />
             <span className="flex-1 text-left">Search</span>
-            <kbd className="rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            <kbd className="rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-micro font-semibold text-muted-foreground">
               ⌘K
             </kbd>
           </button>
@@ -349,7 +349,7 @@ export function AppShell({
                 <Bell />
               </IconButton>
               {!!notificationCount && (
-                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
                   {notificationCount}
                 </span>
               )}

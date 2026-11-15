@@ -1,0 +1,81 @@
+[manifest]
+task = "22.44.34"
+surface = "apps/names/src"
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/names/src/app", "apps/names/src/components"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/names/src/app"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/names/src/app"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/names/src/app"]
+
+[guide.validate_input_after_interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/names/src/app"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/names/src/app", "apps/names/src/components"]
+
+[guide.color]
+id = "color"
+directories = ["apps/names/src/app"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/names/src/app"]
+
+[guide.improve_text_layout]
+id = "improve-text-layout-and-legibility"
+directories = ["apps/names/src/app"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/names/src/app", "apps/names/src/components"]
+
+[guide.html]
+id = "html"
+directories = ["apps/names/src/app"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/names/src/app", "apps/names/src/components"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/names/src/app"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/names/src/app"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/names/src/app"]
+
+[guide.browser_ui_theming]
+id = "browser-ui-theming"
+directories = ["apps/names/src/app"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/names/src/app"]
+
+[view.status]
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.published_site]
+route = "/_pns/[label]/[[...path]]"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]

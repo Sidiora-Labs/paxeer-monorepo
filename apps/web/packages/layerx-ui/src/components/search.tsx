@@ -43,10 +43,10 @@ function CommandBar({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={portalContainer ?? undefined}>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=open]:animate-fade-in" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay data-[state=open]:animate-fade-in" />
         <Dialog.Content
           className={cn(
-            "fixed top-[18%] left-1/2 z-50 w-[calc(100vw-2rem)] max-w-[560px] -translate-x-1/2",
+            "fixed lx-search-content left-1/2 z-50 -translate-x-1/2",
             "overflow-hidden rounded-xl bg-surface shadow-overlay outline-none",
             "data-[state=open]:animate-fade-in",
           )}
@@ -54,17 +54,17 @@ function CommandBar({
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Command label="Global search" className="flex flex-col">
             <div className="flex items-center gap-3 border-b border-border px-4">
-              <Search className="size-[18px] shrink-0 text-muted-foreground" aria-hidden />
+              <Search className="size-icon-sm shrink-0 text-muted-foreground" aria-hidden />
               <Command.Input
                 autoFocus
                 placeholder={placeholder}
-                className="h-14 w-full bg-transparent text-[15px] text-foreground outline-none placeholder:text-faint-foreground"
+                className="h-14 w-full bg-transparent text-body-sm text-foreground outline-none placeholder:text-faint-foreground"
               />
-              <kbd className="shrink-0 rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+              <kbd className="shrink-0 rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-micro font-semibold text-muted-foreground">
                 ESC
               </kbd>
             </div>
-            <Command.List className="lx-scroll max-h-[320px] overflow-y-auto p-2">
+            <Command.List className="lx-scroll max-h-80 overflow-y-auto p-2">
               <Command.Empty className="py-10 text-center text-sm text-muted-foreground">
                 No results found.
               </Command.Empty>
@@ -160,7 +160,7 @@ function SearchScreen({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-transparent text-[15px] text-foreground outline-none placeholder:text-faint-foreground"
+            className="w-full bg-transparent text-body-sm text-foreground outline-none placeholder:text-faint-foreground"
           />
         </div>
       </header>
@@ -185,11 +185,11 @@ function SearchScreen({
                   {item.icon ?? <Clock />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-foreground">
+                  <span className="block truncate text-body-sm font-semibold text-foreground">
                     {item.title}
                   </span>
                   {item.subtitle && (
-                    <span className="block truncate text-[13px] text-muted-foreground">
+                    <span className="block truncate text-label text-muted-foreground">
                       {item.subtitle}
                     </span>
                   )}
@@ -220,11 +220,11 @@ function SearchScreen({
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-foreground">
+                  <span className="block truncate text-body-sm font-semibold text-foreground">
                     {item.title}
                   </span>
                   {item.subtitle && (
-                    <span className="block truncate text-[13px] text-muted-foreground">
+                    <span className="block truncate text-label text-muted-foreground">
                       {item.subtitle}
                     </span>
                   )}

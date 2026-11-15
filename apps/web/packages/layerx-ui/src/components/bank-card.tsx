@@ -23,10 +23,10 @@ export function BankCard({ data, className }: { data: BankCardData; className?: 
   return (
     <div
       className={cn(
-        "relative flex aspect-[8/5] w-full flex-col justify-between overflow-hidden rounded-lg p-5 shadow-card",
+        "relative flex lx-card-aspect w-full flex-col justify-between overflow-hidden rounded-lg p-5 shadow-card",
         dark
-          ? "bg-[#101418] text-white"
-          : "bg-[linear-gradient(135deg,#eef3fa_0%,#e2eaf5_55%,#dbe5f2_100%)] text-foreground",
+          ? "lx-card-dark"
+          : "lx-card-light text-foreground",
         className,
       )}
     >
@@ -36,12 +36,12 @@ export function BankCard({ data, className }: { data: BankCardData; className?: 
         className={cn(
           "pointer-events-none absolute inset-0",
           dark
-            ? "bg-[radial-gradient(120%_90%_at_80%_0%,rgb(255_255_255/0.08),transparent_60%)]"
-            : "bg-[radial-gradient(120%_90%_at_80%_0%,rgb(255_255_255/0.7),transparent_60%)]",
+            ? "lx-card-glow"
+            : "lx-card-glow-light",
         )}
       />
       <div className="relative flex items-start justify-between gap-3">
-        <span className="text-[13px] font-bold tracking-[0.12em] uppercase">{data.holder}</span>
+        <span className="text-label font-bold tracking-wider uppercase">{data.holder}</span>
         {data.status && (
           <Badge variant={data.status.tone ?? "success"} size="sm" className="bg-surface/80">
             {data.status.label}
@@ -50,27 +50,27 @@ export function BankCard({ data, className }: { data: BankCardData; className?: 
       </div>
       <div className="relative flex items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <span className={cn("text-xs", dark ? "text-white/60" : "text-muted-foreground")}>
+          <span className={cn("text-xs", dark ? "lx-card-muted" : "text-muted-foreground")}>
             {data.kind ?? "Virtual card"}
           </span>
-          <span className="text-[15px] font-semibold tracking-[0.06em] tabular-nums">
+          <span className="text-body-sm font-semibold tracking-wide tabular-nums">
             {data.number}
           </span>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span className={cn("text-xs", dark ? "text-white/60" : "text-muted-foreground")}>
+          <span className={cn("text-xs", dark ? "lx-card-muted" : "text-muted-foreground")}>
             {data.balance ? (data.balanceLabel ?? "Balance") : "Expiry"}
           </span>
-          <span className="text-[15px] font-semibold tabular-nums">
+          <span className="text-body-sm font-semibold tabular-nums">
             {data.balance ?? data.expiry}
           </span>
         </div>
       </div>
       <div className="relative flex items-center justify-between">
-        <span className={cn("text-lg font-black tracking-tight", dark ? "text-white" : "text-foreground")}>
+        <span className={cn("text-lg font-black tracking-tight", dark ? "text-card-ink" : "text-foreground")}>
           ≋
         </span>
-        <span className="text-sm font-black tracking-[0.08em] uppercase italic">
+        <span className="text-sm font-black tracking-wider uppercase italic">
           {data.brand ?? "VISA"}
         </span>
       </div>

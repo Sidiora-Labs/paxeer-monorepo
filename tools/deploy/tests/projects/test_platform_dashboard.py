@@ -144,6 +144,13 @@ def cargo_source_directories() -> set[Path]:
     return directories
 
 
+def test_platform_dashboard_health_port_matches_listener() -> None:
+    variables = parse_kvx(DEFINITION)["vars.dashboard"]
+    listener = variables["LAYERX_DASHBOARD_LISTEN"]
+    assert isinstance(listener, str)
+    assert variables["PORT"] == listener.rsplit(":", 1)[1] == "9445"
+
+
 def test_platform_dashboard_definition() -> None:
     sections = parse_kvx(DEFINITION)
     service = sections["service.dashboard"]
@@ -165,9 +172,9 @@ def test_platform_dashboard_definition() -> None:
     assert service["restart"] == "ALWAYS"
     assert service["replicas"] == 1
     assert service["order"] == 8
-    assert service["needs"] == ["redis-router", "redis-internal", "identity"]
+    assert service["needs"] == ["redis-gateway", "redis-internal", "identity"]
 
-    expected = source_variables() | table_variables()
+    expected = source_variables() | table_variables() | {"PORT"}
     if variables.get("LAYERX_DASHBOARD_LISTENER") == "plain":
         dashboard_main = (ROOT / "services/platform/hosted/dashboard/src/main.rs").read_text()
         expected -= env_names(function_body(dashboard_main, "tls_config"))

@@ -7,6 +7,7 @@
 //! plaintext is admitted for loopback
 //! endpoints, or for in-cluster endpoints only when the operator opts in.
 
+use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs as _};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -31,6 +32,17 @@ struct RpcRequest<'a> {
     id: u64,
     method: &'a str,
     params: &'a Value,
+}
+
+/// The answer for one member of a JSON-RPC batch.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RpcBatchAnswer {
+    /// The request returned a result.
+    Result(Value),
+    /// The request returned a JSON-RPC error object.
+    Error(Value),
+    /// The response list did not contain this request's id.
+    Missing,
 }
 
 /// How one endpoint is authenticated.
@@ -213,6 +225,91 @@ impl Endpoint {
             .cloned()
             .map(Ok)
             .ok_or_else(|| IndexError::Decode(format!("{method} answer has no result")))
+    }
+
+    /// Issues several JSON-RPC 2.0 calls in one request and returns answers in
+    /// the same order as `calls`.
+    ///
+    /// A missing response member is returned as [`RpcBatchAnswer::Missing`].
+    /// An entry-level JSON-RPC error is returned as [`RpcBatchAnswer::Error`]
+    /// so callers can retry just that call. The response must be a list whose
+    /// ids are exactly a subset of the ids sent, with no duplicate id.
+    ///
+    /// # Errors
+    /// Refuses transport failures, non-200 answers, a non-list answer, a
+    /// foreign or duplicate id, and malformed response members. The request's
+    /// deadline and the response body bound apply to the complete batch.
+    pub fn rpc_batch(&self, calls: &[(&str, Value)]) -> Result<Vec<RpcBatchAnswer>, IndexError> {
+        if calls.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<u64> = calls
+            .iter()
+            .map(|_| REQUEST_ID.fetch_add(1, Ordering::Relaxed))
+            .collect();
+        let requests: Vec<_> = calls
+            .iter()
+            .zip(&ids)
+            .map(|((method, params), id)| RpcRequest {
+                jsonrpc: "2.0",
+                id: *id,
+                method,
+                params,
+            })
+            .collect();
+        let body = serde_json::to_vec(&requests)
+            .map_err(|error| IndexError::Source(format!("JSON-RPC batch request: {error}")))?;
+        let (status, answer) = self.exchange("POST", "", &body)?;
+        if status != 200 {
+            return Err(IndexError::Source(format!(
+                "JSON-RPC batch answered HTTP {status}"
+            )));
+        }
+        let value: Value = serde_json::from_slice(&answer)
+            .map_err(|error| IndexError::Decode(format!("JSON-RPC batch: {error}")))?;
+        let entries = value
+            .as_array()
+            .ok_or_else(|| IndexError::Decode("JSON-RPC batch answer is not a list".to_owned()))?;
+        let mut positions = HashMap::with_capacity(ids.len());
+        for (position, id) in ids.iter().copied().enumerate() {
+            positions.insert(id, position);
+        }
+        let mut answers = vec![None; calls.len()];
+        for entry in entries {
+            let object = entry.as_object().ok_or_else(|| {
+                IndexError::Decode("JSON-RPC batch answer member is not an object".to_owned())
+            })?;
+            let id = object
+                .get("id")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| IndexError::Source("JSON-RPC batch answer has no id".to_owned()))?;
+            let position = positions.get(&id).copied().ok_or_else(|| {
+                IndexError::Source("JSON-RPC batch answer is for another request".to_owned())
+            })?;
+            if answers[position].is_some() {
+                return Err(IndexError::Source(
+                    "JSON-RPC batch answer repeats an id".to_owned(),
+                ));
+            }
+            let answer = if let Some(error) = object.get("error").filter(|error| !error.is_null()) {
+                RpcBatchAnswer::Error(error.clone())
+            } else {
+                object
+                    .get("result")
+                    .cloned()
+                    .map(RpcBatchAnswer::Result)
+                    .ok_or_else(|| {
+                        IndexError::Decode(
+                            "JSON-RPC batch answer has neither result nor error".to_owned(),
+                        )
+                    })?
+            };
+            answers[position] = Some(answer);
+        }
+        Ok(answers
+            .into_iter()
+            .map(|answer| answer.unwrap_or(RpcBatchAnswer::Missing))
+            .collect())
     }
 
     fn exchange(
@@ -612,6 +709,67 @@ pub fn split_response(response: &[u8]) -> Result<(u16, Vec<u8>), IndexError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::TcpListener;
+    use std::thread;
+
+    fn batch_endpoint(answer: impl Fn(Value) -> Value + Send + 'static) -> Endpoint {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error}"));
+        thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            let mut request = Vec::new();
+            let mut chunk = [0; 4096];
+            let header_end = loop {
+                let count = stream
+                    .read(&mut chunk)
+                    .unwrap_or_else(|error| panic!("{error}"));
+                if count == 0 {
+                    return;
+                }
+                request.extend_from_slice(&chunk[..count]);
+                if let Some(position) = request.windows(4).position(|window| window == b"\r\n\r\n")
+                {
+                    break position + 4;
+                }
+            };
+            let head = String::from_utf8_lossy(&request[..header_end]);
+            let length = head
+                .lines()
+                .find_map(|line| line.strip_prefix("Content-Length: "))
+                .and_then(|value| value.trim().parse::<usize>().ok())
+                .unwrap_or_default();
+            while request.len() < header_end + length {
+                let count = stream
+                    .read(&mut chunk)
+                    .unwrap_or_else(|error| panic!("{error}"));
+                if count == 0 {
+                    return;
+                }
+                request.extend_from_slice(&chunk[..count]);
+            }
+            let request: Value = serde_json::from_slice(&request[header_end..header_end + length])
+                .unwrap_or_else(|error| panic!("{error}"));
+            let body = answer(request).to_string();
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap_or_else(|error| panic!("{error}"));
+        });
+        Endpoint::parse(
+            &format!("http://{address}"),
+            Security::Plaintext {
+                allow_remote: false,
+            },
+            Duration::from_secs(2),
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
 
     #[test]
     fn endpoints_refuse_remote_plaintext_without_opt_in() {
@@ -670,5 +828,27 @@ mod tests {
         assert!(split_response(both).is_err());
         let short = b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\n{}";
         assert!(split_response(short).is_err());
+    }
+
+    #[test]
+    fn rpc_batch_refuses_non_list_foreign_and_duplicate_answers() {
+        let calls = [("eth_chainId", serde_json::json!([]))];
+        let non_list = batch_endpoint(|_| serde_json::json!({"id": 1, "result": null}));
+        assert!(non_list.rpc_batch(&calls).is_err());
+
+        let foreign = batch_endpoint(|request| {
+            let id = request[0]["id"].as_u64().unwrap_or_default();
+            serde_json::json!([{"jsonrpc":"2.0","id":id + 1,"result":null}])
+        });
+        assert!(foreign.rpc_batch(&calls).is_err());
+
+        let duplicate = batch_endpoint(|request| {
+            let id = request[0]["id"].as_u64().unwrap_or_default();
+            serde_json::json!([
+                {"jsonrpc":"2.0","id":id,"result":null},
+                {"jsonrpc":"2.0","id":id,"result":null}
+            ])
+        });
+        assert!(duplicate.rpc_batch(&calls).is_err());
     }
 }

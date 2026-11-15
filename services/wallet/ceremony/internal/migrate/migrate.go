@@ -72,13 +72,17 @@ type Wallet struct {
 	DID                   string
 	MainAccountID         string
 	OriginalIdentityKeyID string
+	ProvisioningState     string
 }
 
 type Plan struct {
-	Total           int
-	Funded          []Wallet
-	AlreadyMigrated int
-	Eligible        []Wallet
+	Total            int
+	Funded           []Wallet
+	AlreadyMigrated  int
+	Eligible         []Wallet
+	Deliverable      []Wallet
+	WaitingIdentity  []Wallet
+	ExternalIdentity []Wallet
 }
 
 type Report struct {
@@ -89,6 +93,7 @@ type Report struct {
 	TestSigned       int
 	HeldIdentity     int
 	ExternalIdentity int
+	WaitingIdentity  int
 	Matched          int
 }
 
@@ -146,8 +151,8 @@ func ReadWallets(ctx context.Context, db *sql.DB) ([]Wallet, error) {
 		return nil, err
 	}
 	rows, err := db.QueryContext(ctx, `select w.id::text, w.user_id::text, w.address, coalesce(w.encrypted_private_key, ''),
-			w.key_version, w.chain_id, w.kind, `+fundedPredicate+`, w.migrated_at is not null, coalesce(w.did, ''), coalesce(w.main_account_id, ''), coalesce(w.layerx_key_id, '')
-		from wallets w order by w.created_at, w.id`)
+			w.key_version, w.chain_id, w.kind, `+fundedPredicate+`, w.migrated_at is not null, coalesce(w.did, ''), coalesce(w.main_account_id, ''), coalesce(w.layerx_key_id, ''), case when p.wallet_id is not null then 'active' else '' end
+		from wallets w left join (select distinct wallet_id from account_provisioning where state = 'active') p on p.wallet_id = w.id order by w.created_at, w.id`)
 	if err != nil {
 		return nil, fmt.Errorf("migrate: read wallets: %w", err)
 	}
@@ -155,7 +160,7 @@ func ReadWallets(ctx context.Context, db *sql.DB) ([]Wallet, error) {
 	var out []Wallet
 	for rows.Next() {
 		var w Wallet
-		if err := rows.Scan(&w.ID, &w.UserID, &w.Address, &w.EncryptedPrivateKey, &w.KeyVersion, &w.ChainID, &w.Kind, &w.Funded, &w.Migrated, &w.DID, &w.MainAccountID, &w.OriginalIdentityKeyID); err != nil {
+		if err := rows.Scan(&w.ID, &w.UserID, &w.Address, &w.EncryptedPrivateKey, &w.KeyVersion, &w.ChainID, &w.Kind, &w.Funded, &w.Migrated, &w.DID, &w.MainAccountID, &w.OriginalIdentityKeyID, &w.ProvisioningState); err != nil {
 			return nil, fmt.Errorf("migrate: scan wallet: %w", err)
 		}
 		out = append(out, w)
@@ -180,6 +185,14 @@ func PlanMigration(ctx context.Context, db *sql.DB) (*Plan, error) {
 			p.AlreadyMigrated++
 		default:
 			p.Eligible = append(p.Eligible, w)
+			switch {
+			case w.Kind == "agent":
+				p.ExternalIdentity = append(p.ExternalIdentity, w)
+			case w.DID != "" || w.OriginalIdentityKeyID != "" || w.ProvisioningState == "active":
+				p.Deliverable = append(p.Deliverable, w)
+			default:
+				p.WaitingIdentity = append(p.WaitingIdentity, w)
+			}
 		}
 	}
 	return p, nil
@@ -424,12 +437,15 @@ func WriteRehearsalReceipt(o Options, plan *Plan, client *attestor.Client, repor
 	if !o.Rehearsal || plan == nil || o.validate() != nil {
 		return ErrRehearsal
 	}
-	n := len(plan.Eligible)
-	if !completeCounts(report, n) {
+	n := len(plan.Deliverable)
+	if !completeCounts(report, n, len(plan.Eligible)) {
+		return ErrRehearsal
+	}
+	if report.WaitingIdentity != len(plan.WaitingIdentity) || report.ExternalIdentity != len(plan.ExternalIdentity) {
 		return ErrRehearsal
 	}
 	receipt := rehearsalReceipt{Version: 1, CeremonyID: o.CeremonyID, CreatedAt: time.Now().Unix(), Members: client.Membership(), Wallets: map[string]string{}, Counts: report}
-	for _, w := range plan.Eligible {
+	for _, w := range plan.Deliverable {
 		receipt.Wallets[w.ID] = walletDigest(w)
 	}
 	return atomicSealed(o.RehearsalReceipt, o.JournalKey, "PXW:CEREMONY-REHEARSAL:v1:"+o.CeremonyID, receipt)
@@ -446,10 +462,13 @@ func requireRehearsal(o Options, plan *Plan, client *attestor.Client) error {
 		return ErrRehearsal
 	}
 	n := len(receipt.Wallets)
-	if !completeCounts(receipt.Counts, n) {
+	if !completeCounts(receipt.Counts, n, len(plan.Eligible)) {
 		return ErrRehearsal
 	}
-	for _, w := range plan.Eligible {
+	if receipt.Counts.WaitingIdentity != len(plan.WaitingIdentity) || receipt.Counts.ExternalIdentity != len(plan.ExternalIdentity) || n != len(plan.Deliverable) {
+		return ErrRehearsal
+	}
+	for _, w := range plan.Deliverable {
 		if receipt.Wallets[w.ID] != walletDigest(w) {
 			return ErrRehearsal
 		}
@@ -463,6 +482,11 @@ func Deliver(ctx context.Context, db *sql.DB, client *attestor.Client, masterKey
 		return r, err
 	}
 	if plan == nil || client == nil {
+		return r, ErrJournal
+	}
+	r.WaitingIdentity = len(plan.WaitingIdentity)
+	r.ExternalIdentity = len(plan.ExternalIdentity)
+	if len(plan.Deliverable)+r.WaitingIdentity+r.ExternalIdentity != len(plan.Eligible) {
 		return r, ErrJournal
 	}
 	var o Options
@@ -489,7 +513,7 @@ func Deliver(ctx context.Context, db *sql.DB, client *attestor.Client, masterKey
 	if len(client.NodeIDs()) != 5 || attestor.SignQuorum != 3 {
 		return r, attestor.ErrConfig
 	}
-	for _, w := range plan.Eligible {
+	for _, w := range plan.Deliverable {
 		r.Read++
 		if err = deliverOne(ctx, db, client, masterKey, w, &r, o); err != nil {
 			return r, err
@@ -837,8 +861,8 @@ func zero(b []byte) {
 	}
 }
 
-func completeCounts(r Report, n int) bool {
-	return r.Read == n && r.Verified == n && r.Imported == n && r.Refreshed == n && r.TestSigned == n && r.Matched == n && r.HeldIdentity+r.ExternalIdentity == n
+func completeCounts(r Report, n, eligible int) bool {
+	return r.Read == n && r.Verified == n && r.Imported == n && r.Refreshed == n && r.TestSigned == n && r.HeldIdentity == n && r.Matched == n && r.WaitingIdentity >= 0 && r.ExternalIdentity >= 0 && n+r.WaitingIdentity+r.ExternalIdentity == eligible
 }
 
 type originalIdentity struct {
