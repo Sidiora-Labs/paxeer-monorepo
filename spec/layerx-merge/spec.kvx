@@ -173537,7 +173537,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.28]
 title = "Bring the interface package of the human web application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
