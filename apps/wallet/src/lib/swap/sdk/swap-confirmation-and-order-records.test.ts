@@ -10,8 +10,8 @@ import {
   type Abi,
 } from 'viem';
 import { expect, test } from 'vitest';
-import { pecorOrdersAbi as producerOrdersAbi } from '../../../../../perps/src/core/network/spot_abi/PECOROrders';
-import { pecorStopOrdersAbi as producerStopsAbi } from '../../../../../perps/src/core/network/spot_abi/PECORStopOrders';
+import { pecorOrdersAbi as producerOrdersAbi } from '../../../../../perps/packages/paxeer-backend/src/core/network/spot_abi/PECOROrders';
+import { pecorStopOrdersAbi as producerStopsAbi } from '../../../../../perps/packages/paxeer-backend/src/core/network/spot_abi/PECORStopOrders';
 import { CONTRACTS, MAX_UINT256, TOKENS } from './addresses';
 import { PECOR_ORDERS_ABI, PECOR_STOP_ORDERS_ABI, SIDIORA_ROUTER_ABI } from './abis';
 import { toLimitOrder, toStopLimitOrder, toStopLossOrder } from './order-records';
