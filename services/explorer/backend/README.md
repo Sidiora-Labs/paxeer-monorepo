@@ -60,13 +60,13 @@ the current native account, transaction and feed APIs.
 Historical anchor and old receipt rows are read-only data. Archive APIs serve
 these frozen items with no live settlement status; use the current capability,
 feed and native transaction-status routes linked separately above for live data.
-The three registered archive routes below use full paths:
+The three registered archive routes below are relative to `/api/v2`:
 
 | Path | Purpose |
 | --- | --- |
-| `/api/v2/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
-| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts and their recorded verification status |
-| `/api/v2/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
+| `/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
+| `/paxeer-x/archive/receipts` | Frozen historical receipts and their recorded verification status |
+| `/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
 
 ### Frontend integration
 
