@@ -1,6 +1,6 @@
 # Staking precompile
 
-This directory contains the Go implementation, embedded ABI, Solidity interface, and tests for the EVM staking precompile at `0x0000000000000000000000000000000000001005`. It connects EVM contracts to the staking module on the single Paxeer BFT network, supporting delegation, redelegation, undelegation, validator creation and editing, and queries for validators, delegations, unbonding, redelegations, historical information, the pool, and staking parameters. Versioned executors support execution at the corresponding upgrade heights.
+This directory contains the Go implementation, embedded ABI, Solidity interface, and tests for the EVM staking precompile at `0x0000000000000000000000000000000000001005`. It connects EVM contracts to the staking module inside `paxd`, supporting delegation, redelegation, undelegation, validator creation and editing, and queries for validators, delegations, unbonding, redelegations, historical information, the pool, and staking parameters. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Versioned executors support execution at the corresponding upgrade heights.
 
 ## Layout
 

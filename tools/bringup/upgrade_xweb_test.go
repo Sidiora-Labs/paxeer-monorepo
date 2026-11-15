@@ -70,7 +70,7 @@ func upgradeXwebNativePeer(t *testing.T) *upgradeXwebNative {
 			Result json.RawMessage `json:"result"`
 		} `json:"rpc_exchanges"`
 	}
-	if e := json.Unmarshal(upgradeXwebRead(t, "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json"), &fixture); e != nil {
+	if e := json.Unmarshal(upgradeXwebRead(t, "../../services/platform/hosted/node/tests/fixtures/native_lifecycle/native_configuration.json"), &fixture); e != nil {
 		t.Fatal(e)
 	}
 	peer := &upgradeXwebNative{calls: map[string]int{}, exchanges: map[string]json.RawMessage{}}

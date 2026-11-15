@@ -9,8 +9,8 @@ import (
 
 func TestCommittedBlockReadsRequireAvailableUnfencedIdentity(t *testing.T) {
 	ctx := context.Background()
-	node := repair997Serve(t)
-	s := repair997Open(t, fopts(node.server.URL))
+	node := sourceRecoveryServe(t)
+	s := sourceRecoveryOpen(t, fopts(node.server.URL))
 	if _, err := s.BlockAt(ctx, math.MaxUint64); err == nil {
 		t.Fatal("unbounded height admitted")
 	}
@@ -51,9 +51,9 @@ func TestRecoveryRejectsIdentityChangesWhileVerifyingAcceptedBlocks(t *testing.T
 		t.Run(mode, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			node := repair997Serve(t)
-			s := repair997Open(t, fopts(node.server.URL))
-			repair997Seed(t, s)
+			node := sourceRecoveryServe(t)
+			s := sourceRecoveryOpen(t, fopts(node.server.URL))
+			sourceRecoverySeed(t, s)
 			endpoint := s.endpoints[0]
 			s.mu.Lock()
 			endpoint.quarantined = true
@@ -89,7 +89,7 @@ func TestRecoveryRejectsIdentityChangesWhileVerifyingAcceptedBlocks(t *testing.T
 			released = true
 			select {
 			case err := <-finished:
-				repair997Kind(t, err, IntegrityError)
+				sourceRecoveryKind(t, err, IntegrityError)
 			case <-ctx.Done():
 				t.Fatal(ctx.Err())
 			}
@@ -101,7 +101,7 @@ func TestRecoveryRejectsIdentityChangesWhileVerifyingAcceptedBlocks(t *testing.T
 }
 
 func TestCommittedConfigurationPreservesTransportAndEpochBounds(t *testing.T) {
-	node := repair997Serve(t)
+	node := sourceRecoveryServe(t)
 	for _, tc := range []struct {
 		name string
 		edit func(*CommittedOptions)

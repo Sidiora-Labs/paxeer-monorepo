@@ -8,7 +8,7 @@ Deploy and call deterministic Paxeer X programs with scoped capabilities, metere
 
 Programs extend the LayerX kernel domain of Paxeer X with application logic. A program executes a validated WebAssembly artifact under the identity, capability grants, access declarations, and resource ceilings of its invoking activity. Artifact validation rejects floating-point types and instructions and enforces structural limits before interpreter execution. The same admitted activity and state produce replayable results.
 
-Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated `402LXP` transfer sets applied by the kernel. The kernel executes within the Paxeer BFT node on EVM chain ID `125`. A receipt is final when its covering block is committed.
+Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated `402LXP` transfer sets applied by the kernel. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer uses EVM chain ID `125`. A receipt is final when validators commit its covering block.
 
 ## Application building blocks
 

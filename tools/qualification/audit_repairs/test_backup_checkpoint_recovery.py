@@ -21,8 +21,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 BACKUP = ROOT / "tools/ops/backup"
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_768.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_768.kvx"
 )
 
 

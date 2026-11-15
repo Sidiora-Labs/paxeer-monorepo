@@ -9,12 +9,12 @@ agent. Service crates live under
 [cluster script](../tests/beta-cluster.sh). The website has its own
 [`layerx-human-web` Deployment](web-deployment.yaml).
 
-Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID `125`
-(`0x7d`). The kernel is part of the network and proposes blocks. A receipt is
-final when its block is committed. Human provisioning registers identity and
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt is final when its block is committed. Human provisioning registers identity and
 recovery state, opens an asset account and funds it on this same chain.
 Use HTTPS JSON-RPC at the node root path and check `eth_chainId` before signing. See
-[Public RPC endpoints](../../../../docs/site/docs/reference/public-rpc.md).
+[Public RPC endpoints](../../../../docs/readme/PUBLIC-RPC.md).
 Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
@@ -338,7 +338,13 @@ The error instructs the operator to retain custody and retry the same request.
 The KMS's private state and original idempotency key remain the recovery source;
 a timeout does not authorize a new owner or regenerated keys.
 
-## Committed account observations
+## Remaining cluster migration barriers
+
+The retained configuration below is not a provisioning recipe for merged accounts.
+Use authenticated committed observations and preserve the original owner state
+and recovery binding when reconciling retained material.
+
+### Committed account observations
 
 `human_owner_provision` runs the offline identity and counterparty jobs with
 exclusive access to identity state. The merged owner producer then registers
@@ -351,8 +357,28 @@ The `layerx.human.account-head.v1` result contains `schema`, `chain_id`,
 `observed_at`, `balance` and `consumed`. Provisioning requires a positive
 committed height and `consumed = 0` for the initial limit. It retains the full
 observation in `account-observation.json` and its consumed result in
-`account-head-result.json`. A retained account's later observations must reflect
-its actual balance and usage.
+`account-head-result.json`. The validator authenticates the account binding,
+balance and debit sequence at a stable committed head; only a zero debit
+sequence permits `consumed=0`. Retired protocol-3 batch-number-one envelopes
+are refused. Never synthesize the result from a balance, reset consumed limits
+or replace missing evidence with zero.
+
+### Retained process configuration
+
+[`material.py`](material.py) publishes `LAYERX_HUMAN_MOVEMENT_PROVIDER_`
+settings for the merged ledger and payment bindings, and configures the local
+movement socket as `/run/layerx/human/movement.sock`. Its policy graph retains
+the `human-movement` role, and KMS executor certificates use the
+`layerx-human-movement` identity. The [node manifest](../node/deployment.yaml)
+defines only the native node container; these projections require a workload
+that supplies their runtime consumers.
+
+Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at
+`/run/layerx/node/layerxd.lni.sock`. The current agent consumes the configured
+node JSON-RPC endpoint and committed receipts. Preserve retained material
+bindings during reconciliation.
+
+### Registry generation
 
 `registry_kernel_material` reads an authenticated signed registry generation
 and verifies its network, signer and replica bindings before publishing the

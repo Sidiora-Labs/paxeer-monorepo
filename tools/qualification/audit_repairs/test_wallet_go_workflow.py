@@ -72,7 +72,7 @@ def test_both_jobs_keep_action_commits_and_checkout_credentials_disabled(name):
 
 def test_repair_record_names_causes_main_proof_and_private_revision_evidence():
     record = tomllib.loads(
-        (ROOT / "services/wallet/attestor/repair_22_31_506.kvx").read_text(encoding="utf-8")
+        (ROOT / "spec/layerx-merge/programme/records/services/wallet/attestor/repair_22_31_506.kvx").read_text(encoding="utf-8")
     )
     assert record["repair"]["gotcha"] == 3052
     assert record["repair"]["decision"] == 2550

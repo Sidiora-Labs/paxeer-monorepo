@@ -233,8 +233,7 @@ def test_artifact_guard_refuses_changed_bytes_and_non_native_artifacts(tmp_path)
 def test_repair_record_maps_both_findings_and_distinguishes_source_from_runtime_proof():
     record = tomllib.loads(
         (
-            ROOT / "spec/layerx-merge/programme/records"
-            / "tools/qualification/audit_repairs/repair_22_33_760.kvx"
+            ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_760.kvx"
         ).read_text()
     )
     assert set(record["finding"]) == {"major-merge-state-coverage", "minor-merge-state-coverage"}

@@ -14,8 +14,11 @@ contract ApiConsumer is IXWebConsumer {
     function askPrice(bytes calldata envelope, address attestor) external payable returns (uint64) {
         uint256 fee = XWEB_CONTRACT.fee();
         if (msg.value != fee) revert WrongFee(msg.value, fee);
-        return XWebApi.get("https://paxeer.app/api/v1/price?asset=PAX").select("/data/price").withCredential(envelope)
-            .single(attestor).submit(200_000);
+        return XWebApi.get("https://paxeer.app/api/v1/price?asset=PAX")
+            .select("/data/price")
+            .withCredential(envelope)
+            .single(attestor)
+            .submit(200_000);
     }
 
     function onXWebResponse(uint64 requestId, bytes32, uint32, bytes calldata response) external {

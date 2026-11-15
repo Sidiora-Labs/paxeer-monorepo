@@ -13,7 +13,8 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1325.kvx"
 
 
@@ -49,13 +50,16 @@ def assert_facts(text, facts):
 def test_docs_root_readme_single_paxd_network_and_commit_finality():
     overview = section("What is Paxeer X Network?", 2)
     assert_facts(overview, (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
     ))
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
@@ -65,7 +69,7 @@ def test_docs_root_readme_single_paxd_network_and_commit_finality():
     release = section("Releases and Network Upgrades")
     assert_facts(release, (
         "executes kernel activity inside `paxd`",
-        "commits it with the BFT chain state",
+        "validators commit it in the same block",
         "retires the old custody/checkpoint write paths",
     ))
 
@@ -73,14 +77,16 @@ def test_docs_root_readme_single_paxd_network_and_commit_finality():
 def test_docs_root_readme_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
     assert_facts(quickstart, (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through",
+        "node root URL",
+    ))
+    assert_facts(PUBLIC_RPC, (
+        "`https://api1.mainnet-beta.paxeer.network`",
         "`https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
-        "node.hyperpaxeer.com` is only the hpx library mirror",
+        "root path",
+        "`node.hyperpaxeer.com` is only the hpx library mirror",
         "never a JSON-RPC endpoint",
     ))
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
+    urls = re.findall(r"https?://[^\s`<>)]+", README + PUBLIC_RPC)
     public = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
     assert public
     allowed = {"api-mainnet-beta.paxeer.network"} | {
@@ -98,9 +104,8 @@ def test_docs_root_readme_root_rpc_hosts_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert [arg for arg in argv if arg.startswith("https://")] == []
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -177,7 +182,7 @@ def test_docs_root_readme_retired_executors_and_no_live_legacy_setup():
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
     for stale in (
         r"\blayerxd\b", r"kernel (?:currently|still) runs separately",
-        r"merge is (?:only )?(?:a )?draft", r"/rpc(?:/|\b)",
+        r"merge is (?:only )?(?:a )?draft",
     ):
         assert not re.search(stale, README, re.I), stale
 

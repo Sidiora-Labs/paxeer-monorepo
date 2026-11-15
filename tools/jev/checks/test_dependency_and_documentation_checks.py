@@ -398,21 +398,21 @@ def test_jev_docs_operational_drift_reaches_real_client(
     assert any(item["answer"] == "stale_reference" for item in json.loads(output.read_text())["findings"])
 
 
-def test_jev_docs_site_catalog_and_independent_page_anchors(jev_server, tmp_path):
+def test_jev_docs_readme_catalog_and_independent_page_anchors(jev_server, tmp_path):
     client, exchanges, received = jev_server
     real = docs.configured_catalog(arguments(docs))
     assert docs.TRANSLATION_CATALOG == (
         ("README.md", "docs/readme/README.*.md"),
-        ("README.md", "docs/site/docs/overview/i18n/*.md"),
     )
-    assert [source for source, _ in real] == [ROOT / "README.md"] * 2
-    assert {page.name for page in real[1][1]} == {
-        "de.md", "es.md", "fr.md", "ja.md", "pt-br.md", "ru.md", "zh-cn.md"
+    assert [source for source, _ in real] == [ROOT / "README.md"]
+    assert {page.name for page in real[0][1]} == {
+        "README.de.md", "README.es.md", "README.fr.md", "README.ja.md",
+        "README.pt-BR.md", "README.ru.md", "README.zh-CN.md",
     }
     (tmp_path / "README.md").write_text("## Guide\n```sh\nmake paxd-build\n```\n")
     paths = [
         "docs/readme/README.de.md", "docs/readme/README.fr.md",
-        "docs/site/docs/overview/i18n/de.md", "docs/site/docs/overview/i18n/fr.md",
+        "docs/readme/README.es.md", "docs/readme/README.ja.md",
     ]
     expected = {
         "section": "Guide", "source": "make paxd-build", "translation": "make layerxd",
@@ -425,8 +425,8 @@ def test_jev_docs_site_catalog_and_independent_page_anchors(jev_server, tmp_path
         page.write_text("## Anleitung\n```sh\nmake layerxd\n```\n")
         exchanges.append((expected, docs.QUESTIONS, DRIFT_RESPONSE))
     catalog = docs.configured_catalog(arguments(docs), tmp_path)
-    assert len(catalog) == 2
-    assert [len(pages) for _, pages in catalog] == [2, 2]
+    assert len(catalog) == 1
+    assert [len(pages) for _, pages in catalog] == [4]
     report = docs.CHECK.evaluate_catalog(
         catalog, client, Report("docs", RECORDED_REVISION, client.model)
     )
@@ -446,7 +446,10 @@ def test_jev_docs_empty_catalog_is_explicit(tmp_path, capsys):
     readme = tmp_path / "docs/readme/README.de.md"
     readme.parent.mkdir(parents=True)
     readme.write_text("## Anleitung\nCurrent instructions.\n")
-    with pytest.raises(JevConfigError, match="docs/site/docs/overview/i18n/.*empty"):
+    assert docs.configured_catalog(args, tmp_path) == [(source, [readme])]
+    (tmp_path / "translations").mkdir()
+    args = arguments(docs, ["--translations", "translations/*.md"])
+    with pytest.raises(JevConfigError, match="translations/.*empty"):
         docs.configured_catalog(args, tmp_path)
     out_dir = tmp_path / "report"
     assert cli.main([

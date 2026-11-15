@@ -13,7 +13,7 @@ defmodule Indexer.BlackfortValidatorReplacementTest do
   alias Explorer.Repo.Blackfort.Migrations.AddBlackfortValidators
   alias Indexer.Fetcher.Blackfort.Validator, as: Fetcher
 
-  @snapshots Path.expand("../../lib/indexer/fetcher/blackfort/repair_22_33_514_snapshots.json", __DIR__)
+  @snapshots Path.expand("../../lib/indexer/fetcher/blackfort/validator_snapshots.json", __DIR__)
 
   setup do
     schema = "blackfort_validator_replacement_#{System.unique_integer([:positive])}"

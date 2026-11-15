@@ -29,12 +29,12 @@ public sealed class ProgramsContractTests
     [Fact]
     public async Task PendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity()
     {
-        using var producer = RepairM1369Native.RecordedVector();
-        var vector = RepairM1369Native.ProgramsVector(producer);
-        var raw = RepairM1369Native.Hex(vector, "rawTransaction");
+        using var producer = NativeProgramTestVectors.RecordedVector();
+        var vector = NativeProgramTestVectors.ProgramsVector(producer);
+        var raw = NativeProgramTestVectors.Hex(vector, "rawTransaction");
         var activity = Programs.TransactionHash(raw);
         var key = Convert.ToHexString(activity).ToLowerInvariant();
-        await using var server = new RepairM1368Http();
+        await using var server = new JsonRpcTestServer();
         using var rpc = new Programs(server.Endpoint);
         var programs = new ProgramsClient(rpc);
         var pendingTask = programs.ReceiptAsync(new IdempotencyKey(key), activity, "receipted");
@@ -62,13 +62,13 @@ public sealed class ProgramsContractTests
         await server.Exchange(request =>
         {
             Assert.Equal("eth_getTransactionByHash", request.GetProperty("method").GetString());
-            return RepairM1369Native.Reply(request, new { hash = vector.GetProperty("receiptJson").GetProperty("txHash").GetString() });
+            return NativeProgramTestVectors.Reply(request, new { hash = vector.GetProperty("receiptJson").GetProperty("txHash").GetString() });
         });
         await server.Exchange(request =>
         {
             Assert.Equal("eth_getRawTransactionByHash", request.GetProperty("method").GetString());
             var altered = raw.ToArray(); altered[^1] ^= 1;
-            return RepairM1369Native.Reply(request, "0x" + Convert.ToHexString(altered).ToLowerInvariant());
+            return NativeProgramTestVectors.Reply(request, "0x" + Convert.ToHexString(altered).ToLowerInvariant());
         });
         var rawError = await Assert.ThrowsAsync<PlatformSdkException>(() => wrongRaw);
         Assert.Equal(SdkErrorCode.VerificationFailure, rawError.Code);
@@ -77,29 +77,29 @@ public sealed class ProgramsContractTests
     [Fact]
     public async Task RecordedProgramsSubmissionAuthenticatesReceiptAndRetainedTransaction()
     {
-        using var producer = RepairM1369Native.RecordedVector();
-        var vector = RepairM1369Native.ProgramsVector(producer);
-        var raw = RepairM1369Native.Hex(vector, "rawTransaction");
-        var expected = RepairM1369Native.Hex(vector.GetProperty("receiptJson"), "txHash");
-        var (native, fee) = RepairM1369Native.RecordedCall();
+        using var producer = NativeProgramTestVectors.RecordedVector();
+        var vector = NativeProgramTestVectors.ProgramsVector(producer);
+        var raw = NativeProgramTestVectors.Hex(vector, "rawTransaction");
+        var expected = NativeProgramTestVectors.Hex(vector.GetProperty("receiptJson"), "txHash");
+        var (native, fee) = NativeProgramTestVectors.RecordedCall();
         var call = new ProgramCall(native, fee, raw);
         Assert.Equal(expected, call.TransactionHash);
         var key = new IdempotencyKey(Convert.ToHexString(expected).ToLowerInvariant());
-        await using var server = new RepairM1368Http();
+        await using var server = new JsonRpcTestServer();
         using var rpc = new Programs(server.Endpoint);
-        var programs = new ProgramsClient(rpc, RepairM1369Native.Keys(vector));
+        var programs = new ProgramsClient(rpc, NativeProgramTestVectors.Keys(vector));
         var submission = programs.SubmitAsync(call, key);
         await server.Exchange(request =>
         {
             Assert.Equal("eth_sendRawTransaction", request.GetProperty("method").GetString());
             Assert.Equal(vector.GetProperty("rawTransaction").GetString(), request.GetProperty("params")[0].GetString());
-            return RepairM1369Native.Reply(request, vector.GetProperty("receiptJson").GetProperty("txHash").GetString());
+            return NativeProgramTestVectors.Reply(request, vector.GetProperty("receiptJson").GetProperty("txHash").GetString());
         });
         await server.Exchange(request =>
         {
             Assert.Equal("pax_sequencerReceipt", request.GetProperty("method").GetString());
             Assert.Equal(vector.GetProperty("receiptJson").GetProperty("txHash").GetString(), request.GetProperty("params")[0].GetString());
-            return RepairM1369Native.Reply(request, vector.GetProperty("receiptJson"));
+            return NativeProgramTestVectors.Reply(request, vector.GetProperty("receiptJson"));
         });
         AssertSubmission(await submission);
         var recovered = programs.ReceiptAsync(key, expected, "receipted");
@@ -107,18 +107,18 @@ public sealed class ProgramsContractTests
         {
             Assert.Equal("eth_getTransactionByHash", request.GetProperty("method").GetString());
             Assert.Equal(vector.GetProperty("receiptJson").GetProperty("txHash").GetString(), request.GetProperty("params")[0].GetString());
-            return RepairM1369Native.Reply(request, new { hash = vector.GetProperty("receiptJson").GetProperty("txHash").GetString() });
+            return NativeProgramTestVectors.Reply(request, new { hash = vector.GetProperty("receiptJson").GetProperty("txHash").GetString() });
         });
         await server.Exchange(request =>
         {
             Assert.Equal("eth_getRawTransactionByHash", request.GetProperty("method").GetString());
             Assert.Equal(vector.GetProperty("receiptJson").GetProperty("txHash").GetString(), request.GetProperty("params")[0].GetString());
-            return RepairM1369Native.Reply(request, vector.GetProperty("rawTransaction").GetString());
+            return NativeProgramTestVectors.Reply(request, vector.GetProperty("rawTransaction").GetString());
         });
         await server.Exchange(request =>
         {
             Assert.Equal("pax_sequencerReceipt", request.GetProperty("method").GetString());
-            return RepairM1369Native.Reply(request, vector.GetProperty("receiptJson"));
+            return NativeProgramTestVectors.Reply(request, vector.GetProperty("receiptJson"));
         });
         AssertSubmission(await recovered);
 
@@ -131,9 +131,9 @@ public sealed class ProgramsContractTests
             Assert.Equal(raw, result.RetainedSignedTransaction);
             var receipt = Assert.IsType<SequencerReceiptVerification>(result.SequencerReceipt);
             Assert.Equal("receipted", receipt.Rung);
-            Assert.Equal(RepairM1369Native.Hex(vector, "signedReceipt"), receipt.CanonicalBytes);
-            Assert.Equal(RepairM1369Native.Hex(vector, "receiptDigest"), receipt.ReceiptDigest);
-            Assert.Equal(RepairM1369Native.Hex(vector.GetProperty("receiptJson"), "returnData"), receipt.ReturnData);
+            Assert.Equal(NativeProgramTestVectors.Hex(vector, "signedReceipt"), receipt.CanonicalBytes);
+            Assert.Equal(NativeProgramTestVectors.Hex(vector, "receiptDigest"), receipt.ReceiptDigest);
+            Assert.Equal(NativeProgramTestVectors.Hex(vector.GetProperty("receiptJson"), "returnData"), receipt.ReturnData);
         }
     }
 
@@ -212,16 +212,16 @@ public sealed class ProgramsContractTests
         var native = NativeProgramCall.Decode(payload);
         Assert.Equal(payload, native.Encode());
         var fee = new ProtocolAmount(vector.GetProperty("fee_limit").GetString()!);
-        var unsigned = new ProgramCall(native, fee).BuildTransaction(RepairM1369Native.Sender, 7, 150000, 100, 2);
-        var signed = RepairM1369Native.Sign(unsigned);
+        var unsigned = new ProgramCall(native, fee).BuildTransaction(NativeProgramTestVectors.Sender, 7, 150000, 100, 2);
+        var signed = NativeProgramTestVectors.Sign(unsigned);
         var call = new ProgramCall(native, fee, signed);
         Assert.Equal(vector.GetProperty("evm").GetProperty("calldata").GetString(),
             "0x" + Convert.ToHexString(call.EncodeCalldata()).ToLowerInvariant());
         Assert.Equal(Programs.TransactionHash(signed), call.TransactionHash);
         Assert.Equal(signed, call.SignedTransaction);
-        using var producer = RepairM1369Native.RecordedVector();
-        var pins = RepairM1369Native.Keys(RepairM1369Native.ProgramsVector(producer));
-        await using var server = new RepairM1368Http();
+        using var producer = NativeProgramTestVectors.RecordedVector();
+        var pins = NativeProgramTestVectors.Keys(NativeProgramTestVectors.ProgramsVector(producer));
+        await using var server = new JsonRpcTestServer();
         using var rpc = new Programs(server.Endpoint);
         var programs = new ProgramsClient(rpc, pins);
         var key = new IdempotencyKey(Convert.ToHexString(call.TransactionHash).ToLowerInvariant());
@@ -230,13 +230,13 @@ public sealed class ProgramsContractTests
         {
             Assert.Equal("eth_sendRawTransaction", request.GetProperty("method").GetString());
             Assert.Equal("0x" + Convert.ToHexString(signed).ToLowerInvariant(), request.GetProperty("params")[0].GetString());
-            return RepairM1369Native.Reply(request, "0x" + Convert.ToHexString(call.TransactionHash).ToLowerInvariant());
+            return NativeProgramTestVectors.Reply(request, "0x" + Convert.ToHexString(call.TransactionHash).ToLowerInvariant());
         });
         await server.Exchange(request =>
         {
             Assert.Equal("pax_sequencerReceipt", request.GetProperty("method").GetString());
             Assert.Equal("0x" + Convert.ToHexString(call.TransactionHash).ToLowerInvariant(), request.GetProperty("params")[0].GetString());
-            return RepairM1369Native.Reply(request, null);
+            return NativeProgramTestVectors.Reply(request, null);
         });
         var pending = await submission;
         Assert.Equal("pending", pending.State);
@@ -271,8 +271,8 @@ public sealed class ProgramsContractTests
         INativeProgramLifecycle operation = ordinal == 1 ? NativeProgramDeploy.Decode(payload) : NativeProgramUpgrade.Decode(payload);
         Assert.Equal((ushort)2, BinaryPrimitives.ReadUInt16BigEndian(payload.AsSpan(32)));
         Assert.Equal(payload, operation.Encode());
-        var unsigned = new NativeProgramLifecycleRequest(operation).BuildTransaction(RepairM1369Native.Sender, 7, 250000, 100, 2);
-        var signed = RepairM1369Native.Sign(unsigned);
+        var unsigned = new NativeProgramLifecycleRequest(operation).BuildTransaction(NativeProgramTestVectors.Sender, 7, 250000, 100, 2);
+        var signed = NativeProgramTestVectors.Sign(unsigned);
         var request = new NativeProgramLifecycleRequest(operation, signed);
         Assert.Equal(Programs.TransactionHash(signed), request.ActivityId);
         Assert.Equal(unsigned.Data, request.Payload);

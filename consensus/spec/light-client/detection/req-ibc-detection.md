@@ -11,8 +11,7 @@ establish verification of Autobahn certificates or recovery of an Autobahn node.
 The [supervisor](../supervisor/supervisor_001_draft.md) describes that boundary;
 [initialization](../supervisor/supervisor_002_draft.md) explains the actual Go API.
 
-Paxeer mainnet-beta is one BFT network run by `paxd`, with the kernel participating
-in the network and proposing blocks. A receipt is final when its block is
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final when its block is
 committed. The EVM chain ID is 125 (`0x7d`). Sub-chains are tenant domains in the
 database; they do not imply a new consensus network or a new IBC light client.
 IBC client state describes the counterparty chain being verified.

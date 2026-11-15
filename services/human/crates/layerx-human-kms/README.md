@@ -199,7 +199,10 @@ let signature = remote.sign_wallet_call(&binding, reference, &call, &disclosure)
 For bank SEND, serialize `SendAuthorization` from [send.rs](src/send.rs):
 `authorization` is the complete `EvmPlanAuthorization`, and `disclosure` contains
 `recipient`, `denom` and the 32-byte big-endian `amount`. Its zero-value bank call
-must encode `send(address,address,string,uint256)` with the wallet as sender.
+uses `transfer(address,uint256)` for a native pointer. The configured
+`LAYERX_AGENT_NODE_RPC_URL` must serve `getNativePointer(string)` at `0x100a`
+on the signing network; the provider checks that the denomination names the
+transaction target before reserving the nonce.
 The low-level client returns signed transaction bytes; recover the action with
 the same 32-byte action key after a response gap:
 
@@ -229,7 +232,7 @@ After securely retaining `seed`, finish with:
 remote.acknowledge_export(&binding, reference, &acknowledgement)?;
 ```
 
-[repair_22_33_31.rs](tests/repair_22_33_31.rs) executes these client sequences
+[documented_custody.rs](tests/documented_custody.rs) executes these client sequences
 against the production TLS handler, codec and durable store. It also checks the
 registry and credential lifecycle, retired encodings, signed bank calldata and
 sender, and recovery across store restarts. Its committed loopback signing peers

@@ -14,7 +14,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 
 
 def source(path):
@@ -55,19 +57,25 @@ def make_rule(path, target):
 
 def test_readme_separate_daemon_merged_topology():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or sequencer service to deploy." in source(
+        "docs/wiki/PaxeerBoundary.md"
+    )
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
+        "The public API reaches the node directly at the root path on EVM chain ID 125",
     ):
         assert fact in overview, fact
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ):
@@ -84,16 +92,16 @@ def test_readme_separate_daemon_merged_topology():
 def test_readme_separate_daemon_root_rpc():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "root path of these hosts, without a route suffix",
-        "`https://api1.mainnet-beta.paxeer.network` through",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
+        "root path without a route suffix",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
         "`https://api14.mainnet-beta.paxeer.network`",
         "node.hyperpaxeer.com` is only the hpx library mirror",
         "never a JSON-RPC endpoint",
     ):
-        assert fact in quickstart, fact
+        assert fact in quickstart + RPC_REFERENCE, fact
     urls = [
-        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)
+        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", RPC_REFERENCE)
         if "mainnet-beta.paxeer.network" in url
     ]
     assert urls
@@ -110,8 +118,8 @@ def test_readme_separate_daemon_root_rpc():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []

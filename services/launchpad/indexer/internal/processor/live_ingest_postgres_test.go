@@ -124,14 +124,14 @@ type liveIngestor struct {
 // PostgreSQL with the production schema.
 func newLiveIngestor(t *testing.T, ctx context.Context, pool *pgxpool.Pool, primary, historical string, anchor receipt.BlockAnchor) liveIngestor {
 	t.Helper()
-	inputs := repair54ReceiptInputs(t)
+	inputs := nativeProjectionReceiptInputs(t)
 	var err error
 	inputs.Manifest, err = liveManifestAt(anchor.Height)
 	if err != nil {
 		t.Fatal(err)
 	}
 	inputs.Anchor = anchor
-	options := repairM1000ReceiptOptions(t, inputs)
+	options := nativeAccountingReceiptOptions(t, inputs)
 	tuning := liveArchiveTuning(t)
 	client, closeClient, err := receipt.NewBoundedRPCClientWithArchive(ctx, primary, historical, receipt.ArchiveOptions{Concurrency: tuning.Concurrency, AttemptTimeout: tuning.AttemptTimeout})
 	if err != nil {

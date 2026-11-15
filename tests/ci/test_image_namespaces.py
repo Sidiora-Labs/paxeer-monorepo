@@ -286,6 +286,7 @@ def test_cluster_image_identity_contract(tmp_path):
         ),
     ],
 )
+@pytest.mark.native
 def test_compose_image_identity_contract(tmp_path, target, overlay, run_id, overrides):
     environment = image_environment(tmp_path)
     assert "LOCALNODE_IMAGE_TAG" not in environment
@@ -355,6 +356,7 @@ def test_compose_image_identity_contract(tmp_path, target, overlay, run_id, over
 
 @pytest.mark.parametrize("missing", ["LOCALNODE_IMAGE_TAG", "X_WEBSEARCH_IMAGE_TAG"])
 @pytest.mark.parametrize("value", [None, ""])
+@pytest.mark.native
 def test_direct_compose_requires_nonempty_image_tags(tmp_path, missing, value):
     environment = image_environment(tmp_path)
     environment.update(

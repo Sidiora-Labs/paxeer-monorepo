@@ -7,13 +7,13 @@ import (
 
 func TestPrunedAnchorAdmissionRequiresCorroboratingArchive(t *testing.T) {
 	ctx := context.Background()
-	primary, archive := repair997Serve(t), repair997Serve(t)
+	primary, archive := sourceRecoveryServe(t), sourceRecoveryServe(t)
 	primary.pruned.Store(true)
 	opts := fopts(primary.server.URL)
 	opts.GenesisHash = [32]byte{}
 	opts.Anchor = &CommittedAnchor{Height: 1, Hash: committedFixtureHash(1)}
 	opts.HistoricalEndpoints = map[string]string{"archive": archive.server.URL}
-	s := repair997Open(t, opts)
+	s := sourceRecoveryOpen(t, opts)
 	health := s.EndpointHealth()
 	if len(health) != 2 {
 		t.Fatalf("corroborated endpoints %+v", health)

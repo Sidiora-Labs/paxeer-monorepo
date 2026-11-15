@@ -122,7 +122,7 @@ fn verified_deployment_binding_and_current_head_use_the_same_receipt_state() {
         .unwrap_or_else(|error| panic!("bind receipted deployment: {error}"));
     assert_eq!(bound.code_hash(), deployment.code_hash());
     let head = verifier
-        .verify_current_program(&fixture.proof.state, support::program(), NOW)
+        .verify_current_program(&fixture.program_state(), support::program(), NOW)
         .unwrap_or_else(|error| panic!("verified current head: {error}"));
     let current = fixture
         .proof
@@ -158,8 +158,12 @@ fn verified_deployment_binding_and_current_head_use_the_same_receipt_state() {
 
 #[test]
 fn legacy_evidence_cannot_manufacture_a_published_interface() {
-    let mut fixture = deploy_fixture(WASM_V1, UpgradePolicy::Authority(AUTHORITY), 72, NOW);
-    fixture.proof.deployment.interface = None;
+    let fixture = support::deploy_fixture_without_interface(
+        WASM_V1,
+        UpgradePolicy::Authority(AUTHORITY),
+        72,
+        NOW,
+    );
     let verifier = verifier_for_fixture(&fixture, 1_000);
     let deployment = verifier
         .verify_deployment(&fixture.proof, NOW)

@@ -355,8 +355,7 @@ def test_upgrade_log_fallback(tmp_path):
 def test_record_maps_all_findings_to_executed_tests():
     record = tomllib.loads(
         (
-            ROOT / "spec/layerx-merge/programme/records"
-            / "tools/qualification/audit_repairs/repair_22_33_761.kvx"
+            ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_761.kvx"
         ).read_text()
     )
     expected = {"upgrade-launch-unbounded", "downgrade-process-only", "upgrade-process-only",

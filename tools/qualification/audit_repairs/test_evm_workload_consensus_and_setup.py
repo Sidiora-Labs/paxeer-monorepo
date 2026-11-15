@@ -19,8 +19,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = ROOT / "tests/integration/evm_module/scripts"
 SCRIPT_NAMES = ("evm_giga_mixed_tests.sh", "evm_giga_tests.sh", "evm_rpc_tests.sh")
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_744.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_744.kvx"
 )
 
 

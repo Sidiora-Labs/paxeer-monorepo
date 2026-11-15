@@ -18,9 +18,7 @@ use layerx_agentd::identity::{
 use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRegistry};
 use layerx_agentd::sign::ProvisionedSessionKey;
 use layerx_agentd::store::{ObjectKind, Store, TenantId, TenantKey};
-use layerx_crypto::local::LocalSigner;
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest};
-use layerx_crypto::signer::Signer as _;
 use layerx_human_service::agents::{
     AgentCreationContract, AgentEvidence, AgentFailure, CapabilityProvision, CreateAgentRequest,
     CreationContext, CreationJourney, CreationStage, CreationState, ProtocolAction,
@@ -132,7 +130,7 @@ fn prepare_call(
 
 struct Fixture {
     root: std::path::PathBuf,
-    store: PrincipalStore,
+    store: Option<PrincipalStore>,
     digest: TenancyDigest,
     keystore: Keystore,
     registry: ModuleRegistry,
@@ -168,14 +166,15 @@ impl Fixture {
             .unwrap_or_else(|error| panic!("module registry: {error:?}"));
         Self {
             root,
-            store,
+            store: Some(store),
             digest,
             keystore,
             registry,
         }
     }
 
-    fn reopen(&self) -> PrincipalStore {
+    fn reopen(&mut self) -> PrincipalStore {
+        self.store = None;
         PrincipalStore::open(
             self.root.join("human-store"),
             retention_uniform(100),
@@ -402,7 +401,17 @@ impl AgentCreationContract for InProcessAgentLayer {
         let session_seed: [u8; 32] =
             Sha256::digest([b"layerx-agent-session/v1".as_slice(), &request.action_key].concat())
                 .into();
-        let session_public_key = LocalSigner::new(session_seed).public_key();
+        let session_key = k256::ecdsa::SigningKey::from_slice(&session_seed)
+            .map_err(|_| AgentFailure::Refused("session key refused"))?;
+        let address = layerx_crypto::secp256k1::evm_address(
+            session_key
+                .verifying_key()
+                .to_encoded_point(false)
+                .as_bytes(),
+        )
+        .map_err(|_| AgentFailure::Refused("session address refused"))?;
+        let mut session_public_key = [0; 32];
+        session_public_key[12..].copy_from_slice(&address);
         let issued = issue_session_key(&SessionKeyRequest {
             fee_budget: None,
             purpose: layerx_crypto::session::SessionPurpose::Activity,
@@ -789,13 +798,6 @@ fn durable_kind(stage: CreationStage) -> ObjectKind {
     }
 }
 
-fn durable_count(root: &std::path::Path, stage: CreationStage) -> usize {
-    let store = Store::open(root).unwrap_or_else(|error| panic!("inspect agent store: {error}"));
-    let tenant =
-        TenantId::new("tenant-alice").unwrap_or_else(|error| panic!("inspect tenant: {error}"));
-    store.list_object_ids(&tenant, durable_kind(stage)).len()
-}
-
 #[test]
 fn program_call_disclosure_is_refused_as_a_lifecycle_method() {
     use layerx_crypto::disclosure::call::{bind_call, encode_program_call, ConstructMethod};
@@ -1008,6 +1010,8 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
     let alice = principal("alice");
     let mut scope = fixture
         .store
+        .as_mut()
+        .expect("open fixture store")
         .principal(&alice)
         .unwrap_or_else(|error| panic!("principal scope: {error}"));
     let mut journey = CreationJourney::start(
@@ -1072,6 +1076,8 @@ fn every_agent_layer_failure_is_partial_and_resumes_after_service_restart() {
         let alice = principal("alice");
         let mut scope = fixture
             .store
+            .as_mut()
+            .expect("open fixture store")
             .principal(&alice)
             .unwrap_or_else(|error| panic!("principal scope: {error}"));
         let mut journey = CreationJourney::start(
@@ -1140,6 +1146,8 @@ fn crash_after_each_real_effect_replays_the_same_durable_object() {
         let alice = principal("alice");
         let mut scope = fixture
             .store
+            .as_mut()
+            .expect("open fixture store")
             .principal(&alice)
             .unwrap_or_else(|error| panic!("principal scope: {error}"));
         let mut journey = CreationJourney::start(
@@ -1175,7 +1183,10 @@ fn crash_after_each_real_effect_replays_the_same_durable_object() {
                 .map(|(_, state)| *state),
             Some(StageState::Unavailable)
         );
-        let objects_after_crash = durable_count(&agent_root, crashed_stage);
+        let objects_after_crash = first_agent
+            .store
+            .list_object_ids(&first_agent.tenant, durable_kind(crashed_stage))
+            .len();
         assert!(objects_after_crash > 0);
 
         let agent_id = journey.agent_id();
@@ -1212,7 +1223,10 @@ fn crash_after_each_real_effect_replays_the_same_durable_object() {
             Some(StageState::ReceiptVerified)
         );
         assert_eq!(
-            durable_count(&agent_root, crashed_stage),
+            resumed_agent
+                .store
+                .list_object_ids(&resumed_agent.tenant, durable_kind(crashed_stage))
+                .len(),
             objects_after_crash,
             "retry converges on one durable {crashed_stage:?} object"
         );
@@ -1252,6 +1266,8 @@ fn purpose_authority_comes_from_configuration_and_monthly_limit_only_narrows_it(
     let alice = principal("alice");
     let mut scope = fixture
         .store
+        .as_mut()
+        .expect("open fixture store")
         .principal(&alice)
         .unwrap_or_else(|error| panic!("scope: {error}"));
     let Err(error) = CreationJourney::start(
@@ -1337,7 +1353,12 @@ fn agents_route_admits_three_fields_and_refuses_undeclared_activity_types() {
     .or_fail("derived creation activity types");
     let mut fixture = Fixture::new("agent-create-schema-route");
     let alice = principal("alice");
-    let mut scope = fixture.store.principal(&alice).or_fail("principal scope");
+    let mut scope = fixture
+        .store
+        .as_mut()
+        .expect("open fixture store")
+        .principal(&alice)
+        .or_fail("principal scope");
     let journey = CreationJourney::start(&mut scope, &creation, &context(0x71), &catalog, 1)
         .unwrap_or_else(|error| {
             panic!("{}: {error:?}", "schema-admitted request reaches creation")

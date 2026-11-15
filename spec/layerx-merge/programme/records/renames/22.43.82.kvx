@@ -1,0 +1,48 @@
+[manifest]
+task = "22.43.82"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "precompiles/layerxledger/repair_144.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxledger/repair_144.kvx"
+
+[file.2]
+from = "precompiles/layerxledger/repair_m1501.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxledger/repair_m1501.kvx"
+
+[file.3]
+from = "precompiles/layerxledger/repair_144_test.go"
+to = "precompiles/layerxledger/account_payment_recovery_test.go"
+
+[file.4]
+from = "precompiles/layerxledger/repair_m1501_test.go"
+to = "precompiles/layerxledger/consumer_conformance_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/layerxledger/repair_144_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/layerxledger/repair_m1501_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1715.kvx"
+name = "precompiles/layerxledger/repair_144_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/input/1715.md"
+name = "precompiles/layerxledger/repair_144_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxledger/repair_144_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxledger/repair_m1501_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/programme/records/renames/22.43.21.kvx"
+name = "precompiles/layerxledger/repair_m1501.kvx"

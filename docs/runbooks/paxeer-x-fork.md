@@ -5,9 +5,9 @@ This is the `v7.0` merged-network upgrade and recovery procedure for mainnet-bet
 `v6.12.0`. Confirm the starting chain state and release revision before scheduling it;
 a network that has already applied `v7.0` must not schedule it again.
 
-Paxeer is one BFT network running `paxd`. The kernel runs inside the node and
-participates in block proposal; a transaction receipt is final when its block is
-committed. Sub-chains are tenant domains in the database and require no additional
+The LayerX kernel runs inside every `paxd` node, executes and orders each transaction
+and builds each block; validators check and commit it. A transaction receipt is final
+when its block is committed. Sub-chains are tenant domains in the database and require no additional
 node infrastructure. Use the public node JSON-RPC at the root HTTPS path:
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`, or

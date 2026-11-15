@@ -10,7 +10,7 @@ import (
 )
 
 func TestDurableWorkSelectionRespectsStateAndBackoff(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	objects := map[string]json.RawMessage{}
 	put := func(kind, key string, value any) {
 		t.Helper()
@@ -55,7 +55,7 @@ func TestDurableWorkSelectionRespectsStateAndBackoff(t *testing.T) {
 		t.Fatalf("claimed settlement work: %+v, %v", claimed, err)
 	}
 	for _, key := range []string{"alpha", "beta"} {
-		schedule := repairM1020Read[workSchedule](t, env.store, "work_schedule", controlSettlement+"."+key)
+		schedule := workflowRecoveryRead[workSchedule](t, env.store, "work_schedule", controlSettlement+"."+key)
 		if schedule.Attempts != 1 || !schedule.Next.After(schedule.Last) {
 			t.Fatalf("durable retry schedule %s: %+v", key, schedule)
 		}

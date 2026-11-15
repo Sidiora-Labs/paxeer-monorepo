@@ -12,8 +12,8 @@ autotests = false
 autobenches = false
 
 [[test]]
-name = "repair_22_33_238"
-path = "tests/repair_22_33_238.rs"
+name = "registry_read_bridge"
+path = "tests/registry_read_bridge.rs"
 
 [dev-dependencies]
 layerx-programs-registry = { path = "crates/layerx-programs-registry" }

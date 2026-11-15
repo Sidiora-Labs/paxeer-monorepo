@@ -94,7 +94,7 @@ func (c *devChain) emitTokenDeployed(t *testing.T, token, pool, creator string, 
 		t.Fatal(err)
 	}
 	height := new(big.Int).Add(head.Number, big.NewInt(1))
-	rawABI, err := os.ReadFile("../../../../../sdk/launchpad/protocol/bindings/testdata/repair37/EventEmitter.json")
+	rawABI, err := os.ReadFile("../../../../../sdk/launchpad/protocol/bindings/testdata/contract_events/EventEmitter.json")
 	if err != nil {
 		t.Fatal(err)
 	}

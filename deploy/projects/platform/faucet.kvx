@@ -1,0 +1,51 @@
+# Faucet service definition for the platform hosting project.
+
+[service.faucet]
+kind = "repo"
+container = "docker/platform-faucet/Dockerfile"
+root = "."
+watch = ["docker/platform-faucet/**", "docker/common/**", "services/platform/**", "services/platform/Cargo.toml", "services/platform/Cargo.lock"]
+health = "/livez"
+restart = "ALWAYS"
+replicas = 3
+public = 1
+order = 12
+needs = ["router", "identity", "redis-router", "sequencer-primary", "gas-station", "core-boundary", "testnet-control"]
+
+[vars.faucet]
+LAYERX_FAUCET_LISTEN = "[::]:${{PORT}}"
+LAYERX_FAUCET_TLS_CERT_DER = "env:PLATFORM_FAUCET_TLS_CERT_DER"
+LAYERX_FAUCET_TLS_KEY_DER = "env:PLATFORM_FAUCET_TLS_KEY_DER"
+LAYERX_OUTBOUND_CA_DER = "env:PLATFORM_FAUCET_OUTBOUND_CA_DER"
+LAYERX_IDENTITY_INTROSPECTION_URL = "env:PLATFORM_FAUCET_IDENTITY_INTROSPECTION_URL"
+LAYERX_IDENTITY_SERVICE_TOKEN_FILE = "env:PLATFORM_FAUCET_IDENTITY_SERVICE_TOKEN"
+LAYERX_FAUCET_SERVICE_CLAIM_TOKEN_FILE = "env:PLATFORM_FAUCET_SERVICE_CLAIM_TOKEN"
+LAYERX_TESTNET_FUNDING_URL = "env:PLATFORM_FAUCET_FUNDING_URL"
+LAYERX_TESTNET_ADMIN_TOKEN_FILE = "env:PLATFORM_FAUCET_TESTNET_ADMIN_TOKEN"
+LAYERX_FAUCET_REDIS_URL = "env:PLATFORM_FAUCET_REDIS_URL"
+LAYERX_FAUCET_REDIS_USERNAME_FILE = "env:PLATFORM_FAUCET_REDIS_USERNAME"
+LAYERX_FAUCET_REDIS_PASSWORD_FILE = "env:PLATFORM_FAUCET_REDIS_PASSWORD"
+
+[inputs.faucet]
+# Base64 DER certificate for the faucet's public TLS listener.
+PLATFORM_FAUCET_TLS_CERT_DER = "operator"
+# Base64 PKCS#8 DER private key for the faucet's public TLS listener.
+PLATFORM_FAUCET_TLS_KEY_DER = "operator"
+# Base64 DER CA certificate used for outbound service connections.
+PLATFORM_FAUCET_OUTBOUND_CA_DER = "operator"
+# HTTPS identity introspection endpoint used to authenticate claims.
+PLATFORM_FAUCET_IDENTITY_INTROSPECTION_URL = "operator"
+# Identity service bearer token, supplied as base64 secret material.
+PLATFORM_FAUCET_IDENTITY_SERVICE_TOKEN = "operator"
+# Shared service-claim bearer token, supplied as base64 secret material.
+PLATFORM_FAUCET_SERVICE_CLAIM_TOKEN = "generated"
+# HTTPS testnet funding endpoint used to settle claims.
+PLATFORM_FAUCET_FUNDING_URL = "operator"
+# Testnet administrator bearer token, supplied as base64 secret material.
+PLATFORM_FAUCET_TESTNET_ADMIN_TOKEN = "operator"
+# TLS Redis endpoint used for the claim journal and quotas.
+PLATFORM_FAUCET_REDIS_URL = "provider"
+# Redis username, supplied as base64 secret material.
+PLATFORM_FAUCET_REDIS_USERNAME = "provider"
+# Redis password, supplied as base64 secret material.
+PLATFORM_FAUCET_REDIS_PASSWORD = "provider"

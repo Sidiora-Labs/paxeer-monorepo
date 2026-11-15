@@ -15,8 +15,7 @@ EXPLORER = ROOT / "scripts/explorer"
 FIXTURES = EXPLORER / "fixtures/test-ratio"
 SHELL = (EXPLORER / "test-ratio.sh").read_text(encoding="utf-8")
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_772.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_772.kvx"
 )
 SPEC = importlib.util.spec_from_file_location(
     "explorer_rust_test_ranges", EXPLORER / "rust-test-ranges.py"

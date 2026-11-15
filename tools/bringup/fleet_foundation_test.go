@@ -752,7 +752,7 @@ func TestCAApprovedRoster(t *testing.T) {
 }
 
 func TestEdgeAggregateRoutes(t *testing.T) {
-	inventory, e := ReadPublicInventory(bytes.NewReader(fleetFoundationRead(t, "../../docs/site/docs/reference/public-rpc.md")))
+	inventory, e := ReadPublicInventory(bytes.NewReader(fleetFoundationRead(t, "../../docs/readme/PUBLIC-RPC.md")))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -908,7 +908,7 @@ func TestFoundationArtifactInventory(t *testing.T) {
 
 func fleetFoundationGenesis(t *testing.T) (NativeGenesis, []byte, []byte, tmed.SecretKey) {
 	t.Helper()
-	const fixture = "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/"
+	const fixture = "../../services/platform/hosted/node/tests/fixtures/native_lifecycle/"
 	raw := fleetFoundationRead(t, fixture+"genesis.json")
 	var config struct {
 		Seed      string `json:"receipt_seed"`

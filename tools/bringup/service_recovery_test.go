@@ -66,7 +66,7 @@ func serviceRecoveryJSON(t *testing.T, v any) []byte {
 }
 func serviceRecoveryInventory(t *testing.T) PublicInventory {
 	t.Helper()
-	i, e := ReadPublicInventory(bytes.NewReader(serviceRecoveryRead(t, "../../docs/site/docs/reference/public-rpc.md")))
+	i, e := ReadPublicInventory(bytes.NewReader(serviceRecoveryRead(t, "../../docs/readme/PUBLIC-RPC.md")))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -279,7 +279,7 @@ func TestEdgeConcurrentStateMutation(t *testing.T) {
 
 func TestArchiveUnpublishedNames(t *testing.T) {
 	i := serviceRecoveryInventory(t)
-	names, e := serviceRecoveryCLI([]string{"rpc-names", "../../docs/site/docs/reference/public-rpc.md"}, nil)
+	names, e := serviceRecoveryCLI([]string{"rpc-names", "../../docs/readme/PUBLIC-RPC.md"}, nil)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -287,7 +287,7 @@ func TestArchiveUnpublishedNames(t *testing.T) {
 		t.Fatal("unexpected maintained node inventory")
 	}
 	for _, name := range strings.Fields(names) {
-		if _, e = serviceRecoveryCLI([]string{"archive-name", "../../docs/site/docs/reference/public-rpc.md", name}, nil); e != nil {
+		if _, e = serviceRecoveryCLI([]string{"archive-name", "../../docs/readme/PUBLIC-RPC.md", name}, nil); e != nil {
 			t.Fatalf("published node %s refused: %v", name, e)
 		}
 	}
@@ -297,7 +297,7 @@ func TestArchiveUnpublishedNames(t *testing.T) {
 		}
 	}
 	serviceRecoveryWire(t, "install-archive.sh", `archive-name "$inventory" "$name"`, "BRINGUP_RPC_INVENTORY")
-	serviceRecoveryWire(t, "docs-names.sh", "docs/site/docs/reference/public-rpc.md")
+	serviceRecoveryWire(t, "docs-names.sh", "docs/readme/PUBLIC-RPC.md")
 }
 
 func serviceRecoveryTLSIdentity(t *testing.T, name string) (tls.Certificate, []byte, []byte) {
@@ -337,7 +337,7 @@ func serviceRecoveryNamedTLSClient(t *testing.T, server *httptest.Server, pemByt
 func TestArchiveTLSResume(t *testing.T) {
 	root := serviceRecoveryPrivate(t)
 	name := strings.TrimPrefix(serviceRecoveryInventory(t).Nodes[0], "https://")
-	args := []string{"archive-reconcile", "../../docs/site/docs/reference/public-rpc.md", filepath.Join(root, "nginx"), filepath.Join(root, "certs"), filepath.Join(root, "webroot"), name, "v1"}
+	args := []string{"archive-reconcile", "../../docs/readme/PUBLIC-RPC.md", filepath.Join(root, "nginx"), filepath.Join(root, "certs"), filepath.Join(root, "webroot"), name, "v1"}
 	out, e := serviceRecoveryCLI(args, nil)
 	if e != nil || out != "certificate changed\n" {
 		t.Fatalf("initial HTTP reconciliation: %q %v", out, e)
@@ -430,7 +430,7 @@ func TestGenesisRetiredNetworkBoundary(t *testing.T) {
 	}
 	// This committed fixture is a native paxd-produced genesis, decoded and
 	// emitted again through its actual consensus codec rather than an LXGB blob.
-	doc, e := tmtypes.GenesisDocFromJSON(serviceRecoveryRead(t, "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/genesis.json"))
+	doc, e := tmtypes.GenesisDocFromJSON(serviceRecoveryRead(t, "../../services/platform/hosted/node/tests/fixtures/native_lifecycle/genesis.json"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -887,7 +887,7 @@ func TestSearchDefaultNodeDrift(t *testing.T) {
 	if e != nil || selection.Primary != names[1] || selection.Backup != names[2] {
 		t.Fatalf("defaults did not filter/order actual serving inventory: %+v %v", selection, e)
 	}
-	cli, e := serviceRecoveryCLI([]string{"search-selection", "../../docs/site/docs/reference/public-rpc.md", "", ""}, []byte(listing))
+	cli, e := serviceRecoveryCLI([]string{"search-selection", "../../docs/readme/PUBLIC-RPC.md", "", ""}, []byte(listing))
 	if e != nil || cli != names[1]+" "+names[2]+"\n" {
 		t.Fatalf("CLI selector differs: %q %v", cli, e)
 	}

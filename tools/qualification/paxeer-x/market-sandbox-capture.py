@@ -17,12 +17,12 @@ DECLARED = (
     "tools/qualification/paxeer-x/market-sandbox-capture.py",
 )
 TARGET = Path(
-    os.environ.get("LAYERX_MARKET_CAPTURE_TARGET", "/root/lx-target/task1043534")
+    os.environ.get("LAYERX_MARKET_CAPTURE_TARGET", ROOT / "build/market-sandbox-capture")
 )
 EVIDENCE = Path(
     os.environ.get(
         "LAYERX_MARKET_CAPTURE_EVIDENCE",
-        "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task1043534",
+        ROOT / "build/qualification/market-sandbox-capture",
     )
 )
 DEADLINE = float(
@@ -73,8 +73,11 @@ def bound(seconds):
 def environment():
     return dict(
         os.environ,
-        PATH="/root/.cargo/bin:" + os.environ.get("PATH", ""),
-        CARGO_TARGET_DIR=str(TARGET / "rust"),
+        CARGO_TARGET_DIR=(
+            str(TARGET / "rust")
+            if "LAYERX_MARKET_CAPTURE_TARGET" in os.environ
+            else os.environ.get("CARGO_TARGET_DIR", str(ROOT / "programs/target"))
+        ),
         CARGO_BUILD_JOBS="8",
     )
 
@@ -139,7 +142,7 @@ def checked(value):
 
 def build():
     inputs = sources()
-    cargo = "/root/.cargo/bin/cargo"
+    cargo = "cargo"
     verifier = executable(
         run(
             [

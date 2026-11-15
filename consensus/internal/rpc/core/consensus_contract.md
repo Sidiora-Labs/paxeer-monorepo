@@ -17,7 +17,7 @@ The OpenAPI server entry is this local diagnostic listener.
 
 The public network has EVM chain ID 125 (`0x7d`). Its public JSON-RPC uses the
 root path on the configured network endpoint.
-The [public endpoint and namespace contract](../../../../docs/site/docs/reference/public-rpc.md#method-contracts)
+The [public endpoint and namespace contract](../../../../docs/readme/PUBLIC-RPC.md#method-contracts)
 maintains the node inventory. The public node namespaces are `debug`, `echo`,
 `eth`, `net`, `pax`, `test` and `txpool`, subject to node configuration. Hosted
 `px_` methods, including `px_register` and `px_requestFunds`, are declared in

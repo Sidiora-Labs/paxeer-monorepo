@@ -34,6 +34,7 @@ This binding carries base64 of the JSON document in the `PAYMENT-REQUIRED`, `PAY
 records with `include_str!` and exercises the production x402 model types and
 this transport's encoder and decoder. The nested `semantic_cases` describe
 model, payment and ingress expectations separately from those codec round trips.
+The nested `semantic_cases` are review-only and are not executed by the transport conformance runner.
 
 Additional settlement cases in that file use a local receipt signer and
 canonical receipt encoder. They are outside the JSON vector count.

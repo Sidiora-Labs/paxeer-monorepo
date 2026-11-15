@@ -12,7 +12,7 @@ import (
 
 func TestQualifiedBatchUsesRecordedSourceReceipt(t *testing.T) {
 	ctx, repo := repository(t)
-	publication, _ := repairM1043Receipt(t)
+	publication, _ := publicStatsSyncReceipt(t)
 	authority, err := NewAccountingSourceAuthority(strings.Trim(repo.schema, `"`))
 	if err != nil {
 		t.Fatal(err)

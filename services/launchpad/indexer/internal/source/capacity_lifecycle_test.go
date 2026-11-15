@@ -221,7 +221,7 @@ func capacityExplorer(t *testing.T, dsn string, pool *pgxpool.Pool, live *Commit
 func TestCapacityWindowMeasuresCanonicalIdentitiesAndRejectsMissingFaults(t *testing.T) {
 	ctx := context.Background()
 	node := newCapacityChain(t)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	dsn, pool := canonicaltest.New(t)
 	explorer := capacityExplorer(t, dsn, pool, live, 100)
 	st := store.New(pool)
@@ -360,7 +360,7 @@ func TestLagRecoveryPreservesPauseAndResumeIntervals(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 105*time.Second)
 	defer cancel()
 	node := newCapacityChain(t)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	_, pool := canonicaltest.New(t)
 	if _, err := pool.Exec(ctx, `INSERT INTO indexer.indexer_ingest_watermarks VALUES(125,'lag',1,1)`); err != nil {
 		t.Fatal(err)
@@ -400,7 +400,7 @@ func TestCapacityParityReportsCompleteHistoryWithoutInventingHighLogBlocks(t *te
 	ctx := context.Background()
 	node := newCapacityChain(t)
 	node.head.Store(10000)
-	live := repair997Open(t, fopts(node.server.URL))
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	dsn, pool := canonicaltest.New(t)
 	explorer := capacityExplorer(t, dsn, pool, live, 10000, node.logs...)
 	providers := CapacityProviders{Live: live, Historical: &HistoricalSource{RPC: live, Explorer: explorer}}

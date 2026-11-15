@@ -251,7 +251,8 @@ func TestPayServedEscrowOpenThroughEVM(t *testing.T) {
 	require.NoError(t, err)
 	expiry, window := uint64(w.Ctx.BlockTime().UnixMilli())+1_000_000, uint64(12_345)
 	terms, agreement := [32]byte{0x38, 3}, [32]byte{0x38, 4}
-	_, found := w.App.LayerXPayKeeper.GetEscrow(w.Ctx, id)
+	_, found, err := w.App.LayerXPayKeeper.GetEscrow(w.Ctx, id)
+	require.NoError(t, err)
 	require.False(t, found)
 	last, err := w.App.LayerXHost.ReadLastSequence(w.Ctx, payer.did)
 	require.NoError(t, err)
@@ -281,7 +282,8 @@ func TestPayServedEscrowOpenThroughEVM(t *testing.T) {
 		Arbiter: payer.actor, AssetID: asset, LockedAmount: codec.U128{Lo: 600}, State: 1,
 		ExpiryMs: expiry, DisputeWindowMs: window, TermsHash: terms, AgreementReference: agreement,
 	}
-	record, found := w.App.LayerXPayKeeper.GetEscrow(db.Ctx(), id)
+	record, found, err := w.App.LayerXPayKeeper.GetEscrow(db.Ctx(), id)
+	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, want, record)
 	storageKey := paytypes.KernelKVKey(paytypes.EscrowModuleID, append([]byte("hold:"), id[:]...))

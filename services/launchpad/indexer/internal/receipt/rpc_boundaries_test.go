@@ -12,8 +12,8 @@ import (
 
 func TestMetadataRequiresEveryPinnedContractBinding(t *testing.T) {
 	ctx := context.Background()
-	original := repair53InputsFromProducer(t)
-	baseline, closeBaseline := repair53Open(t, ctx, original)
+	original := receiptReplayInputsFromProducer(t)
+	baseline, closeBaseline := receiptReplayOpen(t, ctx, original)
 	defer closeBaseline()
 	if err := baseline.Rehydrate(ctx, original.Markets); err != nil {
 		t.Fatal(err)
@@ -74,8 +74,8 @@ func TestMetadataRequiresEveryPinnedContractBinding(t *testing.T) {
 			if changed == 0 {
 				t.Fatal("pinned read absent from producer transcript")
 			}
-			input = repair53Replay(t, input)
-			a, closeClient := repair53Open(t, ctx, input)
+			input = receiptReplayReplay(t, input)
+			a, closeClient := receiptReplayOpen(t, ctx, input)
 			defer closeClient()
 			if err = a.Rehydrate(ctx, input.Markets); err != nil {
 				t.Fatal(err)
@@ -89,8 +89,8 @@ func TestMetadataRequiresEveryPinnedContractBinding(t *testing.T) {
 
 func TestPinnedReceiptFallbackAndMalformedResponseAdmission(t *testing.T) {
 	ctx := context.Background()
-	original := repair53InputsFromProducer(t)
-	base, closeBase := repair53Open(t, ctx, original)
+	original := receiptReplayInputsFromProducer(t)
+	base, closeBase := receiptReplayOpen(t, ctx, original)
 	defer closeBase()
 	bundle, err := base.Bundle(ctx, original.NativeSwap)
 	if err != nil {
@@ -166,8 +166,8 @@ func TestPinnedReceiptFallbackAndMalformedResponseAdmission(t *testing.T) {
 			if !changed {
 				t.Fatal("block receipts absent from producer transcript")
 			}
-			input = repair53Replay(t, input)
-			a, closeClient := repair53Open(t, ctx, input)
+			input = receiptReplayReplay(t, input)
+			a, closeClient := receiptReplayOpen(t, ctx, input)
 			defer closeClient()
 			_, receipts, err := a.pinnedBlock(ctx, bundle.BlockHash)
 			if mode == "individual receipts" {

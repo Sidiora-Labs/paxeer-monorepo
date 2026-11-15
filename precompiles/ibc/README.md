@@ -1,6 +1,6 @@
 # IBC transfer precompile
 
-This directory holds the Go implementation, Solidity interface, embedded ABI and tests for the IBC transfer precompile in Paxeer's BFT network. It connects EVM calls to the native ICS-20 transfer keeper through `transfer` and `transferWithDefaultTimeout`. The immediate caller's associated Paxeer account supplies the tokens; both methods are nonpayable and reject staticcall and delegatecall. A successful call submits the source-chain transfer; destination delivery, acknowledgement and timeout handling follow the IBC packet lifecycle.
+This directory holds the Go implementation, Solidity interface, embedded ABI and tests for the IBC transfer precompile in `paxd`. It connects EVM calls to the native ICS-20 transfer keeper through `transfer` and `transferWithDefaultTimeout`. The immediate caller's associated Paxeer account supplies the tokens; both methods are nonpayable and reject staticcall and delegatecall. A successful call submits the source-chain transfer; destination delivery, acknowledgement and timeout handling follow the IBC packet lifecycle. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it.
 
 ## Layout
 

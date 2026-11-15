@@ -7,8 +7,9 @@ specifies them. The EVM implementation is
 [BridgeAttestation.sol](bridge/evm/src/BridgeAttestation.sol), and
 [bridge/vectors/solana.go](bridge/vectors/solana.go) owns the Go mapping from
 Solana identities. These attestations authorize cross-chain minting and
-release; Paxeer receipt finality comes from committed BFT blocks on chain ID
-125, with the kernel participating in the same network.
+release; Paxeer receipt finality comes from committed blocks on chain ID
+125. The LayerX kernel inside `paxd` executes and orders each transaction and
+builds each block; validators check and commit it.
 
 ## Packed preimages
 

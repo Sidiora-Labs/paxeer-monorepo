@@ -891,13 +891,13 @@ impl<B: AgentControlContract> AgentControls<B> {
         if evidence.action_key != replacement || bound.payload() != payload {
             return Err(AgentControlError::EvidenceConflict);
         }
-        let verified = crate::server::agent_creation::verify_evm_outcome(&evidence, kind)?;
+        let verified = evidence.verify_outcome(kind)?;
         let protocol = verified
             .protocol()
             .ok_or(AgentControlError::EvidenceConflict)?;
         if protocol.activity_id() != evidence.tx_hash
-            || protocol.module_id() != 12
-            || protocol.operation() != 2
+            || protocol.module_id() != kind.module() as u16
+            || protocol.operation() != 0
             || protocol.result_code() != 0
         {
             return Err(AgentControlError::EvidenceConflict);

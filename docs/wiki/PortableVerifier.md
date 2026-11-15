@@ -5,8 +5,9 @@ of signed protocol receipts. Verification runs offline against a caller's
 independently pinned receipt keys. The format identifier is
 `PORTABLE_RECEIPT_FORMAT`; the only accepted `verificationLevel` is `receipted`.
 
-Paxeer is one BFT network. A receipt is final when its block is committed.
-This portable object verifies receipt authenticity and optional transaction
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when its block is
+committed. This portable object verifies receipt authenticity and optional transaction
 binding; establishing block commitment requires separate chain evidence. See
 [SDK sequencer receipt verification](SdkTerminalVerification.md).
 

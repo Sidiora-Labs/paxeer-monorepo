@@ -15,9 +15,9 @@ import (
 )
 
 func TestPinnedReceiptReadersRejectCancellationAndMissingState(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx := context.Background()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	bundle, err := authority.Bundle(ctx, input.NativeSwap)
 	if err != nil {
@@ -106,8 +106,8 @@ func TestPinnedReceiptReadersRejectCancellationAndMissingState(t *testing.T) {
 }
 
 func TestBlockParsingBindsReportedIdentityAndSignedTransactionCoordinates(t *testing.T) {
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, context.Background(), input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, context.Background(), input)
 	defer closeClient()
 	bundle, err := a.Bundle(context.Background(), input.NativeSwap)
 	if err != nil {

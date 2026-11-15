@@ -6,10 +6,11 @@ order: 1
 
 IBC core provides clients, connections, channels and packet proof verification
 for communication with counterparty chains. In the merged Paxeer network these
-keepers execute within `paxd`, alongside the EVM and the kernel that participates
-in block proposal. Paxeer mainnet-beta has EVM chain id `125` (`0x7d`); a receipt
-is final when its block is committed. IBC packet completion additionally depends
-on counterparty state proofs and their relay.
+keepers execute within `paxd`, alongside the EVM. The LayerX kernel inside `paxd`
+executes and orders each transaction and builds each block; validators check and
+commit it. Paxeer mainnet-beta has EVM chain id `125` (`0x7d`); a receipt
+is final when validators commit its block. IBC packet completion additionally
+depends on counterparty state proofs and their relay.
 
 Sub-chains are tenant domains in the database. A tenant namespace alone does not
 establish an IBC client, connection or channel to another chain.

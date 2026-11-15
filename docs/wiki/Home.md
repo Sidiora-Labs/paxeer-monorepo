@@ -1,9 +1,10 @@
 # Welcome to Paxeer X Network
 
-Paxeer X Network is one BFT network, Paxeer mainnet-beta, running `paxd`
-with EVM chain ID **125** (`0x7d`). The LayerX kernel and deterministic
-Programs runtime execute inside the node. The kernel is part of the network
-that proposes blocks; a transaction receipt is final when its block commits.
+Paxeer X Network, Paxeer mainnet-beta, runs `paxd` with EVM chain ID **125**
+(`0x7d`). The LayerX kernel and deterministic Programs runtime execute inside
+the node. The LayerX kernel inside `paxd` executes and orders each transaction
+and builds each block; validators check and commit it. A transaction receipt is
+final when its block commits.
 
 Use a root node URL from [Public JSON-RPC](PublicRpc.md) for chain access.
 Hosted identity and faucet methods use the configured hosted gateway.

@@ -4,7 +4,7 @@ This page documents the launchpad web and mobile clients and their SDK boundarie
 
 ## Network and transaction lifecycle
 
-Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). Its kernel runs inside `paxd` and participates in block proposal. A transaction receipt is final when its block is committed. Submission and a signed pre-commit receipt must not be displayed as committed execution. Sub-chains are tenant domains in the database, not separately deployed chains.
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction receipt is final when its block is committed. Submission and a signed pre-commit receipt must not be displayed as committed execution. Sub-chains are tenant domains in the database, not separately deployed chains.
 
 Node JSON-RPC uses HTTPS at the configured node’s root path. See [node transport and served methods](evm-rpc.md). Node-state `px_*` methods are distinct from the hosted identity and faucet operations in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 

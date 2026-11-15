@@ -13,7 +13,7 @@ import (
 )
 
 func TestAnalyticsFillRequiresObservedCanonicalOrder(t *testing.T) {
-	archive := repair1038Fixture(t)
+	archive := riskInputsFixture(t)
 	if len(archive.Source) == 0 {
 		t.Fatal("canonical accounting source absent")
 	}

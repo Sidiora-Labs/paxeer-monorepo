@@ -8,9 +8,10 @@ with production operations in
 See [configuration](agent-config.md#human-peers), [frames](agent-formats.md#human-peer-frame),
 the [Agent API](agent-api.md) and [Rust modules](agent-rust-api.md#agentd).
 
-The runtime operates on one Paxeer BFT network, chain ID 125 on mainnet-beta.
-The kernel participates in that network and proposes blocks; committed blocks
-establish receipt finality. Tenant domains are storage namespaces on the network.
+The runtime operates on one Paxeer network, chain ID 125 on mainnet-beta.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when the validators
+commit its block. Tenant domains are storage namespaces on the network.
 
 ## Authentication
 

@@ -210,7 +210,7 @@ func runtimeContractNativeHome(t *testing.T) (string, string, *privval.FilePV) {
 	if e = pv.Save(); e != nil {
 		t.Fatal(e)
 	}
-	genesis, e := tmtypes.GenesisDocFromJSON(runtimeContractRead(t, "../../services/platform/hosted/node/tests/fixtures/repair_22_31_355/genesis.json"))
+	genesis, e := tmtypes.GenesisDocFromJSON(runtimeContractRead(t, "../../services/platform/hosted/node/tests/fixtures/native_lifecycle/genesis.json"))
 	if e != nil {
 		t.Fatal(e)
 	}

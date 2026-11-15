@@ -8,6 +8,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[3]
 CRATE = ROOT / "wasm-runtime/libwasmvm"
+RECORD = ROOT / "spec/layerx-merge/programme/records/wasm-runtime/libwasmvm/repair_22_31_450.kvx"
 COSMWASM_REVISION = "cd3c4399b8c0ea0d08b2068a893ed2973685fe30"
 # Values read from GitHub's global advisory records during implementation.
 ADVISORIES = {
@@ -101,7 +102,7 @@ def test_wasmer_is_outside_affected_range_or_has_the_exact_engine_exception():
     if not affected:
         return
 
-    record = read_toml(CRATE / "repair_22_31_450.kvx")["alert"]["1116"]
+    record = read_toml(RECORD)["alert"]["1116"]
     assert record["ghsa"] == ADVISORIES["wasmer"][0]
     assert record["affected"] == ADVISORIES["wasmer"][1]
     assert record["first_patched_version"] == "none"
@@ -133,7 +134,7 @@ def test_wasmer_is_outside_affected_range_or_has_the_exact_engine_exception():
 
 
 def test_task_record_accounts_for_each_alert_and_qualification():
-    record = read_toml(CRATE / "repair_22_31_450.kvx")
+    record = read_toml(RECORD)
     assert record["task"]["id"] == "22.31.450"
     assert "verified revision" in record["task"]["qualification"]
     for alert, name in (("1117", "curve25519-dalek"), ("1114", "atty"), ("1116", "wasmer")):

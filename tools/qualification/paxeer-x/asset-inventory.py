@@ -30,7 +30,7 @@ def evidence_directory():
     directory = Path(
         os.environ.get(
             "PAXEER_X_ASSET_INVENTORY_EVIDENCE",
-            "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task10455",
+            ROOT / "build/qualification/asset-inventory",
         )
     )
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -145,7 +145,9 @@ def build(arguments, evidence):
         "--message-format=json",
     ]
     environment = dict(
-        os.environ, CARGO_TARGET_DIR="/root/lx-target/agent", CARGO_BUILD_JOBS="4"
+        os.environ,
+        CARGO_TARGET_DIR=os.environ.get("CARGO_TARGET_DIR", str(ROOT / ".lane-target")),
+        CARGO_BUILD_JOBS="4"
     )
     log = evidence / "build-client.log"
     with log.open("w") as output:

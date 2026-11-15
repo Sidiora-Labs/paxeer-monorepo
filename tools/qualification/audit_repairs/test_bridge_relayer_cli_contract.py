@@ -109,12 +109,11 @@ def test_relayer_example_loader_transport_and_operator_contract_agree():
     assert "trust_anchor(self.trust_anchor_der.as_deref())?;" in transport
     readme = README.read_text(encoding="utf-8")
     for fact in (
-        "`paxeer.endpoints[].url` (`https://paxeer.example.invalid/` in the example)",
+        "Replace `paxeer.endpoints[].url` with an approved Paxeer node origin",
         "approved Paxeer node origin using the root path `/`",
-        "passes this URL unchanged to its HTTP transport; do not append `/rpc`",
+        "The relayer passes this root URL unchanged to its HTTP transport.",
         "approved DER trust anchor through `trust_anchor_der` and retain TLS verification",
         "Foreign EVM and Solana endpoint paths belong to their respective providers",
-        "Domain 11 owns the relayer loader and transport",
         "fixture value, not an approved deployment",
         "Do not fund them or use them as operator identities",
     ):

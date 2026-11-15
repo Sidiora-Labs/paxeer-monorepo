@@ -1,13 +1,17 @@
 FROM rust:1.91.1-alpine3.22 AS build
 WORKDIR /src
-ENV CARGO_BUILD_JOBS=4
+ARG CARGO_BUILD_JOBS=4
 RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
 COPY . .
 RUN cargo build --locked --release --manifest-path services/platform/Cargo.toml -p layerx-platform-testnet
 
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates curl jq libgcc openssl && addgroup -g 4020 layerx && adduser -D -H -u 4020 -G layerx layerx
+RUN apk add --no-cache ca-certificates curl jq libgcc openssl python3 && addgroup -g 4020 layerx && adduser -D -H -u 4020 -G layerx layerx
 COPY --from=build /src/services/platform/target/release/layerx-testnet-control /usr/local/bin/layerx-testnet-control
 COPY services/platform/hosted/testnet/run-testnet.sh services/platform/hosted/testnet/reset-testnet.sh services/platform/hosted/testnet/render-status.sh /opt/layerx/
+COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files
+COPY docker/platform-testnet/files.tsv /etc/layerx/files.tsv
+COPY docker/platform-testnet/entrypoint.py /opt/layerx/entrypoint.py
+RUN mkdir -p /run/layerx/testnet && chown 4020:4020 /run/layerx/testnet && chmod 0700 /run/layerx/testnet
 USER 4020:4020
-ENTRYPOINT ["/usr/local/bin/layerx-testnet-control"]
+ENTRYPOINT ["/usr/local/bin/layerx-env-files", "python3", "-I", "/opt/layerx/entrypoint.py"]

@@ -52,6 +52,13 @@ MAVEN_LICENSE_MANIFESTS = {
     "sdk/integrations/spring/pom.xml",
     "sdk/platform/jvm/pom.xml",
 }
+EXCLUDED_MANIFESTS = {
+    "docs/site/docs-assistant/package.json",
+    "docs/site/paxeer-docs/package.json",
+    "programs/crates/layerx-programs-ai-market/tests/support/required-value/Cargo.toml",
+    "services/interop/crates/layerx-bridge-relayer/tests/support/evm/package.json",
+    "sdk/platform/jvm/pom.xml",
+}
 SPDX_HEADER = re.compile(r"SPDX-License-Identifier:\s*([^\r\n]+)")
 SPDX_EXPRESSION = re.compile(
     r"\(*[A-Za-z0-9][A-Za-z0-9.+-]*\)*"
@@ -82,6 +89,8 @@ def _manifests():
     }
     manifests = []
     for path in sorted(paths):
+        if path.as_posix() in EXCLUDED_MANIFESTS:
+            continue
         if path.name not in MANIFEST_NAMES and path.suffix != ".csproj":
             continue
         if any(path.is_relative_to(tree) for tree in VENDORED_TREES):
@@ -263,8 +272,15 @@ def test_python_wheels_emit_declared_license(tmp_path):
         (
             "fastapi",
             ROOT / "sdk/integrations/fastapi",
-            ["fastapi>=0.110", "layerx-sdk>=0.1.0"],
-            [],
+            [
+                "fastapi>=0.110",
+                "layerx-sdk>=0.1.0",
+                'pytest; extra == "test"',
+                'fastapi>=0.110; extra == "test"',
+                'cryptography>=41; extra == "test"',
+                'httpx>=0.27; extra == "test"',
+            ],
+            ["test"],
         ),
         (
             "sdk",

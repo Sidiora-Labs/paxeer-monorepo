@@ -1,6 +1,6 @@
 # Precompile ABIs
 
-Paxeer is one BFT network, with EVM chain id **125 (`0x7d`)**. The kernel is part of the network and proposes blocks; a receipt is final when its block is committed. Kernel accounts and EVM accounts use the same chain state. Tenant sub-chains are database domains, rather than separate infrastructure.
+Paxeer uses EVM chain id **125 (`0x7d`)**. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when its block is committed. Kernel accounts and EVM accounts use the same chain state. Tenant sub-chains are database domains, rather than separate infrastructure.
 
 Use `eth_call` for reads and `eth_sendRawTransaction` for signed writes through a node's root JSON-RPC endpoint. See [public JSON-RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx) and [EVM JSON-RPC methods](rpc.md).
 

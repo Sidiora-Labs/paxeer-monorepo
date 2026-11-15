@@ -32,7 +32,7 @@ func inventoryPublication(t *testing.T, market accounting.PublicationV1) account
 
 func TestInventoryPublicationRetainsSourceAuthority(t *testing.T) {
 	ctx, repo := repository(t)
-	market, _ := repairM1043Receipt(t)
+	market, _ := publicStatsSyncReceipt(t)
 	inventory := inventoryPublication(t, market)
 	schema := strings.Trim(repo.schema, `"`)
 	authority, err := NewAccountingSourceAuthority(schema)
@@ -127,7 +127,7 @@ func TestInventoryPublicationRetainsSourceAuthority(t *testing.T) {
 }
 
 func TestQualifiedPolicyUsesAttributionAndExecutionEvidence(t *testing.T) {
-	market, _ := repairM1043Receipt(t)
+	market, _ := publicStatsSyncReceipt(t)
 	inventory := inventoryPublication(t, market)
 	fill := *market.Fill
 	fill.Attribution = *inventory.Enrichment.Attribution

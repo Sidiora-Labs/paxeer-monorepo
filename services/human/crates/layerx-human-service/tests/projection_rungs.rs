@@ -238,13 +238,13 @@ fn projection_never_emits_settlement_anchored() {
     }
 }
 
-#[path = "support/repair_22_33_44_bank.rs"]
+#[path = "support/bank_receipt_fixture.rs"]
 mod recorded_bank;
 mod route_auth {
-    include!("support/repair_22_33_44_auth.rs");
+    include!("support/passkey_session_fixture.rs");
 }
 pub mod route_clock {
-    include!("support/repair_22_33_44_clock.rs");
+    include!("support/runtime_clock_authority.rs");
 }
 
 fn record_projection_rung(

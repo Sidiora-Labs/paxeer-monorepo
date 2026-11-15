@@ -1,9 +1,10 @@
 # Node RPC and module query contracts
 
-Paxeer mainnet-beta is one BFT network, served by `paxd`, with EVM chain ID
-`125` (`0x7d`). The kernel is part of the network and proposes blocks. A
-transaction receipt is final when its block is committed. Sub-chains are
-tenant domains in the database and do not introduce another public chain ID.
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction receipt is final when its block is committed.
+Sub-chains are tenant domains in the database and do not introduce another
+public chain ID.
 
 This page documents node access and native module queries.
 See [JavaScript SDK](sdk-js.md) for the native-module
@@ -15,7 +16,7 @@ finality.
 
 Set `RPC_URL` to the configured node's HTTPS root origin. Use the operator's
 configured WSS root origin for WebSocket calls. The
-[public endpoint reference](../docs/site/docs/reference/public-rpc.md)
+[public endpoint reference](../docs/readme/PUBLIC-RPC.md)
 describes the node transports and deployment settings.
 
 ```bash

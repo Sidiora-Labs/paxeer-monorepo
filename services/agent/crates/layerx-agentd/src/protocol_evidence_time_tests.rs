@@ -1,4 +1,4 @@
-//! Current node ledger-payment time evidence, replayed by `repair_22_33_1533.rs`.
+//! Current node ledger-payment time evidence, replayed by `authority_cache_health.rs`.
 //! The node recording is `rpc/sequencer_receipt_vectors_test.go`'s `payExact` case;
 //! Comet headers, votes and ABCI results are committed deterministic peer fixtures.
 //! Custody-credit fixtures retained elsewhere are migration-only decode coverage,

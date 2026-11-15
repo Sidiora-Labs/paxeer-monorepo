@@ -6,9 +6,9 @@ export const metadata = metadataFor('/finality')
 
 export default function Finality() {
   return <DocsLayout>
-    <div className="page-header"><h1 className="page-title">Finality &amp; Commitment</h1><p className="page-description">Follow a transaction from submission through verified execution to BFT block commitment.</p></div>
+    <div className="page-header"><h1 className="page-title">Finality &amp; Commitment</h1><p className="page-description">Follow transactions executed and ordered by the LayerX kernel inside paxd, from signed execution receipts to blocks checked and committed by validators.</p></div>
     <h2>Transaction progress on one network</h2>
-    <p>Paxeer is one BFT network. Its kernel participates in block production, and an execution receipt becomes final when its block is committed. EVM chain ID is <code>125</code>. The node implementation lives in <code>node/</code>; receipt progress is exposed by <code>rpc/sequencer_receipt.go</code>. See <Link href="/checkpoints">Commitment evidence</Link>.</p>
+    <p>The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. An execution receipt becomes final when its block is committed. EVM chain ID is <code>125</code>. The node implementation lives in <code>node/</code>; receipt progress is exposed by <code>rpc/sequencer_receipt.go</code>. See <Link href="/checkpoints">Commitment evidence</Link>.</p>
     <table><thead><tr><th>Stage</th><th>Name</th><th>Evidence and responsibility</th></tr></thead><tbody>
       <tr><td>Submission</td><td>Submitted</td><td>The node holds the transaction; no execution receipt is attached.</td></tr>
       <tr><td>Execution</td><td>Receipted</td><td>A signed receipt records the outcome before block commitment.</td></tr>

@@ -44,8 +44,8 @@ name = "pay2e"
 path = "pay2e_test.rs"
 
 [[test]]
-name = "repair_22_33_1568"
-path = "tests/repair_22_33_1568.rs"
+name = "registered_scenario"
+path = "tests/registered_scenario.rs"
 
 [dev-dependencies]
 base64 = "0.22.1"

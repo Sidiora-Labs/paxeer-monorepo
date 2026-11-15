@@ -28,21 +28,23 @@ def launchpad_workflow():
 
 
 @pytest.mark.parametrize(
-    ("workflow_name", "job_name"),
+    ("workflow_name", "job_name", "expected_runner"),
     (
-        ("paxeer-go-test.yml", "tagged-tests"),
-        ("paxeer-go-test.yml", "autobahn-integration"),
-        ("paxeer-go-test.yml", "hpx-registry"),
-        ("launchpad-test.yml", "launchpad-test"),
+        ("paxeer-go-test.yml", "tagged-tests", ROUTED),
+        ("paxeer-go-test.yml", "autobahn-integration", "ubuntu-24.04"),
+        ("paxeer-go-test.yml", "hpx-registry", ROUTED),
+        ("launchpad-test.yml", "launchpad-test", ROUTED),
     ),
 )
-def test_workflow_runner_contracts_match_routed_jobs(workflow_name, job_name):
+def test_workflow_runner_contracts_match_routed_jobs(
+    workflow_name, job_name, expected_runner
+):
     workflow = yaml.load(
         (ROOT / ".github/workflows" / workflow_name).read_text(),
         Loader=yaml.BaseLoader,
     )
-    assert workflow["jobs"][job_name]["runs-on"] == ROUTED, (
-        f"{workflow_name}:{job_name}: expected the exact routed runner expression"
+    assert workflow["jobs"][job_name]["runs-on"] == expected_runner, (
+        f"{workflow_name}:{job_name}: expected the current runner expression"
     )
 
 
@@ -81,8 +83,12 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
 
     steps = job["steps"]
     for step in steps:
-        assert "if" not in step
         assert "continue-on-error" not in step
+        if "if" in step:
+            assert step["if"] in {
+                "matrix.package == 'apps/launchpad/web'",
+                "matrix.package != 'apps/launchpad/web'",
+            }
         if "uses" in step:
             assert re.fullmatch(r"[\w-]+/[\w-]+@[0-9a-f]{40}", step["uses"])
     (checkout,) = [
@@ -96,8 +102,11 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
     assert checkout["with"]["persist-credentials"] == "false"
     assert setup["with"]["node-version"] == "22"
     assert setup["with"]["package-manager-cache"] == "false"
-    commands = [step for step in steps if "run" in step]
-    manager, install, build, test = commands
+    commands = {step["name"]: step for step in steps if "run" in step}
+    manager = commands["Install the workspace package manager"]
+    install = commands["Install workspace dependencies"]
+    build = commands["Build SDK packages"]
+    test = commands["Test package"]
     assert manager["run"] == (
         'npm install --global "$(node -p '
         "'require(\"./package.json\").packageManager')\""

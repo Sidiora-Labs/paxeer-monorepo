@@ -6,7 +6,7 @@ Consensus service wiring, application execution, trusted headers, and validator 
 
 ## Overview
 
-Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel is part of the network and proposes blocks. A receipt is final when its block is committed. The tree includes a Tendermint-derived consensus stack and configurable Autobahn components; the application executes transactions and commits state. Network safety depends on the protocol's validator and trust assumptions, while observed block time and throughput depend on the deployed configuration.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when validators commit its block. The tree includes a Tendermint-derived consensus stack and configurable Autobahn components; the application executes transactions and commits state. Network safety depends on the protocol's validator and trust assumptions, while observed block time and throughput depend on the deployed configuration.
 
 ## Autobahn and Validator Committees
 

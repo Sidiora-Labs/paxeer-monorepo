@@ -519,7 +519,7 @@ struct SlashBuffers<'a> {
     recipients: &'a mut [(WorkerId, AccountId); rooms::MAX_DEAL_PEERS],
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn slash_bond(
     e: &codec::Envelope<'_>,
     shared: &SharedState<'_>,
@@ -693,7 +693,7 @@ fn check_slash_evidence(
     Ok(())
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn refund_bond(
     ctx: &CallContext,
     e: &codec::Envelope<'_>,
@@ -856,7 +856,7 @@ struct BondPersistence<'a> {
     replay: Option<&'a ReplayRequest>,
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn prepare_bond_ledger(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -924,7 +924,7 @@ fn prepare_bond_ledger(
     })
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 fn finish_bond<'a>(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

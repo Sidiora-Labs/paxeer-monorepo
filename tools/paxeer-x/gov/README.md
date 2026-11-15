@@ -5,8 +5,9 @@ web-search parameters and optional bridge proposals from the current tree. It
 dry-runs each proposal through `paxd` with `--generate-only --offline`. A rejected
 proposal stops the render; successful output contains unsigned transactions.
 
-Paxeer is one BFT network: the kernel is part of the network and proposes blocks,
-and a receipt is final when its block is committed. These are native chain
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when its block is
+committed. These are native chain
 governance proposals. The renderer uses the `v6.12.0` plan name declared in
 [`node/upgrades_v6120.go`](../../../node/upgrades_v6120.go).
 

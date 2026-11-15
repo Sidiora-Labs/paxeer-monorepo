@@ -303,7 +303,7 @@ fn assert_invalid_history_cursors(account: &str, cursor: &str) {
 #[test]
 fn history_preserves_the_served_envelope_and_keeps_a_separately_sampled_head() {
     let transcripts: Value =
-        serde_json::from_str(include_str!("fixtures/repair_22_33_1546_gateway.json")).must();
+        serde_json::from_str(include_str!("fixtures/gateway_observations.json")).must();
     assert_eq!(
         transcripts["provenance"]["source"],
         "services/platform/hosted/gateway/tests/one_source_reads.rs"

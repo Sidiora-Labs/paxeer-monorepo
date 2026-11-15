@@ -76,7 +76,7 @@ fn serve(exchanges: Vec<(&'static str, Value)>) -> (String, JoinHandle<Vec<Value
 
 fn producer_asset_table() -> Value {
     let transcript: Value = must(serde_json::from_str(include_str!(
-        "fixtures/repair_22_33_1546_gateway.json"
+        "fixtures/gateway_observations.json"
     )));
     assert_eq!(transcript["provenance"]["assets"], "services/platform/hosted/gateway/tests/one_source_reads.rs::px_list_assets_joins_indexer_assets_with_chain_metadata, exact asserted result");
     transcript["assets"].clone()
@@ -152,7 +152,7 @@ fn withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc() {
     );
     assert_eq!(requests[1]["params"], json!([]));
     // The committed ABI contract vector exercises eligibility; live replacement
-    // producer wiring remains recorded separately in repair_22_33_1547.kvx.
+    // Native custody configuration determines withdrawal eligibility.
     let modules = must(result);
     assert_eq!(modules.registrations().len(), 2);
     for (registration, (module, ordinal)) in modules

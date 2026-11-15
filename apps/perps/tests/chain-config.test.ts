@@ -7,8 +7,11 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const ROOT = path.resolve(__dirname, "..");
-const CHAIN_PATH = path.join(ROOT, "src/core/chain.ts");
-const URLS_PATH = path.join(ROOT, "src/core/paxscan/urls.ts");
+const CHAIN_PATH = path.join(ROOT, "packages/paxeer-backend/src/core/chain.ts");
+const URLS_PATH = path.join(
+  ROOT,
+  "packages/paxeer-backend/src/core/paxscan/urls.ts",
+);
 
 const ENV_KEYS = [
   "NEXT_PUBLIC_PAXSCAN_BASE_URL",
@@ -17,7 +20,9 @@ const ENV_KEYS = [
 ] as const;
 
 /** Load chain + paxscan urls in a fresh process with the given env; prints the values as JSON. */
-function loadWith(overrides: Partial<Record<(typeof ENV_KEYS)[number], string>>) {
+function loadWith(
+  overrides: Partial<Record<(typeof ENV_KEYS)[number], string>>,
+) {
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const key of ENV_KEYS) delete env[key];
   Object.assign(env, overrides);
@@ -48,7 +53,9 @@ describe("chain config", () => {
   });
 
   it("explorerOverrideFeedsChainAndLinks", () => {
-    const run = loadWith({ NEXT_PUBLIC_PAXSCAN_BASE_URL: "https://explorer.example" });
+    const run = loadWith({
+      NEXT_PUBLIC_PAXSCAN_BASE_URL: "https://explorer.example",
+    });
     assert.equal(run.status, 0, run.stderr);
     const loaded = JSON.parse(run.stdout);
     assert.equal(loaded.id, 125);
@@ -57,7 +64,11 @@ describe("chain config", () => {
   });
 
   it("invalidExplorerFailsNamingTheVariable", () => {
-    for (const bad of ["paxscan.io", "ftp://paxscan.io", "https://paxscan.io/path"]) {
+    for (const bad of [
+      "paxscan.io",
+      "ftp://paxscan.io",
+      "https://paxscan.io/path",
+    ]) {
       const run = loadWith({ NEXT_PUBLIC_PAXSCAN_BASE_URL: bad });
       assert.notEqual(run.status, 0, bad);
       assert.match(run.stderr, /NEXT_PUBLIC_PAXSCAN_BASE_URL/, bad);
@@ -65,8 +76,13 @@ describe("chain config", () => {
   });
 
   it("rpcUrlsComeFromEnvList", () => {
-    const run = loadWith({ NEXT_PUBLIC_PAXEER_RPC_URLS: "https://a.example,https://b.example" });
+    const run = loadWith({
+      NEXT_PUBLIC_PAXEER_RPC_URLS: "https://a.example,https://b.example",
+    });
     assert.equal(run.status, 0, run.stderr);
-    assert.deepEqual(JSON.parse(run.stdout).rpc, ["https://a.example", "https://b.example"]);
+    assert.deepEqual(JSON.parse(run.stdout).rpc, [
+      "https://a.example",
+      "https://b.example",
+    ]);
   });
 });

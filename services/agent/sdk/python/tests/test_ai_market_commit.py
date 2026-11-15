@@ -46,19 +46,19 @@ def signatures():
 @pytest.fixture(scope="module")
 def receipt_producer():
     # Independent codec peer; node-produced output is exercised separately below.
-    from test_repair_22_31_147 import receipt_producer as codec_peer
+    from test_committed_receipt_consumers import receipt_producer as codec_peer
     return codec_peer.__wrapped__()
 
 
 @pytest.fixture(scope="module")
 def commit_producer():
-    from test_repair_22_31_147 import commit_producer as validators
+    from test_committed_receipt_consumers import commit_producer as validators
     return validators.__wrapped__()
 
 
 @pytest.fixture
 def committed_operation(signed_operation, commit_producer):
-    from test_repair_22_31_147 import finality_bundle
+    from test_committed_receipt_consumers import finality_bundle
 
     def at(height=HEIGHT):
         produced = commit_producer(signed_operation.signed_bytes, height)
@@ -414,7 +414,7 @@ def test_market_forged_commit_is_refused_after_restart(
 
 
 def test_market_node_receipt_summary_events_and_return_binding(tmp_path, signatures, signed_operation):
-    from test_repair_22_33_17 import ReceiptNode, http_server
+    from test_receipt_authority_recovery import ReceiptNode, http_server
     from layerx_sdk import programs
     from layerx_sdk.x402 import verify_sequencer_receipt
     from layerx_sdk.x402_rpc import HostedGatewayRpc, PaymentRpc
@@ -455,7 +455,7 @@ def test_market_node_receipt_summary_events_and_return_binding(tmp_path, signatu
 
 
 def test_market_commit_codec_matches_recorded_producer():
-    from test_repair_22_31_147 import test_commit_codec_matches_recorded_comet_producer
+    from test_committed_receipt_consumers import test_commit_codec_matches_recorded_comet_producer
     test_commit_codec_matches_recorded_comet_producer()
 
 

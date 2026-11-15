@@ -167,7 +167,7 @@ class MaterialTests(unittest.TestCase):
                         self.assertGreaterEqual(int(path.read_text()), 1000)
 
     def test_ledger_funding_binds_current_bundle_and_retained_state(self):
-        from test_repair_22_31_348 import merged_environment
+        from test_merged_owner import merged_environment
         from merged_owner import LEDGER, PAYMENT
         with tempfile.TemporaryDirectory() as directory:
             with merged_environment(Path(directory)) as e:
@@ -193,7 +193,7 @@ class MaterialTests(unittest.TestCase):
                                          for p in e.bundle.rglob('*') if p.is_file()})
 
     def test_payment_components_ignore_retired_addresses_and_refuse_custody_policy(self):
-        from test_repair_22_31_348 import merged_environment
+        from test_merged_owner import merged_environment
         from merged_owner import LEDGER, PAYMENT
         with tempfile.TemporaryDirectory() as directory:
             with merged_environment(Path(directory)) as e:

@@ -147,11 +147,11 @@ func TestArchiveReceiptsMatchGenuineChainAndReadAhead(t *testing.T) {
 }
 
 func TestArchiveReadaheadStopsWithSourceLifecycle(t *testing.T) {
-	node := repair997Serve(t)
+	node := sourceRecoveryServe(t)
 	opts := fopts(node.server.URL)
 	opts.HistoricalEndpoints = map[string]string{"archive": node.server.URL}
 	opts.HistoricalReadahead = 2
-	s := repair997Open(t, opts)
+	s := sourceRecoveryOpen(t, opts)
 	s.ReadAhead(1, 2)
 	if err := s.Close(); err != nil {
 		t.Fatal(err)

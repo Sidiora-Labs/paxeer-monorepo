@@ -7,8 +7,9 @@ its own `package.json`, `tsconfig.json`, and Hardhat compile config so it
 installs independently of the other JavaScript suites. It still needs a running
 local Paxeer cluster and Docker access for funding and association.
 
-Paxeer mainnet-beta is one BFT network with the kernel participating in block
-proposal; committed blocks finalize receipts. Its EVM chain ID is 125 (`0x7d`).
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Committed blocks finalize receipts.
 The local fixtures and geth dev chain have their own genesis and chain IDs.
 Read the [integration overview](../README.md) for public root-path JSON-RPC
 endpoints. This suite deploys contracts and spends test funds on a disposable

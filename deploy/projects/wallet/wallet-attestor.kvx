@@ -1,0 +1,98 @@
+# Wallet attestor service definition.
+
+[service.wallet-attestor]
+kind = "repo"
+container = "docker/wallet-attestor/Dockerfile"
+root = "."
+watch = ["docker/wallet-attestor/**", "docker/common/**", "services/wallet/attestor/**", "services/wallet/deploy/attestor-policy.json", "services/wallet/deploy/attestor-kernel-policy.json", "layerxproof/**", "go.mod", "go.sum"]
+health = "/health"
+restart = "ALWAYS"
+replicas = 1
+volume = "/data"
+order = 10
+
+# The attestor has separate mTLS API and peer sockets; the hosting platform
+# cannot publish or probe this two-port non-HTTP service.
+target = "other"
+
+[vars.wallet-attestor]
+ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE"
+ATTESTOR_AUTHORITY_ISSUER = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_AUTHORITY_ISSUER"
+ATTESTOR_AUTHORITY_TENANT = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_AUTHORITY_TENANT"
+ATTESTOR_INVENTORY_PUBLIC_KEY_FILE = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_INVENTORY_PUBLIC_KEY_FILE"
+ATTESTOR_INVENTORY_FILE = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_INVENTORY_FILE"
+ATTESTOR_NODE_ID = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_NODE_ID"
+ATTESTOR_LISTEN_ADDR = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_LISTEN_ADDR"
+ATTESTOR_PEER_LISTEN_ADDR = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_PEER_LISTEN_ADDR"
+ATTESTOR_PEERS = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_PEERS"
+ATTESTOR_PEER_PINS = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_PEER_PINS"
+ATTESTOR_NODE_KEY_FILE = "/run/secrets/node.key"
+ATTESTOR_DATA_DIR = "/data"
+ATTESTOR_CHAIN_ID = "125"
+ATTESTOR_POLICY_FILE = "/etc/attestor/policy.json"
+ATTESTOR_KERNEL_POLICY_FILE = "/etc/attestor/kernel-policy.json"
+ATTESTOR_RPC_URL = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_RPC_URL"
+ATTESTOR_ACTIVITY_TYPES = "0x10005"
+ATTESTOR_BACKUP_DIR = "/data/backup"
+ATTESTOR_BACKUP_KEY_FILE = "/run/secrets/backup.key"
+ATTESTOR_TLS_CERT_FILE = "/run/secrets/tls.crt"
+ATTESTOR_TLS_KEY_FILE = "/run/secrets/tls.key"
+ATTESTOR_TLS_CA_FILE = "/run/secrets/ca.crt"
+ATTESTOR_OPERATOR_CA_FILE = "/run/secrets/operator-ca.crt"
+ATTESTOR_NODE_KEY = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_NODE_KEY"
+ATTESTOR_BACKUP_KEY = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_BACKUP_KEY"
+ATTESTOR_TLS_CERT = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_TLS_CERT"
+ATTESTOR_TLS_KEY = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_TLS_KEY"
+ATTESTOR_TLS_CA = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_TLS_CA"
+ATTESTOR_OPERATOR_CA = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_OPERATOR_CA"
+ATTESTOR_REPLICA_KEY = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_REPLICA_KEY"
+ATTESTOR_REPLICA_HOST_KEY = "env:WALLET_WALLET_ATTESTOR_ATTESTOR_REPLICA_HOST_KEY"
+WALLET_IDENTITY_BINDING_PUBLIC_KEY = "env:WALLET_WALLET_ATTESTOR_WALLET_IDENTITY_BINDING_PUBLIC_KEY"
+WALLET_CUSTODY_INVENTORY_PUBLIC_KEY = "env:WALLET_WALLET_ATTESTOR_WALLET_CUSTODY_INVENTORY_PUBLIC_KEY"
+WALLET_CUSTODY_INVENTORY = "env:WALLET_WALLET_ATTESTOR_WALLET_CUSTODY_INVENTORY"
+
+[inputs.wallet-attestor]
+# Pinned custody authority public key in PEM format.
+WALLET_WALLET_ATTESTOR_ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE = "operator"
+# Custody authority issuer URL.
+WALLET_WALLET_ATTESTOR_ATTESTOR_AUTHORITY_ISSUER = "operator"
+# Custody authority tenant identifier.
+WALLET_WALLET_ATTESTOR_ATTESTOR_AUTHORITY_TENANT = "operator"
+# Inventory signer public key in PEM format.
+WALLET_WALLET_ATTESTOR_ATTESTOR_INVENTORY_PUBLIC_KEY_FILE = "operator"
+# Signed custody inventory file path.
+WALLET_WALLET_ATTESTOR_ATTESTOR_INVENTORY_FILE = "operator"
+# This participant's attestor identifier.
+WALLET_WALLET_ATTESTOR_ATTESTOR_NODE_ID = "operator"
+# TLS API listener address.
+WALLET_WALLET_ATTESTOR_ATTESTOR_LISTEN_ADDR = "operator"
+# TLS peer listener address.
+WALLET_WALLET_ATTESTOR_ATTESTOR_PEER_LISTEN_ADDR = "operator"
+# Other participants as id=host:port entries.
+WALLET_WALLET_ATTESTOR_ATTESTOR_PEERS = "operator"
+# Other participants as id=SPKI-SHA256-hex entries.
+WALLET_WALLET_ATTESTOR_ATTESTOR_PEER_PINS = "operator"
+# Base64-encoded node key material.
+WALLET_WALLET_ATTESTOR_ATTESTOR_NODE_KEY = "operator"
+# Base64-encoded backup key material.
+WALLET_WALLET_ATTESTOR_ATTESTOR_BACKUP_KEY = "operator"
+# Base64-encoded API and peer certificate.
+WALLET_WALLET_ATTESTOR_ATTESTOR_TLS_CERT = "operator"
+# Base64-encoded API and peer private key.
+WALLET_WALLET_ATTESTOR_ATTESTOR_TLS_KEY = "operator"
+# Base64-encoded peer and gateway CA bundle.
+WALLET_WALLET_ATTESTOR_ATTESTOR_TLS_CA = "operator"
+# Base64-encoded operator CA bundle.
+WALLET_WALLET_ATTESTOR_ATTESTOR_OPERATOR_CA = "operator"
+# Base64-encoded replica SSH private key material.
+WALLET_WALLET_ATTESTOR_ATTESTOR_REPLICA_KEY = "operator"
+# Base64-encoded replica SSH host public key.
+WALLET_WALLET_ATTESTOR_ATTESTOR_REPLICA_HOST_KEY = "operator"
+# Base64-encoded identity binding verification key.
+WALLET_WALLET_ATTESTOR_WALLET_IDENTITY_BINDING_PUBLIC_KEY = "operator"
+# Base64-encoded custody inventory verification key.
+WALLET_WALLET_ATTESTOR_WALLET_CUSTODY_INVENTORY_PUBLIC_KEY = "operator"
+# Base64-encoded signed custody inventory.
+WALLET_WALLET_ATTESTOR_WALLET_CUSTODY_INVENTORY = "operator"
+# Chain RPC URL used by the kernel activity policy.
+WALLET_WALLET_ATTESTOR_ATTESTOR_RPC_URL = "operator"

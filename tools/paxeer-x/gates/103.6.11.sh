@@ -150,7 +150,7 @@ def remaining(bound):
 
 @contextlib.contextmanager
 def locked(name):
-    path = Path("/root/lx-cargo") / (name + "-build.lock")
+    path = ROOT / "build/qualification/cargo" / (name + "-build.lock")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a") as stream:
         while True:
@@ -255,11 +255,11 @@ def build(directory):
         os.environ,
         CARGO_BUILD_JOBS="2",
         RUSTUP_TOOLCHAIN="1.91.1",
-        PATH="/root/.cargo/bin:" + os.environ.get("PATH", ""),
+        PATH=os.environ.get("PATH", ""),
     )
     native_directory = directory / "native"
     runtime_target = Path(
-        os.environ.get("PAXEER_X_PROGRAMS_TARGET_DIR", "/root/lx-target/programs")
+        os.environ.get("PAXEER_X_PROGRAMS_TARGET_DIR") or os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "programs/target")
     )
     runtime_library = runtime_target / "debug/liblayerx_programs_sandbox.a"
     with locked("native"):
@@ -315,7 +315,7 @@ def build(directory):
         ("human", "layerx-intents", ["--test", "compile", "--test", "differential"])
     )
     for index, (workspace, package, options) in enumerate(commands):
-        environment["CARGO_TARGET_DIR"] = "/root/lx-target/" + workspace
+        environment["CARGO_TARGET_DIR"] = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "services" / workspace / "target")
         with locked(workspace):
             text = command(
                 [
@@ -605,17 +605,14 @@ try:
         args in ([], ["--build"]),
         "103.6.11 accepts only --build or no selector arguments",
     )
-    DIRECTORY = Path(
-        os.environ.get(
-            "PAXEER_X_STATE_COMMITMENT_EVIDENCE",
-            "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task103611",
-        )
-    )
+    configured_directory = os.environ.get("PAXEER_X_STATE_COMMITMENT_EVIDENCE")
+    DIRECTORY = Path(configured_directory or str(ROOT / "build/qualification/103.6.11"))
     DIRECTORY.mkdir(parents=True, exist_ok=True, mode=0o700)
     private(DIRECTORY, True)
     DIRECTORY = DIRECTORY.resolve(strict=True)
     require(
-        DIRECTORY != ROOT and ROOT not in DIRECTORY.parents,
+        (configured_directory is None and DIRECTORY == ROOT / "build/qualification/103.6.11")
+        or (DIRECTORY != ROOT and ROOT not in DIRECTORY.parents),
         "evidence must be outside checkout",
     )
     if args:

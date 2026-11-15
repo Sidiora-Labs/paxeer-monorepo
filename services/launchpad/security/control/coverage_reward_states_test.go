@@ -12,7 +12,7 @@ import (
 
 func TestBountyFundingAndCancellationPreserveInventoryBounds(t *testing.T) {
 	verifier := chain(t, nil)
-	env := repairM1020EnvironmentFor(t, verifier)
+	env := workflowRecoveryEnvironmentFor(t, verifier)
 	ctx := context.Background()
 	credential := env.credentials["finance"]
 	base := bounty("bounded-funding", pax, "100")
@@ -101,7 +101,7 @@ func TestBountyFundingAndCancellationPreserveInventoryBounds(t *testing.T) {
 
 func TestSettlementObservationKeepsBoundReferences(t *testing.T) {
 	verifier := chain(t, nil)
-	env := repairM1020EnvironmentFor(t, verifier)
+	env := workflowRecoveryEnvironmentFor(t, verifier)
 	ctx := context.Background()
 	credential := env.credentials["finance"]
 	key := "bounty.observed"

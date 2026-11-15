@@ -14,8 +14,8 @@ import (
 )
 
 func TestExpandedSearchServesCanonicalGeneration(t *testing.T) {
-	path := newRepair69Path(t)
-	pool := path.create(55, repair69Address(56))
+	path := newPublicSearchPath(t)
+	pool := path.create(55, publicSearchAddress(56))
 	path.change(search.Change{Version: 2, Kind: "visibility", Revision: 1, PoolAddress: pool, Public: true})
 	service, err := search.NewService(search.Store{Pool: path.pool}, nil, 16)
 	if err != nil {
@@ -73,9 +73,9 @@ func TestExpandedSearchServesCanonicalGeneration(t *testing.T) {
 }
 
 func TestExpandedSearchValidatesPeerCursorAndAdmission(t *testing.T) {
-	path := newRepair69Path(t)
+	path := newPublicSearchPath(t)
 	for _, n := range []int{61, 63} {
-		pool := path.create(n, repair69Address(n+1))
+		pool := path.create(n, publicSearchAddress(n+1))
 		path.change(search.Change{Version: 2, Kind: "visibility", Revision: 1, PoolAddress: pool, Public: true})
 	}
 	service, err := search.NewService(search.Store{Pool: path.pool}, nil, 16)

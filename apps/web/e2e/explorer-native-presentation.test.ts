@@ -84,10 +84,10 @@ interface Transcript {
 
 async function nativePeer(context: TestContext) {
   const transcript: Transcript = JSON.parse(readFileSync(
-    new URL("../src/explorer/fixtures/repair-22-33-347-native-http.json", import.meta.url), "utf8",
+    new URL("../src/explorer/fixtures/transaction-status-http.json", import.meta.url), "utf8",
   ));
   const account = JSON.parse(readFileSync(
-    new URL("../src/explorer/fixtures/repair-22-31-383-native-http.json", import.meta.url), "utf8",
+    new URL("../src/explorer/fixtures/account-history-http.json", import.meta.url), "utf8",
   )) as {
     address: string;
     missingAddress: string;

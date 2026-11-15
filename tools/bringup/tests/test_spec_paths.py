@@ -36,7 +36,7 @@ class BringupSpecPathsTest(unittest.TestCase):
                     document.write_text(text)
                     result = subprocess.run(
                         ["bringup-inspect", "docs-names",
-                         "docs/site/docs/reference/public-rpc.md",
+                         "docs/readme/PUBLIC-RPC.md",
                          "spec/layerx-merge/spec.kvx", str(document)],
                         cwd=root, capture_output=True, text=True, timeout=60,
                         check=False,
@@ -61,7 +61,7 @@ class BringupSpecPathsTest(unittest.TestCase):
                     document.write_text(text)
                     result = subprocess.run(
                         ["bringup-inspect", "docs-names",
-                         "docs/site/docs/reference/public-rpc.md",
+                         "docs/readme/PUBLIC-RPC.md",
                          "spec/layerx-merge/spec.kvx", str(document)],
                         cwd=root, capture_output=True, text=True, timeout=60,
                         check=False,

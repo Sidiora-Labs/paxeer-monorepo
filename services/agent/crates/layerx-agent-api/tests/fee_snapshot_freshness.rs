@@ -17,7 +17,7 @@ fn request() -> FeeProjectionRequest {
 }
 
 fn head() -> Head {
-    // Lossless excerpts of layerx-client/tests/fixtures/repair_22_33_1546_node.json
+    // Lossless excerpts of layerx-client/tests/fixtures/node_committed_evidence.json
     // (storage). Keep the observed sequence's >2^53 boundary independent of height.
     let validators = decode_validators(
         &r#"{

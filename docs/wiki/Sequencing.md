@@ -1,9 +1,8 @@
 # Sequencing and block finality
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID **125** (`0x7d`).
-The kernel runs inside `paxd` and participates in block production. The proposer
-executes transactions, signs receipts, and proposes those transactions in the
-same order. A transaction receipt is final when its block is committed.
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A transaction receipt is final when its block is committed.
 
 Sequencing is an integrated node role implemented in `node/sequencer/`.
 If the network cannot commit blocks, new receipts cannot progress to committed

@@ -1,0 +1,5 @@
+LAYERX_TESTNET_TLS_CERT_DER_B64	/run/layerx/testnet/server.crt.der	0600	*
+LAYERX_TESTNET_TLS_KEY_DER_B64	/run/layerx/testnet/server.key.der	0600	*
+LAYERX_OUTBOUND_CA_DER_B64	/run/layerx/testnet/ca.crt.der	0600	*
+LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_B64	/run/layerx/testnet/backend-admin-token	0600	*
+LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_B64	/run/layerx/testnet/control-admin-token	0600	*

@@ -12,9 +12,9 @@ import (
 )
 
 func TestRecordedCanonicalPublicationCommitsAndReplays(t *testing.T) {
-	archive := repair1038Fixture(t)
+	archive := riskInputsFixture(t)
 	fill := archive.Source[0]
-	envelope, _ := repair1038Envelope(t, fill, 1, time.Now().UTC())
+	envelope, _ := riskInputsEnvelope(t, fill, 1, time.Now().UTC())
 	authority := phase2Authority(t)
 	projector, err := analytics.NewProjector(authority, risk.ProjectionModelV1{}, analytics.PostgresRiskInputs{Authority: authority})
 	if err != nil {

@@ -435,6 +435,8 @@ fn decode_provider_response(
     let arity = match operation {
         0 => 0..=0,
         1 => 5..=5,
+        2 => 1..=1,
+        3 => 3..=3,
         4 => 1..=2,
         _ => return Err(IdentityDispatchError::ProviderEvidence),
     };

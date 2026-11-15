@@ -12,8 +12,8 @@ func TestSourceReadinessTracksAdmissionCapacityAndShutdown(t *testing.T) {
 		var failure *SourceError
 		return errors.As(err, &failure) && failure.Kind == kind
 	}
-	node := repair997Serve(t)
-	live := repair997Open(t, fopts(node.server.URL))
+	node := sourceRecoveryServe(t)
+	live := sourceRecoveryOpen(t, fopts(node.server.URL))
 	if err := live.Ready(); err != nil {
 		t.Fatalf("healthy source: %v", err)
 	}

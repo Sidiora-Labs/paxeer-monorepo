@@ -9,8 +9,7 @@ Governance queries and transactions use `paxd` and the
 `pax` Bech32 prefix and the base denomination is `uhpx`, as configured in
 [`node/params/config.go`](../../../../node/params/config.go).
 
-Paxeer mainnet-beta is one BFT network whose kernel proposes blocks as part of
-the network. A receipt is final when its block is committed. Its public EVM
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A receipt is final when its block is committed. Its public EVM
 JSON-RPC uses chain ID `125` (`0x7d`) and the root path of
 `https://api1.mainnet-beta.paxeer.network/` through
 `https://api14.mainnet-beta.paxeer.network/`, and

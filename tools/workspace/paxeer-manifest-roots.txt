@@ -39,8 +39,8 @@ rust|contracts/bridge/solana/admin/Cargo.toml|covered-by-cargo-workspace:contrac
 rust|contracts/bridge/solana/vendor/agave-precompiles/Cargo.toml|covered-by-cargo-workspace:contracts/bridge/solana
 rust|contracts/bridge/solana/vendor/agave-syscalls/Cargo.toml|covered-by-cargo-workspace:contracts/bridge/solana
 npm|contracts/launchpad/package.json|locked-pnpm-independent
-go|sdk/chainflow/go/go.mod|covered-by-test:sdk/chainflow/go/repair_m1306_test.go
-go|sdk/chainflow/go/testdata/repair_m1306_consumer/go.mod|covered-by-test:sdk/chainflow/go/repair_m1306_test.go
+go|sdk/chainflow/go/go.mod|covered-by-test:sdk/chainflow/go/consumer_examples_test.go
+go|sdk/chainflow/go/testdata/consumer_example/go.mod|covered-by-test:sdk/chainflow/go/consumer_examples_test.go
 rust|sdk/chainflow/rust/Cargo.toml|locked-rust-independent
 npm|sdk/chainflow/typescript/package.json|covered-by-package-build
 npm|sdk/launchpad/packages/candles-sdk/package.json|covered-by-launchpad-lock
@@ -54,12 +54,12 @@ npm|sdk/launchpad/packages/sdk/package.json|covered-by-launchpad-lock
 npm|sdk/launchpad/packages/sidiora-launchpad-v3/package.json|covered-by-launchpad-lock
 npm|sdk/launchpad/packages/stats-sdk/package.json|covered-by-launchpad-lock
 npm|sdk/launchpad/packages/users-sdk/package.json|covered-by-launchpad-lock
-go|sdk/launchpad/protocol/bindings/testdata/repair37/contracts/go.mod|covered-by-test:sdk/launchpad/protocol/bindings/repair_37_test.go
-go|sdk/launchpad/protocol/coverage/testdata/repair28producer/go.mod|covered-by-test:sdk/launchpad/protocol/coverage/repair_28_test.go
+go|sdk/launchpad/protocol/bindings/testdata/contract_events/contracts/go.mod|covered-by-test:sdk/launchpad/protocol/bindings/event_bindings_integration_test.go
+go|sdk/launchpad/protocol/coverage/testdata/emitter_producer/go.mod|covered-by-test:sdk/launchpad/protocol/coverage/emitter_caller_evidence_test.go
 go|sdk/launchpad/protocol/go.mod|build_test_lint
 go|sdk/launchpad/shared/go.mod|build_test_lint
 npm|sdk/names/package.json|locked-pnpm-independent
-rust|sdk/platform/dotnet/tests/Repair138Producer/Cargo.toml|covered-by-test:sdk/platform/dotnet/repair_138_test.go
+rust|sdk/platform/dotnet/tests/AgentTransportProducer/Cargo.toml|covered-by-test:sdk/platform/dotnet/agent_transport_conformance_test.go
 npm|sdk/wallet/package.json|locked-pnpm-independent
 rust|tools/benchmark/loadtest/contracts/pax-cosmwasm/Cargo.toml|covered-by-jupiter-lock
 rust|wasm-runtime/libwasmvm/vendor/cosmwasm-crypto/Cargo.toml|covered-by-wasmvm-vendor

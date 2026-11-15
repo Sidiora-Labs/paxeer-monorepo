@@ -14,7 +14,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PATH = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PATH.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_834.kvx")
 
 
@@ -45,9 +47,12 @@ def section(heading, level=3):
 def test_f22_one_bft_network_embeds_kernel_in_paxd():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
     ):
@@ -60,7 +65,7 @@ def test_f22_one_bft_network_embeds_kernel_in_paxd():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ):
@@ -70,17 +75,16 @@ def test_f22_one_bft_network_embeds_kernel_in_paxd():
 
 def test_f22_chain_125_probe_uses_numbered_node_root_urls():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through" in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "https://api-mainnet-beta.paxeer.network" in quickstart
+    assert "Use `api1` through `api14.mainnet-beta.paxeer.network` or" in PUBLIC_RPC
+    assert "`api-mainnet-beta.paxeer.network`, all at the root path." in PUBLIC_RPC
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
     allowed_hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     node_urls = [
-        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)
+        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
         if urlsplit(url).hostname in allowed_hosts
     ]
     assert node_urls
@@ -94,8 +98,8 @@ def test_f22_chain_125_probe_uses_numbered_node_root_urls():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -110,10 +114,12 @@ def test_f22_current_node_and_hosted_gateway_interfaces_are_separate():
     assert "gateway contract does not establish method availability at public node URLs" in quickstart
     assert "Obtain its deployment URL and credentials from the operator" in quickstart
     assert "`px_getReceiptKeys` is registered by the node" in quickstart
-    assert "no router and no separate LayerX interface" in README
+    assert "There is no separate LayerX interface, router, or unified `/rpc` endpoint." in source(
+        "docs/wiki/Protocol.md"
+    )
     assert "outside consensus" in README
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
+    assert "node.hyperpaxeer.com` is only the hpx library mirror" in PUBLIC_RPC
+    assert "never a JSON-RPC endpoint" in PUBLIC_RPC
     paths = (
         "docs/site/paxeer-docs/src/app/public-rpc/page.tsx", "rpc/server.go",
         "docs/site/paxeer-docs/src/app/platform-api/page.tsx",

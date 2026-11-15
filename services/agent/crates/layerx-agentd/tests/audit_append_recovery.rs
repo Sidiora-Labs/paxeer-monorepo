@@ -1,6 +1,6 @@
 //! Real audit writer/recovery proofs for audit record 22.30.91.
 //! Finding/test mapping and the baseline-gate constraint are recorded in
-//! `src/audit/repair_22_33_1512.kvx`.
+//! `spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/src/audit/repair_22_33_1512.kvx`.
 
 fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
     result.unwrap_or_else(|error| panic!("{message}: {error:?}"))

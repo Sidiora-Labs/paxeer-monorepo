@@ -224,7 +224,7 @@ func TestNewServesAndRanks(t *testing.T) {
 	observer := pki.issue(t, "observer.railway.internal", x509.ExtKeyUsageClientAuth)
 	social := pki.issue(t, visibilityDNS, x509.ExtKeyUsageServerAuth)
 
-	peer, authority := repairM934VisibilityPeer(t, pki, social, client, map[string]bool{"0x" + strings.Repeat("a", 40): true})
+	peer, authority := publicationRecoveryVisibilityPeer(t, pki, social, client, map[string]bool{"0x" + strings.Repeat("a", 40): true})
 	authority.Store(false)
 	caBundle := pki.caPEM
 	clientCert, clientKey := client.certPEM, client.keyPEM

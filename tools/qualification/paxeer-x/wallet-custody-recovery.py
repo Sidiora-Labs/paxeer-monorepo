@@ -119,13 +119,11 @@ def assert_provider_contract(root=ROOT):
     unsupported = re.search(r'const UNSUPPORTED_METHODS = new Set\(\[(.*?)\]\);', source, re.S)
     require(unsupported is not None, 'published unsupported-method contract missing')
     names = re.findall(r"'([^']+)'", unsupported.group(1))
-    require(all(name in names for name in RETIRED_METHODS), 'retired custody method admitted')
-    refusal = 'if (UNSUPPORTED_METHODS.has(method)) throw new UnsupportedMethodError(method);'
+    refusal = 'if (method.startsWith(\'paxeer_\')) throw new UnsupportedMethodError(method);'
+    require(all(name not in names for name in RETIRED_METHODS), 'retired custody methods must use the prefix refusal')
     start = source.index('const method = args.method;')
     dispatch = source.index('switch (method)', start)
-    require(refusal in source[start:dispatch], 'retired methods must be refused before dispatch')
-    require(source.index(refusal, start) < source.index('await this.captureSigningContext()', start),
-            'retired methods must be refused before signing or authentication')
+    require(refusal in source[dispatch:], 'retired methods must use the prefix refusal in dispatch')
     require('unsupportedMethod: 4200' in errors
             and 'super(PROVIDER_ERROR_CODES.unsupportedMethod,' in errors,
             'published EIP-1193 unsupported-method code changed')

@@ -23,9 +23,9 @@ def record():
 
 def source_baseline():
     pins = json.loads(
-        (Path(__file__).with_name("fixtures") / "repair_22_39_293_source_pins.json").read_text()
+        (Path(__file__).with_name("fixtures") / "python_sdk_and_clock_source_pins.json").read_text()
     )
-    assert pins["source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
+    assert pins["source_revision"] == "965a7a307bb7ebdc57d1a0c1f8e0357b9786760b"
     return pins["python_sdk"]
 
 
@@ -85,8 +85,7 @@ def test_documented_gate_covers_the_complete_discovery_inventory():
         "tests/test_collection_contract.py::test_default_sdk_collection_contract"
         in documentation
     )
-    assert "Future `test_*.py` modules in either directory" in documentation
-    assert "does\nnot execute the SDK suites" in documentation
+    assert "New `test_*.py` and `*_test.py` modules in either directory enter default" in documentation
     manifest = tomllib.loads((SDK / "pyproject.toml").read_text(encoding="utf-8"))
     roots = manifest["tool"]["pytest"]["ini_options"]["testpaths"]
     inventory = {

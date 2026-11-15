@@ -15,7 +15,7 @@ import sys
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
 TESTS = ROOT / 'programs/crates/layerx-programs-runtime/tests'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 SUITES = ['isolation', 'namespace_drop', 'shared_storage', 'storage_scan']
 UNIT_TESTS = ['storage::namespace::tests::canonical_bytes_are_frozen_for_both_program_scopes',
               'storage::namespace::tests::ordering_matches_canonical_bytes_across_every_variant',
@@ -81,7 +81,7 @@ def structure():
 
 try:
     count = structure()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.29.1'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'storage::'], 'storage unit suite', env)
     ran = set(re.findall(r'^test (\S+) \.\.\. ok$', output, re.M))

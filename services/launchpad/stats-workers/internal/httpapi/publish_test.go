@@ -47,11 +47,11 @@ func TestReactionVotePublishesReactionsUpdate(t *testing.T) {
 	router := chi.NewRouter()
 	httpapi.RegisterReactions(router, rdb)
 	key, wallet := newWallet(t)
-	message := "vote on " + repair1039ReactionPool
+	message := "vote on " + historyPaginationReactionPool
 	sub := subscribeConfirmed(t, ctx, rdb, constants.ChannelReactionsUpdate)
 	body := mustJSON(t, map[string]string{"reaction": "bullish", "walletAddress": wallet, "signature": signWallet(t, key, message), "message": message})
-	response := serve(t, router, http.MethodPost, "/stats/"+repair1039ReactionPool+"/reactions", body, nil)
-	repair1039RequireStatus(t, response, http.StatusGone)
+	response := serve(t, router, http.MethodPost, "/stats/"+historyPaginationReactionPool+"/reactions", body, nil)
+	historyPaginationRequireStatus(t, response, http.StatusGone)
 	select {
 	case msg := <-sub.Channel():
 		t.Fatalf("retired mutation published an uncommitted tally: %s", msg.Payload)
@@ -61,7 +61,7 @@ func TestReactionVotePublishesReactionsUpdate(t *testing.T) {
 	if err != nil || len(keys) != 0 {
 		t.Fatalf("retired route wrote Redis vote state: %v %v", keys, err)
 	}
-	repair1039DurableReplacement(t)
+	historyPaginationDurableReplacement(t)
 }
 
 // TestPrecomputePublishesPlatformUpdate proves the background precompute pushes

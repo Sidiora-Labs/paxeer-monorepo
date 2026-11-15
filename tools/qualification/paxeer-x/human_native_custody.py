@@ -166,19 +166,19 @@ def main():
     mode.add_argument('--candidate-manifest')
     args = parser.parse_args()
     destination = Path(os.environ.get('PAXEER_X_NATIVE_CUSTODY_ARTIFACT_DIRECTORY',
-                                      '/root/lx-ops/paxeer-x-integration-2026-10-03/native-custody-artifacts'))
+                                      ROOT / "build/qualification/human_native_custody"))
     if args.build:
         destination.mkdir(mode=0o700, parents=True, exist_ok=False)
         B.private(str(destination), True)
         files = inventory()
         revision = B.git('rev-parse', 'HEAD').decode().strip()
         source = source_digest(files)
-        environment = dict(os.environ, CARGO_BUILD_JOBS='4', CARGO_TARGET_DIR='/root/lx-target/human')
+        environment = dict(os.environ, CARGO_BUILD_JOBS='4', CARGO_TARGET_DIR=os.environ.get("CARGO_TARGET_DIR", str(ROOT / "services/human/target")))
         run(['go', 'build', '-mod=readonly', '-o', str(destination / 'attestor'), './cmd/attestor'],
             destination / 'go-daemon-build.log', ROOT / 'services/wallet/attestor', environment)
         run(['go', 'test', '-mod=readonly', '-c', '-o', str(destination / 'native-server.test'), './internal/server'],
             destination / 'go-corpus-build.log', ROOT / 'services/wallet/attestor', environment)
-        command = ['/root/.cargo/bin/cargo', 'test', '--locked', '--manifest-path', 'services/human/Cargo.toml',
+        command = ["cargo", 'test', '--locked', '--manifest-path', 'services/human/Cargo.toml',
                    '-p', 'layerx-human-kms', '--test', 'attestor_native_profile', '--no-run', '--message-format=json']
         run(command, destination / 'rust-corpus-build.log', ROOT, environment)
         executables = []

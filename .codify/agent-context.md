@@ -8,8 +8,9 @@ Workflow: the single source is `spec/workflow.kvx` (rules, loop and policies); r
 
 ## Merged network
 
-Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`).
-The kernel is part of the network and participates in block proposal and execution;
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`).
+The LayerX kernel inside every `paxd` node executes and orders each transaction
+and builds each block; validators check and commit it;
 a receipt is final when its block is committed. The node's
 [proposal handler](../node/app.go) validates sequence batches, and
 [`HostExecute`](../modules/lxphost/host.go) runs kernel activities through cgo

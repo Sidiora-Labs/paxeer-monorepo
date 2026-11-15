@@ -1,8 +1,9 @@
 # Node sequencing contract
 
 Sequencing is an execution role inside `paxd` on the merged Paxeer network.
-The kernel is part of that network and proposes blocks. Mainnet-beta uses
-EVM chain ID 125 (`0x7d`), and a receipt is final when its block is committed.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. Mainnet-beta uses
+EVM chain ID 125 (`0x7d`), and a receipt is final when the validators commit its block.
 [Consensus fork](consensus-fork.md) documents the consensus transport,
 wire types and RPC behavior.
 

@@ -21,14 +21,14 @@ func TestSignedSelectionHTTPAdmissionBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	node := repair997Serve(t)
+	node := sourceRecoveryServe(t)
 	options := fopts(node.server.URL)
-	s := repair997Open(t, options)
+	s := sourceRecoveryOpen(t, options)
 	server := httptest.NewServer(authority.Handler(s))
 	defer server.Close()
 	auth := SourceSelectionAuthorization{ID: "selection", Kind: "incident_recovery", Scope: "canonical", Reason: "canonical history", RequestedBy: "requester", ApprovedBy: "approver", State: "approved", Revision: 1, Expires: time.Now().Add(time.Hour), SourceID: "primary", Height: 128, Hash: committedFixtureHash(128)}
 	auth.PayloadHash = SourceSelectionPayloadHash(auth.Scope, auth.SourceID, auth.Height, auth.Hash)
-	signed := repair997Signed(t, auth, requestKey, approvalKey)
+	signed := sourceRecoverySigned(t, auth, requestKey, approvalKey)
 	body, err := json.Marshal(signed)
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestSignedSelectionHTTPAdmissionBounds(t *testing.T) {
 	}
 	// The source applies selections only after the same verifier is installed.
 	s.opts.SelectionAuthority = authority
-	if status := repair997Post(t, server.URL, signed); status != http.StatusConflict {
+	if status := sourceRecoveryPost(t, server.URL, signed); status != http.StatusConflict {
 		t.Fatalf("unknown source selection %d", status)
 	}
 }

@@ -1,0 +1,2 @@
+# name	guest path	mode	roles
+INTEROP_MIRROR_CONFIG	/etc/layerx-mirror/config.json	0600	*

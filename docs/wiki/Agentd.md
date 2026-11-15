@@ -6,9 +6,9 @@ verifies network evidence, and owns tenant sessions, policy, approvals,
 capabilities, reservations and durable recovery. It does not mint balances
 or protocol budget objects from local accounting.
 
-Paxeer mainnet-beta is one BFT network. The kernel is part of the network and
-proposes blocks; EVM chain id is **125 (`0x7d`)**. A receipt is final when its
-block is committed. Sub-chains are tenant domains in the database, without a
+Paxeer mainnet-beta uses EVM chain id **125 (`0x7d`)**. The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final when its block is committed. Sub-chains are tenant domains in the database, without a
 new chain process for each tenant. Agentd is an application boundary, not an
 additional consensus or settlement system.
 

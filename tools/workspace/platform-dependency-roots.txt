@@ -55,4 +55,4 @@ rust|services/platform/tools/kvx/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/tools/workspace-gate/Cargo.toml|covered-by-platform-cargo
 python|services/platform/hosted/paxeer/requirements.txt|covered-by-python-source:services/platform/hosted/paxeer/evm.py
 rust|services/platform/perf-db/Cargo.toml|locked-independent
-rust|services/platform/perf-db/src/storage/repair_139/Cargo.toml|covered-by-test:services/platform/perf-db/src/storage/repair_139_test.go
+rust|services/platform/perf-db/src/storage/durability_probe/Cargo.toml|covered-by-test:services/platform/perf-db/src/storage/durability_test.go

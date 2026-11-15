@@ -15,7 +15,7 @@ import (
 )
 
 func TestReceiptAuthorityRejectsInvalidRuntimeEpochs(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx := context.Background()
 	client, closeClient, err := NewBoundedRPCClient(ctx, input.Endpoint, "")
 	if err != nil {
@@ -58,9 +58,9 @@ func TestReceiptAuthorityRejectsInvalidRuntimeEpochs(t *testing.T) {
 	}
 }
 func TestSourcePoolReservesMatchArchivedABIWords(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	ctx := context.Background()
-	authority, closeClient := repair53Open(t, ctx, input)
+	authority, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -88,8 +88,8 @@ func TestSourcePoolReservesMatchArchivedABIWords(t *testing.T) {
 	}
 }
 func TestReceiptCoordinatesAndEnvelopeBoundsRejectChangedInputs(t *testing.T) {
-	input := repair53InputsFromProducer(t)
-	authority, closeClient := repair53Open(t, context.Background(), input)
+	input := receiptReplayInputsFromProducer(t)
+	authority, closeClient := receiptReplayOpen(t, context.Background(), input)
 	defer closeClient()
 	bundle, err := authority.Bundle(context.Background(), input.NativeSwap)
 	if err != nil {

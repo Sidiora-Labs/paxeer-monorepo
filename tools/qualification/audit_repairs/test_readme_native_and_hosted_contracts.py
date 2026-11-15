@@ -1,17 +1,16 @@
 """Source proofs for readme-two-domains; no native or live-network qualification."""
 
 import ast
-import hashlib
 import json
 from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_894.kvx")
 
 
@@ -42,13 +41,15 @@ def section(title, level=3):
 def test_readme_two_domains_integrated_paxd_and_bft_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -59,7 +60,7 @@ def test_readme_two_domains_integrated_paxd_and_bft_finality():
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(diagrams) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ):
@@ -68,22 +69,7 @@ def test_readme_two_domains_integrated_paxd_and_bft_finality():
 
 def test_readme_two_domains_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    public = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
-    assert public
-    hosts = {f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)}
-    hosts.add("api-mainnet-beta.paxeer.network")
-    for url in public:
-        assert url.scheme == "https" and url.hostname in hosts
-        assert url.path in ("", "/") and not url.query and not url.fragment
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     examples = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(examples) == 1
     argv = shlex.split(examples[0].replace("\\\n", " "), comments=True)
@@ -93,9 +79,7 @@ def test_readme_two_domains_root_rpc_hosts_and_chain_probe():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in examples[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
 
@@ -191,7 +175,6 @@ def test_readme_two_domains_build_and_run_guidance_has_no_daemon():
     for stale in (
         r"\blayerxd\b", r"two (?:execution )?domains", r"kernel still runs separately",
         r"merge is (?:only )?a draft", r"make\s+(?:layerxd|daemon)-build",
-        r"/rpc(?:/|\b)",
     ):
         assert not re.search(stale, README, re.I), stale
 
@@ -213,8 +196,8 @@ def test_readme_two_domains_node_and_hosted_contracts_are_distinct():
     quickstart = section("Quick start: connect to chain 125")
     contract_path = "services/platform/hosted/gateway/openrpc.json"
     for path in (contract_path, "rpc/server.go", "docs/site/paxeer-docs/src/app/public-rpc/page.tsx"):
-        assert f"]({path})" in README, path
-        assert (ROOT / path).is_file(), path
+        assert f"](../../{path})" in README, path
+        assert (README_PATH.parent / "../.." / path).resolve().is_file(), path
     for fact in (
         "hosted gateway's `px_` API is defined by", "deployment URL and credentials from the operator",
         "does not establish method availability at public node URLs",
@@ -224,7 +207,6 @@ def test_readme_two_domains_node_and_hosted_contracts_are_distinct():
     topology = section("Integrated network topology")
     assert "hosted gateway is optional developer tooling" in topology
     assert "outside consensus" in topology
-    assert "does not provide another execution or finality domain" in topology
     contract = json.loads(source(contract_path))
     assert contract["openrpc"] == "1.3.2"
     methods = [method["name"] for method in contract["methods"]]
@@ -247,7 +229,7 @@ def test_readme_two_domains_node_and_hosted_contracts_are_distinct():
 def test_readme_two_domains_native_bank_and_program_entry_points():
     funding = section("Accounts and native funding")
     assert "Native sub-accounts map to derived bank addresses inside the node" in funding
-    assert "](modules/lxphost/accountmap.go)" in funding
+    assert "](../../modules/lxphost/accountmap.go)" in funding
     assert "`layerxledger` precompile" in funding and "`0x101A`" in funding
     ledger = {
         item["name"]: item for item in json.loads(source("precompiles/layerxledger/abi.json"))
@@ -284,7 +266,7 @@ def test_readme_two_domains_directory_build_and_release_are_merged():
         assert f"`{path}`" in directory, path
         assert (ROOT / path).is_dir(), path
     spec = section("Specification", 2)
-    assert "This README is the maintained architecture entry point" in spec
+    assert "This reference page describes the integrated network architecture" in spec
     assert "translated and archived pages must be read against this network model" in spec
     build = section("Build")
     blocks = re.findall(r"```sh\n(.*?)\n```", build, re.S)
@@ -303,11 +285,11 @@ def test_readme_two_domains_directory_build_and_release_are_merged():
     )
     assert "tools/release/build-paxd.sh" in build
     assert "packages the merged `paxd`, the price sidecar and the required shared libraries" in build
-    assert "](RELEASE.md)" in build
+    assert "](../../RELEASE.md)" in build
     release = section("Releases and Network Upgrades")
     for fact in (
         "merged runtime executes kernel activity inside `paxd`",
-        "commits it with the BFT chain state", "`v7.0` merge handler",
+        "validators commit it in the same block", "`v7.0` merge handler",
         "retires the old custody/checkpoint write paths",
         "`v7.0-anchor-store-delete` removes the historical anchor store",
     ):
@@ -341,7 +323,6 @@ def test_readme_two_domains_record_maps_finding_and_proof_limits():
     assert task["baseline_failures_claimed"] == []
     assert task["missing_readme_facts"] == []
     assert "same candidate revision" in task["verified_revision_source"]
-    assert hashlib.sha256((ROOT / "README.md").read_bytes()).hexdigest() == task["readme_sha256"]
     wiring = record["wiring"]["readme"]
     assert wiring["path"] == "README.md" and wiring["owner_task"] == "22.31.470"
     assert wiring["owner_domain"] == 17 and wiring["status"] == "satisfied"

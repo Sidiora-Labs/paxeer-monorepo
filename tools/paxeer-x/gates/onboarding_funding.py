@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 from urllib.parse import urlsplit
 
-INVENTORY = "docs/site/docs/reference/public-rpc.md"
+INVENTORY = "docs/readme/PUBLIC-RPC.md"
 BANK_PRODUCER = "services/platform/hosted/core/src/chain_fund.rs"
 BANK_ABI = "precompiles/bank/abi.json"
 

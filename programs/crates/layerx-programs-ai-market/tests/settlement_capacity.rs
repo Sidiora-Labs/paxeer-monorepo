@@ -141,7 +141,7 @@ fn fill_bid_capacity(h: &mut Harness) {
             PEER_A,
             &payload(130, |out| next.encode(out)),
             Presence::Absent,
-            CAPACITY,
+            F11_BOND_INSUFFICIENT,
         );
     }
     h.refuse(

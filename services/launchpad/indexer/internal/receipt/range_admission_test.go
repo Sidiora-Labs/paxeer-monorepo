@@ -15,8 +15,8 @@ import (
 
 func TestRecordedRangeReadAheadRechecksCurrentBloomAdmission(t *testing.T) {
 	ctx := context.Background()
-	input := repair53InputsFromProducer(t)
-	a, closeClient := repair53Open(t, ctx, input)
+	input := receiptReplayInputsFromProducer(t)
+	a, closeClient := receiptReplayOpen(t, ctx, input)
 	defer closeClient()
 	if err := a.Rehydrate(ctx, input.Markets); err != nil {
 		t.Fatal(err)
@@ -80,8 +80,8 @@ func TestRecordedRangeReadAheadRechecksCurrentBloomAdmission(t *testing.T) {
 
 func TestRecordedHeightPinsRejectUnavailableAndMisboundResponses(t *testing.T) {
 	ctx := context.Background()
-	original := repair53InputsFromProducer(t)
-	base, closeBase := repair53Open(t, ctx, original)
+	original := receiptReplayInputsFromProducer(t)
+	base, closeBase := receiptReplayOpen(t, ctx, original)
 	defer closeBase()
 	bundle, err := base.Bundle(ctx, original.NativeSwap)
 	if err != nil {
@@ -132,8 +132,8 @@ func TestRecordedHeightPinsRejectUnavailableAndMisboundResponses(t *testing.T) {
 			if changed == 0 {
 				t.Fatal("recorded numbered block absent")
 			}
-			input = repair53Replay(t, input)
-			a, closeClient := repair53Open(t, ctx, input)
+			input = receiptReplayReplay(t, input)
+			a, closeClient := receiptReplayOpen(t, ctx, input)
 			defer closeClient()
 			if e = a.Rehydrate(ctx, input.Markets); e != nil {
 				t.Fatal(e)

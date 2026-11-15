@@ -1,4 +1,4 @@
-// Code generated from the shared Swagger archive. See tests/ci/repair_22_39_62.kvx.
+// Code generated from the shared Swagger archive. See spec/layerx-merge/programme/records/tests/ci/repair_22_39_62.kvx.
 
 // Package swagger contains the network documentation shared by node and SDK servers.
 package swagger

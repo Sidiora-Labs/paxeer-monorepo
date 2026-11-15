@@ -1,0 +1,15 @@
+[signing]
+rule = "Intent signing uses a durable attestor send journal and an authenticated runtime clock. A mismatched signer is refused before disclosure signing; transaction validation also rejects an independently signed transaction from another wallet. Separate custody authorization contexts exercise journey conflict refusal."
+files = ["services/human/crates/layerx-human-service/tests/intent_submit.rs"]
+
+[receipts]
+rule = "Receipt evidence binds the submitted transaction hash, batch height, payment denomination and governed receipt key. Portable evidence uses receipts from a funded native pointer transfer and authenticates committed inclusion against the live node. Live-node account sequences come from the wallet's pending EVM nonce, which also binds the planned leg. Evidence remains identical after service restart."
+files = ["services/human/crates/layerx-human-service/tests/support/production_fixture.rs", "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"]
+
+[schema]
+rule = "The committed rung maps to committed verification on the merged network. Historical verification labels remain decodable."
+files = ["services/human/schema/human-api/journeys.kvx"]
+
+[commitment]
+rule = "Committed intent evidence authenticates the receipt's signed sequence batch, activity root, sequence roots and consensus inclusion. Its inclusion height is the covering block height. Receipted observations retain the real node response captured before commitment."
+files = ["services/human/Cargo.lock", "services/human/crates/layerx-human-service/Cargo.toml", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs", "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"]

@@ -7,8 +7,8 @@ the upstream Tendermint verification draft, with an explicit map to this tree.
 Its five-part model concerns classic signed headers. The named draft operations
 are conceptual operations, not executable Go or the Autobahn certificate API.
 
-Paxeer is one BFT network run by `paxd`, with EVM chain ID 125 (`0x7d`). The kernel
-is part of that network and proposes blocks. A transaction receipt is final
+Paxeer uses EVM chain ID 125 (`0x7d`).
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A transaction receipt is final
 when its block is committed. Light verification checks evidence of that history;
 it does not introduce an additional settlement or finality stage.
 

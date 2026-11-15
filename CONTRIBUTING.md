@@ -12,7 +12,7 @@ Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report vulnerabilities only thr
 
 ## Repository layout
 
-[docs/MONOREPO.md](docs/MONOREPO.md) provides the directory inventory. The current runtime is one Paxeer network: the C17 kernel executes inside `paxd`, in the node's execution domain and block proposal path. A transaction receipt is final once its block is committed.
+[docs/MONOREPO.md](docs/MONOREPO.md) provides the directory inventory. The current runtime is one Paxeer network: the C17 kernel executes inside `paxd`; the LayerX kernel executes and orders each transaction and builds each block, and validators check and commit it. A transaction receipt is final once its block is committed.
 
 - `apps/` holds the user-facing frontends, `services/` the off-chain programs, `sdk/` the client SDKs, `contracts/` the Solidity contracts, `tests/` the cross-cutting test suites, and `tools/` the developer and release tooling.
 - The Paxeer X chain node (`paxd`) is the root Go module (`go.mod`, built through `chain.mk`); its entry point is `daemon/paxd/` and its packages live in root directories such as `node/`, `modules/`, `precompiles/`, `rpc/` and `consensus/`.

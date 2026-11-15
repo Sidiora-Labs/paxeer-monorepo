@@ -7,14 +7,20 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { PRECOMPILES } from "../src/core/network/precompiles";
-import * as precompilesModule from "../src/core/network/precompiles";
-import { paxeerChain } from "../src/core/chain";
-import { SPOT_TOKENS } from "../src/core/spot/addresses";
+import { PRECOMPILES } from "@paxeer-network/paxeer-backend/core/network/precompiles";
+import * as precompilesModule from "@paxeer-network/paxeer-backend/core/network/precompiles";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
+import { SPOT_TOKENS } from "@paxeer-network/paxeer-backend/core/spot/addresses";
 
 const ROOT = path.resolve(__dirname, "..");
-const MODULE_PATH = path.join(ROOT, "src/core/network/precompiles.ts");
-const SPOT_ADDRESSES_PATH = path.join(ROOT, "src/core/spot/addresses.ts");
+const MODULE_PATH = path.join(
+  ROOT,
+  "packages/paxeer-backend/src/core/network/precompiles.ts",
+);
+const SPOT_ADDRESSES_PATH = path.join(
+  ROOT,
+  "packages/paxeer-backend/src/core/spot/addresses.ts",
+);
 const USDL = "0x85FcD13735F4309833A503EE804ea32395851479";
 
 const OVERRIDE_KEYS = [
@@ -146,7 +152,8 @@ describe("precompiles", () => {
 
   it("usdlHasOneAddress", async () => {
     process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL ??= "https://gateway.test";
-    const { COLLATERAL_TOKENS } = await import("../src/core/perps/config");
+    const { COLLATERAL_TOKENS } =
+      await import("@paxeer-network/paxeer-backend/core/perps/config");
     assert.equal(
       COLLATERAL_TOKENS.usdl.address.toLowerCase(),
       USDL.toLowerCase(),
@@ -154,7 +161,7 @@ describe("precompiles", () => {
     assert.equal(SPOT_TOKENS.USDL.address.toLowerCase(), USDL.toLowerCase());
     assert.equal(COLLATERAL_TOKENS.usdl.decimals, 6);
     assert.equal(SPOT_TOKENS.USDL.decimals, 6);
-    assert.equal(SPOT_TOKENS.PAX.decimals, 6);
+    assert.equal(SPOT_TOKENS.PAX.decimals, 18);
     assert.equal(SPOT_TOKENS.SID.decimals, 6);
     assert.equal("WPAX9" in SPOT_TOKENS, false);
     assert.equal(

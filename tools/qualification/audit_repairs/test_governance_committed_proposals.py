@@ -17,8 +17,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 GOV = ROOT / "tests/integration/gov_module"
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_746.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_746.kvx"
 )
 RUNNER_SPEC = importlib.util.spec_from_file_location(
     "governance_repair_runner", ROOT / "tests/integration/scripts/runner.py"

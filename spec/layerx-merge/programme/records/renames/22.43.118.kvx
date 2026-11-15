@@ -1,0 +1,16 @@
+[manifest]
+task = "22.43.118"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "sdk/telemetry/repair_m624.kvx"
+to = "spec/layerx-merge/programme/records/sdk/telemetry/repair_m624.kvx"
+
+[file.2]
+from = "sdk/telemetry/repair_m624_test.go"
+to = "sdk/telemetry/labels_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/telemetry/repair_m624_test.go"

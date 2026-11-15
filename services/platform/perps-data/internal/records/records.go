@@ -458,7 +458,7 @@ const spotTradesSQL = `WITH stable AS (
 SELECT block, log_index, block_time, buy, price, size FROM trades
 ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT $2`
 
-func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[SpotTrade], error) {
+func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (result0 Trades[SpotTrade], resultErr error) {
 	_, ok, err := s.markets.ID(ctx, symbol)
 	if err != nil {
 		return Trades[SpotTrade]{}, err
@@ -483,7 +483,11 @@ func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[S
 	if err != nil {
 		return body, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var (
 			block       int64
@@ -516,7 +520,7 @@ const perpTradesSQL = `SELECT f.block, f.log_index, f.block_time, f.taker_is_lon
 	FROM perps.fills f WHERE f.market_id = $1
 	ORDER BY f.block DESC, f.tx_index DESC, f.log_index DESC, f.sub DESC LIMIT $2`
 
-func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (Trades[PerpTrade], error) {
+func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (result0 Trades[PerpTrade], resultErr error) {
 	market, ok, err := s.markets.ID(ctx, symbol)
 	if err != nil {
 		return Trades[PerpTrade]{}, err
@@ -529,7 +533,11 @@ func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (Trad
 	if err != nil {
 		return body, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for rows.Next() {
 		var (
 			block             int64

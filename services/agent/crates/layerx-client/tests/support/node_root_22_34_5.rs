@@ -16,19 +16,19 @@ pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
 
 pub fn recording() -> Value {
     must(serde_json::from_str(include_str!(
-        "../fixtures/repair_22_34_5_node_root.json"
+        "../fixtures/node_root_reads.json"
     )))
 }
 
 pub fn producer() -> Value {
     must(serde_json::from_str(include_str!(
-        "../fixtures/repair_22_33_1546_node.json"
+        "../fixtures/node_committed_evidence.json"
     )))
 }
 
 pub fn gateway_reads() -> Value {
     must(serde_json::from_str(include_str!(
-        "../fixtures/repair_22_33_1546_gateway.json"
+        "../fixtures/gateway_observations.json"
     )))
 }
 

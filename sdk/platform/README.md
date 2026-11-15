@@ -3,8 +3,9 @@
 This directory holds the Go, JVM, .NET and Swift SDKs for Paxeer X Network,
 along with shared schemas, code generators and conformance fixtures. The SDKs
 provide Agent and Human API clients, receipt verification, streaming and native
-Programs helpers. Paxeer is one BFT network: the kernel runs within `paxd` and
-proposes blocks, and a receipt is final when its block is committed. Applications
+Programs helpers. The LayerX kernel runs inside `paxd`, executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final when its block is committed. Applications
 configure node JSON-RPC and authenticated application services separately.
 
 ## Layout

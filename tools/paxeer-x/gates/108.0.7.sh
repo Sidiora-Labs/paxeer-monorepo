@@ -59,10 +59,6 @@ check docs-names-clean docs_names_clean
 check docs-names-refuses-unserved-host-and-faucet-url check_refuses
 
 for page in \
-	docs/site/docs/overview/getting-started.md \
-	docs/site/docs/overview/quickstart.md \
-	docs/site/docs/overview/payments.md \
-	docs/site/docs/platform/index.md \
 	docs/wiki/Getting-Started-Beta.md \
 	docs/wiki/Quickstart.md \
 	docs/wiki/PaymentsQuickstart.md; do
@@ -70,8 +66,6 @@ for page in \
 done
 
 for page in \
-	docs/site/docs/platform/faucet.md \
-	docs/site/docs/operators/beta-control.md \
 	docs/wiki/HostedFaucet.md \
 	docs/wiki/HostedBetaControl.md \
 	docs/platform/beta-environment.md \

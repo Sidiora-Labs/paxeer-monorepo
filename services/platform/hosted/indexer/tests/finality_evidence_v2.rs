@@ -260,7 +260,7 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     commit
 }
 
-#[path = "support/repair_22_33_1446.rs"]
+#[path = "support/ai_snapshot_fixture.rs"]
 pub mod repair_paths;
 
 #[test]

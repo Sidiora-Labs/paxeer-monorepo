@@ -264,7 +264,7 @@ def gate():
     try:
         ramp.require(len(sys.argv) == 1, "declared funded operator gate takes no arguments")
         explicit = os.environ.get("LAYERX_MIGRATION_FUNDED_OPERATOR_TEST_BIN")
-        target = Path(os.environ.get("CARGO_TARGET_DIR", "/root/lx-target/interop"))
+        target = Path(os.environ.get("CARGO_TARGET_DIR", str(ROOT / "services/interop/target")))
         binaries = ([Path(explicit)] if explicit else
                     [path for path in (target / "debug/deps").glob("funded_operator-*")
                      if path.is_file() and os.access(path, os.X_OK)])

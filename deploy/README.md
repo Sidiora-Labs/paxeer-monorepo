@@ -2,12 +2,14 @@
 
 This directory holds service rollout manifests, the perps Railway project
 definition, and launchpad image builds and deployment tooling. These services
-support the single Paxeer mainnet-beta network: `paxd` embeds the kernel in
-block proposal and execution, and receipts become final when their blocks
-commit. Deployment manifests describe service configuration and rollout order.
+support the single Paxeer mainnet-beta network: the LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it, and receipts become final when the validators commit their
+blocks. Deployment manifests describe service configuration and rollout order.
 
 ## Layout
 
+- [projects/](projects/README.md) holds project metadata and service definitions for the project tool.
 - [launchpad/](launchpad/README.md) contains Dockerfiles, Railway service
   definitions, configuration tests, and production bootstrap, topology,
   observability and recovery tooling.

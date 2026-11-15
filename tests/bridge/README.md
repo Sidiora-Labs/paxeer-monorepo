@@ -1,6 +1,6 @@
 # Bridge regression tests
 
-This directory holds Python regression tests for retired custody contracts and bridge consumers, a C file-reading helper, and Python dependency declarations. The tests check repository files and their callers against the merged Paxeer network, where the kernel runs within the BFT chain and receipts become final when their blocks are committed.
+This directory holds Python regression tests for retired custody contracts and bridge consumers, a C file-reading helper, and Python dependency declarations. The tests check repository files and their callers against the merged Paxeer network: the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it, and receipts become final when the validators commit their blocks.
 
 ## Layout
 

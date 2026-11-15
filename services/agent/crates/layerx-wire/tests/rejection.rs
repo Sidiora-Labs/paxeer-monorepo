@@ -189,5 +189,5 @@ fn rejection_taxonomy_coverage_has_no_silent_gap() {
     assert_eq!(covered, required);
 }
 
-#[path = "repair_22_33_1523.rs"]
+#[path = "native_transaction_codecs.rs"]
 mod native_submission;

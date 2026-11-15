@@ -125,7 +125,7 @@ def test_example_addresses_use_documentation_ranges():
                     violations.append(f"{path.relative_to(ROOT)}:{number}: {literal}")
     assert not violations, "Remote examples must use RFC 5737 addresses:\n" + "\n".join(violations)
     for name in (
-        "apps/perps/deploy/README.md", "docker/localnode/config/config.toml",
+        "docker/localnode/config/config.toml",
         "docker/rpcnode/config/config.toml", "tools/hpx/fleet-keygen.sh",
         "tools/bringup/edge.sh",
     ):

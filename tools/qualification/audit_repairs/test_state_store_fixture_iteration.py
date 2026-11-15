@@ -14,8 +14,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "tests/integration/db/state_store_test.yaml"
 RECORD = (
-    ROOT / "spec/layerx-merge/programme/records"
-    / "tools/qualification/audit_repairs/repair_22_33_742.kvx"
+    ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_742.kvx"
 )
 STAGES = ("FIRST_SET", "SECOND_SET", "THIRD_SET")
 CASES = yaml.safe_load(SOURCE.read_text(encoding="utf-8"))

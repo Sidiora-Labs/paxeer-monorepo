@@ -37,7 +37,6 @@
     "tools/bringup/tests/foundation-artifacts.py",
     "core",
     "api",
-    "launchpad",
     "contracts",
     "migrations",
     "tools/bringup",

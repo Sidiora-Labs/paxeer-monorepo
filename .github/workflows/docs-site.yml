@@ -36,6 +36,9 @@ jobs:
       - name: Install documentation dependencies
         working-directory: docs/site/paxeer-docs
         run: npm ci
+      - name: Run documentation static tests
+        working-directory: docs/site/paxeer-docs
+        run: npm run test:static
       - name: Build documentation site
         working-directory: docs/site/paxeer-docs
         run: npm run build

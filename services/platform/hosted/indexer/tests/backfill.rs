@@ -593,7 +593,7 @@ fn backfill_reads_the_live_paxscan_database() {
         .all(|height| (1_000_000..=1_000_099).contains(height)));
 }
 
-#[path = "support/repair_22_33_1446.rs"]
+#[path = "support/ai_snapshot_fixture.rs"]
 pub mod repair_paths;
 
 #[test]

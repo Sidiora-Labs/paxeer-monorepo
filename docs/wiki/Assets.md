@@ -1,8 +1,8 @@
 # Assets and tokens
 
-Paxeer is one BFT network with the kernel integrated into `paxd`, including
-block proposal. EVM chain id is `125` (`0x7d`); a transaction is final when its
-block is committed. Native coin balances live in the chain bank ledger.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. EVM chain id is `125` (`0x7d`); a
+transaction is final when its block is committed. Native coin balances live in the chain bank ledger.
 EVM clients read bank facts at `0x0000000000000000000000000000000000001001`
 and discover token pointers at `0x000000000000000000000000000000000000100A`.
 

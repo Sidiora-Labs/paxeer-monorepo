@@ -288,7 +288,7 @@ fn administer_recovery(
 }
 ```
 
-The integration test [repair_22_33_54.rs](tests/repair_22_33_54.rs) compiles this
+The integration test [recovery_documentation.rs](tests/recovery_documentation.rs) compiles this
 helper, checks it against this text, fills the JSON examples using signed,
 committed in-process chain evidence, ingests through the production decoder,
 and reveals the receipt through the production Unix server and Human client

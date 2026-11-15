@@ -10,7 +10,8 @@ use layerx_human_service::activity::verify_receipt_export as verify_offline_expo
 use layerx_human_service::activity::ReceiptExport as OfflineExport;
 use layerx_human_service::activity::{
     verification_status, ActivityKind, AgentActivity, EvidenceBundle, EvidenceExport, ExportError,
-    Feed, FilterDraft, PendingStatus, UnverifiedReason, VerifiedStatus, VerifyError,
+    Feed, FilterDraft, PendingStatus, ReceiptHeaderBinding, UnverifiedReason, VerifiedStatus,
+    VerifyError,
 };
 use layerx_human_service::audit::{
     verify_export as verify_audit_export, AuditChain, AuditEvent, SecurityChangeKind,
@@ -35,18 +36,27 @@ fn result<T, E: std::fmt::Debug>(value: Result<T, E>, label: &str) -> T {
 
 fn protocol_artifact() -> OfflineExport {
     let receipt_key = SigningKey::from_bytes(&[3; 32]);
+    let state_leaf = b"canonical-state-leaf".to_vec();
+    let activity_leaf = b"canonical-activity-leaf".to_vec();
+    let (proof, state_root) = result(
+        build_proof(&[state_leaf.as_slice()], 0),
+        "state inclusion proof",
+    );
+    let (_, activity_root) = result(build_proof(&[activity_leaf.as_slice()], 0), "activity root");
     let encode_receipt = |signature| {
         let mut bytes = result(receipt_vector(signature), "receipt vector");
         let batch_at = unique_position(&bytes, &[4; 32]);
         let mut batch = [0; 32];
         batch[24..].copy_from_slice(&20_u64.to_be_bytes());
         bytes[batch_at..batch_at + 32].copy_from_slice(&batch);
+        let state_at = unique_position(&bytes, &[3; 32]);
+        bytes[state_at..state_at + 32].copy_from_slice(&state_root);
         bytes
     };
     let unsigned = encode_receipt(None);
     let signing_digest = result(receipt_signing_digest(&unsigned), "receipt digest");
     let canonical_receipt = encode_receipt(Some(receipt_key.sign(&signing_digest).to_bytes()));
-    let fact = result(
+    let mut fact = result(
         EvidenceBundle::receipt_fact(
             &activity_id("act_movementexport1"),
             canonical_receipt,
@@ -55,23 +65,32 @@ fn protocol_artifact() -> OfflineExport {
         "receipt fact",
     );
 
-    let state_leaf = b"canonical-state-leaf".to_vec();
-    let activity_leaf = b"canonical-activity-leaf".to_vec();
-    let (proof, state_root) = result(
-        build_proof(&[state_leaf.as_slice()], 0),
-        "state inclusion proof",
+    let (receipt_proof, receipt_root) = result(
+        build_proof(&[fact.canonical_receipt_bytes.as_slice()], 0),
+        "receipt inclusion proof",
     );
-    let (_, activity_root) = result(build_proof(&[activity_leaf.as_slice()], 0), "activity root");
-    let sequencer_key = SigningKey::from_bytes(&[7; 32]);
+    let sequencer_key = receipt_key;
     let sequencer_id = sequencer_key.verifying_key().to_bytes();
-    let canonical_header = result(
+    let mut canonical_header = result(
         batch_header(state_root, activity_root, sequencer_id),
         "canonical header",
     );
+    let batch_at = unique_position(&canonical_header, &8_u64.to_be_bytes());
+    canonical_header[batch_at..batch_at + 8].copy_from_slice(&20_u64.to_be_bytes());
+    let first_at = unique_position(&canonical_header, &11_u64.to_be_bytes());
+    canonical_header[first_at..first_at + 8].copy_from_slice(&9_u64.to_be_bytes());
+    let receipts_at = unique_position(&canonical_header, &[10; 32]);
+    canonical_header[receipts_at..receipts_at + 32].copy_from_slice(&receipt_root);
     let header_digest = result(
         batch_header_signing_digest(&canonical_header),
         "header digest",
     );
+    let header_signature = sequencer_key.sign(&header_digest).to_bytes();
+    fact.header_binding = Some(ReceiptHeaderBinding {
+        canonical_header_bytes: canonical_header.clone(),
+        header_signature,
+        receipt_proof,
+    });
 
     OfflineExport {
         receipts: vec![fact],
@@ -82,8 +101,8 @@ fn protocol_artifact() -> OfflineExport {
             proof,
             named_root: state_root,
             canonical_header_bytes: canonical_header,
-            header_signature: sequencer_key.sign(&header_digest).to_bytes(),
-            sequencer_authorization: SequencerAuthorization::new(sequencer_id, sequencer_id, 8, 8),
+            header_signature,
+            sequencer_authorization: SequencerAuthorization::new(sequencer_id, sequencer_id, 1, 30),
         }],
         derived_aggregates: Vec::new(),
     }
@@ -302,9 +321,9 @@ fn filtered_statement_and_evidence_are_offline_verifiable_and_redacted() {
     );
     assert_eq!(report.entries(), 1);
     assert_eq!(report.verified_receipts(), 1);
-    assert_eq!(report.verified_inclusions(), 1);
+    assert_eq!(report.verified_inclusions(), 2);
     assert_eq!(independently_verified.verified_receipts, 1);
-    assert_eq!(independently_verified.verified_inclusions, 1);
+    assert_eq!(independently_verified.verified_inclusions, 2);
     assert_eq!(bundle.protocol_evidence(), std::slice::from_ref(&artifact));
     assert!(matches!(
         result(EvidenceExport::new(feed, 64), "bounded exporter").evidence(
@@ -468,7 +487,7 @@ fn cached_bundle_rows_are_labelled_only_by_the_verifier() {
             &[],
         ),
         Err(VerifyError::Unavailable(ExportError::AuthorityUnavailable { reference: ref missing }))
-            if *missing == reference
+            if *missing == hex_digest(&[11; 32])
     ));
 
     let mut substituted = digest;

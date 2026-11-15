@@ -63,7 +63,7 @@ fn unhex(value: &Value) -> Vec<u8> {
 
 fn committed_case() -> Value {
     let recording: Value = must(serde_json::from_str(include_str!(
-        "../../layerx-client/tests/fixtures/repair_22_33_1546_node.json"
+        "../../layerx-client/tests/fixtures/node_committed_evidence.json"
     )));
     recording["receipt"].clone()
 }

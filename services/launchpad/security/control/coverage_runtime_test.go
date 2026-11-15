@@ -57,7 +57,7 @@ func TestRuntimeConfigurationRequiresIndependentAuthorities(t *testing.T) {
 		t.Fatalf("inventory without verifier admitted: %v", err)
 	}
 	needsReplayCredential := config
-	needsReplayCredential.Replay = repairM1020ReplayProvider(t, nil)
+	needsReplayCredential.Replay = workflowRecoveryReplayProvider(t, nil)
 	if _, err := NewRuntime(needsReplayCredential); !errors.Is(err, Unavailable) {
 		t.Fatalf("replay without credential admitted: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestRuntimeConfigurationRequiresIndependentAuthorities(t *testing.T) {
 		http.NotFound(w, r)
 	}))
 	t.Cleanup(server.Close)
-	payout, err := NewPayoutProvider(server.URL, strings.Repeat("p", 32), "settlement controller", custody, repairM1020Transport(server))
+	payout, err := NewPayoutProvider(server.URL, strings.Repeat("p", 32), "settlement controller", custody, workflowRecoveryTransport(server))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestRuntimeConfigurationRequiresIndependentAuthorities(t *testing.T) {
 		t.Fatalf("bound settlement runtime: %+v, %v", settlementRuntime, err)
 	}
 	needsIncidentCredential := config
-	needsIncidentCredential.Revocation, err = NewRevocationProvider(server.URL, strings.Repeat("r", 32), repairM1020Transport(server))
+	needsIncidentCredential.Revocation, err = NewRevocationProvider(server.URL, strings.Repeat("r", 32), workflowRecoveryTransport(server))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestRuntimeRunsAuthorizedWorkersUntilCancellation(t *testing.T) {
 	runtime.config.Assets = []Asset{pax}
 	runtime.config.InventoryCredential = env.credentials["infrastructure"]
 	runtime.config.IncidentCredential = env.credentials["infrastructure"]
-	runtime.config.Replay = repairM1020ReplayProvider(t, nil)
+	runtime.config.Replay = workflowRecoveryReplayProvider(t, nil)
 	runtime.config.ReplayCredential = env.credentials["infrastructure"]
 	runtime.config.Observe = func(string, error) { observations.Add(1) }
 	ctx, cancel := context.WithCancel(context.Background())

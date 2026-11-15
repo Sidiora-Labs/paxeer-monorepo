@@ -1,0 +1,16 @@
+[manifest]
+task = "22.43.211"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "tools/deps/tests/repair_22_33_805.kvx"
+to = "spec/layerx-merge/programme/records/tools/deps/tests/repair_22_33_805.kvx"
+
+[file.2]
+from = "tools/deps/tests/test_repair_22_33_805.py"
+to = "tools/deps/tests/test_checksum_command_guards.py"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/deps/tests/test_repair_22_33_805.py"

@@ -351,14 +351,6 @@ observed = "cg spec done 4.3 ran verify_cmd (make beta-driver-test) to pass (Ran
 assumption = "The task was marked done with --force solely to override the two graph checks for Python module constants; the verify_cmd was executed and passed and no gate was skipped, consistent with observation.1.1.7."
 severity = "blocker"
 
-[observation.3.2.1]
-task = "3.2"
-file = "src/protocol/lxp_protocol.c"
-symbol = "domain_tags Domain::CheckpointCertificate Domain::GuarantorAttestation"
-observed = "decision.checkpoint_v2 was still unanswered by the owner when task 3.2 ran, so the brief's evidence procedure was followed. The whole repository outside .git, build, node_modules and target directories was searched for retained checkpoint certificates or attestations produced under the version 1 tags: text, binary and hex-encoded greps for LXP/v1/checkpoint-certificate and LXP/v1/guarantor-attestation; the vector, fixture, golden and evidence directories tests/vectors, tests/replay/golden, programs/*/vectors, platform/sdk/conformance/fixtures, interop/crates/layerx-ap2/tests/vectors, human/crates/layerx-intents/vectors, the schema goldens and paxeer-network testdata; the SDK integration fixtures; and the spec evidence directories under spec/*/. The only textual hits are prose in spec/layerx-protocol/qualification.kvx. The only consumed artefact that depended on the version 1 attestation domain was the repository's own tests/vectors/finality_evidence_v1.vec together with the vector_signatures array in tests/storage/lxp_test_finality_evidence.c, whose embedded guarantor attestations were signed under the old tag while declaring protocol_version 2; a certificate-protocol-version-keyed path cannot select those signatures without trying both domains, which acceptance criterion 6.3 forbids, so the vector and its pinned signatures were regenerated under the version 2 tag by the same test's own build_finality path and the version 1 tags were removed from the native domain table, layerx-wire, and every SDK verifier."
-assumption = "No checkpoint certificate or attestation produced under the version 1 domain tags exists outside this repository and must remain verifiable. The owner must confirm this; if such evidence exists, an explicit version-keyed verification path selected by the certificate protocol version is a follow-up task, and the removed version 1 tags must not be reintroduced as a second accepted domain in any verifier."
-severity = "assumption"
-
 [observation.3.2.2]
 task = "3.2"
 file = "contracts/config/checkpoint-settlement.json"

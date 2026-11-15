@@ -6,7 +6,7 @@ use layerx_wire::hash::{
 use layerx_wire::maintenance::decode_occupancy_maintenance;
 #[path = "support/maintenance.rs"]
 mod maintenance;
-use layerx_wire::receipt::{decode, decode_batch_header};
+use layerx_wire::receipt::{decode, decode_batch_header, Receipt};
 use std::fmt::Debug;
 
 fn must<T, E: Debug>(value: Result<T, E>) -> T {
@@ -32,6 +32,35 @@ fn fixture_field(document: &str, field: &str) -> Vec<u8> {
         .collect()
 }
 
+fn scalar_identity_fixtures() -> Vec<(Receipt, Vec<u8>)> {
+    let receipt = must(decode(include_bytes!(
+        "../../../../../tests/fixtures/asset/supply-pause.receipt"
+    )));
+    let protocol = receipt.protocol().unwrap_or_else(|| panic!("protocol"));
+    assert_eq!(protocol.module_id(), 1);
+    assert_eq!(protocol.activity_root(), [0; 32]);
+    let checkpoint = must(layerx_types::json::parse(include_str!(
+        "../../../../../tests/vectors/checkpoint/fresh.json"
+    )));
+    let mut bytes = must(checkpoint.hex_at("header.bytes"));
+    bytes[32..40].copy_from_slice(&protocol.global_sequence().to_be_bytes());
+    bytes[41..49].copy_from_slice(&protocol.global_sequence().to_be_bytes());
+    let header = must(decode_batch_header(&bytes));
+    assert_eq!(header.protocol_version(), protocol.protocol_version());
+    let document = include_str!(
+        "../../../../../services/platform/hosted/authority/tests/fixtures/real-program-deploy-receipt.json"
+    );
+    let archived = must(decode(&fixture_field(document, "receipt_hex")));
+    let fields = archived.protocol().unwrap_or_else(|| panic!("protocol"));
+    assert_eq!(fields.module_id(), 9);
+    assert_eq!(fields.operation(), 0);
+    assert_eq!(fields.activity_root(), [0; 32]);
+    vec![
+        (archived, fixture_field(document, "header_hex")),
+        (receipt, bytes),
+    ]
+}
+
 #[test]
 fn handover_sequencer_identity_matches_native_signed_header() {
     let document = include_str!(
@@ -47,47 +76,46 @@ fn handover_sequencer_identity_matches_native_signed_header() {
 
 #[test]
 fn historical_and_maintained_identity_select_distinct_committed_ranges() {
-    let document = include_str!(
-        "../../../../../services/platform/hosted/authority/tests/fixtures/real-program-deploy-receipt.json"
-    );
-    let receipt = must(decode(&fixture_field(document, "receipt_hex")));
-    let protocol = receipt.protocol().unwrap_or_else(|| panic!("protocol"));
-    let mut header_bytes = fixture_field(document, "header_hex");
-    let legacy = must(decode_batch_header(&header_bytes));
-    assert_eq!(
-        receipt_execution_batch_id(protocol, &legacy),
-        execution_batch_id(
-            legacy.previous_state_root(),
-            protocol.activity_id(),
-            protocol.global_sequence(),
-            legacy.batch_number()
-        )
-    );
-    header_bytes[41..49].copy_from_slice(&(legacy.last_sequence() + 1).to_be_bytes());
-    let header = must(decode_batch_header(&header_bytes));
-    let maintenance = maintenance::maintenance_bytes(&header);
-    let mut record = must(decode_occupancy_maintenance(&maintenance));
-    let expected = program_execution_batch_id(
-        header.previous_state_root(),
-        header.activity_merkle_root(),
-        header.first_sequence(),
-        header.last_sequence() - 1,
-        header.batch_number(),
-    );
-    assert_eq!(
-        receipt_execution_batch_id_maintenance(protocol, &header, &record, 1),
-        expected
-    );
-    assert_ne!(receipt_execution_batch_id(protocol, &header), expected);
-    for count in [0, 2, u32::MAX] {
-        assert!(receipt_execution_batch_id_maintenance(protocol, &header, &record, count).is_err());
+    for (receipt, mut header_bytes) in scalar_identity_fixtures() {
+        let protocol = receipt.protocol().unwrap_or_else(|| panic!("protocol"));
+        let legacy = must(decode_batch_header(&header_bytes));
+        assert_eq!(
+            receipt_execution_batch_id(protocol, &legacy),
+            execution_batch_id(
+                legacy.previous_state_root(),
+                protocol.activity_id(),
+                protocol.global_sequence(),
+                legacy.batch_number()
+            )
+        );
+        header_bytes[41..49].copy_from_slice(&(legacy.last_sequence() + 1).to_be_bytes());
+        let header = must(decode_batch_header(&header_bytes));
+        let maintenance = maintenance::maintenance_bytes(&header);
+        let mut record = must(decode_occupancy_maintenance(&maintenance));
+        let expected = program_execution_batch_id(
+            header.previous_state_root(),
+            header.activity_merkle_root(),
+            header.first_sequence(),
+            header.last_sequence() - 1,
+            header.batch_number(),
+        );
+        assert_eq!(
+            receipt_execution_batch_id_maintenance(protocol, &header, &record, 1),
+            expected
+        );
+        assert_ne!(receipt_execution_batch_id(protocol, &header), expected);
+        for count in [0, 2, u32::MAX] {
+            assert!(
+                receipt_execution_batch_id_maintenance(protocol, &header, &record, count).is_err()
+            );
+        }
+        record.global_sequence += 1;
+        assert!(receipt_execution_batch_id_maintenance(protocol, &header, &record, 1).is_err());
+        record.global_sequence -= 1;
+        header_bytes[41..49].copy_from_slice(&(header.last_sequence() + 1).to_be_bytes());
+        let changed = must(decode_batch_header(&header_bytes));
+        assert!(receipt_execution_batch_id_maintenance(protocol, &changed, &record, 1).is_err());
     }
-    record.global_sequence += 1;
-    assert!(receipt_execution_batch_id_maintenance(protocol, &header, &record, 1).is_err());
-    record.global_sequence -= 1;
-    header_bytes[41..49].copy_from_slice(&(header.last_sequence() + 1).to_be_bytes());
-    let changed = must(decode_batch_header(&header_bytes));
-    assert!(receipt_execution_batch_id_maintenance(protocol, &changed, &record, 1).is_err());
 }
 
 const PINNED_PREVIOUS_STATE_ROOT: [u8; 32] = [0x11; 32];
@@ -142,27 +170,103 @@ fn the_committed_range_excludes_only_a_published_maintenance_sequence() {
 
 #[test]
 fn the_evidence_class_picks_the_selector_the_daemon_used() {
-    let document = include_str!(
-        "../../../../../services/platform/hosted/authority/tests/fixtures/real-program-deploy-receipt.json"
-    );
-    let receipt = must(decode(&fixture_field(document, "receipt_hex")));
+    for (receipt, mut bytes) in scalar_identity_fixtures() {
+        let protocol = receipt.protocol().unwrap_or_else(|| panic!("protocol"));
+        let historical = must(decode_batch_header(&bytes));
+        assert_eq!(
+            receipt_execution_batch_id_for_evidence(protocol, &historical, None),
+            receipt_execution_batch_id(protocol, &historical)
+        );
+        bytes[41..49].copy_from_slice(&(historical.last_sequence() + 1).to_be_bytes());
+        let maintained = must(decode_batch_header(&bytes));
+        let maintenance_bytes = maintenance::maintenance_bytes(&maintained);
+        let record = must(decode_occupancy_maintenance(&maintenance_bytes));
+        assert_eq!(
+            receipt_execution_batch_id_for_evidence(protocol, &maintained, Some(&record)),
+            receipt_execution_batch_id_maintenance(protocol, &maintained, &record, 1)
+        );
+        assert_ne!(
+            receipt_execution_batch_id_for_evidence(protocol, &maintained, Some(&record)),
+            receipt_execution_batch_id_for_evidence(protocol, &maintained, None)
+        );
+    }
+}
+
+#[test]
+fn programs_identity_requires_the_committed_activity_root() {
+    let receipt = must(decode(include_bytes!(
+        "../../../../../tests/fixtures/programs/module-maintained-call/receipt"
+    )));
     let protocol = receipt.protocol().unwrap_or_else(|| panic!("protocol"));
-    let mut bytes = fixture_field(document, "header_hex");
-    let historical = must(decode_batch_header(&bytes));
+    assert_eq!(protocol.module_id(), 9);
+    assert_eq!(protocol.operation(), 3);
+    assert_ne!(protocol.activity_root(), [0; 32]);
+    let mut bytes =
+        include_bytes!("../../../../../tests/fixtures/programs/module-maintained-call/header")
+            .to_vec();
+    let header = must(decode_batch_header(&bytes));
+    assert_eq!(protocol.activity_root(), header.activity_merkle_root());
+    let maintenance = must(layerx_wire::batch_maintenance::decode_maintenance(
+        include_bytes!(
+            "../../../../../tests/fixtures/programs/module-maintained-call/maintenance.receipt"
+        ),
+    ));
+    must(maintenance.verify_header(&header));
+    let count = must(u32::try_from(
+        header.last_sequence() - header.first_sequence(),
+    ));
+    let record = maintenance.occupancy();
+    let maintained_id = must(program_execution_batch_id(
+        header.previous_state_root(),
+        header.activity_merkle_root(),
+        header.first_sequence(),
+        header.last_sequence() - 1,
+        header.batch_number(),
+    ));
     assert_eq!(
-        receipt_execution_batch_id_for_evidence(protocol, &historical, None),
-        receipt_execution_batch_id(protocol, &historical)
+        receipt_execution_batch_id_maintenance(protocol, &header, record, count),
+        Ok(maintained_id)
     );
-    bytes[41..49].copy_from_slice(&(historical.last_sequence() + 1).to_be_bytes());
-    let maintained = must(decode_batch_header(&bytes));
-    let maintenance_bytes = maintenance::maintenance_bytes(&maintained);
-    let record = must(decode_occupancy_maintenance(&maintenance_bytes));
     assert_eq!(
-        receipt_execution_batch_id_for_evidence(protocol, &maintained, Some(&record)),
-        receipt_execution_batch_id_maintenance(protocol, &maintained, &record, 1)
+        receipt_execution_batch_id_for_evidence(protocol, &header, Some(record)),
+        Ok(maintained_id)
     );
-    assert_ne!(
-        receipt_execution_batch_id_for_evidence(protocol, &maintained, Some(&record)),
-        receipt_execution_batch_id_for_evidence(protocol, &maintained, None)
+    let full_range_id = must(program_execution_batch_id(
+        header.previous_state_root(),
+        header.activity_merkle_root(),
+        header.first_sequence(),
+        header.last_sequence(),
+        header.batch_number(),
+    ));
+    assert_eq!(
+        receipt_execution_batch_id(protocol, &header),
+        Ok(full_range_id)
     );
+    assert_eq!(
+        receipt_execution_batch_id_for_evidence(protocol, &header, None),
+        Ok(full_range_id)
+    );
+    let expected = Err(layerx_wire::WireError {
+        result: layerx_types::result::KnownResult::NonCanonical.into(),
+        offset: 0,
+    });
+    for root in [[0; 32], [0xa5; 32]] {
+        assert_ne!(root, protocol.activity_root());
+        bytes[128..160].copy_from_slice(&root);
+        let changed = must(decode_batch_header(&bytes));
+        assert_eq!(changed.activity_merkle_root(), root);
+        assert_eq!(receipt_execution_batch_id(protocol, &changed), expected);
+        assert_eq!(
+            receipt_execution_batch_id_for_evidence(protocol, &changed, None),
+            expected
+        );
+        assert_eq!(
+            receipt_execution_batch_id_maintenance(protocol, &changed, record, count),
+            expected
+        );
+        assert_eq!(
+            receipt_execution_batch_id_for_evidence(protocol, &changed, Some(record)),
+            expected
+        );
+    }
 }

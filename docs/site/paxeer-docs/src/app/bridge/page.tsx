@@ -8,7 +8,7 @@ export default function BridgePage() {
   return <DocsLayout>
     <div className="page-header"><h1 className="page-title">Bridging and balances</h1><p className="page-description">Move assets between registered external chains and Paxeer with attestor signatures, asset limits, and replay protection.</p></div>
     <h2>Choose the asset path</h2>
-    <p>External-chain bridging moves value between a foreign vault and a Paxeer bank denomination. Paxeer mainnet-beta is one BFT chain with EVM chain ID 125; its kernel executes within the network. A successful Paxeer receipt is final when its block is committed. An external payout also requires the destination chain receipt.</p>
+    <p>External-chain bridging moves value between a foreign vault and a Paxeer bank denomination. Paxeer mainnet-beta uses EVM chain ID 125. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A successful Paxeer receipt is final when validators commit its block. An external payout also requires the destination chain receipt.</p>
     <table><thead><tr><th>Boundary</th><th>Asset backing</th><th>Acceptance evidence</th></tr></thead><tbody>
       <tr><td>External chain ↔ Paxeer X</td><td>Foreign-chain vault or Solana custody program</td><td>Threshold attestor signatures, registered chain and asset, caps, unique source event</td></tr>
       <tr><td>Transfers within Paxeer</td><td>Native bank balances and derived sub-accounts</td><td>Successful transaction execution in a committed block</td></tr>

@@ -3,7 +3,7 @@ import Config
 # Database TLS options (config/database_tls.exs) carry a verification function
 # and are applied from config/runtime/prod.exs at startup. They must not be
 # imported here: `mix release` refuses function terms in build-time config.
-# No Explorer.Repo module may carry ssl_opts here; repair_22_31_473_test.exs
+# No Explorer.Repo module may carry ssl_opts here; production_release_configuration_test.exs
 # checks the entire production umbrella configuration and the runtime policy.
 
 # Configures the database

@@ -6,13 +6,21 @@ import os from "node:os";
 import path from "node:path";
 import { encodeFunctionData, type Address, type Hex } from "viem";
 
-import type { AccountState } from "../src/core/perps/calls";
-import { PerpsPrecompileABI, OrderType, TimeInForce } from "../src/core/network/abi/PerpsPrecompile";
-import { buildDeadline, parsePrice } from "../src/core/spot/slippage";
+import type { AccountState } from "@paxeer-network/paxeer-backend/core/perps/calls";
+import {
+  PerpsPrecompileABI,
+  OrderType,
+  TimeInForce,
+} from "@paxeer-network/paxeer-backend/core/network/abi/PerpsPrecompile";
+import {
+  buildDeadline,
+  parsePrice,
+} from "@paxeer-network/paxeer-backend/core/spot/slippage";
 
 process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL = "https://perps-gateway.invalid";
 
-const calls = require("../src/core/perps/calls") as typeof import("../src/core/perps/calls");
+const calls =
+  require("@paxeer-network/paxeer-backend/core/perps/calls") as typeof import("@paxeer-network/paxeer-backend/core/perps/calls");
 const {
   acceptablePrice,
   buildAddCollateral,
@@ -44,7 +52,7 @@ const {
   ladderCloid,
 } = calls;
 const { deriveImpliedCollateral, safeParseUnits } =
-  require("../src/core/perps/amounts") as typeof import("../src/core/perps/amounts");
+  require("@paxeer-network/paxeer-backend/core/perps/amounts") as typeof import("@paxeer-network/paxeer-backend/core/perps/amounts");
 
 const ROOT = path.resolve(__dirname, "..");
 const PERPS: Address = "0x0000000000000000000000000000000000001015";
@@ -65,8 +73,14 @@ function refusedWith(code: string): (err: unknown) => boolean {
   };
 }
 
-function encodes(c: { abi: typeof PerpsPrecompileABI; functionName: string; args: readonly unknown[] }): void {
-  const data = encodeFunctionData(c as Parameters<typeof encodeFunctionData>[0]);
+function encodes(c: {
+  abi: typeof PerpsPrecompileABI;
+  functionName: string;
+  args: readonly unknown[];
+}): void {
+  const data = encodeFunctionData(
+    c as Parameters<typeof encodeFunctionData>[0],
+  );
   assert.match(data, /^0x[0-9a-f]{8}/);
 }
 
@@ -150,7 +164,11 @@ describe("position writes", () => {
   });
 
   it("closeLongBoundRoundsDown", () => {
-    const c = buildClosePosition({ positionId: 7n, isLong: true, exitPrice: 96_000n * E18 });
+    const c = buildClosePosition({
+      positionId: 7n,
+      isLong: true,
+      exitPrice: 96_000n * E18,
+    });
     assert.equal(c.address, PERPS);
     assert.equal(c.functionName, "closePositionWithParams");
     assert.deepEqual(c.args, [7n, 0n, 95_520n * E18, 1_000_060n]);
@@ -158,7 +176,12 @@ describe("position writes", () => {
   });
 
   it("partialCloseShortBoundRoundsUp", () => {
-    const c = buildPartialClose({ positionId: 7n, isLong: false, closeSizeUsd: 1_000n * E18, exitPrice: 90_000n * E18 });
+    const c = buildPartialClose({
+      positionId: 7n,
+      isLong: false,
+      closeSizeUsd: 1_000n * E18,
+      exitPrice: 90_000n * E18,
+    });
     assert.equal(c.address, PERPS);
     assert.equal(c.functionName, "closePositionWithParams");
     assert.deepEqual(c.args, [7n, 1_000n * E18, 90_450n * E18, 1_000_060n]);
@@ -278,7 +301,11 @@ describe("orders", () => {
     });
     assert.equal(c.address, PERPS);
     assert.equal(c.functionName, "setPositionTpSl");
-    assert.deepEqual(c.args, [7n, 100000000000000000000000n, 94000000000000000000000n]);
+    assert.deepEqual(c.args, [
+      7n,
+      100000000000000000000000n,
+      94000000000000000000000n,
+    ]);
     encodes(c);
     const cleared = buildSetPositionTpSl({
       positionId: 7n,
@@ -323,9 +350,17 @@ describe("orders", () => {
 
 describe("account", () => {
   it("depositTargetsPerpsAccount", async () => {
-    const plan = await buildDepositPlan(safeParseUnits("100", 6), async () => 0n, NATIVE);
+    const plan = await buildDepositPlan(
+      safeParseUnits("100", 6),
+      async () => 0n,
+      NATIVE,
+    );
     assert.equal(plan.length, 2);
-    assert.deepEqual(plan[0], { address: USDL, functionName: "approve", args: [PERPS, 100_000_000n] });
+    assert.deepEqual(plan[0], {
+      address: USDL,
+      functionName: "approve",
+      args: [PERPS, 100_000_000n],
+    });
     const deposit = plan[1];
     assert.ok("abi" in deposit);
     assert.equal(deposit.address, PERPS);
@@ -335,7 +370,11 @@ describe("account", () => {
       plan.map((c) => c.functionName),
       ["approve", "deposit"],
     );
-    const covered = await buildDepositPlan(100_000_000n, async () => 100_000_000n, NATIVE);
+    const covered = await buildDepositPlan(
+      100_000_000n,
+      async () => 100_000_000n,
+      NATIVE,
+    );
     assert.deepEqual(covered, [buildDeposit(100_000_000n)]);
   });
 
@@ -372,8 +411,14 @@ describe("account", () => {
     encodes(summary);
     encodes(account);
     const zero: Address = "0x0000000000000000000000000000000000000000";
-    assert.throws(() => buildGetAccount(zero), refusedWith("WALLET_NOT_CONNECTED"));
-    assert.throws(() => buildGetUserPositionIds(zero), refusedWith("WALLET_NOT_CONNECTED"));
+    assert.throws(
+      () => buildGetAccount(zero),
+      refusedWith("WALLET_NOT_CONNECTED"),
+    );
+    assert.throws(
+      () => buildGetUserPositionIds(zero),
+      refusedWith("WALLET_NOT_CONNECTED"),
+    );
   });
 
   it("withdrawAllUsesAvailable", () => {
@@ -398,7 +443,10 @@ describe("account", () => {
       Object.keys(calls).filter((name) => /emergency/i.test(name)),
       [],
     );
-    assert.throws(() => buildWithdrawAll({ withdrawable: 0n }), refusedWith("VALIDATION_AMOUNT_INVALID"));
+    assert.throws(
+      () => buildWithdrawAll({ withdrawable: 0n }),
+      refusedWith("VALIDATION_AMOUNT_INVALID"),
+    );
   });
 });
 
@@ -424,7 +472,10 @@ describe("price bound and deadline", () => {
     assert.equal(bound, ((E18 + 1n) * 10_050n) / 10_000n);
     assert.equal(bound, 1_005_000_000_000_000_001n);
     assert.equal(acceptablePrice(entry, true, "open", 0), entry);
-    assert.throws(() => acceptablePrice(entry, true, "open", 10_000), RangeError);
+    assert.throws(
+      () => acceptablePrice(entry, true, "open", 10_000),
+      RangeError,
+    );
     assert.throws(() => acceptablePrice(entry, true, "open", 0.5), RangeError);
   });
 });
@@ -440,27 +491,49 @@ describe("refusals", () => {
 
   it("zeroAmountIsRefused", () => {
     const invalid = refusedWith("VALIDATION_AMOUNT_INVALID");
-    assert.throws(() => buildOpenPosition({ ...open, collateralAmount: 0n }), invalid);
+    assert.throws(
+      () => buildOpenPosition({ ...open, collateralAmount: 0n }),
+      invalid,
+    );
     assert.throws(() => buildAddCollateral(7n, 0n), invalid);
     assert.throws(() => buildRemoveCollateral(7n, 0n), invalid);
     assert.throws(() => buildTopUpPosition(7n, 0n), invalid);
     assert.throws(() => buildDeposit(0n), invalid);
     assert.throws(() => buildWithdraw(0n), invalid);
-    assert.throws(() => buildPartialClose({ positionId: 7n, isLong: true, closeSizeUsd: 0n, exitPrice: E18 }), invalid);
-    assert.throws(() => buildClosePosition({ positionId: 7n, isLong: true, exitPrice: 0n }), invalid);
+    assert.throws(
+      () =>
+        buildPartialClose({
+          positionId: 7n,
+          isLong: true,
+          closeSizeUsd: 0n,
+          exitPrice: E18,
+        }),
+      invalid,
+    );
+    assert.throws(
+      () => buildClosePosition({ positionId: 7n, isLong: true, exitPrice: 0n }),
+      invalid,
+    );
     let reads = 0;
     return assert.rejects(
-      buildDepositPlan(0n, async () => {
-        reads += 1;
-        return 0n;
-      }, NATIVE),
+      buildDepositPlan(
+        0n,
+        async () => {
+          reads += 1;
+          return 0n;
+        },
+        NATIVE,
+      ),
       (err) => invalid(err) && reads === 0,
     );
   });
 
   it("subOneXLeverageIsRefused", () => {
     const below = refusedWith("VALIDATION_BELOW_MIN");
-    assert.throws(() => buildOpenPosition({ ...open, leverage: E18 - 1n }), below);
+    assert.throws(
+      () => buildOpenPosition({ ...open, leverage: E18 - 1n }),
+      below,
+    );
     assert.throws(
       () =>
         buildAddSize({
@@ -471,28 +544,59 @@ describe("refusals", () => {
         }),
       below,
     );
-    assert.equal(buildOpenPosition({ ...open, leverage: E18 }).args[0].leverage, E18);
+    assert.equal(
+      buildOpenPosition({ ...open, leverage: E18 }).args[0].leverage,
+      E18,
+    );
   });
 
   it("invertedTpSlIsRefused", () => {
     const tpsl = refusedWith("TRADE_TP_SL_INVALID");
-    assert.throws(() => buildOpenPosition({ ...open, takeProfitPrice: 94_000n * E18 }), tpsl);
-    assert.throws(() => buildOpenPosition({ ...open, stopLossPrice: 96_000n * E18 }), tpsl);
     assert.throws(
-      () => buildOpenPosition({ ...open, isLong: false, takeProfitPrice: 100_000n * E18, stopLossPrice: 94_000n * E18 }),
+      () => buildOpenPosition({ ...open, takeProfitPrice: 94_000n * E18 }),
+      tpsl,
+    );
+    assert.throws(
+      () => buildOpenPosition({ ...open, stopLossPrice: 96_000n * E18 }),
+      tpsl,
+    );
+    assert.throws(
+      () =>
+        buildOpenPosition({
+          ...open,
+          isLong: false,
+          takeProfitPrice: 100_000n * E18,
+          stopLossPrice: 94_000n * E18,
+        }),
       tpsl,
     );
     assert.equal(
-      buildOpenPosition({ ...open, isLong: false, takeProfitPrice: 90_000n * E18, stopLossPrice: 99_000n * E18 }).args[0]
-        .takeProfitPrice,
+      buildOpenPosition({
+        ...open,
+        isLong: false,
+        takeProfitPrice: 90_000n * E18,
+        stopLossPrice: 99_000n * E18,
+      }).args[0].takeProfitPrice,
       90_000n * E18,
     );
     assert.throws(
-      () => buildSetPositionTpSl({ positionId: 7n, isLong: true, takeProfitPrice: 94_000n * E18, stopLossPrice: 100_000n * E18 }),
+      () =>
+        buildSetPositionTpSl({
+          positionId: 7n,
+          isLong: true,
+          takeProfitPrice: 94_000n * E18,
+          stopLossPrice: 100_000n * E18,
+        }),
       tpsl,
     );
     assert.throws(
-      () => buildSetPositionTpSl({ positionId: 7n, isLong: false, takeProfitPrice: 100_000n * E18, stopLossPrice: 94_000n * E18 }),
+      () =>
+        buildSetPositionTpSl({
+          positionId: 7n,
+          isLong: false,
+          takeProfitPrice: 100_000n * E18,
+          stopLossPrice: 94_000n * E18,
+        }),
       tpsl,
     );
     assert.throws(
@@ -515,13 +619,18 @@ describe("refusals", () => {
 });
 
 function lockfilesCarryNoMinimatchStubTypes(): void {
-  const npmLock = JSON.parse(readFileSync(path.join(ROOT, "package-lock.json"), "utf8")) as {
+  const npmLock = JSON.parse(
+    readFileSync(path.join(ROOT, "package-lock.json"), "utf8"),
+  ) as {
     packages: Record<string, { version?: string }>;
   };
   const npmMinimatchTypes = Object.entries(npmLock.packages).filter(([name]) =>
     name.endsWith("node_modules/@types/minimatch"),
   );
-  assert.ok(npmMinimatchTypes.length > 0, "npm lockfile must resolve @types/minimatch");
+  assert.ok(
+    npmMinimatchTypes.length > 0,
+    "npm lockfile must resolve @types/minimatch",
+  );
   for (const [name, entry] of npmMinimatchTypes) {
     assert.equal(entry.version, "5.1.2", `${name} must ship declarations`);
   }
@@ -538,8 +647,8 @@ function buildersAreTyped(): void {
   const dir = mkdtempSync(path.join(os.tmpdir(), "perps-calls-typed-"));
   try {
     const probe = [
-      `import { PerpsPrecompileABI } from ${JSON.stringify(path.join(ROOT, "src/core/network/abi/PerpsPrecompile"))};`,
-      `import type { PerpsCall } from ${JSON.stringify(path.join(ROOT, "src/core/perps/calls"))};`,
+      `import { PerpsPrecompileABI } from ${JSON.stringify(path.join(ROOT, "packages/paxeer-backend/src/core/network/abi/PerpsPrecompile"))};`,
+      `import type { PerpsCall } from ${JSON.stringify(path.join(ROOT, "packages/paxeer-backend/src/core/perps/calls"))};`,
       `export const good: PerpsCall<"closePositionWithParams"> = { address: "${PERPS}", abi: PerpsPrecompileABI, functionName: "closePositionWithParams", args: [7n, 1n, 2n, 3n] };`,
       `export const bad: PerpsCall<"closePositionWithParams"> = { address: "${PERPS}", abi: PerpsPrecompileABI, functionName: "closePositionWithParams", args: [7n, 1n, 2n] };`,
       "",
@@ -549,20 +658,33 @@ function buildersAreTyped(): void {
       path.join(dir, "tsconfig.json"),
       JSON.stringify({
         extends: path.join(ROOT, "tsconfig.json"),
-        compilerOptions: { incremental: false, noEmit: true, typeRoots: [path.join(ROOT, "node_modules/@types")] },
+        compilerOptions: {
+          incremental: false,
+          noEmit: true,
+          typeRoots: [path.join(ROOT, "node_modules/@types")],
+        },
         include: [],
         files: ["probe.ts"],
       }),
     );
-    const result = spawnSync(path.join(ROOT, "node_modules/.bin/tsc"), ["-p", dir, "--pretty", "false"], {
-      cwd: ROOT,
-      encoding: "utf8",
-    });
+    const result = spawnSync(
+      path.join(ROOT, "node_modules/.bin/tsc"),
+      ["-p", dir, "--pretty", "false"],
+      {
+        cwd: ROOT,
+        encoding: "utf8",
+      },
+    );
     assert.notEqual(result.status, 0);
-    const errors = result.stdout.split("\n").filter((line) => line.includes("error TS"));
+    const errors = result.stdout
+      .split("\n")
+      .filter((line) => line.includes("error TS"));
     assert.equal(errors.length, 1, result.stdout);
     assert.match(errors[0], /probe\.ts\(4,/);
-    assert.match(result.stdout, /Source has 3 element\(s\) but target requires 4/);
+    assert.match(
+      result.stdout,
+      /Source has 3 element\(s\) but target requires 4/,
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

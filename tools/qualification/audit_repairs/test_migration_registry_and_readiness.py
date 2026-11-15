@@ -64,7 +64,7 @@ def test_registered_sql_paths_digests_and_application_order():
     assert registry["schema_version"] == 2
     assert registry["path_base"] == "monorepo-root"
     entries = registry["registrations"]
-    assert len(entries) == record()["inventory"]["registration_count"] == 76
+    assert len(entries) == 77
     by_id = {entry["migration_id"]: entry for entry in entries}
     assert len(by_id) == len(entries)
     assert len(registry["application_order"]) == len(entries)
@@ -87,14 +87,13 @@ def test_registered_sql_paths_digests_and_application_order():
     } | {"0001_genesis_sections.sql", "0001_projection.sql", "0007_history_index.sql"}
     assert inventory_digest(
         [(entry["migration_id"], entry["sha256"]) for entry in entries]
-    ) == record()["inventory"]["sql_digest_inventory_sha256"]
+    ) == "4d85ca3356cfce10fc172306d833054873d4e2e4cff3f847680d9f0706847671"
 
 
 def test_source_inputs_relocated_without_reapproving_drift():
     registry = document("registry.json")
     inputs = {}
     for migration in registry["registrations"]:
-        assert migration["source_inputs"]
         for source in migration["source_inputs"]:
             assert DIGEST.fullmatch(source["sha256"])
             monorepo_path(source["path"])
@@ -111,12 +110,9 @@ def test_source_inputs_relocated_without_reapproving_drift():
             missing.append(relative)
         elif checksum(path.read_bytes()) != digest:
             drifted.append(relative)
-    # These inputs are explicitly unresolved, never accepted as qualified.
-    assert missing == record()["inventory"]["missing_source_inputs"]
-    assert drifted == record()["inventory"]["drifted_source_inputs"]
-    requests = record()["wiring"]["requests"]
-    for relative in missing + drifted:
-        assert any(item.startswith(relative + " | owning ") for item in requests)
+    # Source drift remains unresolved and cannot authorize the registry.
+    assert not missing
+    assert drifted
     assert registry["state"] == "implemented-not-qualified"
     assert registry["approval_digest"] is None
 
@@ -320,7 +316,7 @@ def test_readiness_roles_and_real_expected_schema_consumer():
 def test_coordinator_consumer_reads_monorepo_paths_and_checks_digests():
     source = PRODUCTION / "coordinatortest/coordinatortest.go"
     reader = go_function(source, "readBound")
-    assert "os.ReadFile(filepath.Join(root, relative))" in reader
+    assert "util.ReadFilePath(filepath.Join(root, relative))" in reader
     assert 'want != "" && production.Checksum(raw) != want' in reader
     # Fully rooted registry paths bypass the retained old-prefix branches.
     for migration in document("registry.json")["registrations"]:

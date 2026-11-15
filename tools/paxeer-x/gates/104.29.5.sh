@@ -15,7 +15,7 @@ import sys
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
 TESTS = ROOT / 'programs/crates/layerx-programs-runtime/tests'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 UNIT = {
     'meter::occupancy_class_tests::occupancy_is_its_own_class_outside_one_off_execution_charges': 'occupancy is a resource class distinct from one-off read and write charges',
     'occupancy::tests::evidence_replays_identically_under_its_recorded_schedule': 'occupancy is priced by the recorded schedule, charged to the declared payer and replays identically from canonical evidence',
@@ -102,7 +102,7 @@ def production_path():
 
 try:
     count = production_path()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.29.5'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'occupancy::', 'meter::'], 'occupancy and meter unit suites', env)
     missing = sorted(name for name in UNIT if name not in passed_names(output))

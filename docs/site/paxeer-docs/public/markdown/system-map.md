@@ -177,7 +177,7 @@ Repository references: docs/system/chain-modules.md, docs/site/paxeer-docs/src/a
 ### LayerX anchor module
 
 Identifier: module-layerx-anchor
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: modules/layerxanchor
 
@@ -285,7 +285,7 @@ Repository references: docs/system/chain-modules.md, docs/site/paxeer-docs/src/a
 ### LayerX custody module
 
 Identifier: module-layerx-custody
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: modules/layerxcustody
 
@@ -935,7 +935,7 @@ Repository references: docs/system/precompiles.md, docs/site/paxeer-docs/src/app
 ### LayerX anchor precompile
 
 Identifier: precompile-layerx-anchor
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: precompiles/layerxanchor
 
@@ -1043,7 +1043,7 @@ Repository references: docs/system/precompiles.md, docs/site/paxeer-docs/src/app
 ### LayerX custody precompile
 
 Identifier: precompile-layerx-custody
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: precompiles/layerxcustody
 
@@ -1178,7 +1178,7 @@ Repository references: docs/system/precompiles.md, docs/site/paxeer-docs/src/app
 ### LayerX verify precompile
 
 Identifier: precompile-layerx-verify
-Change in 7.0.0: changed
+Change in 7.0.0: retired
 
 Directory: precompiles/layerxverify
 

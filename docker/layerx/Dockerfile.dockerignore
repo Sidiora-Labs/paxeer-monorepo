@@ -80,7 +80,7 @@ tests
 !services/interop/crates/layerx-mirror/**
 !services/interop/crates/layerx-portable/**
 # Test target declared by services/interop/crates/layerx-portable/Cargo.toml.
-!services/interop/tests/repair_22_33_95.rs
+!services/interop/tests/portable_receipt_verification.rs
 !services/interop/crates/layerx-ucp/**
 !services/interop/crates/layerx-visa-tap/**
 !services/interop/crates/layerx-x402/**

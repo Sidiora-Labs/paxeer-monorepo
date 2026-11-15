@@ -5,9 +5,8 @@ order: 1
 # Concepts
 
 The governance module runs on the Paxeer X chain as wired in
-[node/app.go](../../../../node/app.go). Paxeer is one BFT network: its kernel is
-part of the network and proposes blocks, and a receipt is final when its block
-is committed. Governance proposals change chain state through registered content
+[node/app.go](../../../../node/app.go). The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it.
+A receipt is final when its block is committed. Governance proposals change chain state through registered content
 handlers.
 
 The lifecycle is:

@@ -1,0 +1,11 @@
+[meta]
+member = "layerx-wire"
+acceptance = "22998.1"
+
+[rule.accounts]
+rule = "Published account vectors use the closed account namespaces and exact protocol-three identifiers; the custody reserve namespace is refused."
+files = ["services/agent/crates/layerx-wire/tests/support/wallet_vectors/activities.json", "services/agent/crates/layerx-wire/tests/historical_codec_boundaries.rs"]
+
+[rule.identity]
+rule = "Archived deployment and native supply receipts with no activity-root binding use scalar identity without maintenance and the committed activity range with maintenance; Programs calls require the header's activity-root commitment."
+files = ["services/agent/crates/layerx-wire/tests/maintenance_identity.rs"]

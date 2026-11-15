@@ -400,6 +400,9 @@ max-tx-bytes = {{ .Mempool.MaxTxBytes }}
 # XXX: Unused due to https://github.com/tendermint/tendermint/issues/5796
 max-batch-bytes = {{ .Mempool.MaxBatchBytes }}
 
+# An entry leaves the mempool when it is committed, refused by a recheck when
+# the consensus parameter is on, or past one of these limits.
+#
 # ttl-duration, if non-zero, defines the maximum amount of time a transaction
 # can exist for in the mempool.
 #

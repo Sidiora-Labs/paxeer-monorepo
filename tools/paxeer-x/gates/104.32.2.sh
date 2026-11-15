@@ -15,7 +15,7 @@ import sys
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
 TESTS = ROOT / 'programs/crates/layerx-programs-runtime/tests'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 EXTERNAL_ARTIFACT_SUITES = {'interpreter_program', 'program_spend_composition'}
 UNIT_SCOPES = ['abi::', 'calls::', 'engine::', 'host::', 'validate::']
 INVARIANTS = ['validate::linker_invariant_tests::nested_resolution_reuses_the_engine_owned_linker',
@@ -80,7 +80,7 @@ def structure():
 
 try:
     count = structure()
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.32.2'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'validate::linker_invariant_tests', '--nocapture', '--test-threads=1'],
                  'linker invariant and deep-composition measurement', env)

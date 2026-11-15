@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CRATE = ROOT / "programs/crates/layerx-programs-ai-market"
-GATEWAY = ROOT / "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+GATEWAY = ROOT / "services/platform/hosted/gateway/tests/upstream_read_contracts.rs"
 RUST_TOKEN = re.compile(
     r'//[^\n]*|/\*[\s\S]*?\*/|r(?P<hashes>\#*)"[\s\S]*?"(?P=hashes)'
     r'|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])\'|[A-Za-z_]\w*|[^\s]'

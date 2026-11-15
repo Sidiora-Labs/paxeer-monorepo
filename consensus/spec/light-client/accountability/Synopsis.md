@@ -5,8 +5,8 @@ It is a research abstraction of the protocol in
 *[The latest gossip on BFT consensus](https://arxiv.org/abs/1807.04938)*, rather
 than an executable specification of the merged Paxeer node.
 
-Paxeer mainnet-beta is one BFT network (`paxd`, EVM chain ID 125), with the kernel
-participating in block proposals. Receipts are final when their blocks commit.
+Paxeer mainnet-beta uses EVM chain ID 125.
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. Receipts are final when their blocks commit.
 These TLA+ modules do not model the application's
 [`FinalizeBlock`/`Commit` lifecycle](../../core/state.md#execution), nor Autobahn
 certificates and persistent recovery. For the implementation boundary, see

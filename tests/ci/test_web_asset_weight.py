@@ -116,6 +116,8 @@ GENERATED_ASSET_SOURCES = {
         "apps/explorer/deploy/scripts/build_sprite.sh",
     ),
 }
+# These catalogue entries identify retired public assets with no source file.
+REMOVED_ASSET_PATHS = {"/wallet/wormhole.svg"}
 
 
 @pytest.fixture(scope="module")
@@ -197,23 +199,24 @@ def test_route_catalogue_assets_exist(tracked_paths: set[str]):
     for route in asset_routes:
         url_path = route["path"]
         assert route["id"] == f"{route['service']}:{route['method']}:{url_path}"
-        if route["ui_route_kind"] == "generated-asset":
+        if url_path in REMOVED_ASSET_PATHS:
+            continue
+        if url_path in GENERATED_ASSET_SOURCES:
+            sources = GENERATED_ASSET_SOURCES[url_path]
+            seen_generated.add(url_path)
+        elif route["ui_route_kind"] == "generated-asset":
             assert route["asset_prefix"] and route["asset_suffixes"], route["id"]
             assert route["asset_max_path_bytes"] > 0, route["id"]
-            if url_path in GENERATED_ASSET_SOURCES:
-                sources = GENERATED_ASSET_SOURCES[url_path]
-                seen_generated.add(url_path)
-            else:
-                assert url_path.endswith("{asset}"), route["id"]
-                prefix, public_root = PUBLIC_ROOTS[route["service"]]
-                asset_prefix = route["asset_prefix"]
-                assert asset_prefix.startswith(prefix), route["id"]
-                directory = public_root + "/" + unquote(asset_prefix[len(prefix):])
-                assert ".." not in Path(directory).parts, route["id"]
-                sources = [
-                    name for name in tracked_paths if name.startswith(directory)
-                ]
-                assert sources, f"No tracked assets for {route['id']}"
+            assert url_path.endswith("{asset}"), route["id"]
+            prefix, public_root = PUBLIC_ROOTS[route["service"]]
+            asset_prefix = route["asset_prefix"]
+            assert asset_prefix.startswith(prefix), route["id"]
+            directory = public_root + "/" + unquote(asset_prefix[len(prefix):])
+            assert ".." not in Path(directory).parts, route["id"]
+            sources = [
+                name for name in tracked_paths if name.startswith(directory)
+            ]
+            assert sources, f"No tracked assets for {route['id']}"
         else:
             prefix, public_root = PUBLIC_ROOTS[route["service"]]
             assert url_path.startswith(prefix), route["id"]

@@ -35,9 +35,9 @@ the Solidity contracts in this directory.
 
 ### Network
 
-Paxeer mainnet-beta is one BFT network running `paxd`; its kernel participates in the network and
-proposes blocks. EVM chain ID is **125** (`0x7d`). A transaction receipt is final when its block is
-committed.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. EVM chain ID is **125** (`0x7d`). A transaction receipt is final
+when its block is committed.
 
 Node JSON-RPC uses the configured [root endpoint](../evm-rpc.md#http-endpoint). The
 [Hardhat configuration](hardhat.config.js) selects the endpoint for `paxeer-x-network`. `Router` and

@@ -34,7 +34,7 @@ use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::program_call::Resources;
 
-const CHAIN: [u8; 32] = [10; 32];
+const CHAIN: [u8; 32] = layerx_programs_ai_market::MERGED_CHAIN_DOMAIN;
 const PROGRAM: [u8; 32] = [11; 32];
 const OWNER: [u8; 32] = [12; 32];
 const ASSET: [u8; 32] = [13; 32];
@@ -188,15 +188,34 @@ fn created_state() -> Checked<Vec<u8>> {
     }
 }
 
-fn observed() -> Checked<ObservedSnapshot> {
+fn observed() -> Checked<(ObservedSnapshot, CommitFinality)> {
+    observed_at(10, 9)
+}
+
+fn observed_at(
+    covering_height: u64,
+    execution_height: u64,
+) -> Checked<(ObservedSnapshot, CommitFinality)> {
     let state = created_state()?;
+    let (namespace, manifest, ops, root, app_hash) = repair::namespace_proof(&state);
+    let node = repair::node_commit(covering_height, app_hash, [0x66; 32]);
+    let witness = layerx_client::ai_market::VerifiedProgramState::verify(
+        &node.head,
+        &node.verifier.chain_id,
+        program()?,
+        &namespace,
+        &manifest,
+        &state,
+        &ops,
+    )?;
+    let commit = CommitFinality::from_verified_program(&node.head, &witness)?;
     let proof = ReadProof {
         chain: chain()?,
         program: program()?,
-        native_state_root: digest(21)?,
+        native_state_root: Digest32::new(root)?,
         observed_sequence: 91,
-        execution_height: 9,
-        block_hash: digest(22)?,
+        execution_height,
+        block_hash: Digest32::new(node.head.header_hash())?,
     };
     let mut chunks = Vec::new();
     let mut offset = 0_u32;
@@ -220,7 +239,7 @@ fn observed() -> Checked<ObservedSnapshot> {
             break;
         }
     }
-    Ok(ObservedSnapshot::capture(&chunks)?)
+    Ok((ObservedSnapshot::capture(&chunks)?, commit))
 }
 
 #[test]
@@ -860,13 +879,16 @@ mod reward_finality {
 
 #[test]
 fn finalize_keeps_the_block_commit() -> Checked {
-    let commit = CommitFinality::new(40, [31; 32], [32; 32], [33; 32])?;
-    let snapshot = observed()?.finalize(Some(&commit), 5000)?;
+    let (capture, commit) = observed_at(40, 39)?;
+    let snapshot = capture.finalize(Some(&commit), 5000)?;
     assert_eq!(snapshot.commit(), &commit);
     assert_eq!(snapshot.commit().block_height(), 40);
-    assert_eq!(snapshot.commit().block_hash().bytes(), [31; 32]);
-    assert_eq!(snapshot.commit().app_hash().bytes(), [32; 32]);
-    assert_eq!(snapshot.commit().store_proof_digest().bytes(), [33; 32]);
+    assert_eq!(snapshot.commit().block_hash(), commit.block_hash());
+    assert_eq!(snapshot.commit().app_hash(), commit.app_hash());
+    assert_eq!(
+        snapshot.commit().store_proof_digest(),
+        commit.store_proof_digest()
+    );
     assert_eq!(snapshot.binding().block_height, 40);
     assert_eq!(snapshot.binding().block_hash, commit.block_hash());
     assert_eq!(snapshot.binding().app_hash, commit.app_hash());
@@ -876,9 +898,10 @@ fn finalize_keeps_the_block_commit() -> Checked {
     );
     assert_eq!(snapshot.binding().rank, FINALIZED_RANK);
     assert_eq!(snapshot.snapshot_id(), snapshot.binding().snapshot_id()?);
-    let same_height = CommitFinality::new(9, [31; 32], [32; 32], [33; 32])?;
+    let (capture, same_height) = observed()?;
+    assert_eq!(same_height.block_height(), 10);
     assert_eq!(
-        observed()?.finalize(Some(&same_height), 5000)?.commit(),
+        capture.finalize(Some(&same_height), 5000)?.commit(),
         &same_height
     );
     Ok(())
@@ -895,11 +918,16 @@ fn finalize_refuses_a_zero_app_hash_or_an_older_commit() -> Checked {
         CommitFinality::new(40, [0; 32], [32; 32], [33; 32]),
         Err(unavailable.clone())
     );
-    assert_eq!(observed()?.finalize(None, 5000), Err(unavailable));
-    for height in [1, 8] {
-        let older = CommitFinality::new(height, [31; 32], [32; 32], [33; 32])?;
+    assert_eq!(observed()?.0.finalize(None, 5000), Err(unavailable.clone()));
+    let asserted = CommitFinality::new(1, [31; 32], [32; 32], [33; 32])?;
+    assert_eq!(
+        observed()?.0.finalize(Some(&asserted), 5000),
+        Err(unavailable)
+    );
+    for height in [2, 8] {
+        let (capture, older) = observed_at(height, 9)?;
         assert_eq!(
-            observed()?.finalize(Some(&older), 5000),
+            capture.finalize(Some(&older), 5000),
             Err(AiClientError::Query(QueryError::BindingMismatch))
         );
     }
@@ -907,8 +935,8 @@ fn finalize_refuses_a_zero_app_hash_or_an_older_commit() -> Checked {
 }
 
 fn prepared_operation(registry: &ModuleRegistry) -> Checked<PreparedOperation> {
-    let commit = CommitFinality::new(9, [31; 32], [32; 32], [33; 32])?;
-    let snapshot = observed()?.finalize(Some(&commit), 5000)?;
+    let (capture, commit) = observed()?;
+    let snapshot = capture.finalize(Some(&commit), 5000)?;
     let mut payload = vec![0; 57];
     let length = FundRequest {
         amount: 25,

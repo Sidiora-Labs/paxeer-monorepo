@@ -16,6 +16,16 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/pnl"
 )
 
+const (
+	stopLimitOrder  = "stop_limit"
+	limitOrder      = "limit"
+	projectionError = "project %s: %w"
+	positionPrefix  = "position "
+	orderPrefix     = "order "
+	cancelledStatus = "cancelled"
+	expiredStatus   = "expired"
+)
+
 // ErrNotProjected reports a fact row naming an order, position or spot order
 // that has no projection row and no stored projection seed, or a fact row
 // that is not stored.
@@ -39,9 +49,9 @@ const (
 
 // Spot order kinds and their event kind prefixes, longest first.
 var spotKinds = []struct{ prefix, kind string }{
-	{"stop_limit_", "stop_limit"},
+	{"stop_limit_", stopLimitOrder},
 	{"stop_loss_", "stop_loss"},
-	{"limit_", "limit"},
+	{"limit_", limitOrder},
 }
 
 // Spot order types of the source enumeration (IPECOROrders.OrderType).
@@ -105,7 +115,7 @@ func Project(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 	return rebuildLeaderboard(ctx, tx, at, accounts.list...)
 }
 
-func expiredLeaderboardAccounts(ctx context.Context, tx *sql.Tx, at time.Time) ([]common.Address, error) {
+func expiredLeaderboardAccounts(ctx context.Context, tx *sql.Tx, at time.Time) (result0 []common.Address, resultErr error) {
 	rows, err := tx.QueryContext(ctx, `WITH previous AS (
     SELECT time FROM perps.blocks ORDER BY number DESC OFFSET 1 LIMIT 1
 ), windows ("window", span) AS (
@@ -127,7 +137,11 @@ ORDER BY b.account`, at.UTC())
 	if err != nil {
 		return nil, fmt.Errorf("store: select expired leaderboard accounts: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	var accounts []common.Address
 	for rows.Next() {
 		var account []byte
@@ -234,7 +248,7 @@ func rebuildLeaderboard(ctx context.Context, tx *sql.Tx, at time.Time, accounts 
 
 // project folds the rows of one block into every projection but
 // perps.leaderboard and reports whether the block changes the leaderboard.
-func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (bool, error) {
+func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (result0 bool, resultErr error) {
 	var first decode.Fact
 	if len(rows) != 0 {
 		first = rows[0].Common()
@@ -342,7 +356,11 @@ func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("store: select stale market stats: %w", err)
 	}
-	defer expired.Close()
+	defer func() {
+		if closeErr := expired.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	for expired.Next() {
 		var market string
 		if err := expired.Scan(&market); err != nil {
@@ -407,11 +425,11 @@ func exec1(ctx context.Context, tx *sql.Tx, what, query string, args ...any) err
 	for seeded := false; ; seeded = true {
 		res, err := tx.ExecContext(ctx, query, args...)
 		if err != nil {
-			return fmt.Errorf("project %s: %w", what, err)
+			return fmt.Errorf(projectionError, what, err)
 		}
 		n, err := res.RowsAffected()
 		if err != nil {
-			return fmt.Errorf("project %s: %w", what, err)
+			return fmt.Errorf(projectionError, what, err)
 		}
 		if n == 1 {
 			return nil
@@ -446,7 +464,7 @@ func scan1(ctx context.Context, tx *sql.Tx, what, query, id string, dest any) er
 	case errors.Is(err, sql.ErrNoRows):
 		return fmt.Errorf("%w: %s", ErrNotProjected, what)
 	case err != nil:
-		return fmt.Errorf("project %s: %w", what, err)
+		return fmt.Errorf(projectionError, what, err)
 	}
 	return nil
 }
@@ -500,34 +518,34 @@ func projectPosition(ctx context.Context, tx *sql.Tx, row decode.Row) error {
 		if err != nil {
 			return err
 		}
-		return exec1(ctx, tx, "position "+r.PositionID, positionOpenSQL, r.PositionID, r.User.Bytes(), r.MarketID, r.IsLong,
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionOpenSQL, r.PositionID, r.User.Bytes(), r.MarketID, r.IsLong,
 			r.SizeUSD, collateralUSD, r.CollateralAmount, r.CollateralToken.Bytes(), r.EntryPrice, r.Leverage, block)
 	case decode.PositionModifiedRow:
-		return exec1(ctx, tx, "position "+r.PositionID, positionModifySQL, r.PositionID, r.NewSizeUSD, r.NewCollateralUSD, r.NewCollateralAmount)
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionModifySQL, r.PositionID, r.NewSizeUSD, r.NewCollateralUSD, r.NewCollateralAmount)
 	case decode.PositionEntryPriceChangedRow:
-		return exec1(ctx, tx, "position "+r.PositionID, positionEntrySQL, r.PositionID, r.NewEntryPrice)
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionEntrySQL, r.PositionID, r.NewEntryPrice)
 	case decode.PositionTpSlSetRow:
-		return exec1(ctx, tx, "position "+r.PositionID, positionTpSlSQL, r.PositionID, r.TakeProfitPrice, r.StopLossPrice)
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionTpSlSQL, r.PositionID, r.TakeProfitPrice, r.StopLossPrice)
 	case decode.PositionFundingAppliedRow:
-		return exec1(ctx, tx, "position "+r.PositionID, positionFundingSQL, r.PositionID, r.NewCollateralUSD, r.NewCollateralAmount)
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionFundingSQL, r.PositionID, r.NewCollateralUSD, r.NewCollateralAmount)
 	case decode.ADLExecutedRow:
 		var size string
-		if err := scan1(ctx, tx, "position "+r.PositionID, positionSizeSQL, r.PositionID, &size); err != nil {
+		if err := scan1(ctx, tx, positionPrefix+r.PositionID, positionSizeSQL, r.PositionID, &size); err != nil {
 			return err
 		}
 		reduced, err := bigint.Sub(size, r.DeleveragedSizeUSD)
 		if err != nil {
 			return fmt.Errorf("project position %s adl: %w", r.PositionID, err)
 		}
-		return exec1(ctx, tx, "position "+r.PositionID, positionResizeSQL, r.PositionID, reduced)
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionResizeSQL, r.PositionID, reduced)
 	case decode.PositionClosedRow:
 		block, err := blockArg(r.Block)
 		if err != nil {
 			return err
 		}
-		return exec1(ctx, tx, "position "+r.PositionID, positionCloseSQL, r.PositionID, r.RealizedPnl, r.IsFullClose, block, r.TxHash.Bytes())
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionCloseSQL, r.PositionID, r.RealizedPnl, r.IsFullClose, block, r.TxHash.Bytes())
 	case decode.LiquidationRow:
-		return exec1(ctx, tx, "position "+r.PositionID, positionLiquidateSQL, r.PositionID, r.TxHash.Bytes())
+		return exec1(ctx, tx, positionPrefix+r.PositionID, positionLiquidateSQL, r.PositionID, r.TxHash.Bytes())
 	}
 	return nil
 }
@@ -560,19 +578,19 @@ func projectOrder(ctx context.Context, tx *sql.Tx, row decode.Row) error {
 	}
 	switch r := row.(type) {
 	case decode.OrderPlacedRow:
-		return exec1(ctx, tx, "order "+r.OrderID, orderPlaceSQL, r.OrderID, r.User.Bytes(), r.MarketID, int16(r.OrderType), r.IsLong,
+		return exec1(ctx, tx, orderPrefix+r.OrderID, orderPlaceSQL, r.OrderID, r.User.Bytes(), r.MarketID, int16(r.OrderType), r.IsLong,
 			r.TriggerPrice, r.SizeUSD, block)
 	case decode.OrderOptionsRow:
-		return exec1(ctx, tx, "order "+r.OrderID, orderOptionsSQL, r.OrderID, int16(r.TimeInForce), r.ReduceOnly, r.LimitPrice,
+		return exec1(ctx, tx, orderPrefix+r.OrderID, orderOptionsSQL, r.OrderID, int16(r.TimeInForce), r.ReduceOnly, r.LimitPrice,
 			r.AcceptablePrice, r.Deadline, r.Cloid[:])
 	case decode.OrderTriggeredRow:
-		return exec1(ctx, tx, "order "+r.OrderID, orderTriggerSQL, r.OrderID)
+		return exec1(ctx, tx, orderPrefix+r.OrderID, orderTriggerSQL, r.OrderID)
 	case decode.OrderExecutedRow:
-		return exec1(ctx, tx, "order "+r.OrderID, orderExecutedSQL, r.OrderID, r.PositionID, r.ExecutionPrice)
+		return exec1(ctx, tx, orderPrefix+r.OrderID, orderExecutedSQL, r.OrderID, r.PositionID, r.ExecutionPrice)
 	case decode.OrderCancelledRow:
-		return exec1(ctx, tx, "order "+r.OrderID, orderCloseSQL, r.OrderID, "cancelled", block)
+		return exec1(ctx, tx, orderPrefix+r.OrderID, orderCloseSQL, r.OrderID, cancelledStatus, block)
 	case decode.OrderExpiredRow:
-		return exec1(ctx, tx, "order "+r.OrderID, orderCloseSQL, r.OrderID, "expired", block)
+		return exec1(ctx, tx, orderPrefix+r.OrderID, orderCloseSQL, r.OrderID, expiredStatus, block)
 	case decode.FillRow:
 		for _, id := range []string{r.MakerOrderID, r.TakerOrderID} {
 			if id == "0" {
@@ -588,14 +606,14 @@ func projectOrder(ctx context.Context, tx *sql.Tx, row decode.Row) error {
 
 func fillOrder(ctx context.Context, tx *sql.Tx, orderID, size string, block int64) error {
 	var remaining string
-	if err := scan1(ctx, tx, "order "+orderID, orderRemainingSQL, orderID, &remaining); err != nil {
+	if err := scan1(ctx, tx, orderPrefix+orderID, orderRemainingSQL, orderID, &remaining); err != nil {
 		return err
 	}
 	left, err := bigint.Sub(remaining, size)
 	if err != nil {
 		return fmt.Errorf("project order %s fill: %w", orderID, err)
 	}
-	return exec1(ctx, tx, "order "+orderID, orderFillSQL, orderID, left, block)
+	return exec1(ctx, tx, orderPrefix+orderID, orderFillSQL, orderID, left, block)
 }
 
 const (
@@ -646,7 +664,7 @@ func projectSpotOrder(ctx context.Context, tx *sql.Tx, f decode.Fact) error {
 	case "created":
 		side, err := spotSide(kind, orderType)
 		if err != nil {
-			return fmt.Errorf("project %s: %w", what, err)
+			return fmt.Errorf(projectionError, what, err)
 		}
 		return exec1(ctx, tx, what, spotPlaceSQL, orderID, user, kind, orderType, side, token, stablecoin, amount, target, stop,
 			limit, trigger, block)
@@ -656,12 +674,12 @@ func projectSpotOrder(ctx context.Context, tx *sql.Tx, f decode.Fact) error {
 		return exec1(ctx, tx, what, spotActivateSQL, kind, orderID)
 	case "executed":
 		return exec1(ctx, tx, what, spotCloseSQL, kind, orderID, "executed", execution, block)
-	case "expired":
-		return exec1(ctx, tx, what, spotCloseSQL, kind, orderID, "expired", nil, block)
-	case "cancelled":
-		status := "cancelled"
-		if kind != "limit" && receiptKind == string(decode.ReceiptSpotEndBlock) {
-			status = "expired"
+	case expiredStatus:
+		return exec1(ctx, tx, what, spotCloseSQL, kind, orderID, expiredStatus, nil, block)
+	case cancelledStatus:
+		status := cancelledStatus
+		if kind != limitOrder && receiptKind == string(decode.ReceiptSpotEndBlock) {
+			status = expiredStatus
 		}
 		return exec1(ctx, tx, what, spotCloseSQL, kind, orderID, status, nil, block)
 	}
@@ -678,9 +696,9 @@ func spotSide(kind string, orderType sql.NullInt16) (string, error) {
 		return "", errors.New("order type missing")
 	}
 	switch {
-	case kind == "limit" && orderType.Int16 == spotLimitBuy, kind == "stop_limit" && orderType.Int16 == spotStopLimitBuy:
+	case kind == limitOrder && orderType.Int16 == spotLimitBuy, kind == stopLimitOrder && orderType.Int16 == spotStopLimitBuy:
 		return "buy", nil
-	case kind == "limit" && orderType.Int16 == spotLimitSell, kind == "stop_limit" && orderType.Int16 == spotStopLimitSell:
+	case kind == limitOrder && orderType.Int16 == spotLimitSell, kind == stopLimitOrder && orderType.Int16 == spotStopLimitSell:
 		return "sell", nil
 	}
 	return "", fmt.Errorf("order type %d is not a %s order", orderType.Int16, kind)

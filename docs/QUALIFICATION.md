@@ -1,9 +1,11 @@
 # Qualification
 
 Paxeer X Network qualification combines evidence for the kernel, its `paxd`
-host, chain storage, APIs and consumers. These are parts of one network:
-the kernel participates in block proposal and execution, and receipts become
-final when their blocks are committed. A library test or build provides only
+host, chain storage, APIs and consumers. The LayerX kernel runs inside every
+`paxd` node, executes each transaction when it arrives, gives it the next
+position in one global sequence, returns a signed execution receipt and builds
+each block; validators check that block and commit it. Receipts become final
+when their blocks are committed. A library test or build provides only
 the evidence it actually exercises.
 
 The core library is C17 (`-std=c17` in the root `Makefile`), the Go node uses

@@ -91,14 +91,14 @@ func TestRPCDiagnosticContractDiagnosticBoundary(t *testing.T) {
 	require.Len(t, doc.Servers, 1)
 	require.Equal(t, strings.Replace(defaults.ListenAddress, "tcp://", "http://", 1), doc.Servers[0].URL)
 	require.Contains(t, doc.Servers[0].Description, "Internal consensus diagnostics")
-	for _, text := range []string{"chain 125", "https://api-mainnet-beta.paxeer.network", "public-rpc.md#method-contracts", "gateway/openrpc.json", "does not describe eth_ or px_ methods"} {
+	for _, text := range []string{"chain 125", "https://api-mainnet-beta.paxeer.network", "PUBLIC-RPC.md#method-contracts", "gateway/openrpc.json", "does not describe eth_ or px_ methods"} {
 		require.Contains(t, doc.Info.Description, text)
 	}
-	for _, target := range []string{"../../../docs/site/docs/reference/public-rpc.md", "../../../services/platform/hosted/gateway/openrpc.json"} {
+	for _, target := range []string{"../../../docs/readme/PUBLIC-RPC.md", "../../../services/platform/hosted/gateway/openrpc.json"} {
 		_, err := os.Stat(filepath.Join("../../../rpc/openapi", target))
 		require.NoError(t, err, "public contract link must resolve")
 	}
-	public, err := os.ReadFile("../../../../docs/site/docs/reference/public-rpc.md")
+	public, err := os.ReadFile("../../../../docs/readme/PUBLIC-RPC.md")
 	require.NoError(t, err)
 	require.Contains(t, string(public), "https://api-mainnet-beta.paxeer.network")
 	require.Contains(t, string(public), "## Method contracts")

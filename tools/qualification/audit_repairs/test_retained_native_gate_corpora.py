@@ -178,7 +178,7 @@ def test_f047_committed_block_freshness_and_retained_service_contract():
     runtime = (ROOT / "services/interop/crates/layerx-mirror/src/runtime.rs").read_text()
     for fact in ('include_str!("../tests/fixtures/committed_blocks.json")',
                  "CommittedHeader::from_block_json", "super::spool_committed(",
-                 "super::ordered_archives(&spool)", "value.node.latest_batch_mirrored, Some(second.header.height)",
+                 "super::ordered_archives(spool)", "value.node.latest_batch_mirrored, Some(second.header.height)",
                  "value.latest_committed_height, Some(second.header.height)", "value.committed_ready"):
         assert fact in runtime
     fixture = json.loads((ROOT / "services/interop/crates/layerx-mirror/tests/fixtures/committed_blocks.json").read_text())
@@ -207,7 +207,7 @@ def test_f026_archive_producer_and_real_restart_recovery_consumers_are_selected(
     assert recovery.index("drop(spool)") < recovery.index("reopen spool")
     for fact in ("ArchiveSpool::open(&directory)", "super::recover_committed_coordinate",
                  "assert_eq!(recovered, Some(previous))", 'Err("committed_parent_mismatch")',
-                 "committed.receipts, block.receipts", "second.header.height + 1"):
+                 "assert_ordered_archives(&spool",):
         assert fact in recovery
     assert "PAXEER_X_RUNTIME_NATIVE_REVISION" not in source("24.14")
 
@@ -248,7 +248,7 @@ def test_f022_f027_native_transfer_committed_bank_proofs_and_genuine_counts():
                  "nativeTransport(t, f.request)", "v.Close()", "OpenVerifier(nativeTrustDB(t, dir)",
                  "require.Equal(t, result.Amount, recovered.Amount)", 'require.Equal(t, "500", advanced.Amount)'):
         assert fact in bank
-    refusals = (ROOT / "custodyproof/repair_m856_test.go").read_text()
+    refusals = (ROOT / "custodyproof/bank_verifier_test.go").read_text()
     for fact in ('"wrong_account"', '"wrong_denom"', '"bad_membership"', '"bad_signature"',
                  '"refused proof advanced persistent trust"'):
         assert fact in refusals

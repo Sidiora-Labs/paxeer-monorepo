@@ -130,6 +130,10 @@ func (m *Markets) serveHealth(w http.ResponseWriter, r *http.Request) {
 // hourly rate and eight times it of the latest FundingSettled as exact decimal
 // strings, the 24 hour contract and liquidation volumes from the
 // fills since $2, and the open interest in contracts from the open positions.
+const oiContractsSQL = feeds.OIContractsSQL
+const lastFundingRateHourlySQL = records.LastFundingRateHourlySQL
+const funding8hSQL = records.Funding8hSQL
+
 const marketRecordsSQL = `SELECT m.market_id::text, m.symbol, m.name,
 	(s.last_price - s.open_24h) / NULLIF(s.open_24h, 0),
 	COALESCE(s.volume_24h, 0) / $1::numeric, COALESCE(s.volume_7d, 0) / $1::numeric, COALESCE(s.volume_30d, 0) / $1::numeric,
@@ -139,7 +143,7 @@ const marketRecordsSQL = `SELECT m.market_id::text, m.symbol, m.name,
 	round((mp.mark_price - ip.index_price) * 10000 / NULLIF(ip.index_price, 0), 3), ip.block_time,
 	fs.hourly, fs.eight,
 	COALESCE(w.volume, 0) / $1::numeric, COALESCE(w.contracts, 0), COALESCE(w.liq_volume, 0) / $1::numeric,
-	` + feeds.OIContractsSQL + `
+	` + oiContractsSQL + `
 FROM perps.markets m
 LEFT JOIN perps.market_stats_rolling s ON s.market_id = m.market_id
 LEFT JOIN LATERAL (SELECT mark_price FROM perps.mark_prices WHERE market_id = m.market_id
@@ -152,7 +156,7 @@ LEFT JOIN LATERAL (SELECT index_price, block_time FROM (
 		WHERE market_id = m.market_id AND kind = 'aggregate' AND index_price IS NOT NULL
 		ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1)
 ) latest_index ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) ip ON true
-LEFT JOIN LATERAL (SELECT ` + records.LastFundingRateHourlySQL + ` AS hourly, ` + records.Funding8hSQL + ` AS eight
+LEFT JOIN LATERAL (SELECT ` + lastFundingRateHourlySQL + ` AS hourly, ` + funding8hSQL + ` AS eight
 	FROM perps.funding_settlements WHERE market_id = m.market_id
 	ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT 1) fs ON true
 CROSS JOIN LATERAL (SELECT sum(f.size_usd) AS volume, sum(f.size_usd / NULLIF(f.price, 0)) AS contracts,
@@ -177,13 +181,17 @@ func (m *Markets) Record(ctx context.Context, symbol string) (MarketRecord, bool
 	return records[0], true, nil
 }
 
-func (m *Markets) records(ctx context.Context, symbol *string) ([]MarketRecord, error) {
+func (m *Markets) records(ctx context.Context, symbol *string) (result0 []MarketRecord, resultErr error) {
 	now := m.now()
 	rows, err := m.db.QueryContext(ctx, marketRecordsSQL, usdScale, now.Add(-window24h), symbol)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	nextFunding := now.UTC().Truncate(time.Hour).Add(time.Hour).UnixMilli()
 	out := []MarketRecord{}
 	for rows.Next() {

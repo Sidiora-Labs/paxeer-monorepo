@@ -121,7 +121,7 @@ pub struct Fixture {
     pub header: CheckpointHeader,
     pub commit: BlockCommit,
     pub validators: Vec<CommitValidator>,
-    #[allow(dead_code, reason = "read by the repair_22_31_561 test target")]
+    #[allow(dead_code, reason = "read by the offline_storage_evidence test target")]
     pub receipt_key: ReceiptKeyEntry,
     pub evm_receipt: Vec<u8>,
     pub receipt_path: Vec<Vec<u8>>,

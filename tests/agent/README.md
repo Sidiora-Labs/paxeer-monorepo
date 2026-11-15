@@ -1,6 +1,6 @@
 # Agent SDK tests
 
-This directory holds conformance and integration tests for the Python `layerx_sdk` package in [services/agent/sdk/python](../../services/agent/sdk/python). The tests cover account derivation, signed EVM transactions, agent envelopes, native program calls, payments, market operations, gateway reads and receipt verification. They exercise client behavior for the single Paxeer BFT network, where a receipt is final when its block is committed.
+This directory holds conformance and integration tests for the Python `layerx_sdk` package in [services/agent/sdk/python](../../services/agent/sdk/python). The tests cover account derivation, signed EVM transactions, agent envelopes, native program calls, payments, market operations, gateway reads and receipt verification. They exercise client behavior for the single Paxeer network: the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it, and a receipt is final when the validators commit its block.
 
 ## Layout
 

@@ -18,14 +18,14 @@ use layerx_programs_runtime::{
 #[allow(dead_code)]
 #[allow(clippy::all, clippy::pedantic)]
 mod client {
-    include!("../fixtures/repair_22_33_242/client.inc");
+    include!("../fixtures/bounded_call_fixture/client.inc");
 }
 
 const LIMIT: usize = 1_048_576;
 const MAX_PAYLOAD: usize = LIMIT - 10;
 const SCHEMA_MAX: u32 = 1_048_570;
-const INTERFACE: &[u8] = include_bytes!("../fixtures/repair_22_33_242/bytes.interface");
-const SINK: &[u8] = include_bytes!("../fixtures/repair_22_33_242/sink.wasm");
+const INTERFACE: &[u8] = include_bytes!("../fixtures/bounded_call_fixture/bytes.interface");
+const SINK: &[u8] = include_bytes!("../fixtures/bounded_call_fixture/sink.wasm");
 
 fn generator() -> BindingGenerator {
     let schema = || {
@@ -58,7 +58,7 @@ fn generator() -> BindingGenerator {
     assert_eq!(generator.interface_digest(), client::INTERFACE_DIGEST);
     assert_eq!(
         generator.generate_rust(),
-        include_str!("../fixtures/repair_22_33_242/client.inc"),
+        include_str!("../fixtures/bounded_call_fixture/client.inc"),
         "the consumer compiled by Cargo must be the production generator's complete output"
     );
     generator

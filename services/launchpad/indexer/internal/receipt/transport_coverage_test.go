@@ -18,7 +18,7 @@ import (
 )
 
 func TestArchiveTransportRestoresRecordedQualificationAndLearnsRouting(t *testing.T) {
-	input := repair53InputsFromProducer(t)
+	input := receiptReplayInputsFromProducer(t)
 	recorded, err := url.Parse(input.Endpoint)
 	if err != nil {
 		t.Fatal(err)

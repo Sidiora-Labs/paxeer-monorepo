@@ -31,7 +31,7 @@ def generator():
 
 
 def test_local_contract_documentation():
-    readme = source("README.md")
+    readme = " ".join(source("README.md").split())
     manifest = json.loads(source("package.json"))
     command = shlex.split(manifest["scripts"]["test:local"])
     assert command == [
@@ -43,10 +43,11 @@ def test_local_contract_documentation():
         "yarn test:local /private/healthy.json /private/empty.json",
         "BlockscoutClient.ContractState.export(",
         "running backend's BEAM", "HTTP 500", "HTTP 200", "5002",
-        "source-only pytest", "no actual backend run is claimed",
+        "The Python documentation gate validates the examples and schemas",
+        "it does not execute Rust or Elixir",
         "yarn generate FULL_BACKEND_SCHEMA_GIT_SHA",
         "crate/generation-provenance.json",
-        "yarn record-stubs http://127.0.0.1:4001",
+        'yarn record-stubs "$REST_ORIGIN"',
         "metadata.source_revision",
     ):
         assert fact in readme, fact

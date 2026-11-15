@@ -1,8 +1,9 @@
 # Human owner registration
 
 Human owners use the Paxeer network's account, authority and recovery state.
-The kernel runs inside `paxd` and participates in block proposal; a receipt is
-final when its block commits. Registration, funding and recovery are transactions
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when its block
+commits. Registration, funding and recovery are transactions
 on this one chain.
 
 Use a root node URL from [Public JSON-RPC](PublicRpc.md), with EVM chain ID

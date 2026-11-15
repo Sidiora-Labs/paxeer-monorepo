@@ -1,9 +1,10 @@
 # Consensus fork contract
 
-Paxeer mainnet-beta is one BFT network, operated by `paxd`, with EVM chain ID
-125 (`0x7d`). The kernel belongs to the network and proposes blocks. A receipt
-is final when its block is committed. The node's execution, receipt and
-sequencing contracts are documented in [sequencer.md](sequencer.md).
+Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. A receipt is final when its block is committed. The node's
+execution, receipt and sequencing contracts are documented in
+[sequencer.md](sequencer.md).
 
 This page describes the consensus implementation under [`consensus/`](../consensus).
 Its Go import prefix is

@@ -2,7 +2,7 @@
 //! value establishes host authority or finality.
 #![cfg_attr(target_arch = "wasm32", no_std)]
 
-// File modules are mirrored in gateway/tests/repair_22_33_1439.rs and checked by
+// File modules are mirrored in gateway/tests/upstream_read_contracts.rs and checked by
 // tests/ci/test_ai_market_module_mirror.py, including conditional private modules.
 pub mod admission;
 pub mod aggregation;
@@ -229,7 +229,7 @@ mod deployment {
 mod guest {
     // Deployment qualification must build with release opt-level z and measure the
     // packaged Wasm plus its 104-byte envelope against the 524288-byte ceiling.
-    use crate::dispatch::{Buffers, Routed, SCRATCH_BYTES};
+    use crate::dispatch::{self, Buffers, Routed, SCRATCH_BYTES};
     use crate::host_adapter::{AdapterError, ApplicationEvent, DirectCall};
     use crate::registry_ops::CallContext;
     use crate::types::{GuestIndex as _, Presence};
@@ -542,9 +542,9 @@ pub const MAX_CHUNK_BYTES: usize = 8_192;
 #[cfg(test)]
 extern crate self as layerx_programs_ai_market;
 #[cfg(test)]
-#[path = "../tests/support/repair_478_fixture.rs"]
+#[path = "../tests/support/fund_state_fixture.rs"]
 #[allow(dead_code)]
-mod repair_478_fixture;
+mod fund_state_fixture;
 
 #[cfg(test)]
 mod repair478_fund_tests {
@@ -568,7 +568,7 @@ mod repair478_fund_tests {
     };
     #[test]
     fn repair478_fund_head_carries_populated_regions_and_epoch_binding() -> CodecResult<()> {
-        let f = crate::repair_478_fixture::fixture([12; 32], [13; 32])?;
+        let f = crate::fund_state_fixture::fixture([12; 32], [13; 32])?;
         let (settled, height, epoch) = settled_funding_state(&f)?;
         let current = funding_shared_state(&f, &settled, epoch)?;
         let state = decode_shared_state(&current)?;
@@ -657,7 +657,7 @@ mod repair478_fund_tests {
         Ok(())
     }
     fn settled_funding_state(
-        f: &crate::repair_478_fixture::Fixture,
+        f: &crate::fund_state_fixture::Fixture,
     ) -> CodecResult<(Vec<u8>, u64, u64)> {
         let state = decode_shared_state(&f.next)?;
         let source = state.room_market()?.0;
@@ -732,7 +732,7 @@ mod repair478_fund_tests {
     }
 
     fn funding_shared_state(
-        f: &crate::repair_478_fixture::Fixture,
+        f: &crate::fund_state_fixture::Fixture,
         settled: &[u8],
         epoch: u64,
     ) -> CodecResult<Vec<u8>> {

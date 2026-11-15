@@ -25,7 +25,7 @@ import (
 func TestCanonicalRiskInputsValidatePersistedSourceFacts(t *testing.T) {
 	ctx := context.Background()
 	db := internaltest.NewPostgres(t)
-	archive := repair1038Fixture(t)
+	archive := riskInputsFixture(t)
 	fill := archive.Source[0]
 	exec := func(sql string, args ...any) {
 		t.Helper()
@@ -132,7 +132,7 @@ func TestCanonicalRiskInputsValidatePersistedSourceFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	exec(`INSERT INTO indexer.indexer_accounting_fills VALUES($1,$2,125,$3,$4,$5,$6)`, fill.SourceFillID, string(digest), fill.Position.TransactionHash, fill.Position.LogIndex, fill.PoolAddress, payload)
-	exec(`INSERT INTO risk_authority.accounting_market_commits(publication_id,source_fill_id,source_fact_digest,projection_version,pool,bucket_start,position,fill,sequence,revision) VALUES($1,$2,$3,'projection-v1',$4,0,$5,$6,1,1)`, "publication-"+fill.SourceFillID, fill.SourceFillID, string(digest), fill.PoolAddress, repair1038JSON(fill.Position), payload)
+	exec(`INSERT INTO risk_authority.accounting_market_commits(publication_id,source_fill_id,source_fact_digest,projection_version,pool,bucket_start,position,fill,sequence,revision) VALUES($1,$2,$3,'projection-v1',$4,0,$5,$6,1,1)`, "publication-"+fill.SourceFillID, fill.SourceFillID, string(digest), fill.PoolAddress, riskInputsJSON(fill.Position), payload)
 	holder, err := holdings.NewRepository(db, "risk_holders")
 	if err != nil {
 		t.Fatal(err)

@@ -205,7 +205,7 @@ def test_compose_private_ingress_and_inherited_image_health():
     nginx_examples = re.findall(r"```nginx\n(.*?)\n```", architecture, re.S)
     assert len(nginx_examples) == 1
     directives = [shlex.split(line.removesuffix(";")) for line in nginx_examples[0].splitlines()]
-    assert ["resolver", "192.0.2.53", "valid=5s", "ipv6=off"] in directives
+    assert ["resolver", "<resolver-address>", "valid=5s", "ipv6=off"] in directives
     assert ["set", "$perps_upstream", "app:" + app["environment"]["PORT"]] in directives
     assert ["proxy_pass", "http://$perps_upstream"] in directives
     assert ["proxy_set_header", "Host", "$host"] in directives
@@ -213,7 +213,7 @@ def test_compose_private_ingress_and_inherited_image_health():
     assert ["proxy_set_header", "X-Forwarded-For", "$proxy_add_x_forwarded_for"] in directives
     assert "./nginx/nginx.conf:/etc/nginx/nginx.conf:ro" in nginx["volumes"]
     assert "./nginx/conf.d:/etc/nginx/conf.d:ro" in nginx["volumes"]
-    assert "an operator must supply" in readme()
+    assert "operator-supplied TLS\nserver's" in readme()
 
 
 def test_readme_start_upgrade_rollback_and_service_commands():
@@ -268,9 +268,7 @@ def test_runtime_env_update_recreates_same_image_and_checks_proxy_origin():
     assert '!Array.isArray(config.supported_resolutions)' in script
     assert '!config.supported_resolutions.length' in script
     assert 'process.exit(1)' in script
-    url = urlsplit(expected)
-    assert url.scheme == "https" and url.netloc == "perps.example.com"
-    assert not url.path and not url.query and not url.fragment
+    assert expected == "<deployment-origin>"
     assert checks[4:] == [
         ["curl", "--fail-with-body", expected + "/api/build-id"],
         ["curl", "--fail-with-body", expected + "/api/candle/config"],
@@ -290,10 +288,9 @@ def test_environment_template_matches_compose_lifecycle():
         assert name in values
     assert values["MARKET_PROXY_ORIGIN"] == values["BUILD_COMMIT_SHA"] == ""
     assert values["MARKET_PROXY_HOST"] == "data.feed.chainflowtrading.com"
-    assert "requires Compose app recreation, not a rebuild" in template
-    assert "a fresh Compose app build and image replacement" in template
-    assert "application root (apps/perps)" in template
-    assert "Keep it unchanged for server-only" in template
+    assert "Copy to apps/perps/.env.production" in template
+    assert "NEXT_PUBLIC_* values are client-visible and require an image rebuild" in template
+    assert "Compose forwards only its declared build arguments and runtime environment" in template
     assert "deploy.sh" not in template
     assert "only requires a container restart" not in template
 

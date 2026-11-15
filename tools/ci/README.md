@@ -8,7 +8,7 @@ This directory holds CI helpers and tests for the Paxeer X Network monorepo. The
 - [consensus_commit_gate.py](consensus_commit_gate.py): checks that consensus-changing commits in a Git revision range appear in the ledger stored at the head revision.
 - [consensus_ledger_rows.py](consensus_ledger_rows.py): prints missing consensus-ledger rows in oldest-first topological order.
 - [run_wallet_vitest.py](run_wallet_vitest.py): runs the wallet SDK's Vitest suite using its recorded test selection.
-- [repair-22-33-731.kvx](repair-22-33-731.kvx): links consensus-gate behavior to its test cases.
+- [Consensus-gate test record](../../spec/layerx-merge/programme/records/tools/ci/repair-22-33-731.kvx): links consensus-gate behavior to its test cases.
 - [tests/](tests/): Python and shell tests for CI helpers, Makefile targets, workflows, image publication and wallet checks; includes shared workflow readers and consensus-history fixtures.
 
 ## Build and test

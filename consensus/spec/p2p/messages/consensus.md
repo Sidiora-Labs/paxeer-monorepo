@@ -14,7 +14,7 @@ its own signed messages and peer RPCs, defined in
 [`internal/p2p/giga/api.proto`](../../../internal/p2p/giga/api.proto); it does not
 use the envelope below as its consensus RPC contract.
 
-Paxeer is one BFT network whose kernel participates in proposing blocks. A
+The LayerX kernel runs inside every `paxd` node, executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. A
 transaction receipt is final when its block is committed. Peer transport and
 identity checks are described in [Peers](../peer.md); bootstrapping from snapshots
 is described in [State Sync](state-sync.md). The [node RPC reference](../../rpc/README.md)

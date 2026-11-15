@@ -7,8 +7,9 @@ order: false
 simapp is the SDK application used by the [IBC testing package](../README.md).
 It contains transfer, interchain accounts and the [mock IBC application](../mock/README.md)
 for tests. `simd` runs this application as a local test network; Paxeer's network
-runs `paxd`, with the kernel participating in block proposal and block commit
-providing finality.
+runs `paxd`. The LayerX kernel inside `paxd` executes and orders each transaction
+and builds each block; validators check and commit it. A receipt is final when
+the validators commit its block.
 
 ## Running a local test network with `simd`
 

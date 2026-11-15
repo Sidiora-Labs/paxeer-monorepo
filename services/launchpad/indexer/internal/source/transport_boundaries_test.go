@@ -71,23 +71,23 @@ func TestHistoricalHTTPBackoffAndResponseBoundaries(t *testing.T) {
 		})
 	}
 	server := fixture(t, "0x7d")
-	s := repair997Open(t, fopts(server.URL))
+	s := sourceRecoveryOpen(t, fopts(server.URL))
 	endpoint := s.endpoints[0]
 	endpoint.url = "http://invalid\nurl"
 	var result string
 	err := s.rpcOnce(context.Background(), endpoint, false, "eth_chainId", nil, &result, 0)
-	repair997Kind(t, err, InvalidError)
+	sourceRecoveryKind(t, err, InvalidError)
 }
 
 func TestRejoinPrunedAnchorRequiresIndependentVerifiedPeer(t *testing.T) {
 	ctx := context.Background()
-	primary, archive := repair997Serve(t), repair997Serve(t)
+	primary, archive := sourceRecoveryServe(t), sourceRecoveryServe(t)
 	primary.pruned.Store(true)
 	opts := fopts(primary.server.URL)
 	opts.GenesisHash = [32]byte{}
 	opts.Anchor = &CommittedAnchor{Height: 1, Hash: committedFixtureHash(1)}
 	opts.HistoricalEndpoints = map[string]string{"archive": archive.server.URL}
-	s := repair997Open(t, opts)
+	s := sourceRecoveryOpen(t, opts)
 	// Recent accepted identities allow recovery while the old anchor is pruned.
 	primary.pruned.Store(false)
 	result, err := s.FetchCommitted(ctx, FetchOptions{FromBlock: 256, ToBlock: 383}, false, nil)

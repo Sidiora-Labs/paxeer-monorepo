@@ -19,9 +19,13 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 
 import { configuredLimitPlan } from "./fixtures/configured-limit-plan";
-import type { OrderFormState } from "../src/core/perps/orderPlan";
+import type { OrderFormState } from "@paxeer-network/paxeer-backend/core/perps/orderPlan";
 
-const ENV_NAMES = ["LOCAL_NODE_RPC", "LOCAL_NODE_KEY", "NEXT_PUBLIC_PERPS_GATEWAY_URL"] as const;
+const ENV_NAMES = [
+  "LOCAL_NODE_RPC",
+  "LOCAL_NODE_KEY",
+  "NEXT_PUBLIC_PERPS_GATEWAY_URL",
+] as const;
 type EnvName = (typeof ENV_NAMES)[number];
 
 function requireEnv(): Record<EnvName, string> {
@@ -40,13 +44,23 @@ function requireEnv(): Record<EnvName, string> {
 async function localOffTickOrderReverts() {
   const env = requireEnv();
   process.env.NEXT_PUBLIC_PAXEER_RPC_URLS = env.LOCAL_NODE_RPC;
-  const { paxeerChain } = await import("../src/core/chain");
-  const calls = await import("../src/core/perps/calls");
-  const { classifyError } = await import("../src/core/errors/classify");
-  const { COLLATERAL_TOKENS } = await import("../src/core/perps/config");
+  const { paxeerChain } =
+    await import("@paxeer-network/paxeer-backend/core/chain");
+  const calls = await import("@paxeer-network/paxeer-backend/core/perps/calls");
+  const { classifyError } =
+    await import("@paxeer-network/paxeer-backend/core/errors/classify");
+  const { COLLATERAL_TOKENS } =
+    await import("@paxeer-network/paxeer-backend/core/perps/config");
   const account = privateKeyToAccount(env.LOCAL_NODE_KEY as Hex);
-  const publicClient = createPublicClient({ chain: paxeerChain, transport: http(env.LOCAL_NODE_RPC) });
-  const wallet = createWalletClient({ account, chain: paxeerChain, transport: http(env.LOCAL_NODE_RPC) });
+  const publicClient = createPublicClient({
+    chain: paxeerChain,
+    transport: http(env.LOCAL_NODE_RPC),
+  });
+  const wallet = createWalletClient({
+    account,
+    chain: paxeerChain,
+    transport: http(env.LOCAL_NODE_RPC),
+  });
   assert.equal(await publicClient.getChainId(), paxeerChain.id);
 
   async function receipt(hash: Hex): Promise<TransactionReceipt> {
@@ -57,7 +71,12 @@ async function localOffTickOrderReverts() {
       } catch (error) {
         if (
           !(error instanceof TransactionReceiptNotFoundError) &&
-          !(error instanceof Error && /not\s*(be\s*)?found|does not exist|indexing|not indexed/i.test(error.message))
+          !(
+            error instanceof Error &&
+            /not\s*(be\s*)?found|does not exist|indexing|not indexed/i.test(
+              error.message,
+            )
+          )
         ) {
           throw error;
         }
@@ -68,16 +87,25 @@ async function localOffTickOrderReverts() {
   }
 
   const marketId = 0n;
-  const config = await publicClient.readContract(calls.buildGetMarketConfig(marketId));
+  const config = await publicClient.readContract(
+    calls.buildGetMarketConfig(marketId),
+  );
   assert.equal(config.marketId, marketId);
   assert.equal(config.symbol, "BTC");
-  assert.ok(config.tickSize > 1n, "BTC must have a representable off-tick price");
+  assert.ok(
+    config.tickSize > 1n,
+    "BTC must have a representable off-tick price",
+  );
   assert.ok(config.lotSize > 0n);
-  const [markPrice, , , fresh] = await publicClient.readContract(calls.buildGetMarkPriceDetails(marketId));
+  const [markPrice, , , fresh] = await publicClient.readContract(
+    calls.buildGetMarkPriceDetails(marketId),
+  );
   assert.ok(fresh, "BTC mark price must be fresh");
   const alignedPrice = (markPrice / 2n / config.tickSize) * config.tickSize;
   assert.ok(alignedPrice > 0n && alignedPrice < markPrice);
-  const sizeUsd = ((200n * 10n ** 18n + config.lotSize - 1n) / config.lotSize) * config.lotSize;
+  const sizeUsd =
+    ((200n * 10n ** 18n + config.lotSize - 1n) / config.lotSize) *
+    config.lotSize;
   const state: OrderFormState = {
     orderType: "limit",
     marketId,
@@ -112,7 +140,10 @@ async function localOffTickOrderReverts() {
     return {
       gas: 1_000_000n,
       gasPrice: 1_000_000_000_000n,
-      nonce: await publicClient.getTransactionCount({ address: account.address, blockTag: "latest" }),
+      nonce: await publicClient.getTransactionCount({
+        address: account.address,
+        blockTag: "latest",
+      }),
     };
   }
 
@@ -122,26 +153,53 @@ async function localOffTickOrderReverts() {
       address: COLLATERAL_TOKENS.usdl.address,
       abi: erc20Abi,
       functionName: "approve",
-      args: [aligned.address, depositAmount + 2n * aligned.args[0].collateralAmount],
+      args: [
+        aligned.address,
+        depositAmount + 2n * aligned.args[0].collateralAmount,
+      ],
       ...(await transactionOptions()),
     }),
   );
   assert.equal(approved.status, "success", "USDL approval must be mined");
   const deposited = await receipt(
-    await wallet.writeContract({ ...calls.buildDeposit(depositAmount), ...(await transactionOptions()) }),
+    await wallet.writeContract({
+      ...calls.buildDeposit(depositAmount),
+      ...(await transactionOptions()),
+    }),
   );
-  assert.equal(deposited.status, "success", "margin and fee reserve must be deposited");
-  const accepted = await receipt(await wallet.writeContract({ ...aligned, ...(await transactionOptions()) }));
+  assert.equal(
+    deposited.status,
+    "success",
+    "margin and fee reserve must be deposited",
+  );
+  const accepted = await receipt(
+    await wallet.writeContract({ ...aligned, ...(await transactionOptions()) }),
+  );
   assert.equal(accepted.status, "success", "aligned limit order must be mined");
-  const placed = parseEventLogs({ abi: aligned.abi, logs: accepted.logs, eventName: "OrderPlaced" });
+  const placed = parseEventLogs({
+    abi: aligned.abi,
+    logs: accepted.logs,
+    eventName: "OrderPlaced",
+  });
   assert.equal(placed.length, 1);
   assert.equal(getAddress(placed[0].args.user), account.address);
   assert.equal(placed[0].args.marketId, marketId);
   assert.equal(placed[0].args.triggerPrice, alignedPrice);
-  const storedOrder = await publicClient.readContract(calls.buildGetOrder(placed[0].args.orderId));
-  assert.equal(storedOrder[7], 20n * 10n ** 18n, "supported form leverage reaches stored chain state");
-  const orderIds = await publicClient.readContract(calls.buildGetUserOrderIds(account.address));
-  assert.ok(orderIds.includes(placed[0].args.orderId), "aligned order must rest on the book");
+  const storedOrder = await publicClient.readContract(
+    calls.buildGetOrder(placed[0].args.orderId),
+  );
+  assert.equal(
+    storedOrder[7],
+    20n * 10n ** 18n,
+    "supported form leverage reaches stored chain state",
+  );
+  const orderIds = await publicClient.readContract(
+    calls.buildGetUserOrderIds(account.address),
+  );
+  assert.ok(
+    orderIds.includes(placed[0].args.orderId),
+    "aligned order must rest on the book",
+  );
 
   const offTick = {
     ...aligned.args[0],
@@ -155,21 +213,45 @@ async function localOffTickOrderReverts() {
     functionName: "placeOrder",
     args: [offTick],
   } as const;
-  const rejected = await receipt(await wallet.writeContract({ ...raw, ...(await transactionOptions()) }));
-  assert.equal(rejected.status, "reverted", "raw off-tick order must revert on the node");
-  assert.equal(parseEventLogs({ abi: aligned.abi, logs: rejected.logs, eventName: "OrderPlaced" }).length, 0);
+  const rejected = await receipt(
+    await wallet.writeContract({ ...raw, ...(await transactionOptions()) }),
+  );
+  assert.equal(
+    rejected.status,
+    "reverted",
+    "raw off-tick order must revert on the node",
+  );
+  assert.equal(
+    parseEventLogs({
+      abi: aligned.abi,
+      logs: rejected.logs,
+      eventName: "OrderPlaced",
+    }).length,
+    0,
+  );
   await assert.rejects(
-    publicClient.simulateContract({ ...raw, account, blockNumber: rejected.blockNumber }),
+    publicClient.simulateContract({
+      ...raw,
+      account,
+      blockNumber: rejected.blockNumber,
+    }),
     (error: unknown) => {
       assert.ok(error instanceof BaseError);
-      const revert = error.walk((cause) => cause instanceof ContractFunctionRevertedError);
+      const revert = error.walk(
+        (cause) => cause instanceof ContractFunctionRevertedError,
+      );
       assert.ok(revert instanceof ContractFunctionRevertedError);
       assert.equal(revert.data?.errorName, "PerpsTickSize");
       assert.equal(classifyError(error).code, "VALIDATION_PRECISION");
       return true;
     },
   );
-  assert.deepEqual(await publicClient.readContract(calls.buildGetUserOrderIds(account.address)), orderIds);
+  assert.deepEqual(
+    await publicClient.readContract(
+      calls.buildGetUserOrderIds(account.address),
+    ),
+    orderIds,
+  );
 }
 
 test(localOffTickOrderReverts);

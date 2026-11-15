@@ -2,8 +2,8 @@
 //! `ACCEPT_TASK`, `CANCEL_TASK`, `COMMIT_TASK_RESULT` and `SEAL_TASK_SET` against an epoch
 //! opened through the real F01/F02/F03/F06/F08 producers and `OPEN_EPOCH`.
 #[allow(dead_code)]
-#[path = "repair_22_33_261.rs"]
-mod repair_22_33_261;
+#[path = "reward_finality_and_execution.rs"]
+mod reward_finality_and_execution;
 
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
@@ -898,7 +898,7 @@ fn opened(workers: &[u8], activate: bool) -> CodecResult<Market> {
 }
 
 fn restored_execution_height_market() -> CodecResult<Market> {
-    let produced = repair_22_33_261::execution_height_fixture();
+    let produced = reward_finality_and_execution::execution_height_fixture();
     let world = World {
         bytes: produced.bytes,
         owner_sequence: produced.owner_sequence,

@@ -89,9 +89,9 @@ func TestHolderListRoute(t *testing.T) {
 	})
 }
 
-func TestHolderDistributionRoute(t *testing.T) { repair1039Distribution(t) }
+func TestHolderDistributionRoute(t *testing.T) { historyPaginationDistribution(t) }
 
-func TestWhalesRoute(t *testing.T) { repair1039Whales(t) }
+func TestWhalesRoute(t *testing.T) { historyPaginationWhales(t) }
 
 func TestCreatorActivityRoute(t *testing.T) {
 	ctx := context.Background()

@@ -979,8 +979,8 @@ func TestPhase4ActualMeasurementHarness(t *testing.T) {
 	t.Logf("actual lane measurement captured in%s; final shared acceptance remains9.1", c.Output)
 }
 
-// RepairM931Replay exercises the release replay consumer with bounded local artifacts.
-func RepairM931Replay(t *testing.T, samples []ranker.HistoricalReplaySample) error {
+// HistoricalCategoryReplay exercises the release replay consumer with bounded local artifacts.
+func HistoricalCategoryReplay(t *testing.T, samples []ranker.HistoricalReplaySample) error {
 	t.Helper()
 	directory := t.TempDir()
 	rows, err := os.OpenFile(filepath.Join(directory, "raw.ndjson"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)

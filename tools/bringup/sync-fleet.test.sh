@@ -740,7 +740,7 @@ chmod +x "$work/bin/journalctl"
 export SYNC_FLEET_TEST_UPGRADE=1 UPGRADE_POLL=1 UPGRADE_RECOVERY_TIMEOUT=10
 export UPGRADE_JOURNAL="$work/upgrade.json"
 python3 "$root/tools/bringup/tests/fixtures/upgrade_observation/upgrade_peers.py" \
- "$root/services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json" "$work/upgrade-endpoints" &
+ "$root/services/platform/hosted/node/tests/fixtures/native_lifecycle/native_configuration.json" "$work/upgrade-endpoints" &
 upgrade_peer_pid=$!
 for ((attempt=0; attempt<100; attempt++)); do
  [ ! -s "$work/upgrade-endpoints" ] || break

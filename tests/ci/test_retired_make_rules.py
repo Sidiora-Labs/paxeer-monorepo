@@ -3,6 +3,8 @@ import pathlib
 import re
 import subprocess
 
+import pytest
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -41,6 +43,7 @@ def test_parallel_differential_rule_omits_batch_wal():
     assert "lxp_daemon_batch_wal" not in dry_run.stdout + dry_run.stderr
 
 
+@pytest.mark.native
 def test_parallel_differential_links_without_batch_wal():
     test_parallel_differential_rule_omits_batch_wal()
     target = "build/tests/programs_parallel_differential"

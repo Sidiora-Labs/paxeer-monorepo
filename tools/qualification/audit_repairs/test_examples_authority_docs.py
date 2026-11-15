@@ -50,7 +50,8 @@ def test_examples_authority_doc_matches_per_application_profiles(directory, labe
         "LAYERX_RECEIPT_KEYS_JSON" if directory == "paid-api"
         else "LAYERX_TESTNET_RECEIPT_KEYS_JSON"
     )
-    assert f"| {label} | `{profile['rpcUrl']}` | `{keys}` |" in guide
+    assert f"| {label} | `{keys}` |" in guide
+    assert "Each application's `layerx.example.json` declares its own `rpcUrl`" in guide
     manifest = json.loads(source("reference-apps.json"))["applications"]
     app = next(app for app in manifest if app["name"] == directory)
     command = shlex.join(app["commands"]["beta"])
@@ -61,7 +62,7 @@ def test_examples_authority_doc_matches_per_application_profiles(directory, labe
     if directory == "marketplace":
         expected_arguments += ["--action", "deploy"]
     assert shlex.split(package["scripts"]["start:beta"]) == expected_arguments
-    assert "Native node JSON-RPC uses `/`, not `/rpc`" in normalized(guide)
+    assert "Native node JSON-RPC uses the root path" in normalized(guide)
     assert "setting the buyer's variable does not configure the paid API" in normalized(guide)
 
 
@@ -79,8 +80,7 @@ def test_examples_authority_doc_matches_paid_offer_and_pinned_key_consumer():
     for fact in (
         "x402 v2", "`scheme: exact`", "`network: eip155:125`",
         "commitment: receipted", "`rawTransaction`", "`pax_sequencerReceipt`",
-        "`layerx-receipt-proof-v2`", "independently", "`firstHeight <= lastHeight`",
-        "does not resolve a legacy batch-authority object",
+        "independently", "`firstHeight <= lastHeight`",
         "does not prove BFT finality",
     ):
         assert fact in guide, fact
@@ -134,12 +134,12 @@ def test_examples_authority_doc_distinguishes_receipt_states():
 
 def test_examples_authority_doc_separates_beta_qualification_from_history():
     journey = normalized(section("Running the merged-chain journey"))
-    history = normalized(section("Historical emulator workflow"))
+    history = normalized(section("Emulator profiles"))
     qualification = section("Building and checking against real receipts")
     assert "`--scenario beta` runs the applications" in journey
     assert "only actual successful outcomes establish that journey" in journey
-    assert "historical emulator workflow, not the merged production path" in history
-    assert "Do not infer native compatibility from declaration checks or emulator health" in history
+    assert "profiles contain retired network coordinates" in history
+    assert "service-specific external profile" in history
     assert "`LAYERX_EMULATOR_RECEIPT_KEYS_JSON`" in history
     assert "`LAYERX_RECEIPT_KEYS_JSON`" in history
     emulator = json.loads(source("paid-api/layerx.example.json"))["environments"]["emulator"]
@@ -155,7 +155,7 @@ def test_examples_authority_doc_separates_beta_qualification_from_history():
     ]
     for fact in (
         "each beta profile's `rpcUrl` and `receiptKeysEnvironment`",
-        "owner-only external directory", "defaults to the historical emulator workflow",
+        "owner-only external directory", "defaults to the emulator scenario when the environment variable is omitted",
         "that default does not qualify the merged production path",
         "Declaration checks, emulator health and artifact hashes alone do not prove a successful payment",
     ):
@@ -187,11 +187,8 @@ def test_examples_authority_doc_repair_record_maps_proofs_and_evidence():
     assert task["wiring_requests"] == []
     assert "not executed" in task["proof_limit"]
     assert not (ROOT / "services/platform/tests/repair_22_33_1318.rs").exists()
-    examples_record = tomllib.loads(source("repair-22-33-1318.kvx"))["repair"]["22"]["33"]["1318"]
-    assert examples_record["proving_tests"] == [
-        "tools/qualification/audit_repairs/test_repair_22_33_1318.py"
-    ]
+    examples_record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/platform/examples/repair-22-33-1318.kvx").read_text(encoding="utf-8"))["repair"]["22"]["33"]["1318"]
     assert examples_record["wiring_requests"] == []
-    supplemental = source("test/repair-22-33-1318.test.mjs")
+    supplemental = source("test/application-profiles.test.mjs")
     for name in ("examplesAuthorityDocMatchesApplicationProfiles", "examplesAuthorityDocProvesRootRpcAndReceiptStates"):
         assert f"function {name}(" in supplemental

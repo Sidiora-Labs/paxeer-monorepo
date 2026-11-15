@@ -35,10 +35,10 @@ This directory holds the Go implementation, embedded ABI and tests for the `laye
 - `proof_layerxledger_0x101a_test.go` — emitted log consumption by the gateway, indexer and wallet.
 - `proof_layerxledger_errors_test.go` — error propagation and persisted recovery tests.
 - `issue_1715_test.go` — ledger sequence queries through the web request path.
-- `repair_144_test.go` — account sequences, payment expiry and transfer recovery tests.
-- `repair_144.kvx` — account sequence, payment expiry and transfer contract notes.
-- `repair_m1501_test.go` — ledger interface, receipt, balance and consumer conformance tests.
-- `repair_m1501.kvx` — ABI units and ledger consumer contract notes.
+- `account_payment_recovery_test.go` — account sequences, payment expiry and transfer recovery tests.
+- `../../spec/layerx-merge/programme/records/precompiles/layerxledger/repair_144.kvx` — account sequence, payment expiry and transfer contract notes.
+- `consumer_conformance_test.go` — ledger interface, receipt, balance and consumer conformance tests.
+- `../../spec/layerx-merge/programme/records/precompiles/layerxledger/repair_m1501.kvx` — ABI units and ledger consumer contract notes.
 
 ## Build and test
 

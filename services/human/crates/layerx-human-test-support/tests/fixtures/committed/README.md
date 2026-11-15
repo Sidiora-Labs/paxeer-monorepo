@@ -17,8 +17,8 @@ the consensus and inclusion evidence, persisting it in `PrincipalStore`, and
 reopening and verifying the recovered evidence. Altered and foreign evidence
 remain refusal cases.
 
-The [committed proof and restart recovery test](../../repair_22_33_55.rs),
-`finding18_documented_committed_proof_uses_separate_real_node_recording`,
+The [committed proof and restart recovery test](../../admission_journal_recovery.rs),
+`documented_committed_proof_uses_separate_real_node_recording`,
 uses the saved recording through that helper to check recovered committed
 evidence and refusal of malformed or foreign evidence.
 

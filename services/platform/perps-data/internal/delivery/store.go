@@ -159,7 +159,7 @@ func (s *Store) claim(ctx context.Context, owner string, limit int, duration tim
 		open = openRow
 	}
 	out := []Lease{}
-	err := s.mutate(ctx, func(tx *sql.Tx) error {
+	err := s.mutate(ctx, func(tx *sql.Tx) (resultErr error) {
 		if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", s.table("delivery_outbox")); err != nil {
 			return err
 		}
@@ -170,7 +170,11 @@ func (s *Store) claim(ctx context.Context, owner string, limit int, duration tim
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() {
+			if closeErr := rows.Close(); resultErr == nil {
+				resultErr = closeErr
+			}
+		}()
 		for rows.Next() {
 			l := Lease{Owner: owner}
 			if err = rows.Scan(&l.EventID, &l.Subject, &l.Wire, &l.PerpsSeq, &l.Fence, &l.Attempts, &l.Control); err != nil {
@@ -270,8 +274,12 @@ type Quarantine struct {
 // the same row, the rows it quarantined permanently.
 const quarantineReturning = " RETURNING o.perps_seq,o.event_id,COALESCE(o.failure_class,''),(p.state='pending' AND o.state='quarantined')"
 
-func scanQuarantines(rows *sql.Rows, each func(id string, quarantined bool)) ([]Quarantine, error) {
-	defer rows.Close()
+func scanQuarantines(rows *sql.Rows, each func(id string, quarantined bool)) (result0 []Quarantine, resultErr error) {
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	var out []Quarantine
 	for rows.Next() {
 		var q Quarantine

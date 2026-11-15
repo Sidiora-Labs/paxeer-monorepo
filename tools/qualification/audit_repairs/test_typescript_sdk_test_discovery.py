@@ -127,9 +127,9 @@ def test_test_discovery_keeps_real_interface_and_recovery_suites_in_default():
         "history-cursor.test.ts", "native-effect.test.ts",
         "proof_exchange.test.ts", "proof_gas_station.test.ts",
         "proof_x402_receive.test.ts", "x402-draw-sequencer.test.ts",
-        "repair-22-31-148.test.ts", "repair-22-31-149.test.ts",
-        "repair-22-33-20.test.ts", "repair-22-33-21.test.ts",
-        "repair-22-33-24.test.ts",
+        "rpc-commitment-and-payments.test.ts", "grant-draw-recovery.test.ts",
+        "sdk-runtime-boundaries.test.ts", "stream-abi-and-payment-authority.test.ts",
+        "recorded-payment-evidence.test.ts",
     }
     assert required <= local
     # Confirm the omitted names identify executable suites on production paths,
@@ -148,7 +148,7 @@ def test_test_discovery_keeps_real_interface_and_recovery_suites_in_default():
         "proof_gas_station.test.ts": ('from "../src/index.js"', "registerHooks"),
         "proof_x402_receive.test.ts": ('from "../src/index.js"',
                                        "assertPayerGrantRoundTrip(canonical)"),
-        "repair-22-31-149.test.ts": ('from "../src/x402/draw.js"',
+        "grant-draw-recovery.test.ts": ('from "../src/x402/draw.js"',
                                     "test(draw_restart_recovers_a_crash_before_send)",
                                     "test(draw_restart_redelivers_after_an_uncertain_send_acknowledgement)"),
         "x402-draw-sequencer.test.ts": ("test(prepared_draw_reopens_before_send)",
@@ -185,9 +185,9 @@ def test_test_discovery_documents_and_guards_external_probe_commands():
     native = read("test/native-effect.test.ts")
     assert "process.env.NATIVE_EFFECT_CROSS_LANGUAGE_REQUEST" in native
     assert "assert.deepEqual(encoded, actual)" in native
-    for fact in ("Python 3", "cryptography", "ANVIL_BIN", "Node 24.11",
-                 "retired daemon cases", "does not launch or connect to a node",
-                 ".github/workflows/xweb-test.yml", "out-of-scope wiring"):
+    for fact in ("Python 3", "cryptography", "ANVIL_BIN", "Node 22 or newer",
+                 "node:module.registerHooks", "node:sqlite",
+                 "It consumes recorded calls, simulations, state heads, transfers and refusals."):
         assert fact in documentation
 
 

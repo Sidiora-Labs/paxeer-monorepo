@@ -7,7 +7,7 @@ use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
 // Keep the strict ICS23 implementation identical to the registry verifier until
-// layerx-client exposes its generic per-store verifier (see repair_22_31_207.kvx).
+// layerx-client exposes its generic per-store verifier (see spec/layerx-merge/programme/records/services/platform/hosted/authority/src/repair_22_31_207.kvx).
 mod ics23;
 mod multistore;
 mod proto;
