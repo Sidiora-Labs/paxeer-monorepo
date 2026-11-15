@@ -67,6 +67,7 @@ human-service|docker/human-service/Dockerfile|docker/human-service/Dockerfile|.
 kernel|docker/kernel/Dockerfile|docker/kernel/Dockerfile|.
 platform-indexer|docker/platform-indexer/Dockerfile|docker/platform-indexer/Dockerfile|.
 search-front|docker/search-front/Dockerfile|docker/search-front/Dockerfile|.
+inference-peer-web|docker/inference-peer-web/Dockerfile|docker/inference-peer-web/Dockerfile|.
 '
 
 # ignore files that moved with their Dockerfile: service|new path|old path
