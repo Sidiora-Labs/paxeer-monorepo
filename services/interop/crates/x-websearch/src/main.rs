@@ -115,6 +115,8 @@ impl Readiness {
             payment: Mutex::new(PaymentResolution {
                 state: "unresolved",
                 reason: Some("receiver identity has not been resolved".to_owned()),
+                payable_assets: Vec::new(),
+                withheld_assets: Vec::new(),
             }),
             network_id,
             relay_lag: Mutex::new(None),
@@ -193,7 +195,7 @@ impl Readiness {
         let payment = self
             .payment
             .lock()
-            .map(|payment| serde_json::json!({"state": payment.state, "reason": payment.reason}))
+            .map(|payment| serde_json::json!(*payment))
             .unwrap_or_else(
                 |_| serde_json::json!({"state":"unresolved","reason":"readiness_unavailable"}),
             );
@@ -334,29 +336,24 @@ fn peer_readiness_digest(
 
 impl ReadinessProbe {
     fn check(&self) {
-        if !self.gate.payment_ready() {
-            let attempt = self
-                .payment_next_attempt
-                .lock()
-                .map(|mut next| {
-                    if Instant::now() >= *next {
-                        *next = Instant::now() + PAYMENT_RESOLUTION_INTERVAL;
-                        true
-                    } else {
-                        false
-                    }
-                })
-                .unwrap_or(false);
-            if attempt {
-                let reason = self.gate.resolve_receiver().err();
-                if reason.is_none() {
-                    self.readiness
-                        .set_payment(self.gate.payment_resolution(None));
-                } else if let Ok(mut current) = self.payment_reason.lock() {
-                    *current = reason;
-                    self.readiness
-                        .set_payment(self.gate.payment_resolution(current.clone()));
+        let attempt = self
+            .payment_next_attempt
+            .lock()
+            .map(|mut next| {
+                if Instant::now() >= *next {
+                    *next = Instant::now() + PAYMENT_RESOLUTION_INTERVAL;
+                    true
+                } else {
+                    false
                 }
+            })
+            .unwrap_or(false);
+        if attempt {
+            let reason = self.gate.resolve_receiver().err();
+            self.readiness
+                .set_payment(self.gate.payment_resolution(reason.clone()));
+            if let Ok(mut current) = self.payment_reason.lock() {
+                *current = reason;
             }
         }
         self.readiness.update(

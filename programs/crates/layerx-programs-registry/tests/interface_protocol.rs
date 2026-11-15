@@ -694,6 +694,7 @@ impl NativeEvidence {
 }
 
 #[test]
+#[ignore = "runs in the program interface harness"]
 fn native_receipt_authorized_interface_reads() {
     let root = directory("PAXEER_X_INTERFACE_FIXTURES");
     for (name, abi, dynamic) in CASES {

@@ -617,11 +617,19 @@ pub fn refresh_workers_with(
 /// # Panics
 /// Panics when market state or execution does not satisfy the asserted conditions.
 pub fn open(bytes: &mut Vec<u8>, at: u64) -> CodecResult<Frozen> {
+    refresh_workers(bytes, at)?;
+    open_refreshed(bytes, at)
+}
+/// Open an epoch after the caller refreshes the worker delegate keys.
+/// # Errors
+/// Returns an error when the opening cannot be produced.
+/// # Panics
+/// Panics when the opening cursor or captured roster does not match its response.
+pub fn open_refreshed(bytes: &mut Vec<u8>, at: u64) -> CodecResult<Frozen> {
     fixture_step(
         "open",
         "refresh_workers -> preview_open -> OpenEpoch",
         || {
-            refresh_workers(bytes, at)?;
             let mut next = vec![0; MAX_STATE_BYTES];
             let mut scratch = vec![0; epoch::OPEN_SCRATCH_BYTES];
             let frozen = fixture_step("open", "epoch::preview_open", || {
@@ -808,6 +816,39 @@ pub fn settle(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
         },
     )
 }
+/// Validate one finalization response and its participant cursor.
+/// # Errors
+/// Returns an error when the response cannot be decoded.
+/// # Panics
+/// Panics when the response disagrees with committed progress or its cursor bound.
+pub fn finalization_cursor(
+    response: &[u8],
+    previous: u16,
+    progress: &aggregation::Progress,
+) -> CodecResult<u16> {
+    assert_eq!(response.len(), aggregation::FINALIZE_RESPONSE_BYTES);
+    let mut r = codec::Reader::new(response);
+    assert_eq!(Presence::Present(r.digest32()?), progress.input);
+    let root = r.digest32()?;
+    if progress.phase == AggregationPhase::Terminal {
+        assert_eq!(Presence::Present(root), progress.root);
+    }
+    assert_eq!(r.u16()?, progress.worker_count);
+    assert_eq!(r.u64()?, progress.running_weight);
+    let cursor = r.u16()?;
+    r.finish()?;
+    let chunk = u16::try_from(aggregation::participant_chunk_size(usize::from(
+        progress.worker_count,
+    )))
+    .map_err(|_| NON_CANONICAL)?;
+    assert_eq!(cursor, (previous + chunk).min(progress.worker_count));
+    assert_eq!(
+        progress.phase == AggregationPhase::Terminal,
+        cursor == progress.worker_count
+    );
+    Ok(cursor)
+}
+
 /// Refresh every included identity using its own authenticated owner and replay slot.
 /// # Errors
 /// Returns an error when producing or applying the market state fails.
