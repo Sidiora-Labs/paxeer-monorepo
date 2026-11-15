@@ -22345,3 +22345,8 @@ fix = "Decisions 3583 and 3584. Tasks 22.39.669 and 22.39.670."
 title = "A health path is asked from the first second of a deployment"
 symptom = "A platform that starts a service asks its health path on the port named by the variable PORT and ends the deployment when no answer comes within its wait. A definition that gives a listener and no PORT leaves the port to the platform, and the listener is not asked. An image that does long first work before it serves, such as the first backfill of the indexer, has no listener in that time; the work can take longer than any wait. A definition names the port its health path answers on, and an image answers its health path while the first work runs."
 fix = "Decision 3585. Tasks 22.39.671 and 22.39.672."
+
+[gotcha.4505]
+title = "A backfill that reads one height per connection spends its time on connections"
+symptom = "The backfill of the indexer checks every height of a range against the node: it reads the block of the height and the receipt of each of its transactions, one request after the other, and the transport opens a connection for every request. A history holds many heights without a transaction, and for each of them the cost is the connection and the wait for one answer. The node answers several requests in one JSON-RPC batch and serves several connections at once, so the reads of a range can run side by side while the checks and the order of the commits stay as they are."
+fix = "Decision 3586. Task 22.39.673."
