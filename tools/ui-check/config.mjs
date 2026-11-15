@@ -86,6 +86,21 @@ export function addressPattern(pattern) {
   return new RegExp(`^${pattern.split("*").map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);
 }
 
+function expectations(value, label) {
+  if (value === undefined) return [];
+  array(value, label);
+  return value.map((entry) => {
+    object(entry, ["method", "pattern", "status"], `${label} entry`);
+    text(entry.method, `${label}.method`);
+    if (!/^[A-Z]+$/.test(entry.method)) throw new Error(`${label}.method must be uppercase`);
+    const matcher = addressPattern(entry.pattern);
+    if (!Number.isInteger(entry.status) || entry.status < 400 || entry.status > 599) {
+      throw new Error(`${label}.status must be an HTTP status from 400 to 599`);
+    }
+    return { ...entry, matcher };
+  });
+}
+
 export async function readSurface(filename) {
   const file = await realpath(resolve(filename));
   const base = dirname(file);
@@ -109,15 +124,17 @@ export async function readSurface(filename) {
   localPath(value.readyPath, "surface.readyPath");
   array(value.views, "surface.views", true);
   for (const view of value.views) {
-    object(view, ["name", "path", "states"], "view");
+    object(view, ["name", "path", "states", "expects"], "view");
     text(view.name, "view.name");
     localPath(view.path, "view.path");
+    view.expects = expectations(view.expects, "view.expects");
     if (view.states !== undefined) {
       array(view.states, "view.states");
       for (const state of view.states) {
-        object(state, ["name", "steps"], "state");
+        object(state, ["name", "steps", "expects"], "state");
         text(state.name, "state.name");
         if (state.name === "default") throw new Error("State name default is reserved");
+        state.expects = expectations(state.expects, "state.expects");
         array(state.steps, "state.steps", true);
         for (const step of state.steps) {
           const keys = {
