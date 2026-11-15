@@ -1,0 +1,4 @@
+[meta]
+kind = "railway-project"
+project = "paxeer-x-wallet"
+environment = "production"
