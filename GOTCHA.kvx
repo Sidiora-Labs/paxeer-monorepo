@@ -22350,3 +22350,13 @@ fix = "Decision 3585. Tasks 22.39.671 and 22.39.672."
 title = "A backfill that reads one height per connection spends its time on connections"
 symptom = "The backfill of the indexer checks every height of a range against the node: it reads the block of the height and the receipt of each of its transactions, one request after the other, and the transport opens a connection for every request. A history holds many heights without a transaction, and for each of them the cost is the connection and the wait for one answer. The node answers several requests in one JSON-RPC batch and serves several connections at once, so the reads of a range can run side by side while the checks and the order of the commits stay as they are."
 fix = "Decision 3586. Task 22.39.673."
+
+[gotcha.4506]
+title = "An interface written from habit uses the web of some years ago"
+symptom = "Much interface code is written in the patterns that were common some years ago: script where the platform now has an element or a style rule, fixed breakpoints where a component can ask its own container, colour pairs written twice where one function serves both schemes, a library where a few lines of style do the work. The web platform guidance published by the browser vendors gives the present form of each pattern with its support data and its fallback, and its tool finds the earlier forms in a tree. An interface is brought to the present form by reading the guide of each pattern it holds, not from memory."
+fix = "Decisions 3587 and 3589. Tasks 22.44.1 to 22.44.36."
+
+[gotcha.4507]
+title = "A view that is right at one width is checked at none of the others"
+symptom = "A view is usually built and looked at in one window size and one colour scheme. Its defects sit elsewhere: a table that leaves the screen on a phone, a heading that wraps badly on a tablet, a pale label in the light scheme, a control too small for a finger, a distance that follows no step of the spacing scale, a number column that does not align. Only a render of every view at every width of a fixed list, in both schemes, shows them."
+fix = "Decision 3588. Tasks 22.44.1 to 22.44.36."
