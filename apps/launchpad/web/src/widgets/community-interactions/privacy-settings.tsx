@@ -24,8 +24,8 @@ export function PrivacySettings({ client }: { client: InteractionClient }) {
     <div className="flex flex-col gap-3">
       <FormField id={walletID} label="Block or unblock a wallet" mono error={wallet !== '' && !validWallet ? 'Enter a valid wallet (0x…)' : null} inputProps={{ value: wallet, disabled: busy, onChange: event => setWallet(event.target.value), placeholder: '0x…' }} />
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="danger-text" size="sm" disabled={busy || !validWallet} onClick={() => { void block(false); }}>Block</Button>
-        <Button variant="secondary" size="sm" disabled={busy || !validWallet} onClick={() => { void block(true); }}>Unblock</Button>
+        <Button type="button" variant="danger-text" size="sm" disabled={busy || !validWallet} onClick={() => { void block(false); }}>Block</Button>
+        <Button type="button" variant="secondary" size="sm" disabled={busy || !validWallet} onClick={() => { void block(true); }}>Unblock</Button>
       </div>
       <p className="text-xs text-text-faint">Unblocking won't bring back follows or messages</p>
     </div>

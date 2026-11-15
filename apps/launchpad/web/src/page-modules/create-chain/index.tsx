@@ -19,5 +19,5 @@ export function CreateChainPageFallback() {
 }
 
 export default function CreateChainModule() {
-  return <Suspense fallback={<CreateChainPageFallback />}><ChainWizard /></Suspense>;
+  return <div data-create-chain-route className="min-w-0"><Suspense fallback={<CreateChainPageFallback />}><ChainWizard /></Suspense></div>;
 }

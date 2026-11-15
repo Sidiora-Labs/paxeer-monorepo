@@ -910,6 +910,7 @@ export default function CreateWizard() {
                   alt=""
                   width={48}
                   height={48}
+                  decoding="async"
                   className="size-12 rounded-sm object-cover"
                 />
                 <div className="min-w-0 flex-1">
