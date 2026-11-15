@@ -97,7 +97,17 @@ Unknown methods or paths return `404` `not_found`. These health, genesis, and Co
 
 The envelope must have `jsonrpc: "2.0"`; `params`, when present, must be an array or object. IDs may be null, a number, or a string of at most 256 bytes. Unknown envelope members are refused. The upstream must return HTTP `200` and a matching single JSON-RPC reply containing exactly one of `result` or `error`. Request bodies are limited to 2 MiB, upstream responses to 8 MiB, and simultaneous connections to 128; excess connections are dropped.
 
-`POST /comet` has a separate 4096-byte request limit and allows only `status`, `commit`, `validators`, and proof-bearing `abci_query` for `/store/evm/key`. Its parameter validation is declared in `services/platform/hosted/paxeer/src/comet.rs`; it is not a general Comet proxy.
+`POST /comet` has a separate 4096-byte request limit. Its consensus calls are:
+
+| Method | Parameters |
+| --- | --- |
+| `status` | Empty parameters |
+| `commit` | Optional decimal `height` |
+| `block` | Decimal `height` |
+| `validators` | Decimal `height`, `page`, and `per_page=100` |
+| `abci_query` | A proof for `/store/evm/key` or `/store/sequencer/key` with key `0x03` |
+
+Its parameter validation is declared in `services/platform/hosted/paxeer/src/comet.rs`; it is not a general Comet proxy.
 
 ## Credentials
 
