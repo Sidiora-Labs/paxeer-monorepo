@@ -215,6 +215,33 @@ defmodule Explorer.PaxeerX.CosmosRestTest do
     assert {:error, {:height_unavailable, _}} = CosmosRest.fetch_block_results([context.rpc_url], @height)
   end
 
+  test "tries the next URL after a successful response carrying a base height error", context do
+    first = Bypass.open()
+    message = "height is not available (requested height: #{@height}, base height: #{@height + 50})"
+
+    Bypass.expect(first, "GET", "/block_results", fn conn ->
+      Plug.Conn.resp(conn, 200, Jason.encode!(%{"code" => -32603, "message" => message, "data" => %{}}))
+    end)
+
+    Bypass.expect(context.rpc, "GET", "/block_results", fn conn ->
+      Plug.Conn.resp(conn, 200, fixture("block_results_empty.json"))
+    end)
+
+    assert {:ok, []} = CosmosRest.fetch_block_results([url(first), context.rpc_url], @height)
+  end
+
+  test "reports every URL carrying a base height error as unavailable", context do
+    other = Bypass.open()
+    message = "height is not available (requested height: #{@height}, base height: #{@height + 50})"
+    body = Jason.encode!(%{"code" => -32603, "message" => message, "data" => %{}})
+
+    for bypass <- [context.rpc, other] do
+      Bypass.expect(bypass, "GET", "/block_results", fn conn -> Plug.Conn.resp(conn, 200, body) end)
+    end
+
+    assert {:error, {:height_unavailable, _}} = CosmosRest.fetch_block_results([context.rpc_url, url(other)], @height)
+  end
+
   test "moves past a node whose head is below the height and asks for a retry when none serves it", context do
     behind = Bypass.open()
     pruned = Bypass.open()
