@@ -173481,7 +173481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.684]
 title = "Accept the session requests of a browser behind a front and serve the icon of the app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174426,7 +174426,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.25]
 title = "Bring the portfolio, send, receive, swap, token and settings views of the wallet application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.24"]
