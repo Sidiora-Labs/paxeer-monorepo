@@ -1,6 +1,6 @@
 # LayerX exchange precompile
 
-This directory holds the `layerxExchange` EVM precompile implementation, exchange-intent ABI, Solidity interface, and tests. It provides compatibility code for the `layerxexchange` module, including custody-backed margin intents and witness-based state reads. In the merged Paxeer network, the node selects the native [`perps` precompile](../perps/) at `0x1015` when `v6.12.0` is active; exchange-intent creation is retired under that activation. The kernel executes within the network, and receipts are final when their blocks are committed.
+This directory holds the `layerxExchange` EVM precompile implementation, exchange-intent ABI, Solidity interface, and tests. It provides compatibility code for the `layerxexchange` module, including custody-backed margin intents and witness-based state reads. In the merged Paxeer network, the node selects the native [`perps` precompile](../perps/) at `0x1015` when `v6.12.0` is active; exchange-intent creation is retired under that activation. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. Receipts are final when validators commit their blocks.
 
 ## Layout
 

@@ -45,9 +45,12 @@ def assert_facts(text, facts):
 def test_merged_paxd_network_and_commit_finality():
     overview = section("What is Paxeer X Network?", 2)
     assert_facts(overview, (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "The LayerX kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "Sub-chains are tenant domains stored in the database",
     ))
@@ -55,7 +58,7 @@ def test_merged_paxd_network_and_commit_finality():
     assert len(diagrams) == 2
     topology, _ = diagrams
     assert_facts(topology, (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ))

@@ -923,26 +923,18 @@ fn assertion_subject_resolves_one_durable_wallet_principal_and_tenant_across_res
     scenario.check_boundary_and_restart(&index)
 }
 
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AttestorAdmissionFixture {
-    nodes: Vec<(String, SocketAddr)>,
-    root_certificate: String,
-    client_certificate: String,
-    client_private_key: String,
-    jwks_url: String,
-    assertion: String,
-    subject: String,
-}
+#[path = "../../layerx-human-kms/tests/support/attestor_cluster.rs"]
+#[allow(dead_code)]
+mod attestor_cluster;
 
 #[test]
 fn assertion_capability_reaches_existing_attestor_admission() -> Result {
     use layerx_human_service::server::production_components::{AttestorCustodyConfig, AttestorKms};
-    let path = std::env::var("PAXEER_X_IDENTITY_ATTESTOR_FIXTURE")
-        .map_err(|_| "missing isolated attestor admission fixture")?;
-    let fixture: AttestorAdmissionFixture = serde_json::from_slice(&fs::read(path)?)?;
-    if fixture.nodes.len() < 3
-        || fixture
+    let cluster = attestor_cluster::Cluster::start(&[])?;
+    let subject = "supabase-user-attestor";
+    let assertion = cluster.tokens.mint(subject)?;
+    if cluster.nodes.len() < 3
+        || cluster
             .nodes
             .iter()
             .any(|(_, address)| !address.ip().is_loopback())
@@ -950,11 +942,11 @@ fn assertion_capability_reaches_existing_attestor_admission() -> Result {
         return Err("attestor admission requires an isolated local quorum".into());
     }
     let config = AttestorCustodyConfig::new(
-        fixture.nodes.clone(),
-        fixture.nodes.iter().map(|(id, _)| id.clone()).collect(),
-        fs::read(&fixture.root_certificate)?,
-        fs::read(&fixture.client_certificate)?,
-        fs::read(&fixture.client_private_key)?,
+        cluster.nodes.clone(),
+        cluster.nodes.iter().map(|(id, _)| id.clone()).collect(),
+        cluster.pki.certificate_der("node-ca")?,
+        cluster.pki.certificate_der("gateway")?,
+        cluster.pki.key_der("gateway")?,
         Duration::from_secs(5),
     )
     .map_err(|_| "attestor configuration refused")?;
@@ -966,9 +958,9 @@ fn assertion_capability_reaches_existing_attestor_admission() -> Result {
     let producer = Signer::generate()?;
     let verifier = AssertionVerifier::new_with_clock(
         AssertionConfig {
-            jwks_url: fixture.jwks_url,
-            issuer: ISSUER.to_owned(),
-            audience: AUDIENCE.to_owned(),
+            jwks_url: cluster.key_set_url(),
+            issuer: attestor_cluster::ISSUER.to_owned(),
+            audience: attestor_cluster::AUDIENCE.to_owned(),
             clock_skew_seconds: 30,
             refresh_interval_seconds: 300,
         },
@@ -978,8 +970,11 @@ fn assertion_capability_reaches_existing_attestor_admission() -> Result {
     let running = Running::start_with(root, Some(verifier))?;
     let identity = identity(root, rustix::process::getegid().as_raw())?;
     let account = identity.resolve_assertion_with_binding(
-        &fixture.assertion,
-        Some(&producer.binding(&fixture.subject, WALLET_DID, TENANT)),
+        &assertion,
+        Some(&producer.mint(
+            &json!({"alg": "ES256", "typ": BINDING_TYPE}),
+            &json!({"iss": attestor_cluster::ISSUER, "sub": subject, "did": WALLET_DID, "tenant": TENANT}),
+        )),
     )?;
     let store_root = root.join("store");
     let digest = TenancyMap::new([])?.install(&store_root)?;
@@ -1008,25 +1003,22 @@ fn assertion_capability_reaches_existing_attestor_admission() -> Result {
         &mut store,
         &index,
         &account.principal,
-        &fixture.assertion,
+        &assertion,
         disclosure,
         now,
         30,
     )
     .map_err(|_| "bearer capability refused")?;
     let mut context = capability
-        .into_bearer_context(
-            &fixture.assertion,
-            account.did.as_deref().ok_or("binding pending")?,
-        )
+        .into_bearer_context(&assertion, account.did.as_deref().ok_or("binding pending")?)
         .map_err(|_| "bearer context refused")?;
     consume_context(&index, &context, disclosure, now)
         .map_err(|_| "bearer capability consumption refused")?;
-    assert_eq!(context.assertion(), Some(fixture.assertion.as_str()));
+    assert_eq!(context.assertion(), Some(assertion.as_str()));
     kms.admit_context_assertion(&context)
         .map_err(|_| "attestor admission refused")?;
     assert!(kms
-        .admit_assertion("different-subject", &fixture.assertion)
+        .admit_assertion("different-subject", &assertion)
         .is_err());
     context.session_id = "different-session".to_owned();
     assert!(kms.admit_context_assertion(&context).is_err());

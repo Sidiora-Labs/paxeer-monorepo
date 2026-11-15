@@ -49,9 +49,14 @@ def shell_blocks(document):
 
 def test_architecture_root_introduction_and_receipt_commit_boundary():
     introduction = section(source(NETWORK), "## What is Paxeer X Network?")
-    assert "one BFT network" in introduction
+    assert "The LayerX kernel runs inside every `paxd` node." in introduction
     assert "**125** (`0x7d`)" in introduction
-    assert "kernel is embedded in the node" in introduction
+    assert (
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block."
+    ) in introduction
+    assert "Validators check that block and commit it." in introduction
     assert "A receipt is final once its block is committed." in introduction
     assert "signed execution receipt can arrive before that commitment" in introduction
 
@@ -115,11 +120,11 @@ def test_architecture_root_diagram_contains_embedded_execution_and_gateway_relay
     for component in ("RPC", "Order", "Host", "Native"):
         assert re.search(rf'^\s+{component}\[[^\n]+\]$', node, re.M)
     for fact in ("RPC --> Order --> Host --> Native", "Embedded C17 kernel and Rust programs host",
-                 "Integrated sequencing and block proposal"):
+                 "LayerX kernel executes, orders and builds the block"):
         assert fact in node
     for fact in ("Hosted[Optional hosted developer gateway] -->|Chain RPC and committed state| RPC",
                  "Client[Wallet, SDK or application] -->|Signed EVM transaction / root JSON-RPC| RPC",
-                 "Order -->|Proposed block in execution order| Validators[BFT validators]",
+                 "Order -->|Proposed block in execution order| Validators[Validators check and commit]",
                  "Validators -->|Commit| State[Committed block and chain state]",
                  "State -->|Transaction receipts, logs and proofs| Client"):
         assert fact in diagram

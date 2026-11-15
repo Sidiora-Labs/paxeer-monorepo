@@ -211,18 +211,18 @@ def publish_tag_must_match_version():
     )
     build_index, _ = step(publish, "releaser", "Build release binaries")
     require(validate_index < build_index, "tag must be validated before building")
-    require(identity["version"] == "v7.0.0", "release version must be v7.0.0")
+    version = identity["version"]
     for tag, code, output in (
-        ("paxeer-network/v7.0.0", 0, ""),
+        (f"paxeer-network/{version}", 0, ""),
         (
-            "paxeer-network/v7.0.1",
+            "paxeer-network/v7.0.0",
             1,
-            "Tag paxeer-network/v7.0.1 does not match tools/release/version.json v7.0.0\n",
+            f"Tag paxeer-network/v7.0.0 does not match tools/release/version.json {version}\n",
         ),
         (
             "v7.0.0",
             1,
-            "Tag v7.0.0 does not match tools/release/version.json v7.0.0\n",
+            f"Tag v7.0.0 does not match tools/release/version.json {version}\n",
         ),
     ):
         result = subprocess.run(

@@ -1,0 +1,8 @@
+[escrow_view]
+view = "modules/layerxpay/keeper/escrow_views.go:GetEscrow"
+returns = "EscrowRecord, bool, error"
+test = "TestPayServedEscrowOpenThroughEVM"
+absent_call = "_, found, err := w.App.LayerXPayKeeper.GetEscrow(w.Ctx, id)"
+absent_checks = "require.NoError(t, err) precedes require.False(t, found)"
+present_call = "record, found, err := w.App.LayerXPayKeeper.GetEscrow(db.Ctx(), id)"
+present_checks = "require.NoError(t, err) precedes require.True(t, found) and require.Equal(t, want, record)"

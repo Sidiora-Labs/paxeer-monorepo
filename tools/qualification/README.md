@@ -3,9 +3,9 @@
 This directory holds qualification runners, integration helpers and tests for
 the Paxeer X Network and its applications. They exercise node, program, wallet,
 Human, platform and interoperability behavior and validate evidence against its
-source and artifacts. The network runs through `paxd`, with the kernel taking
-part in block proposal and execution; receipts are final when their blocks are
-committed.
+source and artifacts. The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it, and receipts
+are final when the validators commit their blocks.
 
 ## Layout
 

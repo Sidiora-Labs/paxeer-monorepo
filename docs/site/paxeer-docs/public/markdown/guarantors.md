@@ -35,7 +35,7 @@ Verification checks the exact signed bytes and their bindings. Receipt output da
 
 ## Consensus membership
 
-Validator membership is part of the BFT network. The hosted gateway declares `px_getValidators` and `px_getCommit` in `services/platform/hosted/gateway/openrpc.json`; use their verified chain data when inspecting consensus evidence.
+Paxeer validators check and commit the blocks the kernel builds. The hosted gateway declares `px_getValidators` and `px_getCommit` in `services/platform/hosted/gateway/openrpc.json`; use their verified chain data when inspecting consensus evidence.
 
 The public EVM chain ID is `125`. Bind transaction signatures and receipt verification to the intended chain and obtain current consensus state from that network.
 

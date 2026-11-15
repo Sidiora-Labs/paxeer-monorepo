@@ -63,9 +63,12 @@ def make_target(path, name):
 def test_readme_describes_one_embedded_paxd_chain_125_network():
     overview = section("What is Paxeer X Network?", 2)
     require_facts(overview, (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "hosted gateway is optional developer tooling", "outside consensus",
@@ -79,7 +82,7 @@ def test_readme_describes_one_embedded_paxd_chain_125_network():
     assert len(diagrams) == 2
     assert re.findall(r"```mermaid\n(.*?)\n```", overview, re.S) == [diagrams[0]]
     require_facts(diagrams[0], (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ))
@@ -221,7 +224,7 @@ def test_build_and_development_guidance_matches_make_targets():
     assert "$(MAKE) -C $(PAXEER_PROJECT_HOME) -f Makefile paxd-native-libs" in recipe
     releases = section("Releases and Network Upgrades", 3)
     require_facts(releases, (
-        "executes kernel activity inside `paxd`", "commits it with the BFT chain state",
+        "executes kernel activity inside `paxd`", "validators commit it in the same block",
         "retires the old custody/checkpoint write paths",
     ))
 

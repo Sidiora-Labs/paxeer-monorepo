@@ -45,10 +45,14 @@ def section(heading, level=3):
 def test_doc_9_integrated_paxd_and_native_constructs():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "The LayerX kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -189,7 +193,7 @@ def test_doc_9_upgrades_retire_custody_and_checkpoint_execution():
     releases = section("Releases and Network Upgrades")
     for fact in (
         "executes kernel activity inside `paxd`",
-        "commits it with the BFT chain state",
+        "validators commit it in the same block",
         "`v7.0` merge handler activates the merged interfaces",
         "retires the old custody/checkpoint write paths",
         "`v7.0-anchor-store-delete` removes the historical anchor store",

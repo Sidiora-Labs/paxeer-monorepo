@@ -7,11 +7,9 @@ use std::fmt::{Debug, Display, Formatter};
 #[path = "session_state.rs"]
 mod durable;
 
-use layerx_crypto::local::LocalSigner;
 use layerx_crypto::session::{
     issue_session_key, IssuedSessionKey, SessionIssueError, SessionKeyRequest,
 };
-use layerx_crypto::signer::Signer as _;
 use layerx_intents::{
     compile, CompileError, DisclosureCheck, DisclosureCheckError, Intent, IntentError, IntentKind,
     KeyRotation,

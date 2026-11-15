@@ -522,7 +522,7 @@ fn authority_peer_with_identity(
                 }
                 "/v1/agent/identity" => {
                     json!({"canonical_core_bytes":hex::encode(&identity.canonical_bytes), "head_sequence":identity.head_sequence,
-                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level": match identity.verification_level { layerx_types::verify::VerificationLevel::COMMITTED => layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), layerx_types::verify::VerificationLevel::STATE_PROVEN => layerx_types::verify::VerificationLevel::STATE_PROVEN.wire_label(), _ => panic!("identity floor case") },
+                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level": identity.verification_level.wire_label(),
                     "authorities":identity.authorities.iter().map(|authority| match authority { ProtocolAuthority::PrimaryKey(id) => json!({"kind":"primary_key","id":hex::encode(id)}), _ => panic!("owner authority") }).collect::<Vec<_>>()})
                 }
                 other => panic!("unexpected authority read: {other}"),

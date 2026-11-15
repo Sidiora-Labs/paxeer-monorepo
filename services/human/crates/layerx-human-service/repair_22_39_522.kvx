@@ -1,0 +1,19 @@
+[reclaim]
+rule = "A completed return binds the exact authenticated EVM receipt to its signed call and derives the transfer amount from that call's disclosure. The EVM value remains zero for construct calls. A changed amount or substituted receipt is refused after restart."
+files = ["services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs"]
+
+[journeys]
+rule = "Journey receipts retain the type-2 transaction hash, sender, precompile target, nonce, execution summary, payment denomination, receipt-key range and signature. The durable outbox consumes authenticated RPC receipt evidence before reconciling the containing block. Unknown submissions use receipt lookup without creating another effect."
+files = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/support/journey_receipt.rs"]
+
+[archive]
+rule = "Archive retains the completed return receipt for the same payment asset before retiring authority and preserves history across restart."
+files = ["services/human/crates/layerx-human-service/tests/archive.rs"]
+
+[budget]
+rule = "Budget proof fixtures carry the committed verification rank required by the native verifier before the human service adopts their checkpoint and RPC evidence."
+files = ["services/human/crates/layerx-human-service/tests/agent_control_persistence.rs"]
+
+[activity]
+rule = "EVM construct receipts report zero native value; reclaim results separately derive the requested transfer amount from the authenticated call disclosure."
+files = ["services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"]

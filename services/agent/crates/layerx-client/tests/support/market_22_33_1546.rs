@@ -950,6 +950,7 @@ fn finalize_second_record(
         [0x55; 32],
         10_000,
     ));
+    must(second_journal.record_signed(&second));
     must(second_journal.submit(&mut second, endpoint));
     assert_eq!(
         must(second_journal.resolve_with_commit(

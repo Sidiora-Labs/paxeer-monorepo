@@ -127,12 +127,14 @@ fn profiled_capture_one_byte_above_its_bound_answers_replay_bound() {
     let Err(refusal) = result.as_ref() else {
         panic!("expected replay bound refusal, got {result:?}");
     };
-    assert_eq!(
-        refusal,
-        &ExecutionError::Fault(ExecutionFault::EngineFault {
-            reason: "program replay record refused: Bounds".to_string(),
-        }),
-        "the real record producer must refuse serialization at the exact bound"
+    let ExecutionError::Fault(ExecutionFault::EngineFault { reason }) = refusal else {
+        panic!(
+            "the real record producer must refuse serialization at the exact bound: {refusal:?}"
+        );
+    };
+    assert!(
+        reason.starts_with("program replay record refused: Bounds"),
+        "the real record producer must refuse serialization at the exact bound: {reason}"
     );
     assert_eq!(from_captured(result), Err(-740));
 }

@@ -16,13 +16,16 @@ use layerx_agent_api::subscription::{
     SubscriptionTarget, TenantObject,
 };
 use layerx_agent_api::track::ReceiptRef;
+use layerx_agentd::events::gap::EthLogSource;
 use layerx_agentd::events::subscription::Store as SubscriptionStore;
 use layerx_agentd::events::{
     backfill, deliver, ingest, CoreEvent, DeliveryEngine, DeliveryItem, EventAttributes,
     EventIngestor, RetryPolicy,
 };
+use layerx_agentd::read::HistoryLimits;
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_client::subscription::SubscriptionTopic;
 use layerx_human_service::activity::{
     verification_status, ActivityKind, ActivityStatus, AgentActivity, DepositStage, EvidenceBundle,
     Feed, FeedCursor, FeedError, FilterDraft, PageRequest, PendingStatus, UnverifiedReason,
@@ -280,29 +283,50 @@ fn delivered_events(root: &std::path::Path) -> Vec<EventDelivery> {
     );
     for sequence in 0_u64..7 {
         let receipt = (sequence == 6).then_some(receipt_reference);
-        let bytes = if sequence == 6 {
-            canonical_receipt.clone()
-        } else {
-            vec![0x45, u8::try_from(sequence).unwrap_or(0), 0x56]
-        };
-        text(
-            ingest(
-                &mut ingestor,
-                CoreEvent {
-                    global_sequence: sequence,
-                    canonical_bytes: bytes,
-                    receipt_reference: receipt,
-                    receipt_verification_level: if receipt.is_some() {
-                        VerificationLevel::BATCH_INCLUDED
-                    } else {
-                        VerificationLevel::UNVERIFIED
-                    },
-                    attributes: attributes(sequence),
-                },
-            ),
-            "core event ingestion",
+        let log = serde_json::json!({
+            "address": "0x000000000000000000000000000000000000101a",
+            "blockNumber": format!("0x{:x}", sequence + 1),
+            "transactionIndex": "0x0",
+            "logIndex": "0x0",
+            "transactionHash": format!("0x{}", digest_hex(&Sha256::digest(sequence.to_be_bytes()))),
+            "blockHash": null,
+            "seq": format!("0x{:x}", sequence + 1),
+            "topics": [],
+            "data": format!("0x{}", digest_hex(&canonical_receipt)),
+            "removed": false
+        });
+        let mut event = text(
+            CoreEvent::from_log(&log, attributes(sequence)),
+            "RPC log codec",
         );
+        event.global_sequence = sequence;
+        event.receipt_reference = receipt;
+        text(ingest(&mut ingestor, event), "core event ingestion");
     }
+    let source = text(
+        EthLogSource::new(
+            "http://127.0.0.1:9",
+            &[],
+            SubscriptionTopic::Logs {
+                address: None,
+                topics: Vec::new(),
+            },
+        ),
+        "log source",
+    );
+    text(
+        ingestor.new_head(
+            8,
+            &source,
+            HistoryLimits {
+                maximum_items: 16,
+                maximum_response_bytes: 1_048_576,
+            },
+            16,
+            attributes(6),
+        ),
+        "close event blocks",
+    );
     let mut subscriptions = text(
         SubscriptionStore::open(ingestor.into_store(), tenant()),
         "subscription store",
@@ -341,9 +365,13 @@ fn delivered_events(root: &std::path::Path) -> Vec<EventDelivery> {
     let mut events = Vec::new();
     let mut now = 1_000_u64;
     while events.len() < 7 {
-        text(backfill(&mut engine), "delivery backfill");
-        let item = text(deliver(&mut engine), "delivery attempt")
-            .unwrap_or_else(|| panic!("expected pending delivery"));
+        let report = text(backfill(&mut engine), "delivery backfill");
+        let item = text(deliver(&mut engine), "delivery attempt").unwrap_or_else(|| {
+            panic!(
+                "expected pending delivery after {} events: {report:?}",
+                events.len()
+            )
+        });
         let accepted = text(engine.accept_front(now), "accept delivery");
         assert_eq!(accepted, item);
         if let DeliveryItem::Event(event) = accepted {
@@ -670,22 +698,27 @@ fn completion_is_unrepresentable_without_verified_receipt_evidence() {
     let map = support::tenancy(&[("alice", "tenant-a")]);
     let (mut store, _) = support::install_and_open(&root, &map, support::retention_uniform(100));
     let mut scope = text(store.principal(&support::principal("alice")), "scope");
-    let delivery = text(
-        EventDelivery::new(
-            EventIdentity::new([0x41; 32]),
-            vec![1, 2, 3],
-            ApiCursor {
-                block_height: 1,
-                tx_index: 0,
-                log_index: 0,
-            },
-            ReceiptReference::Verified {
-                receipt_ref: text(ReceiptRef::new("receipt-unverified"), "receipt ref"),
-                rung: Rung::Submitted,
-            },
-        ),
+    let identity = EventIdentity::new([0x41; 32]);
+    let reference = ReceiptReference::Verified {
+        receipt_ref: text(ReceiptRef::new("receipt-unverified"), "receipt ref"),
+        rung: Rung::Submitted,
+    };
+    let cursor = ApiCursor {
+        block_height: 1,
+        tx_index: 0,
+        log_index: 0,
+    };
+    assert!(matches!(
+        EventDelivery::new(identity, vec![1, 2, 3], cursor, reference.clone()),
+        Err(layerx_agent_api::identity::ContractError::OutOfRange(
+            "receipt_reference_rung"
+        ))
+    ));
+    let mut delivery = text(
+        EventDelivery::new(identity, vec![1, 2, 3], cursor, ReceiptReference::None),
         "event delivery",
     );
+    delivery.receipt_reference = reference;
     assert!(matches!(
         Feed::record_agent_event(
             &mut scope,

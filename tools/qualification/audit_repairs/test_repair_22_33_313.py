@@ -49,9 +49,12 @@ def section(heading, level=3):
 def test_merged_paxd_network_and_tenant_namespaces():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "Sub-chains are tenant domains stored in the database",
         "does not require new node infrastructure",
@@ -180,7 +183,7 @@ def test_current_node_build_operations_and_no_separate_deployment():
         assert (NETWORK_PAGE.parent / target.split("#", 1)[0]).resolve().exists(), target
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "no separate kernel daemon, sequencer service or checkpoint deployment" in README
     assert "External checkpoint settlement is retired" in README
     assert not re.search(r"\blayerxd\b", README, re.I)

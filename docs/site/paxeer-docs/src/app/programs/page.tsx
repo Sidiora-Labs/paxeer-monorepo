@@ -13,7 +13,7 @@ export default function ProgramsPage() {
     </div>
     <h2>One execution surface, explicit authority</h2>
     <p>Programs extend the LayerX kernel domain of Paxeer X with application logic. A program executes a validated WebAssembly artifact under the identity, capability grants, access declarations, and resource ceilings of its invoking activity. Artifact validation rejects floating-point types and instructions and enforces structural limits before interpreter execution. The same admitted activity and state produce replayable results.</p>
-    <p>Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated <code>402LXP</code> transfer sets applied by the kernel. The kernel executes within the Paxeer BFT node on EVM chain ID <code>125</code>. A receipt is final when its covering block is committed.</p>
+    <p>Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated <code>402LXP</code> transfer sets applied by the kernel. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer uses EVM chain ID <code>125</code>. A receipt is final when validators commit its covering block.</p>
     <h2>Application building blocks</h2>
     <table><thead><tr><th>Capability</th><th>Application behavior</th></tr></thead><tbody>
       <tr><td>Namespaced storage</td><td>Read, write, delete, and scan bounded program state; distinguish principal-scoped state from explicitly granted shared state.</td></tr>

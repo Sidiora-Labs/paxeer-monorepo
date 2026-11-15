@@ -359,8 +359,16 @@ func (s *sink) PublishBatch(ctx context.Context, leases []delivery.Lease) []deli
 	}
 	futures := make([]jetstream.PubAckFuture, len(leases))
 	last := out[0].Ack.Sequence
-	for i := 1; i < len(leases); i++ {
-		if futures[i], out[i].Err = s.send(leases[i], down, jetstream.WithExpectLastSequence(last+uint64(i)-1)); out[i].Err != nil {
+	offset := uint64(0)
+	for i := 1; i < len(leases); i, offset = i+1, offset+1 {
+		if last > math.MaxUint64-offset {
+			out[i].Err = errors.New("publish: broker sequence exceeds uint64")
+			for j := i + 1; j < len(out); j++ {
+				out[j].Err = errPredecessor
+			}
+			break
+		}
+		if futures[i], out[i].Err = s.send(leases[i], down, jetstream.WithExpectLastSequence(last+offset)); out[i].Err != nil {
 			// The broker refuses every later message on its expectation;
 			// they are not sent.
 			for j := i + 1; j < len(out); j++ {

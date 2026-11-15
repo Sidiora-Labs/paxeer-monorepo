@@ -5,9 +5,9 @@ Elixir umbrella application with package version `10.2.6`. It indexes
 Paxeer mainnet-beta over node EVM JSON-RPC, stores indexed data in PostgreSQL,
 and serves the explorer frontend in [`apps/explorer`](../../../apps/explorer).
 
-Paxeer is one BFT `paxd` network, with EVM chain id **125** (`0x7d`). Its kernel
-is part of the network and proposes blocks; a receipt is final once its block
-is committed. The explorer's indexed view can lag the node. Public node
+Paxeer uses `paxd` with EVM chain id **125** (`0x7d`). The LayerX kernel
+inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A receipt is final once its block is committed. The explorer's indexed view can lag the node. Public node
 JSON-RPC uses each configured node's root URL. The
 [explorer overview](../README.md#network-and-interfaces) describes node access
 and links to the hosted gateway's `px_` contract. Sub-chains are tenant

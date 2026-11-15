@@ -3,8 +3,8 @@
 Chain-specific modules and integration helpers for `paxd` live here. Paxeer
 mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside every
 `paxd` node executes and orders each transaction and builds each block;
-validators check and commit it; a receipt is final when its block
-is committed. Kernel execution and native balances share chain state.
+validators check and commit it; a receipt is final when validators
+commit its block. Kernel execution and native balances share chain state.
 
 ## Layout
 
@@ -15,7 +15,7 @@ is committed. Kernel execution and native balances share chain state.
 - [`layerxpay`](layerxpay/) — escrows, budgets, streams, and service agreements through `0x101B`, subject to the configured family enablement and pause gates.
 - [`layerxagent`](layerxagent/) — scheduled EVM calls, job deposits, and bounded end-block execution. Agent-function precompiles occupy `0x0901`–`0x0908`; the scheduler is at `0x0905`.
 - [`layerxchains`](layerxchains/) — tenant-domain registry, funding, allowances, operator controls, and lifecycle through `0x101E`. Sub-chains are database namespaces on the same network and need no new infrastructure.
-- [`sequencer`](sequencer/) — on-chain leader list, receipt keys, and sequence state used by the network's block proposal and receipt machinery.
+- [`sequencer`](sequencer/) — on-chain leader list, receipt keys, and sequence state used by the LayerX kernel's block and receipt machinery.
 - [`layerxgov`](layerxgov/) — governance proposal content (`LayerXProposal`) that dispatches packaged parameter and admin messages through the SDK `MsgServiceRouter`.
 - [`evm`](evm/) — native EVM execution, address association, receipts, pointers, and precompile integration.
 - [`perps`](perps/) — native perpetuals markets and synchronous trading through the perps precompile at `0x1015`.

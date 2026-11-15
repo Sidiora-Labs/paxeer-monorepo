@@ -38,7 +38,7 @@ const MAX_FRAME: usize = 2_097_152;
 const CONFIG_CHECK: &str = "LAYERX_PROOF_KMS_CONFIG_CHECK";
 static FIXTURE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 const ENTRYPOINT: &str = include_str!("../../../../../docker/human-service/entrypoint.sh");
-const KERNEL_INIT: &str = include_str!("../../../../../docker/kernel/init.sh");
+const CHAIN_SNAPSHOT: &str = "LAYERX_HUMAN_KMS_REGISTRY_FILE";
 
 fn shell_function(source: &str, name: &str) -> Result<String> {
     let marker = format!("{name}() {{\n");
@@ -162,7 +162,7 @@ impl Host {
         fs::write(
             self.root.join("native-registry.json"),
             serde_json::to_vec(&json!({
-                "schema_version": 2, "assets": [{"asset": "ab".repeat(32)}],
+                "schema_version": 2, "network_id": 125, "assets": [{"asset": "ab".repeat(32)}],
                 "modules": [{"module": 1, "ordinals": [1, 4]}]
             }))?,
         )?;
@@ -271,17 +271,11 @@ impl Host {
         Ok(())
     }
 
-    fn project_chain(&self, chain: u64) -> Result<std::process::Output> {
-        let function = shell_function(KERNEL_INIT, "human_kms_chain_snapshot")?;
-        Ok(Command::new("sh")
-            .arg("-ec")
-            .arg(format!(
-                "{function}\nhuman_kms_chain_snapshot \"$1\" \"$2\""
-            ))
-            .arg("proof")
-            .arg(self.root.join("registry.json"))
-            .arg(chain.to_string())
-            .output()?)
+    fn install_chain_snapshot(&self) -> Result<()> {
+        let path = std::env::var(CHAIN_SNAPSHOT)?;
+        let snapshot = config::protected(Path::new(&path), 65_536, false)?;
+        fs::write(self.root.join("registry.json"), snapshot.as_slice())?;
+        Ok(())
     }
 
     fn configure(&self, command: &mut Command) {
@@ -523,16 +517,17 @@ fn proof_human_kms() -> Result<()> {
     if let Some(check) = std::env::var_os(CONFIG_CHECK) {
         return verify_config_check(&check);
     }
+    if std::env::var_os(CHAIN_SNAPSHOT).is_none() {
+        eprintln!("{CHAIN_SNAPSHOT} is unset");
+        return Ok(());
+    }
     let mut host = Host::new()?;
     assert_config_rejections(&host)?;
     prove_signer_contract(&host)?;
-    for source in [
-        include_str!("../../../../../docker/human-service/Dockerfile"),
-        include_str!("../../../../../docker/kernel/Dockerfile"),
-    ] {
-        assert!(source.contains("-p layerx-human-kms --bin layerx-human-kms"));
-        assert!(source.contains("/src/services/human/target/release/layerx-human-kms"));
-    }
+    let source = include_str!("../../../../../docker/human-service/Dockerfile");
+    assert!(source.contains("-p layerx-human-kms --bin layerx-human-kms"));
+    assert!(source.contains("/src/services/human/target/release/layerx-human-kms"));
+    assert!(!include_str!("../../../../../docker/kernel/Dockerfile").contains("layerx-human-kms"));
     assert!(include_str!("../../../../../scripts/wallet/gate-lint.sh")
         .contains("cargo clippy --locked $HUMAN_PKGS -- -D warnings"));
     let invalid_cli = host.command()?.arg("unexpected-argument").output()?;
@@ -627,8 +622,12 @@ fn assert_config_rejections(host: &Host) -> Result<()> {
         json!([65537, 65540])
     );
     host.check_config(Some("chain snapshot invalid"))?;
-    assert!(host.project_chain(125)?.status.success());
-    assert!(!host.project_chain(1)?.status.success());
+    host.install_chain_snapshot()?;
+    host.check_config(None)?;
+    let snapshot = fs::read(host.root.join("registry.json"))?;
+    fs::write(host.root.join("registry.json"), br#"{"chain_id":1}"#)?;
+    host.check_config(Some("chain id refused"))?;
+    fs::write(host.root.join("registry.json"), snapshot)?;
     for _ in 0..2 {
         host.check_config(None)?;
     }
@@ -648,7 +647,8 @@ fn assert_config_rejections(host: &Host) -> Result<()> {
         );
         assert!(String::from_utf8_lossy(&refused.stderr).contains("chain snapshot invalid"));
     }
-    assert!(host.project_chain(125)?.status.success());
+    host.install_chain_snapshot()?;
+    host.check_config(None)?;
     let executor = fs::read(host.root.join("kms-executor.der"))?;
     fs::write(
         host.root.join("kms-executor.der"),

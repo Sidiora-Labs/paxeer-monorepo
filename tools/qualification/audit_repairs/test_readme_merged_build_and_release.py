@@ -59,9 +59,12 @@ def make_rule(text, target):
 def test_f051_one_bft_network_embeds_kernel_in_paxd():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -77,7 +80,7 @@ def test_f051_one_bft_network_embeds_kernel_in_paxd():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State[Committed block and chain state]",
     ):
@@ -255,7 +258,7 @@ def test_f051_release_status_describes_merged_runtime_and_upgrade_gates():
     release = section("Releases and Network Upgrades")
     for fact in (
         "merged runtime executes kernel activity inside `paxd`",
-        "commits it with the BFT chain state", "`v7.0` merge handler",
+        "validators commit it in the same block", "`v7.0` merge handler",
         "retires the old custody/checkpoint write paths",
         "`v7.0-anchor-store-delete` removes the historical anchor store",
         "network's recorded upgrade height",

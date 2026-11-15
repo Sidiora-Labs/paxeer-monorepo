@@ -212,7 +212,7 @@ fn journey_leg_receipt_material_carries_rung_and_receipt_hash() {
         }
         assert_valid_vector(case, &canonical_bytes, &pins);
     }
-    assert_eq!(observed, (5, 6));
+    assert_eq!(observed, (7, 6));
 }
 
 use crate::require_value::RequireValue as _;

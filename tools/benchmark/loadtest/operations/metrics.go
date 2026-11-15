@@ -30,7 +30,7 @@ type HTTPError struct {
 
 func (e *HTTPError) Error() string { return fmt.Sprintf("HTTP %d from %s", e.Status, e.URL) }
 
-func (c MetricsClient) get(ctx context.Context, endpoint string, out any) error {
+func (c MetricsClient) get(ctx context.Context, endpoint string, out any) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, RequestTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -45,7 +45,12 @@ func (c MetricsClient) get(ctx context.Context, endpoint string, out any) error 
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	defer func() {
+		closeErr := res.Body.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return &HTTPError{res.StatusCode, endpoint}
 	}
@@ -65,6 +70,20 @@ type BlockInfo struct {
 	NumberOfTxs int       `json:"number_of_txs"`
 }
 
+const blockTransactionsField = "result.block.data.txs"
+
+type blockResponseError struct {
+	field   string
+	missing bool
+}
+
+func (e *blockResponseError) Error() string {
+	if e.missing {
+		return "Missing " + e.field
+	}
+	return "Invalid " + e.field
+}
+
 func (c MetricsClient) Block(ctx context.Context, height int) (map[string]any, error) {
 	var body map[string]json.RawMessage
 	if err := c.get(ctx, c.RPC+"/block?height="+strconv.Itoa(height), &body); err != nil {
@@ -72,27 +91,27 @@ func (c MetricsClient) Block(ctx context.Context, height int) (map[string]any, e
 	}
 	var version string
 	if err := json.Unmarshal(body["jsonrpc"], &version); err != nil || version != "2.0" {
-		return nil, errors.New("Invalid block JSON-RPC response")
+		return nil, &blockResponseError{field: "block JSON-RPC response", missing: false}
 	}
 	if raw, ok := body["error"]; ok && string(raw) != "null" {
 		var failure map[string]any
 		if err := decodeJSON(raw, &failure); err != nil || failure == nil {
-			return nil, errors.New("Invalid block JSON-RPC error")
+			return nil, &blockResponseError{field: "block JSON-RPC error", missing: false}
 		}
 		return nil, fmt.Errorf("Block JSON-RPC error %v: %v (%v)", failure["code"], failure["message"], failure["data"])
 	}
 	var result map[string]map[string]any
 	if err := decodeJSON(body["result"], &result); err != nil || result["block"] == nil {
-		return nil, errors.New("Missing result.block in block JSON-RPC response")
+		return nil, &blockResponseError{field: "result.block in block JSON-RPC response", missing: true}
 	}
 	block := result["block"]
 	data, ok := block["data"].(map[string]any)
 	if !ok {
-		return nil, errors.New("Missing result.block.data.txs")
+		return nil, &blockResponseError{field: blockTransactionsField, missing: true}
 	}
 	txValue, ok := data["txs"]
 	if !ok {
-		return nil, errors.New("Missing result.block.data.txs")
+		return nil, &blockResponseError{field: blockTransactionsField, missing: true}
 	}
 	if txValue == nil {
 		data["txs"] = []any{}
@@ -100,11 +119,11 @@ func (c MetricsClient) Block(ctx context.Context, height int) (map[string]any, e
 	}
 	txs, ok := txValue.([]any)
 	if !ok {
-		return nil, errors.New("Invalid result.block.data.txs")
+		return nil, &blockResponseError{field: blockTransactionsField, missing: false}
 	}
 	for _, tx := range txs {
 		if _, ok := tx.(string); !ok {
-			return nil, errors.New("Invalid result.block.data.txs")
+			return nil, &blockResponseError{field: blockTransactionsField, missing: false}
 		}
 	}
 	return block, nil
@@ -142,7 +161,7 @@ func (c MetricsClient) Breakdown(ctx context.Context, height int) (map[string]in
 			return nil, err
 		}
 		name := "other"
-		for _, kind := range []struct{ message, module string }{{"MsgSend", "bank"}, {"MsgAggregateExchangeRateVote", "oracle"}, {"MsgDelegate", "staking"}, {"MsgCreateDenom", "tokenfactory"}, {"MsgPlaceOrder", "dex"}} {
+		for _, kind := range []struct{ message, module string }{{"MsgSend", "bank"}, {"MsgAggregateExchangeRateVote", "oracle"}, {"MsgDelegate", stakingModule}, {"MsgCreateDenom", "tokenfactory"}, {"MsgPlaceOrder", "dex"}} {
 			if strings.Contains(string(raw), kind.message) {
 				name = kind.module
 				break
@@ -175,7 +194,7 @@ func (c MetricsClient) Height(ctx context.Context, hash string) (*int, error) {
 // BestStats leaves unavailable measurements null, including intervals of zero
 // or negative duration; positive submillisecond intervals retain nanoseconds.
 func (c MetricsClient) BestStats(ctx context.Context, blocks []BlockInfo) ([]any, error) {
-	var best []any = []any{nil, nil, nil}
+	best := []any{nil, nil, nil}
 	maxTPS := -1.0
 	for _, block := range blocks {
 		next, err := c.BlockInfo(ctx, block.Height+1)

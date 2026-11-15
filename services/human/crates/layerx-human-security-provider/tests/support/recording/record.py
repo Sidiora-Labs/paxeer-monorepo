@@ -21,7 +21,8 @@ def main():
         overlay.write_text(json.dumps({"Replace": {
             str(root / "daemon/committed-fixture/recovery_22_33_47.go"):
                 str(support / "recovery.go")}}))
-        subprocess.run(["go", "run", "-overlay", str(overlay),
+        subprocess.run(["go", "run", "-tags", "layerx_recovery_22_33_47",
+                        "-overlay", str(overlay),
                         "./daemon/committed-fixture", "record", "--paxd", str(node),
                         "--out", str(support), "--vector", "recovery-22-33-47"],
                        cwd=root, check=True)

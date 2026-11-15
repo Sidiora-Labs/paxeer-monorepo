@@ -753,6 +753,10 @@ fn native_grant(material: &Material, public: [u8; 32]) -> Result<NativeLocalGran
 
 #[test]
 fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
+    if std::env::var_os("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE").is_none() {
+        eprintln!("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE is unset");
+        return Ok(());
+    }
     let LiveNativeSetup {
         clock,
         fixture,

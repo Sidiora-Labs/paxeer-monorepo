@@ -29,7 +29,7 @@ export default function Home() {
       <section className="home-hero">
         <p className="eyebrow">PAXEER X / NETWORK DOCUMENTATION</p>
         <h1>Applications. Payments. Programs.<br /><span>Build on Paxeer.</span></h1>
-        <p className="page-description">The LayerX kernel inside every paxd node executes each transaction on arrival, orders it in one global sequence and returns a signed execution receipt; validators check and commit the blocks it builds.</p>
+        <p className="page-description">The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.</p>
         <div className="hero-actions"><Link className="pill-button primary-button" href="/unified-network">Explore the network <Icon name="arrow" size={16} /></Link><Link className="pill-button" href="/xdk">Start with the XDK</Link></div>
         <div className="hero-network"><span>LayerX kernel</span><i /><span>EVM chain ID <code>125</code></span><i /><span>Native token <code>PAX</code></span></div>
       </section>
@@ -38,6 +38,7 @@ export default function Home() {
         <img src="/art/docs/system-overview.webp" alt="Paxeer Docs: explore the connected system" width={1536} height={1024} decoding="async" />
         <figcaption><span>The LayerX kernel executes, orders and receipts every transaction; EVM applications run on the same sequence.</span><span>EVM 125 · PAX</span></figcaption>
       </figure>
+      <p>On arrival, the kernel gives each transaction a position in one global sequence and returns a signed execution receipt. Validators check and commit each block it builds.</p>
       <Band />
       <section className="cd-strip" aria-label="Network interfaces">
         <p className="eyebrow">NETWORK INTERFACES</p>
@@ -248,7 +249,7 @@ export default function Home() {
           <details><summary>How does an agent get authority to spend?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Through scoped, revocable delegation: primary and session keys, budget limits and mandates define exactly what an agent may do with money, and owners can revoke or rotate that authority. <Link href="/agent-budgets">Agent budgets</Link></p></details>
           <details><summary>How do I verify a payment actually settled?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Verify the signed execution receipt against trusted receipt keys, check its transaction and outcome, and confirm the covering block is committed. <Link href="/receipts">Receipts and proofs</Link></p></details>
           <details><summary>Can I use my existing EVM tooling?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Yes. Deploy Solidity with Foundry or Hardhat, connect wallets over JSON-RPC, and call native precompiles for account binding, native payments and markets on chain 125. <Link href="/evm">Build on the EVM</Link></p></details>
-          <details><summary>How do I run a node or operate the network?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Start with installation and configuration, then the operator guides for BFT nodes, validators, RPC endpoints and retained chain history. <Link href="/run-node">Run a node</Link></p></details>
+          <details><summary>How do I run a node or operate the network?<span className="cd-faq-toggle" aria-hidden="true" /></summary><p>Start with installation and configuration, then the operator guides for paxd nodes, validators, RPC endpoints and retained chain history. <Link href="/run-node">Run a node</Link></p></details>
         </div>
       </section>
       <Band />

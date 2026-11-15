@@ -8,7 +8,7 @@ Native execution, markets, issuance, and data modules in `modules/`, including r
 
 ## Unified Paxeer X modules
 
-Paxeer X combines EVM and Cosmos execution with the LayerX kernel. The chain modules below enforce the chain-side rules; the [LayerX kernel](https://docs.paxeer.app/layerx-kernel) is part of the same network, and a receipt is final when its block is committed. Addresses below are shortened; see [precompiles](https://docs.paxeer.app/precompiles) for full addresses and upgrade gates.
+Paxeer X combines EVM and Cosmos execution with the LayerX kernel. The chain modules below enforce the chain-side rules; the [LayerX kernel](https://docs.paxeer.app/layerx-kernel) inside `paxd` executes and orders each transaction and builds each block; validators check and commit it, and a receipt is final when its block is committed. Addresses below are shortened; see [precompiles](https://docs.paxeer.app/precompiles) for full addresses and upgrade gates.
 
 | Module | Role in Paxeer X | EVM entry point |
 | --- | --- | --- |

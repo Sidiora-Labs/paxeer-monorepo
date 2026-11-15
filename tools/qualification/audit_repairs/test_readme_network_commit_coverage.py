@@ -49,12 +49,14 @@ def test_readme_network_embeds_kernel_and_block_proposal_in_paxd():
         "docs/wiki/Protocol.md"
     )
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "participates in block proposal and deterministic execution",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
         "Sub-chains are tenant domains stored in the database",
@@ -70,11 +72,11 @@ def test_readme_network_embeds_kernel_and_block_proposal_in_paxd():
     diagrams = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(diagrams) == 1
     for fact in (
-        "One Paxeer BFT network / EVM chain 125",
+        "Paxeer X / EVM chain 125",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
-        "BFT validators",
+        "Validators check and commit",
         "Committed block and chain state",
     ):
         assert fact in diagrams[0], fact
@@ -235,7 +237,7 @@ def test_readme_network_operator_build_targets_the_integrated_node():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     assert "retires the old custody/checkpoint write paths" in release
 
 

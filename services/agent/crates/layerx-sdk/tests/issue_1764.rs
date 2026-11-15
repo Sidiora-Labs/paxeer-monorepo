@@ -45,6 +45,7 @@ fn fixed(value: &Value) -> [u8; 32] {
 }
 
 #[test]
+#[ignore = "requires ISSUE_1764_CONFIG from a live-node fixture producer"]
 fn committed_wait_uses_unfiltered_batch_activity_ids() {
     let path = std::env::var("ISSUE_1764_CONFIG")
         .unwrap_or_else(|error| panic!("run through TestCommittedWaitUsesBatchActivityIDs with a live production node: {error:?}"));

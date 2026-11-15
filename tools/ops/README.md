@@ -1,6 +1,6 @@
 # Paxeer operations tools
 
-This directory holds scripts and configuration for keyring migration, encrypted backups and fleet monitoring. They support operation and recovery of Paxeer mainnet-beta nodes and their supporting services. The kernel runs inside `paxd` as part of the network's block proposal and execution path.
+This directory holds scripts and configuration for keyring migration, encrypted backups and fleet monitoring. They support operation and recovery of Paxeer mainnet-beta nodes and their supporting services. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it.
 
 ## Layout
 

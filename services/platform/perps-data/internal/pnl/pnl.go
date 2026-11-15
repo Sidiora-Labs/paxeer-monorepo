@@ -263,12 +263,16 @@ const spotSwapsQuery = `SELECT is_buy, usdl, tok, extract(epoch FROM block_time)
 
 // SpotPosition folds every stored spot swap of account in token against
 // stablecoin at average cost and returns the resulting position.
-func SpotPosition(ctx context.Context, q Querier, account, token, stablecoin common.Address) (Position, error) {
+func SpotPosition(ctx context.Context, q Querier, account, token, stablecoin common.Address) (result0 Position, resultErr error) {
 	rows, err := q.QueryContext(ctx, spotSwapsQuery, account.Bytes(), token.Bytes(), stablecoin.Bytes())
 	if err != nil {
 		return Position{}, fmt.Errorf("pnl: read spot swaps: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	var pos Position
 	for rows.Next() {
 		var t Trade
@@ -627,12 +631,16 @@ func History(ctx context.Context, q Querier, account common.Address, from int64,
 	return append(out, rest...), nil
 }
 
-func readHistory(ctx context.Context, q Querier, query string, args ...any) ([]Entry, error) {
+func readHistory(ctx context.Context, q Querier, query string, args ...any) (result0 []Entry, resultErr error) {
 	rows, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("pnl: read history: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	out := []Entry{}
 	for rows.Next() {
 		var e Entry

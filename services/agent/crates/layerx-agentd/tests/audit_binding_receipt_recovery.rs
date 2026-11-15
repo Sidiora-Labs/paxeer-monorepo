@@ -749,20 +749,20 @@ fn receipt_legacy_evidence_roundtrip_reopens_and_explicitly_migrates() {
         .unwrap_or_else(|| panic!("migrated evidence"));
     assert_eq!(v2.canonical_receipt, authenticated.canonical_bytes());
     assert_eq!(v2.metadata.transaction_hash, hash);
-    assert_eq!(
-        must(receipt::evidence_inventory(&store, &tenant())).with_evidence,
-        vec![persisted.clone()]
-    );
+    assert!(matches!(
+        receipt::evidence_inventory(&store, &tenant()),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
     drop(store);
     let store = must(Store::open(&directory.0));
     assert_eq!(
         must(receipt::serve_evidence(&store, tenant(), hash)),
         Some(v2)
     );
-    assert_eq!(
-        must(receipt::evidence_inventory(&store, &tenant())).with_evidence,
-        vec![persisted]
-    );
+    assert!(matches!(
+        receipt::evidence_inventory(&store, &tenant()),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
     assert_eq!(
         must(receipt::serve_evidence(&store, other_tenant(), hash)),
         None

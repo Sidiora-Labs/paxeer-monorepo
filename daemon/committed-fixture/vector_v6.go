@@ -140,7 +140,7 @@ func (n *node) configureV6Genesis() error {
 	if err := json.Unmarshal(state["evm"], &evm); err != nil {
 		return err
 	}
-	var codes []*evmtypes.Code
+	codes := make([]*evmtypes.Code, 0, 1)
 	if raw, exists := evm["codes"]; exists {
 		if err := json.Unmarshal(raw, &codes); err != nil {
 			return err

@@ -6,7 +6,7 @@ export const metadata = metadataFor('/public-rpc')
 
 export default function PublicRpc() {
   return <DocsLayout>
-    <div className="page-header"><h1 className="page-title">Public RPC endpoints</h1><p className="page-description">Connect to Paxeer mainnet-beta, EVM chain ID 125, through node JSON-RPC; the LayerX kernel executes and orders transactions and builds blocks that validators check and commit.</p></div>
+    <div className="page-header"><h1 className="page-title">Public RPC endpoints</h1><p className="page-description">The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block on EVM chain ID 125.</p></div>
     <h2>Connect to the node</h2>
     <p>The LayerX kernel runs inside every <code>paxd</code> node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it. The node exposes Ethereum JSON-RPC for contracts, balances, logs and broadcasts. A receipt is final once its covering block commits.</p>
     <table><thead><tr><th>Interface</th><th>Endpoint</th><th>Purpose</th></tr></thead><tbody>

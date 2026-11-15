@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs;
 use std::io;
@@ -209,6 +210,68 @@ impl Drop for Fixture {
             "fixture cleanup failed"
         );
     }
+}
+
+type StoreTree = BTreeMap<PathBuf, (u32, Option<Vec<u8>>)>;
+
+fn store_tree(root: &Path) -> io::Result<StoreTree> {
+    fn visit(path: &Path, tree: &mut StoreTree) -> io::Result<()> {
+        let metadata = fs::symlink_metadata(path)?;
+        assert!(metadata.is_dir() || metadata.is_file());
+        let bytes = if metadata.is_file() {
+            Some(fs::read(path)?)
+        } else {
+            None
+        };
+        tree.insert(path.to_path_buf(), (metadata.permissions().mode(), bytes));
+        if metadata.is_dir() {
+            for entry in fs::read_dir(path)? {
+                visit(&entry?.path(), tree)?;
+            }
+        }
+        Ok(())
+    }
+
+    let mut tree = BTreeMap::new();
+    visit(root, &mut tree)?;
+    Ok(tree)
+}
+
+#[test]
+fn store_refused_principal_preserves_directories_and_rows() -> Result {
+    for provider in [false, true] {
+        let mut fixture = Fixture::new(provider)?;
+        let refused = principal("unprovisioned");
+        for populated in [false, true] {
+            if populated {
+                fixture.put(0, b"acknowledged row")?;
+            }
+            let before = store_tree(&fixture.root)?;
+            let principals = fixture.store().known_principals()?;
+            assert!(fixture.store().principal(&refused).is_err());
+            assert!(!fixture
+                .root
+                .join("principals")
+                .join(refused.as_str())
+                .exists());
+            assert_eq!(store_tree(&fixture.root)?, before);
+            assert_eq!(fixture.store().known_principals()?, principals);
+            fixture.reopen()?;
+            assert_eq!(store_tree(&fixture.root)?, before);
+            if populated {
+                fixture.assert_row(0, b"acknowledged row")?;
+            }
+        }
+        if provider {
+            fixture.server = None;
+            let before = store_tree(&fixture.root)?;
+            let id = fixture.ids[1].clone();
+            assert!(fixture.store().principal(&id).is_err());
+            assert!(!fixture.path(1).exists());
+            assert_eq!(store_tree(&fixture.root)?, before);
+        }
+    }
+    Ok(())
 }
 
 #[test]

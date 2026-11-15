@@ -21,7 +21,7 @@ export default function Installation() {
 
       <DocArt name="installation" />
       <h2>Build the complete network stack</h2>
-      <p>The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces, SDKs, and program tooling. The network entry point is <code>paxd</code>, which embeds the kernel and proposes blocks. A receipt is final when its block commits.</p>
+      <p>The monorepo contains the Go chain node, the C17 kernel, Rust service workspaces, SDKs, and program tooling. The network entry point is <code>paxd</code>. The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when validators commit its block.</p>
       <table><thead><tr><th>Component</th><th>Build surface</th><th>Purpose</th></tr></thead><tbody>
         <tr><td>Merged node</td><td><code>make paxd-build</code></td><td><code>build/paxd</code> with linked native libraries and release version stamp</td></tr>
         <tr><td>Kernel library and tools</td><td><code>make build</code></td><td>Kernel archive, genesis builder, and module registry, without rebuilding the node</td></tr>

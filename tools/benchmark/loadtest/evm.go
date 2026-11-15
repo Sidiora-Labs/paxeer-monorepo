@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -16,11 +14,13 @@ import (
 	"time"
 
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc20"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc721"

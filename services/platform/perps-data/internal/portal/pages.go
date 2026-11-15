@@ -613,12 +613,16 @@ func (p *Pages) query(ctx context.Context, document, operation string, variables
 	return nil
 }
 
-func (p *Pages) do(req *http.Request, out any) error {
+func (p *Pages) do(req *http.Request, out any) (resultErr error) {
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxGatewayBody+1))
 	if err != nil {
 		return err

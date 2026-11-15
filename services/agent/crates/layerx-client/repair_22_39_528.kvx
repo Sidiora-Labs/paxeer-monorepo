@@ -1,0 +1,10 @@
+[agent_workspace_tests]
+member = "layerx-client"
+rule = "Journal submissions are registered durably before they are submitted, network fixtures keep the consensus height at or below the served node head, and history checks use the account named by the producer transcript so each client read remains within its declared request contract."
+changed_files = [
+    "services/agent/crates/layerx-client/tests/gateway_market_finality.rs",
+    "services/agent/crates/layerx-client/tests/fixtures/gateway_observations.json",
+    "services/agent/crates/layerx-client/tests/node_root_routing.rs",
+    "services/agent/crates/layerx-client/tests/proof_client.rs",
+    "services/agent/crates/layerx-client/repair_22_39_528.kvx",
+]

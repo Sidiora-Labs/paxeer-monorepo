@@ -31,10 +31,14 @@ def require_facts(text, facts):
 def test_env_template_describes_merged_chain_and_retired_surfaces():
     identity = source("docs/readme/NETWORK.md")
     require_facts(identity, (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "The LayerX kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "There is no separate kernel daemon, sequencer service or checkpoint deployment",
         "retired refusal surfaces retained for compatibility",

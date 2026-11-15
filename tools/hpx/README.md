@@ -3,8 +3,9 @@
 This directory holds the HPX installer, node manager, artifact publisher, peer
 registry and fleet tools for Paxeer mainnet-beta (consensus chain ID
 `hyperpax_125-1`, EVM chain ID `125`, or `0x7d`). Nodes run a native `paxd`
-binary under systemd. The kernel is part of this BFT network and proposes
-blocks; a receipt is final when its block is committed. Generated executables,
+binary under systemd. The LayerX kernel inside `paxd` executes and orders
+each transaction and builds each block; validators check and commit it, and a
+receipt is final when the validators commit its block. Generated executables,
 native libraries, live chain configuration, registry data and TLS material are
 published outside Git.
 

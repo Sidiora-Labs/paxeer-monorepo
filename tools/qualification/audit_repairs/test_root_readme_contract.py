@@ -45,11 +45,14 @@ def blocks(text, language):
 def test_doc_root_merged_network_and_embedded_proposer():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -58,7 +61,7 @@ def test_doc_root_merged_network_and_embedded_proposer():
     ):
         assert fact in overview, fact
     topology, = blocks(section("Integrated network topology"), "mermaid")
-    assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
+    assert "subgraph Network[Paxeer X / EVM chain 125]" in topology
     assert "subgraph Node[paxd]" in topology
     assert "RPC --> Order --> Host --> Native" in topology
     assert "Validators -->|Commit| State[Committed block and chain state]" in topology

@@ -1,0 +1,24 @@
+[repair.22.39.525]
+acceptance = "22998.1"
+rule = "The Human test target retains every hosted, workspace and web case while each case asserts the current producer contract."
+files = ["services/human/crates/layerx-human-test-support/repair_22_39_525.kvx"]
+
+[repair.2]
+rule = "Gas-station sponsorship journal cases release a refused nonce and reject retired replacement records before replay."
+files = ["services/human/crates/layerx-human-test-support/repair_22_39_525.kvx"]
+
+[repair.3]
+rule = "Attestor fixture sessions run serially so each KMS case observes its configured transport deadline and isolated signer state."
+files = ["services/human/crates/layerx-human-kms/tests/attestor_signing.rs", "services/human/crates/layerx-human-test-support/repair_22_39_525.kvx"]
+
+[repair.5]
+rule = "Attestor clusters reserve every endpoint through configuration and transfer each node's ports at startup; both node listeners bind before the next transfer."
+files = ["services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-test-support/repair_22_39_525.kvx"]
+
+[repair.4]
+rule = "Expiring authority remains valid through attestor setup; queued work and late results are refused after its expiry, and recovery preserves the authorization."
+files = ["services/human/crates/layerx-human-kms/tests/attestor_signing.rs", "services/human/crates/layerx-human-test-support/repair_22_39_525.kvx"]
+
+[repair.6]
+rule = "Fragmented-frame clients are prepared before admission and each starts its frame independently; each of sixteen connections retains its configured absolute deadline and every permit is released within the asserted bound."
+files = ["services/human/crates/layerx-human-kms/tests/attestor_signing.rs", "services/human/crates/layerx-human-test-support/repair_22_39_525.kvx"]

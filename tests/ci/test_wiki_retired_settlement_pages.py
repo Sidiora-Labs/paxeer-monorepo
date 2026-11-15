@@ -51,10 +51,20 @@ def assert_retired_notice(page):
     prose = " ".join(text.split())
     if page.suffix != ".tsx":
         assert re.search(r"CometBFT block finality", prose), page
+        assert (
+            "The LayerX kernel inside `paxd` executes and orders each transaction "
+            "and builds each block; validators check and commit it."
+        ) in prose, page
+        assert "A receipt is final when the validators commit its block" in prose, page
     else:
-        assert re.search(r"BFT block commitment", prose), page
+        assert (
+            "The LayerX kernel runs inside every paxd node, executes each transaction "
+            "when it arrives, gives it the next position in one global sequence, "
+            "returns a signed execution receipt and builds each block; validators "
+            "check that block and commit it."
+        ) in prose, page
+        assert re.search(r"receipt (?:is|becomes) final when its block is committed", prose), page
     assert re.search(r"chain ID(?: is)?\s*`?125\b`?", prose), page
-    assert re.search(r"receipt (?:is|becomes) final when its block is committed", prose), page
     if page.suffix != ".tsx":
         links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", text)
         network_guide = ROOT / "docs/paxeer-network.md"

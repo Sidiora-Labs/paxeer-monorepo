@@ -54,9 +54,12 @@ def assert_facts(text, facts):
 def test_root_network_description_integrates_kernel_and_bft_finality():
     overview = section("What is Paxeer X Network?", 2)
     assert_facts(overview, (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "outside consensus",
@@ -167,7 +170,7 @@ def test_root_network_description_build_and_operations_use_paxd():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     releases = section("Releases and Network Upgrades")
     assert_facts(releases, (
-        "executes kernel activity inside `paxd`", "commits it with the BFT chain state",
+        "executes kernel activity inside `paxd`", "validators commit it in the same block",
         "retires the old custody/checkpoint write paths",
     ))
 

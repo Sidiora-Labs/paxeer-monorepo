@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 pub use layerx_human_kms::attestor;
+pub use layerx_human_kms::verify_native_pointer;
 #[allow(dead_code)]
 #[path = "../src/config.rs"]
 mod config;
@@ -328,7 +329,7 @@ mod fixture {
                 Some(&self.root.join("attestors.json")),
             ))?));
             let config = self.config.clone();
-            let clock = self.clock.clone();
+            let clock = RuntimeClock::connect(self.clock_service.binding.clone())?;
             let listener = TcpListener::bind(self.address)?;
             self.kms = Some(Worker::spawn(listener, move |tcp| {
                 // Production connection authenticates mTLS, decodes and validates the

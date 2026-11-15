@@ -246,7 +246,7 @@ func writePage(w http.ResponseWriter, status int, body []byte) {
 }
 
 // gatewayReady is nil while the gateway answers 200 on /healthz/ready.
-func (s *Server) gatewayReady(ctx context.Context) error {
+func (s *Server) gatewayReady(ctx context.Context) (resultErr error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.ready, nil)
 	if err != nil {
 		return err
@@ -255,7 +255,11 @@ func (s *Server) gatewayReady(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); resultErr == nil {
+			resultErr = closeErr
+		}
+	}()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxProbeBody))
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("gateway readiness answered %d", resp.StatusCode)

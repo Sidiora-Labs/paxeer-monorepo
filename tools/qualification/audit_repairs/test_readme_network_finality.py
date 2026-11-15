@@ -48,9 +48,12 @@ def test_merged_network_merged_paxd_network_and_block_finality():
         "docs/wiki/Protocol.md"
     )
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -202,7 +205,7 @@ def test_merged_network_node_bringup_is_distinct_from_kernel_library_development
             assert (NETWORK_PATH.parent / target.split("#", 1)[0]).exists(), target
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_merged_network_record_maps_finding_to_proofs_and_private_evidence():

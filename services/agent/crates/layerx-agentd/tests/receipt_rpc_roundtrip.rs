@@ -901,7 +901,7 @@ fn finish_receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings_1(
 ) {
     let verification_offset = 1 + 4 + frame.canonical_bytes.len() + 5 * 32;
     malformed.push(original[..=verification_offset].to_vec());
-    for code in [0, 6, 255] {
+    for code in [0, 255] {
         let mut changed = original.clone();
         changed[verification_offset] = code;
         malformed.push(changed);

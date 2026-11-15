@@ -7,6 +7,9 @@
 //! Pinned licensed artifacts, the runner executable and the durable store are named by the JSON
 //! file in `PAXAI_REAL_WORKLOAD` (see [`Provisioned`]); cases that need them fail with
 //! `Unprovisioned` when it is absent, they are never skipped.
+#[path = "support/authority_snapshot.rs"]
+mod authority_snapshot;
+
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
@@ -36,7 +39,7 @@ use layerx_programs_ai_market::{
         admit_evaluator, Admission as Membership, AdmissionContext, AdmissionTable, ApprovalTerms,
         EvaluatorConsent, Participant, TABLE_MAX_BYTES,
     },
-    aggregation::{self as agg, Outcome as Agg, Progress},
+    aggregation::{Outcome as Agg, Progress},
     aggregation_codec::{decode_current, AggregationPhase, QualityStatus, WorkerAggregate},
     codec::{
         self, decode_envelope, derive_evaluator, derive_market, derive_task, derive_worker,
@@ -437,6 +440,7 @@ struct Parts {
     policy: Vec<u8>,
     workers: WorkerTable,
     region: Vec<u8>,
+    reputation_prefix: Vec<u8>,
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
@@ -446,13 +450,20 @@ struct Parts {
 impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
-        let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let [policy, identity, reports, rewards, admission_section] = state.feature_sections;
         let (workers, region) = split_identity_section(identity)?;
+        let (_, admission) =
+            layerx_programs_ai_market::reputation_transition::split_joint(admission_section)?;
+        let prefix_len = admission_section
+            .len()
+            .checked_sub(admission.len())
+            .ok_or(NON_CANONICAL)?;
         Ok(Self {
             revision: state.revision,
             policy: policy.to_vec(),
             workers: WorkerTable::decode(workers)?,
             region: region.to_vec(),
+            reputation_prefix: admission_section[..prefix_len].to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
             admission: AdmissionTable::decode(admission)?,
@@ -475,6 +486,8 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        let mut reputation = self.reputation_prefix.clone();
+        reputation.extend_from_slice(&admission[..admission_len]);
         encode_state(&SharedState {
             revision: self.revision,
             feature_sections: [
@@ -482,7 +495,7 @@ impl Parts {
                 &identity,
                 &self.reports,
                 &self.rewards,
-                &admission[..admission_len],
+                &reputation,
             ],
             control: Control {
                 replay: self.replay.clone(),
@@ -1509,7 +1522,7 @@ fn record_len(tail: &[u8]) -> CodecResult<usize> {
     Ok(root_at + 1 + if *root == 1 { 32 } else { 0 })
 }
 
-/// F03 evaluator calls and the unrouted F05 aggregation through `aggregation::apply`.
+/// F03 evaluator calls and the joint F05/F07 aggregation through `epoch::aggregate`.
 impl Market {
     /// Routed keeper `SEAL_TASK_SET`, then routed `SealEvidence` of each `(evaluator, root)`
     /// under evaluator sequence 1.
@@ -1607,13 +1620,13 @@ impl Market {
     fn aggregate(&mut self, call: &Call, at: u64) -> Checked<Progress> {
         let encoded = call.encode()?;
         let mut next = vec![0; MAX_STATE_BYTES];
-        let mut scratch = vec![0; agg::SCRATCH_BYTES];
+        let mut scratch = vec![0; epoch::AGGREGATE_SCRATCH_BYTES];
         let mut event = vec![0; MAX_EVENT_BYTES];
         let Agg::Applied {
             progress,
             state_len,
             ..
-        } = agg::apply(
+        } = epoch::aggregate(
             &call.context(at)?,
             &decode_envelope(&encoded)?,
             &self.world.bytes,
@@ -1722,14 +1735,14 @@ impl Drop for Running {
     }
 }
 /// The worker binary serving `signed` over TLS with the test PKI on `port`.
-fn serve(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Running> {
+fn serve(name: &str, pki: &Pki, market: &Market, port: u16) -> Checked<Running> {
     let dir = fresh(Path::new(env!("CARGO_TARGET_TMPDIR")), name)?;
     let file = |name: &str| dir.join(name);
     fs::write(file("chain.pem"), format!("{}{}", pki.leaf_pem, pki.ca_pem))?;
     fs::write(file("key.pem"), &pki.key_pem)?;
     fs::write(file("delegate.hex"), hex(&DELEGATE_SEED))?;
-    fs::write(file("metadata.bin"), signed)?;
-    let (market, owner, worker) = identities()?;
+    fs::write(file("metadata.bin"), &market.signed)?;
+    let (market_id, owner, worker) = identities()?;
     let text = |value: String| Value::String(value);
     let path = |name: &str| Value::String(file(name).to_string_lossy().into_owned());
     let mut config = Map::new();
@@ -1740,7 +1753,7 @@ fn serve(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Running> {
     config.insert("signed_metadata".into(), path("metadata.bin"));
     config.insert("chain".into(), text(hex(&CHAIN)));
     config.insert("program".into(), text(hex(&PROGRAM)));
-    config.insert("market".into(), text(hex(market.as_bytes())));
+    config.insert("market".into(), text(hex(market_id.as_bytes())));
     config.insert("worker".into(), text(hex(worker.as_bytes())));
     config.insert("owner".into(), text(hex(owner.as_bytes())));
     config.insert("state_dir".into(), path("state"));
@@ -1757,6 +1770,22 @@ fn serve(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Running> {
     config.insert("response_capacity".into(), serde_json::json!(16384));
     config.insert("budget".into(), serde_json::json!([1, 2, 3, 4, 5, 6, 7]));
     config.insert("fee_limit".into(), serde_json::json!(100));
+    fs::create_dir_all(file("inputs"))?;
+    let (_, facts) = capture(&market.world.bytes, 1_150)?;
+    authority_snapshot::write(
+        &dir,
+        &market.world.bytes,
+        &market.roster,
+        &market.signed,
+        &facts.proof,
+        &IdentityEvidence {
+            principal: owner,
+            primary_key: PublicKey32([0x0E; 32]),
+            frozen: false,
+            execution_height: 1_150,
+        },
+        &[customer_at(1_150)?],
+    )?;
     let config_path = file("worker.json");
     fs::write(&config_path, serde_json::to_string(&Value::Object(config))?)?;
     let mut child = Command::new(env!("CARGO_BIN_EXE_layerx-paxai-worker"))
@@ -1770,6 +1799,20 @@ fn serve(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Running> {
     let mut line = String::new();
     BufReader::new(stdout.ok_or(Failure::Unexpected("worker stdout"))?).read_line(&mut line)?;
     if line.starts_with("listening 127.0.0.1:") {
+        let view = market.view(1_150)?;
+        let until = std::time::Instant::now() + IO_TIMEOUT;
+        loop {
+            match verified_transport(pki, &view.authority, &view.metadata) {
+                Ok(Readiness::VerifiedTransport) => break,
+                Err(Failure::Transport(TransportError::Service(ServiceError::StaleAuthority)))
+                    if std::time::Instant::now() < until =>
+                {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+                Err(error) => return Err(error),
+                Ok(_) => return Err(Failure::Unexpected("verified transport readiness")),
+            }
+        }
         Ok(running)
     } else {
         Err(Failure::Unexpected("worker did not start listening"))
@@ -1949,7 +1992,7 @@ fn real(name: &str) -> Checked<Real> {
         vec![endpoint_at(port, spki_sha256(&pki.leaf)?)],
         deployment,
     )?;
-    let worker = serve(name, &pki, &m.signed, port)?;
+    let worker = serve(name, &pki, &m, port)?;
     let store = fresh(&pins.store, name)?;
     let service = JobService::new(
         JobStore::open(&store)?,
@@ -2350,7 +2393,7 @@ fn a17_local_acknowledgment_without_finalized_acceptance_never_dispatches() -> C
         vec![endpoint_at(port, spki_sha256(&pki.leaf)?)],
         deployment,
     )?;
-    let _worker = serve("a17-endpoint", &pki, &m.signed, port)?;
+    let _worker = serve("a17-endpoint", &pki, &m, port)?;
     let service = uninstalled("a17-replica")?;
     let order = m.order(0x31, 0x31, vec![0x5A; 1_024], 1_172, ADMIT_AT)?;
     let view = m.view(1_150)?;

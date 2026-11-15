@@ -47,9 +47,12 @@ def section(heading, level=3):
 def test_readme_split_execution_one_embedded_paxd_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel", "runs inside `paxd`", "modules/lxphost",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
@@ -65,7 +68,7 @@ def test_readme_split_execution_one_embedded_paxd_network():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Native bank, ledger, payments, authority and programs",
         "Validators -->|Commit| State",

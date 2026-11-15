@@ -42,10 +42,14 @@ def section(heading, level=3):
 def test_readme_describes_one_bft_paxd_with_embedded_kernel():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
         "outside consensus",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
@@ -58,7 +62,7 @@ def test_readme_describes_one_bft_paxd_with_embedded_kernel():
     )
     topology = section("Integrated network topology")
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
@@ -215,7 +219,7 @@ def test_build_and_release_guidance_uses_integrated_paxd():
     assert "External checkpoint settlement is retired" in NETWORK
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_repair_record_maps_finding_to_declared_source_proofs():

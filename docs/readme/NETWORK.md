@@ -2,7 +2,7 @@
 
 ## What is Paxeer X Network?
 
-[Paxeer X Network](https://paxeer.network/) is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The LayerX kernel is embedded in the node and participates in block proposal and deterministic execution. The kernel is part of the network and proposes blocks inside `paxd`; validators commit those blocks through BFT consensus.
+[Paxeer X Network](https://paxeer.network/) is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel runs inside every `paxd` node. It executes each transaction when it arrives, assigns the next position in one global sequence, returns a signed execution receipt and builds each block. Validators check that block and commit it. A receipt is final when the validators commit its block.
 
 In this repository you’ll find the core components of the network: the Paxeer X chain, the LayerX kernel, on-chain contracts, off-chain services, client SDKs and user-facing applications. Together, they provide the infrastructure for developers to build applications and agents on a shared network.
 
@@ -23,15 +23,15 @@ The monorepo also includes the agent daemon and MCP server, interop gateway and 
 flowchart LR
     Client[Wallet, SDK or application] -->|Signed EVM transaction / root JSON-RPC| RPC
     Hosted[Optional hosted developer gateway] -->|Chain RPC and committed state| RPC
-    subgraph Network[One Paxeer BFT network / EVM chain 125]
+    subgraph Network[Paxeer X / EVM chain 125]
         subgraph Node[paxd]
             RPC[Node JSON-RPC]
-            Order[Integrated sequencing and block proposal]
+            Order[LayerX kernel executes, orders and builds the block]
             Host[Embedded C17 kernel and Rust programs host]
             Native[Native bank, ledger, payments, authority and programs]
             RPC --> Order --> Host --> Native
         end
-        Order -->|Proposed block in execution order| Validators[BFT validators]
+        Order -->|Proposed block in execution order| Validators[Validators check and commit]
         Validators -->|Commit| State[Committed block and chain state]
     end
     State -->|Transaction receipts, logs and proofs| Client
@@ -280,7 +280,7 @@ make monorepo-ci           # every workspace: build, test and lint
 
 See [CHANGELOG.md](../../CHANGELOG.md) for release notes. Network upgrades determine which native interfaces are active; refer to the precompile registrations and upgrade definitions when working with version-dependent functionality.
 
-The merged runtime executes kernel activity inside `paxd` and commits it with the BFT chain state. The `v7.0` merge handler activates the merged interfaces and retires the old custody/checkpoint write paths; `v7.0-anchor-store-delete` removes the historical anchor store. Consult the code and the network's recorded upgrade height when interpreting historical blocks. Source directories organize the components of this shared runtime.
+The merged runtime executes kernel activity inside `paxd`; validators commit it in the same block as the rest of the chain state. The `v7.0` merge handler activates the merged interfaces and retires the old custody/checkpoint write paths; `v7.0-anchor-store-delete` removes the historical anchor store. Consult the code and the network's recorded upgrade height when interpreting historical blocks. Source directories organize the components of this shared runtime.
 
 ## Downloading and Shallow-Cloning the Monorepo
 

@@ -15,7 +15,7 @@ mod signal {
 use std::fmt::Debug;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::os::unix::fs::DirBuilderExt as _;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
@@ -184,7 +184,14 @@ fn listener(
         let (mut stream, _) = must(listener.accept());
         must(stream.set_read_timeout(Some(Duration::from_secs(5))));
         must(stream.set_write_timeout(Some(Duration::from_secs(5))));
-        let mut stream = must(CompletionConnection::read(&mut stream));
+        let mut stream = match CompletionConnection::read(&mut stream) {
+            Ok(stream) => stream,
+            Err(error) => {
+                must(write_error(&mut stream, &error));
+                must(std::io::copy(&mut stream, &mut std::io::sink()));
+                return;
+            }
+        };
         assert!(stream.is_completion());
         match routes.read_request(&mut stream) {
             Ok(Some(request)) => match AskGate::check(state) {
@@ -194,7 +201,10 @@ fn listener(
                 Err(error) => must(write_error(&mut stream, &error)),
             },
             Ok(None) => (),
-            Err(error) => must(write_error(&mut stream, &error)),
+            Err(error) => {
+                must(write_error(&mut stream, &error));
+                must(std::io::copy(&mut stream, &mut std::io::sink()));
+            }
         }
     });
     let client = must(TcpStream::connect(address));
@@ -209,6 +219,7 @@ fn exchange(
 ) -> String {
     let (mut client, server) = listener(routes, state, bound);
     must(client.write_all(bytes));
+    must(client.shutdown(Shutdown::Write));
     let mut client = BufReader::new(client);
     let mut response = String::new();
     let mut length = None;

@@ -44,6 +44,6 @@ test_provision.generated_catalog(sys.argv[2], sys.argv[3])
         catalog
             .call_selectors("beta-protocol")
             .unwrap_or_else(|error| panic!("catalog selectors: {error:?}")),
-        vec![[0xa9, 0x05, 0x9c, 0xbb], [0x09, 0x5e, 0xa7, 0xb3]]
+        vec![[0x78, 0xea, 0x11, 0xdb], [0x86, 0x08, 0xd3, 0x2b]]
     );
 }

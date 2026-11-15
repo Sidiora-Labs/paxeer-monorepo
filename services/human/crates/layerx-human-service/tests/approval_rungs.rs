@@ -38,9 +38,12 @@ fn approval_disclosure() -> Result<(Disclosure, [u8; 32]), String> {
     let (decoded, signature) = decode_signed(&signed).map_err(|error| format!("{error:?}"))?;
     let sender = recover_sender(&decoded, &signature).map_err(|error| format!("{error:?}"))?;
     let disclosure = bind_call(&decoded, sender).map_err(|error| format!("{error:?}"))?;
-    let digest = disclosure
-        .audit_digest()
-        .map_err(|error| format!("{error:?}"))?;
+    let digest = Sha256::digest(
+        disclosure
+            .reencode()
+            .map_err(|error| format!("{error:?}"))?,
+    )
+    .into();
     Ok((disclosure, digest))
 }
 
@@ -64,10 +67,38 @@ fn budget(rung: Rung) -> VerifiedBudgetAfter {
 fn approval_budget_read_below_committed_renders_unverified() -> Result<(), String> {
     let (disclosure, digest) = approval_disclosure()?;
     for rung in [Rung::Submitted, Rung::Receipted] {
+        let observed_budget = budget(rung);
+        let presentation = DisclosureRenderer::render(&disclosure, digest, observed_budget)
+            .map_err(|error| format!("{error:?}"))?;
+        assert!(
+            !presentation.can_approve(),
+            "budget at {rung:?} must not permit approval"
+        );
         assert_eq!(
-            DisclosureRenderer::render(&disclosure, digest, budget(rung)),
-            Err(DisclosureRenderError::UnverifiedBudget),
-            "budget at {rung:?} must not become verified approval content"
+            presentation,
+            ApprovalPresentation::Rendered(Box::new(RenderedApproval {
+                class: ApprovalActivityClass::MoveMoney,
+                copy_key: "approval.activity.move_money",
+                plain_copy: format!(
+                    "Move 25 {} to {}. Fees can be up to 3.",
+                    "00".repeat(32),
+                    "00".repeat(12) + &"14".repeat(20)
+                ),
+                facts: RenderedApprovalFacts {
+                    amount: Some(25),
+                    counterparty: RenderedCounterparty::Account({
+                        let mut account = [0; 32];
+                        account[12..].fill(0x14);
+                        account
+                    }),
+                    asset: Some([0; 32]),
+                    fee_limit: 3,
+                    expires_at: u64::MAX,
+                },
+                budget_after: observed_budget,
+                disclosure_digest: digest,
+            })),
+            "the approval context must retain the exact observed budget and rung"
         );
     }
     Ok(())

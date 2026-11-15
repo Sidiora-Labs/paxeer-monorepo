@@ -229,6 +229,9 @@ func (r *Registry) scanPointers(b *batch) (map[common.Address]common.Address, er
 	if err != nil {
 		return nil, fmt.Errorf("getRegisteredTokens: %w", err)
 	}
+	if len(values) != 1 {
+		return nil, errors.New("getRegisteredTokens: expected one address list")
+	}
 	tokens, ok := values[0].([]common.Address)
 	if !ok {
 		return nil, errors.New("getRegisteredTokens: not an address list")
@@ -275,12 +278,12 @@ func ownershipTransferred(_ *batch, f Fact, r *reader) []Row {
 
 func paused(_ *batch, f Fact, r *reader) []Row {
 	f.Kind = "paused"
-	return []Row{SpotPauseRow{f, r.addr("account")}}
+	return []Row{SpotPauseRow{f, r.addr(accountField)}}
 }
 
 func unpaused(_ *batch, f Fact, r *reader) []Row {
 	f.Kind = "unpaused"
-	return []Row{SpotPauseRow{f, r.addr("account")}}
+	return []Row{SpotPauseRow{f, r.addr(accountField)}}
 }
 
 // feeEvents are matched by topic0 at any of 0x1021 to 0x1025, outside the
@@ -288,13 +291,13 @@ func unpaused(_ *batch, f Fact, r *reader) []Row {
 var feeEvents = []eventDecoder{
 	{"PriceImpactApplied", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "price_impact"
-		f.Account = r.addr("user")
-		return []Row{SpotPriceImpactRow{f, f.Account, r.addr("tokenOut"), r.u256("impactBps"), r.u256("deductedAmount")}}
+		f.Account = r.addr(userField)
+		return []Row{SpotPriceImpactRow{f, f.Account, r.addr(tokenOutField), r.u256("impactBps"), r.u256("deductedAmount")}}
 	}},
 	{"TieredFeeApplied", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "tiered_fee"
-		f.Account = r.addr("user")
-		return []Row{SpotTieredFeeRow{f, f.Account, r.addr("tokenOut"), r.u256("volumeUSD"), r.u256("feeBps"), r.u256("feeAmount")}}
+		f.Account = r.addr(userField)
+		return []Row{SpotTieredFeeRow{f, f.Account, r.addr(tokenOutField), r.u256("volumeUSD"), r.u256("feeBps"), r.u256("feeAmount")}}
 	}},
 }
 
@@ -303,26 +306,26 @@ var feeEvents = []eventDecoder{
 var pecorEvents = []eventDecoder{
 	{"MarketOrderExecuted", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "market_order"
-		f.Account = r.addr("user")
-		return []Row{SpotMarketOrderRow{f, f.Account, r.addr("stablecoin"), r.addr("token"), r.u256("stablecoinAmount"), r.u256("tokenAmount"), r.flag("isBuy")}}
+		f.Account = r.addr(userField)
+		return []Row{SpotMarketOrderRow{f, f.Account, r.addr("stablecoin"), r.addr(tokenField), r.u256("stablecoinAmount"), r.u256("tokenAmount"), r.flag("isBuy")}}
 	}},
 	{"NativeSwap", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "native_swap"
-		f.Account = r.addr("user")
+		f.Account = r.addr(userField)
 		return []Row{SpotNativeSwapRow{f, f.Account, r.addr("tokenOther"), r.u256("nativeAmount"), r.u256("tokenAmount"), r.flag("nativeIsInput")}}
 	}},
 	{"SimpleSwap", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "simple_swap"
-		f.Account = r.addr("user")
-		return []Row{SpotSimpleSwapRow{f, f.Account, r.addr("tokenIn"), r.addr("tokenOut"), r.u256("amountIn"), r.u256("amountOut"), r.u256("executionPrice")}}
+		f.Account = r.addr(userField)
+		return []Row{SpotSimpleSwapRow{f, f.Account, r.addr("tokenIn"), r.addr(tokenOutField), r.u256("amountIn"), r.u256("amountOut"), r.u256("executionPrice")}}
 	}},
 	{"TwapSanityUpdated", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "twap_sanity_updated"
 		return []Row{SpotTwapSanityRow{f, r.flag("enabled"), r.u256("period"), r.u256("maxDeviationBps")}}
 	}},
-	{"OwnershipTransferred", ownershipTransferred},
-	{"Paused", paused},
-	{"Unpaused", unpaused},
+	{ownershipTransferredEvent, ownershipTransferred},
+	{pausedEvent, paused},
+	{unpausedEvent, unpaused},
 }
 
 // orderEvent builds the id-only order events of a rail: the user, token and
@@ -330,7 +333,7 @@ var pecorEvents = []eventDecoder{
 func orderEvent(rail orderRail, kind string, build func(Fact, *reader, string, spotOrder) Row) func(*batch, Fact, *reader) []Row {
 	return func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = kind
-		id := r.u256("orderId")
+		id := r.u256(orderIDField)
 		o := b.orderTokenLookup(r, rail, id, f.Block)
 		f.Account = o.user
 		return []Row{build(f, r, id, o)}
@@ -349,10 +352,10 @@ func orderExecuted(f Fact, r *reader, id string, o spotOrder) Row {
 var ordersEvents = []eventDecoder{
 	{"LimitOrderCreated", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "limit_created"
-		id := r.u256("orderId")
-		f.Account = r.addr("user")
+		id := r.u256(orderIDField)
+		f.Account = r.addr(userField)
 		o := b.orderTokenLookup(r, limitRail, id, f.Block)
-		return []Row{SpotLimitCreatedRow{f, id, f.Account, b.limitType(r.u8("orderType")), r.u256("amount"), r.u256("targetPrice"), o.token, o.stablecoin}}
+		return []Row{SpotLimitCreatedRow{f, id, f.Account, b.limitType(r.u8("orderType")), r.u256(amountField), r.u256("targetPrice"), o.token, o.stablecoin}}
 	}},
 	{"LimitOrderCancelled", orderEvent(limitRail, "limit_cancelled", orderID)},
 	{"LimitOrderExecuted", orderEvent(limitRail, "limit_executed", orderExecuted)},
@@ -360,19 +363,19 @@ var ordersEvents = []eventDecoder{
 	{"LimitOrderModified", orderEvent(limitRail, "limit_modified", func(f Fact, r *reader, id string, o spotOrder) Row {
 		return SpotLimitModifiedRow{f, id, o.token, o.stablecoin, r.u256("targetPrice"), r.u256("expiresAt")}
 	})},
-	{"OwnershipTransferred", ownershipTransferred},
-	{"Paused", paused},
-	{"Unpaused", unpaused},
+	{ownershipTransferredEvent, ownershipTransferred},
+	{pausedEvent, paused},
+	{unpausedEvent, unpaused},
 }
 
 // stopOrdersEvents is the decoding table for PECORStopOrders 0x1023.
 var stopOrdersEvents = []eventDecoder{
 	{"StopLimitOrderCreated", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "stop_limit_created"
-		id := r.u256("orderId")
-		f.Account = r.addr("user")
+		id := r.u256(orderIDField)
+		f.Account = r.addr(userField)
 		o := b.orderTokenLookup(r, stopLimitRail, id, f.Block)
-		return []Row{SpotStopLimitCreatedRow{f, id, f.Account, b.stopLimitType(r.u8("orderType")), r.u256("amount"), r.u256("stopPrice"), r.u256("limitPrice"), o.token, o.stablecoin}}
+		return []Row{SpotStopLimitCreatedRow{f, id, f.Account, b.stopLimitType(r.u8("orderType")), r.u256(amountField), r.u256("stopPrice"), r.u256("limitPrice"), o.token, o.stablecoin}}
 	}},
 	{"StopLimitActivated", orderEvent(stopLimitRail, "stop_limit_activated", func(f Fact, r *reader, id string, o spotOrder) Row {
 		return SpotStopLimitActivatedRow{f, id, o.token, o.stablecoin, r.u256("activationPrice")}
@@ -381,16 +384,16 @@ var stopOrdersEvents = []eventDecoder{
 	{"StopLimitExecuted", orderEvent(stopLimitRail, "stop_limit_executed", orderExecuted)},
 	{"StopLossOrderCreated", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "stop_loss_created"
-		id := r.u256("orderId")
-		f.Account = r.addr("user")
+		id := r.u256(orderIDField)
+		f.Account = r.addr(userField)
 		o := b.orderTokenLookup(r, stopLossRail, id, f.Block)
-		return []Row{SpotStopLossCreatedRow{f, id, f.Account, r.u256("amount"), r.u256("triggerPrice"), o.token, o.stablecoin}}
+		return []Row{SpotStopLossCreatedRow{f, id, f.Account, r.u256(amountField), r.u256("triggerPrice"), o.token, o.stablecoin}}
 	}},
 	{"StopLossOrderCancelled", orderEvent(stopLossRail, "stop_loss_cancelled", orderID)},
 	{"StopLossOrderExecuted", orderEvent(stopLossRail, "stop_loss_executed", orderExecuted)},
-	{"OwnershipTransferred", ownershipTransferred},
-	{"Paused", paused},
-	{"Unpaused", unpaused},
+	{ownershipTransferredEvent, ownershipTransferred},
+	{pausedEvent, paused},
+	{unpausedEvent, unpaused},
 }
 
 // vaultEvents is the decoding table for PECORVault 0x1025.
@@ -398,43 +401,43 @@ var vaultEvents = []eventDecoder{
 	{"Deposit", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "deposit"
 		f.Account = r.addr("depositor")
-		return []Row{SpotDepositRow{f, r.addr("token"), f.Account, r.u256("amount"), r.u256("newReserve")}}
+		return []Row{SpotDepositRow{f, r.addr(tokenField), f.Account, r.u256(amountField), r.u256(newReserveField)}}
 	}},
 	{"LPWithdrawal", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "lp_withdrawal"
 		f.Account = r.addr("provider")
-		return []Row{SpotLPWithdrawalRow{f, r.addr("token"), f.Account, r.u256("shares"), r.u256("amount")}}
+		return []Row{SpotLPWithdrawalRow{f, r.addr(tokenField), f.Account, r.u256("shares"), r.u256(amountField)}}
 	}},
 	{"NativeDeposit", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "native_deposit"
 		f.Account = r.addr("depositor")
-		return []Row{SpotNativeDepositRow{f, f.Account, r.u256("amount"), r.u256("newReserve")}}
+		return []Row{SpotNativeDepositRow{f, f.Account, r.u256(amountField), r.u256(newReserveField)}}
 	}},
 	{"NativeWithdrawal", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "native_withdrawal"
 		f.Account = r.addr("recipient")
-		return []Row{SpotNativeWithdrawalRow{f, f.Account, r.u256("amount"), r.u256("newReserve")}}
+		return []Row{SpotNativeWithdrawalRow{f, f.Account, r.u256(amountField), r.u256(newReserveField)}}
 	}},
 	{"Withdrawal", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "withdrawal"
 		f.Account = r.addr("recipient")
-		return []Row{SpotWithdrawalRow{f, r.addr("token"), f.Account, r.u256("amount"), r.u256("newReserve")}}
+		return []Row{SpotWithdrawalRow{f, r.addr(tokenField), f.Account, r.u256(amountField), r.u256(newReserveField)}}
 	}},
 	{"ReservesSync", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "reserves_sync"
-		return []Row{SpotReservesSyncRow{f, r.addr("token"), r.u256("oldReserves"), r.u256("newReserves"), r.u256("recovered")}}
+		return []Row{SpotReservesSyncRow{f, r.addr(tokenField), r.u256("oldReserves"), r.u256("newReserves"), r.u256("recovered")}}
 	}},
 	{"ReservesUpdated", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "reserves_updated"
-		return []Row{SpotReservesUpdatedRow{f, r.addr("token"), r.u256("oldReserve"), r.u256("newReserve")}}
+		return []Row{SpotReservesUpdatedRow{f, r.addr(tokenField), r.u256("oldReserve"), r.u256(newReserveField)}}
 	}},
 	{"TokenRegistered", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "token_registered"
-		return []Row{SpotTokenRegisteredRow{f, r.addr("token"), r.u8("decimals"), r.flag("isStablecoin")}}
+		return []Row{SpotTokenRegisteredRow{f, r.addr(tokenField), r.u8("decimals"), r.flag("isStablecoin")}}
 	}},
 	{"ShareTokenCreated", func(b *batch, f Fact, r *reader) []Row {
 		f.Kind = "share_token_created"
-		token, pointer := r.addr("token"), r.addr("shareToken")
+		token, pointer := r.addr(tokenField), r.addr("shareToken")
 		if r.err == nil {
 			b.created[pointer] = token
 		}
@@ -446,7 +449,7 @@ var vaultEvents = []eventDecoder{
 	}},
 	{"TokenPauseUpdated", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "token_pause_updated"
-		return []Row{SpotTokenPauseRow{f, r.addr("token"), r.flag("paused")}}
+		return []Row{SpotTokenPauseRow{f, r.addr(tokenField), r.flag("paused")}}
 	}},
 	{"TransactionTrackerUpdated", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "tracker_updated"
@@ -454,9 +457,9 @@ var vaultEvents = []eventDecoder{
 	}},
 	{"UtilizationCapUpdated", func(_ *batch, f Fact, r *reader) []Row {
 		f.Kind = "utilization_cap_updated"
-		return []Row{SpotUtilizationCapRow{f, r.addr("token"), r.u256("maxUtilizationBps")}}
+		return []Row{SpotUtilizationCapRow{f, r.addr(tokenField), r.u256("maxUtilizationBps")}}
 	}},
-	{"OwnershipTransferred", ownershipTransferred},
+	{ownershipTransferredEvent, ownershipTransferred},
 }
 
 // shareEvents decode the logs of the share pointers; batch.shareToken holds
@@ -762,7 +765,7 @@ func (r SpotLimitCreatedRow) Side() (string, bool) {
 	case SpotLimitBuy:
 		return "buy", true
 	case SpotLimitSell:
-		return "sell", true
+		return sellSide, true
 	}
 	return "", false
 }
@@ -773,41 +776,41 @@ func (r SpotStopLimitCreatedRow) Side() (string, bool) {
 	case SpotStopLimitBuy:
 		return "buy", true
 	case SpotStopLimitSell:
-		return "sell", true
+		return sellSide, true
 	}
 	return "", false
 }
 
 // Side is the side of a stop-loss order, always a sell.
-func (SpotStopLossCreatedRow) Side() (string, bool) { return "sell", true }
+func (SpotStopLossCreatedRow) Side() (string, bool) { return sellSide, true }
 
-func (SpotMarketOrderRow) Table() string        { return "spot_swaps" }
-func (SpotNativeSwapRow) Table() string         { return "spot_swaps" }
-func (SpotSimpleSwapRow) Table() string         { return "spot_swaps" }
+func (SpotMarketOrderRow) Table() string        { return spotSwapsTable }
+func (SpotNativeSwapRow) Table() string         { return spotSwapsTable }
+func (SpotSimpleSwapRow) Table() string         { return spotSwapsTable }
 func (SpotPriceImpactRow) Table() string        { return "spot_fee_events" }
 func (SpotTieredFeeRow) Table() string          { return "spot_fee_events" }
-func (SpotLimitCreatedRow) Table() string       { return "spot_order_events" }
-func (SpotStopLimitCreatedRow) Table() string   { return "spot_order_events" }
-func (SpotStopLossCreatedRow) Table() string    { return "spot_order_events" }
-func (SpotOrderIDRow) Table() string            { return "spot_order_events" }
-func (SpotOrderExecutedRow) Table() string      { return "spot_order_events" }
-func (SpotLimitModifiedRow) Table() string      { return "spot_order_events" }
-func (SpotStopLimitActivatedRow) Table() string { return "spot_order_events" }
-func (SpotDepositRow) Table() string            { return "spot_vault_events" }
-func (SpotLPWithdrawalRow) Table() string       { return "spot_vault_events" }
-func (SpotNativeDepositRow) Table() string      { return "spot_vault_events" }
-func (SpotNativeWithdrawalRow) Table() string   { return "spot_vault_events" }
-func (SpotWithdrawalRow) Table() string         { return "spot_vault_events" }
-func (SpotReservesSyncRow) Table() string       { return "spot_vault_events" }
-func (SpotReservesUpdatedRow) Table() string    { return "spot_vault_events" }
+func (SpotLimitCreatedRow) Table() string       { return spotOrderEventsTable }
+func (SpotStopLimitCreatedRow) Table() string   { return spotOrderEventsTable }
+func (SpotStopLossCreatedRow) Table() string    { return spotOrderEventsTable }
+func (SpotOrderIDRow) Table() string            { return spotOrderEventsTable }
+func (SpotOrderExecutedRow) Table() string      { return spotOrderEventsTable }
+func (SpotLimitModifiedRow) Table() string      { return spotOrderEventsTable }
+func (SpotStopLimitActivatedRow) Table() string { return spotOrderEventsTable }
+func (SpotDepositRow) Table() string            { return spotVaultEventsTable }
+func (SpotLPWithdrawalRow) Table() string       { return spotVaultEventsTable }
+func (SpotNativeDepositRow) Table() string      { return spotVaultEventsTable }
+func (SpotNativeWithdrawalRow) Table() string   { return spotVaultEventsTable }
+func (SpotWithdrawalRow) Table() string         { return spotVaultEventsTable }
+func (SpotReservesSyncRow) Table() string       { return spotVaultEventsTable }
+func (SpotReservesUpdatedRow) Table() string    { return spotVaultEventsTable }
 func (SpotTokenRegisteredRow) Table() string    { return "spot_token_registry" }
 func (SpotShareTokenCreatedRow) Table() string  { return "spot_token_registry" }
-func (SpotOwnershipRow) Table() string          { return "spot_admin" }
-func (SpotPauseRow) Table() string              { return "spot_admin" }
-func (SpotTwapSanityRow) Table() string         { return "spot_admin" }
-func (SpotOperatorRow) Table() string           { return "spot_admin" }
-func (SpotTokenPauseRow) Table() string         { return "spot_admin" }
-func (SpotTrackerRow) Table() string            { return "spot_admin" }
-func (SpotUtilizationCapRow) Table() string     { return "spot_admin" }
+func (SpotOwnershipRow) Table() string          { return spotAdminTable }
+func (SpotPauseRow) Table() string              { return spotAdminTable }
+func (SpotTwapSanityRow) Table() string         { return spotAdminTable }
+func (SpotOperatorRow) Table() string           { return spotAdminTable }
+func (SpotTokenPauseRow) Table() string         { return spotAdminTable }
+func (SpotTrackerRow) Table() string            { return spotAdminTable }
+func (SpotUtilizationCapRow) Table() string     { return spotAdminTable }
 func (SpotShareTransferRow) Table() string      { return "spot_share_transfers" }
 func (SpotShareApprovalRow) Table() string      { return "spot_share_transfers" }

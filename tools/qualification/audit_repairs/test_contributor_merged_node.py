@@ -25,7 +25,7 @@ def test_contributor_daemon_embedded_kernel_and_retirement():
     for fact in (
         "one Paxeer network",
         "the C17 kernel executes inside `paxd`",
-        "the node's execution domain and block proposal path",
+        "the LayerX kernel executes and orders each transaction and builds each block, and validators check and commit it",
         "A transaction receipt is final once its block is committed.",
         "`daemon/paxd/`",
     ):

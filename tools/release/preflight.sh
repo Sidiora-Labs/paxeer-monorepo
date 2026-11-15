@@ -2,10 +2,13 @@
 set -euo pipefail
 export LC_ALL=C
 
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+version_file=$script_dir/version.json
+
 usage() {
   cat <<'USAGE'
 Usage: preflight.sh --home DIRECTORY --binary FILE [--upgrade-info FILE] [--min-free-gib INTEGER]
-Read-only host checks for Paxeer 7.0.0 before the v7.0 upgrade.
+Read-only host checks for Paxeer before the v7.0 upgrade.
 Requires Linux and Python 3.11 or newer; the release binary targets linux/amd64.
   --home           Node home containing config/ and data/.
   --binary         New executable; also stage it in cosmovisor/upgrades/v7.0/bin/paxd.
@@ -46,7 +49,7 @@ if ! command -v python3 >/dev/null; then
   exit 1
 fi
 
-exec python3 - "$home" "$binary" "$upgrade_info" "$min_free_gib" <<'PY'
+exec python3 - "$home" "$binary" "$upgrade_info" "$min_free_gib" "$version_file" <<'PY'
 import ctypes
 import hashlib
 import json
@@ -59,8 +62,21 @@ import sys
 import tomllib
 from urllib.parse import parse_qs, urlsplit
 
+version_file = Path(sys.argv[5]).absolute()
+try:
+    identity = json.loads(version_file.read_text(encoding="utf-8"))
+    if (not isinstance(identity, dict) or set(identity) != {"upgrade", "version"}
+            or identity.get("upgrade") != "v7.0"
+            or not isinstance(identity.get("version"), str)
+            or not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", identity["version"])):
+        raise ValueError
+except (OSError, ValueError, TypeError, json.JSONDecodeError):
+    print("preflight: invalid release identity in tools/release/version.json", file=sys.stderr)
+    raise SystemExit(1)
+RELEASE_VERSION = identity["version"]
+RELEASE_VERSION_UNPREFIXED = RELEASE_VERSION.removeprefix("v")
 UPGRADE = "v7.0"
-VERSIONS = ("7.0.0", "v7.0.0")
+VERSIONS = (RELEASE_VERSION_UNPREFIXED, RELEASE_VERSION)
 APP_KEYS = {
     "state-commit": {"sc-enable": bool, "sc-directory": str},
     "state-store": {
@@ -123,7 +139,7 @@ def check_binary():
     require(result.returncode == 0, "new binary version command failed")
     version = json.loads(result.stdout)
     require(isinstance(version, dict) and version.get("version") in VERSIONS,
-            "new binary must report version 7.0.0")
+            f"new binary must report version {RELEASE_VERSION_UNPREFIXED}")
     binary_digest = digest(binary)
 
 

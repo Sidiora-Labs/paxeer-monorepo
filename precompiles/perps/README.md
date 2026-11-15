@@ -1,6 +1,6 @@
 # Perps precompile
 
-This directory contains the Go EVM precompile for the perpetuals venue, its Solidity interface, embedded ABI, and tests. It exposes the native [`modules/perps`](../../modules/perps) keeper to EVM callers at `0x1015` for collateral, orders, positions, liquidation, and state queries. Collateral uses USDL with 6 decimals; prices, USD notionals, and leverage arguments use 18-decimal fixed point. Every method is nonpayable. The venue runs within the Paxeer BFT network, where a receipt is final when its block is committed.
+This directory contains the Go EVM precompile for the perpetuals venue, its Solidity interface, embedded ABI, and tests. It exposes the native [`modules/perps`](../../modules/perps) keeper to EVM callers at `0x1015` for collateral, orders, positions, liquidation, and state queries. Collateral uses USDL with 6 decimals; prices, USD notionals, and leverage arguments use 18-decimal fixed point. Every method is nonpayable. The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A receipt is final when validators commit its block.
 
 ## Layout
 

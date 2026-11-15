@@ -3,6 +3,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from generate_native_program_fixture import evm as call_evm
+
 
 WIND_DOWN_MODES = {
     "wind-down-route": 1,
@@ -217,6 +219,8 @@ def main():
             raise ValueError("native encoder returned non-canonical hexadecimal")
         if document["ordinal"] in (1, 2, 7):
             document["evm"] = evm(document)
+        else:
+            document["evm"] = call_evm(document)
         document["name"] = name.removesuffix("-v3") + "-v4"
         documents[name] = json.dumps(document, indent=2) + "\n"
     if set(documents) != set(expected):

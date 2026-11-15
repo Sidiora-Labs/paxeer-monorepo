@@ -1,6 +1,6 @@
 # Protocol tests
 
-This directory holds native LayerX protocol and receipt tests, Go qualification checks, host migration coverage, and retained policy evidence checks. The tests exercise the deterministic kernel and its Programs, ledger, authority, receipt, genesis, and migration paths inside the single Paxeer BFT network; the kernel runs in `paxd`, and a receipt becomes final when its block commits.
+This directory holds native LayerX protocol and receipt tests, Go qualification checks, host migration coverage, and retained policy evidence checks. The tests exercise the deterministic kernel and its Programs, ledger, authority, receipt, genesis, and migration paths inside the single Paxeer network: the LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it, and a receipt becomes final when the validators commit its block.
 
 ## Layout
 

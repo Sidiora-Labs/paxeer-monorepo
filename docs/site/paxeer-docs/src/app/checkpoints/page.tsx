@@ -14,7 +14,7 @@ export default function Checkpoints() {
       </div>
       <DocArt name="state-snapshots" />
       <h2>Block commitment</h2>
-      <p>Paxeer mainnet-beta is one BFT chain with EVM chain ID 125. Its kernel proposes blocks within the network. A receipt is final when its block is committed; a separate checkpoint submission is not part of application settlement.</p>
+      <p>The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit it. Paxeer mainnet-beta uses EVM chain ID 125. A receipt is final when validators commit its block; a separate checkpoint submission is not part of application settlement.</p>
       <ul>
         <li><code>SubmitCheckpoint</code>, <code>SubmitAvailabilityAttestation</code>, and <code>SubmitEquivocation</code> in modules/layerxanchor/keeper/ unconditionally return a module-retired error.</li>
         <li>The <code>0x1014</code> precompile disables writes when <code>v7.0</code> is active and disables every selector when <code>v7.0-anchor-store-delete</code> is active.</li>
@@ -35,7 +35,7 @@ export default function Checkpoints() {
       <h2>Transaction and block flow</h2>
       <ol>
         <li>A signed transaction is submitted to the node and checked for mempool admission.</li>
-        <li>The kernel proposes a block within the Paxeer consensus network.</li>
+        <li>The kernel seals the block it has built.</li>
         <li>Validators evaluate the proposal under the configured consensus protocol.</li>
         <li>The application executes the ordered transactions and records their results.</li>
         <li>Consensus commits the block and the application commits its state.</li>

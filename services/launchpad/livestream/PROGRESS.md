@@ -52,8 +52,9 @@ inputs. Startup requires `LIVEPEER_WEBHOOK_TIMESTAMP_UNIT=milliseconds` for the
 Studio webhook decoder. Read `ValidateConnected` and `NewConnectedRuntime` for
 the complete validation contract.
 
-Paxeer is one BFT network with EVM chain ID 125 (`0x7d`); its kernel participates
-in the network and proposes blocks. Receipts are final when their blocks commit.
+Paxeer uses EVM chain ID 125 (`0x7d`). The LayerX kernel inside `paxd` executes
+and orders each transaction and builds each block; validators check and commit
+it. Receipts are final when their blocks commit.
 The connected runtime checks chain ID 125. Public node JSON-RPC uses the root
 path; the
 [public RPC reference](../../../docs/readme/PUBLIC-RPC.md) lists the

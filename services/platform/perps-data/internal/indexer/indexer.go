@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/rand/v2"
 	"sync"
 	"sync/atomic"
@@ -317,6 +318,9 @@ func (ix *Indexer) resume(ctx context.Context) (uint64, error) {
 	if ok {
 		next = height + 1
 	}
+	if next > math.MaxInt64 {
+		return 0, fmt.Errorf("indexer: next height %d exceeds database range", next)
+	}
 	ix.setCursor(int64(next) - 1)
 	return next, nil
 }
@@ -376,6 +380,9 @@ func (ix *Indexer) step(ctx context.Context, next uint64) (uint64, error) {
 	if after < next {
 		ix.rewinds.Inc()
 		ix.logger.Warn("perps indexer rewound", slog.Uint64("fork_height", after))
+	}
+	if after > math.MaxInt64 {
+		return next, fmt.Errorf("indexer: next height %d exceeds database range", after)
 	}
 	ix.setCursor(int64(after) - 1)
 	if head, err := ix.rpc.Head(ctx); err == nil {

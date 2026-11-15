@@ -3,9 +3,10 @@
 This page describes the implemented CosmWasm IBC path in Paxeer's `paxd`
 application. Contracts execute inside the merged network, and IBC delivers
 messages between chains through clients, connections, channels and relayers.
-The kernel participates in the same network; a receipt is final when its block
-is committed. IBC delivery and acknowledgement still require the corresponding
-proof-bearing transactions on the participating chains.
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final when validators
+commit its block. IBC delivery and acknowledgement still require the
+corresponding proof-bearing transactions on the participating chains.
 
 ## General Concepts
 

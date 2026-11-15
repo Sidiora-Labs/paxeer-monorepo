@@ -46,10 +46,14 @@ def section(heading, level=3):
 def test_embedded_paxd_embedded_paxd_is_one_block_committing_network():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "C17 kernel in `src/` and `include/` runs inside `paxd`",
         "through [`modules/lxphost`](../../modules/lxphost/)",
         "A receipt is final once its block is committed",
@@ -67,7 +71,7 @@ def test_embedded_paxd_embedded_paxd_is_one_block_committing_network():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native",
@@ -242,7 +246,7 @@ def test_embedded_paxd_supported_build_tools_and_layout_match_the_merged_tree():
         assert (ROOT / path).is_dir(), path
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
 
 
 def test_embedded_paxd_repair_record_names_all_proofs_and_honest_evidence_limits():

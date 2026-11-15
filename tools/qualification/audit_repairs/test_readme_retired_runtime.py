@@ -38,12 +38,14 @@ def section(heading, level=3):
 def test_readme_retired_runtime_one_embedded_network_and_commit_finality():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "participates in block proposal and deterministic execution",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "A signed execution receipt can arrive before that commitment",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
@@ -57,7 +59,7 @@ def test_readme_retired_runtime_one_embedded_network_and_commit_finality():
     )
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     for stale in (
         r"\blayerxd\b",
         r"two (?:execution )?domains",

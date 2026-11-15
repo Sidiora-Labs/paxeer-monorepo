@@ -10,7 +10,6 @@ use std::pin::pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
-use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::idempotency::IdempotentMutation;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_agent_api::prepare::{PreparationRef, PrepareRequest as ApiPrepareRequest};
@@ -20,9 +19,9 @@ use layerx_agent_api::track::{
     TrackedSubmission,
 };
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
-use layerx_agentd::prepare::{verify_call_binding, EvmPrepared};
+use layerx_agentd::prepare::{EvmPrepared, verify_call_binding};
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
+use layerx_agentd::sign::{SigningPreparation, attach_external_signature, verify_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_human_service::custody::{
     CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, Operation, SigningLimits,
@@ -38,7 +37,6 @@ use layerx_human_service::store::{
 };
 use layerx_human_service::trace::TraceId;
 use layerx_intents::{Intent, IntentKind, LxpSend};
-use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::{Call, Client as AgentClient};
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
@@ -132,7 +130,7 @@ fn send_intent(public_key: [u8; 32], amount: u128, key: u8) -> Intent {
             layerx_intents::canonical::PROTOCOL_VERSION,
         )
         .unwrap_or_else(|error| panic!("destination account: {error:?}")),
-        asset: [0x33; 32],
+        asset: journey_receipt::ASSET,
         amount,
         source_sequence: ACCOUNT_SEQUENCE,
         idempotency_key: [key; 32],
@@ -147,7 +145,7 @@ fn send_intent(public_key: [u8; 32], amount: u128, key: u8) -> Intent {
     let send = LxpSend::new(
         account("agent:did:layerx:alice:main"),
         account("agent:did:layerx:recipient:main"),
-        AssetId::new([0x33; 32]),
+        AssetId::new(journey_receipt::ASSET),
         Amount::from_u128(amount),
         Sequence::from_u64(ACCOUNT_SEQUENCE),
         IdempotencyKey::new([key; 32]),
@@ -571,11 +569,20 @@ impl RealAgentLayer {
                 let verified = verify_before_submit(&signed, &signing, &sender, &self.registry);
                 eprintln!(
                     "reclaim contract divergence: action_key={} pending_nonce={} prepared_nonce={} signed_nonce={} prepared_unsigned={} signing_preimage={} custody_signature={} custody_signature_length={} signed_transaction={} exact_signature_verification={:?}",
-                    hex(&key), leg["preparation"]["account_sequence"],
-                    prepared.call.nonce, signed_call.nonce,
-                    hex(&layerx_human_kms::attestor::unsigned_evm_transaction(&signing.transaction.call)),
-                    hex(&signing.transaction.signing_hash), hex(&signature), signature.len(), hex(&signed),
-                    verified.as_ref().map(layerx_agentd::sign::VerifiedSubmission::activity_id),
+                    hex(&key),
+                    leg["preparation"]["account_sequence"],
+                    prepared.call.nonce,
+                    signed_call.nonce,
+                    hex(&layerx_human_kms::attestor::unsigned_evm_transaction(
+                        &signing.transaction.call
+                    )),
+                    hex(&signing.transaction.signing_hash),
+                    hex(&signature),
+                    signature.len(),
+                    hex(&signed),
+                    verified
+                        .as_ref()
+                        .map(layerx_agentd::sign::VerifiedSubmission::activity_id),
                 );
                 assert_eq!(signed_call.nonce, prepared.call.nonce);
                 assert_eq!(signed_call, signing.transaction.call);
@@ -596,7 +603,12 @@ impl RealAgentLayer {
         submission_id: [u8; 32],
         activity_id: [u8; 32],
     ) -> Result<AgentObservation, AgentBoundaryError> {
-        let receipt = receipt(activity_id, key[0], self.preparation_activities[&key]);
+        let receipt = journey_receipt::material(
+            self.outbox
+                .exact_signed_bytes(submission_id)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+            key[0],
+        );
         self.receipt_material.insert(key, receipt.clone());
         Self::count(&mut self.effects, key);
         let mode = self
@@ -783,7 +795,18 @@ impl AgentBoundary for RealAgentLayer {
             verify_before_submit(&signed, &signing, &signing.actor_address, &self.registry)
                 .map_err(|_| AgentBoundaryError::Refused)?;
         assert_eq!(verified.exact_bytes(), signed);
-        assert_eq!(verified.idempotency_key(), key);
+        if self.preparation_activities[&key].module() == ModuleId::Budget {
+            assert_eq!(verified.idempotency_key(), [0; 32]);
+            let budget =
+                layerx_crypto::disclosure::call::bind_call(&decoded, signing.actor_address)
+                    .or_fail("budget call disclosure");
+            assert!(matches!(
+                budget.construct_method().or_fail("budget defund method"),
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetDefund { .. })
+            ));
+        } else {
+            assert_eq!(verified.idempotency_key(), key);
+        }
         assert_eq!(verified.activity_id(), transaction_hash(&signed));
         let raw = if let Some(id) = self.outbox_submissions.get(&key) {
             self.outbox
@@ -852,39 +875,16 @@ impl AgentBoundary for RealAgentLayer {
                 .receipt_material
                 .get(&key)
                 .ok_or(AgentBoundaryError::CorruptResponse)?;
-            let signer = SigningKey::from_bytes(&[key[0].saturating_add(4); 32]);
-            let decoded = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-            let protocol = decoded
-                .protocol()
-                .ok_or(AgentBoundaryError::CorruptResponse)?;
-            if protocol.previous_state_root() != material.authorised_batch.previous_state_root()
-                || protocol.resulting_state_root()
-                    != material.authorised_batch.resulting_state_root()
-            {
-                return Err(AgentBoundaryError::CorruptResponse);
-            }
-            let raw = support::raw_receipt_evidence(
-                material.canonical_bytes.clone(),
-                signer.verifying_key().to_bytes(),
-                material.authorised_batch.previous_state_root(),
-                material.authorised_batch.resulting_state_root(),
-                u64::from(key[0]),
-                &signer,
-            );
-            let verified = support::evidence_verifier(&signer)
-                .verify_receipt(&raw)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            journey_receipt::record_execution(
+                &mut self.outbox,
+                &mut self.store,
+                submission_id,
+                material,
+            )?;
             let executed = self
                 .outbox
-                .record_execution(
-                    &mut self.store,
-                    submission_id,
-                    verified,
-                    material.block_height,
-                    0,
-                )
-                .map_err(|_| AgentBoundaryError::Refused)?;
+                .status(submission_id)
+                .ok_or(AgentBoundaryError::CorruptResponse)?;
             assert_eq!(executed.state, OutboxState::Executed);
             let block = layerx_client::sequencer::SequencerBlock {
                 number: material.block_height,
@@ -893,11 +893,12 @@ impl AgentBoundary for RealAgentLayer {
                 timestamp: 1_000,
                 transactions_root: submission_id,
                 receipts_root: material.receipt_hash,
-                transactions: vec![self
-                    .outbox
-                    .exact_signed_bytes(submission_id)
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
-                    .to_vec()],
+                transactions: vec![
+                    self.outbox
+                        .exact_signed_bytes(submission_id)
+                        .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                        .to_vec(),
+                ],
             };
             let committed = self
                 .outbox
@@ -956,117 +957,8 @@ impl AgentBoundary for RealAgentLayer {
     }
 }
 
-#[derive(Clone)]
-struct ReceiptFields {
-    activity_id: [u8; 32],
-    previous_state_root: [u8; 32],
-    resulting_state_root: [u8; 32],
-    batch_id: [u8; 32],
-    asset: [u8; 32],
-    module: ModuleId,
-    operation: u8,
-    sequence: u64,
-}
-
-fn receipt(activity_id: [u8; 32], marker: u8, activity: ActivityType) -> ReceiptMaterial {
-    let fields = ReceiptFields {
-        activity_id,
-        previous_state_root: [marker.saturating_add(1); 32],
-        resulting_state_root: [marker.saturating_add(2); 32],
-        batch_id: {
-            let mut height = [0; 32];
-            height[24..].copy_from_slice(&u64::from(marker).to_be_bytes());
-            height
-        },
-        asset: [0x33; 32],
-        module: activity.module(),
-        operation: u8::try_from(activity.ordinal())
-            .unwrap_or_else(|_| panic!("activity ordinal is outside receipt range")),
-        sequence: u64::from(marker),
-    };
-    let signer = SigningKey::from_bytes(&[marker.saturating_add(4); 32]);
-    let unsigned = encode_receipt(&fields, None);
-    let mut digest = Sha256::new();
-    digest.update(b"LXP/v1/receipt\0");
-    digest.update(&unsigned);
-    let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
-    let canonical_bytes = encode_receipt(&fields, Some(signature.to_bytes()));
-    ReceiptMaterial {
-        receipt_hash: Sha256::digest(&canonical_bytes).into(),
-        signed_receipt: canonical_bytes.clone(),
-        canonical_bytes,
-        tx_hash: fields.activity_id,
-        block_height: fields.sequence,
-        rung: Rung::Receipted,
-        receipt_key: layerx_human_service::journeys::ReceiptKeyEntry {
-            key_id: [0x94; 32],
-            public_key: signer.verifying_key().to_bytes(),
-            first_height: 1,
-            last_height: u64::MAX,
-        },
-        inclusion_height: fields.sequence,
-        authorised_batch: AuthorizedBatch::new(
-            fields.batch_id,
-            fields.asset,
-            fields.previous_state_root,
-            fields.resulting_state_root,
-            signer.verifying_key().to_bytes(),
-        ),
-        verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
-    }
-}
-
-fn encode_receipt(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8> {
-    let mut bytes = Vec::new();
-    push_u16(&mut bytes, layerx_intents::canonical::PROTOCOL_VERSION);
-    push_u16(&mut bytes, 0x5201);
-    push_u16(&mut bytes, layerx_intents::canonical::PROTOCOL_VERSION);
-    push_bytes(&mut bytes, &fields.activity_id);
-    push_u64(&mut bytes, fields.sequence);
-    push_bytes(&mut bytes, &fields.previous_state_root);
-    push_bytes(&mut bytes, &fields.resulting_state_root);
-    push_bytes(&mut bytes, &[0x81; 32]);
-    bytes.extend_from_slice(&0_i32.to_be_bytes());
-    bytes.extend_from_slice(&0_u32.to_be_bytes());
-    bytes.extend_from_slice(&1_u128.to_be_bytes());
-    push_bytes(&mut bytes, &fields.batch_id);
-    push_u16(&mut bytes, u16::from(fields.module as u8));
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
-    bytes.push(fields.operation);
-    push_bytes(&mut bytes, &fields.asset);
-    bytes.extend_from_slice(&1_u128.to_be_bytes());
-    push_bytes(&mut bytes, &[0x91; 32]);
-    bytes.extend_from_slice(&10_u128.to_be_bytes());
-    bytes.extend_from_slice(&9_u128.to_be_bytes());
-    push_u64(&mut bytes, 1);
-    push_bytes(&mut bytes, &[0x92; 32]);
-    bytes.extend_from_slice(&20_u128.to_be_bytes());
-    bytes.extend_from_slice(&21_u128.to_be_bytes());
-    push_bytes(&mut bytes, &[0x93; 32]);
-    push_bytes(&mut bytes, &[0x94; 32]);
-    push_bytes(&mut bytes, &[0x95; 32]);
-    push_u64(&mut bytes, 1_000);
-    bytes.push(u8::from(signature.is_some()));
-    if let Some(signature) = signature {
-        push_bytes(&mut bytes, &signature);
-    }
-    bytes
-}
-
-fn push_u16(bytes: &mut Vec<u8>, value: u16) {
-    bytes.extend_from_slice(&value.to_be_bytes());
-}
-
-fn push_u64(bytes: &mut Vec<u8>, value: u64) {
-    bytes.extend_from_slice(&value.to_be_bytes());
-}
-
-fn push_bytes(output: &mut Vec<u8>, value: &[u8]) {
-    let length =
-        u32::try_from(value.len()).unwrap_or_else(|_| panic!("receipt field length overflow"));
-    output.extend_from_slice(&length.to_be_bytes());
-    output.extend_from_slice(value);
+mod journey_receipt {
+    include!("support/journey_receipt.rs");
 }
 
 struct Fixture {
@@ -1109,8 +1001,12 @@ impl Fixture {
                     .unwrap_or_else(|error| panic!("entropy: {error}")),
             )
             .unwrap_or_else(|error| panic!("generate key: {error}"));
+        let signer_root = root.join("signer-store");
+        let signer_digest = map
+            .install(&signer_root)
+            .unwrap_or_else(|error| panic!("signer tenancy: {error}"));
         let signer_store =
-            PrincipalStore::open(&store_root, retention_uniform(10_000), tenancy_digest)
+            PrincipalStore::open(&signer_root, retention_uniform(10_000), signer_digest)
                 .unwrap_or_else(|error| panic!("signer store: {error}"));
         let signer = CustodySigner::new(
             keystore,
@@ -1306,9 +1202,11 @@ fn crashes_after_every_durable_stage_resume_with_one_effect_per_leg() {
     let notifications = JourneyEngine::notification_events(&final_scope, &id)
         .unwrap_or_else(|error| panic!("notifications: {error}"));
     assert_eq!(stream, notifications);
-    assert!(stream
-        .windows(2)
-        .all(|pair| pair[1].sequence() == pair[0].sequence() + 1));
+    assert!(
+        stream
+            .windows(2)
+            .all(|pair| pair[1].sequence() == pair[0].sequence() + 1)
+    );
     let cursors = stream
         .iter()
         .map(JourneyProgress::cursor)
@@ -1387,9 +1285,11 @@ fn repeated_start_repairs_initial_progress_after_restart() {
     assert_eq!(expected.len(), 1);
     for key in scope.keys(Table::Journeys) {
         if key.as_str().starts_with("jstream-") || key.as_str().starts_with("jnotify-") {
-            assert!(scope
-                .remove(Table::Journeys, &key)
-                .unwrap_or_else(|error| panic!("remove progress: {error}")));
+            assert!(
+                scope
+                    .remove(Table::Journeys, &key)
+                    .unwrap_or_else(|error| panic!("remove progress: {error}"))
+            );
         }
     }
     drop(scope);

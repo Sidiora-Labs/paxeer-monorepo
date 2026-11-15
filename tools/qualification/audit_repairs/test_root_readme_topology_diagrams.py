@@ -46,11 +46,14 @@ def section(heading, level=3):
 def test_root_network_description_embeds_kernel_in_one_bft_node():
     overview = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network",
+        "The LayerX kernel runs inside every `paxd` node.",
         "EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "runs inside `paxd` through [`modules/lxphost`]",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
     ):
@@ -146,7 +149,7 @@ def test_topology_and_receipt_diagrams_preserve_integrated_commit_order():
     assert len(diagrams) == 2
     topology, sequence = diagrams
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
@@ -186,7 +189,7 @@ def test_build_and_specification_describe_implemented_paxd_runtime():
     assert "Runtime behavior is implemented in the node, kernel host and native modules" in specification
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
-    assert "commits it with the BFT chain state" in release
+    assert "validators commit it in the same block" in release
     for stale in (
         r"\blayerxd\b",
         r"merge (?:is|remains) (?:only )?(?:a )?draft",

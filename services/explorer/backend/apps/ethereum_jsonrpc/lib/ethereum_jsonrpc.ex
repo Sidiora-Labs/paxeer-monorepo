@@ -136,7 +136,7 @@ defmodule EthereumJSONRPC do
   | `"safe"`     | The latest committed block.    |
   | `"finalized"`| The latest committed block.    |
 
-  On Paxeer's BFT chain, `"latest"`, `"safe"`, and `"finalized"` select the same
+  On Paxeer, `"latest"`, `"safe"`, and `"finalized"` select the same
   committed head. The tags are sent unchanged to the node; other chains may
   resolve them to different blocks.
   """

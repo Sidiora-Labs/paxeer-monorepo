@@ -9,7 +9,8 @@ For Paxeer, the network chain id is **125** (`0x7d`). Chain JSON-RPC is served a
 the root path of the configured node origin.
 The verifier's routes below belong to its own HTTP listener. A successful source
 verification establishes a bytecode match; network receipt finality comes from
-committed blocks on the single Paxeer BFT network, whose kernel proposes blocks.
+committed blocks on Paxeer. The LayerX kernel inside `paxd` executes and orders
+each transaction and builds each block; validators check and commit it.
 
 ## Configuration
 

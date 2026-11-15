@@ -10,6 +10,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ALLOWLIST_PATH = Path(__file__).parent / "data" / "large_file_allowlist.txt"
 MAX_FILE_BYTES = 2_000_000
+NO_GROWTH_BUDGET_MARKER = "[no-growth-budget]"
 
 
 @pytest.fixture(scope="module")
@@ -25,9 +26,9 @@ def tracked_paths() -> set[str]:
     return paths
 
 
-@pytest.fixture(scope="module")
-def allowlist() -> dict[str, int]:
+def _read_allowlist() -> tuple[dict[str, int], set[str]]:
     entries = {}
+    no_growth_budget = set()
     for line_number, line in enumerate(
         ALLOWLIST_PATH.read_text(encoding="utf-8").splitlines(), start=1
     ):
@@ -43,21 +44,27 @@ def allowlist() -> dict[str, int]:
         )
         assert path.as_posix() == name, f"{location}: path must be canonical"
         assert name not in entries, f"{location}: duplicate entry for {name}"
+        if reason.endswith(NO_GROWTH_BUDGET_MARKER):
+            no_growth_budget.add(name)
+            reason = reason[: -len(NO_GROWTH_BUDGET_MARKER)].rstrip()
         assert reason.strip(), f"{location}: a reason is required"
         size = int(recorded_size)
         assert size > 0, f"{location}: recorded byte size must be positive"
         entries[name] = size
     assert entries, "The large-file allowlist must not be empty"
-    return entries
+    return entries, no_growth_budget
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "tests/ci/data/large_file_allowlist.txt omits tracked files over 2 MB, "
-        "including GOTCHA.kvx and docs/site/image.png."
-    ),
-)
+@pytest.fixture(scope="module")
+def allowlist() -> dict[str, int]:
+    return _read_allowlist()[0]
+
+
+@pytest.fixture(scope="module")
+def no_growth_budget_files() -> set[str]:
+    return _read_allowlist()[1]
+
+
 def test_no_unlisted_tracked_file_over_2mb(
     tracked_paths: set[str], allowlist: dict[str, int]
 ):
@@ -72,17 +79,13 @@ def test_no_unlisted_tracked_file_over_2mb(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "tests/ci/data/large_file_allowlist.txt records sizes for "
-        "spec/layerx-merge/qualification.kvx and spec/layerx-merge/spec.kvx "
-        "whose ten-percent budgets are below their present sizes."
-    ),
-)
-def test_allowlisted_files_have_not_grown(allowlist: dict[str, int]):
+def test_allowlisted_files_have_not_grown(
+    allowlist: dict[str, int], no_growth_budget_files: set[str]
+):
     offenders = []
     for name, recorded_size in allowlist.items():
+        if name in no_growth_budget_files:
+            continue
         size = (REPO_ROOT / name).lstat().st_size
         if size * 10 > recorded_size * 11:
             offenders.append(

@@ -49,10 +49,14 @@ def test_root_readme_integrates_kernel_and_commit_finality():
     ) in boundary
     architecture = section("What is Paxeer X Network?", 2)
     for fact in (
-        "one BFT network with EVM chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node",
-        "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.",
+        "EVM chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.",
+        "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -66,7 +70,7 @@ def test_root_readme_integrates_kernel_and_commit_finality():
     topology = re.findall(r"```mermaid\n(.*?)\n```", architecture, re.S)
     assert len(topology) == 1
     for fact in (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]",
         "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
@@ -232,7 +236,7 @@ def test_root_readme_build_operator_links_and_status_use_paxd():
                 assert (NETWORK_PATH.parent / target.split("#", 1)[0]).exists(), target
     status = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in status
-    assert "commits it with the BFT chain state" in status
+    assert "validators commit it in the same block" in status
     for stale in (
         r"\blayerxd\b", r"make[^\n]*(?:cluster|checkpoint)",
         r"kernel (?:still )?runs separately", r"integration is a draft",

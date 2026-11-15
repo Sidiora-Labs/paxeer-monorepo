@@ -2,11 +2,11 @@
 
 # Unified Network Architecture
 
-The LayerX kernel runs inside every paxd node, executes each transaction when it arrives, gives it the next position in one global sequence, returns a signed execution receipt and builds each block; validators check that block and commit it.
+The LayerX kernel inside paxd executes and orders each transaction and builds each block; validators check and commit each block.
 
 ## The Network Model
 
-Paxeer X uses EVM chain ID `125` (`0x7d`). The node binary `paxd` runs the Cosmos SDK application and native EVM. The LayerX kernel runs in-process inside `paxd` through `modules/lxphost`, and `node/sequencer` supplies execution ordering within the node.
+Paxeer X uses EVM chain ID `125` (`0x7d`). The node binary `paxd` runs the Cosmos SDK application and native EVM. The LayerX kernel runs in-process inside `paxd` through `modules/lxphost`, executes and orders each transaction, gives it the next position in one global sequence, and returns a signed execution receipt. `node/sequencer` supplies execution ordering within the node.
 
 Kernel state changes commit with the rest of the node's transaction state. A receipt is final once its block is committed. Applications establish finality from the committed block and the receipt's inclusion evidence.
 

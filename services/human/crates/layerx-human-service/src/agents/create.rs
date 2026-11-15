@@ -795,11 +795,10 @@ impl ProtocolEvidence {
                 ) => (disclosure.canonical_payload().to_vec(), 3),
                 Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
                     ..
-                }) => {
-                    return Err(AgentFailure::Refused(
-                        "lifecycle transaction is a pointer transfer",
-                    ))
-                }
+                }) => (
+                    disclosure.canonical_payload().to_vec(),
+                    layerx_wire::limits::PROTOCOL_VERSION,
+                ),
                 Some(layerx_crypto::disclosure::call::ConstructMethod::BindLayerX { .. }) => {
                     return Err(AgentFailure::Refused(
                         "lifecycle transaction is a bind registration",
@@ -1406,7 +1405,7 @@ impl CreationJourney {
         let evidence = agent.submit_protocol_scoped(scope, action)?;
         if evidence.action_key != action_key
             || evidence.network_id != self.record.network_id
-            || evidence.bound_activity(kind)?.call.data != payload
+            || evidence.bound_activity(kind)?.payload() != payload
         {
             return Err(AgentCreationError::EvidenceConflict);
         }

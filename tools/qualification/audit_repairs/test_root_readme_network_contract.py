@@ -53,9 +53,12 @@ def assert_facts(text, facts):
 def test_finding_22_overview_is_one_embedded_paxd_bft_network():
     overview = section("What is Paxeer X Network?", 2)
     assert_facts(overview, (
-        "one BFT network", "chain ID **125** (`0x7d`)",
-        "kernel is embedded in the node", "proposes blocks inside `paxd`",
-        "validators commit those blocks through BFT consensus",
+        "The LayerX kernel runs inside every `paxd` node.", "chain ID **125** (`0x7d`)",
+        "It executes each transaction when it arrives, assigns the next position "
+        "in one global sequence, returns a signed execution receipt and builds "
+        "each block.",
+        "Validators check that block and commit it.", "A receipt is final when the validators commit its block.",
+        "A receipt is final when the validators commit its block.",
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
@@ -70,7 +73,7 @@ def test_finding_22_overview_is_one_embedded_paxd_bft_network():
     topology = re.findall(r"```mermaid\n(.*?)\n```", overview, re.S)
     assert len(topology) == 1
     assert_facts(topology[0], (
-        "subgraph Network[One Paxeer BFT network / EVM chain 125]",
+        "subgraph Network[Paxeer X / EVM chain 125]",
         "subgraph Node[paxd]", "RPC --> Order --> Host --> Native",
         "Validators -->|Commit| State",
     ))
@@ -169,7 +172,7 @@ def test_finding_22_build_and_upgrade_instructions_target_merged_paxd():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     upgrades = section("Releases and Network Upgrades")
     assert_facts(upgrades, (
-        "executes kernel activity inside `paxd`", "commits it with the BFT chain state",
+        "executes kernel activity inside `paxd`", "validators commit it in the same block",
         "`v7.0` merge handler", "retires the old custody/checkpoint write paths",
         "`v7.0-anchor-store-delete` removes the historical anchor store",
     ))

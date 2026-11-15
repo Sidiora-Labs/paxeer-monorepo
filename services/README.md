@@ -2,9 +2,10 @@
 
 This directory holds the agent and human interfaces, hosted platform services,
 wallet custody and gateway, explorer backend, launchpad services, and bridge and
-interoperability tooling for Paxeer X Network. Paxeer mainnet-beta is one BFT
-network running `paxd`, with EVM chain ID `125` (`0x7d`). Its kernel is part of
-the network and proposes blocks; a receipt is final once its block is committed.
+interoperability tooling for Paxeer X Network. Paxeer mainnet-beta is one
+network running `paxd`, with EVM chain ID `125` (`0x7d`). The LayerX kernel inside
+paxd executes and orders each transaction and builds each block; validators check
+and commit it. A receipt is final when the validators commit its block.
 These services provide clients, APIs, indexing and external integrations around
 that network. Sub-chains are tenant domains in the database, launchable without
 new infrastructure.

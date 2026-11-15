@@ -3,8 +3,9 @@
 `layerx-gateway` is the hosted HTTP and receipt-verification boundary for
 Paxeer X Network. The crate is `layerx-platform-gateway`, with its binary in
 [`src/main.rs`](../../services/platform/hosted/gateway/src/main.rs).
-The kernel runs inside the network and proposes blocks. A receipt is final
-once its block is committed. Hosted identity, indexing and product APIs do
+The LayerX kernel inside `paxd` executes and orders each transaction and builds
+each block; validators check and commit it. A receipt is final once validators
+commit its block. Hosted identity, indexing and product APIs do
 not form another execution or settlement network. Sub-chains are tenant
 domains in the database, launchable without new infrastructure.
 

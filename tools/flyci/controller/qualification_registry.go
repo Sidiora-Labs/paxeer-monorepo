@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,19 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+)
+
+const (
+	qStateTerminalFailed         = "terminal_failed"
+	qStateCompletedValidated     = "completed_validated"
+	qStateAcknowledgementUnknown = "acknowledgement_unknown"
+	qStateRunBound               = "run_bound"
+	qStateConflict               = "conflict"
+	qStatePrepared               = "prepared"
+	qStateDispatchIntent         = "dispatch_intent"
+	qStateRunning                = "running"
+	qStateCompletedUncollected   = "completed_uncollected"
+	qSequenceFilename            = "%020d.json"
 )
 
 type qualificationRegistry struct{ root string }
@@ -55,15 +69,20 @@ func qPrivate(path string, directory bool) error {
 	}
 	return nil
 }
-func qRead(path string) ([]byte, error) {
+func qRead(path string) (b []byte, e error) {
 	if e := qPrivate(path, false); e != nil {
 		return nil, e
 	}
-	f, e := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	directory, e := os.OpenRoot(filepath.Dir(filepath.Clean(path)))
 	if e != nil {
 		return nil, e
 	}
-	defer f.Close()
+	defer func() { e = qCloseError(directory, e) }()
+	f, e := directory.OpenFile(filepath.Base(path), os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return nil, e
+	}
+	defer func() { e = qCloseError(f, e) }()
 	s, e := f.Stat()
 	if e != nil {
 		return nil, e
@@ -71,19 +90,24 @@ func qRead(path string) ([]byte, error) {
 	if s.Size() > qualificationLimit {
 		return nil, errors.New("private document exceeds bound")
 	}
-	b := make([]byte, s.Size())
+	b = make([]byte, s.Size())
 	_, e = f.ReadAt(b, 0)
 	if len(b) == 0 {
 		e = errors.New("empty document")
 	}
 	return b, e
 }
-func qSyncDir(path string) error {
-	f, e := os.Open(path)
+func qSyncDir(path string) (e error) {
+	directory, e := os.OpenRoot(filepath.Clean(path))
 	if e != nil {
 		return e
 	}
-	defer f.Close()
+	defer func() { e = qCloseError(directory, e) }()
+	f, e := directory.Open(".")
+	if e != nil {
+		return e
+	}
+	defer func() { e = qCloseError(f, e) }()
 	return f.Sync()
 }
 func qStageWrite(path string) (*os.File, error) {
@@ -109,12 +133,17 @@ func qPrepareWrite(f *os.File, b []byte) error {
 func qPublishWrite(staged, path string) error {
 	return unix.Renameat2(unix.AT_FDCWD, staged, unix.AT_FDCWD, path, unix.RENAME_NOREPLACE)
 }
-func qWrite(path string, b []byte) error {
+func qWrite(path string, b []byte) (e error) {
 	f, e := qStageWrite(path)
 	if e != nil {
 		return e
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		removeErr := os.Remove(f.Name())
+		if e == nil && removeErr != nil && !os.IsNotExist(removeErr) {
+			e = removeErr
+		}
+	}()
 	if e = qPrepareWrite(f, b); e != nil {
 		return e
 	}
@@ -177,16 +206,16 @@ func (r *qualificationRegistry) recoverRequest(id string) (bool, error) {
 	}
 	return true, qSyncDir(r.root)
 }
-func newQualificationRegistry(root string) (*qualificationRegistry, error) {
+func newQualificationRegistry(root string) (r *qualificationRegistry, e error) {
 	if e := qPrivate(root, true); e != nil {
 		return nil, e
 	}
-	r := &qualificationRegistry{root}
+	r = &qualificationRegistry{root}
 	lock, e := r.lock()
 	if e != nil {
 		return nil, e
 	}
-	defer lock.Close()
+	defer func() { e = qCloseError(lock, e) }()
 	entries, e := os.ReadDir(root)
 	if e != nil {
 		return nil, e
@@ -206,12 +235,10 @@ func (r *qualificationRegistry) lock() (*os.File, error) {
 		return nil, e
 	}
 	if e = qPrivate(f.Name(), false); e != nil {
-		f.Close()
-		return nil, e
+		return nil, qCloseError(f, e)
 	}
 	if e = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); e != nil {
-		f.Close()
-		return nil, e
+		return nil, qCloseError(f, e)
 	}
 	return f, nil
 }
@@ -241,7 +268,7 @@ func (r *qualificationRegistry) read(id string) (qualificationRecord, error) {
 			return rec, errors.New("registry has unexpected entry")
 		}
 		seq++
-		if entry.Name() != fmt.Sprintf("%020d.json", seq) {
+		if entry.Name() != fmt.Sprintf(qSequenceFilename, seq) {
 			return rec, errors.New("registry sequence gap")
 		}
 		b, e := qRead(filepath.Join(dir, entry.Name()))
@@ -259,7 +286,7 @@ func (r *qualificationRegistry) read(id string) (qualificationRecord, error) {
 			return rec, e
 		}
 		if seq == 1 {
-			if next.State != "prepared" {
+			if next.State != qStatePrepared {
 				return rec, errors.New("invalid initial state")
 			}
 		} else {
@@ -283,8 +310,7 @@ func (r *qualificationRegistry) read(id string) (qualificationRecord, error) {
 	}
 	return rec, nil
 }
-func (r *qualificationRegistry) submit(req qualificationRequest) (qualificationRecord, error) {
-	var rec qualificationRecord
+func (r *qualificationRegistry) submit(req qualificationRequest) (rec qualificationRecord, e error) {
 	if e := req.validate(); e != nil {
 		return rec, e
 	}
@@ -292,7 +318,7 @@ func (r *qualificationRegistry) submit(req qualificationRequest) (qualificationR
 	if e != nil {
 		return rec, e
 	}
-	defer lock.Close()
+	defer func() { e = qCloseError(lock, e) }()
 	dir := filepath.Join(r.root, req.LogicalID)
 	if _, e = os.Lstat(dir); e == nil {
 		empty, err := r.recoverRequest(req.LogicalID)
@@ -325,21 +351,20 @@ func (r *qualificationRegistry) submit(req qualificationRequest) (qualificationR
 	if e = qSyncDir(r.root); e != nil {
 		return rec, e
 	}
-	rec = qualificationRecord{Request: req, Sequence: 1, State: "prepared", UpdatedAt: time.Now().UTC()}
+	rec = qualificationRecord{Request: req, Sequence: 1, State: qStatePrepared, UpdatedAt: time.Now().UTC()}
 	b, e := qCanonical(rec)
 	if e != nil {
 		return rec, e
 	}
-	e = qWrite(filepath.Join(dir, fmt.Sprintf("%020d.json", 1)), b)
+	e = qWrite(filepath.Join(dir, fmt.Sprintf(qSequenceFilename, 1)), b)
 	return rec, e
 }
-func (r *qualificationRegistry) advance(id, old, state string, run, attempt int64, detail string) (qualificationRecord, error) {
-	var rec qualificationRecord
+func (r *qualificationRegistry) advance(id, old, state string, run, attempt int64, detail string) (rec qualificationRecord, e error) {
 	lock, e := r.lock()
 	if e != nil {
 		return rec, e
 	}
-	defer lock.Close()
+	defer func() { e = qCloseError(lock, e) }()
 	rec, e = r.read(id)
 	if e != nil {
 		return rec, e
@@ -347,7 +372,7 @@ func (r *qualificationRegistry) advance(id, old, state string, run, attempt int6
 	if rec.State != old || !qTransition(old, state) {
 		return rec, errors.New("state changed or transition refused")
 	}
-	previous, e := qRead(filepath.Join(r.root, id, fmt.Sprintf("%020d.json", rec.Sequence)))
+	previous, e := qRead(filepath.Join(r.root, id, fmt.Sprintf(qSequenceFilename, rec.Sequence)))
 	if e != nil {
 		return rec, e
 	}
@@ -362,7 +387,7 @@ func (r *qualificationRegistry) advance(id, old, state string, run, attempt int6
 	if e != nil {
 		return rec, e
 	}
-	return rec, qWrite(filepath.Join(r.root, id, fmt.Sprintf("%020d.json", rec.Sequence)), b)
+	return rec, qWrite(filepath.Join(r.root, id, fmt.Sprintf(qSequenceFilename, rec.Sequence)), b)
 }
 func (r *qualificationRegistry) list() ([]qualificationRecord, error) {
 	entries, e := os.ReadDir(r.root)
@@ -391,7 +416,7 @@ func (r *qualificationRegistry) protects(runID int64) bool {
 		return true
 	}
 	for _, rec := range records {
-		if rec.RunID == runID && rec.State != "completed_validated" && rec.State != "terminal_failed" {
+		if rec.RunID == runID && rec.State != qStateCompletedValidated && rec.State != qStateTerminalFailed {
 			return true
 		}
 	}
@@ -405,7 +430,7 @@ func (r *qualificationRegistry) protectsAssigned(m machine, idx *jobIndex) bool 
 	}
 	active := false
 	for _, rec := range records {
-		if rec.State != "completed_validated" && rec.State != "terminal_failed" {
+		if rec.State != qStateCompletedValidated && rec.State != qStateTerminalFailed {
 			active = true
 		}
 	}
@@ -426,4 +451,12 @@ func (r *qualificationRegistry) protectsAssigned(m machine, idx *jobIndex) bool 
 		return true
 	}
 	return r.protects(assigned.RunID)
+}
+
+func qCloseError(closer io.Closer, err error) error {
+	closeErr := closer.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
 }
