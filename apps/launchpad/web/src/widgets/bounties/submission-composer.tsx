@@ -19,7 +19,7 @@ const statusText: Record<EvidenceItem['status'], string> = {
 function EvidenceRow({ item, onRemove, onRetry, onRefresh }: { item: EvidenceItem; onRemove(): void; onRetry(): void; onRefresh(): void }) {
   return (
     <li className="flex items-center gap-3 rounded-sm bg-surface-3 p-2">
-      <img src={item.previewUrl} alt="" className="size-12 shrink-0 rounded-sm object-cover" />
+      <img src={item.previewUrl} alt="" width={48} height={48} decoding="async" className="size-12 shrink-0 rounded-sm object-cover" />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm text-text">{item.file.name}</span>
         <span role="status" className={cn('text-xs', item.status === 'approved' ? 'text-success' : item.status === 'rejected' || item.status === 'failed' ? 'text-danger' : 'text-text-faint')}>

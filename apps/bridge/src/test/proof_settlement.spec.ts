@@ -12,22 +12,6 @@
  * changing the input. Receipt inputs use the production ABIs; matcher results, ledger patches,
  * phases and wallet requests passed to consumers are produced by the real modules, never doubles.
  */
-import { settlementSubmissionReopensThroughBroadcastRevertAndConfirmation } from './bridge-lifecycle.proofs';
-
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import {
-  decodeFunctionData,
-  encodeAbiParameters,
-  encodeEventTopics,
-  encodeFunctionData,
-  encodePacked,
-  keccak256,
-  zeroAddress,
-  zeroHash,
-} from 'viem';
-import type { Address, Hex, TransactionReceipt } from 'viem';
-import { expect, test } from 'vitest';
 
 import { bridgeOutNonceFromReceipt, decodeTransferLive, releaseCheckOf, settledRefusal } from '@/components/bridge/transfer-actions';
 import type { TransferLive } from '@/components/bridge/transfer-actions';
@@ -40,6 +24,23 @@ import { matchDepositLog, nonceFromBridgeOutLogs } from '@/lib/bridge/import';
 import { historyStatusOf, phaseOf, stepOf } from '@/lib/bridge/phase';
 import { phaseOf as settlementPhaseOf, settlementPatch } from '@/lib/bridge/settlement';
 import { transferIdOf, type BridgeTransfer } from '@/lib/bridge/transfers';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { Address, Hex, TransactionReceipt } from 'viem';
+import {
+  decodeFunctionData,
+  encodeAbiParameters,
+  encodeEventTopics,
+  encodeFunctionData,
+  encodePacked,
+  keccak256,
+  zeroAddress,
+  zeroHash,
+} from 'viem';
+
+import { expect, test } from 'vitest';
+
+import { settlementSubmissionReopensThroughBroadcastRevertAndConfirmation } from './bridge-lifecycle.proofs';
 
 type ReceiptLog = TransactionReceipt['logs'][number];
 
@@ -161,7 +162,12 @@ function proofSettlementDepositReachesReceiptAndStatusConsumers(): void {
       expect(produced?.logIndex).toBe(7);
       expect(produced?.args.nonce).toBe(nonce);
       const consumed = enrichRecord(transfer, receipt);
-      expect(consumed).toEqual({ ...transfer, logIndex: '7', nonce: String(nonce) });
+      expect(consumed).toEqual({
+        ...transfer,
+        id: transferIdOf('in', sourceTxHash, transfer.foreignChainId, '7'),
+        logIndex: '7',
+        nonce: String(nonce),
+      });
       expect(transfer.logIndex).toBeUndefined();
 
       const pending = observeTransfer(consumed, live, false);
@@ -173,12 +179,12 @@ function proofSettlementDepositReachesReceiptAndStatusConsumers(): void {
 
       const credited = { ...live, credited: true };
       const patch = settlementPatch(consumed, credited, 2000);
-      expect(patch).toEqual({ claimedAt: 2000 });
+      expect(patch).toEqual({ claimedAt: 2000, settlementStatus: 'confirmed' });
       const settled = { ...consumed, ...patch };
       expect(settlementPatch(settled, credited, 3000)).toBeUndefined();
-      // No storage belongs to this anchor; consume the actual patch again without live data.
-      const observed = observeTransfer(settled, undefined, false);
-      expect(settlementPhaseOf(settled, undefined, false)).toBe('settled');
+      // Settlement remains authoritative from the live nullifier observation.
+      const observed = observeTransfer(settled, credited, false);
+      expect(settlementPhaseOf(settled, credited, false)).toBe('settled');
       expect(observed.phase).toBe('settled');
       expect(observed.step).toBe('credited');
       expect(observed.status).toBe('completed');
@@ -228,7 +234,9 @@ function proofSettlementWithdrawalReachesWalletAndStatusConsumers(): void {
       expect(observed.chip).toContain('You have a successful transaction');
       expect(observed.history).toContain('Completed');
       expect(settledRefusal(consumed, released)).toBe('This withdrawal is already released from the vault.');
-      expect(settlementPatch(consumed, released, 2000)).toBeUndefined();
+      const releasePatch = settlementPatch(consumed, released, 2000);
+      expect(releasePatch).toEqual({ releasedAt: 2000, settlementStatus: 'confirmed' });
+      expect(settlementPatch({ ...consumed, ...releasePatch }, released, 3000)).toBeUndefined();
       expect(phaseOf({ ...consumed, releasedAt: 0 }, undefined, false)).toBe('settled');
       expect(settledRefusal({ ...consumed, releasedAt: 0 }, undefined)).toBe('This withdrawal is already released from the vault.');
     }

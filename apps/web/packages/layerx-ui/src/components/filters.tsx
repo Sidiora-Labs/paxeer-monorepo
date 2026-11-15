@@ -79,7 +79,7 @@ export function FilterBar({
           type="button"
           onClick={openSheet}
           className={cn(
-            "flex h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
+            "flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
             className,
           )}
         >
@@ -174,7 +174,7 @@ export function FilterBar({
               <button
                 type="button"
                 className={cn(
-                  "flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
+                  "flex min-h-10 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
                   active
                     ? "border-accent/40 bg-accent-soft text-accent-strong"
                     : "border-border bg-surface text-foreground-secondary hover:bg-surface-sunken/60",

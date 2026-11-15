@@ -27,9 +27,9 @@ const buttonVariants = cva(
         link: "text-accent underline-offset-4 hover:underline h-auto px-0",
       },
       size: {
-        sm: "h-9 px-4 text-sm rounded-full [&_svg]:size-4",
-        md: "h-11 px-6 text-body-sm rounded-full [&_svg]:size-icon-sm",
-        lg: "h-button-lg px-7 text-base rounded-full [&_svg]:size-5",
+        sm: "min-h-9 px-4 py-2 text-sm rounded-full [&_svg]:size-4",
+        md: "min-h-11 px-6 py-2.5 text-body-sm rounded-full [&_svg]:size-icon-sm",
+        lg: "min-h-button-lg px-7 py-3 text-base rounded-full [&_svg]:size-5",
         icon: "size-11 rounded-full [&_svg]:size-5",
       },
       fullWidth: {

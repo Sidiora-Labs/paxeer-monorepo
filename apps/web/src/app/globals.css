@@ -37,8 +37,8 @@
   }
 
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--accent-strong);
-    outline-offset: 2px;
+    outline: var(--focus-ring-width) solid var(--accent-strong);
+    outline-offset: var(--focus-ring-offset);
   }
 
   :where(img, svg, video, canvas) {
@@ -67,6 +67,11 @@
     scrollbar-gutter: stable;
   }
 
+  .human-table-scroll:focus-visible {
+    outline: var(--focus-ring-width) solid var(--accent-strong);
+    outline-offset: var(--focus-ring-offset);
+  }
+
   .human-data-table {
     inline-size: 100%;
     min-inline-size: max-content;
@@ -75,6 +80,12 @@
   .human-data-table th,
   .human-data-table td {
     vertical-align: top;
+  }
+
+  .human-data-table thead {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
   }
 
   /* Keep the support conversation usable as its host changes size. */
@@ -101,6 +112,6 @@
 
 @media (forced-colors: active) {
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline-color: CanvasText;
+    outline: var(--focus-ring-width) solid CanvasText;
   }
 }

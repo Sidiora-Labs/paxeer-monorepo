@@ -114,7 +114,7 @@ export function DesktopActivityFeed({ groups, onSelect, dateLabel, columns, amou
   );
 
   return (
-    <Card elevation="outline" padding="none" className="human-table-scroll">
+    <Card elevation="outline" padding="none" className="human-table-scroll" tabIndex={0}>
       <table className="human-data-table border-collapse text-left text-sm">
         <thead className="bg-surface-sunken text-foreground-secondary">
           <tr>

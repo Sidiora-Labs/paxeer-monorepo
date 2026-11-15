@@ -136,6 +136,7 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
           ref={listRef}
           role="list"
           aria-label="Dashboard columns"
+          data-home-board="true"
           data-board-overflow={overflow.overflow ? 'true' : 'false'}
           data-board-full={full ? 'true' : 'false'}
           className={cn('relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory gap-dashboard-column-gap overflow-x-auto overflow-y-hidden', overflow.overflow && 'pb-1', boardVisibleClass, boardScrollbarClass)}

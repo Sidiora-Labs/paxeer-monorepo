@@ -72,7 +72,7 @@ export function ExploreTable({ rows, sort, onSort, columns, density, isStarred, 
   );
 
   return (
-    <div className="min-w-0 rounded-md bg-surface-1">
+    <div aria-label="Coin rankings" className="min-w-0 rounded-md bg-surface-1">
       {/* relative clips the sr-only header text; inline-size containment keeps the table's width out of the page's intrinsic size, so it scrolls here instead of widening the page */}
       <div className="relative overflow-x-auto [contain:inline-size]">
         <table className="w-full table-auto">
