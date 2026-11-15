@@ -22445,3 +22445,13 @@ fix = "Decision 3606. Task 22.39.692; the verifications of tasks 22.39.679 and 2
 title = "A class merge that is not told the names of a theme takes a font size of the theme for a colour"
 symptom = "The helper cn of a surface joins class names and lets the last of two classes of one kind stand. The merge library sorts a class with the prefix text- into the font sizes only for the sizes it knows, and every other name of that prefix counts as a colour. A theme that names font sizes of its own, such as text-body-sm, then loses the colour class that stands before the size class, or the size class that stands before the colour class, and a control keeps the colour of the text around it. The same holds for each other prefix a theme uses for two kinds of value, such as shadow- and border-. The helper in apps/bridge/src/lib/utils.ts tells the merge the font sizes of its theme."
 fix = "Decision 3607. Tasks 22.44.49 to 22.44.51."
+
+[gotcha.4525]
+title = "A surface that renders the components of a package shows what that package holds"
+symptom = "The developer dashboard under services/platform/hosted/dashboard/web renders the components of the interface package under apps/web/packages/layerx-ui, and its paths do not hold that package. A render check of the dashboard measures the controls of the package as the package gives them."
+fix = "Decision 3608. The order of tasks 22.44.44 and 22.44.40."
+
+[gotcha.4526]
+title = "Cases of the fast path state chain ids of chain names the product does not hold"
+symptom = "The chain id of the virtual machine comes from one table in modules/evm/config/config.go, which holds the chain name of the product, and every other chain name takes the default chain id. The package engine/deps/xevm/config reads that same table. The case TestGetChainID of engine/deps/xevm/keeper/keeper_test.go and cases of engine/deps/xevm/config/config_test.go state chain ids for chain names the table does not hold, and a verification that runs the package engine/deps/xevm/keeper whole holds the first of them."
+fix = "Decision 3609. Task 22.39.693; the verifications of tasks 22.39.679 and 22.39.689."
