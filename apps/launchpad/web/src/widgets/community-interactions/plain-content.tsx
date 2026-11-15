@@ -11,7 +11,7 @@ export function validateInteractionText(text: string): boolean {
 }
 
 export function PlainInteractionContent({ text }: { text: string }): ReactNode {
-  return <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{text}</span>;
+  return <span className="whitespace-pre-wrap break-words">{text}</span>;
 }
 
 export function ExternalInteractionLink({ href, children }: { href: string; children: ReactNode }): ReactNode {
