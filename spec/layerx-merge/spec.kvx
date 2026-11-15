@@ -378399,7 +378399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.602]
 title = "Define the service backend of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378495,7 +378495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.598]
 title = "Define the service interop of the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
