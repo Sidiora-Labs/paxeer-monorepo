@@ -194,14 +194,14 @@ export const SendConfirmation = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="bg-muted/10 backdrop-blur-xs fixed inset-0 z-10 h-full w-full"
+            className="bg-pax-scrim backdrop-blur-xs fixed inset-0 z-10 h-full w-full"
           />
         )}
       </AnimatePresence>
       <motion.div
         layout
-        style={{ transformOrigin: '50% 50% 0px', borderRadius: '30px' }}
-        className="font-sans relative z-20 w-full max-w-[430px] overflow-hidden"
+        style={{ transformOrigin: '50% 50% 0px' }}
+        className="font-sans relative z-20 w-full max-w-[430px] overflow-hidden rounded-3xl"
       >
         <motion.div
           style={{ pointerEvents: !isOpen ? 'all' : 'none' }}
@@ -231,7 +231,7 @@ export const SendConfirmation = ({
               exit={{ opacity: 0 }}
               transition={{ type: 'spring', stiffness: 550 / SPEED, damping: 45, mass: 0.7 }}
               style={{ transformOrigin: '50% 50% 0px' }}
-              className="bg-background relative flex flex-col justify-end rounded-3xl p-4"
+              className="bg-pax-bg relative flex flex-col justify-end rounded-3xl p-4"
             >
               <div className="flex w-full items-center justify-between">
                 <div className="flex items-center justify-center gap-2 text-xl font-medium">
@@ -247,7 +247,7 @@ export const SendConfirmation = ({
               {token && amount && to ? (
                 <div className="my-4 space-y-2 rounded-2xl bg-pax-control p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground/50">Token</span>
+                    <span className="text-sm text-pax-muted">Token</span>
                     <div className="flex items-center gap-2">
                       {token.iconUrl && (
                         <Image
@@ -262,20 +262,20 @@ export const SendConfirmation = ({
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground/50">Amount</span>
+                    <span className="text-sm text-pax-muted">Amount</span>
                     <span className="text-sm font-bold">
                       {amount} {token.symbol}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm text-foreground/50">To</span>
+                    <span className="text-sm text-pax-muted">To</span>
                     <div className="flex items-center gap-2">
-                      <code className="text-xs font-mono text-foreground/70 break-all">{to}</code>
+                      <code className="text-xs font-mono text-pax-light break-all">{to}</code>
                       <button
                         type="button"
                         onClick={handleCopyAddress}
                         aria-label="Copy address"
-                        className="min-h-[var(--touch-target)] shrink-0 text-foreground/40 hover:text-foreground/70"
+                        className="min-h-[var(--touch-target)] shrink-0 text-pax-muted hover:text-pax-light"
                       >
                         <Copy className="size-3.5" />
                       </button>
@@ -283,14 +283,14 @@ export const SendConfirmation = ({
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground/50">Network</span>
-                    <span className="text-xs text-foreground/70">
+                    <span className="text-sm text-pax-muted">Network</span>
+                    <span className="text-xs text-pax-light">
                       {networkName} ({chainId})
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground/50">{p.maximumFee}</span>
-                    <span className="text-xs text-foreground/70">
+                    <span className="text-sm text-pax-muted">{p.maximumFee}</span>
+                    <span className="text-xs text-pax-light">
                       {fee === 'unavailable' ? (
                         <span data-role="fee-unavailable">Unavailable</span>
                       ) : fee ? (
@@ -303,28 +303,26 @@ export const SendConfirmation = ({
                   {fee && fee !== 'unavailable' && (
                     <>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-foreground/50">{p.feeMode}</span>
-                        <span className="text-xs capitalize text-foreground/70">
+                        <span className="text-sm text-pax-muted">{p.feeMode}</span>
+                        <span className="text-xs capitalize text-pax-light">
                           {fee.mode} · {fee.source}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-foreground/50">{p.nonce}</span>
-                        <span className="text-xs text-foreground/70">
-                          {fee.nonce ?? p.automatic}
-                        </span>
+                        <span className="text-sm text-pax-muted">{p.nonce}</span>
+                        <span className="text-xs text-pax-light">{fee.nonce ?? p.automatic}</span>
                       </div>
                     </>
                   )}
                 </div>
               ) : (
-                <p className="text-foreground/50 my-5">Confirm the transaction to proceed.</p>
+                <p className="text-pax-muted my-5">Confirm the transaction to proceed.</p>
               )}
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="min-h-[var(--touch-target)] bg-muted h-10 w-full rounded-full text-sm"
+                  className="min-h-[var(--touch-target)] bg-pax-control h-10 w-full rounded-full text-sm"
                 >
                   {t.common.cancel}
                 </button>

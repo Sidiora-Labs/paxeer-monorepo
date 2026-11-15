@@ -36,7 +36,7 @@ export function BentoTokenTall({
     <button
       type="button"
       onClick={onClick}
-      className="min-h-[var(--touch-target)] row-span-2 bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-[200px]"
+      className="min-h-card-featured row-span-2 bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale"
     >
       <div className="flex flex-col gap-3">
         <div className="relative w-10 h-10 rounded-full bg-pax-control overflow-hidden shrink-0">
@@ -81,7 +81,7 @@ export function BentoTokenCompact({
     <button
       type="button"
       onClick={onClick}
-      className="min-h-[var(--touch-target)] bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-[110px]"
+      className="min-h-card-token bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale"
     >
       <div className="flex items-center gap-2.5">
         <div className="relative w-8 h-8 rounded-full bg-pax-control overflow-hidden shrink-0">

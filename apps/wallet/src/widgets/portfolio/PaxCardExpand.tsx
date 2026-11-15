@@ -9,7 +9,12 @@ import type { HoldingsGridHolding } from './HoldingsGrid';
 import { PAX_ICON_URL } from '@/lib/constants';
 import { formatUsd } from '@/lib/format';
 
-const CARD_COLORS = ['bg-pax-accent-dim', 'bg-pax-overlay', 'bg-amber-950', 'bg-emerald-950'];
+const CARD_COLORS = [
+  'bg-pax-accent-dim',
+  'bg-pax-overlay',
+  'bg-pax-warning-surface',
+  'bg-pax-success-surface',
+];
 
 interface WalletItem {
   name: string;
@@ -111,12 +116,12 @@ export const PaxCardExpand = ({
         onClick={() => !isExpanded && handleCardClick(index)}
         className={`relative flex cursor-pointer flex-col items-start justify-between overflow-hidden p-3 text-pax-light ${
           isExpanded
-            ? 'h-[180px] w-full'
+            ? 'h-card-expanded w-full'
             : hasThreeBottomCards && isBottomRow
-              ? 'h-[100px] flex-1'
-              : 'h-[140px] flex-1'
-        } ${item.bgColor}`}
-        style={{ transformOrigin: '50% 50% 0px', transform: 'none', borderRadius: '24px' }}
+              ? 'h-card-compact flex-1'
+              : 'h-card-row flex-1'
+        } rounded-3xl ${item.bgColor}`}
+        style={{ transformOrigin: '50% 50% 0px' }}
       >
         <div className="flex w-full items-start justify-between">
           <motion.div
@@ -228,7 +233,7 @@ export const PaxCardExpand = ({
 
   return (
     <div className="font-sans flex h-full w-full flex-col items-center justify-center gap-4 p-4">
-      <div ref={containerRef} className="flex h-[310px] w-full flex-col justify-end gap-4">
+      <div ref={containerRef} className="flex h-chart-area w-full flex-col justify-end gap-4">
         <div className="flex gap-4">
           {getTopRowCards().map((item, index) => {
             const originalIndex = expandedCard !== null ? expandedCard : index;

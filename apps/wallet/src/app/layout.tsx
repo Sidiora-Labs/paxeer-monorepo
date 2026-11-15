@@ -52,6 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="icon" type="image/png" sizes={FAVICON_ICON.sizes} href={FAVICON_ICON.src} />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="text-scale" content="scale" />
         <meta name="msapplication-TileColor" content={DEFAULT_THEME_COLOR} />
 
         {/* iOS Splash Screens — Landscape */}
