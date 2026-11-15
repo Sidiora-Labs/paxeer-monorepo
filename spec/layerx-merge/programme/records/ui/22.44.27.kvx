@@ -1,0 +1,372 @@
+[manifest]
+task = "22.44.27"
+surface = "Wallet demonstration pages"
+paths = ["services/wallet/demo/src"]
+patterns = ["page layout", "feature cards", "modal dialog", "forms and validation", "provider icons", "progress indicators", "scrollable results", "system colour scheme", "fonts", "motion"]
+
+[guide.1]
+id = "css"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.2]
+id = "html"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.3]
+id = "forms"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.4]
+id = "accessibility"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.5]
+id = "color"
+directories = ["services/wallet/demo/src/app"]
+
+[guide.6]
+id = "typography"
+directories = ["services/wallet/demo/src/app"]
+
+[guide.7]
+id = "dark-mode"
+directories = ["services/wallet/demo/src/app"]
+
+[guide.8]
+id = "responsive-design"
+directories = ["services/wallet/demo/src/app"]
+
+[guide.9]
+id = "motion"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.10]
+id = "performance"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.11]
+id = "css-layout"
+directories = ["services/wallet/demo/src/app"]
+
+[guide.12]
+id = "card"
+directories = ["services/wallet/demo/src/app"]
+
+[guide.13]
+id = "dialog"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.14]
+id = "light-dismiss-a-dialog"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.15]
+id = "platform-controls-dismiss-dialog"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.16]
+id = "prevent-page-scroll-under-modal-dialog"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.17]
+id = "validate-input-after-interaction"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.18]
+id = "accessible-error-announcement"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.19]
+id = "autofill-sign-in-form"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.20]
+id = "spinner"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.21]
+id = "icons"
+directories = ["services/wallet/demo/src/app", "services/wallet/demo/src/components"]
+
+[guide.22]
+id = "customize-scrollbar-color-and-thickness"
+directories = ["services/wallet/demo/src/app"]
+
+[guide.23]
+id = "form-factor-adaptation"
+directories = ["services/wallet/demo/src/app"]
+
+[view.1]
+name = "home"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.2]
+name = "wallet-chooser-empty"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.3]
+name = "email-sign-in"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.4]
+name = "email-validation"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.5]
+name = "email-service-error"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.6]
+name = "email-sending"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.7]
+name = "magic-link-sent"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.8]
+name = "wallet-chooser-announced"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.9]
+name = "injected-wallet-disconnected"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.10]
+name = "injected-wallet-connected"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.11]
+name = "transaction-validation"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.12]
+name = "transaction-result"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.13]
+name = "wallet-action-error"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.14]
+name = "typed-data-result"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.15]
+name = "kernel-unavailable"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.16]
+name = "embedded-wallet-loading"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.17]
+name = "embedded-wallet-provision"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.18]
+name = "embedded-wallet-creating"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.19]
+name = "embedded-wallet-panel"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.20]
+name = "embedded-wallet-service-error"
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.21]
+name = "auth-callback-loading"
+route = "/auth/callback"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.22]
+name = "auth-callback-error"
+route = "/auth/callback"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.23]
+name = "transaction-form"
+route = "/"
+component = "SendTxForm"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.24]
+name = "transaction-form-validation"
+route = "/"
+component = "SendTxForm"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.25]
+name = "transaction-form-error"
+route = "/"
+component = "SendTxForm"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.26]
+name = "transaction-form-sending"
+route = "/"
+component = "SendTxForm"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
+
+[view.27]
+name = "transaction-form-submitted"
+route = "/"
+component = "SendTxForm"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+motion = "reduced"
+input = "keyboard"
