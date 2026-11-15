@@ -48,7 +48,7 @@ export function ActivityFeed({
           <p className="text-xs text-pax-muted">No activity yet</p>
         </div>
       ) : (
-        <div className="col-span-2 bg-pax-surface rounded-xl  divide-white/[0.04] overflow-hidden">
+        <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
           {rows.map((row, i) => {
             const isSent = row.fromAddress.toLowerCase() === addr;
             return (

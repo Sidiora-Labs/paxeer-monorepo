@@ -486,7 +486,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="glass-card  divide-white/5">
+              <div className="glass-card  divide-pax-line">
                 <PNSDetailRow
                   label="Owner"
                   value={d.owner?.hash ? shortenAddr(d.owner.hash) : '—'}
@@ -515,7 +515,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                   valueClass={
                     d.expiry_date &&
                     new Date(d.expiry_date).getTime() - Date.now() < 30 * 86_400_000
-                      ? 'text-yellow-400'
+                      ? 'text-pax-warning'
                       : undefined
                   }
                 />
@@ -923,7 +923,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 </button>
               </div>
             ) : (
-              <div className="glass-card  divide-white/5">
+              <div className="glass-card  divide-pax-line">
                 {ownedDomains.map((d) => {
                   const isPrimary = primaryDomain?.name === d.name;
                   return (

@@ -241,12 +241,12 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-amber-500/10  "
+                className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-pax-warning-muted"
               >
                 <Clock className="w-4 h-4 text-pax-warning shrink-0" />
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-pax-warning">Transaction Pending</p>
-                  <p className="text-xs text-amber-300/70 mt-0.5">
+                  <p className="text-xs text-pax-warning/80 mt-0.5">
                     Waiting for confirmation on the network
                   </p>
                 </div>
@@ -267,7 +267,7 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
               </motion.div>
             )}
 
-            <div className="glass-card  divide-white/[0.06] overflow-hidden">
+            <div className="glass-card  divide-pax-line overflow-hidden">
               <DetailRow label="Date" value={tx.timestamp ? fmtDate(tx.timestamp) : '—'} />
               <DetailRow label="Status" value={statusLabel} valueClass={statusColor} />
               {!multipleTransfers && direction !== 'unrelated' && (
@@ -308,9 +308,9 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                         <div
                           className={`h-full rounded-full transition-all ${
                             gasInfo.utilPct > 90
-                              ? 'bg-red-400'
+                              ? 'bg-pax-error'
                               : gasInfo.utilPct > 70
-                                ? 'bg-amber-400'
+                                ? 'bg-pax-warning'
                                 : 'bg-pax-accent'
                           }`}
                           style={{ width: `${Math.min(gasInfo.utilPct, 100)}%` }}
@@ -331,7 +331,7 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
             {multipleTransfers && (
               <div
                 aria-label="Token transfers"
-                className="glass-card mt-4  divide-white/[0.06] overflow-hidden"
+                className="glass-card mt-4  divide-pax-line overflow-hidden"
               >
                 <div className="px-4 py-3">
                   <p className="text-xs font-semibold text-pax-muted">
