@@ -10,7 +10,7 @@ replicas = 1
 volume = "/data"
 public = 1
 order = 14
-needs = ["identity", "router", "internal-kms"]
+needs = ["identity", "gateway", "internal-kms"]
 
 [vars.ramp]
 PORT = "8080"

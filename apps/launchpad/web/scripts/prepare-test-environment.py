@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import socket
 import subprocess
@@ -58,7 +59,9 @@ class Environment:
                                     text=True, stdout=stream, stderr=subprocess.STDOUT,
                                     timeout=600)
         if result.returncode:
-            raise RuntimeError(f'{name}: exit {result.returncode}; {log}')
+            tail = '\n'.join(log.read_text(errors='replace').splitlines()[-40:])
+            message = f'{name}: exit {result.returncode}; {log}\n{tail}'
+            raise RuntimeError(re.sub(r'\S*://\S*', 'URL', message))
 
     def stage(self, name, function):
         print('Preparing ' + name, flush=True)

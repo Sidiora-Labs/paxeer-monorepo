@@ -197663,7 +197663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.652]
 title = "Run every Go build of the joined services fixture of the launchpad web tests with the workspace off"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -198100,7 +198100,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.638]
 title = "Add the command that applies the registered launchpad migrations and writes the expected schema document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -243626,7 +243626,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.653]
 title = "Skip the wallet policy case of the web search application proof when the proof passes no calldata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378981,7 +378981,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.619]
 title = "Give the hosted gateway and its store the names of the certificate roster"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.611"]
@@ -458534,7 +458534,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.637]
 title = "Let the apps of the explorer backend compile whole without a warning"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458596,7 +458596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.635]
 title = "Let the store of the price submissions of a block add to the total without counting the table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -458844,7 +458844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.627]
 title = "Let the repair cases of the explorer that use the database own their connections within the whole suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

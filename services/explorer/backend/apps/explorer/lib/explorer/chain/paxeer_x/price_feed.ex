@@ -222,11 +222,19 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   defp add_to_total_update_count(0), do: :ok
 
   defp add_to_total_update_count(delta) do
-    seed = Repo.aggregate(PriceUpdate, :count)
+    {updated, _} =
+      Repo.update_all(
+        from(counter in LastFetchedCounter, where: counter.counter_type == @total_update_counter),
+        inc: [value: delta]
+      )
 
-    %LastFetchedCounter{}
-    |> LastFetchedCounter.changeset(%{counter_type: @total_update_counter, value: seed})
-    |> Repo.insert!(on_conflict: [inc: [value: delta]], conflict_target: :counter_type)
+    if updated == 0 do
+      seed = Repo.aggregate(PriceUpdate, :count)
+
+      %LastFetchedCounter{}
+      |> LastFetchedCounter.changeset(%{counter_type: @total_update_counter, value: seed})
+      |> Repo.insert!(on_conflict: [inc: [value: delta]], conflict_target: :counter_type)
+    end
 
     :ok
   end
