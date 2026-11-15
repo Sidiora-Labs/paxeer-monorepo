@@ -22410,3 +22410,8 @@ fix = "Decision 3598. Tasks 22.44.42 and 22.44.47."
 title = "A method that reads a file needs a row of the file table, and a row is required by every start it applies to"
 symptom = "The start script of an image writes each row of its file table that applies to the role of the start from a variable into a file, and a start whose variable is missing ends. A row marked for every role is required by every start. The native table of the gateway holds the four files of the chain methods. The methods px_register and px_openSession read the address of the identity service, its token, the provisioning token, the tenant and a client identity, each from a variable or from a file; without them the two methods answer registration_not_configured and every other method serves as before. A definition that offers the two methods names their files in rows under a role of their own, so that a start without the role keeps its four files."
 fix = "Decision 3599. Task 22.39.681."
+
+[gotcha.4518]
+title = "Behind a front the request address of a server is not the address the browser used"
+symptom = "A web server that runs behind a front which ends TLS builds the address of a request from its own listening address and port. The browser addressed the public name, and the Origin it sends names that public name. A rule that compares the Origin with the origin of the request address therefore refuses every browser behind such a front, while a direct request to the listening address passes. The name the browser addressed reaches the server in the host header of the request."
+fix = "Decision 3601. Task 22.39.684."
