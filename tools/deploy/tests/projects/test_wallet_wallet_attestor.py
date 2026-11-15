@@ -69,7 +69,7 @@ def test_wallet_attestor_definition_tracks_sources() -> None:
     inputs = sections["inputs.wallet-attestor"]
 
     assert service["kind"] == "repo"
-    assert service["container"] == "docker/wallet-attestor/Dockerfile"
+    assert service["dockerfile"] == "docker/wallet-attestor/Dockerfile"
     assert service["root"] == "."
     assert service["health"] == "/health"
     assert service["volume"] == "/data"
