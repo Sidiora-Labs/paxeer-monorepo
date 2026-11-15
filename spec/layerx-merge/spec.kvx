@@ -173616,7 +173616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.682]
 title = "Let the dashboard web name the gateway tenant from its runtime setting"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.32", "22.39.684"]
