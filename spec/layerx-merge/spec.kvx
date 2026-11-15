@@ -378367,7 +378367,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.603]
 title = "Define the service frontend of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -379103,7 +379103,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.578]
 title = "Define the service webhooks-public of the project platform for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
