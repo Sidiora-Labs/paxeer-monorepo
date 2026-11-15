@@ -25,6 +25,7 @@ through `REGISTRY`.
 - [railway/](railway/) contains service Dockerfile selections, source watch paths, readiness paths, restart policies and the [variable contracts](railway/variables.json).
 - [production/](production/) contains [bootstrap fixtures](production/bootstrap/README.md), [topology declarations](production/topology/README.md), [observability tooling](production/observability/README.md) and [recovery tooling](production/recovery/README.md).
 - [tests/](tests/) contains the Railway deployment values test.
+- [documents/](documents/) contains the startup-document composer and reviewed values layout.
 
 ## Build and test
 
