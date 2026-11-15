@@ -144,10 +144,7 @@ export function FeeChoice({
         : null;
 
   return (
-    <section
-      aria-label="Fee choice"
-      className="space-y-3 rounded-2xl bg-[var(--color-surface-raised)] p-4"
-    >
+    <section aria-label="Fee choice" className="space-y-3 rounded-2xl bg-pax-surface p-4">
       <h2 className="text-sm font-semibold text-pax-light">Chain gas</h2>
       <ul role="radiogroup" aria-label="Fee path" className="space-y-2">
         {helper.choices.map((entry) => (
@@ -160,9 +157,7 @@ export function FeeChoice({
               onClick={() => setChoice(entry.id)}
               className={cn(
                 'w-full space-y-1 rounded-xl px-3 py-2.5 text-left',
-                choice === entry.id
-                  ? 'bg-[var(--color-surface-overlay)]'
-                  : 'bg-[var(--color-surface-card)]'
+                choice === entry.id ? 'bg-pax-overlay' : 'bg-pax-card'
               )}
             >
               <span data-role="label" className="block text-sm font-semibold text-pax-light">
