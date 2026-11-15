@@ -22265,3 +22265,8 @@ fix = "Task 22.39.625."
 title = "The record of a done task lives in the spec file"
 symptom = "The spec tool writes the status of a task into spec/layerx-merge/spec.kvx when the task is recorded as done. A restore of that file from the index after the record removes the record, and the task counts as open although build and verification passed."
 fix = "Task texts say to leave the file as the spec tool wrote it."
+
+[gotcha.4489]
+title = "The make target for the agent tests prepares the tests against a real node first"
+symptom = "The make target agent-test runs the prepare step of services/agent/tools/run-real-node-tests.sh before any crate, whatever the scope, and that step needs the contract tools. A verification that tests one crate without a node needs none of them."
+fix = "Decision 3570. The verification of such a task calls cargo for the crate."
