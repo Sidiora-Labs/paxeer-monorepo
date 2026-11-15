@@ -138,6 +138,9 @@ loses consensus disappears from these reads.
 Enabling collection with `PAXEER_X_PRICE_FEED_ENABLED=true` requires
 `PAXEER_X_COSMOS_REST_URLS`, `PAXEER_X_COMETBFT_RPC_URLS` (comma-separated
 HTTP or HTTPS URL lists) and a non-negative `PAXEER_X_PRICE_FEED_START_BLOCK`.
+`PAXEER_X_PRICE_FEED_CONCURRENCY` controls live block scanning, while
+`PAXEER_X_PRICE_FEED_REPLAY_CONCURRENCY` controls the number of acceptance
+replay block reads performed side by side; both default to `4`.
 The market-discovery precompile is configured by
 `PAXEER_X_PRICE_FEED_PRECOMPILE`, default
 `0x0000000000000000000000000000000000001020`.

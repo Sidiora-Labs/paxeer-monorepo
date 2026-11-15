@@ -51,7 +51,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
 
   setup do
     Explorer.TestHelper.start_migration_owner!()
-    assert :ok = Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
+    assert Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_down]
     body = fixture("block_txs.json")
     result_body = fixture("block_results.json")
     transactions = %{"txs" => body["txs"], "raw" => body["block"]["data"]["txs"]}

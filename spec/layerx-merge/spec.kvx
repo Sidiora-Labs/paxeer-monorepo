@@ -172782,7 +172782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.662]
 title = "Take a newer signed inventory in the wallet gateway and pass it to the attestors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.660", "22.39.661"]
@@ -173197,7 +173197,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.563]
 title = "Bind the trading workspace to the native markets and the perps data gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -459246,7 +459246,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.633]
 title = "Let the price acceptance cases of the explorer own their connections within the whole suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.624", "22.39.627"]

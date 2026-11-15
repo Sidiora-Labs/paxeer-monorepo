@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import { query } from './pool.js';
 
 export interface InventoryProvisioningRow {
@@ -25,4 +26,35 @@ export async function loadInventoryProvisioning(): Promise<InventoryProvisioning
       order by created_at asc, id asc`
   );
   return rows;
+}
+
+export interface RetainedWalletInventory {
+  inventory_sequence: string;
+  inventory_token: string | null;
+}
+
+export async function loadRetainedWalletInventory(
+  client?: PoolClient
+): Promise<RetainedWalletInventory> {
+  const statement =
+    'select inventory_sequence::text, inventory_token from wallet_custody_authority where singleton = true';
+  const { rows } = client
+    ? await client.query<RetainedWalletInventory>(statement)
+    : await query<RetainedWalletInventory>(statement);
+  if (!rows[0]) throw new Error('wallet custody inventory state is unavailable');
+  return rows[0];
+}
+
+export async function retainWalletInventory(
+  client: PoolClient,
+  token: string,
+  sequence: string
+): Promise<void> {
+  const result = await client.query(
+    `update wallet_custody_authority set inventory_sequence = $1, inventory_token = $2, updated_at = now()
+       where singleton = true and (inventory_sequence < $1 or
+         (inventory_sequence = $1 and (inventory_token is null or inventory_token = $2)))`,
+    [sequence, token]
+  );
+  if (result.rowCount !== 1) throw new Error('wallet custody inventory sequence conflicts');
 }

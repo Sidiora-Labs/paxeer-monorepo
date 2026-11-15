@@ -83,6 +83,8 @@ export async function withTransaction<T>(
 
 /** Close the pool. Only call during graceful shutdown. */
 export async function closePool(): Promise<void> {
+  const { stopWalletInventoryRefresh } = await import('../agent/authority.js');
+  await stopWalletInventoryRefresh();
   if (pool) {
     await pool.end();
     pool = null;

@@ -24,7 +24,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayPaceTest do
     assert :ok = Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
 
     on_exit(fn ->
-      Repo.delete_all(from(b in Block, where: b.number >= @base and b.number < @base + 6))
+      Repo.delete_all(from(b in Block, where: b.number >= @base and b.number < @base + 16))
       Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
     end)
 
@@ -87,12 +87,58 @@ defmodule Explorer.Repair.PriceAcceptanceReplayPaceTest do
     assert Repo.query!("SELECT count(*) FROM paxeer_x_price_acceptance_backfill WHERE error IS NOT NULL").rows == [[0]]
   end
 
-  defp seed_jobs(count, malformed \\ nil) do
+  test "a step reads blocks side by side up to the replay concurrency" do
+    blocks = seed_jobs(16, nil, false)
+    node = slow_node(25)
+
+    serial =
+      start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 1, cometbft_rpc_urls: [url(node)]]})
+
+    serial_elapsed =
+      elapsed(fn ->
+        for _ <- 1..8 do
+          assert {:ok, 0} = PriceAcceptanceBackfill.step(serial, 18)
+        end
+      end)
+
+    serial_payloads = payloads(Enum.take(blocks, 8))
+    stop_supervised!(PriceAcceptanceBackfill)
+
+    parallel =
+      start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 8, cometbft_rpc_urls: [url(node)]]})
+
+    parallel_elapsed = elapsed(fn -> assert {:ok, 0} = PriceAcceptanceBackfill.step(parallel, 18) end)
+
+    assert parallel_elapsed * 2 < serial_elapsed
+    assert payloads(Enum.take(blocks, -8)) == serial_payloads
+  end
+
+  test "a failed node read is held while the other reads in the step apply" do
+    blocks = seed_jobs(3, 2, false)
+    failed_height = Enum.at(blocks, 1).number
+    node = slow_node(1, failed_height)
+
+    worker =
+      start_supervised!({PriceAcceptanceBackfill, [acceptance_backfill_concurrency: 3, cometbft_rpc_urls: [url(node)]]})
+
+    assert {:error, {:malformed, _}} = PriceAcceptanceBackfill.step(worker, 18)
+    assert completed_numbers() == [hd(blocks).number, Enum.at(blocks, 2).number]
+    assert held_numbers() == [failed_height]
+  end
+
+  defp seed_jobs(count, malformed \\ nil, retained \\ true) do
     for offset <- 0..(count - 1) do
       number = @base + offset
       block = insert(:block, number: number, consensus: true)
-      transactions = if offset + 1 == malformed, do: %{"unexpected" => []}, else: %{"txs" => [], "raw" => []}
-      results = %{"txs_results" => []}
+
+      transactions =
+        cond do
+          not retained -> nil
+          offset + 1 == malformed -> %{"unexpected" => []}
+          true -> %{"txs" => [], "raw" => []}
+        end
+
+      results = if retained, do: %{"txs_results" => []}, else: nil
 
       Repo.query!(
         "INSERT INTO paxeer_x_price_acceptance_backfill (block_hash, block_number, transactions, results) VALUES ($1, $2, $3, $4)",
@@ -115,6 +161,47 @@ defmodule Explorer.Repair.PriceAcceptanceReplayPaceTest do
       "SELECT block_number FROM paxeer_x_price_acceptance_backfill WHERE completed = false AND error IS NOT NULL ORDER BY block_number"
     ).rows
     |> List.flatten()
+  end
+
+  defp payloads(blocks) do
+    Enum.map(blocks, fn block ->
+      %{rows: [[transactions, results]]} =
+        Repo.query!(
+          "SELECT transactions, results FROM paxeer_x_price_acceptance_backfill WHERE block_number = $1",
+          [block.number]
+        )
+
+      {transactions, results}
+    end)
+  end
+
+  defp slow_node(delay, failed_height \\ nil) do
+    bypass = Bypass.open()
+
+    Bypass.expect(bypass, fn conn ->
+      Process.sleep(delay)
+      height = conn.query_string |> URI.decode_query() |> Map.fetch!("height") |> String.to_integer()
+
+      response =
+        if conn.request_path == "/block" and height == failed_height do
+          %{"unexpected" => []}
+        else
+          case conn.request_path do
+            "/block" -> %{"block" => %{"data" => %{"txs" => nil}}}
+            "/block_results" -> %{"result" => %{"txs_results" => []}}
+          end
+        end
+
+      Plug.Conn.resp(conn, 200, Jason.encode!(response))
+    end)
+
+    bypass
+  end
+
+  defp elapsed(fun) do
+    started = System.monotonic_time(:millisecond)
+    fun.()
+    System.monotonic_time(:millisecond) - started
   end
 
   defp url(bypass), do: "http://localhost:#{bypass.port}"

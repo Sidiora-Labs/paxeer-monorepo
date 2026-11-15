@@ -1,5 +1,5 @@
-import type { AddressParam } from './addressParams';
-import type { TokenInfo, TokenInstance, TokenType } from './token';
+import type { AddressParam } from "./addressParams";
+import type { TokenInfo, TokenInstance, TokenType } from "./token";
 
 export type Erc20TotalPayload = {
   decimals: string | null;
@@ -18,39 +18,45 @@ export type Erc1155TotalPayload = {
   token_instance: TokenInstance | null;
 };
 
-export type Erc404TotalPayload = {
-  decimals: string;
-  value: string;
-  token_id: null;
-  token_instance: TokenInstance | null;
-} | {
-  token_id: string;
-  token_instance: TokenInstance | null;
-};
+export type Erc404TotalPayload =
+  | {
+      decimals: string;
+      value: string;
+      token_id: null;
+      token_instance: TokenInstance | null;
+    }
+  | {
+      token_id: string;
+      token_instance: TokenInstance | null;
+    };
 
 export type TokenTransfer = (
-  {
-    token: TokenInfo | null;
-    total: Erc20TotalPayload | null;
-  } |
-  {
-    token: TokenInfo | null;
-    total: Erc721TotalPayload | null;
-  } |
-  {
-    token: TokenInfo | null;
-    total: Erc1155TotalPayload | null;
-  } |
-  {
-    token: TokenInfo | null;
-    total: Erc404TotalPayload | null;
-  }
-) & TokenTransferBase;
+  | {
+      token: TokenInfo | null;
+      total: Erc20TotalPayload | null;
+    }
+  | {
+      token: TokenInfo | null;
+      total: Erc721TotalPayload | null;
+    }
+  | {
+      token: TokenInfo | null;
+      total: Erc1155TotalPayload | null;
+    }
+  | {
+      token: TokenInfo | null;
+      total: Erc404TotalPayload | null;
+    }
+) &
+  TokenTransferBase;
 
-export type TokenTotal = Erc20TotalPayload | Erc721TotalPayload | Erc1155TotalPayload;
+export type TokenTotal =
+  | Erc20TotalPayload
+  | Erc721TotalPayload
+  | Erc1155TotalPayload;
 
 interface TokenTransferBase {
-  type: 'token_transfer' | 'token_burning' | 'token_spawning' | 'token_minting';
+  type: "token_transfer" | "token_burning" | "token_spawning" | "token_minting";
   transaction_hash: string | null;
   from: AddressParam;
   to: AddressParam;

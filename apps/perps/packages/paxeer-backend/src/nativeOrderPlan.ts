@@ -65,7 +65,7 @@ export function planNativeOrder(
   if (
     !Number.isFinite(leverage) ||
     leverage < 1 ||
-    leverage > market.maxLeverage
+    leverage > (market.maxLeverage ?? 20)
   )
     throw new Error("Leverage exceeds this Paxeer market's limit.");
   const price = new Decimal(

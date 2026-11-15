@@ -1,6 +1,7 @@
 import { formatUnits } from "viem";
-import { QuoterFacetABI } from "./core/network/abi/QuoterFacet";
-import { PERPS_MARKETS, DIAMOND_ADDRESS } from "./core/perps/config";
+import { PerpsPrecompileABI } from "./core/network/abi/PerpsPrecompile";
+import { PRECOMPILES } from "./core/network/precompiles";
+import { PERPS_MARKETS } from "./core/perps/config";
 import { readContract } from "./hooks/perps/useContract";
 import type { MarketQuote } from "./hooks/perps/useQuoter";
 /** Public on-chain fallback. Never supplies synthetic candles or 24-hour statistics. */
@@ -13,8 +14,8 @@ export async function readNativeChainMarkets() {
         const market = PERPS_MARKETS[index++];
         try {
           const quote = (await readContract({
-            address: DIAMOND_ADDRESS,
-            abi: QuoterFacetABI,
+            address: PRECOMPILES.perps,
+            abi: PerpsPrecompileABI,
             functionName: "quoteMarket",
             args: [BigInt(market.marketId)],
           })) as unknown as MarketQuote;
