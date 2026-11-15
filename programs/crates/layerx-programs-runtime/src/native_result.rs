@@ -38,7 +38,7 @@ pub fn from_captured<T>(result: Result<T, crate::ExecutionError>) -> Result<T, i
         CAPTURED_FAULT.with(|fault| *fault.borrow_mut() = format!("{error:?}"));
         match error {
             crate::ExecutionError::Fault(crate::ExecutionFault::EngineFault { reason })
-                if reason == "program replay record refused: Bounds" =>
+                if reason.starts_with("program replay record refused: Bounds") =>
             {
                 LXP_ERR_REPLAY_BOUND
             }

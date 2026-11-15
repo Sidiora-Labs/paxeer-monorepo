@@ -4,6 +4,7 @@
 //! `node_deployment_fixture` with an already exported canonical admission.
 
 pub mod chain;
+pub mod deployment;
 mod node_deployment;
 
 // Re-exported for registry integration targets; path-included daemon tests use other fixtures.
@@ -13,19 +14,12 @@ pub use node_deployment::{node_deployment_fixture, NodeDeploymentFixture};
 use chain::ChainFixture;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_programs::{
-    chain_evidence::{
-        deployment::ChainDeploymentProof, lifecycle::ChainLifecycleProof,
-        program_state::ChainProgramStateProof, programs_state_key, wind_down::ChainWindDownProof,
-    },
     chain_proof::{
-        decode::decode_commitment_proof,
-        merkle::{hash_from_byte_slices, SimpleProof},
         validators::TrustedValidator,
         vote::{vote_sign_bytes, Timestamp},
     },
-    interface_state_key, interface_state_value, DeploymentProof, InterfaceEntryPoint,
-    ProgramInterface, ProgramLifecycleProof, ProgramStateProof, ProtocolDeploymentVerifier,
-    StateLeafWitness, ValueSchema, ValueType,
+    DeploymentProof, InterfaceEntryPoint, ProgramInterface, ProgramStateProof,
+    ProtocolDeploymentVerifier, StateLeafWitness, ValueSchema, ValueType,
 };
 use layerx_programs_runtime::{hash_bytes, HashAlgorithm, ProgramId, UpgradePolicy};
 
@@ -114,7 +108,14 @@ pub fn deploy_fixture_with_interface(
     interface: &ProgramInterface,
 ) -> ProtocolFixture {
     fixture_with_interface(
-        &deploy_payload(wasm, policy, interface),
+        &deployment::transaction(
+            program(),
+            interface.abi_version(),
+            policy,
+            wasm,
+            Some(interface),
+            None,
+        ),
         &FixtureState {
             wasm,
             policy,
@@ -124,6 +125,7 @@ pub fn deploy_fixture_with_interface(
             deprecated: false,
         },
         interface,
+        true,
     )
 }
 
@@ -147,20 +149,34 @@ pub fn programs_call_fixture(payload: &[u8], block_height: u64, timestamp: u64) 
 ///
 /// Panics if the deterministic fixture cannot be constructed.
 pub fn wrong_abi_fixture(block_height: u64, timestamp: u64) -> ProtocolFixture {
-    let mut fixture = deploy_fixture(
-        WASM_V1,
-        UpgradePolicy::Authority(AUTHORITY),
-        block_height,
-        timestamp,
+    let policy = UpgradePolicy::Authority(AUTHORITY);
+    let interface = fixture_interface(WASM_V1);
+    let (chain, proof, interface_witness) = deployment::fixture_with_abi(
+        deployment::Parameters {
+            program: program(),
+            version: 1,
+            policy,
+            code: WASM_V1,
+            interface: Some(&interface),
+            chain_id: CHAIN_ID,
+            seeds: &VALIDATOR_SEEDS,
+            height: i64::try_from(block_height).expect("state height") + 1,
+            timestamp,
+            old_hash: None,
+            status: None,
+            raw: None,
+            execution: true,
+        },
+        3,
     );
-    let interface =
-        ProgramInterface::bind(WASM_V1, 1, fixture_interface(WASM_V1).entries().to_vec())
-            .unwrap_or_else(|error| panic!("fixture interface: {error}"));
-    let mut encoding = interface.canonical_encoding().to_vec();
-    let abi_offset = b"LayerX/program-interface/v1\0".len() + 32;
-    encoding[abi_offset..abi_offset + 2].copy_from_slice(&3_u16.to_be_bytes());
-    fixture.proof.deployment.interface = Some(encoding);
-    fixture
+    ProtocolFixture {
+        chain,
+        proof,
+        interface_witness,
+        block_height,
+        policy,
+        version: 1,
+    }
 }
 
 #[must_use]
@@ -171,7 +187,14 @@ pub fn upgrade_fixture(
     timestamp: u64,
 ) -> ProtocolFixture {
     fixture(
-        &upgrade_payload(old_wasm, new_wasm),
+        &deployment::transaction(
+            program(),
+            1,
+            UpgradePolicy::Authority(AUTHORITY),
+            new_wasm,
+            Some(&fixture_interface(new_wasm)),
+            Some(code_hash(old_wasm)),
+        ),
         &FixtureState {
             wasm: new_wasm,
             policy: UpgradePolicy::Authority(AUTHORITY),
@@ -188,7 +211,7 @@ pub fn upgrade_fixture(
 ///
 /// Panics if the deterministic fixture cannot be constructed.
 pub fn deprecated_state(fixture: &ProtocolFixture, timestamp: u64) -> ProgramStateProof {
-    self::fixture(
+    let deprecated = self::fixture(
         &fixture.proof.state.transaction,
         &FixtureState {
             wasm: &fixture.proof.deployment.code,
@@ -201,9 +224,8 @@ pub fn deprecated_state(fixture: &ProtocolFixture, timestamp: u64) -> ProgramSta
             timestamp,
             deprecated: true,
         },
-    )
-    .proof
-    .state
+    );
+    deprecated.program_state()
 }
 
 struct FixtureState<'a> {
@@ -216,104 +238,87 @@ struct FixtureState<'a> {
 }
 
 fn fixture(transaction: &[u8], state: &FixtureState<'_>) -> ProtocolFixture {
-    fixture_with_interface(transaction, state, &fixture_interface(state.wasm))
+    fixture_with_interface(
+        transaction,
+        state,
+        &fixture_interface(state.wasm),
+        state.version > 1 || transaction.starts_with(b"LXTX\x03"),
+    )
 }
 
 fn fixture_with_interface(
     transaction: &[u8],
     state: &FixtureState<'_>,
     interface: &ProgramInterface,
+    admission: bool,
 ) -> ProtocolFixture {
-    let record = program_record(state.wasm, state.policy, state.version);
-    let program_key = programs_state_key(&program_key());
-    let interface_key = interface_state_key(program());
-    let interface_value = interface_state_value(program(), state.version, interface)
-        .unwrap_or_else(|error| panic!("interface state value: {error}"));
-    let mut pairs = vec![
-        (program_key.clone(), record.clone()),
-        (programs_state_key(&interface_key), interface_value.clone()),
-    ];
-    let status = state.deprecated.then(status_record);
-    let status_key = programs_state_key(&status_key());
-    if let Some(value) = &status {
-        pairs.push((status_key.clone(), value.clone()));
-    }
-    let mut chain = ChainFixture::new(CHAIN_ID, &VALIDATOR_SEEDS, pairs)
-        .unwrap_or_else(|error| panic!("chain fixture: {error:?}"));
-    chain.header.height = i64::try_from(state.block_height)
-        .ok()
-        .and_then(|height| height.checked_add(1))
-        .unwrap_or_else(|| panic!("block height overflow"));
-    assert!(state.block_height > 0, "state height must be positive");
-    chain.header.time.seconds = i64::try_from(state.timestamp / 1_000)
-        .unwrap_or_else(|_| panic!("block timestamp overflow"));
-    chain.header.time.nanos = i32::try_from(state.timestamp % 1_000 * 1_000_000)
-        .unwrap_or_else(|_| panic!("block timestamp nanoseconds"));
-    let transaction_hash = code_hash(transaction);
-    let transaction_root = hash_from_byte_slices(&[&transaction_hash]);
-    chain.header.data_hash = transaction_root.to_vec();
-    resign_chain(&mut chain);
-    let commitment = decode_commitment_proof(
-        &chain
-            .encode_key(&program_key)
-            .unwrap_or_else(|error| panic!("encode commitment: {error:?}")),
-    )
-    .unwrap_or_else(|error| panic!("decode commitment: {error:?}"));
-    let program_state = ChainProgramStateProof {
-        program: program(),
-        ops: chain
-            .prove(&program_key)
-            .unwrap_or_else(|error| panic!("program proof: {error:?}")),
-    };
-    let status_ops = if status.is_some() {
-        chain.prove(&status_key)
+    let execution = transaction.starts_with(b"LXTX\x03");
+    let raw = if execution {
+        layerx_programs::DeploymentExecutionProof::decode(transaction)
+            .expect("deployment execution")
+            .transaction
     } else {
-        chain.prove_absent(&status_key)
-    }
-    .unwrap_or_else(|error| panic!("status proof: {error:?}"));
-    let interface_witness = StateLeafWitness {
-        key: interface_key.clone(),
-        value: interface_value,
-        proof: chain
-            .prove(&programs_state_key(&interface_key))
-            .unwrap_or_else(|error| panic!("interface proof: {error:?}")),
+        transaction.to_vec()
     };
+    let old_hash = if state.version > 1 {
+        Some(code_hash(WASM_V1))
+    } else {
+        None
+    };
+    let is_deployment = admission;
+    let (chain, proof, interface_witness) = deployment::fixture(deployment::Parameters {
+        program: program(),
+        version: state.version,
+        policy: state.policy,
+        code: state.wasm,
+        interface: Some(interface),
+        chain_id: CHAIN_ID,
+        seeds: &VALIDATOR_SEEDS,
+        height: i64::try_from(state.block_height).expect("state height") + 1,
+        timestamp: state.timestamp,
+        old_hash,
+        status: state.deprecated.then(status_record),
+        raw: Some(&raw),
+        execution: is_deployment,
+    });
     ProtocolFixture {
         chain,
-        proof: DeploymentProof {
-            state: ProgramStateProof {
-                commitment,
-                state: program_state.clone(),
-                lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
-                    program: program(),
-                    record: Some(record),
-                    record_ops: program_state.ops.clone(),
-                    status: status.clone(),
-                    status_ops: status_ops.clone(),
-                }),
-                wind_down: ChainWindDownProof {
-                    program: program(),
-                    value: status,
-                    ops: status_ops,
-                },
-                transaction: transaction.to_vec(),
-                transaction_proof: SimpleProof {
-                    total: 1,
-                    index: 0,
-                    leaf_hash: transaction_root,
-                    aunts: Vec::new(),
-                },
-            },
-            deployment: ChainDeploymentProof {
-                program_state,
-                code: state.wasm.to_vec(),
-                interface: Some(interface.canonical_encoding().to_vec()),
-            },
-        },
+        proof,
         interface_witness,
         block_height: state.block_height,
         policy: state.policy,
         version: state.version,
+    }
+}
+
+pub fn deploy_fixture_without_interface(
+    wasm: &[u8],
+    policy: UpgradePolicy,
+    block_height: u64,
+    timestamp: u64,
+) -> ProtocolFixture {
+    let (chain, proof, interface_witness) = deployment::fixture(deployment::Parameters {
+        program: program(),
+        version: 1,
+        policy,
+        code: wasm,
+        interface: None,
+        chain_id: CHAIN_ID,
+        seeds: &VALIDATOR_SEEDS,
+        height: i64::try_from(block_height).expect("state height") + 1,
+        timestamp,
+        old_hash: None,
+        status: None,
+        raw: None,
+        execution: true,
+    });
+    ProtocolFixture {
+        chain,
+        proof,
+        interface_witness,
+        block_height,
+        policy,
+        version: 1,
     }
 }
 
@@ -421,6 +426,12 @@ pub fn produced_deployment(
 }
 
 impl ProtocolFixture {
+    pub fn program_state(&self) -> ProgramStateProof {
+        let mut state = self.proof.state.clone();
+        state.transaction = deployment::raw_transaction(&self.proof);
+        state
+    }
+
     #[must_use]
     pub fn program_bundle(&self) -> layerx_programs::ProgramStateBundle {
         layerx_programs::ProgramStateBundle {

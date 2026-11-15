@@ -943,7 +943,19 @@ fn capacity_is_per_model_and_both_full_sides_fit_state_and_result_budgets() {
     assert_eq!(view.crossing_pairs().count(), 64 * 32);
     assert!(h.current.len() <= MAX_STATE_BYTES);
     assert_eq!(h.state().room_market().required().0, legacy);
-    let mut overflow = h.bid_request(digest(101), digest(65), PEER_A);
+    let overflow = h.bid_request(digest(100), digest(65), PEER_A);
+    h.apply(
+        dispatch::LockBond,
+        PEER_A,
+        &layerx_programs_ai_market::bonds::LockBondRequest {
+            room: overflow.room_id,
+            bid: overflow.bid_id,
+            amount: overflow.bond_amount,
+        }
+        .encode()
+        .required(),
+        Presence::Absent,
+    );
     h.refuse(
         dispatch::PostBid,
         PEER_A,
@@ -969,7 +981,6 @@ fn capacity_is_per_model_and_both_full_sides_fit_state_and_result_budgets() {
         digest(101).as_bytes(),
         Presence::Absent,
     );
-    overflow.room_id = digest(100);
     h.apply(
         dispatch::PostBid,
         PEER_A,

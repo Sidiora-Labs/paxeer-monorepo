@@ -1,74 +1,41 @@
 {
   "compilerOptions": {
-    "target": "esnext",
+    "target": "ES2022",
     "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
     ],
-    "module": "esnext",
+    "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "preserve",
     "allowJs": true,
+    "noEmit": true,
     "skipLibCheck": true,
     "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
+    "noImplicitAny": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "paths": {
-      "react": [
-        "./node_modules/@types/react"
-      ],
-      "react/jsx-runtime": [
-        "./node_modules/@types/react/jsx-runtime"
-      ],
-      "react/jsx-dev-runtime": [
-        "./node_modules/@types/react/jsx-dev-runtime"
-      ],
-      "@/types/*": [
-        "./src/types/*"
-      ],
-      "@/core/*": [
-        "./src/core/*"
-      ],
-      "@/hooks/*": [
-        "./src/hooks/*"
-      ],
-      "@/ui/*": [
-        "./src/ui/*"
-      ],
-      "@/widgets/*": [
-        "./src/widgets/*"
-      ],
-      "@/page-modules/*": [
-        "./src/page-modules/*"
-      ],
-      "@/app/*": [
-        "./src/app/*"
-      ],
-      "@/*": [
-        "./src/*"
-      ]
-    },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "resolvePackageJsonExports": true
+    "incremental": false
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "next-env.d.ts",
-    ".next/types/**/*.ts"
+    "apps/web/next-env.d.ts",
+    "apps/web/src/**/*",
+    "packages/*/src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "ui-storybook",
-    "src/components/paxeer"
+    "**/node_modules",
+    "**/dist",
+    "**/*.test.*",
+    "**/*.stories.*",
+    "packages/cli",
+    "packages/sdk-docs",
+    "packages/storybook-theme-tool",
+    "**/__test__/**",
+    "**/__tests__/**",
+    "**/setupTests.ts",
+    "**/*.example.tsx"
   ]
 }
