@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { metadataApiUrl } from '@/core/sdk-config';
 
 interface TokenLogoProps {
@@ -10,7 +11,7 @@ interface TokenLogoProps {
   className?: string;
 }
 
-export default function TokenLogo({ tokenAddress, symbol, size = 32, className = '' }: TokenLogoProps) {
+export default function TokenLogo({ tokenAddress, symbol, size, className = '' }: TokenLogoProps) {
   const [logo, setLogo] = useState({ tokenAddress, failed: false });
   const sameToken = logo.tokenAddress === tokenAddress;
 
@@ -18,9 +19,10 @@ export default function TokenLogo({ tokenAddress, symbol, size = 32, className =
     setLogo({ tokenAddress, failed: false });
   }
 
-  const src = tokenAddress && (!sameToken || !logo.failed)
-    ? metadataApiUrl(`/logo/${tokenAddress}.png`)
-    : null;
+  const src =
+    tokenAddress && (!sameToken || !logo.failed)
+      ? metadataApiUrl(`/logo/${tokenAddress}.png`)
+      : null;
 
   if (!src) {
     return (
@@ -29,7 +31,8 @@ export default function TokenLogo({ tokenAddress, symbol, size = 32, className =
         alt={symbol || ''}
         width={size}
         height={size}
-        className={`rounded-full object-cover ${className}`}
+        style={{ width: size, height: size }}
+        className={cn('size-avatar-md rounded-full object-cover', className)}
       />
     );
   }
@@ -40,10 +43,13 @@ export default function TokenLogo({ tokenAddress, symbol, size = 32, className =
       alt={symbol || ''}
       width={size}
       height={size}
-      className={`rounded-full object-cover ${className}`}
-      onError={() => setLogo((current) => (
-        current.tokenAddress === tokenAddress ? { tokenAddress, failed: true } : current
-      ))}
+      style={{ width: size, height: size }}
+      className={cn('size-avatar-md rounded-full object-cover', className)}
+      onError={() =>
+        setLogo((current) =>
+          current.tokenAddress === tokenAddress ? { tokenAddress, failed: true } : current
+        )
+      }
     />
   );
 }

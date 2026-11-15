@@ -54,10 +54,12 @@ journal directories must be distinct.
 go run ./cmd/ceremony rehearse --report-only-counts
 ```
 
-The counts report includes wallet eligibility, archive, import, refresh,
-verification and copied-table counts. Successful counts-only rehearsal writes
-the sealed rehearsal receipt used by delivery. Keep that receipt and the
-journal key with the retained ceremony material.
+The counts report divides eligible wallets into three identity states:
+`deliverable`, `waiting_identity` and `external_identity`. It also reports the
+archive, import, refresh and verification counts. Only deliverable wallets are
+matched by the rehearsal. A successful counts-only rehearsal writes the sealed
+receipt used by delivery; the receipt binds the deliverable set and its counts.
+Keep that receipt and the journal key with the retained ceremony material.
 
 ## Move, plan and archive
 
@@ -74,10 +76,17 @@ through a read-only snapshot and checks per-table counts and digests. It applies
 the remaining gateway migrations. `move --delta` supports the command's checked
 final-delta path; it is not an unrestricted overwrite of gateway state.
 
-`plan` reports `wallets`, `eligible`, `funded` and `already_migrated`. Add
-`--inventory-requests /absolute/path/requests.json` to write the delivery's
-inventory requests and report their count as `inventory_requests`. This requires
-`CEREMONY_MASTER_KEY` to derive each eligible wallet's secp256k1 public key.
+`plan` reports `wallets`, `eligible`, `funded`, `already_migrated`,
+`deliverable`, `waiting_identity` and `external_identity`. A deliverable wallet
+is a non-agent wallet with an identity identifier on its row or an active
+provisioning record. Its identity, binding and key must pass every delivery
+check; an inactive or inconsistent record stops delivery. A wallet waiting
+for an identity is a non-agent wallet without a row identifier and without an active provisioning
+record. An external-identity wallet is an agent wallet. Add
+`--inventory-requests /absolute/path/requests.json` to write requests only for
+deliverable wallets and report their count as `inventory_requests`. This
+requires `CEREMONY_MASTER_KEY` to derive each deliverable wallet's secp256k1
+public key.
 The single JSON document contains `inventory_requests` with each key's `key_id`,
 `epoch`, `curve`, `public_key`, `owner` and `operations`: import, refresh and sign
 for the EVM key, and sign and refresh for the existing identity key, at epoch
@@ -103,16 +112,28 @@ go run ./cmd/ceremony deliver --report-only-counts
 ```
 
 Delivery retains per-wallet encrypted journals, imports or reconciles key
-material, refreshes shares and verifies possession before recording migration.
+material, refreshes shares and verifies possession before recording migration
+for deliverable wallets. Waiting-identity and external-identity wallets receive
+no journal, lock, attestor request or row change. A wallet waiting for an
+identity remains served from its encrypted envelope by the gateway until a
+later run. The delivery counts include `deliverable`, `waiting_identity` and
+`external_identity`; every deliverable wallet must be matched. With no
+deliverable wallets, rehearsal and delivery finish with their counts and send
+no requests to the attestors. The delivery counts command retains `eligible`
+as all non-funded wallets and `eligible_not_migrated` as those still unmigrated;
+its exit status reports whether any deliverable wallets remain.
+
 Public EVM and DID identities must match the original wallet. Owner verification
-uses the configured credentials; chain checks use `CEREMONY_RPC_URL`.
+uses the configured credentials; chain checks use `CEREMONY_RPC_URL`. When a
+later run takes wallets that have gained an identity, give it its own ceremony
+identifier, rehearsal and sealed receipt.
 
 Resume an interrupted delivery with the same ceremony identity and retained
 journal. The tool reconciles durable import and refresh descriptions; do not
 clear `migrated_at`, delete journals, replace the journal key or re-import under
 an unrelated identity to restart a partially delivered wallet. Verify all
-eligible wallets are matched and the gateway can reconcile their signing state
-before directing traffic to it. Disable ceremony imports when delivery ends.
+deliverable wallets are matched and the gateway can reconcile their signing
+state before directing traffic to it. Disable ceremony imports when delivery ends.
 
 ## Endpoint switch
 

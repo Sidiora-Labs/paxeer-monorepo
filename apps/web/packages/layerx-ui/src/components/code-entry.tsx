@@ -54,7 +54,7 @@ export function CodeEntry({
       />
 
       {error && errorText && (
-        <p role="alert" className="text-center text-[13px] font-medium text-destructive">
+        <p role="alert" className="text-center text-label font-medium text-destructive">
           {errorText}
         </p>
       )}

@@ -35,7 +35,7 @@ export function VoiceRoomPanel({ snapshot, capabilities, participants, action, o
             return;
         onModerate?.({ roomId: room.roomId, participantAccountId: participant.accountId, expectedRevision: participant.revision, action: command as VoiceModerateRequest['action'], reason });
     }
-    return <section aria-labelledby={`${id}-heading`} className="rounded-xl bg-surface-2 p-4 space-y-4">
+    return <section aria-labelledby={`${id}-heading`} className="space-y-4 rounded-xl bg-surface-2 p-4">
     <h2 id={`${id}-heading`} className="font-bold text-text">Voice room</h2>
     <p role="status" aria-live="polite">{room ? `Room status: ${room.state}` : "Room info can't load right now"}</p>
     {room?.state === 'starting' && <p>Starting the room...</p>}

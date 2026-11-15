@@ -27,9 +27,9 @@ const buttonVariants = cva(
         link: "text-accent underline-offset-4 hover:underline h-auto px-0",
       },
       size: {
-        sm: "h-9 px-4 text-sm rounded-full [&_svg]:size-4",
-        md: "h-11 px-6 text-[15px] rounded-full [&_svg]:size-[18px]",
-        lg: "h-[52px] px-7 text-base rounded-full [&_svg]:size-5",
+        sm: "min-h-9 px-4 py-2 text-sm rounded-full [&_svg]:size-4",
+        md: "min-h-11 px-6 py-2.5 text-body-sm rounded-full [&_svg]:size-icon-sm",
+        lg: "min-h-button-lg px-7 py-3 text-base rounded-full [&_svg]:size-5",
         icon: "size-11 rounded-full [&_svg]:size-5",
       },
       fullWidth: {
@@ -84,7 +84,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
         {...disabledSlotProps}
       >
-        {loading && <Loader2 className="animate-spin" aria-hidden />}
+        {loading && <Loader2 className="lx-spin" aria-hidden />}
         {asChild ? <Slottable>{child}</Slottable> : children}
       </Comp>
     );

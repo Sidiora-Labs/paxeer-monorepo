@@ -1,10 +1,5 @@
 // @vitest-environment jsdom
 
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { getAddress, keccak256, toHex, zeroAddress } from 'viem';
-import { expect, test } from 'vitest';
-
 import type { TransferLive, TransferPhase } from '@/components/bridge/transfer-actions';
 import { DepositStatus, TransferSteps } from '@/components/trading/deposit-status';
 import type { TransferStatusItem, TransferStep } from '@/components/trading/deposit-status';
@@ -13,6 +8,11 @@ import { phaseOf, stepOf } from '@/lib/bridge/phase';
 import { settlementBroadcastPatch } from '@/lib/bridge/settlement';
 import { listTransfers, saveTransfer, transferIdOf, updateTransfer } from '@/lib/bridge/transfers';
 import type { BridgeTransfer, TransferDirection } from '@/lib/bridge/transfers';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { getAddress, keccak256, toHex, zeroAddress } from 'viem';
+
+import { expect, test } from 'vitest';
 
 const phaseCases = {
   confirming: { step: 'confirming', confirmations: 3, ready: false, current: 1, completed: 1 },
@@ -80,7 +80,8 @@ function registryTransferStepDisplaysEveryProducedPhase() {
         if (expectedPhase === 'settling') {
           updateTransfer(submitted.id, settlementBroadcastPatch(submitted, keccak256(toHex('settlement')), 2000));
         }
-        const transfer = listTransfers(submitted.account).find((entry) => entry.id === submitted.id);
+        const transfer = listTransfers(submitted.account).find((entry) =>
+          entry.id === transferIdOf(direction, submitted.sourceTxHash, submitted.foreignChainId));
         expect(transfer).toBeDefined();
         if (!transfer) throw new Error('The production ledger did not return the submitted transfer.');
         const live: TransferLive = {

@@ -51,7 +51,7 @@ function LiveAllView() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 py-6 md:px-6">
+    <main className="mx-auto flex w-full min-w-0 max-w-content-max-width flex-col gap-6 px-4 py-6 md:px-6">
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-1">
           <Link href="/live" className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-text-muted hover:text-text">
@@ -96,7 +96,7 @@ function LiveAllView() {
           />
         </>
       )}
-    </div>
+    </main>
   );
 }
 

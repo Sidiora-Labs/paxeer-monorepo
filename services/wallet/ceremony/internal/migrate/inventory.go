@@ -37,8 +37,8 @@ func (p *Plan) WriteInventoryRequests(ctx context.Context, db *sql.DB, masterKey
 	if p == nil {
 		return 0, errors.New("migrate: inventory requests require a plan")
 	}
-	document := InventoryRequests{Requests: make([]InventoryRequest, 0, 2*len(p.Eligible))}
-	for _, w := range p.Eligible {
+	document := InventoryRequests{Requests: make([]InventoryRequest, 0, 2*len(p.Deliverable))}
+	for _, w := range p.Deliverable {
 		requests, err := walletInventoryRequests(ctx, db, masterKey, w)
 		if err != nil {
 			return 0, &WalletError{WalletID: w.ID, Stage: "inventory requests", Err: err}

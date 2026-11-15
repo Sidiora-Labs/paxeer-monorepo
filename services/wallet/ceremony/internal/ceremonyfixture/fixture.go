@@ -29,9 +29,10 @@ type Fixture struct {
 	RPCURL             string
 	DB                 *testsupport.Postgres
 	Options            rehearsal.Options
+	provision          func(*testing.T, []string)
 }
 
-func New(t *testing.T, pg *testsupport.Postgres, master []byte, vectors []testsupport.Vector) *Fixture {
+func New(t *testing.T, pg *testsupport.Postgres, master []byte, vectors []testsupport.Vector, identities ...[]string) *Fixture {
 	t.Helper()
 	advanceLedger(t, pg.DB)
 	wallet := testsupport.WalletDir(t)
@@ -86,66 +87,81 @@ func New(t *testing.T, pg *testsupport.Postgres, master []byte, vectors []testsu
 	f := &Fixture{RPCURL: ready.URL, DB: pg}
 	f.Delivery = testsupport.StartWalletNodes(t, f.RPCURL)
 	cfg := f.Delivery.Config(t)
-	wallets, err := migrate.ReadWallets(context.Background(), pg.DB)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var approved []testsupport.CeremonyInventoryKey
-	for _, w := range wallets {
-		if w.Kind != "standard" || w.Funded || w.Migrated {
-			continue
-		}
-		identity := migrate.IdentityKeyID(w.ID)
-		approved = append(approved, testsupport.CeremonyInventoryKey{KeyID: identity, Curve: attestor.CurveEd25519, Owner: w.UserID, Operations: []string{"generate"}})
-	}
-	f.Delivery.Approve(t, approved)
-	for _, w := range wallets {
-		if w.Kind != "standard" || w.Funded || w.Migrated {
-			continue
-		}
-		identity := migrate.IdentityKeyID(w.ID)
-		var generated struct {
-			PublicKey string `json:"publicKey"`
-		}
-		send(map[string]any{"op": "generate", "authority": f.Delivery.GatewayAuthority(), "config": cfg, "keyId": identity, "owner": w.UserID, "address": w.Address}, &generated)
-		for i := range approved {
-			if approved[i].KeyID == identity {
-				approved[i].PublicKey = generated.PublicKey
-				approved[i].Operations = []string{"sign", "refresh"}
-			}
-		}
-		f.Delivery.Approve(t, approved)
-		var vector *testsupport.Vector
-		for i := range vectors {
-			if strings.EqualFold(vectors[i].Address, w.Address) {
-				vector = &vectors[i]
-				break
-			}
-		}
-		if vector == nil {
-			t.Fatalf("no gateway-produced key for %s", w.Address)
-		}
-		token := f.Delivery.OwnerToken(t, w.UserID)
-		var binding struct{ Signature, PublicKey, DID, Main string }
-		send(map[string]any{"op": "bind", "authority": f.Delivery.GatewayAuthority(), "config": cfg, "keyId": identity, "owner": w.UserID, "address": w.Address, "privateKey": vector.Key, "publicKey": generated.PublicKey, "token": token}, &binding)
-		if binding.PublicKey != generated.PublicKey {
-			t.Fatal("gateway changed the generated identity")
-		}
-		if _, err = pg.DB.Exec(`insert into account_provisioning(user_id,kind,wallet_id,state,ed_key_id,ed_public_key,did,main_account_id,bind_nonce,bind_signature)
-   values($1::uuid,'standard',$2::uuid,'active',$3,$4,$5,$6,0,$7)`, w.UserID, w.ID, identity, binding.PublicKey, binding.DID, binding.Main, binding.Signature); err != nil {
-			t.Fatal(err)
-		}
-		if _, err = pg.DB.Exec(`update wallets set did=$2,main_account_id=$3,layerx_key_id=$4,binding_state='bound' where id=$1::uuid`, w.ID, binding.DID, binding.Main, identity); err != nil {
-			t.Fatal(err)
-		}
-		key, err := crypto.HexToECDSA(vector.Key)
+	f.provision = func(t *testing.T, ids []string) {
+		t.Helper()
+		wallets, err := migrate.ReadWallets(context.Background(), pg.DB)
 		if err != nil {
 			t.Fatal(err)
 		}
-		public := hex.EncodeToString(crypto.FromECDSAPub(&key.PublicKey))
-		approved = append(approved, testsupport.CeremonyInventoryKey{KeyID: migrate.SecpKeyID(w.ID), Curve: attestor.CurveSecp256k1, PublicKey: public, Owner: w.UserID, Operations: []string{"import", "refresh", "sign"}})
-		f.Delivery.Approve(t, approved)
+		selected := map[string]bool{}
+		for _, id := range ids {
+			selected[id] = true
+		}
+		var approved []testsupport.CeremonyInventoryKey
+		for _, w := range wallets {
+			if w.Kind != "standard" || w.Funded || w.Migrated || (ids != nil && !selected[w.ID]) {
+				continue
+			}
+			identity := migrate.IdentityKeyID(w.ID)
+			approved = append(approved, testsupport.CeremonyInventoryKey{KeyID: identity, Curve: attestor.CurveEd25519, Owner: w.UserID, Operations: []string{"generate"}})
+		}
+		f.Delivery.ApproveAdditional(t, approved)
+		for _, w := range wallets {
+			if w.Kind != "standard" || w.Funded || w.Migrated || (ids != nil && !selected[w.ID]) {
+				continue
+			}
+			identity := migrate.IdentityKeyID(w.ID)
+			var generated struct {
+				PublicKey string `json:"publicKey"`
+			}
+			send(map[string]any{"op": "generate", "authority": f.Delivery.GatewayAuthority(), "config": cfg, "keyId": identity, "owner": w.UserID, "address": w.Address}, &generated)
+			for i := range approved {
+				if approved[i].KeyID == identity {
+					approved[i].PublicKey = generated.PublicKey
+					approved[i].Operations = []string{"sign", "refresh"}
+				}
+			}
+			f.Delivery.ApproveAdditional(t, approved)
+			var vector *testsupport.Vector
+			for i := range vectors {
+				if strings.EqualFold(vectors[i].Address, w.Address) {
+					vector = &vectors[i]
+					break
+				}
+			}
+			if vector == nil {
+				t.Fatalf("no gateway-produced key for %s", w.Address)
+			}
+			token := f.Delivery.OwnerToken(t, w.UserID)
+			var binding struct{ Signature, PublicKey, DID, Main string }
+			send(map[string]any{"op": "bind", "authority": f.Delivery.GatewayAuthority(), "config": cfg, "keyId": identity, "owner": w.UserID, "address": w.Address, "privateKey": vector.Key, "publicKey": generated.PublicKey, "token": token}, &binding)
+			if binding.PublicKey != generated.PublicKey {
+				t.Fatal("gateway changed the generated identity")
+			}
+			if _, err = pg.DB.Exec(`insert into account_provisioning(user_id,kind,wallet_id,state,ed_key_id,ed_public_key,did,main_account_id,bind_nonce,bind_signature)
+	   values($1::uuid,'standard',$2::uuid,'active',$3,$4,$5,$6,0,$7)`, w.UserID, w.ID, identity, binding.PublicKey, binding.DID, binding.Main, binding.Signature); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = pg.DB.Exec(`update wallets set did=$2,main_account_id=$3,layerx_key_id=$4,binding_state='bound' where id=$1::uuid`, w.ID, binding.DID, binding.Main, identity); err != nil {
+				t.Fatal(err)
+			}
+			key, err := crypto.HexToECDSA(vector.Key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			public := hex.EncodeToString(crypto.FromECDSAPub(&key.PublicKey))
+			approved = append(approved, testsupport.CeremonyInventoryKey{KeyID: migrate.SecpKeyID(w.ID), Curve: attestor.CurveSecp256k1, PublicKey: public, Owner: w.UserID, Operations: []string{"import", "refresh", "sign"}})
+			f.Delivery.ApproveAdditional(t, approved)
+		}
 	}
+	if len(identities) > 1 {
+		t.Fatal("one initial identity set is required")
+	}
+	var initial []string
+	if len(identities) == 1 {
+		initial = append([]string{}, identities[0]...)
+	}
+	f.provision(t, initial)
 	f.Isolated = f.Delivery.Clone(t)
 	delivery, isolated := f.Delivery.Config(t), f.Isolated.Config(t)
 	root := protectedDir(t)
@@ -153,6 +169,25 @@ func New(t *testing.T, pg *testsupport.Postgres, master []byte, vectors []testsu
 	ceremony := migrate.Options{CeremonyID: "wallet-go-22-31-513", JournalDir: protectedDir(t), JournalKey: journalKey, RehearsalReceipt: filepath.Join(root, "rehearsal.sealed"), Rehearsal: true, RPCURL: f.RPCURL}
 	f.Options = rehearsal.Options{SourceURL: pg.ReadOnlyRole(t, "identity_ceremony_reader"), AdminURL: pg.URL, MigrationsDir: testsupport.GatewayMigrationsDir(t), MasterKey: master, ArchivePath: filepath.Join(root, "funded.archive"), Passphrase: []byte("operator held archive passphrase"), CeremonyOptions: &ceremony, AttestorConfig: &isolated, DeliveryAttestorConfig: &delivery, DeliveryJournalDir: protectedDir(t)}
 	return f
+}
+
+func (f *Fixture) Provision(t *testing.T, walletIDs ...string) {
+	t.Helper()
+	f.provision(t, append([]string{}, walletIDs...))
+}
+
+func (f *Fixture) NextCeremony(t *testing.T, id string) {
+	t.Helper()
+	f.Isolated = f.Delivery.Clone(t)
+	config := f.Isolated.Config(t)
+	f.Options.AttestorConfig = &config
+	options := *f.Options.CeremonyOptions
+	options.CeremonyID = id
+	options.JournalDir = protectedDir(t)
+	options.RehearsalReceipt = filepath.Join(protectedDir(t), "rehearsal.sealed")
+	f.Options.CeremonyOptions = &options
+	f.Options.DeliveryJournalDir = protectedDir(t)
+	f.Options.ArchivePath = filepath.Join(protectedDir(t), "funded.archive")
 }
 
 func protectedDir(t *testing.T) string {
@@ -198,7 +233,7 @@ func (f *Fixture) Rehearse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("real rehearsal: %v (%s)", err, report)
 	}
-	if report.Matched != report.Eligible || report.HeldIdentity != report.Eligible {
+	if report.Matched != report.Deliverable || report.HeldIdentity != report.Deliverable {
 		t.Fatalf("incomplete rehearsal: %s", report)
 	}
 }

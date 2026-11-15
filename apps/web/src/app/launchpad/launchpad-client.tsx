@@ -209,7 +209,9 @@ export function LaunchpadActions({
             />
             <TextField
               label={`You pay (${payDenom})`}
+              name="amount_in"
               inputMode="decimal"
+              autoComplete="off"
               value={amountText}
               onChange={(event) => {
                 setAmountText(event.target.value);
@@ -218,7 +220,9 @@ export function LaunchpadActions({
             />
             <TextField
               label="Slippage tolerance (basis points)"
+              name="slippage_bps"
               inputMode="numeric"
+              autoComplete="off"
               value={slippageText}
               onChange={(event) => {
                 setSlippageText(event.target.value);
@@ -262,16 +266,20 @@ export function LaunchpadActions({
         <div className="flex flex-col gap-3">
           <TextField
             label="Name"
+            name="market_name"
             value={name}
             maxLength={64}
+            autoComplete="off"
             onChange={(event) => {
               setName(event.target.value);
             }}
           />
           <TextField
             label="Symbol"
+            name="market_symbol"
             value={symbol}
             maxLength={16}
+            autoComplete="off"
             onChange={(event) => {
               setSymbol(event.target.value.toUpperCase());
             }}

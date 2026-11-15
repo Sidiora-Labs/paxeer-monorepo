@@ -21,10 +21,10 @@ export function AddressQrCode({ value, label }: Readonly<{ value: string; label:
       aria-label={label}
       role="img"
       viewBox={`0 0 ${String(viewBox)} ${String(viewBox)}`}
-      className="size-44 max-w-full bg-white text-black"
+      className="size-44 max-w-full bg-surface text-foreground"
       shapeRendering="crispEdges"
     >
-      <rect width={viewBox} height={viewBox} fill="white" />
+      <rect width={viewBox} height={viewBox} fill="var(--surface)" />
       <g fill="currentColor">{cells}</g>
     </svg>
   );

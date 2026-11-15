@@ -95,9 +95,9 @@ export function OrdersList({ operations, scope, poolAddress, cancellationProvide
       {orders.length === 0
         ? <EmptyState icon={ListOrdered} title={query.hasNextPage ? 'No open orders found yet' : 'No open orders'} body={query.hasNextPage ? 'Load more to keep looking.' : 'Orders you place on this coin show up here.'} />
         : (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Open orders table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
             
-            <table aria-label="Your open orders" className="w-full min-w-[560px] text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
+            <table aria-label="Your open orders" className="w-full min-w-[32rem] text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
               <thead className="bg-surface-1">
                 <tr>
                   <SortHeader className="h-6" label="Type" />
@@ -110,7 +110,7 @@ export function OrdersList({ operations, scope, poolAddress, cancellationProvide
               </thead>
               <tbody>
                 {orders.map(order => (
-                  <tr key={order.orderId} data-order-id={order.orderId} className="h-9 bg-surface-1 transition-colors hover:bg-surface-hover">
+                  <tr key={order.orderId} data-order-id={order.orderId} className="min-h-table-row-dense bg-surface-1 transition-colors hover:bg-surface-hover">
                     <td className="font-bold capitalize text-text">{order.kind}</td>
                     <td data-numeric className="text-right font-mono tabular-nums text-text" title="Amount in raw units">{order.inputRaw}</td>
                     <td data-numeric className="text-right tabular-nums text-text-muted">{triggerLabel(order)}</td>

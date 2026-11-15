@@ -14,17 +14,17 @@ export interface ModalProps {
 }
 
 /**
- * Desktop confirmation modal: centered, max 440px, rounded, Esc + overlay
+ * Desktop confirmation modal: centered, bounded, rounded, Esc + overlay
  * dismiss, focus-trapped (Radix Dialog).
  */
 export function Modal({ open, onOpenChange, children, portalContainer, className }: ModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={portalContainer ?? undefined}>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
         <Dialog.Content
           className={cn(
-            "fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-[calc(100vw-2rem)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 flex-col overscroll-contain",
+            "fixed top-1/2 left-1/2 z-50 flex lx-modal-content -translate-x-1/2 -translate-y-1/2 flex-col overscroll-contain",
             "rounded-xl bg-surface p-6 shadow-overlay outline-none",
             "data-[state=open]:animate-modal-in data-[state=closed]:animate-modal-out",
             className,

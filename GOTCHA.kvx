@@ -22365,3 +22365,33 @@ fix = "Decision 3588. Tasks 22.44.1 to 22.44.36."
 title = "A test at the root of a workspace resolves only what the root declares"
 symptom = "A test file under the tests directory of the trading workspace is started from the workspace root, and a package it imports is resolved from that directory upward. A package that only an application or a package of the workspace declares is not found there, and the test stops before its first case. A proof that another component starts in the workspace needs its file in the workspace as well: a reader that names a test file the workspace does not hold cannot pass."
 fix = "Decision 3590. Tasks 22.39.674 and 22.39.675."
+
+[gotcha.4509]
+title = "A width is held by a render, and a render repeats only as a command"
+symptom = "The device list of decision 3588 has eleven sizes, two schemes and three further modes; a surface with twenty views has several hundred renders. Made by hand they are not the same twice, and what one pass saw the next does not see. A command that starts the surface, renders each view at the list and measures what can be measured gives the same pass every time and leaves the eye for what cannot be measured."
+fix = "Decision 3591. Tasks 22.44.37 to 22.44.48."
+
+[gotcha.4510]
+title = "A case and the code it tests move apart when one of them changes alone"
+symptom = "A suite states what its code does: the form of an id, the fields of a row, the directives of a policy, the phases a component shows. When one side changes alone the two no longer say the same, and a task on another part of the application cannot tell which side states the product. The difference is decided once, per case, by a task on the suite."
+fix = "Decision 3592. Task 22.39.676."
+
+[gotcha.4511]
+title = "A token file with two schemes needs a contrast reader that knows the schemes"
+symptom = "The contrast reader of the human web application takes one value for each token of the token file. A token file that states a value for the light scheme and a value for the dark scheme, in the two-value form of the scheme function and in explicit blocks, holds more than one value for a token, and a reader that takes one of them measures a single scheme without naming it. A foundation case that states the form of the browser configuration follows that configuration: the configuration is the product side, the case is its reader."
+fix = "Decision 3593. Task 22.39.677."
+
+[gotcha.4512]
+title = "A proof that starts the TypeScript SDK from its sources needs the packages of that SDK"
+symptom = "The proof of the receipt keys method of the hosted gateway, in services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs, starts the TypeScript SDK under services/agent/sdk/typescript from its sources to read the keys as a consumer does. The runtime resolves the packages the SDK declares from the directory of the SDK, so they have to be installed there before the proof runs."
+fix = "Decision 3594. The build of task 22.39.669 installs them."
+
+[gotcha.4513]
+title = "A foundation task of a web surface waits for work on its own paths"
+symptom = "The explorer foundation of the web guidance series changes the theme, the base components and the global style under apps/explorer and verifies with the type check and the tests of the toolkit. The suite of the explorer backend lives under services/explorer/backend and shares neither a path nor a command with it. The work the foundation builds on is the visual system integration of the explorer, which closed both colour modes and the production build."
+fix = "Decision 3595."
+
+[gotcha.4514]
+title = "Two execution paths read one parameter with one rule"
+symptom = "The node that sequences executes a transaction through the ordinary path; a node without sequencing applies the block through the fast path. Both must charge the same gas, or the two reach different application hashes. The ordinary path reads the gas of a first write to a storage slot through a reader that gives the value 20000 when the parameter holds no value. A parameter holds no value in a state that began before the parameter existed; a state that starts from a present genesis holds the default, so a comparison on a new local network reads the stored value on both paths. A path that reads the stored field itself takes zero where the reader gives 20000."
+fix = "Decision 3596. Tasks 22.39.678 and 22.39.679."

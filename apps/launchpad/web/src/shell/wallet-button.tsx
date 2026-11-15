@@ -27,46 +27,114 @@ export default function WalletButton() {
   const { openModal } = useAuthModal();
   const pathname = usePathname();
   const menu = useAccountMenu();
-  useEffect(() => { closeAccountMenu(); }, [address, chainId, pathname]);
+  useEffect(() => {
+    closeAccountMenu();
+  }, [address, chainId, pathname]);
 
   const wallet = session?.session.wallet ?? null;
   const profile = useProfile(wallet);
-  const portfolio = usePrivateAccountQuery('portfolio-summary', () => readPortfolio(), [], wallet ?? undefined);
+  const portfolio = usePrivateAccountQuery(
+    'portfolio-summary',
+    () => readPortfolio(),
+    [],
+    wallet ?? undefined
+  );
 
   /** Ends the application session only; the wallet connection stays so the user can sign in again or keep trading. */
-  const logOut = async () => { await signOutAccount(); };
+  const logOut = async () => {
+    await signOutAccount();
+  };
 
   if (!session || !wallet) {
     return (
-      <div className="inline-flex items-center gap-2">
+      <div className="inline-flex max-w-full flex-wrap items-center gap-2">
         {isConnected && chainId !== 125 ? (
-          <Button variant="secondary" size="sm" icon={<TriangleAlert className="text-warning" />} onClick={() => openModal('Your wallet is on another network. Switch to Paxeer to continue')}>Wrong network</Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<TriangleAlert className="text-warning" />}
+            onClick={() =>
+              openModal('Your wallet is on another network. Switch to Paxeer to continue')
+            }
+          >
+            Wrong network
+          </Button>
         ) : null}
-        <Button variant="primary" size="sm" onClick={() => openModal()}>Sign in</Button>
+        <Button variant="primary" size="sm" onClick={() => openModal()}>
+          Sign in
+        </Button>
         <SignInModal />
       </div>
     );
   }
 
   const summary = portfolio.data?.data.summary;
-  const balanceRaw = summary ? summary.completeValueUsdlRaw ?? summary.pricedSubtotalUsdlRaw : null;
-  const balanceTitle = summary ? (summary.completeValueUsdlRaw === null ? 'Some coins have no price yet' : 'Portfolio value') : portfolio.isError ? "Can't load your balance right now" : 'Loading balance';
+  const balanceRaw = summary
+    ? (summary.completeValueUsdlRaw ?? summary.pricedSubtotalUsdlRaw)
+    : null;
+  const balanceTitle = summary
+    ? summary.completeValueUsdlRaw === null
+      ? 'Some coins have no price yet'
+      : 'Portfolio value'
+    : portfolio.isError
+      ? "Can't load your balance right now"
+      : 'Loading balance';
   const displayName = profile.data?.displayName ?? null;
 
   return (
-    <div className="inline-flex items-center gap-2">
-      <Button variant="secondary" size="sm" onClick={() => openAccountMenu('receive')}>Deposit</Button>
-      <button type="button" onClick={() => openAccountMenu('account')} title={balanceTitle} aria-label={`Balance ${balanceRaw ? formatUsdl(balanceRaw, { compact: true }) : 'not available yet'}, open account menu`}
-        className="flex h-control-height-sm items-center gap-1.5 rounded-pill bg-surface-2 px-3 text-num-sm text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active" data-numeric>
-        {portfolio.isPending && !summary ? <Skeleton variant="text" width={64} label="Loading balance" /> : balanceRaw ? formatUsdl(balanceRaw, { compact: true }) : <span className="text-text-faint">—</span>}
+    <div className="inline-flex max-w-full flex-wrap items-center gap-2">
+      <Button variant="secondary" size="sm" onClick={() => openAccountMenu('receive')}>
+        Deposit
+      </Button>
+      <button
+        type="button"
+        onClick={() => openAccountMenu('account')}
+        title={balanceTitle}
+        aria-label={`Balance ${balanceRaw ? formatUsdl(balanceRaw, { compact: true }) : 'not available yet'}, open account menu`}
+        className="flex min-h-control-height-sm items-center py-2 gap-1.5 rounded-pill bg-surface-2 px-3 text-num-sm text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active"
+        data-numeric
+      >
+        {portfolio.isPending && !summary ? (
+          <Skeleton variant="text" width="var(--sl-chart-mini-width)" label="Loading balance" />
+        ) : balanceRaw ? (
+          formatUsdl(balanceRaw, { compact: true })
+        ) : (
+          <span className="text-text-faint">—</span>
+        )}
       </button>
-      <button type="button" onClick={() => openAccountMenu('account')} aria-label={`Account ${displayName ?? shortAddress(wallet)}; open account menu`}
-        className="rounded-pill transition-opacity duration-fast hover:opacity-90">
-        <Avatar src={profile.data?.avatarUrl ?? null} name={displayName ?? shortAddress(wallet)} size="md" decorative
-          badge={<WalletMark icon={connector?.icon} name={connector?.name ?? 'Wallet'} size="sm" className="size-4 rounded-pill bg-surface-1" />} />
+      <button
+        type="button"
+        onClick={() => openAccountMenu('account')}
+        aria-label={`Account ${displayName ?? shortAddress(wallet)}; open account menu`}
+        className="inline-flex min-h-touch-target-min min-w-touch-target-min items-center justify-center rounded-pill transition-opacity duration-fast hover:opacity-90"
+      >
+        <Avatar
+          src={profile.data?.avatarUrl ?? null}
+          name={displayName ?? shortAddress(wallet)}
+          size="md"
+          decorative
+          badge={
+            <WalletMark
+              icon={connector?.icon}
+              name={connector?.name ?? 'Wallet'}
+              size="sm"
+              className="size-4 rounded-pill bg-surface-1"
+            />
+          }
+        />
       </button>
-      <WalletModal open={menu !== null} tab={menu ?? 'account'} onTabChange={openAccountMenu} onClose={closeAccountMenu} address={wallet}
-        displayName={displayName} avatarUrl={profile.data?.avatarUrl ?? null} connectorName={connector?.name ?? null} connectorIcon={connector?.icon} onLogOut={logOut} />
+      <WalletModal
+        open={menu !== null}
+        tab={menu ?? 'account'}
+        onTabChange={openAccountMenu}
+        onClose={closeAccountMenu}
+        address={wallet}
+        displayName={displayName}
+        avatarUrl={profile.data?.avatarUrl ?? null}
+        connectorName={connector?.name ?? null}
+        connectorIcon={connector?.icon}
+        onLogOut={logOut}
+      />
       <SignInModal />
     </div>
   );

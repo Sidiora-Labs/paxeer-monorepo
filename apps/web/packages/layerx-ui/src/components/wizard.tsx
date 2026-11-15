@@ -84,7 +84,7 @@ export function Wizard({
     <div className="flex flex-col gap-2">
       <h2 className="text-xl font-bold text-foreground">{step.title}</h2>
       {step.description && (
-        <p className="text-[15px] leading-relaxed text-muted-foreground">{step.description}</p>
+        <p className="text-body-sm leading-relaxed text-muted-foreground">{step.description}</p>
       )}
       <div className="pt-4">{step.render()}</div>
     </div>
@@ -126,7 +126,7 @@ export function Wizard({
 
   // Desktop split pane
   return (
-    <div className={cn("grid min-h-0 flex-1 grid-cols-[1fr_340px] gap-8", className)}>
+    <div className={cn("grid min-h-0 flex-1 lx-wizard-grid gap-8", className)}>
       <div className="flex min-h-0 flex-col">
         {/* step rail */}
         <ol className="flex items-center gap-2 pb-6" aria-label="Progress">
@@ -163,7 +163,7 @@ export function Wizard({
           <Button variant="secondary" onClick={back}>
             {index === 0 ? "Cancel" : "Back"}
           </Button>
-          <Button onClick={next} disabled={!canContinue} className="min-w-[160px]">
+          <Button onClick={next} disabled={!canContinue} className="min-w-40">
             {isLast ? completeLabel : "Continue"}
           </Button>
         </div>
