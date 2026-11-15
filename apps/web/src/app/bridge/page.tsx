@@ -137,11 +137,13 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
             name="chain"
             defaultValue={chainId.toString()}
             inputMode="numeric"
+            autoComplete="off"
           />
           <TextField
             label="Asset address on that chain"
             name="asset"
             defaultValue={asset ?? ""}
+            autoComplete="off"
             spellCheck={false}
             placeholder={copyEntry("bridge.copy.0x").message}
             className="flex-1"
