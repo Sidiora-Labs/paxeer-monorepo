@@ -1,27 +1,3 @@
-/** Barrel export — all ABIs */
-export { PositionFacetABI } from "./PositionFacet";
-export { OrderBookFacetABI } from "./OrderBookFacet";
-export { LiquidationFacetABI } from "./LiquidationFacet";
-export { FundingRateFacetABI } from "./FundingRateFacet";
-export { OracleFacetABI } from "./OracleFacet";
-export { VirtualAMMFacetABI } from "./VirtualAMMFacet";
-export { PriceFeedFacetABI } from "./PriceFeedFacet";
-export { QuoterFacetABI } from "./QuoterFacet";
-export { MarketRegistryFacetABI } from "./MarketRegistryFacet";
-export { CollateralFacetABI } from "./CollateralFacet";
-export { CentralVaultFacetABI } from "./CentralVaultFacet";
-export { InsuranceFundFacetABI } from "./InsuranceFundFacet";
-export { VaultFactoryFacetABI } from "./VaultFactoryFacet";
-export { TradingAccountABI } from "./TradingAccount";
-export { KeeperMulticallFacetABI } from "./KeeperMulticallFacet";
+/** Barrel export — precompile ABIs and the token ABI */
+export { PerpsPrecompileABI, OrderType, TimeInForce } from "./PerpsPrecompile";
 export { IERC20ABI } from "./IERC20";
-export { AccessControlFacetABI } from "./AccessControlFacet";
-export { DiamondLoupeFacetABI } from "./DiamondLoupeFacet";
-export { SpotMarketRegistryFacetABI } from "./SpotMarketRegistryFacet";
-export { SpotSettlementFacetABI } from "./SpotSettlementFacet";
-export { SpotOrderBookFacetABI } from "./SpotOrderBookFacet";
-export { SpotBatchAuctionFacetABI } from "./SpotBatchAuctionFacet";
-export { SpotModeSwitchFacetABI } from "./SpotModeSwitchFacet";
-export { PLVRegistryFacetABI } from "./PLVRegistryFacet";
-export { PoFQFacetABI } from "./PoFQFacet";
-export { SpotKeeperMulticallFacetABI } from "./SpotKeeperMulticallFacet";

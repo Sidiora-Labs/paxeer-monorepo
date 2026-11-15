@@ -1,26 +1,18 @@
 /* ══════════════════════════════════════════════════════════════════════
    Stablecoin selector for PECOR market orders.
 
-   PECOR's `marketBuy` / `marketSell` accept ONE stablecoin per call.
-   The UI abstracts USDL / USDC / USDT into a unified "USD" balance, so
-   somebody has to pick which stable each trade actually settles in. We
-   make that choice deterministically at submit time:
-
-     · BUY  → pick the stable the user already holds the most of. This
-              minimizes the number of distinct stables left over in the
-              user's wallet after trading.
-     · SELL → pick the stable with the deepest vault liquidity. This
-              maximizes the chance the engine can fill the user's sell
-              at the quoted price without hitting a utilization cap.
+   PECOR's `marketBuy` / `marketSell` accept ONE stablecoin per call, and
+   USDL is the only stable token of the venue, so both selectors settle
+   in USDL and report whether its balance (buys) or vault liquidity
+   (sells) covers the trade.
 
    Both fns are pure — the hook layer fetches balances / liquidity and
-   passes them in. Tiebreakers fall back to `SPOT_STABLECOIN_LIST` order
-   (USDL > USDC > USDT) for full determinism.
+   passes them in.
    ══════════════════════════════════════════════════════════════════════ */
 
 import type { Address } from "viem";
 import {
-  SPOT_STABLECOIN_LIST,
+  SPOT_TOKENS,
   type SpotTokenMeta,
 } from "@paxeer-network/paxeer-backend/core/spot/addresses";
 
@@ -61,99 +53,38 @@ export interface StableSelection {
 
 /* ── selectors ─────────────────────────────────────────────────── */
 
+const USDL: SpotTokenMeta = SPOT_TOKENS.USDL;
+
+function selectUsdl(
+  required: bigint,
+  amounts: StableAmountMap,
+): StableSelection {
+  const available = amounts[USDL.address.toLowerCase()] ?? 0n;
+  return { stable: USDL, sufficient: available >= required, available };
+}
+
 /**
- * Pick the stablecoin to spend on a market BUY. Strategy:
- *
- *   1. Filter to stables whose balance ≥ `amountUsd`.
- *   2. If any qualify → take the one with the highest balance.
- *   3. If none qualify → take the one with the highest balance
- *      regardless and mark `sufficient: false`. The UI must surface
- *      an "insufficient USD" error before submitting.
- *
- * Ties broken by `SPOT_STABLECOIN_LIST` order for determinism.
- *
- * When `amountUsd === 0n` (preview mode), returns the user's
- * highest-balance stable so the form can render a stable hint.
+ * Pick the stablecoin to spend on a market BUY: USDL, sufficient when the
+ * user's USDL balance covers `amountUsd` (always when `amountUsd === 0n`,
+ * preview mode).
  */
 export function selectStableForBuy(
   input: SelectStableForBuyInput,
 ): StableSelection {
-  const { amountUsd, balances } = input;
-
-  const ranked = SPOT_STABLECOIN_LIST.map((stable) => ({
-    stable,
-    balance: balances[stable.address.toLowerCase()] ?? 0n,
-  }));
-
-  // Phase 1: stables that fully cover the order, max balance wins.
-  if (amountUsd > 0n) {
-    const sufficient = ranked
-      .filter((r) => r.balance >= amountUsd)
-      .sort((a, b) => compareDescending(a.balance, b.balance));
-    if (sufficient.length > 0) {
-      return {
-        stable: sufficient[0].stable,
-        sufficient: true,
-        available: sufficient[0].balance,
-      };
-    }
-  }
-
-  // Phase 2: fall through to "best effort" — highest balance overall.
-  const best = ranked.sort((a, b) => compareDescending(a.balance, b.balance))[0];
-  return {
-    stable: best.stable,
-    sufficient: amountUsd === 0n ? true : best.balance >= amountUsd,
-    available: best.balance,
-  };
+  return selectUsdl(input.amountUsd, input.balances);
 }
 
 /**
- * Pick the stablecoin to settle a market SELL into. Strategy mirrors
- * `selectStableForBuy` but ranks by **vault liquidity** instead of
- * user balance — the engine needs enough free stable in its reserves
- * to pay out the trader.
- *
- * Tiebreaker is again `SPOT_STABLECOIN_LIST` order.
+ * Pick the stablecoin to settle a market SELL into: USDL, sufficient when
+ * the USDL vault liquidity covers `expectedUsd`.
  */
 export function selectStableForSell(
   input: SelectStableForSellInput,
 ): StableSelection {
-  const { expectedUsd, vaultLiquidity } = input;
-
-  const ranked = SPOT_STABLECOIN_LIST.map((stable) => ({
-    stable,
-    liquidity: vaultLiquidity[stable.address.toLowerCase()] ?? 0n,
-  }));
-
-  if (expectedUsd > 0n) {
-    const sufficient = ranked
-      .filter((r) => r.liquidity >= expectedUsd)
-      .sort((a, b) => compareDescending(a.liquidity, b.liquidity));
-    if (sufficient.length > 0) {
-      return {
-        stable: sufficient[0].stable,
-        sufficient: true,
-        available: sufficient[0].liquidity,
-      };
-    }
-  }
-
-  const best = ranked.sort((a, b) => compareDescending(a.liquidity, b.liquidity))[0];
-  return {
-    stable: best.stable,
-    sufficient: expectedUsd === 0n ? true : best.liquidity >= expectedUsd,
-    available: best.liquidity,
-  };
+  return selectUsdl(input.expectedUsd, input.vaultLiquidity);
 }
 
 /* ── utilities ─────────────────────────────────────────────────── */
-
-function compareDescending(a: bigint, b: bigint): number {
-  if (a > b) return -1;
-  if (a < b) return 1;
-  return 0;
-}
 
 /**
  * Sum a stable-amount map. Useful for the unified "USD" balance the

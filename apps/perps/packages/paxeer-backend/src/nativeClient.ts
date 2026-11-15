@@ -8,18 +8,14 @@ import {
 } from "./nativeMetadata";
 import { getNativeSnapshot, updateNativeSnapshot } from "./runtime";
 import { executeNativeOrder, cancelNativeOrder } from "./nativeTrading";
-import {
-  COLLATERAL_TOKENS,
-  REST_API_URL,
-  PERPS_MARKETS,
-} from "./core/perps/config";
+import { COLLATERAL_TOKENS, PERPS_MARKETS } from "./core/perps/config";
 import {
   subgraphQuery,
   ORDERS_QUERY,
   TRADES_QUERY,
   VAULT_EVENTS_QUERY,
 } from "./hooks/perps/useSubgraph";
-import { candleFeedUrl } from "./core/feeds";
+import { candleFeedUrl, MARKET_DATA_URL } from "./core/feeds";
 import { fetchJsonWithPolicy } from "./core/net/fetch";
 import {
   getVaultAddress,
@@ -157,19 +153,25 @@ export async function nativeRequest(
     return success({ rows: nativeChains() });
   if (path.endsWith("/public/system_info")) return success({});
   if (path.includes("/public/funding_rate")) {
-    const rows = nativeMarketRows().filter((row) => Number.isFinite(row.est_funding_rate)).map((row) => ({
-      symbol: row.symbol, est_funding_rate: row.est_funding_rate,
-      last_funding_rate: row.last_funding_rate, next_funding_time: row.next_funding_time,
-    }));
+    const rows = nativeMarketRows()
+      .filter((row) => Number.isFinite(row.est_funding_rate))
+      .map((row) => ({
+        symbol: row.symbol,
+        est_funding_rate: row.est_funding_rate,
+        last_funding_rate: row.last_funding_rate,
+        next_funding_time: row.next_funding_time,
+      }));
     const symbol = path.split("/funding_rate/")[1];
-    return success(symbol ? rows.find((row) => row.symbol === symbol) ?? {} : { rows });
+    return success(
+      symbol ? (rows.find((row) => row.symbol === symbol) ?? {}) : { rows },
+    );
   }
   if (path.endsWith("/public/rwa/symbols"))
     return success({ rows: nativeSymbols().filter((row) => row.is_rwa) });
   if (path.includes("/public/orderbook/")) {
     const symbol = toNativeSymbol(path.split("/").at(-1)!);
     const result = await fetchJsonWithPolicy<any>(
-      `${REST_API_URL}/orderbook/${symbol}?depth=100`,
+      `${MARKET_DATA_URL}/orderbook/${symbol}?depth=100`,
     );
     if (!result.success || !result.data)
       throw new Error("Paxeer order book is unavailable.");
@@ -406,7 +408,7 @@ export async function nativeDeposit(inputs: {
   amount: string;
   decimals: number;
 }) {
-  const token = nativeToken(inputs.address ?? inputs.token ?? "USDC");
+  const token = nativeToken(inputs.address ?? inputs.token ?? "USDL");
   const vault = await getNativeVault(true);
   const amount = parseUnits(inputs.amount, token.decimals);
   if (amount <= 0n) throw new Error("Enter a positive deposit amount.");

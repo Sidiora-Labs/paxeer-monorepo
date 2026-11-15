@@ -30,7 +30,12 @@ import {
 
 export * from "./types";
 
-export type OAuthProvider = "google" | "apple" | "twitter" | "github" | "discord";
+export type OAuthProvider =
+  | "google"
+  | "apple"
+  | "twitter"
+  | "github"
+  | "discord";
 
 export class PaxeerWallet {
   readonly supabase: SupabaseClient;
@@ -39,8 +44,10 @@ export class PaxeerWallet {
 
   constructor(config: PaxeerWalletConfig) {
     if (!config.apiUrl) throw new Error("PaxeerWallet: apiUrl required");
-    if (!config.supabaseUrl) throw new Error("PaxeerWallet: supabaseUrl required");
-    if (!config.supabaseAnonKey) throw new Error("PaxeerWallet: supabaseAnonKey required");
+    if (!config.supabaseUrl)
+      throw new Error("PaxeerWallet: supabaseUrl required");
+    if (!config.supabaseAnonKey)
+      throw new Error("PaxeerWallet: supabaseAnonKey required");
 
     this.apiUrl = config.apiUrl.replace(/\/$/, "");
     this.fetchImpl = config.fetch ?? globalThis.fetch.bind(globalThis);
@@ -56,7 +63,10 @@ export class PaxeerWallet {
   // ───────────────────────────────────────────────────────────── Auth ─────
 
   /** Send a magic-link email to start passwordless sign-in. */
-  signInWithEmail(email: string, redirectTo?: string): Promise<{ error: Error | null }> {
+  signInWithEmail(
+    email: string,
+    redirectTo?: string,
+  ): Promise<{ error: Error | null }> {
     return this.supabase.auth
       .signInWithOtp({
         email,
@@ -66,7 +76,10 @@ export class PaxeerWallet {
   }
 
   /** Begin OAuth sign-in. Browser will redirect to the provider. */
-  async signInWithOAuth(provider: OAuthProvider, redirectTo?: string): Promise<void> {
+  async signInWithOAuth(
+    provider: OAuthProvider,
+    redirectTo?: string,
+  ): Promise<void> {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider,
       options: redirectTo ? { redirectTo } : undefined,
@@ -91,7 +104,9 @@ export class PaxeerWallet {
   /**
    * Subscribe to auth state changes. Returns an unsubscribe function.
    */
-  onAuthStateChange(cb: (event: AuthChangeEvent, session: Session | null) => void): () => void {
+  onAuthStateChange(
+    cb: (event: AuthChangeEvent, session: Session | null) => void,
+  ): () => void {
     const { data } = this.supabase.auth.onAuthStateChange(cb);
     return () => data.subscription.unsubscribe();
   }
@@ -102,36 +117,127 @@ export class PaxeerWallet {
    * Get the current user's wallet. Auto-provisions on first call.
    * Throws if the user is not signed in.
    */
-  async getWallet(): Promise<{ wallet: PublicWallet; chain: ChainInfo }> {
+  async getWallet(
+    _session?: Session,
+  ): Promise<{ wallet: PublicWallet; chain: ChainInfo }> {
     const me = await this.callJson<{ wallet: PublicWallet; chain: ChainInfo }>(
       "GET",
       "/v1/wallet/me",
-    ).catch((err: PaxeerWalletError) => (err.status === 404 ? null : Promise.reject(err)));
+    ).catch((err: PaxeerWalletError) =>
+      err.status === 404 ? null : Promise.reject(err),
+    );
     if (me) return me;
 
     // No wallet yet — provision then fetch.
-    await this.callJson<{ wallet: PublicWallet }>("POST", "/v1/wallet/provision");
-    return this.callJson<{ wallet: PublicWallet; chain: ChainInfo }>("GET", "/v1/wallet/me");
+    await this.callJson<{ wallet: PublicWallet }>(
+      "POST",
+      "/v1/wallet/provision",
+    );
+    return this.callJson<{ wallet: PublicWallet; chain: ChainInfo }>(
+      "GET",
+      "/v1/wallet/me",
+    );
   }
 
   /** Sign a transaction without broadcasting. Returns serialized signed tx hex. */
-  signTransaction(tx: TxRequest): Promise<SignTxResponse> {
-    return this.callJson<SignTxResponse>("POST", "/v1/wallet/sign", { tx: serialize(tx) });
+  async signTransaction(
+    tx: TxRequest,
+    _session?: Session,
+    guard?: () => void,
+  ): Promise<SignTxResponse> {
+    guard?.();
+    const result = await this.callJson<SignTxResponse>(
+      "POST",
+      "/v1/wallet/sign",
+      {
+        tx: serialize(tx),
+      },
+    );
+    guard?.();
+    return result;
   }
 
   /** Sign + broadcast in one round-trip. Returns the tx hash. */
-  sendTransaction(tx: TxRequest): Promise<SendTxResponse> {
-    return this.callJson<SendTxResponse>("POST", "/v1/wallet/send", { tx: serialize(tx) });
+  async sendTransaction(
+    tx: TxRequest,
+    _session?: Session,
+    guard?: () => void,
+  ): Promise<SendTxResponse> {
+    guard?.();
+    const result = await this.callJson<SendTxResponse>(
+      "POST",
+      "/v1/wallet/send",
+      {
+        tx: serialize(tx),
+      },
+    );
+    guard?.();
+    return result;
   }
 
   /** EIP-191 personal_sign over a message string. */
-  signMessage(message: string): Promise<SignMessageResponse> {
-    return this.callJson<SignMessageResponse>("POST", "/v1/wallet/sign-message", { message });
+  async signMessage(
+    message: string,
+    _session?: Session,
+    guard?: () => void,
+  ): Promise<SignMessageResponse> {
+    guard?.();
+    const result = await this.callJson<SignMessageResponse>(
+      "POST",
+      "/v1/wallet/sign-message",
+      { message },
+    );
+    guard?.();
+    return result;
+  }
+
+  /** Create the small EIP-1193 provider used by the embedded wallet bridge. */
+  createProvider(
+    config: { chainId: number; rpcUrl: string },
+    session?: Session,
+    guard?: () => void,
+  ) {
+    const wallet = this;
+    return {
+      async request(input: {
+        method: string;
+        params?: readonly unknown[];
+      }): Promise<unknown> {
+        guard?.();
+        if (input.method === "eth_chainId")
+          return `0x${config.chainId.toString(16)}`;
+        if (input.method === "eth_requestAccounts") {
+          const result = await wallet.getWallet(session);
+          return [result.wallet.address];
+        }
+        if (input.method === "personal_sign" || input.method === "eth_sign") {
+          const params = input.params ?? [];
+          const message = String(params[0] ?? "");
+          return (await wallet.signMessage(message, session, guard)).signature;
+        }
+        if (input.method === "eth_signTypedData_v4") {
+          const params = input.params ?? [];
+          return (
+            await wallet.signMessage(
+              String(params[1] ?? params[0] ?? ""),
+              session,
+              guard,
+            )
+          ).signature;
+        }
+        throw new Error(`Unsupported embedded wallet method: ${input.method}`);
+      },
+      disconnect(): void {},
+    };
   }
 
   // ─────────────────────────────────────── Internal — auth-bearing fetch ─
 
-  private async callJson<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  private async callJson<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
     const session = await this.getSession();
     if (!session?.access_token) {
       throw new PaxeerWalletError("not_authenticated", "NO_SESSION", 401);
@@ -173,7 +279,8 @@ function serialize(tx: TxRequest): Record<string, unknown> {
   if (tx.value !== undefined) out.value = bigintToString(tx.value);
   if (tx.data !== undefined) out.data = tx.data;
   if (tx.gas !== undefined) out.gas = bigintToString(tx.gas);
-  if (tx.maxFeePerGas !== undefined) out.maxFeePerGas = bigintToString(tx.maxFeePerGas);
+  if (tx.maxFeePerGas !== undefined)
+    out.maxFeePerGas = bigintToString(tx.maxFeePerGas);
   if (tx.maxPriorityFeePerGas !== undefined)
     out.maxPriorityFeePerGas = bigintToString(tx.maxPriorityFeePerGas);
   if (tx.nonce !== undefined) out.nonce = tx.nonce;

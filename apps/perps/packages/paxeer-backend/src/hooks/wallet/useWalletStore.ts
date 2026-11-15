@@ -78,6 +78,6 @@ export const useWalletStore = create<WalletState>()(
       closeConnectModal: () => set({ connectModalOpen: false }),
       clearError: () => set({ error: null }),
     }),
-    { name: "WalletStore" }
-  )
+    { name: "WalletStore" },
+  ),
 );

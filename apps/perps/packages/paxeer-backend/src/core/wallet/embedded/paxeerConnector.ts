@@ -12,7 +12,10 @@
 
 import { createConnector } from "wagmi";
 import type { PaxeerWallet } from "./sdk";
-import { createPaxeerEIP1193Provider, type PaxeerEIP1193Provider } from "./eip1193";
+import {
+  createPaxeerEIP1193Provider,
+  type PaxeerEIP1193Provider,
+} from "./eip1193";
 
 export const PAXEER_CONNECTOR_ID = "paxeer-embedded";
 
@@ -43,115 +46,128 @@ export function paxeerEmbeddedConnector(params: PaxeerConnectorParams) {
   return createConnector(
     // @ts-expect-error — see comment above; concrete connector shape is correct.
     (config) => {
-    const onAccountsChanged = (...args: unknown[]) => {
-      const accounts = (args[0] as `0x${string}`[]) ?? [];
-      if (accounts.length === 0) {
-        config.emitter.emit("disconnect");
-      } else {
-        config.emitter.emit("change", { accounts });
-      }
-    };
-
-    const onChainChanged = (...args: unknown[]) => {
-      const id = args[0];
-      const newChainId = typeof id === "string" ? parseInt(id, 16) : Number(id);
-      config.emitter.emit("change", { chainId: newChainId });
-    };
-
-    const onDisconnect = () => {
-      config.emitter.emit("disconnect");
-    };
-
-    return {
-      id: PAXEER_CONNECTOR_ID,
-      name: "Paxeer Wallet",
-      type: "paxeer-embedded" as const,
-      icon: "/icons/paxeer-wallet.svg",
-
-      async setup() {
-        ensureProvider();
-      },
-
-      // The Paxeer Embedded Wallet is a single-chain EOA — it never exposes
-      // EIP-5792 capabilities — so we return the plain account shape. wagmi
-      // v2's `connect` signature is generic over `withCapabilities`, which
-      // doesn't unify with a non-generic implementation; we cast the whole
-      // connector object with `as never` at the boundary below to satisfy it.
-      async connect(parameters?: { chainId?: number; isReconnecting?: boolean }) {
-        const p = ensureProvider();
-
-        // Wire provider events through wagmi's emitter.
-        p.on("accountsChanged", onAccountsChanged);
-        p.on("chainChanged", onChainChanged);
-        p.on("disconnect", onDisconnect);
-
-        const accounts = (await p.request({ method: "eth_accounts" })) as readonly `0x${string}`[];
+      const onAccountsChanged = (...args: unknown[]) => {
+        const accounts = (args[0] as `0x${string}`[]) ?? [];
         if (accounts.length === 0) {
-          // Caller hit Connect without signing in — bubble a clear error.
-          if (!parameters?.isReconnecting) {
+          config.emitter.emit("disconnect");
+        } else {
+          config.emitter.emit("change", { accounts });
+        }
+      };
+
+      const onChainChanged = (...args: unknown[]) => {
+        const id = args[0];
+        const newChainId =
+          typeof id === "string" ? parseInt(id, 16) : Number(id);
+        config.emitter.emit("change", { chainId: newChainId });
+      };
+
+      const onDisconnect = () => {
+        config.emitter.emit("disconnect");
+      };
+
+      return {
+        id: PAXEER_CONNECTOR_ID,
+        name: "Paxeer Wallet",
+        type: "paxeer-embedded" as const,
+        icon: "/icons/paxeer-wallet.svg",
+
+        async setup() {
+          ensureProvider();
+        },
+
+        // The Paxeer Embedded Wallet is a single-chain EOA — it never exposes
+        // EIP-5792 capabilities — so we return the plain account shape. wagmi
+        // v2's `connect` signature is generic over `withCapabilities`, which
+        // doesn't unify with a non-generic implementation; we cast the whole
+        // connector object with `as never` at the boundary below to satisfy it.
+        async connect(parameters?: {
+          chainId?: number;
+          isReconnecting?: boolean;
+        }) {
+          const p = ensureProvider();
+
+          // Wire provider events through wagmi's emitter.
+          p.on("accountsChanged", onAccountsChanged);
+          p.on("chainChanged", onChainChanged);
+          p.on("disconnect", onDisconnect);
+
+          const accounts = (await p.request({
+            method: "eth_accounts",
+          })) as readonly `0x${string}`[];
+          if (accounts.length === 0) {
+            // Caller hit Connect without signing in — bubble a clear error.
+            if (!parameters?.isReconnecting) {
+              throw new Error(
+                "Sign in to the Paxeer Embedded Wallet first. Choose Email / Google / X / GitHub from the connect modal.",
+              );
+            }
+            return { accounts: [] as readonly `0x${string}`[], chainId };
+          }
+          return { accounts, chainId };
+        },
+
+        async disconnect() {
+          const p = provider;
+          if (p) {
+            p.removeListener("accountsChanged", onAccountsChanged);
+            p.removeListener("chainChanged", onChainChanged);
+            p.removeListener("disconnect", onDisconnect);
+            p.destroy();
+          }
+          provider = null;
+          // Also drop the Supabase session — the user explicitly disconnected.
+          try {
+            await wallet.signOut();
+          } catch {
+            /* ignore — wagmi disconnect must always succeed */
+          }
+        },
+
+        async getAccounts() {
+          const p = ensureProvider();
+          return (await p.request({
+            method: "eth_accounts",
+          })) as readonly `0x${string}`[];
+        },
+
+        async getChainId() {
+          return chainId;
+        },
+
+        async getProvider() {
+          return ensureProvider() as unknown;
+        },
+
+        async isAuthorized() {
+          try {
+            const p = ensureProvider();
+            const accounts = (await p.request({
+              method: "eth_accounts",
+            })) as `0x${string}`[];
+            return accounts.length > 0;
+          } catch {
+            return false;
+          }
+        },
+
+        async switchChain({ chainId: target }: { chainId: number }) {
+          if (target !== chainId) {
             throw new Error(
-              "Sign in to the Paxeer Embedded Wallet first. Choose Email / Google / X / GitHub from the connect modal.",
+              `Paxeer Embedded Wallet is single-chain (Paxeer Mainnet / ${chainId}). Cannot switch to ${target}.`,
             );
           }
-          return { accounts: [] as readonly `0x${string}`[], chainId };
-        }
-        return { accounts, chainId };
-      },
+          const chain = config.chains.find((c) => c.id === target);
+          if (!chain) throw new Error(`Chain ${target} not configured`);
+          return chain;
+        },
 
-      async disconnect() {
-        const p = provider;
-        if (p) {
-          p.removeListener("accountsChanged", onAccountsChanged);
-          p.removeListener("chainChanged", onChainChanged);
-          p.removeListener("disconnect", onDisconnect);
-          p.destroy();
-        }
-        provider = null;
-        // Also drop the Supabase session — the user explicitly disconnected.
-        try {
-          await wallet.signOut();
-        } catch {
-          /* ignore — wagmi disconnect must always succeed */
-        }
-      },
-
-      async getAccounts() {
-        const p = ensureProvider();
-        return (await p.request({ method: "eth_accounts" })) as readonly `0x${string}`[];
-      },
-
-      async getChainId() {
-        return chainId;
-      },
-
-      async getProvider() {
-        return ensureProvider() as unknown;
-      },
-
-      async isAuthorized() {
-        try {
-          const p = ensureProvider();
-          const accounts = (await p.request({ method: "eth_accounts" })) as `0x${string}`[];
-          return accounts.length > 0;
-        } catch {
-          return false;
-        }
-      },
-
-      async switchChain({ chainId: target }: { chainId: number }) {
-        if (target !== chainId) {
-          throw new Error(
-            `Paxeer Embedded Wallet is single-chain (Paxeer Mainnet / ${chainId}). Cannot switch to ${target}.`,
-          );
-        }
-        const chain = config.chains.find((c) => c.id === target);
-        if (!chain) throw new Error(`Chain ${target} not configured`);
-        return chain;
-      },
-
-      onAccountsChanged: onAccountsChanged as (accounts: readonly `0x${string}`[]) => void,
-      onChainChanged,
-      onDisconnect,
-    };
-  });
+        onAccountsChanged: onAccountsChanged as (
+          accounts: readonly `0x${string}`[],
+        ) => void,
+        onChainChanged,
+        onDisconnect,
+      };
+    },
+  );
 }

@@ -31,7 +31,8 @@ export function fmtUsdCompact(v: number | string | null | undefined): string {
   if (isNaN(n) || Math.abs(n) < 0.005) return "\u2014";
   const sign = n < 0 ? "-" : "";
   const abs = Math.abs(n);
-  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(2)}B`;
+  if (abs >= 1_000_000_000)
+    return `${sign}$${(abs / 1_000_000_000).toFixed(2)}B`;
   if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
   if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(2)}K`;
   return `${sign}$${usdFmt.format(abs)}`;
@@ -43,10 +44,19 @@ export function fmtUsdCompact(v: number | string | null | undefined): string {
  */
 export function fmtPrice(price: number): string {
   if (price >= 1000)
-    return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return price.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   if (price >= 1)
-    return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  return price.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+    return price.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+  return price.toLocaleString("en-US", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 6,
+  });
 }
 
 /**
@@ -84,6 +94,52 @@ export function fmtDate(v: string | null | undefined): string {
  */
 export function shortAddr(a: string): string {
   return `${a.slice(0, 6)}...${a.slice(-4)}`;
+}
+
+/** Rewrite a finite decimal, including scientific notation, without a float round-trip. */
+export function toPlainDecimal(v: string): string {
+  const m = /^([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/.exec(v.trim());
+  if (!m || (m[2] === "" && (m[3] ?? "") === ""))
+    throw new Error(`Invalid decimal: ${v}`);
+  const exp = m[4] ? Number(m[4]) : 0;
+  if (Math.abs(exp) > 1000)
+    throw new Error(`Decimal exponent out of range: ${v}`);
+  const frac = m[3] ?? "";
+  const digits = m[2] + frac;
+  const point = m[2].length + exp;
+  const padded =
+    point <= 0
+      ? "0".repeat(1 - point) + digits
+      : point > digits.length
+        ? digits.padEnd(point, "0")
+        : digits;
+  const at = Math.max(point, 1);
+  const intPart = padded.slice(0, at).replace(/^0+(?=\d)/, "");
+  const fracPart = padded.slice(at).replace(/0+$/, "");
+  const body = fracPart ? `${intPart}.${fracPart}` : intPart;
+  return m[1] === "-" && /[1-9]/.test(body) ? `-${body}` : body;
+}
+
+/** Exact integer wei from an 18-decimal string; sub-wei digits truncate toward zero. */
+export function parseWei(v: string): bigint {
+  return BigInt(toPlainDecimal(v).split(".")[0]);
+}
+
+const WEI = 10n ** 18n;
+
+/** Exact wei of an 18-decimal string, or zero for absent/unparseable values. */
+export function weiOrZero(v: string | null | undefined): bigint {
+  if (!v) return 0n;
+  try {
+    return parseWei(v);
+  } catch {
+    return 0n;
+  }
+}
+
+/** Convert exact wei to a display-only number. */
+export function weiToNumber(wei: bigint): number {
+  return Number(wei / WEI) + Number(wei % WEI) / 1e18;
 }
 
 /**

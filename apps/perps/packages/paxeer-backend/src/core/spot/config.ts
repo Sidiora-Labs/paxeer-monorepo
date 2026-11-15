@@ -2,7 +2,6 @@ import { coinLogoUrl } from "@paxeer-network/paxeer-backend/core/perps/config";
 import {
   SPOT_STABLECOIN_LIST,
   SPOT_TOKENS,
-  getTradableAddress,
   type SpotTokenMeta,
 } from "@paxeer-network/paxeer-backend/core/spot/addresses";
 
@@ -10,22 +9,17 @@ import {
 export interface SpotMarket {
   /** Internal symbol used for WS topics and routing (e.g. "SID"). */
   symbol: string;
-  /** Human-readable display pair (e.g. "SID/USD"). */
+  /** Human-readable display pair (e.g. "SID/USDL"). */
   pair: string;
   /** Full market name. */
   name: string;
   /** Base token display symbol as it appears in the UI. */
   baseToken: string;
-  /** Quote side is always unified "USD" (abstraction over USDL/USDC/USDT). */
-  quoteToken: "USD";
+  /** Quote side is always USDL, the only stable token of the venue. */
+  quoteToken: "USDL";
   /** Token decimals for the base asset. */
   baseDecimals: number;
-  /**
-   * On-chain ERC-20 address the matching engine actually receives for
-   * this market. For native PAX this resolves to `WPAX9`; for every
-   * other market it's the base token's own address. Use this when
-   * constructing `marketBuy` / `marketSell` calldata.
-   */
+  /** On-chain address of the base token entry. */
   baseAddress: `0x${string}`;
   /** Full base-token metadata from the address registry. */
   baseTokenMeta: SpotTokenMeta;
@@ -44,50 +38,35 @@ function defineSpotMarket(
 ): SpotMarket {
   return {
     symbol: config.symbol,
-    pair: `${config.symbol}/USD`,
+    pair: `${config.symbol}/USDL`,
     name: config.name,
     baseToken: meta.symbol,
-    quoteToken: "USD",
+    quoteToken: "USDL",
     baseDecimals: meta.decimals,
-    baseAddress: getTradableAddress(meta),
+    baseAddress: meta.address,
     baseTokenMeta: meta,
     description: config.description,
   };
 }
 
-// ── Initial 4 SPOT pairs ────────────────────────────────────────────
+// ── Opening pairs of the spot venue ─────────────────────────────────
 export const SPOT_MARKETS: SpotMarket[] = [
+  defineSpotMarket(SPOT_TOKENS.PAX, {
+    symbol: "PAX",
+    name: "Paxeer Network",
+    description:
+      "Paxeer Network is a next-generation Layer 1 blockchain designed for high-throughput trading applications.",
+  }),
   defineSpotMarket(SPOT_TOKENS.SID, {
     symbol: "SID",
     name: "Sidiora Markets",
     description:
       "Sidiora Markets is the decentralized exchange protocol built on Paxeer Network. SID is the governance and utility token that accrues fees from all trading activity on the platform.",
   }),
-  defineSpotMarket(SPOT_TOKENS.WBNB, {
-    symbol: "BNB",
-    name: "Wrapped BNB",
-    description:
-      "BNB is the native token of the BNB Chain ecosystem, originally created as the utility token for the Binance exchange. It is used for transaction fees, staking, and governance.",
-  }),
-  defineSpotMarket(SPOT_TOKENS.WETH, {
-    symbol: "ETH",
-    name: "Wrapped Ether",
-    description:
-      "Ethereum is the leading smart contract platform powering thousands of decentralized applications, DeFi protocols, and NFTs.",
-  }),
-  defineSpotMarket(SPOT_TOKENS.PAX, {
-    symbol: "PAX",
-    name: "Paxeer Network",
-    description:
-      "Paxeer Network is a next-generation Layer 1 blockchain designed for high-throughput trading applications. Supports both wrapped (WPAX9) and native PAX.",
-  }),
 ];
 
 // ── Stablecoin abstraction ──────────────────────────────────────────
-// The three stablecoins are treated as unified "USD" in the SPOT UI.
-// The user never picks which stable to buy/sell with — `stableSelector`
-// (highest-balance for buys, deepest-vault-liquidity for sells) makes
-// the choice deterministically at submit time.
+// USDL is the only stable token; `stableSelector` settles every trade in it.
 //
 // `StablecoinMeta` is an alias for the unified token registry shape so
 // every consumer (orders, balances, indexer reconciliation) speaks the
@@ -117,7 +96,7 @@ export const DEFAULT_SPOT_SYMBOL = "SID";
 
 // ── Spot categories ─────────────────────────────────────────────────
 export const SPOT_CATEGORIES: Record<string, string[]> = {
-  crypto: ["SID", "BNB", "ETH", "PAX"],
+  crypto: ["PAX", "SID"],
 };
 
 export const SPOT_CATEGORY_LABELS: Record<string, string> = {

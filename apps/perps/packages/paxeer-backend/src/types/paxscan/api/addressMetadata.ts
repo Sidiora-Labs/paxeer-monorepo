@@ -1,11 +1,20 @@
 export interface AddressMetadataInfo {
-  addresses: Record<string, {
-    tags: Array<AddressMetadataTag>;
-    reputation: number | null;
-  }>;
+  addresses: Record<
+    string,
+    {
+      tags: Array<AddressMetadataTag>;
+      reputation: number | null;
+    }
+  >;
 }
 
-export type AddressMetadataTagType = 'name' | 'generic' | 'classifier' | 'information' | 'note' | 'protocol';
+export type AddressMetadataTagType =
+  | "name"
+  | "generic"
+  | "classifier"
+  | "information"
+  | "note"
+  | "protocol";
 
 // Response model from Metadata microservice API
 export interface AddressMetadataTag {
@@ -17,7 +26,10 @@ export interface AddressMetadataTag {
 }
 
 // Response model from Blockscout API with parsed meta field
-export interface AddressMetadataTagApi extends Omit<AddressMetadataTag, 'meta'> {
+export interface AddressMetadataTagApi extends Omit<
+  AddressMetadataTag,
+  "meta"
+> {
   meta: {
     textColor?: string;
     bgColor?: string;
