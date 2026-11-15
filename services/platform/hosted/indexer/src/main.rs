@@ -100,7 +100,15 @@ fn backfill(args: &[String]) -> Result<(), IndexError> {
         source.chain_id,
         source.encoding,
     );
-    let plan = Backfill::new(&node, settings.cutover, settings.range_blocks);
+    let plan = Backfill::with_options(
+        &node,
+        settings.cutover,
+        settings.range_blocks,
+        usize::try_from(settings.readers)
+            .map_err(|_| IndexError::Config("backfill readers exceed usize".to_owned()))?,
+        usize::try_from(settings.batch_blocks)
+            .map_err(|_| IndexError::Config("backfill batch size exceeds usize".to_owned()))?,
+    );
     plan.next_height(&store)?;
     let mut paxscan = PaxscanDatabase::connect(&settings.paxscan_url, &settings.paxscan_tls)?;
     let cutover = plan.run(&store, |from, to| paxscan.range_verified(from, to, &node))?;

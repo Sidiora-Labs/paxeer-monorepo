@@ -14650,6 +14650,30 @@ value = "It keeps routes, data flows, texts and their meaning, and the names tha
 basis = "Gotchas 4506 and 4507."
 affects = []
 
+[decision.3590]
+title = "The root of the trading workspace declares what its root tests import, and holds the proofs other components start there"
+value = "Every package that a file under apps/perps/tests imports is a development dependency of apps/perps/package.json, at the version the web application of the workspace declares where it declares one; a test of the directory holds that. The proof of the mounted markets view that the perps data gateway starts lives at apps/perps/tests/proof_widgets.test.ts and mounts the view of the workspace with its real client; the readers of the trading client wait for the declaration, and the consumer proofs of the gateway wait for the file."
+basis = "Gotcha 4508."
+affects = []
+
+[decision.3591]
+title = "The render check closes a surface on the device list"
+value = "The command under tools/ui-check starts a surface from its surface file, renders every view of it with Chromium at the device list of decision 3588 and reports what a view does not hold: a request, stylesheet or script that does not load, an error in the console, content that leaves the screen sideways, text that is cut, contrast below the values of decision 3588, a touch control below 44 pixels, a focus that does not show, a shift after load, motion that runs under reduced motion, and a text size outside the type scale the surface file declares. A surface is closed on the device list when the command reports nothing for it and the screenshots of that run have been looked at for what the command does not measure. The surface file and the fixed answers of a surface are test data under tools/ui-check/surfaces; screenshots stay outside the repository. Each web surface has one proof task that requires the last task of the surface and the task of the command. The record of the proof task holds the views, the sizes and the result of the run; a record names a size for a view only where the view was rendered at it. The mobile application of the launchpad is not a web surface; the command does not render it."
+basis = "Gotcha 4509."
+affects = []
+
+[decision.3592]
+title = "The suite of the bridge application is brought into line by one task, and the presentation task waits for it"
+value = "Task 22.39.676 reads each case of the bridge suite that differs from the code it tests and decides per difference which side states the product behaviour; the other side is brought to it. An assertion on security keeps its strength. Task 22.44.33 changes the presentation of the same tree and verifies with the whole suite, so it waits for task 22.39.676. Task 22.39.674 holds the manifest of the root of the trading workspace and so carries decision 3562; task 22.44.12 builds with the type check and waits for it."
+basis = "Gotcha 4510. Decision 3562."
+affects = []
+
+[decision.3593]
+title = "The semantic pairs of the human web application hold text contrast in each scheme, and the foundation suite states the present browser configuration"
+value = "The contrast reader evaluates every pair of its list once for the light scheme and once for the dark scheme, from the values the token file states for that scheme, and each result names its scheme. Every pair holds the text limit of 4.5 in both schemes; a token value that does not is moved by the smallest step in lightness that holds it, the same value at every place the file states it for that scheme. No pair leaves the list and the limit does not move. The foundation case on the browser suite asserts the match list and the tablet project as apps/web/playwright.config.ts states them; the configuration is not changed for the case. The kit task of the series waits for this."
+basis = "Gotcha 4511. Decision 3588."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44310,6 +44334,150 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.677]
+title = "Hold the semantic pairs of the human web application in both schemes and state the present browser configuration in the foundation suite"
+reqs = ["22998.1"]
+touches = ["apps/web/e2e/a11y.spec.ts", "apps/web/src/kit/a11y.ts", "apps/web/packages/layerx-ui/src/styles/tokens.css"]
+tests = []
+verification_contract = "npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation"
+do_1 = "do_1 Gotcha 4511, decisions 3593 and 3588. Read apps/web/src/kit/a11y.ts, the list of pairs in it and the function that takes the token values; apps/web/packages/layerx-ui/src/styles/tokens.css, the places where a token has a value for each scheme; apps/web/e2e/a11y.spec.ts and apps/web/playwright.config.ts."
+symbols = []
+
+[capability.22.39.676]
+title = "Bring the cases of the bridge application suite and the code they test into line"
+reqs = ["22998.1"]
+touches = ["apps/bridge/src"]
+tests = []
+verification_contract = "pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+do_1 = "do_1 Gotcha 4510, decision 3592. Paths are relative to apps/bridge. Read the cases named in do_2 and the code each tests: the proxy with its content security policy, the transfer store with its ledger rows, the attestation route, the settlement records, the custody of a withdrawal and the deposit status component."
+symbols = []
+
+[capability.22.44.48]
+title = "Close the documentation site on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.48.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/docs.json --out /tmp/ui-check/docs && npm --prefix docs/site/paxeer-docs run test:static && npm --prefix docs/site/paxeer-docs run build"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.47]
+title = "Close the page of the inference peer, the playground pages and the codebase map on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/inference-peer/index.html", "tools/wasm-tools/playground/pages", "tools/codebase-map/index.html", "tools/codebase-map/styles.css"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.47.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/pages.json --out /tmp/ui-check/pages && test -s apps/inference-peer/index.html && test -s tools/codebase-map/index.html && test -s tools/codebase-map/styles.css"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.46]
+title = "Close the names application on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/names/src"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.46.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/names.json --out /tmp/ui-check/names && pnpm --dir apps/names run build"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.45]
+title = "Close the bridge application on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/bridge/src"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.45.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/bridge.json --out /tmp/ui-check/bridge && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.44]
+title = "Close the developer dashboard on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard/web"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.44.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/dashboard.json --out /tmp/ui-check/dashboard && npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.43]
+title = "Close the human web application on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/web/src", "apps/web/packages/layerx-ui"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.43.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/human-web.json --out /tmp/ui-check/human-web && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.42]
+title = "Close the wallet demonstration pages on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["services/wallet/demo/src"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.42.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet-demo.json --out /tmp/ui-check/wallet-demo && cd services/wallet/demo && pnpm test"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.41]
+title = "Close the wallet application on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src", "apps/wallet/tailwind.config.ts"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.41.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.40]
+title = "Close the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad.json --out /tmp/ui-check/launchpad && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.39]
+title = "Close the trading workspace on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages", "apps/perps/apps/web/src", "apps/perps/docs/ui-source-baseline.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.39.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/trading.json --out /tmp/ui-check/trading && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.38]
+title = "Close the explorer on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.38.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer.json --out /tmp/ui-check/explorer && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+symbols = []
+
+[capability.22.44.37]
+title = "Add the render check that closes a surface on the device list"
+reqs = ["22998.1"]
+touches = ["tools/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4509, decisions 3588, 3589 and 3591. Read tools/README.md and how the packages under tools with a package file of their own are laid out and tested."
+symbols = []
+
+[capability.22.39.675]
+title = "Prove the mounted markets view of the trading workspace against the perps data gateway"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data/internal/feeds/proof_websocket_test.go", "apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && go test -count=1 ./services/platform/perps-data/internal/feeds/ -run '^TestMarketsNullableSnapshotsReachMountedView$'"
+do_1 = "do_1 Gotcha 4508, decision 3590. Read in services/platform/perps-data/internal/feeds/proof_websocket_test.go the case TestMarketsNullableSnapshotsReachMountedView: how it starts the test file from apps/perps, the name pattern, the four variables it passes, how it reads the lines that ask for a phase and writes the phase files, and the function that sets what the gateway serves in each phase. Read the markets list widget of the markets package of the workspace, the view and the data table it mounts, and the path a markets snapshot takes from the client of the workspace to that view."
+symbols = []
+
+[capability.22.39.674]
+title = "Declare at the root of the trading workspace the packages its root tests import"
+reqs = ["22998.1"]
+touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/root-imports.test.ts && pnpm --dir apps/perps typecheck"
+do_1 = "do_1 Gotcha 4508, decision 3590. Read apps/perps/package.json, the test script in it, the files under apps/perps/tests and the package file of the web application of the workspace."
+symbols = []
 
 [capability.22.44.36]
 title = "Bring the documentation site to the web platform guidance and close it on every device width"
@@ -173200,6 +173368,500 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.677]
+title = "Hold the semantic pairs of the human web application in both schemes and state the present browser configuration in the foundation suite"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.28"]
+reqs = ["22998.1"]
+capabilities = ["22.39.677"]
+interfaces = []
+do_1 = "do_1 Gotcha 4511, decisions 3593 and 3588. Read apps/web/src/kit/a11y.ts, the list of pairs in it and the function that takes the token values; apps/web/packages/layerx-ui/src/styles/tokens.css, the places where a token has a value for each scheme; apps/web/e2e/a11y.spec.ts and apps/web/playwright.config.ts."
+do_2 = "do_2 In apps/web/src/kit/a11y.ts the function that takes the token values returns the values of the light scheme and the values of the dark scheme: from the two-value form of the scheme function its first and second value, from an explicit block of a scheme the values of that block, and a token with a single value holds it in both. The results of the pairs carry the scheme, and the assertion of the reader names token pair, scheme and ratio. The names the application imports from the file keep their form; a new name is added where a caller needs the scheme."
+do_3 = "do_3 In apps/web/e2e/a11y.spec.ts the case on the semantic pairs asserts every pair in both schemes at the limit of the reader. Where a pair is below the limit in a scheme, change the token value in apps/web/packages/layerx-ui/src/styles/tokens.css by the smallest step in lightness that holds the limit with every pair the token takes part in, and write the same value at every place the file states that token for that scheme. No pair is taken off the list, the limit stays 4.5, and no value of a scheme that already holds is moved."
+do_4 = "do_4 In apps/web/e2e/a11y.spec.ts the case on the browser suite asserts what apps/web/playwright.config.ts states at present: that the match list holds the pattern of the browser directory, that the tablet project with the coarse pointer exists and that it selects the accessibility file of the browser directory. apps/web/playwright.config.ts and the workflow file stay as they are."
+do_5 = "do_5 A test under apps/web/e2e that states one of the changed token values follows the new value in the same commit, and only there. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/web/e2e/a11y.spec.ts", "apps/web/src/kit/a11y.ts", "apps/web/packages/layerx-ui/src/styles/tokens.css"]
+tests = []
+planned_paths = []
+build_cmd = "make human-js-install && make agent-sdk-ts-build"
+verify_cmd = "npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.676]
+title = "Bring the cases of the bridge application suite and the code they test into line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.676"]
+interfaces = []
+do_1 = "do_1 Gotcha 4510, decision 3592. Paths are relative to apps/bridge. Read the cases named in do_2 and the code each tests: the proxy with its content security policy, the transfer store with its ledger rows, the attestation route, the settlement records, the custody of a withdrawal and the deposit status component."
+do_2 = "do_2 The cases: in src/proxy.spec.ts contentSecurityPolicyAllowsOnlyConfiguredOrigins; in src/test/proof_security_headers.spec.ts securityHeadersReachTheConsumerTwice and invalidEnvironmentEndpointsNeverReachResponseSources; in src/test/proof_ledger.spec.ts submittedProducersCrossTheLedgerAndSurviveReopening, receiptProducersReachTheComponentsRealConsumerTwice, enrichmentCrossesTheLedgerButRefusesUnrelatedOrRevertedReceipts and malformedProducerRowsAreRefusedAtTheRealConsumerDecoder; in src/test/proof_attestation_api.spec.ts provesAttestationConsumersAfterReopeningTheTransferStore; in src/test/proof_settlement.spec.ts proofSettlementDepositReachesReceiptAndStatusConsumers and proofSettlementWithdrawalReachesWalletAndStatusConsumers; in src/components/trading/deposit-status.spec.ts registryTransferStepDisplaysEveryProducedPhase; in src/lib/bridge/withdrawal-settlement-custody.spec.ts withdrawalVaultSubmissionReloadNonceAndVerifiedRelease."
+do_3 = "do_3 For each case compare what it expects with what the code gives: the form of a transfer id, with the chain in front or without it; the fields of a ledger row and of a settlement record; the directives of the policy; the phases the status component shows; the release of a withdrawal. Decide per difference which side states the product behaviour: read the history of both files and the readers of the value outside the suite, the routes, the components and the documents under contracts/bridge. The side that is wrong is brought to the other."
+do_4 = "do_4 No case is brought to pass by removing an assertion on behaviour. An assertion on security, the policy, the refusal of malformed rows and the verified release, keeps its strength; where the code is the wrong side there, the code is repaired. Run the whole suite of the package and bring any further case that differs along the same way."
+do_5 = "do_5 Give in the final message one line per case: which side changed and why. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/bridge/src"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/bridge install --frozen-lockfile && pnpm --dir apps/bridge run typecheck"
+verify_cmd = "pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.48]
+title = "Close the documentation site on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.36", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.48"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/docs.json: the commands that build and start the surface, and its views. The views are the front page, one page of each kind of the site, the search and the assistant panel; the built site is served. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/docs, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The front page leads with the kernel as it does now."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.48.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/docs.json", "tools/ui-check/surfaces/docs", "spec/layerx-merge/programme/records/ui/22.44.48.kvx"]
+build_cmd = "npm --prefix docs/site/paxeer-docs ci"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.48.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/docs.json --out /tmp/ui-check/docs && npm --prefix docs/site/paxeer-docs run test:static && npm --prefix docs/site/paxeer-docs run build"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.47]
+title = "Close the page of the inference peer, the playground pages and the codebase map on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.35", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.47"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/pages.json: the commands that build and start the surface, and its views. The pages are files: the command serves their directories itself, and each page is a view. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/pages, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The pages keep working when opened as files."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.47.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/inference-peer/index.html", "tools/wasm-tools/playground/pages", "tools/codebase-map/index.html", "tools/codebase-map/styles.css"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/pages.json", "tools/ui-check/surfaces/pages", "spec/layerx-merge/programme/records/ui/22.44.47.kvx"]
+build_cmd = "test -s apps/inference-peer/index.html && test -s tools/codebase-map/index.html"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.47.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/pages.json --out /tmp/ui-check/pages && test -s apps/inference-peer/index.html && test -s tools/codebase-map/index.html && test -s tools/codebase-map/styles.css"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.46]
+title = "Close the names application on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.34", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.46"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/names.json: the commands that build and start the surface, and its views. The views are the status page and a published site page. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/names, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The proof data flow of the page stays."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.46.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/names/src"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/names.json", "tools/ui-check/surfaces/names", "spec/layerx-merge/programme/records/ui/22.44.46.kvx"]
+build_cmd = "pnpm --dir apps/names install --frozen-lockfile"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.46.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/names.json --out /tmp/ui-check/names && pnpm --dir apps/names run build"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.45]
+title = "Close the bridge application on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.33", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.45"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/bridge.json: the commands that build and start the surface, and its views. The views are the transfer view with each step of a deposit and of a withdrawal, the import of a transfer and the history. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/bridge, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The security headers of the application stay as they are."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.45.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/bridge/src"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/bridge.json", "tools/ui-check/surfaces/bridge", "spec/layerx-merge/programme/records/ui/22.44.45.kvx"]
+build_cmd = "pnpm --dir apps/bridge install --frozen-lockfile && pnpm --dir apps/bridge run typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.45.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/bridge.json --out /tmp/ui-check/bridge && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.44]
+title = "Close the developer dashboard on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.32", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.44"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/dashboard.json: the commands that build and start the surface, and its views. The views are the sign-in view and every view behind it; the session and the answers of the dashboard service are fixed answers. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/dashboard, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The built style check of the package stays."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.44.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard/web"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/dashboard.json", "tools/ui-check/surfaces/dashboard", "spec/layerx-merge/programme/records/ui/22.44.44.kvx"]
+build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.44.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/dashboard.json --out /tmp/ui-check/dashboard && npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.43]
+title = "Close the human web application on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.31", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.43"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/human-web.json: the commands that build and start the surface, and its views. The views are the routes of the application and the pages of its kit; the signed-in views are reached through the stand-ins the package uses in its tests. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/human-web, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. A value that belongs to the interface package is corrected there."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.43.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/web/src", "apps/web/packages/layerx-ui"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/human-web.json", "tools/ui-check/surfaces/human-web", "spec/layerx-merge/programme/records/ui/22.44.43.kvx"]
+build_cmd = "make human-js-install && make agent-sdk-ts-build"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.43.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/human-web.json --out /tmp/ui-check/human-web && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.42]
+title = "Close the wallet demonstration pages on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.27", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.42"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/wallet-demo.json: the commands that build and start the surface, and its views. The views are the pages of the demonstration. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/wallet-demo, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The demonstration keeps its flows."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.42.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/demo/src"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/wallet-demo.json", "tools/ui-check/surfaces/wallet-demo", "spec/layerx-merge/programme/records/ui/22.44.42.kvx"]
+build_cmd = "(cd services/agent/sdk/typescript && npm ci --workspaces=false --no-audit --no-fund && npm run build --workspaces=false) && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile)"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.42.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet-demo.json --out /tmp/ui-check/wallet-demo && cd services/wallet/demo && pnpm test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.41]
+title = "Close the wallet application on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.26", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.41"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/wallet.json: the commands that build and start the surface, and its views. The views are the routes of the wallet application and its drawers and dialogs; the signed-in views are reached through the stand-ins the package uses in its tests. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/wallet, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The installed form of the application keeps its offline script as it is."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.41.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/wallet/src", "apps/wallet/tailwind.config.ts"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "spec/layerx-merge/programme/records/ui/22.44.41.kvx"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.41.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.40]
+title = "Close the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.22", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.40"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/launchpad.json: the commands that build and start the surface, and its views. The views are the routes of the launchpad web application, among them the launch flow of a chain with its token, the lists, the detail of a launch and the account views. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.40.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/launchpad.json", "tools/ui-check/surfaces/launchpad", "spec/layerx-merge/programme/records/ui/22.44.40.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad.json --out /tmp/ui-check/launchpad && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.39]
+title = "Close the trading workspace on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.18", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.39"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/trading.json: the commands that build and start the surface, and its views. The views are the routes of the web application of the workspace: markets, the trading view with its panels, portfolio, the vaults, rewards and the settings. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/trading, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. A presentation file changed here carries its runtime digest in apps/perps/docs/ui-source-baseline.json as decision 3589 says. Bundles of third parties are not edited."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.39.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages", "apps/perps/apps/web/src", "apps/perps/docs/ui-source-baseline.json"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/trading.json", "tools/ui-check/surfaces/trading", "spec/layerx-merge/programme/records/ui/22.44.39.kvx"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.39.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/trading.json --out /tmp/ui-check/trading && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.38]
+title = "Close the explorer on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.11", "22.44.37"]
+reqs = ["22998.1"]
+capabilities = ["22.44.38"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui, and the package file of the surface for its build and start commands."
+do_2 = "do_2 Write the surface file tools/ui-check/surfaces/explorer.json: the commands that build and start the surface, and its views. The views are the pages under apps/explorer/pages, among them the home page, the lists and details of blocks, transactions, addresses and tokens, the search, the statistics and the price pages. The list is complete: every route the surface serves is a view, and a view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. Requests that leave the surface are answered from files under tools/ui-check/surfaces/explorer, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. Declare the type scale from the tokens of the surface."
+do_3 = "do_3 Run the command for the surface. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The explorer keeps the visual system of its design brief."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.38.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/explorer.json", "tools/ui-check/surfaces/explorer", "spec/layerx-merge/programme/records/ui/22.44.38.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.38.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer.json --out /tmp/ui-check/explorer && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.37]
+title = "Add the render check that closes a surface on the device list"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.37"]
+interfaces = []
+do_1 = "do_1 Gotcha 4509, decisions 3588, 3589 and 3591. Read tools/README.md and how the packages under tools with a package file of their own are laid out and tested."
+do_2 = "do_2 Create tools/ui-check as a package of its own with a lockfile. Its dependencies are playwright and axe-core at exact versions, and nothing else. Chromium is fetched by the install command of playwright with its system packages; nothing of the browser enters the repository. Add one line for the package to tools/README.md."
+do_3 = "do_3 The command is node tools/ui-check/check.mjs with --surface and a surface file and --out and a directory. A surface file is a JSON file that names: the surface; the directory and the commands that build and start it, or for pages that are files the directory the command serves itself; the address and the path that answers when the surface is ready; the views, each with a name, a path and, where the view has states, the steps that bring it to a state: click, fill, press, wait for a text; the fixed answers: a request of the page that leaves the surface is answered from a file beside the surface file, chosen by method and address pattern; and the type scale of the surface: its font sizes in CSS pixels, a fluid step as a range. A request that leaves the surface and has no fixed answer is reported and is not sent."
+do_4 = "do_4 For each view and state the command renders at each width of decision 3588 and at 844 by 390, in the light and in the dark scheme. At 390 and at 1440 it renders three more times: with reduced motion, with text at twice its size, and by keyboard, moving the focus through every element that takes it. The whole page is rendered, not only the first screen."
+do_5 = "do_5 It reports findings of these kinds, each with the view, the state, the size, the scheme, the mode, a selector and the measured values. load: a request, stylesheet or script of the page that does not load, an error in the console, an error that nothing catches, a request without a fixed answer. sideways: the document or an element is wider than the screen. cut: text that its box cuts where the box declares no ellipsis and no scroll. contrast: text or a part of a control below the values of decision 3588, measured by axe-core. touch: at widths up to 834 a control that takes touch and measures less than 44 CSS pixels in a direction; a link inside a line of text is exempt. focus: an element that takes the focus and looks the same with it as without it, or that sits outside the screen when it holds it. shift: a layout shift score above 0.05 between the first paint and rest. motion: an animation or transition that runs longer than a tenth of a second under reduced motion. scale: a text whose computed size is no step of the declared type scale. The limits are constants of the command; a surface file cannot change them and cannot exempt a view from a kind."
+do_6 = "do_6 It writes into the output directory one screenshot per render and one result file in JSON with every render and its findings, prints one line per view and a total, and ends with a status other than zero when there is a finding, when a view did not render or when the surface did not start. It refuses an output directory inside the repository. The option --view limits a run to one view; the option --list prints the device list."
+do_7 = "do_7 Tests under tools/ui-check/test for the test runner of the runtime, with static pages of their own served by the test: a clean page passes at the whole list; for each kind of do_5 one page that holds exactly that defect is reported with that kind and no other; a view that does not answer ends the run with a status other than zero; an output directory inside the repository is refused; a surface file that tries to set a limit or an exemption is refused. No surface file of a product surface is written by this task."
+do_8 = "do_8 Write tools/ui-check/README.md: the command and its options, the form of a surface file, the kinds of findings with their limits, and how a surface is added. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/README.md"]
+tests = []
+planned_paths = ["tools/ui-check"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.674]
+title = "Declare at the root of the trading workspace the packages its root tests import"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.674"]
+interfaces = []
+do_1 = "do_1 Gotcha 4508, decision 3590. Read apps/perps/package.json, the test script in it, the files under apps/perps/tests and the package file of the web application of the workspace."
+do_2 = "do_2 Add to the development dependencies of apps/perps/package.json every package that a file under apps/perps/tests imports and the root does not declare; at present these are @tanstack/react-query, react, react-dom and next. Each takes the version the web application of the workspace declares. Bring apps/perps/pnpm-lock.yaml along with the package manager at the version the workspace pins; no other version in the lockfile moves."
+do_3 = "do_3 Add apps/perps/tests/root-imports.test.ts for the test runner the other tests of the directory use. It reads every source file under apps/perps/tests, takes the package of each import that is neither relative nor a builtin of the runtime, and asserts that the package is a dependency or a development dependency of apps/perps/package.json and that it resolves from the tests directory. One assertion names the packages of do_2."
+do_4 = "do_4 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+tests = []
+planned_paths = ["apps/perps/tests/root-imports.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/root-imports.test.ts && pnpm --dir apps/perps typecheck"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3562. The type check script of apps/perps/package.json first builds the packages of the workspace that the web application imports through their built output, as the dev script of the same file does for the market data client, and then checks; with it the type check passes after a fresh install. The test of do_3 gains one assertion that the script holds that build. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+
 [task.22.44.36]
 title = "Bring the documentation site to the web platform guidance and close it on every device width"
 status = "pending"
@@ -173237,7 +173899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.35]
 title = "Bring the page of the inference peer, the playground pages and the codebase map to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173272,7 +173934,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.34]
 title = "Bring the names application to the web platform guidance and close it on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173310,7 +173972,7 @@ title = "Bring the bridge application to the web platform guidance and close it 
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.676"]
 reqs = ["22998.1"]
 capabilities = ["22.44.33"]
 interfaces = []
@@ -173450,7 +174112,7 @@ title = "Bring the kit, shell, states and global style of the human web applicat
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.28"]
+requires = ["22.44.28", "22.39.677"]
 reqs = ["22998.1"]
 capabilities = ["22.44.29"]
 interfaces = []
@@ -173482,7 +174144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.28]
 title = "Bring the interface package of the human web application to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174045,7 +174707,7 @@ title = "Bring the interface package and the global style of the trading workspa
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.674"]
 reqs = ["22998.1"]
 capabilities = ["22.44.12"]
 interfaces = []
@@ -174497,7 +175159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.668]
 title = "Build the dashboard style sheet from the classes of the UI package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199692,6 +200354,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.675]
+title = "Prove the mounted markets view of the trading workspace against the perps data gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.674"]
+reqs = ["22998.1"]
+capabilities = ["22.39.675"]
+interfaces = []
+do_1 = "do_1 Gotcha 4508, decision 3590. Read in services/platform/perps-data/internal/feeds/proof_websocket_test.go the case TestMarketsNullableSnapshotsReachMountedView: how it starts the test file from apps/perps, the name pattern, the four variables it passes, how it reads the lines that ask for a phase and writes the phase files, and the function that sets what the gateway serves in each phase. Read the markets list widget of the markets package of the workspace, the view and the data table it mounts, and the path a markets snapshot takes from the client of the workspace to that view."
+do_2 = "do_2 Write apps/perps/tests/proof_widgets.test.ts for the test runner the other tests of the directory use, with the two tests marketsNullableSnapshotsReachMountedView and marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults. They mount the markets list widget of the workspace with the real client of the workspace bound to the gateway of NEXT_PUBLIC_PERPS_GATEWAY_URL and the market proxy of NEXT_PUBLIC_MARKET_PROXY_HOST. Nothing between the gateway and the table is replaced by a stand-in: client, stream, state and table are the ones the application uses."
+do_3 = "do_3 The phases: to ask for phase 1, 2 or 3, in that order, the file prints one line that holds PROOF_ADVANCE= followed by the number to standard output and waits until a file named by that number exists in the directory of PROOF_PHASE_DIR. A run prints each of the three lines once across the two tests and ends with two passing tests."
+do_4 = "do_4 The first test, with PROOF_NULLABLE_MARKETS set: the snapshots carry no value in their nullable fields; the mounted view shows a row for every market of the snapshot with the empty form of those fields, and no render fails. The second test: after each phase the table shows the rows of that phase with their values and no row or value of an earlier phase."
+do_5 = "do_5 Without NEXT_PUBLIC_PERPS_GATEWAY_URL the two tests report themselves as skipped, so that the test command of the root stays usable. A package the file needs for a document tree in the runtime is declared at the root as decision 3590 says, one the workspace already holds where it holds one. In services/platform/perps-data/internal/feeds/proof_websocket_test.go change only what the case of do_1 needs to start the file of the workspace, and nothing in the other cases."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data/internal/feeds/proof_websocket_test.go", "apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+tests = []
+planned_paths = ["apps/perps/tests/proof_widgets.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && go vet ./services/platform/perps-data/internal/feeds/"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && go test -count=1 ./services/platform/perps-data/internal/feeds/ -run '^TestMarketsNullableSnapshotsReachMountedView$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.667]
 title = "Approve the launchpad migration release through a mode of the schema command"
 status = "done"
@@ -200399,7 +201094,7 @@ title = "Run the consumer proofs of the perps data gateway against the client in
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563"]
+requires = ["22.39.563", "22.39.675"]
 reqs = ["22998.1"]
 capabilities = ["22.39.570"]
 interfaces = []
@@ -200429,7 +201124,7 @@ title = "Point the Go readers of the trading client at the workspace"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563"]
+requires = ["22.39.563", "22.39.674"]
 reqs = ["22998.1"]
 capabilities = ["22.39.569"]
 interfaces = []
@@ -210870,7 +211565,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.673]
 title = "Read the blocks of a backfill range through several readers and in batches"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -381387,7 +382082,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.671]
 title = "Name the health port of the dashboard API and the gateway origin of the dashboard web in their definitions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
