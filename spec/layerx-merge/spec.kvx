@@ -247150,7 +247150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.679]
 title = "Compare the fast execution path with the ordinary path over a state without stored parameter values"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.678"]
