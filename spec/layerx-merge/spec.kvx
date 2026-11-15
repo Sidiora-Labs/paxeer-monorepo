@@ -378123,7 +378123,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.605]
 title = "Define the service smart-contract-verifier of the project explorer for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378411,7 +378411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.595]
 title = "Define the service gas-station of the project wallet for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
