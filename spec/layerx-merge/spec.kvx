@@ -172206,7 +172206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.609]
 title = "Let the system map generator of the documentation site run where the inventory is not in reach"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172302,7 +172302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.601]
 title = "Add the container file of the service bridge-web and define it in the project interop for the hosting platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
