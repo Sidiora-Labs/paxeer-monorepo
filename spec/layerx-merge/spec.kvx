@@ -197019,7 +197019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.509]
 title = "Let the binding cases of the Rust program SDK find the artifacts they read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.512"]
