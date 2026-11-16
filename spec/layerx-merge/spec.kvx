@@ -212874,7 +212874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.709]
 title = "Let the definition of the hosted gateway carry the bindings of the product routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.708"]
