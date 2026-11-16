@@ -79,8 +79,10 @@ symlinks in the copy to refer to the copied files. On a home where sequencing is
 active, include the configured receipt key and consensus key in the copy;
 `sequencer.receipt-key-file` in `config/app.toml` must point inside that copy.
 The receipt key signs the batch used by all three forms. To check a copy that
-has neither key file, pass `--stand-in-receipt-key`; this uses an in-memory key
-for the temporary forms and writes it to no file. Store locks must be
+has neither key file, pass `--stand-in-receipt-key`; this registers an in-memory
+key in the pinned key record and parameter record of the state each temporary
+form executes, covering the checked block height, and in the signer's pins.
+The key is written to no file and included in no output. Store locks must be
 available, and `applycheck-copy` must be a regular file at the root of the home.
 
 Flags:
@@ -94,15 +96,18 @@ Flags:
 - `--block-time RFC3339`: choose a time after the last committed block. The
   default is that block's time plus one second.
 - `--output PATH`: write JSON outside the copied home; omit it to use stdout.
-- `--stand-in-receipt-key`: replace the configured receipt and consensus key
-  files with an in-memory key for this check.
+- `--stand-in-receipt-key`: use an in-memory key registered in each temporary
+  form's execution state in place of the configured key files.
 
 The JSON report includes the chain ID, next block height and time, receipt key
 mode (`registered` or `stand-in`), committed
 height and application hash, and the `sequencer`, `follower_fast`, and
 `follower_ordinary` forms. Each form records transaction codes, codespaces, gas
 wanted and used, events, EVM status, logs, contract addresses and receipts, and
-the application hash it would commit. The comparison identifies the first
+the application hash it would commit. The fast form enables the fast executor
+and loads the platform's engine library from the same location as the node.
+It runs when the library is absent too; its `engine_library` report member is
+`loaded` or `absent`. The comparison identifies the first
 differing field and the one-based position in the supplied transaction list,
 excluding the generated sequence batch. Panics include their messages and count
 as differences. Exit codes are `0` for agreement, `1` for differences, and `2`

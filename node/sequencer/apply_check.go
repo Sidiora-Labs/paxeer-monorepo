@@ -10,6 +10,7 @@ import (
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
@@ -41,11 +42,17 @@ func (s ApplyCheck) PrepareApplyCheckState(a *app.App, height int64) error {
 		FirstHeight: uint64(height),
 		LastHeight:  math.MaxUint64,
 	}}
-	ctx := a.GetCheckCtx()
-	if err := a.SequencerKeeper.SetReceiptKeys(ctx, keys); err != nil {
+	// Block execution branches from the working store, independently of CheckTx.
+	state := a.NewUncachedContext(false, tmproto.Header{Height: height})
+	if err := a.SequencerKeeper.InitReceiptKeyState(state, a.GetSubspace(seqtypes.ModuleName), keys); err != nil {
 		return err
 	}
-	if err := seqkeeper.InitReceiptKeys(ctx, a.GetSubspace(seqtypes.ModuleName), keys); err != nil {
+	// Apply the pending changes to the disposable working tree before any
+	// execution branch reads it. Computing its hash does not commit a version.
+	if _, err := a.CommitMultiStore().GetWorkingHash(); err != nil {
+		return err
+	}
+	if err := a.SequencerKeeper.InitReceiptKeyState(a.GetCheckCtx(), a.GetSubspace(seqtypes.ModuleName), keys); err != nil {
 		return err
 	}
 	return s.ReceiptKey.SetPins([]verify.SequencerAuthorization{{
