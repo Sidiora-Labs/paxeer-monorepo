@@ -15226,6 +15226,24 @@ value = "The api in the role rest gains a second listener, named by API_PRIVATE_
 basis = "Gotcha 4603. Decision 3676."
 affects = []
 
+[decision.3686]
+title = "A kept result of the secrets check stands for an answer of the provider"
+value = "The check keeps a result only for an answer about a secret: a required secret the provider reports as missing, or a value that differs from the consumed one. Where the context of a call has ended, the check returns the error of that context for that call and keeps nothing, and the next call reads again. The rule holds alike in the eleven services. The kept results, their texts, the restart rule after a rotation, the refresh and its interval stay as they are."
+basis = "Gotcha 4604."
+affects = []
+
+[decision.3687]
+title = "The network authority of the api attests outside the readiness request"
+value = "The authority keeps the last envelope it built and the time it built it. A refresh that the api owns, started with the authority and stopped with the server, builds an envelope every ten seconds under the bound of the attestation policy; one refresh runs at a time. The readiness check reads no node and no store: it answers ready where the kept envelope was built within the last minute, the age the attestation policy allows, and not ready otherwise. Before the first refresh has ended it answers not ready. The route GET /v2/network/authority and the preflight routes build their answer for each request as now. The interval and the age are constants of the package beside the present bounds. The readiness handler and its deadline stay as they are."
+basis = "Gotcha 4605."
+affects = []
+
+[decision.3688]
+title = "A request the page cancelled is counted, not found; a request the check ended is found once"
+value = "A failed request whose reason is the cancellation by the page is no load finding. The check counts such requests for each render and writes the count into the result under the key cancelled, beside the findings of the render, and the summary names the total. A request the check ended itself yields the one finding it reports at that place, with its source, and no second finding from the failed request the browser reports for it. Every other failed request stays a load finding with the source requestfailed: a refused connection, a reset, a name that does not resolve, a failed fetch of the surface. A cancelled document request of the navigation of the render itself stays a finding. The other findings, the expects and the fixed answers are not changed."
+basis = "Gotcha 4606. Decision 3670."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44886,6 +44904,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.70]
+title = "Count a request the page cancelled without a finding in the render check and report an ended request once"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4606, decision 3688. Read tools/ui-check/check.mjs where it routes the requests of a page, where it ends a request itself, where it listens to failed requests and where it writes the result and the summary; the part of tools/ui-check/README.md on load findings and on requests that are pending when a render ends; and the cases of tools/ui-check/test/check.test.mjs on failed, blocked and unanswered requests. State in the final message the reasons the browser gives for a request the page cancelled and for the two ways the check ends a request."
+symbols = []
+
+[capability.22.39.757]
+title = "Attest the network authority of the api outside the readiness request"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "(cd services/launchpad/api && go test -count=1 -timeout 20m -run AuthorityReadiness ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 4605, decision 3687. Read services/launchpad/api/internal/app/authority.go: the type of the authority, the functions that read the committed head and build the envelope, the readiness check, the routes and the close; in services/launchpad/api/internal/app/app.go the place where the authority is built, where its readiness check is registered and where the server stops what it started; in sdk/launchpad/shared/config/deployment the attestation and its policy; in sdk/launchpad/shared/http the readiness handler; and the cases of the authority in services/launchpad/api/internal/app with the readers they make. State in the final message how the present cases give the authority a reader and a committed head."
+symbols = []
+
+[capability.22.39.756]
+title = "Keep a result of the secrets check of the launchpad services only for an answer of the provider"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "(cd services/launchpad/api && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/livestream && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/stats-*ers && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/)"
+do_1 = "do_1 Gotcha 4604, decision 3686. Read in the configuration package of each of the eleven services the function ResolveProductionSecrets with the check it returns and the refresh that calls it, in sdk/launchpad/shared/secrets the provider and what it answers where the context of a call has ended, in sdk/launchpad/shared/http the readiness handler and the context it gives a check, and the present cases on production secrets of each configuration package. The eleven services: api, gateway, indexer, livestream, metadata, pnl-tracker, ranking-algo, social, trading-charts, user and the directory of the stats service under services/launchpad, whose binary is statsd. State the eleven files in the final message."
+symbols = []
 
 [capability.22.39.755]
 title = "Serve the internal notification routes of the api on a private listener with mutual TLS"
@@ -174811,6 +174856,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.70]
+title = "Count a request the page cancelled without a finding in the render check and report an ended request once"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.62"]
+reqs = ["22998.1"]
+capabilities = ["22.44.70"]
+interfaces = []
+do_1 = "do_1 Gotcha 4606, decision 3688. Read tools/ui-check/check.mjs where it routes the requests of a page, where it ends a request itself, where it listens to failed requests and where it writes the result and the summary; the part of tools/ui-check/README.md on load findings and on requests that are pending when a render ends; and the cases of tools/ui-check/test/check.test.mjs on failed, blocked and unanswered requests. State in the final message the reasons the browser gives for a request the page cancelled and for the two ways the check ends a request."
+do_2 = "do_2 A failed request whose reason is the cancellation by the page adds no finding and is counted for its render. The check tells such a request from one it ended itself by remembering the requests it ended, not by the text of the reason alone. The document request of the navigation of the render stays a finding where it is cancelled."
+do_3 = "do_3 A request the check ended itself yields the one finding of that place and no second one from the failed request the browser reports for it. Every other failed request stays a load finding with the source requestfailed."
+do_4 = "do_4 The result names for each render the count under the key cancelled, zero included, and the summary line names the total of the run. The README states the rule in the table of the load findings and in the part on pending requests, with the key. The surface files that are present stay as they are."
+do_5 = "do_5 Cases in tools/ui-check/test/check.test.mjs with surfaces made in a temporary directory: a page that starts a read and cancels it shows no finding and the count one; a page that cancels three reads shows the count three; an address outside the surface without a fixed answer shows exactly one finding, with the source unanswered-request; a request to the surface that cannot be fetched shows exactly one finding; a refused connection stays a finding with the source requestfailed; a render without a cancelled request shows the count zero. The present cases stay; where one counted the second finding of an ended request, it follows decision 3688 and nothing else of it changes. Run the cases by hand and read each message."
+do_6 = "do_6 The files of tools/ui-check are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.69]
 title = "Close the terminal, swap and order views of the launchpad on the device list with the render check"
 status = "pending"
@@ -249412,6 +249490,69 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.757]
+title = "Attest the network authority of the api outside the readiness request"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.755"]
+reqs = ["22998.1"]
+capabilities = ["22.39.757"]
+interfaces = []
+do_1 = "do_1 Gotcha 4605, decision 3687. Read services/launchpad/api/internal/app/authority.go: the type of the authority, the functions that read the committed head and build the envelope, the readiness check, the routes and the close; in services/launchpad/api/internal/app/app.go the place where the authority is built, where its readiness check is registered and where the server stops what it started; in sdk/launchpad/shared/config/deployment the attestation and its policy; in sdk/launchpad/shared/http the readiness handler; and the cases of the authority in services/launchpad/api/internal/app with the readers they make. State in the final message how the present cases give the authority a reader and a committed head."
+do_2 = "do_2 The authority keeps the last envelope it built with the time it built it, and a refresh builds one every ten seconds under the bound of the attestation policy. One refresh runs at a time. The refresh starts where the authority is built and stops with the server, before the reader and the pool close; a failed refresh keeps the earlier envelope and the next one runs at the interval."
+do_3 = "do_3 The readiness check reads no node and no store. It answers ready where the kept envelope was built within the last minute and an error otherwise, also before the first refresh has ended. The route GET /v2/network/authority and the preflight routes are not changed. The interval and the age are constants of the package."
+do_4 = "do_4 Cases in services/launchpad/api/internal/app whose names start with TestAuthorityReadiness, with a reader and a committed head made in the case and a clock the case moves: the check answers not ready before the first refresh; ready after a refresh; ready while a later refresh fails and the kept envelope is younger than a minute; not ready once it is older; ready again after the next refresh that succeeds; the check makes no read of the reader and of the head source; the stop ends the refresh. Where the authority reads its head through the pool only, give it the smallest seam a case needs. The cases need no node; a case that needs a store uses the helper the package already has. The present cases stay and none is weakened."
+do_5 = "do_5 Run by hand the new cases, the present cases of the authority in services/launchpad/api/internal/app and the case TestRuntimeRoleStatements of services/launchpad/api/internal/rolecheck, one after another, and read each message. The files of services/launchpad/api are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Where the inventory of the statement case names a position in a changed file, bring the inventory in line; its list of waiting statements stays as it is. No case is removed or weakened. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/api && go build ./... && go vet ./internal/app/)"
+verify_cmd = "(cd services/launchpad/api && go test -count=1 -timeout 20m -run AuthorityReadiness ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.756]
+title = "Keep a result of the secrets check of the launchpad services only for an answer of the provider"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.751", "22.39.752"]
+reqs = ["22998.1"]
+capabilities = ["22.39.756"]
+interfaces = []
+do_1 = "do_1 Gotcha 4604, decision 3686. Read in the configuration package of each of the eleven services the function ResolveProductionSecrets with the check it returns and the refresh that calls it, in sdk/launchpad/shared/secrets the provider and what it answers where the context of a call has ended, in sdk/launchpad/shared/http the readiness handler and the context it gives a check, and the present cases on production secrets of each configuration package. The eleven services: api, gateway, indexer, livestream, metadata, pnl-tracker, ranking-algo, social, trading-charts, user and the directory of the stats service under services/launchpad, whose binary is statsd. State the eleven files in the final message."
+do_2 = "do_2 The check of each of the eleven services follows decision 3686: where the context of the call has ended, it returns the error of the context for that call and keeps nothing; a missing secret and a changed value are kept as now, with the texts they have now. The form is the same in the eleven files. Nothing else of the function changes, and no file under sdk/launchpad/shared changes."
+do_3 = "do_3 One case in the configuration package of each of the eleven services, each with a name that starts with TestSecretsCheckContext: a call with a cancelled context returns an error that matches the cancellation and the next call with a live context returns no error; a call with a deadline that has passed behaves the same; a changed value is kept and answered by every later call, also by one with a live context after a call with an ended one; a missing value is kept the same way. The cases need no database, no broker and no node. The present cases stay and none is weakened."
+do_4 = "do_4 Run by hand in each of the eleven services the new case and the present cases on production secrets of the configuration package, one service after another, and read each message. The files of the eleven services are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. Start the build and the counted verification early: they compile eleven modules. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/api && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/gateway && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/indexer && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/livestream && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/metadata && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/pnl-tracker && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/ranking-algo && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/social && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/trading-charts && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/user && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/stats-*ers && go build ./internal/config/ && go vet ./internal/config/)"
+verify_cmd = "(cd services/launchpad/api && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/livestream && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/stats-*ers && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.755]
 title = "Serve the internal notification routes of the api on a private listener with mutual TLS"
