@@ -21,8 +21,8 @@ function Toaster(props: ToasterProps) {
             'group toast font-sans! rounded-lg! border! border-outline-variant! bg-popover! text-popover-foreground! shadow-float! gap-3! px-4! py-3.5!',
           title: 'text-sm! font-medium!',
           description: 'text-body-sm! text-muted-foreground!',
-          actionButton: 'rounded-full! bg-primary! text-primary-foreground! min-h-11! px-3! text-xs! font-medium!',
-          cancelButton: 'rounded-full! bg-secondary! text-secondary-foreground! min-h-11! px-3! text-xs!',
+          actionButton: 'rounded-full! bg-primary! text-primary-foreground! h-7! px-3! text-xs! font-medium!',
+          cancelButton: 'rounded-full! bg-secondary! text-secondary-foreground! h-7! px-3! text-xs!',
         },
       }}
       { ...props }

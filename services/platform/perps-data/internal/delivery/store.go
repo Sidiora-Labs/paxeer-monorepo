@@ -154,19 +154,12 @@ func (s *Store) claim(ctx context.Context, owner string, limit int, duration tim
 	if !token.MatchString(owner) || limit < 1 || limit > 1000 || duration < time.Second || duration > 5*time.Minute {
 		return nil, errors.New("delivery: invalid lease bounds")
 	}
-	open := "o.state='pending'"
-	if relay {
-		open = openRow
-	}
 	out := []Lease{}
 	err := s.mutate(ctx, func(tx *sql.Tx) (resultErr error) {
 		if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", s.table("delivery_outbox")); err != nil {
 			return err
 		}
-		rows, err := tx.QueryContext(ctx, `WITH barrier AS (SELECT COALESCE(min(perps_seq),9223372036854775807) AS seq FROM `+s.table("delivery_outbox")+` o WHERE (`+open+` AND (o.available_at>clock_timestamp() OR o.lease_until>clock_timestamp())) OR ($4::boolean AND o.state='quarantined' AND o.failure_class='transient')),
- picked AS (SELECT event_id FROM `+s.table("delivery_outbox")+` o WHERE `+open+` AND o.available_at<=clock_timestamp() AND (o.lease_until IS NULL OR o.lease_until<=clock_timestamp()) AND o.perps_seq<(SELECT seq FROM barrier) ORDER BY o.perps_seq FOR UPDATE LIMIT $1),
- claimed AS (UPDATE `+s.table("delivery_outbox")+` o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.perps_seq,o.fence,o.attempts,o.state='quarantined' AS control)
- SELECT event_id,subject,envelope,perps_seq,fence,attempts,control FROM claimed ORDER BY perps_seq`, limit, owner, duration.Milliseconds(), relay)
+		rows, err := tx.QueryContext(ctx, s.claimSQL(relay), limit, owner, duration.Milliseconds())
 		if err != nil {
 			return err
 		}
@@ -188,6 +181,39 @@ func (s *Store) claim(ctx context.Context, owner string, limit int, duration tim
 		return nil, err
 	}
 	return out, nil
+}
+
+// claimSQL first locks a bounded sequence window through a partial index.
+// The ordered barrier read visits only that window and stops at its first
+// blocked row; an empty barrier never scans the remaining backlog.
+func (s *Store) claimSQL(relay bool) string {
+	open := "o.state='pending'"
+	if relay {
+		open = "(" + openRow + " OR (o.state='quarantined' AND o.failure_class='transient'))"
+	}
+	return `WITH instant AS MATERIALIZED (SELECT clock_timestamp() AS at),
+ candidates AS MATERIALIZED (
+  SELECT o.event_id,o.perps_seq,o.available_at,o.lease_until,o.state,o.failure_class
+  FROM ` + s.table("delivery_outbox") + ` o WHERE ` + open + `
+  ORDER BY o.perps_seq LIMIT $1 FOR UPDATE),
+ barrier AS (
+  SELECT o.perps_seq FROM ` + s.table("delivery_outbox") + ` o
+  WHERE ` + open + ` AND o.perps_seq<=(SELECT perps_seq FROM candidates ORDER BY perps_seq DESC LIMIT 1)
+  AND (o.available_at>(SELECT at FROM instant) OR o.lease_until>(SELECT at FROM instant)
+     OR (o.state='quarantined' AND o.failure_class='transient'))
+  ORDER BY o.perps_seq LIMIT 1),
+ picked AS (
+  SELECT event_id FROM candidates
+  WHERE perps_seq<COALESCE((SELECT perps_seq FROM barrier),9223372036854775807)),
+ claimed AS (
+  UPDATE ` + s.table("delivery_outbox") + ` o
+  SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=(SELECT at FROM instant) THEN 1 ELSE 0 END,
+      claimed_at=(SELECT at FROM instant),lease_owner=$2,
+      lease_until=(SELECT at FROM instant)+($3::bigint*interval '1 millisecond'),
+      fence=o.fence+1,attempts=o.attempts+1
+  WHERE o.event_id=ANY(ARRAY(SELECT event_id FROM picked))
+  RETURNING o.event_id,o.subject,o.envelope,o.perps_seq,o.fence,o.attempts,o.state='quarantined' AS control)
+ SELECT event_id,subject,envelope,perps_seq,fence,attempts,control FROM claimed ORDER BY perps_seq`
 }
 
 type PersistenceAck struct {
@@ -365,7 +391,7 @@ func (s *Store) ReleaseBatch(ctx context.Context, leases []Lease) error {
 // the relay until it is requeued. Rows of a permanent failure class stay
 // quarantined.
 func (s *Store) Requeue(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE "+s.table("delivery_outbox")+" SET state='pending',attempts=0 WHERE state='quarantined' AND failure_class='transient' AND available_at<=clock_timestamp()")
+	_, err := s.db.ExecContext(ctx, "UPDATE "+s.table("delivery_outbox")+" SET state='pending',attempts=0 WHERE state='quarantined' AND failure_class='transient' AND available_at<=statement_timestamp()")
 	return err
 }
 
@@ -383,8 +409,45 @@ func (s *Store) Quarantined(ctx context.Context) (int64, error) {
 // the outbox; it is zero when no row is open.
 func (s *Store) HeadAge(ctx context.Context) (time.Duration, error) {
 	var ms int64
-	err := s.db.QueryRowContext(ctx, "SELECT COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(created_at))*1000,0)::bigint FROM "+s.table("delivery_outbox")+" WHERE state='pending' OR (state='quarantined' AND broker_sequence IS NULL)").Scan(&ms)
+	err := s.db.QueryRowContext(ctx, s.headAgeSQL()).Scan(&ms)
 	return time.Duration(ms) * time.Millisecond, err
+}
+
+func (s *Store) headAgeSQL() string {
+	return "SELECT COALESCE((SELECT EXTRACT(EPOCH FROM statement_timestamp()-created_at)*1000 FROM " + s.table("delivery_outbox") + " WHERE state='pending' OR (state='quarantined' AND broker_sequence IS NULL) ORDER BY created_at LIMIT 1),0)::bigint"
+}
+
+// PrunePublished removes at most 10,000 acknowledged rows published more than
+// an hour ago. The writer lease is fenced and held only for this statement;
+// claim serialisation and inserts do not share its lock.
+func (s *Store) PrunePublished(ctx context.Context, name, holder string) (int64, error) {
+	if !token.MatchString(name) || !token.MatchString(holder) {
+		return 0, ErrLease
+	}
+	var held bool
+	var n int64
+	err := s.db.QueryRowContext(ctx, s.prunePublishedSQL(), name, holder).Scan(&held, &n)
+	if err != nil {
+		return 0, err
+	}
+	if !held {
+		return 0, ErrLease
+	}
+	return n, nil
+}
+
+func (s *Store) prunePublishedSQL() string {
+	return `WITH writer AS MATERIALIZED (
+ SELECT 1 FROM ` + s.table("writer_lease") + ` WHERE name=$1 AND holder=$2
+ AND expires_at>statement_timestamp() FOR UPDATE),
+ picked AS MATERIALIZED (
+ SELECT ctid FROM ` + s.table("delivery_outbox") + `
+ WHERE state='published' AND broker_sequence IS NOT NULL
+ AND published_at<statement_timestamp()-interval '1 hour' AND EXISTS(SELECT 1 FROM writer)
+ ORDER BY published_at,perps_seq LIMIT 10000 FOR UPDATE SKIP LOCKED),
+ removed AS (DELETE FROM ` + s.table("delivery_outbox") + ` o
+ WHERE o.ctid=ANY(ARRAY(SELECT ctid FROM picked)) RETURNING 1)
+ SELECT EXISTS(SELECT 1 FROM writer),(SELECT count(*) FROM removed)`
 }
 
 // CheckAttemptBudget fences the claim against durable attempts before network
