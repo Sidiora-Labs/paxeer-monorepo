@@ -249051,7 +249051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.728]
 title = "Give the runtime role of the charts service the rights its outbox relay uses and hold them with a case under that role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
