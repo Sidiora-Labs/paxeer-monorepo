@@ -22600,3 +22600,13 @@ fix = "Decision 3637. Tasks 22.44.1 to 22.44.11 and 22.44.38."
 title = "The native file table of the gateway holds rows the general table does not hold, and the general table leaves modes open"
 symptom = "The table docker/platform-gateway/native-files.tsv is the table of the native deployment and docker/platform-gateway/files.tsv the general one. The native table holds rows of inputs the general table does not name, and every row of the native table states a mode while rows of the general table leave the mode open. A case that compares the two tables compares the rows whose name both tables hold, by name and path."
 fix = "Decision 3638. Task 22.39.709."
+
+[gotcha.4556]
+title = "A service that serves TLS under the internal CA has a row in the roster of service certificates"
+symptom = "The definition deploy/projects/platform/receipt-authority.kvx reads the server certificate of the hosted authority and its key as inputs of the kind operator. The CA tool issues a certificate for a row of tools/bringup/ca-services.tsv, and the roster names the hosted authority in no row. The roster refuses the name receipt-authority among the names of retired owners, and several cases hold the count of its rows."
+fix = "Decision 3639. Task 22.39.711."
+
+[gotcha.4557]
+title = "An answer of the render check to a request can end after the render of its page"
+symptom = "The render check answers each request of a page through the routing of its browser context: a request to the surface is fetched and its response is passed on, and another request takes its fixed answer or is refused. A render ends after its measurements or at its deadline, and its context closes while a request can still be in its answer. A call that passes on, answers, continues or refuses a request after its context has closed is rejected, and a rejection without a reader ends the process of the check before its report."
+fix = "Decision 3640. Task 22.44.59; tasks 22.44.55, 22.44.38 and 22.44.39."
