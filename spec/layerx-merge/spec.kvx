@@ -249806,7 +249806,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.763]
 title = "Answer every authority route the notification library reads on the private listener of the social service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.754"]
