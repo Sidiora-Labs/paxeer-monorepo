@@ -3,6 +3,7 @@ import type { ThemingConfig } from '@chakra-ui/react';
 import type { ExcludeUndefined } from 'types/utils';
 
 const shadows: ExcludeUndefined<ThemingConfig['tokens']>['shadows'] = {
+  autofill: { value: 'inset 0 0 0 1000px {colors.input.bg}' },
   action_bar: { value: '0 0 0 1px {colors.hairline}' },
   // Cards carry an explicit border; other elevations reduce to a hairline.
   card: { value: 'none' },

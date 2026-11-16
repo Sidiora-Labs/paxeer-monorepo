@@ -1,0 +1,53 @@
+[
+  {
+    "delivery": "delivery-pending",
+    "endpoint": "endpoint-active",
+    "event": "payment-1",
+    "state": {
+      "state": "pending"
+    },
+    "verification": "unverified",
+    "receipt_digest": null
+  },
+  {
+    "delivery": "delivery-in-flight",
+    "endpoint": "endpoint-active",
+    "event": "payment-1",
+    "state": {
+      "state": "in-flight"
+    },
+    "verification": "unverified",
+    "receipt_digest": null
+  },
+  {
+    "delivery": "delivery-retrying",
+    "endpoint": "endpoint-active",
+    "event": "payment-1",
+    "state": {
+      "state": "retrying"
+    },
+    "verification": "unverified",
+    "receipt_digest": null
+  },
+  {
+    "delivery": "delivery-delivered",
+    "endpoint": "endpoint-active",
+    "event": "payment-1",
+    "state": {
+      "state": "delivered",
+      "status": 204
+    },
+    "verification": "unverified",
+    "receipt_digest": null
+  },
+  {
+    "delivery": "delivery-dead-lettered",
+    "endpoint": "endpoint-active",
+    "event": "payment-1",
+    "state": {
+      "state": "dead-lettered"
+    },
+    "verification": "unverified",
+    "receipt_digest": null
+  }
+]

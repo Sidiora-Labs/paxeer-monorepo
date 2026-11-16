@@ -174087,7 +174087,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.59]
 title = "Let the render check hold a request that ends after its render"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

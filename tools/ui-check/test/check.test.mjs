@@ -21,11 +21,37 @@ let external;
 let externalAddress;
 let externalRequests = 0;
 let sequence = 0;
+const lateRequests = { response: 0, answer: 0 };
+const lateClosures = { response: 0, answer: 0 };
+const lateResponseMs = LIMITS.navigationMs - 1000;
 
 before(async function serveTestPages() {
   root = await mkdtemp(join(tmpdir(), "ui-check-"));
   server = createServer((request, response) => {
     if (request.url === "/never") return;
+    const url = new URL(request.url, "http://localhost");
+    if (["/late.html", "/base.css"].includes(url.pathname)) {
+      readFile(join(fixtures, url.pathname.slice(1))).then((body) => {
+        response.writeHead(200, { "content-type": url.pathname.endsWith(".css") ? "text/css" : "text/html" });
+        response.end(body);
+      }, () => response.destroy());
+      return;
+    }
+    if (url.pathname === "/network-failure") { response.destroy(); return; }
+    if (["/late-response", "/late-answer"].includes(url.pathname)) {
+      const kind = url.pathname === "/late-response" ? "response" : "answer";
+      lateRequests[kind]++;
+      const timer = setTimeout(() => {
+        if (kind === "answer") response.writeHead(302, { location: url.searchParams.get("address") });
+        else response.writeHead(200, { "content-type": "text/plain" });
+        response.end("Late response");
+      }, lateResponseMs);
+      response.on("close", () => {
+        if (!response.writableEnded) lateClosures[kind]++;
+        clearTimeout(timer);
+      });
+      return;
+    }
     response.writeHead(200, { "content-type": "text/plain" });
     response.end("Ready");
   });
@@ -388,6 +414,75 @@ async function fixedAnswersStayInTheBrowser() {
   assert.equal(externalRequests, 0);
 }
 test(fixedAnswersStayInTheBrowser);
+
+async function lateRequestsKeepReportsAndExitStatus() {
+  assert.ok(lateResponseMs > LIMITS.settleMs);
+  await writeFile(join(root, "late-answer.txt"), "Fixed answer");
+  const answered = `${externalAddress}/late-answer`;
+  const path = `/late.html?answer=${encodeURIComponent(answered)}`;
+  const outsideRequests = externalRequests;
+  for (const withFinding of [false, true]) {
+    const surface = await surfaceFor("late", {
+      address, readyPath: "/late.html",
+      views: [
+        { name: "late", path, modes: ["default"] },
+        { name: "following", path: `${path}${withFinding ? "&finding" : ""}`, modes: ["default"] },
+      ],
+      answers: [{ method: "GET", pattern: answered, file: "late-answer.txt" }],
+    });
+    const outcomes = [];
+    for (const jobs of [1, 4]) {
+      const started = { ...lateRequests };
+      const closed = { ...lateClosures };
+      const out = join(root, `late-${withFinding}-${jobs}`);
+      const command = await runCli(["--surface", surface, "--out", out, "--jobs", String(jobs)]);
+      assert.equal(command.stderr, "");
+      assert.equal(command.code, withFinding ? 1 : 0, command.stdout);
+      const report = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+      assert.equal(report.passed, !withFinding);
+      assert.equal(report.renders.length, 44);
+      assert.ok(report.renders.every((render) => render.rendered && render.hasContent));
+      assert.equal(report.findings.length, withFinding ? 22 : 0);
+      for (const finding of report.findings) {
+        assert.equal(finding.view, "following");
+        assert.equal(finding.kind, "load");
+        assert.equal(finding.values.source, "console");
+        assert.equal(finding.values.message, "Page finding");
+      }
+      assert.deepEqual(command.stdout.trim().split("\n"), [
+        "late: 22 renders, 0 did not render, 0 showed nothing, 0 findings",
+        `following: 22 renders, 0 did not render, 0 showed nothing, ${withFinding ? 22 : 0} findings`,
+        `Total: 44 renders, 0 showed nothing, ${withFinding ? 22 : 0} findings, ${withFinding ? "fail" : "pass"}, 2 views and states with fewer than all modes`,
+      ]);
+      for (const kind of ["response", "answer"]) {
+        assert.equal(lateRequests[kind] - started[kind], 44);
+        assert.equal(lateClosures[kind] - closed[kind], 44);
+      }
+      outcomes.push({ report, command });
+    }
+    assert.deepEqual(outcomes[1], outcomes[0]);
+  }
+  assert.equal(externalRequests, outsideRequests);
+}
+test(lateRequestsKeepReportsAndExitStatus);
+
+async function activeSurfaceRequestFailuresRemainLoadFindings() {
+  const { result } = await execute("late", {
+    address, readyPath: "/late.html",
+    views: [{ name: "active", path: "/late.html?active", modes: ["default"] }],
+  });
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 22);
+  for (const render of result.renders) {
+    assert.equal(render.rendered, true);
+    assert.ok(render.findings.length > 0);
+    assert.ok(render.findings.every((finding) => finding.kind === "load"));
+    assert.ok(render.findings.some((finding) => finding.values.source === "requestfailed"
+      && finding.values.address === `${address}/network-failure`
+      && finding.values.method === "GET" && finding.values.resource === "fetch"));
+  }
+}
+test(activeSurfaceRequestFailuresRemainLoadFindings);
 
 async function commandBuildsAndServesFiles() {
   const surface = await surfaceFor("clean", {
