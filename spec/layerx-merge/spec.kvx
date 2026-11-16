@@ -249620,7 +249620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.753]
 title = "Give the expected schema document of the launchpad services its file form in the contract and the composer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.730", "22.39.751", "22.39.752"]
