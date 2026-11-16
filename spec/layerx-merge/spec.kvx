@@ -249213,7 +249213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.726]
 title = "Issue the reads of the heights of a batch side by side in the launchpad indexer and keep the lease under a long read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.724"]
