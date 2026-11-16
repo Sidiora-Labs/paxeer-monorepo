@@ -1080,7 +1080,7 @@
     "id": "app/authority.networkAuthority.head.1",
     "file": "services/launchpad/api/internal/app/authority.go",
     "function": "networkAuthority.head",
-    "line": 205,
+    "line": 275,
     "expression": "\"SELECT height::text,block_hash,integrity FROM \"+pgx.Identifier{a.config.SourceSchema, \"indexer_committed_heads_v2\"}.Sanitize()+\" WHERE chain_id=125 ORDER BY height DESC LIMIT 1\"",
     "sql": "SELECT height::text,block_hash,integrity FROM \"indexer\".\"indexer_committed_heads_v2\" WHERE chain_id=125 ORDER BY height DESC LIMIT 1",
     "bindings": {},
