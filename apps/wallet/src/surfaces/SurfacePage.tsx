@@ -10,6 +10,7 @@ import { processSidRate } from './config';
 import { BridgeView } from './BridgeView';
 import { ExchangeView } from './ExchangeView';
 import { FeesView } from './FeeChoice';
+import { InferenceView } from './InferenceView';
 import { LaunchpadView } from './LaunchpadView';
 import { SURFACE_ROUTES, type SurfaceId } from './routes';
 import { WebDataView } from './WebDataView';
@@ -61,6 +62,8 @@ function SurfaceView({ surface, sidRate }: { surface: SurfaceId; sidRate: string
       return <FeesView sidRate={sidRate} />;
     case 'web-data':
       return <WebDataSurface sidRate={sidRate} />;
+    case 'inference':
+      return <InferenceView sidRate={sidRate} />;
   }
 }
 

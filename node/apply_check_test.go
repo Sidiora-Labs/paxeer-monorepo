@@ -195,6 +195,11 @@ func TestApplyCheck(t *testing.T) {
 				require.Equal(t, check.field, comparison.Field)
 			}
 			for _, form := range report.Forms {
+				if form.Name == "follower_fast" {
+					require.Contains(t, []string{"loaded", "absent"}, form.EngineLibrary)
+				} else {
+					require.Empty(t, form.EngineLibrary)
+				}
 				require.Empty(t, form.Error)
 				require.Empty(t, form.Panic)
 				require.NotEmpty(t, form.AppHash)

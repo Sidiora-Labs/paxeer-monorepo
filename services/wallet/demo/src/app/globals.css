@@ -26,6 +26,7 @@
     --blue: #004ced;
     --blue-hover: #0040c9;
     --on-blue: var(--canvas-light);
+    --primary-border: var(--blue);
     --backdrop: rgb(0 0 0 / 70%);
     --dot-light: rgb(0 0 0 / 7%);
     --dot-dark: rgb(255 255 255 / 7%);
@@ -75,6 +76,7 @@
     --focus-width: 2px;
     --shadow-panel: 0 1.5rem 3rem rgb(0 0 0 / 24%);
     --duration-snappy: 150ms;
+    --duration-reduced: 80ms;
     --duration-standard: 240ms;
     --duration-spin: 1s;
     --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
@@ -108,6 +110,7 @@
       --error: var(--error-dark);
       --success: var(--success-dark);
       --dot: var(--dot-dark);
+      --primary-border: var(--focus-dark);
     }
   }
 
@@ -142,6 +145,7 @@
       --on-blue: HighlightText;
       --error: CanvasText;
       --success: CanvasText;
+      --primary-border: ButtonText;
     }
   }
 }
@@ -419,15 +423,15 @@
   }
   .button.primary {
     background: var(--blue);
-    border-color: var(--blue);
+    border-color: var(--primary-border);
     color: var(--on-blue);
   }
   .button.primary:not(:disabled):hover {
     background: var(--blue-hover);
-    border-color: var(--blue-hover);
+    border-color: var(--primary-border);
   }
   .button.quiet {
-    border-color: transparent;
+    border-color: var(--border);
     background: transparent;
     color: var(--muted);
   }
@@ -535,6 +539,13 @@
     scrollbar-width: auto;
     scroll-padding-block: var(--space-4);
     container: wallet / inline-size;
+  }
+  .wallet-dialog :where(button, input, textarea, pre):focus-visible {
+    outline: var(--focus-width) solid var(--focus);
+    outline-offset: calc(-1 * var(--focus-width));
+    box-shadow:
+      inset 0 0 0 var(--focus-width) var(--focus),
+      0 0 0 var(--focus-width) var(--focus);
   }
   .wallet-dialog:modal {
     overscroll-behavior: contain;
@@ -767,6 +778,12 @@
     }
     .wallet-dialog[open] {
       animation: reveal var(--duration-standard) var(--ease-standard);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .button,
+    .input {
+      transition-duration: var(--duration-reduced);
     }
   }
   @keyframes spin {

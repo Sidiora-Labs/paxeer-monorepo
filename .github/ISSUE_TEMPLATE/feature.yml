@@ -16,7 +16,7 @@ body:
         - apps/inference-peer
         - apps/launchpad
         - apps/names
-        - apps/perps
+        - apps/perps (Paxeer Xtrades)
         - apps/wallet
         - apps/web
         - cmd

@@ -9,14 +9,15 @@ type Props = {
 const NFTItemContainer = ({ children, className }: Props) => {
   return (
     <Box
-      w={{ base: '100%', lg: '210px' }}
+      w="100%"
+      minW={ 0 }
       border="1px solid"
-      borderColor={{ _light: 'blackAlpha.100', _dark: 'whiteAlpha.200' }}
-      borderRadius="12px"
-      p="10px"
+      borderColor="border.divider"
+      borderRadius="card"
+      p={ 2.5 }
       fontSize="sm"
-      fontWeight={ 500 }
-      lineHeight="20px"
+      fontWeight="medium"
+      textStyle="small"
       className={ className }
     >
       { children }

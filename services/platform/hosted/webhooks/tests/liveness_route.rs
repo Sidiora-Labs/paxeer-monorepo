@@ -415,6 +415,10 @@ fn liveness_route_is_independent_of_unready_dependencies() {
         "LAYERX_WEBHOOKS_HEALTH_LISTEN".to_owned(),
         format!("127.0.0.1:{health_port}"),
     ));
+    environment.push((
+        "LAYERX_WEBHOOKS_NETWORK_ID".to_owned(),
+        "paxeer-liveness".to_owned(),
+    ));
     let mut service = start(&environment);
     let (status, document) = wait_for_request(&mut service, port, "GET", "/livez");
     assert_eq!(status, 200);
@@ -425,6 +429,8 @@ fn liveness_route_is_independent_of_unready_dependencies() {
     let (status, document) = wait_for_request(&mut service, port, "GET", "/healthz");
     assert_eq!(status, 503);
     assert_eq!(document["ready"], false);
+    assert_eq!(document["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(document["network_id"], "paxeer-liveness");
     let (status, document) = wait_for_request(&mut service, port, "POST", "/livez");
     assert_eq!(
         status, 404,
@@ -456,14 +462,25 @@ fn liveness_route_preserves_ready_health() {
             "LAYERX_WEBHOOKS_TLS_CERT_DER" | "LAYERX_WEBHOOKS_TLS_KEY_DER"
         )
     });
-    let mut service = start(&environment);
-    let (status, document) = wait_for_request(&mut service, port, "GET", "/healthz");
-    assert_eq!(status, 200, "ready process must answer health: {document}");
-    assert_eq!(document["ready"], true);
-    let (status, document) = wait_for_request(&mut service, port, "GET", "/livez");
-    assert_eq!(status, 200);
-    assert_live(&document, "public");
-    drop(service);
+    for network in [None, Some("paxeer-liveness")] {
+        environment.retain(|(name, _)| name != "LAYERX_WEBHOOKS_NETWORK_ID");
+        if let Some(network) = network {
+            environment.push(("LAYERX_WEBHOOKS_NETWORK_ID".to_owned(), network.to_owned()));
+        }
+        let mut service = start(&environment);
+        let (status, document) = wait_for_request(&mut service, port, "GET", "/healthz");
+        assert_eq!(status, 200, "ready process must answer health: {document}");
+        assert_eq!(document["ready"], true);
+        assert_eq!(document["version"], env!("CARGO_PKG_VERSION"));
+        match network {
+            Some(network) => assert_eq!(document["network_id"], network),
+            None => assert!(document.get("network_id").is_none(), "{document}"),
+        }
+        let (status, document) = wait_for_request(&mut service, port, "GET", "/livez");
+        assert_eq!(status, 200);
+        assert_live(&document, "public");
+        drop(service);
+    }
     drop(kms);
     drop(redis);
 }
