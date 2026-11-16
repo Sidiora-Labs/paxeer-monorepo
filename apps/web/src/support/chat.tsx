@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -25,7 +26,7 @@ import { SUPPORT_TOPICS } from "./topics.ts";
 
 function useResolvedPlatform(platform: "mobile" | "desktop"): "mobile" | "desktop" {
   const [resolved, setResolved] = useState<"mobile" | "desktop">(platform);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const shell = document.querySelector<HTMLElement>("[data-shell]")?.dataset.shell;
     if (shell === "mobile" || shell === "desktop") {
       setResolved(shell);
@@ -241,6 +242,7 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
       <ScreenCard
         landmark="section"
         dataApplication="support"
+        className="human-support-card"
         title={copyEntry("support.title").message}
         description={copyEntry("support.summary").message}
       >

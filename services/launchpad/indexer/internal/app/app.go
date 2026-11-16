@@ -609,7 +609,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			deps.HistoricalRequests = lifecycle.BackfillRequests
 		}
 		secretChecks["workers"] = workers.Ready
-		canonicalSource = newCanonicalSourceReadiness(deps.Head, st, pool, history.RPC, d.CanonicalStreamID, lifecycle, time.Now)
+		canonicalSource = newCanonicalSourceReadiness(st, pool, history.RPC, d.CanonicalStreamID, lifecycle, time.Now, logger)
 		secretChecks["canonical_source"] = canonicalSource.Ready
 		if cfg.IndexerMode != config.ModeBackfill {
 			canonicalSource.Start(ctx)

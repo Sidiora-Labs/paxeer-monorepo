@@ -15322,6 +15322,24 @@ value = "A case of the explorer that renders a whole page or the whole layout st
 basis = "Gotcha 4621. Decision 3587."
 affects = []
 
+[decision.3702]
+title = "The verification of the documentation site renders two views at once"
+value = "The verification of task 22.44.48 runs the render check with the option jobs at two. The views, the states, the sizes, the schemes, the modes, the kinds of finding and the bounds of a render stay as they are; only the count of renders that run at once changes. A render that does not settle inside its bound in that run is a finding as before and is repaired in the page."
+basis = "Gotcha 4622. Decisions 3587 and 3591."
+affects = []
+
+[decision.3703]
+title = "A ranking publication row at its attempt bound is tried again at a slower pace"
+value = "A row that reached the attempt bound stays in the order of its category and is tried again once a minute, by the same commit to the stream and with the same identity of its event, until it is published. The count of attempts stays at the bound and the table keeps its form, so no migration is added; the pace is held in the process and a start of the service tries such a row at once. The readiness keeps its present refusals: it refuses while a row at the bound exists or the oldest pending row is older than its limit, and it answers again by itself once the rows are published. No row is skipped, removed or published out of order. The service writes one log line when a row reaches the bound and one when the last such row is published, with the category and the class of the error and without an address or a credential."
+basis = "Gotcha 4623."
+affects = []
+
+[decision.3704]
+title = "A ranking run takes its cutoff from the clock that stamps its inputs and names the step that refused"
+value = "The cutoff of a run is the second of the clock of the database, read inside the transaction that reads the inputs of the run, and the observation of the visibility is bounded against that same clock. A run gives the same answer at every place of its tick inside the second, and with a process clock up to two seconds before or behind the clock of the database. The bounds of the read stay: an observation of the visibility older than sixty seconds, a watermark whose raw and typed heights differ, a lease that ended, a block that is not complete and inputs that are not coherent still refuse the run, and no run takes a block that completed after its cutoff. At each change between success and refusal of a kind of run the service writes one log line with the step of the read that refused, one of visibility, watermark, block, coherence, provenance and completion, without an address or a credential; the readiness answer stays as it is."
+basis = "Gotcha 4624."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44982,6 +45000,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.770]
+title = "Take the cutoff of a ranking run from the clock of the database and name the step that refused"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "(cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestRefresh ./internal/ranker/ ./internal/store/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestCoordinator ./internal/ranker/)"
+do_1 = "do_1 Gotcha 4624, decision 3704. Read in services/launchpad/ranking-algo/internal/ranker the coordinator with its loop and the check of the provenance, in services/launchpad/ranking-algo/internal/store the read of the frozen inputs with every comparison against the cutoff, in services/launchpad/ranking-algo/internal/app the place that builds them, the loop that reports a refused run and the readiness of the ranking, and in services/launchpad/social the function that answers the visibility of the ranking with the clock that stamps it. State in the final message, for every comparison of a run against its cutoff, which clock stamps each side and at which places of the tick inside the second or at which difference of the clocks the present code refuses a run whose inputs are complete."
+symbols = []
+
+[capability.22.39.769]
+title = "Try a ranking publication row at its attempt bound again at a slower pace"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "(cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestPublication ./internal/store/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestApplicationPublication ./internal/app/)"
+do_1 = "do_1 Gotcha 4623, decision 3703. Read in services/launchpad/ranking-algo/internal/store the publication with the selection of the next row, the commit to the stream, the count of a failed attempt and the publication health, with their cases; read in services/launchpad/ranking-algo/internal/app the loop that publishes, the readiness of the ranking and the cases of the publication recovery with their fixture. State in the final message what the present code does with a row after the bound, what the rows behind it do, and what the readiness answers then."
+symbols = []
 
 [capability.22.44.72]
 title = "Give the explorer cases that render a whole page or the whole layout their own time bounds"
@@ -175865,7 +175901,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.55]
 title = "Render every route of the human web application in its surface file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.43", "22.44.59"]
@@ -176315,7 +176351,7 @@ touches = ["docs/site/paxeer-docs/src", "docs/site/docs-assistant/src"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/docs.json", "tools/ui-check/surfaces/docs", "spec/layerx-merge/programme/records/ui/22.44.48.kvx"]
 build_cmd = "npm --prefix docs/site/paxeer-docs ci"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.48.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/docs.json --out /tmp/ui-check/docs && npm --prefix docs/site/paxeer-docs run test:static && npm --prefix docs/site/paxeer-docs run build"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.48.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/docs.json --out /tmp/ui-check/docs && npm --prefix docs/site/paxeer-docs run test:static && npm --prefix docs/site/paxeer-docs run build"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-docs"
@@ -176328,6 +176364,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "do_7 Decision 3629, gotcha 4546. The render check ends each render at a deadline, renders several at once and reads the key modes of a view. The surface file tools/ui-check/surfaces/docs.json keeps every page of the site as a view, and every view renders in the mode default on every device in both schemes. Give the key modes with the value default alone to views that share a template with a view that renders in every mode, so that each template of the site, such as the front page, a guide page, a reference page with tables, a page with code and a module page, keeps at least one view in every mode and each kind of state keeps at least one state in every mode. Name these views and states in the record. The start script of the surface serves the built files and builds nothing on a request. Run the check by hand before the counted verification and measure its time: the whole check ends within forty minutes with the default count of renders at once. Clear every finding the check states, and give the time, the count of renders and the count of findings in the final message. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_8 = "do_8 Decision 3702, gotcha 4622. The work of the earlier candidate stays as it is: the surface file with its files, the changes of the site and of the assistant, and the record. The verification now runs the render check with the option jobs at two, and the whole run then takes about twice the time of a run with four renders at once. Take main, run the build once and start the counted verification within the first fifteen minutes, and start no other work in the checkout while it runs. A view the run names is repaired alone, with the option view and the option jobs at two, inside the paths of this task; it makes no difference whether a finding was there before the change, and no approval is needed for that. No view, state or mode is taken out of the surface file. The record states the count of renders and the time of the run. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.47]
 title = "Close the page of the inference peer, the playground pages and the codebase map on the device list with the render check"
@@ -177863,7 +177900,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.4]
 title = "Bring the shared entity, transaction, token and chart parts of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -249749,9 +249786,73 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.770]
+title = "Take the cutoff of a ranking run from the clock of the database and name the step that refused"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.766"]
+reqs = ["22998.1"]
+capabilities = ["22.39.770"]
+interfaces = []
+do_1 = "do_1 Gotcha 4624, decision 3704. Read in services/launchpad/ranking-algo/internal/ranker the coordinator with its loop and the check of the provenance, in services/launchpad/ranking-algo/internal/store the read of the frozen inputs with every comparison against the cutoff, in services/launchpad/ranking-algo/internal/app the place that builds them, the loop that reports a refused run and the readiness of the ranking, and in services/launchpad/social the function that answers the visibility of the ranking with the clock that stamps it. State in the final message, for every comparison of a run against its cutoff, which clock stamps each side and at which places of the tick inside the second or at which difference of the clocks the present code refuses a run whose inputs are complete."
+do_2 = "do_2 The cutoff becomes the second of the clock of the database read inside the transaction that reads the inputs, as decision 3704 states; the loop no longer passes a time of its own process as cutoff of the read. The identity of a run, the digest of its inputs, the window of the provenance and the order of the heads keep their rules against that cutoff. Every bound that decision 3704 names stays. Nothing under services/launchpad/social changes."
+do_3 = "do_3 The loop takes the logger of the service for the step: at the first refusal of a kind of run after a success or after the start, and at the first success after a refusal, it writes one line with the kind of run, the step of the read and the class of the error; repeated refusals of the same step write no further line. The line holds no address, no credential and no text of an error that can carry one. The readiness answer stays as it is."
+do_4 = "do_4 Cases whose names start with TestRefresh in services/launchpad/ranking-algo/internal/ranker and services/launchpad/ranking-algo/internal/store, beside the present ones: with a double of the clock of the process, a run started at each tenth of a second, and with the process clock two seconds before and two seconds behind the clock of the database, completes while a double of the ingestion advances the watermark several heights a second; an observation of the visibility older than sixty seconds, differing raw and typed heights, an ended lease and an incomplete block each refuse the run and give exactly one line with their step; the return to success gives one line."
+do_5 = "do_5 Task 22.39.769 changes the same service: take main before the counted verification and keep both changes. Run the new cases by hand, one after another, and read each message. The files of services/launchpad/ranking-algo are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/ranking-algo && go build ./... && go vet ./internal/ranker/ ./internal/store/ ./internal/app/)"
+verify_cmd = "(cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestRefresh ./internal/ranker/ ./internal/store/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestCoordinator ./internal/ranker/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.769]
+title = "Try a ranking publication row at its attempt bound again at a slower pace"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.766"]
+reqs = ["22998.1"]
+capabilities = ["22.39.769"]
+interfaces = []
+do_1 = "do_1 Gotcha 4623, decision 3703. Read in services/launchpad/ranking-algo/internal/store the publication with the selection of the next row, the commit to the stream, the count of a failed attempt and the publication health, with their cases; read in services/launchpad/ranking-algo/internal/app the loop that publishes, the readiness of the ranking and the cases of the publication recovery with their fixture. State in the final message what the present code does with a row after the bound, what the rows behind it do, and what the readiness answers then."
+do_2 = "do_2 The selection takes a row at the bound as well, as decision 3703 states: the oldest unpublished row of a category is tried again once a minute after it reached the bound, with the same event and by the same commit to the stream. A row below the bound keeps the present pace. The count of attempts does not pass the bound and no statement of the table changes its form; no migration is added. A start of the service tries a row at the bound at once."
+do_3 = "do_3 The readiness of the ranking keeps both refusals and answers again without a restart once every row at the bound is published and the oldest pending row is inside its limit. The loop writes one line when a row reaches the bound and one when the last such row is published, with the category and the class of the error; repeated failures of the same row write no further line. No line holds an address, a credential or the text of an error that can carry one."
+do_4 = "do_4 Cases whose names start with TestPublication in services/launchpad/ranking-algo/internal/store and with TestApplicationPublication in services/launchpad/ranking-algo/internal/app, beside the present ones: an append that returns an error for more rounds than the bound and then answers leaves no row unpublished, in the order of each category and with one event for each row; the rows behind a row at the bound are published after it; a row at the bound is not tried more often than the slower pace; the readiness refuses while the row is at the bound and answers after its publication without a restart; a start of the service with a row at the bound publishes it."
+do_5 = "do_5 Run the new cases by hand, one after another, and read each message. The files of services/launchpad/ranking-algo are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/ranking-algo && go build ./... && go vet ./internal/store/ ./internal/app/)"
+verify_cmd = "(cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestPublication ./internal/store/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestApplicationPublication ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.768]
 title = "Make the readiness refresh of the canonical source a reader that holds on a moving head and names its cause"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.760"]
@@ -249816,7 +249917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.766]
 title = "Publish empty ranking heads for an empty set of markets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.754"]

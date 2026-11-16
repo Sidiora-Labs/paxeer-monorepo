@@ -12,7 +12,7 @@ import {
   type Session,
 } from "../../api";
 import { DesktopPrimaryAction, MobilePrimaryAction } from "../../kit/pattern-primary-action";
-import { InlineNotice, ScreenCard, StateSkeleton } from "../../kit/surface";
+import { InlineNotice, ScreenCard } from "../../kit/surface";
 import { KitButton } from "../../kit/control";
 import { StatusPill } from "../../kit/money";
 import { TextField } from "../../kit/field";
@@ -64,6 +64,29 @@ function failureMessage(messageKey: string): string {
   return human_copy_catalog().get(messageKey)?.message ?? copyEntry("state.error.body").message;
 }
 
+const STAGE_ROW_CLASS = "grid items-center gap-2 py-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] sm:gap-4";
+
+function StageListSkeleton() {
+  const stageKeys = [
+    "onboarding.stage.creating-your-account",
+    "onboarding.stage.adding-your-passkey",
+    "onboarding.stage.setting-up-your-protocol-identity",
+    "onboarding.stage.putting-recovery-in-place",
+  ] as const;
+  return (
+    <ul aria-hidden="true" className="flex list-none flex-col divide-y divide-border">
+      {stageKeys.map((key) => (
+        <li key={key} className={STAGE_ROW_CLASS}>
+          <span className="text-body-sm text-foreground">{copyEntry(key).message}</span>
+          <span className="inline-flex min-h-7 w-24 max-w-full items-center px-3 py-1 text-label sm:w-full">
+            <span className="h-[1lh] w-full rounded-full bg-surface-sunken" />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function StageList({ journey }: Readonly<{ journey: Journey }>) {
   return (
     <ul data-onboarding-stages="" className="flex list-none flex-col divide-y divide-border">
@@ -74,10 +97,10 @@ function StageList({ journey }: Readonly<{ journey: Journey }>) {
             key={presented.stageId}
             data-stage-key={presented.copyKey}
             data-stage-state={presented.state}
-            className="flex items-center justify-between gap-4 py-3"
+            className={STAGE_ROW_CLASS}
           >
             <span className="text-body-sm text-foreground">{presented.title}</span>
-            <StatusPill status={presented.status} />
+            <StatusPill status={presented.status} className="min-w-0 max-w-full justify-self-start whitespace-normal break-words sm:justify-self-end" />
           </li>
         );
       })}
@@ -104,8 +127,13 @@ function FailureNotice({
 export function AccountActivationNotice({ journey }: Readonly<{ journey: Journey | undefined }>) {
   const active = journey !== undefined && accountActive(journey);
   return <InlineNotice tone={active ? "success" : "warning"} role="status">
-    <span data-account-active={active ? "true" : "false"}>
-      {copyEntry(active ? "onboarding.active" : "onboarding.not_active").message}
+    <span className="grid">
+      <span aria-hidden="true" className="invisible col-start-1 row-start-1">
+        {copyEntry("onboarding.not_active").message}
+      </span>
+      <span data-account-active={active ? "true" : "false"} className="col-start-1 row-start-1">
+        {copyEntry(active ? "onboarding.active" : "onboarding.not_active").message}
+      </span>
     </span>
   </InlineNotice>;
 }
@@ -442,7 +470,9 @@ export function Onboarding({
       >
         <div data-journey-phase="progress" className="flex flex-col gap-4 pt-2">
           <AccountActivationNotice journey={journey} />
-          {journey === undefined ? <StateSkeleton /> : <StageList journey={journey} />}
+          <div className="min-h-72">
+            {journey === undefined ? <StageListSkeleton /> : <StageList journey={journey} />}
+          </div>
           {queued ? (
             <p data-onboarding-queued="" className="text-sm text-muted-foreground">
               {copyEntry("onboarding.pending.body").message}

@@ -1,0 +1,34 @@
+[human_web]
+page_files = 25
+routes_with_views = 25
+views = 55
+named_states = 18
+rendered_states = 73
+renders_per_state = 34
+matrix_renders = 2482
+complete_matrix_renders = 2482
+render_result = "pass"
+render_findings = 0
+renders_without_content = 0
+states_with_reduced_modes = 0
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+guides = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "css-layout"]
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+fixture_sources = ["human-api contract examples", "web journey samples", "native explorer contract samples", "precompile read examples"]
+parameter_values = "Sample agent, approval, activity, account, program and transaction identifiers"
+control_states = ["empty", "loading", "filled", "error", "filters", "technical details", "confirmation", "profile editor", "wizard steps", "fee choice", "wallet availability"]
+presentation = ["Shared control borders and focus indicators", "Scrollable native account tables", "Right-aligned tabular numeric columns", "Wrapping control labels and values", "Adaptive balance and activity columns", "Readable activity columns with contained horizontal scrolling", "Seven-column calendars with touch targets", "Bounded welcome content", "Wrapping notification headers", "Stable loading placeholders", "Visible agent pause and limit controls", "Activity filter focus containment", "Onboarding labels and status columns share their loading and filled geometry", "Activation notices reserve their message height", "Onboarding statuses follow their labels on narrow screens", "Intrinsic copy action widths", "Immediate segmented-control focus indicators", "Approval content retained during notification refresh", "Current shell retained while the document has no drawable width"]
+
+[capture_audit]
+measured_screenshots = 2482
+screenshots_with_colours_and_text = 2482
+single_colour_screenshots = 0
+screenshots_without_recognized_text = 0
+visually_reviewed_screenshots = 730
+review_widths = [360, 768, 1440, 2560, 844]
+review_schemes = ["light", "dark"]
+content_result = "Each measured image contains multiple colours and recognized text"
