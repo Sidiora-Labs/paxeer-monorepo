@@ -22755,3 +22755,13 @@ fix = "Decision 3668. Task 22.44.61."
 title = "The builder tool of the explorer backend runs one mix command for each call"
 symptom = "The tool services/explorer/deploy/tools/mix-in-builder.sh reads its own options, such as --reuse-db and --check, before the mix command, starts the builder container beside a database made for the call and ends with the exit code of the one mix command it ran. The test command of mix writes under the build path a record of the cases that did not pass, and its option --failed runs the cases that record names and no other case. The build path and the database of a call belong to the container of that call."
 fix = "Decision 3669. Task 22.39.695."
+
+[gotcha.4587]
+title = "A fixed answer of the render check holds for every view and state of its surface"
+symptom = "The function readSurface of tools/ui-check/config.mjs reads the fixed answers of a surface from the key answers of the surface file, and the first entry whose method and pattern match a request answers it in every view and in every state. A view admits the keys name, path, states, expects and modes, and a state admits the keys name, steps, expects and modes. One address therefore has one answer in a surface, whatever view or state asks."
+fix = "Decision 3670. Task 22.44.62."
+
+[gotcha.4588]
+title = "The surface file of the wallet application holds its views in the form before sign-in"
+symptom = "The surface file tools/ui-check/surfaces/wallet.json holds 14 views and three named states, all three of the view onboarding, and its fixed answers give the sign-in provider one answer for the sent code and one refusal for the entered code. No view of the file runs with a session, so each view renders in the form a person sees before sign-in. The application holds under apps/wallet/src/widgets the parts a signed-in person works with: portfolio, send, receive, swap, tokenDetail, transactions, txDetail, settings, contacts, discover and pns, and under apps/wallet/src/surfaces the views of bridge, exchange, fees, inference, launchpad and web data, each with a connected form."
+fix = "Decision 3671. Task 22.44.63."

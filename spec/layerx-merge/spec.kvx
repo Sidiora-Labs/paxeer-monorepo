@@ -15130,6 +15130,18 @@ value = "The tool takes the option --retry-failed before the mix command, and th
 basis = "Gotcha 4586. Decisions 3046 and 3052."
 affects = []
 
+[decision.3670]
+title = "A view and a state of a surface file may name fixed answers of their own"
+value = "A view and a state of a surface file may hold the key answers, a list in the form of the fixed answers of the surface. In the renders of a named state the entries of the state come first, then the entries of its view, then the entries of the surface, and the first match answers. In the initial state of a view the entries of the view come before those of the surface. The files of these entries follow the rule of the surface answers: beside the surface file or below it. A surface file without the key in its views and states runs as before. The result names for each view and state the count of its own entries."
+basis = "Gotcha 4587. Decisions 3667, 3591 and 3588."
+affects = []
+
+[decision.3671]
+title = "The surface file of the wallet application holds the signed-in form of each view"
+value = "The surface file of the wallet application holds, for each view that differs after sign-in, named states that run with a session and with data, both given by fixed answers of the state in the key of decision 3670. The states cover each part a signed-in person works with: the portfolio with several assets, among them a long name, a large amount and a very small amount, and the portfolio without assets; send with its form filled, with a validation message and at its confirmation; receive; swap with its form filled and with a quote that fails; the detail of an asset; the transactions with rows and without rows; the detail of a transaction; settings; contacts with rows and without rows; discover; names; the three account views; and each of the six surface views in its connected form, with its form filled, with a validation message and with a read that fails. The data of the answers are test values: no address of a person, no key and no token of a live system. The render check passes for the whole file on the device list, in both schemes and in every mode, in a tree that held no output of an earlier build. A finding that shows there is corrected in the application, and no view, state, mode or expectation is taken out of the surface file."
+basis = "Gotcha 4588. Decisions 3670, 3668, 3591 and 3588."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44790,6 +44802,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.63]
+title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "apps/wallet"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.63.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+do_1 = "do_1 Gotcha 4588, decision 3671. Read tools/ui-check/surfaces/wallet.json with the files under tools/ui-check/surfaces/wallet, the part of tools/ui-check/README.md on the answers of views and states, the code of apps/wallet/src that takes the session from the sign-in provider at the code step and at the route auth/callback and keeps it, the clients of the wallet API, of the node, of the market data, of the rates and of the human API that the signed-in parts read, each directory under apps/wallet/src/widgets, the views under apps/wallet/src/surfaces with apps/wallet/src/surfaces/routes.ts, and the records of tasks 22.44.41 and 22.44.61 under spec/layerx-merge/programme/records/ui/."
+symbols = []
+
+[capability.22.44.62]
+title = "Let a view and a state of a surface file of the render check name fixed answers of their own"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4587, decision 3670. Read tools/ui-check/config.mjs with the function readSurface and the reading of the fixed answers, tools/ui-check/check.mjs where it routes the requests of a page to the fixed answers and where it writes the result, the part of tools/ui-check/README.md on fixed answers and on expects, the cases of tools/ui-check/test/check.test.mjs on fixed answers, and the surface files under tools/ui-check/surfaces that hold answers."
+symbols = []
 
 [capability.22.44.61]
 title = "Build the production form of the wallet application in its surface file and close the render check on it"
@@ -174441,6 +174471,72 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.63]
+title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.61", "22.44.62"]
+reqs = ["22998.1"]
+capabilities = ["22.44.63"]
+interfaces = []
+do_1 = "do_1 Gotcha 4588, decision 3671. Read tools/ui-check/surfaces/wallet.json with the files under tools/ui-check/surfaces/wallet, the part of tools/ui-check/README.md on the answers of views and states, the code of apps/wallet/src that takes the session from the sign-in provider at the code step and at the route auth/callback and keeps it, the clients of the wallet API, of the node, of the market data, of the rates and of the human API that the signed-in parts read, each directory under apps/wallet/src/widgets, the views under apps/wallet/src/surfaces with apps/wallet/src/surfaces/routes.ts, and the records of tasks 22.44.41 and 22.44.61 under spec/layerx-merge/programme/records/ui/."
+do_2 = "do_2 Give a session by fixed answers: find which answer of the sign-in provider ends the code step in a session and which reads the application makes right after it, by running the application by hand against the answers and reading each request the check reports as blocked. Write the answers as files under tools/ui-check/surfaces/wallet and name them in the states that need them, in the key answers of the state. The data are test values that are plainly marked as such: no address of a person, no key and no token of a live system."
+do_3 = "do_3 Add the named states of decision 3671 to the surface file, each reached by steps a person would take from the path of its view, with the answers for the reads it makes: the two portfolio forms; send filled, with a validation message and at its confirmation; receive; swap filled and with a quote that fails; the detail of an asset; the transactions with rows and without rows; the detail of a transaction; settings; contacts with rows and without rows; discover; names; the views account, account-history and account-plan with a session; and the views bridge, inference, exchange, fees, launchpad and web-data connected, each with its form filled, with a validation message and with a read that fails. A read that fails by design is named in the expects of its state. Where a part can be reached in more than one form that looks different, such as a dialog and a sheet, hold both. State in the final message each part that has no state and why."
+do_4 = "do_4 Run the render check by hand state by state. Look at the written images of the portfolio, of send and of one surface view, one narrow and one wide in each scheme, and state in the final message what they show: a view that shows the form before sign-in or an empty frame is a finding of this task. Correct every finding in the application under apps/wallet: spacing, type, colour, contrast, focus, touch size, overflow, cut text, long values and layout shift as the check names them and as the images show them. Take no view, state, mode or expectation out of the surface file and loosen no limit."
+do_5 = "do_5 Run the render check of the whole surface by hand in a tree without the outputs of an earlier build until it passes with zero findings. Write the record of this task at spec/layerx-merge/programme/records/ui/22.44.63.kvx with the list of the states, the count of renders, the device list and the revision, in the form of the record of task 22.44.61. The records of the earlier tasks stay as they are. The present cases of the application stay and none is weakened. Run by hand the type check of the application and the cases of the directories src/components, src/widgets and src/surfaces and read each message."
+do_6 = "do_6 The surface file, the files under tools/ui-check/surfaces/wallet and the files of apps/wallet are inside the paths of this task: a case there that does not pass is corrected here whether or not it passed before, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "apps/wallet"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.63.kvx"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.63.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.62]
+title = "Let a view and a state of a surface file of the render check name fixed answers of their own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.60"]
+reqs = ["22998.1"]
+capabilities = ["22.44.62"]
+interfaces = []
+do_1 = "do_1 Gotcha 4587, decision 3670. Read tools/ui-check/config.mjs with the function readSurface and the reading of the fixed answers, tools/ui-check/check.mjs where it routes the requests of a page to the fixed answers and where it writes the result, the part of tools/ui-check/README.md on fixed answers and on expects, the cases of tools/ui-check/test/check.test.mjs on fixed answers, and the surface files under tools/ui-check/surfaces that hold answers."
+do_2 = "do_2 The function readSurface admits the key answers in a view and in a state, read and checked by the code that reads the answers of the surface: the same fields, the same rule for the place of the file, the same refusals, each with the name of the view or the state. An empty list is admitted and means no own entry."
+do_3 = "do_3 The check answers a request of a render from the entries in the order of decision 3670: state, view, surface, first match. The entries of one state do not reach another state or another view. A request that no entry matches is blocked and reported as before, and the expects of a view and a state apply as before."
+do_4 = "do_4 The result names for each view and state the count of its own entries. The README states the key at both levels, the order and one example: a sign-in step that is refused in one state and admitted in another by two answers to one address. The surface files that are present stay as they are."
+do_5 = "do_5 Cases in tools/ui-check/test/check.test.mjs with surfaces made in a temporary directory: one address answered with three different bodies by the surface, by a view and by a state, each shown in the render that the order gives; a state entry that does not reach the next state of the same view; a view entry that does not reach another view; each refusal of do_2; a surface without the key behaves as before. The present cases stay and none is weakened. Run the cases by hand and read each message."
+do_6 = "do_6 The files of tools/ui-check are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
