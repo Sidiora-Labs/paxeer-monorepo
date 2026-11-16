@@ -249755,7 +249755,7 @@ do_6 = "do_6 Decision 3699, gotcha 4619. The directory migrations is now inside 
 
 [task.22.39.765]
 title = "Answer the readiness path on the private identity listener of the gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.759"]
