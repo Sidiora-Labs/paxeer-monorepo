@@ -69,7 +69,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
             <TokenEntity.Icon token={{ ...data, type: data.token_type }} isLoading={ isLoading }/>
             <Link
               href={ route({ pathname: '/token/[hash]', query: { hash: data.address_hash } }) }
-              fontWeight={ 700 }
+              fontWeight="bold"
               wordBreak="break-all"
               loading={ isLoading }
               onClick={ handleLinkClick }
@@ -84,7 +84,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
               />
             </Link>
             { data.certified && <ContractCertifiedLabel iconSize={ 4 } boxSize={ 4 } ml={ 1 }/> }
-            { data.is_verified_via_admin_panel && !data.certified && <IconSvg name="certified" boxSize={ 4 } ml={ 1 } color="green.500"/> }
+            { data.is_verified_via_admin_panel && !data.certified && <IconSvg name="certified" boxSize={ 4 } ml={ 1 } color="positive"/> }
             { data.reputation && <TokenEntity.Reputation value={ data.reputation }/> }
           </Flex>
         );
@@ -119,7 +119,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 asProp={ shouldHighlightHash ? 'mark' : 'span' }
                 address={{ ...address, hash }}
                 textStyle="sm"
-                fontWeight={ 700 }
+                fontWeight="bold"
               />
             </AddressEntity.Link>
             <AddressEntity.Copy address={{ ...address, hash }}/>
@@ -133,7 +133,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
             <IconSvg name="publictags" boxSize={ 6 } mr={ 2 } color="icon.primary"/>
             <Link
               href={ route({ pathname: '/address/[hash]', query: { hash: data.address_hash } }) }
-              fontWeight={ 700 }
+              fontWeight="bold"
               wordBreak="break-all"
               loading={ isLoading }
               onClick={ handleLinkClick }
@@ -160,7 +160,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 route({ pathname: '/apps', query: { selectedAppId: data.app.id } }) :
                 route({ pathname: '/apps/[id]', query: { id: data.app.id } })
               }
-              fontWeight={ 700 }
+              fontWeight="bold"
               wordBreak="break-all"
               loading={ isLoading }
               onClick={ handleLinkClick }
@@ -190,7 +190,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 asProp={ shouldHighlightHash ? 'span' : 'mark' }
                 number={ Number(data.block_number) }
                 fontSize="sm"
-                fontWeight={ 700 }
+                fontWeight="bold"
                 isLoading={ isLoading }
               />
             </BlockEntity.Link>
@@ -214,7 +214,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 asProp="mark"
                 hash={ data.hash }
                 textStyle="sm"
-                fontWeight={ 700 }
+                fontWeight="bold"
               />
             </TxEntity.Link>
             <Badge colorPalette="green" ml={ 2 } flexShrink={ 0 }>Price update</Badge>
@@ -235,7 +235,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 asProp="mark"
                 hash={ data.transaction_hash }
                 textStyle="sm"
-                fontWeight={ 700 }
+                fontWeight="bold"
               />
             </TxEntity.Link>
           </TxEntity.Container>
@@ -256,7 +256,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 asProp={ data.cctx.index === searchTerm ? 'mark' : 'span' }
                 hash={ data.cctx.index }
                 textStyle="sm"
-                fontWeight={ 700 }
+                fontWeight="bold"
               />
             </TxEntity.Link>
           </TxEntity.Container>
@@ -276,7 +276,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 asProp="mark"
                 id={ data.tac_operation.operation_id }
                 textStyle="sm"
-                fontWeight={ 700 }
+                fontWeight="bold"
                 mr={ 2 }
               />
             </OperationEntity.Link>
@@ -298,7 +298,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 asProp="mark"
                 hash={ data.blob_hash }
                 textStyle="sm"
-                fontWeight={ 700 }
+                fontWeight="bold"
               />
             </BlobEntity.Link>
           </BlobEntity.Container>
@@ -318,7 +318,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 asProp="mark"
                 hash={ data.user_operation_hash }
                 textStyle="sm"
-                fontWeight={ 700 }
+                fontWeight="bold"
               />
             </UserOpEntity.Link>
           </UserOpEntity.Container>
@@ -334,7 +334,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
                 route({ pathname: '/address/[hash]', query: { hash: data.address_hash } }) :
                 route({ pathname: '/name-services/domains/[name]', query: { name: data.ens_info.name } })
               }
-              fontWeight={ 700 }
+              fontWeight="bold"
               wordBreak="break-all"
               loading={ isLoading }
               onClick={ handleLinkClick }
@@ -366,9 +366,9 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
               <Text whiteSpace="nowrap" overflow="hidden">
                 <HashStringShortenDynamic hash={ hash } noTooltip/>
               </Text>
-              { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="14px" color="green.500" ml={ 1 } flexShrink={ 0 }/> }
+              { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="3.5" color="positive" ml={ 1 } flexShrink={ 0 }/> }
             </Skeleton>
-            <Skeleton loading={ isLoading } overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis" fontWeight={ 700 }>
+            <Skeleton loading={ isLoading } overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis" fontWeight="bold">
               { data.token_type === 'ERC-20' && data.exchange_rate && `$${ Number(data.exchange_rate).toLocaleString() }` }
               { data.token_type !== 'ERC-20' && data.total_supply && `Items ${ Number(data.total_supply).toLocaleString() }` }
             </Skeleton>
@@ -424,7 +424,7 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
             <Box overflow="hidden">
               <HashStringShortenDynamic hash={ hash }/>
             </Box>
-            { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="14px" color="green.500" ml={ 1 } flexShrink={ 0 }/> }
+            { data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="3.5" color="positive" ml={ 1 } flexShrink={ 0 }/> }
           </Flex>
         );
       }

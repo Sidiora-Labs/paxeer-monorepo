@@ -38,7 +38,7 @@ const HotContractsTableItem = ({
           <EntityTags
             isLoading={ isLoading }
             tags={ protocolTags }
-            mt="10px"
+            mt="2.5"
             noColors
           />
         ) }
@@ -55,7 +55,7 @@ const HotContractsTableItem = ({
           loading={ isLoading }
           exchangeRate={ exchangeRate }
           layout="vertical"
-          rowGap="10px"
+          rowGap="2.5"
         />
       </TableCell>
     </TableRow>

@@ -58,7 +58,7 @@ const TokenNftMarketplaces = ({ hash, id, isLoading, appActionData, source }: Pr
         Marketplaces
       </DetailedInfo.ItemLabel>
       <DetailedInfo.ItemValue
-        py={ appActionData ? '1px' : '6px' }
+        py={ appActionData ? '0.25' : '1.5' }
       >
         <Skeleton loading={ isLoading } display="flex" flexWrap="wrap" alignItems="center">
           <HStack gap={ 3 }>
@@ -80,7 +80,7 @@ const TokenNftMarketplaces = ({ hash, id, isLoading, appActionData, source }: Pr
           { appActionData && (
             <>
               <TextSeparator/>
-              <AppActionButton data={ appActionData } height="30px" source={ source }/>
+              <AppActionButton data={ appActionData } height="touchTarget" source={ source }/>
             </>
           ) }
         </Skeleton>

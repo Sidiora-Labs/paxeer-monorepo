@@ -42,7 +42,7 @@ const TokensActionBar = ({
         hideFrom="lg"
       />
       <FilterInput
-        w={{ base: '100%', lg: '260px' }}
+        w={{ base: '100%', lg: '64' }}
         size="sm"
         onChange={ onSearchChange }
         placeholder="Token name or symbol"
