@@ -5,9 +5,12 @@ import * as borders from './foundations/borders';
 import breakpoints from './foundations/breakpoints';
 import colors from './foundations/colors';
 import durations from './foundations/durations';
+import easings from './foundations/easings';
 import semanticTokens from './foundations/semanticTokens';
 import shadows from './foundations/shadows';
-import { fonts, textStyles } from './foundations/typography';
+import sizes from './foundations/sizes';
+import spacing from './foundations/spacing';
+import { fonts, fontSizes, lineHeights, textStyles } from './foundations/typography';
 import zIndex from './foundations/zIndex';
 import globalCss from './globalCss';
 import { recipes, slotRecipes } from './recipes';
@@ -25,8 +28,13 @@ export const customConfig = defineConfig({
       ...borders,
       colors,
       durations,
+      easings,
       fonts,
+      fontSizes,
+      lineHeights,
+      spacing,
       shadows,
+      sizes,
       zIndex,
       fontWeights: {
         normal: { value: '400' },

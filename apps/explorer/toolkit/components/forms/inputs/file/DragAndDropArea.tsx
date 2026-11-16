@@ -63,8 +63,8 @@ export const DragAndDropArea = chakra(({ onDrop, children, className, isDisabled
     <Center
       className={ className }
       w="100%"
-      minH="120px"
-      borderWidth="2px"
+      minH="var(--chakra-spacing-30)"
+      borderWidth="var(--chakra-border-widths-2)"
       borderRadius="base"
       borderStyle="dashed"
       borderColor={ isDragOver ? 'input.border.hover' : 'input.border' }

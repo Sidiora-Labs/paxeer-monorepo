@@ -12,6 +12,7 @@ order = 8
 needs = ["redis-gateway", "redis-internal", "identity"]
 
 [vars.dashboard]
+LAYERX_DASHBOARD_NETWORK_ID = "env:PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID"
 PORT = "9445"
 DASHBOARD_CLIENT_CERT = "env:PLATFORM_DASHBOARD_DASHBOARD_CLIENT_CERT"
 DASHBOARD_CLIENT_P12 = "env:PLATFORM_DASHBOARD_DASHBOARD_CLIENT_P12"
@@ -39,6 +40,8 @@ LAYERX_WEBHOOKS_REDIS_USERNAME_FILE = "/run/layerx/redis/username"
 LAYERX_WEBHOOKS_REDIS_PASSWORD_FILE = "/run/layerx/redis/password"
 
 [inputs.dashboard]
+# Network label used by the project gateway: 1-64 printable ASCII bytes without spaces.
+PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID = "operator"
 # Base64-encoded client certificate material written by the launcher.
 PLATFORM_DASHBOARD_DASHBOARD_CLIENT_CERT = "generated"
 # Base64-encoded client identity bundle written by the launcher.

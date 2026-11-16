@@ -31,7 +31,7 @@ export interface TableColumnHeaderProps extends ChakraTable.ColumnHeaderProps {
 export const TableColumnHeader = (props: TableColumnHeaderProps) => {
   const { isNumeric, ...rest } = props;
 
-  return <ChakraTable.ColumnHeader data-is-numeric={ isNumeric || undefined } textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
+  return <ChakraTable.ColumnHeader scope="col" data-is-numeric={ isNumeric || undefined } textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
 };
 
 export interface TableColumnHeaderSortableProps<F extends string> extends TableColumnHeaderProps {
@@ -62,7 +62,7 @@ export const TableColumnHeaderSortable = <F extends string>(props: TableColumnHe
         cursor="pointer"
         textAlign="inherit"
         textTransform="inherit"
-        _focusVisible={{ outline: '2px solid', outlineColor: 'focusRing', outlineOffset: '2px' }}
+        _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-spacing-0\\.5)' }}
       >
         { sortValue.includes(sortField) && (
           <Icon
@@ -117,7 +117,7 @@ export const TableHeaderSticky = (props: TableHeaderProps) => {
       ref={ ref }
       position="sticky"
       top={ top ? `${ top }px` : 0 }
-      backgroundColor={{ _light: 'white', _dark: 'black' }}
+      backgroundColor="canvas"
       boxShadow={ isStuck ? 'action_bar' : 'none' }
       zIndex="1"
       { ...rest }

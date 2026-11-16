@@ -13,6 +13,9 @@ import ChartTooltipTitle, { useRenderTitle } from './tooltip/ChartTooltipTitle';
 import { trackPointer } from './tooltip/pointerTracker';
 import type { Pointer } from './tooltip/pointerTracker';
 
+import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import { motionDuration } from '../../../theme/motion';
+
 export interface ChartTooltipProps {
   width?: number;
   tooltipWidth?: number;
@@ -37,11 +40,12 @@ export const ChartTooltip = React.memo(({
   resolution,
   ...props
 }: ChartTooltipProps) => {
+  const reducedMotion = useReducedMotion();
   const ref = React.useRef<SVGGElement>(null);
   const trackerId = React.useRef<number>(undefined);
   const isVisible = React.useRef(false);
 
-  const transitionDuration = !noAnimation ? 100 : null;
+  const transitionDuration = !noAnimation && !reducedMotion ? motionDuration('faster') : null;
 
   const renderLine = useRenderLine(ref, height);
   const renderContent = useRenderContent(ref, { chart: { width, height }, transitionDuration });
@@ -165,8 +169,8 @@ export const ChartTooltip = React.memo(({
       ref={ ref }
       opacity={ 0 }
       style={{
-        fontWeight: '500',
-        fontSize: '12px',
+        fontWeight: 'var(--chakra-font-weights-medium)',
+        fontSize: 'var(--chakra-font-sizes-text-xs)',
       }}
       { ...props }
     >

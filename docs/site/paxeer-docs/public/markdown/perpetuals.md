@@ -4,6 +4,8 @@
 
 Trade long and short exposure through the native order book, USDL cross margin, governed market parameters and committed transaction receipts.
 
+Paxeer Xtrades is the trading workspace in `apps/perps`. Its web application lives in `apps/perps/apps/web`, while the shared market, wallet and chain clients live in `apps/perps/packages/paxeer-backend`. The workspace README covers installation, checks, builds, runtime settings and the client order contract.
+
 ## A market is a complete risk configuration
 
 The perpetuals venue is implemented in `modules/perps` and exposed to EVM callers at `0x1015`. Its ABI is `precompiles/perps/abi/abi.json`; `precompiles/perps/Perps.sol` declares the Solidity interface. Collateral is the configured USDL ERC-20 with 6 decimal places. Prices, USD notionals, P&L and fees use 18-decimal fixed point. Every precompile method is nonpayable.

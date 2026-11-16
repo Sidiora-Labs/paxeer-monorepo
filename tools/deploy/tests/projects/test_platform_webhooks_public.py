@@ -279,3 +279,16 @@ def test_public_init_refuses_another_listener_value(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "tls" in result.stderr and "plain" in result.stderr
     assert not (tmp_path / "webhooks-environment").exists()
+
+
+def test_webhooks_public_network_label_input() -> None:
+    sections = _parse_kvx(DEFINITION)[0]
+    input_name = "PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID"
+    assert sections["vars.webhooks-public"]["LAYERX_WEBHOOKS_NETWORK_ID"] == f"env:{input_name}"
+    assert sections["inputs.webhooks-public"][input_name] == "operator"
+    lines = DEFINITION.read_text().splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith(input_name + " ="))
+    assert lines[index - 1] == (
+        "# Network label used by the project gateway: "
+        "1-64 printable ASCII bytes without spaces."
+    )

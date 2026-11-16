@@ -370,6 +370,22 @@ JSON content type; every configured predicate must match. For `agentd`,
 equal its wire version. No default health path or predicate is inferred for
 any service.
 
+For `dashboard` and `webhooks`, use the service's HTTPS origin with both
+`health_path` and `identity_path` set to `/healthz`. Configure the following
+predicates for each binding:
+
+| Service | `ready_pointer` / `ready_value` | `network_pointer` / `network_value` | `version_pointer` / `version_value` |
+| --- | --- | --- | --- |
+| `dashboard` | `/ready` / `true` | `/network_id` / the gateway network label string, also set as `LAYERX_DASHBOARD_NETWORK_ID` | `/version` / the deployed `layerx-platform-dashboard` package version string |
+| `webhooks` | `/ready` / `true` | `/network_id` / the gateway network label string, also set as `LAYERX_WEBHOOKS_NETWORK_ID` | `/version` / the deployed `layerx-platform-webhooks` package version string |
+
+The network settings accept 1–64 printable ASCII bytes without spaces.
+Each health response always includes the package version; the network member
+is present when configured. Set the network label on every bound service.
+Both webhooks roles expose these health members; ingress application TLS
+requires a trusted internal client certificate. `/livez` carries no readiness,
+network or version predicate.
+
 For example, if an upstream actually returns
 `{"ready":true,"network_id":"NETWORK","wire_version":"WIRE"}` at `/readyz`,
 its binding can be:

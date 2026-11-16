@@ -49,7 +49,7 @@ export const recipe = defineSlotRecipe({
       borderRadius: 'none',
       color: 'closeButton.fg',
       focusVisibleRing: 'inside',
-      focusRingWidth: '2px',
+      focusRingWidth: 'var(--chakra-border-widths-2)',
       _hover: {
         color: 'hover',
       },
@@ -99,7 +99,7 @@ export const recipe = defineSlotRecipe({
           gap: '1',
           '--tag-avatar-size': 'spacing.4',
           '--tag-element-size': 'spacing.3',
-          '--tag-element-offset': '0px',
+          '--tag-element-offset': '0',
         },
         label: {
           textStyle: 'sm',
@@ -114,7 +114,7 @@ export const recipe = defineSlotRecipe({
           gap: '1',
           '--tag-avatar-size': 'spacing.4',
           '--tag-element-size': 'spacing.3',
-          '--tag-element-offset': '0px',
+          '--tag-element-offset': '0',
         },
         label: {
           textStyle: 'sm',
@@ -133,7 +133,7 @@ export const recipe = defineSlotRecipe({
         root: {
           bgColor: 'transparent',
           color: 'text.secondary',
-          borderWidth: '1px',
+          borderWidth: 'var(--chakra-border-widths-1)',
           borderStyle: 'solid',
           borderColor: 'border.divider',
           borderRadius: 'full',
