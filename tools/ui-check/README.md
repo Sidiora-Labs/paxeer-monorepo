@@ -50,12 +50,14 @@ when it uses all modes:
   record each focused selector.
 
 Every render has a numbered PNG and an entry in `result.json`, with the view,
-state, width, height, scheme, mode, render status, `hasContent` and findings.
+state, width, height, scheme, mode, render status, `hasContent`, `cancelled` and
+findings.
 `hasContent` is true only when the document has visible content and the viewport
 screenshot contains more than one colour. Findings include that context, a
 selector and measured values. A view summary and a total print to stdout, each
-including the count of renders that showed nothing. The view summary also counts
-renders that did not render. The report also lists the modes for each view and
+including the count of renders that showed nothing. The total also counts
+cancelled requests across the run. The view summary also counts renders that did
+not render. The report also lists the modes for each view and
 named state. The total line counts views and named states using fewer than all
 four modes, counting the initial state as its view. Exit status is zero only when
 every requested render succeeds with no findings. Startup, navigation and
@@ -232,7 +234,7 @@ finding kind.
 
 | Kind | Finding |
 | --- | --- |
-| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. A deadline finding records `source: "deadline"` and the last started `step`; the render is marked not rendered. Its context is closed; if closing exceeds the navigation limit, its browser is ended and replaced before the next render. A matching declared refusal and its browser failed-resource console line are allowed. |
+| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request other than a page-cancelled request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. A deadline finding records `source: "deadline"` and the last started `step`; the render is marked not rendered. Its context is closed; if closing exceeds the navigation limit, its browser is ended and replaced before the next render. A matching declared refusal and its browser failed-resource console line are allowed. Page-cancelled requests add to the render's `cancelled` count without a finding; a cancelled document navigation remains a finding. Requests ended by the check produce only their original finding. |
 | `sideways` | Document wider than the viewport, or visible element extending past either side or wider than the viewport. Text clipped to no area is excluded. Descendants of horizontal scroll containers are measured within those containers, whose boxes are measured against the viewport. Element geometry has a 0.5-pixel rounding tolerance. |
 | `cut` | Text with hidden or clipped overflow exceeds its box by more than 1 pixel, without declared ellipsis. Scrollable text is allowed. |
 | `contrast` | Axe measures text below 4.5:1, or large text below 3:1 (24 pixels, or bold at approximately 18.67 pixels). A custom axe check measures visible control borders, identifying fills and SVG fills/strokes below 3:1. Disabled controls are excluded. |
@@ -252,8 +254,16 @@ qualities that these measurements do not establish.
 Requests may still be pending when their render finishes, reaches its deadline
 or closes its browser context. Rejections from routing replies and WebSocket
 answers after that point are discarded, and the check finishes with its report
-and the exit status of its findings. Request failures while the render is active
-remain `load` findings with source `requestfailed`.
+and the exit status of its findings. While a render is active, requests the page
+cancels (`net::ERR_ABORTED`) add no finding and increment that render's `cancelled`
+count, which is present even when zero. A cancelled document navigation remains a
+`load` finding with source `requestfailed`. The check remembers requests it ends:
+unmatched external requests (`blockedbyclient`) have one `unanswered-request`
+finding, and requests to the surface that cannot be fetched (`failed`) have one
+`requestfailed` finding. Their subsequent browser failures and corresponding
+failed-resource console lines add no second finding or cancellation count. Every
+other failed request remains a `load` finding with source `requestfailed`. The
+total summary line reports the sum of `cancelled` across all renders.
 
 ## Adding a surface
 
