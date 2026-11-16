@@ -249589,7 +249589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.754]
 title = "Resolve the schema chat first on the pool of the social service in the container profile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.747"]
