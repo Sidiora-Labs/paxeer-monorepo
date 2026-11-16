@@ -362,7 +362,7 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
     <section id="transfers" aria-label="Your bridge transfers" className="flex w-full flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-title font-semibold tracking-tight">Your transfers</h2>
-        <span className="text-body-sm text-muted-foreground">This browser's record — chain state is re-read live.</span>
+        <span className="text-xs text-muted-foreground">This browser's record — chain state is re-read live.</span>
       </div>
 
       <ImportTransfer onImported={ onChanged }/>

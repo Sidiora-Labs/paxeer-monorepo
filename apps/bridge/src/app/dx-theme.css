@@ -27,20 +27,24 @@
   --touch-target: 2.75rem;
 
   --text-unit: 0.85em;
-  --text-caption: clamp(0.75rem, 0.72rem + 0.1vw, 0.8125rem);
-  --text-caption--line-height: 1.35;
-  --text-label: clamp(0.8125rem, 0.78rem + 0.1vw, 0.875rem);
-  --text-label--line-height: 1.4;
-  --text-body-sm: clamp(0.875rem, 0.84rem + 0.1vw, 0.9375rem);
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 1.5;
+  --text-label: 0.75rem;
+  --text-label--line-height: calc(1 / 0.75);
+  --text-body-sm: 0.8125rem;
   --text-body-sm--line-height: 1.5;
   --text-body: 1rem;
-  --text-body--line-height: 1.55;
-  --text-title-sm: clamp(0.9375rem, 0.9rem + 0.15vw, 1rem);
-  --text-title-sm--line-height: 1.25;
-  --text-title: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
-  --text-title--line-height: 1.2;
-  --text-display: clamp(1.875rem, 1.5rem + 1.6vw, 2.75rem);
-  --text-display--line-height: 1.08;
+  --text-body--line-height: 1.5;
+  --text-title-sm: 0.9375rem;
+  --text-title-sm--line-height: 1.5;
+  --text-title: 1.125rem;
+  --text-title--line-height: calc(1.75 / 1.125);
+  --text-display: 2.25rem;
+  --text-display--line-height: calc(2.5 / 2.25);
+  --text-micro: 0.625rem;
+  --text-micro--line-height: 1.5;
+  --text-card-title: 1.0625rem;
+  --text-card-title--line-height: 1.25;
   --text-icon-2xs: 0.4375rem;
   --text-icon-xs: 0.5rem;
   --text-icon-sm: 0.5625rem;
@@ -49,14 +53,14 @@
   --spacing: 0.25rem;
   --text-xs: var(--text-label);
   --text-xs--line-height: var(--text-label--line-height);
-  --text-sm: var(--text-body);
-  --text-sm--line-height: var(--text-body--line-height);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
   --text-base: var(--text-body);
   --text-base--line-height: var(--text-body--line-height);
   --text-lg: var(--text-title);
   --text-lg--line-height: var(--text-title--line-height);
-  --text-xl: var(--text-title);
-  --text-xl--line-height: var(--text-title--line-height);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -78,6 +82,8 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
 
+  --radius-token-square: 30%;
+  --radius-token-tag: 0.3125rem;
   --radius-xs: 0.25rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -549,6 +555,16 @@
 
 /* Surface primitives used by views and custom controls.  The named classes
    keep component CSS free of one-off colour, size, and timing literals. */
+@utility text-micro {
+  font-size: var(--text-micro);
+  line-height: var(--text-micro--line-height);
+}
+
+@utility text-card-title {
+  font-size: var(--text-card-title);
+  line-height: var(--text-card-title--line-height);
+}
+
 @utility text-caption {
   font-size: var(--text-caption);
   line-height: var(--text-caption--line-height);
@@ -694,11 +710,6 @@
     outline-offset: var(--focus-offset);
   }
 
-  :where(button, select, input, textarea, a[data-slot="button"]) {
-    min-block-size: var(--target-size);
-    min-inline-size: var(--target-size);
-  }
-
   :where(p, dd, li, [data-slot="card-description"], [data-slot="dialog-description"]) {
     overflow-wrap: anywhere;
   }
@@ -708,7 +719,7 @@
   }
 
   html {
-    scrollbar-gutter: stable;
+    scrollbar-gutter: auto;
     scroll-padding-block-start: calc(var(--spacing) * 24);
   }
 
@@ -756,17 +767,28 @@
 }
 
 @utility bridge-header {
-  min-block-size: calc(var(--spacing) * 16);
-  flex-wrap: wrap;
-  padding-block: calc(var(--spacing) * 2);
+  min-block-size: var(--spacing-14);
+  flex-wrap: nowrap;
 }
 
 @utility bridge-metrics {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--metric-min-width)), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @utility bridge-steps {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--card-min-width)), 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 40rem) {
+  .bridge-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .bridge-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 834px) {
+  :where(button, input, select, textarea, a[href]) {
+    min-block-size: var(--target-size) !important;
+    min-inline-size: var(--target-size) !important;
+  }
 }
 
 @utility bridge-chain-grid {
@@ -857,45 +879,22 @@
 }
 
 @utility surface-inset-x {
-  padding-inline: clamp(var(--spacing-2), 4cqi, var(--spacing-6));
+  padding-inline: var(--spacing-6);
 }
 
 @utility surface-inset {
-  padding: clamp(var(--spacing-2), 3cqi, var(--spacing-4));
+  padding: var(--spacing-3);
+  @media (min-width: 40rem) { padding: var(--spacing-4); }
 }
 
 @utility route-chain-icon {
-  inline-size: clamp(var(--spacing-4), 10cqi, var(--spacing-8));
-  block-size: clamp(var(--spacing-4), 10cqi, var(--spacing-8));
+  inline-size: var(--spacing-8);
+  block-size: var(--spacing-8);
 }
 
 @layer base {
   :where([data-slot="alert-title"], [data-slot="alert-description"], [data-slot="card-header"], [data-slot="card-content"]) {
     overflow-wrap: anywhere;
-  }
-}
-
-@container header (inline-size < 20rem) {
-  .bridge-header-controls {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .bridge-header-controls > [data-slot="popover-trigger"] {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-  .bridge-header-controls > [data-slot="theme-toggle"] {
-    grid-column: 2;
-    grid-row: 1;
-  }
-}
-
-@container card (inline-size < 20rem) {
-  [data-slot="alert"]:has(> svg) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  [data-slot="alert"]:has(> svg) > [data-slot] {
-    grid-column: 1;
   }
 }
 
@@ -907,4 +906,23 @@
   &::-webkit-progress-bar { background: var(--container-high); }
   &::-webkit-progress-value { background: var(--primary); border-radius: inherit; }
   &::-moz-progress-bar { background: var(--primary); border-radius: inherit; }
+}
+
+@container site-header (inline-size < 48rem) {
+  .bridge-header > nav,
+  .bridge-header > [data-slot="badge"] {
+    display: none;
+  }
+}
+
+@container site-header (inline-size < 20rem) {
+  .bridge-header {
+    flex-wrap: wrap;
+    padding-block: var(--spacing-2);
+  }
+  .bridge-header-controls {
+    flex-basis: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }

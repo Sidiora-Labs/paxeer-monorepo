@@ -152,7 +152,7 @@ function NetworkSwitcher() {
         <span className="hidden sm:inline">{ current ? current.name : 'Wrong network' }</span>
       </Button>
       <Dialog open={ open } onOpenChange={ (o) => setOpen(o) }>
-        <DialogContent className="gap-4 surface-inset sm:max-w-md">
+        <DialogContent className="gap-4 p-5 sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base">Wallet network</DialogTitle>
             <DialogDescription>
@@ -183,9 +183,9 @@ function NetworkSwitcher() {
 export function SiteHeader({ historyBadge }: { historyBadge?: number }) {
   const { isConnected } = useHydratedAccount();
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="mx-auto @container/header bridge-header flex min-w-0 w-full max-w-5xl items-center gap-2 px-3 sm:gap-3 sm:px-6">
-        <a href="#" className="focus-ring flex min-h-11 min-w-0 items-center gap-2 rounded-md" aria-label="Paxeer Bridge home">
+    <header className="@container/site-header sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
+      <div className="mx-auto @container/header bridge-header flex min-w-0 w-full max-w-5xl items-center gap-3 px-4 sm:px-6">
+        <a href="#" className="focus-ring flex min-w-0 items-center gap-2 rounded-md" aria-label="Paxeer Bridge home">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
             <ArrowLeftRightIcon className="size-4" aria-hidden="true"/>
           </span>
@@ -193,10 +193,10 @@ export function SiteHeader({ historyBadge }: { historyBadge?: number }) {
             Paxeer <span className="text-muted-foreground font-medium">Bridge</span>
           </span>
         </a>
-        <Badge variant="warning" className="hidden lg:inline-flex">
+        <Badge variant="warning" className="hidden md:inline-flex">
           Attested bridge
         </Badge>
-        <nav aria-label="Bridge" className="ml-2 hidden items-center gap-1 xl:flex">
+        <nav aria-label="Bridge" className="ml-2 hidden items-center gap-1 md:flex">
           <Button variant="ghost" size="sm" render={ <a href="#bridge"/> }>
             Bridge
           </Button>
@@ -212,7 +212,7 @@ export function SiteHeader({ historyBadge }: { historyBadge?: number }) {
             How it works
           </Button>
         </nav>
-        <div className="bridge-header-controls ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5">
+        <div className="bridge-header-controls ml-auto flex min-w-0 max-w-full items-center justify-end gap-1.5">
           { isConnected ? <NetworkSwitcher/> : null }
           <WalletButton/>
           <ThemeToggle icon="sun" appearance="ghost" variant="circle" start="pointer"/>

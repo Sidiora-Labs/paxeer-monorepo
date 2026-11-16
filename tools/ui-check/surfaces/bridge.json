@@ -229,13 +229,9 @@
     }
   ],
   "answers": [],
-  "typeScale": [
-    { "min": 7, "max": 11 },
-    { "min": 12, "max": 13 },
-    { "min": 13, "max": 14 },
-    { "min": 14, "max": 16 },
-    16,
-    { "min": 18, "max": 22 },
-    { "min": 30, "max": 44 }
-  ]
+  "typeScale": [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 30, 36],
+  "geometry": {
+    "file": "bridge/geometry.json",
+    "widths": [390, 1280, 1440, 1920, 2560]
+  }
 }

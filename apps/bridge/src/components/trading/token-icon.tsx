@@ -44,7 +44,7 @@ export function TokenIcon({ symbol, src, size = 'sm', shape = 'circle', classNam
       data-slot="token-icon"
       className={ cn(
         'token-disc relative inline-flex shrink-0 items-center justify-center overflow-hidden font-semibold select-none',
-        shape === 'circle' ? 'rounded-full' : 'rounded-sm',
+        shape === 'circle' ? 'rounded-full' : 'rounded-(--radius-token-square)',
         SIZES[size],
         className,
       ) }
@@ -108,7 +108,7 @@ export function SymbolDisplay({ symbol, format = 'base-type', showIcon = true, i
 /** A tiny tonal pill for leverage, market type or listing status. */
 export function SymbolBadge({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={ cn('inline-flex h-4 items-center rounded-sm bg-container-high px-1 text-caption leading-none font-medium text-muted-foreground', className) }>
+    <span className={ cn('inline-flex h-4 items-center rounded-(--radius-token-tag) bg-container-high px-1 text-micro leading-none font-medium text-muted-foreground', className) }>
       { children }
     </span>
   );
