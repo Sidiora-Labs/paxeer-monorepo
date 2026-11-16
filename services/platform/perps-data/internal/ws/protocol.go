@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net/http"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -175,7 +176,7 @@ type Server struct {
 
 // NewServer builds a Server for the process snapshotID serving the topics
 // accepted by served.
-func NewServer(snapshotID string, served func(topic string) bool, limits Limits) (*Server, error) {
+func NewServer(snapshotID string, served func(topic string) bool, limits Limits, allowedOrigins ...[]string) (*Server, error) {
 	switch {
 	case snapshotID == "":
 		return nil, errors.New("ws: empty snapshotId")
@@ -184,16 +185,24 @@ func NewServer(snapshotID string, served func(topic string) bool, limits Limits)
 	case limits.MaxSubscriptions <= 0, limits.SubscribesPerSecond <= 0, limits.PingInterval <= 0:
 		return nil, fmt.Errorf("ws: non-positive limits %+v", limits)
 	}
+	origins := []string(nil)
+	if len(allowedOrigins) > 0 {
+		origins = append(origins, allowedOrigins[0]...)
+	}
 	return &Server{
 		Now:        time.Now,
 		Ticker:     realTicker,
 		snapshotID: snapshotID,
 		served:     served,
 		limits:     limits,
-		// The protocol is public, read-only and unauthenticated, so any
-		// origin may connect.
-		upgrader: websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }},
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool {
+			return originAllowed(r, origins)
+		}},
 	}, nil
+}
+
+func originAllowed(r *http.Request, allowed []string) bool {
+	return len(allowed) == 0 || r.Header.Get("Origin") == "" || slices.Contains(allowed, r.Header.Get("Origin"))
 }
 
 func realTicker(d time.Duration) (<-chan time.Time, func()) {

@@ -73,8 +73,14 @@ export PERPS_NATS_CLUSTER_PASSWORD=sentinel-cluster-pw-41
 export PERPS_NATS_INDEXER_PASSWORD=sentinel-indexer-pw-42
 export PERPS_NATS_GATEWAY_PASSWORD=sentinel-gateway-pw-43
 export PERPS_AUTH_SECRET=sentinel-auth-secret-44
+export PERPS_ALLOWED_ORIGINS=https://app.example,https://trading.example
 export PERPS_RPC_URLS=sentinel-rpc-urls-45
 export PERPS_COMET_URLS=sentinel-comet-urls-46
+export PRICE_FEED_ORIGIN=https://prices.example
+export PRICE_FEED_REST_API_KEY=sentinel-price-rest-key-47
+export PRICE_FEED_WS_API_KEY=sentinel-price-ws-key-48
+export CANDLE_TRUSTED_PROXY_IPS=sentinel-candle-proxies-49
+export PRESENCE_TRUSTED_PROXY_IPS=sentinel-presence-proxies-50
 
 # Recorded GraphQL responses: the workspace lists the project on its second
 # page, the environment exists, Postgres runs with its full variable set and
@@ -254,7 +260,7 @@ d = lambda n: "sha256:%064d" % n
 ref = lambda img, n: {"image": f"ghcr.io/sidiora-labs/{img}@{d(n)}"}
 def inst(img, n, health, replicas):
     return {"source": ref(img, n), "healthcheckPath": health, "healthcheckTimeout": 300,
-            "restartPolicyType": "ALWAYS", "numReplicas": replicas}
+            "restartPolicyType": "ON_FAILURE" if img == "perps-web" else "ALWAYS", "numReplicas": replicas}
 nats_upsert = {k: v for k, v in vars_["nats"].items() if k != "PORT"}
 assert sorted(nats_upsert) == ["NATS_CLUSTER_PASSWORD", "NATS_GATEWAY_PASSWORD", "NATS_INDEXER_PASSWORD",
                                "NATS_MAX_FILE_STORE", "NATS_ROUTES", "RAILWAY_RUN_UID"], sorted(nats_upsert)
@@ -559,7 +565,8 @@ grep -q 'no digest for: perps-web' "$tmp/err" || fail "missing digest not named"
 
 for v in "$RAILWAY_API_TOKEN" "$GHCR_USERNAME" "$GHCR_TOKEN" "$PERPS_POSTGRES_PASSWORD" "$PERPS_NATS_CLUSTER_PASSWORD" \
 	"$PERPS_NATS_INDEXER_PASSWORD" "$PERPS_NATS_GATEWAY_PASSWORD" "$PERPS_AUTH_SECRET" "$PERPS_RPC_URLS" \
-	"$PERPS_COMET_URLS" sentinel-old-cluster-pw-99; do
+	"$PERPS_COMET_URLS" "$PRICE_FEED_REST_API_KEY" "$PRICE_FEED_WS_API_KEY" "$CANDLE_TRUSTED_PROXY_IPS" \
+	"$PRESENCE_TRUSTED_PROXY_IPS" sentinel-old-cluster-pw-99; do
 	if grep -qF "$v" "$tmp/all"; then fail "secret value $v appears in the output"; fi
 done
 

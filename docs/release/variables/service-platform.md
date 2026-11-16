@@ -436,6 +436,7 @@ The root `.env.example` inventories the components together; select the settings
 | `PAXEER_X_REFERENCE_APP_ARTIFACTS` | Paxeer x reference app artifacts. | None | No | [examples/build-reference-apps.mjs](../../../services/platform/examples/build-reference-apps.mjs); [examples/marketplace/index.mjs](../../../services/platform/examples/marketplace/index.mjs) |
 | `PAXSCAN_DATABASE_PUBLIC_URL` | Paxscan database public URL. | None | Yes | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
 | `PERPS_AUTH_SECRET` | Auth secret. | None | Yes | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
+| `PERPS_ALLOWED_ORIGINS` | Optional comma-separated http or https origins without paths, queries, fragments, credentials or a trailing slash; spaces around entries are trimmed. | None (empty list) | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PERPS_CHAIN_ID` | Chain ID. | None | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PERPS_COMET_URLS` | Comet URLs. | None | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PERPS_GATEWAY_URL` | Gateway URL. | None | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
