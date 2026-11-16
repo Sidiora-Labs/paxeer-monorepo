@@ -173,8 +173,8 @@ func TestCARetiredAuthorityAndRouter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 30 {
-		t.Fatalf("want all 30 live identities, got %d", len(rows))
+	if len(rows) != 31 {
+		t.Fatalf("want all 31 live identities, got %d", len(rows))
 	}
 	names := map[string]bool{}
 	scanner := strings.Split(string(runtimeInventoryRead(t, "railway-names.env")), "\n")
