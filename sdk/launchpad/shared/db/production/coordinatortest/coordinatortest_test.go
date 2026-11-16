@@ -21,9 +21,9 @@ func TestPlatformRuntimeRolesPassReadiness(t *testing.T) {
 	if admin == "" {
 		t.Skipf("%s is not set: point it at a running PostgreSQL whose role may CREATE DATABASE and CREATE ROLE; tests never start containers", PostgresDSNEnv)
 	}
-	db := Bootstrap(t, admin, "chat_runtime", "livestream_runtime", "candles_runtime")
+	db := Bootstrap(t, admin, "chat_runtime", "livestream_runtime", "candles_runtime", "stats_runtime")
 	ctx := context.Background()
-	for _, role := range []string{"chat_runtime", "livestream_runtime", "candles_runtime"} {
+	for _, role := range []string{"chat_runtime", "livestream_runtime", "candles_runtime", "stats_runtime"} {
 		rt := db.Runtimes[role]
 		want, err := production.LoadExpectedSchema(rt.ExpectedSchema, rt.ExpectedSchemaSHA256)
 		if err != nil {
