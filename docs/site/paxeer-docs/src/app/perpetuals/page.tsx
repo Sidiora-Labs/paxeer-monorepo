@@ -7,6 +7,7 @@ export const metadata = metadataFor('/perpetuals')
 export default function Perpetuals() {
   return <DocsLayout>
     <div className="page-header"><h1 className="page-title">Perpetual Futures</h1><p className="page-description">Trade long and short exposure through the native order book, USDL cross margin, governed market parameters and committed transaction receipts.</p></div>
+    <p>Paxeer Xtrades is the trading workspace in <code>apps/perps</code>. Its web application lives in <code>apps/perps/apps/web</code>, while the shared market, wallet and chain clients live in <code>apps/perps/packages/paxeer-backend</code>. The workspace README covers installation, checks, builds, runtime settings and the client order contract.</p>
     <h2>A market is a complete risk configuration</h2>
     <p>The perpetuals venue is implemented in <code>modules/perps</code> and exposed to EVM callers at <code>0x1015</code>. Its ABI is <code>precompiles/perps/abi/abi.json</code>; <code>precompiles/perps/Perps.sol</code> declares the Solidity interface. Collateral is the configured USDL ERC-20 with 6 decimal places. Prices, USD notionals, P&amp;L and fees use 18-decimal fixed point. Every precompile method is nonpayable.</p>
     <table><thead><tr><th>Parameter group</th><th>What it controls</th></tr></thead><tbody>

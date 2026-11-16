@@ -84,7 +84,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
               selected={ !isLoading }
               loadingSkeleton={ isLoading }
             >
-              <IconSvg name="clock-light" boxSize="14px"/>
+              <IconSvg name="clock-light" boxSize={ 3.5 }/>
             </IconButton>
           </SelectControl>
           <SelectContent>

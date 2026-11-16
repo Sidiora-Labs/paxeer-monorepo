@@ -41,14 +41,20 @@ export function SignedWordedAmount({
   className,
   ...props
 }: SignedWordedAmountProps) {
-  const resolvedDirection = direction ?? (value > 0 ? "inbound" : value < 0 ? "outbound" : "other");
+  const resolvedDirection =
+    direction ?? (value > 0 ? "inbound" : value < 0 ? "outbound" : "other");
   const amountLabel = formatExplicitCurrencyAmount(value, {
     currency,
     locale,
     ...(decimals === undefined ? {} : { decimals }),
   });
   return (
-    <span className={cn("inline-flex items-baseline gap-2", className)}>
+    <span
+      className={cn(
+        "inline-flex max-w-full flex-wrap items-baseline gap-2",
+        className,
+      )}
+    >
       <span className="sr-only">{`${amountLabel}, ${directionWord(resolvedDirection)}`}</span>
       <AmountText
         {...props}
@@ -59,7 +65,10 @@ export function SignedWordedAmount({
         {...(decimals === undefined ? {} : { decimals })}
         colorMode="signed"
       />
-      <span aria-hidden className="text-sm font-medium text-foreground-secondary">
+      <span
+        aria-hidden
+        className="whitespace-nowrap text-sm font-medium text-foreground-secondary"
+      >
         {directionWord(resolvedDirection)}
       </span>
     </span>
@@ -72,14 +81,19 @@ export function LabelValue({
   className,
 }: Readonly<{ label: ReactNode; value: ReactNode; className?: string }>) {
   return (
-    <span className={cn("inline-flex flex-col gap-1", className)}>
+    <span className={cn("inline-flex min-w-0 flex-col gap-1", className)}>
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="font-semibold tabular-nums text-foreground">{value}</span>
+      <span className="font-semibold tabular-nums text-foreground">
+        {value}
+      </span>
     </span>
   );
 }
 
-export function StatusPill({ status, className }: Readonly<{ status: StatusKey; className?: string }>) {
+export function StatusPill({
+  status,
+  className,
+}: Readonly<{ status: StatusKey; className?: string }>) {
   const presentation = statusPresentation(status);
   return (
     <Badge
@@ -99,8 +113,15 @@ export function CopyableIdentifier({
   value,
   onCopied,
   className,
-}: Readonly<{ label: string; value: string; onCopied?: (value: string) => void; className?: string }>) {
-  const [copyState, setCopyState] = useState<"copied" | "failed" | "idle">("idle");
+}: Readonly<{
+  label: string;
+  value: string;
+  onCopied?: (value: string) => void;
+  className?: string;
+}>) {
+  const [copyState, setCopyState] = useState<"copied" | "failed" | "idle">(
+    "idle",
+  );
   const labelId = useId();
 
   const copy = async () => {
@@ -121,7 +142,12 @@ export function CopyableIdentifier({
         : undefined;
 
   return (
-    <div className={cn("flex flex-col gap-2 text-sm font-semibold text-foreground", className)}>
+    <div
+      className={cn(
+        "flex flex-col gap-2 text-sm font-semibold text-foreground",
+        className,
+      )}
+    >
       <span id={labelId}>{label}</span>
       <Input
         aria-labelledby={labelId}
@@ -129,8 +155,17 @@ export function CopyableIdentifier({
         value={value}
         className="tabular-nums"
         trailing={
-          <Button type="button" variant="link" size="sm" onClick={() => void copy()}>
-            {copyEntry(copyState === "copied" ? "action.copied" : "action.copy").message}
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            onClick={() => void copy()}
+          >
+            {
+              copyEntry(
+                copyState === "copied" ? "action.copied" : "action.copy",
+              ).message
+            }
           </Button>
         }
       />
@@ -194,15 +229,26 @@ export function FeeMathDisclosure({
     >
       <ol className="flex flex-col gap-3">
         {steps.map((step, index) => (
-          <li key={`${String(index)}-${step.label}`} className="flex items-start gap-3">
+          <li
+            key={`${String(index)}-${step.label}`}
+            className="flex items-start gap-3"
+          >
             <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-sm font-bold tabular-nums text-foreground">
               {index + 1}
             </span>
-            <Card elevation="outline" padding="sm" className="flex min-w-0 flex-1 items-start justify-between gap-4">
+            <Card
+              elevation="outline"
+              padding="sm"
+              className="flex min-w-0 flex-1 items-start justify-between gap-4"
+            >
               <span className="flex flex-col gap-1">
-                <span className="font-semibold text-foreground">{step.label}</span>
+                <span className="font-semibold text-foreground">
+                  {step.label}
+                </span>
                 {step.explanation === undefined ? null : (
-                  <span className="text-sm text-muted-foreground">{step.explanation}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {step.explanation}
+                  </span>
                 )}
               </span>
               <span>
@@ -234,7 +280,12 @@ export function FeeMathDisclosure({
               ...(decimals === undefined ? {} : { decimals }),
             })}`}
           </span>
-          <AmountText {...amountProps} aria-hidden value={total} colorMode="neutral" />
+          <AmountText
+            {...amountProps}
+            aria-hidden
+            value={total}
+            colorMode="neutral"
+          />
         </span>
       </div>
     </DetailDisclosure>

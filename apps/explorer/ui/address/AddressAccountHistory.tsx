@@ -84,16 +84,16 @@ const AddressAccountHistory = ({ shouldRender = true, isQueryEnabled = true }: P
       </Box>
 
       <Box hideBelow="lg">
-        <TableRoot>
+        <TableRoot aria-label="Account history" aria-busy={ isPlaceholderData }>
           <TableHeaderSticky top={ 75 }>
             <TableRow>
-              <TableColumnHeader width="120px">
+              <TableColumnHeader width="{spacing.30}">
                 Age
               </TableColumnHeader>
               <TableColumnHeader>
                 Action
               </TableColumnHeader>
-              <TableColumnHeader width="320px">
+              <TableColumnHeader width="{spacing.80}">
                 From/To
               </TableColumnHeader>
             </TableRow>

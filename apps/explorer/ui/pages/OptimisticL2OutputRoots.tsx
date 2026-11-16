@@ -62,8 +62,8 @@ const OptimisticL2OutputRoots = () => {
     return (
       <Skeleton loading={ countersQuery.isPlaceholderData || isPlaceholderData } display="flex" flexWrap="wrap">
         { layerLabels.current } output index
-        <Text fontWeight={ 600 } whiteSpace="pre"> #{ data.items[0].l2_output_index } </Text>to
-        <Text fontWeight={ 600 } whiteSpace="pre"> #{ data.items[data.items.length - 1].l2_output_index } </Text>
+        <Text fontWeight="semibold" whiteSpace="pre"> #{ data.items[0].l2_output_index } </Text>to
+        <Text fontWeight="semibold" whiteSpace="pre"> #{ data.items[data.items.length - 1].l2_output_index } </Text>
         (total of { countersQuery.data?.toLocaleString() } roots)
       </Skeleton>
     );

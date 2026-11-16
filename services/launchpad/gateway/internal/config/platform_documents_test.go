@@ -54,7 +54,7 @@ func TestPlatformDocuments(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := map[string]any{
-		"service": "gateway", "runtime_role": "mediagatewayd", "registry_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+		"service": "media/gateway", "runtime_role": "mediagatewayd", "registry_digest": "0000000000000000000000000000000000000000000000000000000000000000",
 		"interface_digest": "0000000000000000000000000000000000000000000000000000000000000000", "reader_version": 1,
 		"migrations": map[string]string{"1": "0000000000000000000000000000000000000000000000000000000000000000"},
 		"schemas":    map[string]string{"app": "0000000000000000000000000000000000000000000000000000000000000000"},

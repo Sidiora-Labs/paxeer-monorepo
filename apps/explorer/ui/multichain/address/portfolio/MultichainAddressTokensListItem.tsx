@@ -8,6 +8,7 @@ import multichainConfig from 'configs/multichain';
 import { getTokenTypeName } from 'lib/token/tokenTypes';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tag } from 'toolkit/chakra/tag';
+import { spacing } from 'toolkit/theme/foundations/spacing';
 import NativeTokenTag from 'ui/shared/celo/NativeTokenTag';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import TokenEntity from 'ui/shared/entities/token/TokenEntity';
@@ -40,7 +41,7 @@ const MultichainAddressTokensListItem = ({ data, isLoading }: Props) => {
   } = calculateUsdValue({ amount: data.value, exchangeRate: data.token.exchange_rate, decimals: data.token.decimals });
 
   return (
-    <ListItemMobile py={ 3 } rowGap={ 3 } textStyle="sm">
+    <ListItemMobile fontSize="small" lineHeight="small" py={ 3 } rowGap={ 3 } textStyle="sm" containerType="inline-size">
       { isNativeToken ?
         <NativeTokenTag chainConfig={ chainInfo?.app_config }/> :
         <Tag loading={ isLoading }>{ getTokenTypeName(data.token.type, chainInfo?.app_config) }</Tag> }
@@ -50,7 +51,7 @@ const MultichainAddressTokensListItem = ({ data, isLoading }: Props) => {
         isLoading={ isLoading }
         noCopy
         jointSymbol
-        fontWeight="600"
+        fontWeight="semibold"
         width="auto"
         maxW="100%"
         noLink={ data.token.type === 'NATIVE' }
@@ -58,6 +59,7 @@ const MultichainAddressTokensListItem = ({ data, isLoading }: Props) => {
       { data.token.type !== 'NATIVE' && (
         <AddressEntity
           address={{ hash: data.token.address_hash }}
+          truncation="tail"
           isLoading={ isLoading }
           noIcon
           link={{ variant: 'secondary' }}
@@ -65,12 +67,19 @@ const MultichainAddressTokensListItem = ({ data, isLoading }: Props) => {
         />
       ) }
       <Grid
-        gridTemplateColumns="minmax(auto, 100px) 1fr"
+        w="full"
+        minW={ 0 }
+        gridTemplateColumns="minmax(0, 1fr)"
+        css={{
+          [ `@container (min-width: ${ spacing['80'].value })` ]: {
+            gridTemplateColumns: 'calc(var(--chakra-spacing-1) * 25) minmax(0, 1fr)',
+          },
+        }}
         rowGap={ 3 }
       >
         { data.token.exchange_rate ? (
           <>
-            <Skeleton loading={ isLoading } fontWeight="500">
+            <Skeleton loading={ isLoading } fontWeight="medium">
               <span>Price</span>
             </Skeleton>
             <SimpleValue
@@ -81,7 +90,7 @@ const MultichainAddressTokensListItem = ({ data, isLoading }: Props) => {
             />
           </>
         ) : null }
-        <Skeleton loading={ isLoading } fontWeight="500">
+        <Skeleton loading={ isLoading } fontWeight="medium">
           <span>Quantity</span>
         </Skeleton>
         <SimpleValue
@@ -91,7 +100,7 @@ const MultichainAddressTokensListItem = ({ data, isLoading }: Props) => {
         />
         { data.token.exchange_rate && (
           <>
-            <Skeleton loading={ isLoading } fontWeight="500">
+            <Skeleton loading={ isLoading } fontWeight="medium">
               <span>Value</span>
             </Skeleton>
             <SimpleValue

@@ -35,6 +35,15 @@ export function formatScanTableCount({ kind, value, itemsName, shownValue }: Sca
 // inside the body, or the mobile list items, which carry no gutter of their own and would otherwise
 // sit flush against the card border on a narrow screen.
 const BODY_GUTTER = {
+  '& [data-action-bar]': {
+    mt: 0,
+    mx: 0,
+    px: 4,
+    width: '100%',
+  },
+  '&:has([data-token-transfer-table])': {
+    overflow: 'visible',
+  },
   '& [data-list-item-mobile]': {
     px: '4',
   },
@@ -48,12 +57,12 @@ const ScanTableCard = ({ title, note, actions, pagination, showRows, children, c
       className={ className }
       data-scan-table-card
       bg="bg.surface"
-      borderWidth="1px"
+      borderWidth="var(--chakra-border-widths-1)"
       borderStyle="solid"
       borderColor="border.divider"
       borderRadius="md"
       boxShadow="card"
-      overflow="hidden"
+      overflow="clip"
     >
       <Flex
         data-header
@@ -67,7 +76,7 @@ const ScanTableCard = ({ title, note, actions, pagination, showRows, children, c
         minW={ 0 }
       >
         <Box minW={ 0 }>
-          <chakra.p textStyle="sm" fontWeight="500" color="text.primary" data-title>{ title }</chakra.p>
+          <chakra.p textStyle="sm" fontWeight="medium" color="text.primary" data-title>{ title }</chakra.p>
           { note && <chakra.p textStyle="xs" color="text.muted" data-note>{ note }</chakra.p> }
         </Box>
         <Flex alignItems="center" flexWrap="wrap" columnGap={ 2 } rowGap={ 2 } minW={ 0 } data-actions>
@@ -90,7 +99,7 @@ const ScanTableCard = ({ title, note, actions, pagination, showRows, children, c
           rowGap={ 3 }
           px={ 4 }
           py={ 3 }
-          borderTopWidth="1px"
+          borderTopWidth="var(--chakra-border-widths-1)"
           borderStyle="solid"
           borderColor="border.divider"
         >

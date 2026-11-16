@@ -23,7 +23,15 @@ export interface Props extends Omit<DataListDisplayProps, 'children'> {
 const TransactionsCrossChainContent = ({ items, isLoading, pagination, isTableView, stickyHeader = true, currentAddress, ...rest }: Props) => {
   const content = items ? (
     <>
-      <Box display={{ base: isTableView ? 'none' : 'block', lg: 'none' }}>
+      <Box
+        display={{ base: isTableView ? 'none' : 'block', lg: 'none' }}
+        css={{
+          '& > [data-list-item-mobile]:nth-of-type(n + 5)': {
+            contentVisibility: 'auto',
+            containIntrinsicBlockSize: 'auto var(--chakra-spacing-100)',
+          },
+        }}
+      >
         { items.map((item, index) => (
           <TransactionsCrossChainListItem
             key={ item.message_id + (isLoading ? index : '') }

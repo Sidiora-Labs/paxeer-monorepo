@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   EndpointClient,
   HumanClient,
@@ -49,6 +49,7 @@ export function SupportedWalletPanel({
   const [account, setAccount] = useState<Hex | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState('Connect explicitly to begin.');
+  const resultPanel = useRef<HTMLPreElement>(null);
   const [failed, setFailed] = useState(false);
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
@@ -118,7 +119,7 @@ export function SupportedWalletPanel({
     }
   }, []);
 
-  async function action(run: () => Promise<unknown>) {
+  async function action(run: () => Promise<unknown>, revealResult = true) {
     if (busy) return;
     setBusy(true);
     setFailed(false);
@@ -134,10 +135,12 @@ export function SupportedWalletPanel({
             )
       );
     } catch (cause) {
+      revealResult = true;
       setFailed(true);
       setResult(cause instanceof Error ? cause.message : 'Action unavailable');
     } finally {
       setBusy(false);
+      if (revealResult) resultPanel.current?.scrollIntoView({ block: 'nearest' });
     }
   }
 
@@ -166,11 +169,14 @@ export function SupportedWalletPanel({
         data-wallet-accounts
         disabled={busy}
         onClick={() =>
-          action(async () => {
-            const address = await connected();
-            setAccount(address);
-            return address;
-          })
+          action(
+            async () => {
+              const address = await connected();
+              setAccount(address);
+              return address;
+            },
+            false
+          )
         }
       >
         Connect {wallet.mode} wallet
@@ -297,6 +303,7 @@ export function SupportedWalletPanel({
         </button>
       </WalletForm>
       <pre
+        ref={resultPanel}
         role={failed ? 'alert' : 'status'}
         aria-label="Wallet action result"
         tabIndex={0}

@@ -94,6 +94,9 @@ type rpcReadState struct {
 	// of re-reading the same code epochs and blocks per log and per emitter.
 	codeEpochs map[string]string
 	blocks     map[common.Hash]cachedBlock
+	// heights lets a recovery walk hand its full block and receipt reads to
+	// the qualification pass without reading the same height again.
+	heights map[uint64]cachedBlock
 	// Archive-rate reads: range concurrency, readahead depth and the
 	// read-ahead pins by height (see archive.go).
 	concurrency, readahead                int
@@ -150,6 +153,28 @@ func (r *rpcReadState) storeBlock(hash common.Hash, value cachedBlock) {
 		r.blocks = map[common.Hash]cachedBlock{}
 	}
 	r.blocks[hash] = value
+}
+
+func (r *rpcReadState) height(height uint64) (cachedBlock, bool) {
+	if r == nil {
+		return cachedBlock{}, false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	v, ok := r.heights[height]
+	return v, ok
+}
+
+func (r *rpcReadState) storeHeight(height uint64, value cachedBlock) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.heights == nil || len(r.heights) >= pinnedCacheEntries {
+		r.heights = map[uint64]cachedBlock{}
+	}
+	r.heights[height] = value
 }
 
 type rpcDecimalRead struct {
@@ -1171,43 +1196,11 @@ func (a *RPCQualification) pinnedReceipts(ctx context.Context, block pinnedBlock
 			}
 		}
 	}
-	if len(receipts) != len(block.Transactions) {
-		return pinnedBlock{}, nil, ErrQualification
+	regular, _, err := SeparateShellReceipts(block.Transactions, types.Receipts(receipts), hash, header.Number, header.Bloom, header.ReceiptHash, a.reportedIdentity())
+	if err != nil {
+		return pinnedBlock{}, nil, err
 	}
-	number := header.Number.Uint64()
-	logIndex := uint(0)
-	totalBytes := 0
-	for i, r := range receipts {
-		t := block.Transactions[i]
-		iUint, conversionErr := checked.Convert[uint](i)
-		if conversionErr != nil {
-			return pinnedBlock{}, nil, conversionErr
-		}
-		if r == nil || r.Bloom != types.CreateBloom(r) || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != hash || r.TxHash != t.Hash() || r.TransactionIndex != iUint || r.Type != t.Type() || (r.Status != 0 && r.Status != 1) || len(r.Logs) > 4096 {
-			return pinnedBlock{}, nil, ErrQualification
-		}
-		for _, l := range r.Logs {
-			iUint2, conversionErr := checked.Convert[uint](i)
-			if conversionErr != nil {
-				return pinnedBlock{}, nil, conversionErr
-			}
-			if l == nil || l.Removed || l.BlockHash != hash || l.BlockNumber != number || l.TxHash != t.Hash() || l.TxIndex != iUint2 || l.Index != logIndex || logIndex > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
-				return pinnedBlock{}, nil, ErrQualification
-			}
-			totalBytes += 256 + len(l.Data) + 32*len(l.Topics)
-			if totalBytes > maxBundleBytes {
-				return pinnedBlock{}, nil, ErrQualification
-			}
-			logIndex++
-		}
-	}
-	if !a.reportedIdentity() && types.DeriveSha(types.Receipts(receipts), trie.NewStackTrie(nil)) != header.ReceiptHash {
-		return pinnedBlock{}, nil, ErrQualification
-	}
-	if types.MergeBloom(types.Receipts(receipts)) != header.Bloom {
-		return pinnedBlock{}, nil, ErrQualification
-	}
-	return block, types.Receipts(receipts), nil
+	return block, regular, nil
 }
 func receiptEqual(a, b *types.Receipt) bool {
 	if a == nil || b == nil {
@@ -1718,6 +1711,10 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 	a.reads.dropAheadBelow(from)
 	out := make([]pinnedHeight, to-from+1)
 	errs := make([]error, len(out))
+	readCtx, cancelAll := context.WithCancel(ctx)
+	defer cancelAll()
+	var firstErr error
+	var firstErrOnce sync.Once
 	slots := make(chan struct{}, a.reads.rangeConcurrency())
 	var wg sync.WaitGroup
 	for i := range out {
@@ -1729,36 +1726,53 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 				errs[i] = err
 				return
 			}
-			if pinned, ok := a.reads.takeAhead(ctx, from+offset); ok {
+			if pinned, ok := a.reads.takeAhead(readCtx, from+offset); ok {
 				if !pinned.skipped {
 					a.reads.storeBlock(pinned.block.Hash, cachedBlock{pinned.block, pinned.receipts})
+				}
+				if !pinned.skipped {
+					a.reads.storeHeight(from+offset, cachedBlock{pinned.block, pinned.receipts})
 				}
 				out[i] = pinned
 				return
 			}
+			if cached, ok := a.reads.height(from + offset); ok {
+				out[i] = pinnedHeight{header: cached.block.Header, block: cached.block, receipts: cached.receipts}
+				return
+			}
 			select {
 			case slots <- struct{}{}:
-			case <-ctx.Done():
-				errs[i] = ctx.Err()
+			case <-readCtx.Done():
+				errs[i] = readCtx.Err()
 				return
 			}
 			defer func() { <-slots }()
-			read, cancel := context.WithTimeout(ctx, a.options.Timeout)
+			read, cancel := context.WithTimeout(readCtx, a.options.Timeout)
 			defer cancel()
 			block, receipts, skipped, err := a.pinnedBlockAtHeight(read, from+offset, gate)
 			if err != nil {
 				errs[i] = err
+				firstErrOnce.Do(func() { firstErr = err; cancelAll() })
 				return
 			}
 			if !skipped {
 				a.reads.storeBlock(block.Hash, cachedBlock{block, receipts})
 			}
+			if !skipped {
+				a.reads.storeHeight(from+offset, cachedBlock{block, receipts})
+			}
 			out[i] = pinnedHeight{header: block.Header, block: block, receipts: receipts, skipped: skipped}
 		}(i)
 	}
 	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
 	for _, err := range errs {
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			return nil, err
 		}
 	}

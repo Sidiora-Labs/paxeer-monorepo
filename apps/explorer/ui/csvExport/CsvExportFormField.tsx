@@ -13,36 +13,48 @@ interface Props {
 }
 
 const CsvExportFormField = ({ formApi, name }: Props) => {
-  const { formState, getValues, trigger } = formApi;
+  const { getFieldState, getValues, trigger } = formApi;
+  const dependentField = name === 'from' ? 'to' : 'from';
 
   const validate = React.useCallback((newValue: string) => {
+    const date = dayjs(newValue);
+    if (!date.isValid() || date > dayjs()) {
+      return 'Incorrect date';
+    }
     if (name === 'from') {
       const toValue = getValues('to');
       if (toValue && dayjs(newValue) > dayjs(toValue)) {
         return 'Incorrect date';
-      }
-      if (formState.errors.to) {
-        trigger('to');
       }
     } else {
       const fromValue = getValues('from');
       if (fromValue && dayjs(fromValue) > dayjs(newValue)) {
         return 'Incorrect date';
       }
-      if (formState.errors.from) {
-        trigger('from');
-      }
     }
-  }, [ formState.errors.from, formState.errors.to, getValues, name, trigger ]);
+  }, [ getValues, name ]);
+
+  const handleBlur = React.useCallback(() => {
+    const { isTouched, invalid } = getFieldState(dependentField);
+    if (isTouched || invalid) {
+      void trigger(dependentField);
+    }
+  }, [ dependentField, getFieldState, trigger ]);
 
   return (
     <FormFieldText<FormFields, typeof name>
       name={ name }
-      inputProps={{ type: 'datetime-local', max: dayjs().format('YYYY-MM-DDTHH:mm') }}
+      inputProps={{ type: 'datetime-local', max: dayjs().format('YYYY-MM-DDTHH:mm'), autoComplete: 'on', minH: 'touchTarget' }}
       placeholder={ capitalize(name) }
+      label={ capitalize(name) }
+      floating={ false }
       required
+      onBlur={ handleBlur }
       rules={{ validate }}
-      maxW={{ base: 'auto', lg: '220px' }}
+      maxW="full"
+      minW={ 0 }
+      flexGrow={ 1 }
+      flexBasis="var(--chakra-spacing-56)"
     />
   );
 };

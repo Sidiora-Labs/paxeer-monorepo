@@ -6,6 +6,7 @@ import type { InterchainTransfer } from '@blockscout/interchain-indexer-types';
 import config from 'configs/app';
 import dayjs from 'lib/date/dayjs';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { spacing } from 'toolkit/theme/foundations/spacing';
 import { mdash } from 'toolkit/utils/htmlEntities';
 import CrossChainBridgeLink from 'ui/shared/crossChain/CrossChainBridgeLink';
 import CrossChainFromToTag from 'ui/shared/crossChain/CrossChainFromToTag';
@@ -31,8 +32,8 @@ const TokenTransfersCrossChainListItem = ({ data, isLoading, rowGap = 3, current
   const dashElement = <chakra.span color="text.secondary">{ mdash }</chakra.span>;
 
   return (
-    <ListItemMobile rowGap={ rowGap } { ...rest }>
-      <HStack>
+    <ListItemMobile fontSize="small" lineHeight="small" rowGap={ rowGap } containerType="inline-size" { ...rest }>
+      <HStack flexWrap="wrap">
         <CrossChainTxsStatusTag status={ data.status } loading={ isLoading } mode="full"/>
         { currentAddress && (
           <CrossChainFromToTag
@@ -42,13 +43,20 @@ const TokenTransfersCrossChainListItem = ({ data, isLoading, rowGap = 3, current
         ) }
       </HStack>
       { timestamp && (
-        <Skeleton loading={ isLoading } display="flex" alignItems="center" color="text.secondary">
+        <Skeleton loading={ isLoading } display="flex" flexWrap="wrap" alignItems="center" color="text.secondary">
           <div>{ dayjs(timestamp).fromNow() }</div>
           <TextSeparator/>
           <Time timestamp={ timestamp } format="lll_s"/>
         </Skeleton>
       ) }
-      <Grid templateColumns="100px minmax(0, 1fr)" columnGap={ 2 } rowGap={ rowGap }>
+      <Grid
+        w="full"
+        minW={ 0 }
+        templateColumns="minmax(0, 1fr)"
+        columnGap={ 2 }
+        rowGap={ rowGap }
+        css={{ [ `@container (min-width: ${ spacing['80'].value })` ]: { gridTemplateColumns: 'calc(var(--chakra-spacing-1) * 25) minmax(0, 1fr)' } }}
+      >
         <Skeleton loading={ isLoading }>
           Source token
         </Skeleton>
@@ -65,6 +73,7 @@ const TokenTransfersCrossChainListItem = ({ data, isLoading, rowGap = 3, current
         </Skeleton>
         { data.sender ? (
           <AddressEntityInterchain
+            truncation="tail"
             chain={ data.source_chain }
             address={ data.sender }
             isLoading={ isLoading }
@@ -88,6 +97,7 @@ const TokenTransfersCrossChainListItem = ({ data, isLoading, rowGap = 3, current
         </Skeleton>
         { data.recipient ? (
           <AddressEntityInterchain
+            truncation="tail"
             chain={ data.destination_chain }
             address={ data.recipient }
             isLoading={ isLoading }
@@ -100,6 +110,7 @@ const TokenTransfersCrossChainListItem = ({ data, isLoading, rowGap = 3, current
         </Skeleton>
         { data.source_transaction_hash ? (
           <TxEntityInterchain
+            truncation="tail"
             chain={ data.source_chain }
             hash={ data.source_transaction_hash }
             isLoading={ isLoading }
@@ -110,6 +121,7 @@ const TokenTransfersCrossChainListItem = ({ data, isLoading, rowGap = 3, current
         </Skeleton>
         { data.destination_transaction_hash ? (
           <TxEntityInterchain
+            truncation="tail"
             chain={ data.destination_chain }
             hash={ data.destination_transaction_hash }
             isLoading={ isLoading }

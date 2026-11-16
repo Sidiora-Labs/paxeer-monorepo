@@ -46,10 +46,22 @@ type ApplyCheckSequencer interface {
 	Execute(context.Context, *App, *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error)
 }
 
+// ApplyCheckStatePreparer installs any temporary state needed by an offline
+// execution form before its block is built.
+type ApplyCheckStatePreparer interface {
+	PrepareApplyCheckState(*App, int64) error
+}
+
+// ApplyCheckOptions selects the credentials used by ApplyCheckHome.
+type ApplyCheckOptions struct {
+	StandInReceiptKey bool
+}
+
 type ApplyCheckReport struct {
 	ChainID          string               `json:"chain_id"`
 	Height           int64                `json:"height"`
 	Time             time.Time            `json:"time"`
+	ReceiptKeyMode   string               `json:"receipt_key_mode"`
 	CommittedHeight  int64                `json:"committed_height"`
 	CommittedAppHash string               `json:"committed_app_hash"`
 	Forms            []ApplyCheckForm     `json:"forms"`
@@ -58,6 +70,7 @@ type ApplyCheckReport struct {
 
 type ApplyCheckForm struct {
 	Name             string             `json:"name"`
+	EngineLibrary    string             `json:"engine_library,omitempty"`
 	Results          []ApplyCheckResult `json:"results"`
 	AppHash          string             `json:"app_hash"`
 	Panic            string             `json:"panic,omitempty"`
@@ -143,6 +156,13 @@ func DecodeApplyCheckTransaction(line string) ([]byte, error) {
 // ApplyCheckHome runs all forms on independent disposable copies. It neither
 // opens the source application nor calls Commit on any of the applications.
 func ApplyCheckHome(ctx context.Context, home string, txs [][]byte, at time.Time, sequence ApplyCheckSequencer) (*ApplyCheckReport, error) {
+	return ApplyCheckHomeWithOptions(ctx, home, txs, at, sequence, ApplyCheckOptions{})
+}
+
+// ApplyCheckHomeWithOptions runs the comparison with the requested receipt
+// key mode. Stand-in keys are kept in memory and are installed only in the
+// disposable application copies.
+func ApplyCheckHomeWithOptions(ctx context.Context, home string, txs [][]byte, at time.Time, sequence ApplyCheckSequencer, applyOptions ApplyCheckOptions) (*ApplyCheckReport, error) {
 	if len(txs) == 0 {
 		return nil, errors.New("applycheck requires at least one transaction")
 	}
@@ -196,6 +216,16 @@ func ApplyCheckHome(ctx context.Context, home string, txs [][]byte, at time.Time
 		if report == nil {
 			request, err = buildApplyCheckBlock(a, txs, at)
 			if err == nil {
+				if applyOptions.StandInReceiptKey {
+					preparer, ok := sequence.(ApplyCheckStatePreparer)
+					if !ok {
+						_ = a.Close()
+						return nil, errors.New("stand-in receipt key is unavailable")
+					}
+					err = preparer.PrepareApplyCheckState(a, request.Header.Height)
+				}
+			}
+			if err == nil {
 				err = sequence.BuildBlock(a, request, branch, options)
 			}
 			if err != nil {
@@ -203,8 +233,19 @@ func ApplyCheckHome(ctx context.Context, home string, txs [][]byte, at time.Time
 				return nil, err
 			}
 			report = &ApplyCheckReport{ChainID: request.Header.ChainID, Height: request.Header.Height, Time: request.Header.Time,
+				ReceiptKeyMode:  map[bool]string{true: "stand-in", false: "registered"}[applyOptions.StandInReceiptKey],
 				CommittedHeight: a.LastBlockHeight(), CommittedAppHash: hex.EncodeToString(a.LastCommitID().Hash)}
 			setApplyCheckBlockHash(request)
+		} else if applyOptions.StandInReceiptKey {
+			preparer, ok := sequence.(ApplyCheckStatePreparer)
+			if !ok {
+				_ = a.Close()
+				return nil, errors.New("stand-in receipt key is unavailable")
+			}
+			if err := preparer.PrepareApplyCheckState(a, request.Header.Height); err != nil {
+				_ = a.Close()
+				return nil, err
+			}
 		}
 		if a.LastBlockHeight() != report.CommittedHeight || hex.EncodeToString(a.LastCommitID().Hash) != report.CommittedAppHash {
 			_ = a.Close()
@@ -276,10 +317,6 @@ func openApplyCheckApp(home string, options *viper.Viper, fast bool) (a *App, er
 		tmconfig.DefaultConfig().SetRoot(home), MakeEncodingConfig(), wasm.EnableAllProposals, options, EmptyWasmOpts, nil,
 		baseapp.SetMinGasPrices(options.GetString(server.FlagMinGasPrices)),
 		func(ba *baseapp.BaseApp) { ba.SetOccEnabled(false); ba.SetConcurrencyWorkers(1) })
-	if fast && a.GigaEvmKeeper.EvmoneVM == nil {
-		_ = a.Close()
-		return nil, errors.New("fast executor is unavailable")
-	}
 	return a, nil
 }
 
@@ -357,6 +394,12 @@ func cloneApplyCheckTxs(txs [][]byte) [][]byte {
 
 func runApplyCheckForm(ctx context.Context, a *App, block *abci.RequestFinalizeBlock, txs [][]byte, name string, sequence ApplyCheckSequencer) (form ApplyCheckForm) {
 	form.Name = name
+	if name == "follower_fast" {
+		form.EngineLibrary = "absent"
+		if a.GigaEvmKeeper.EvmoneVM != nil {
+			form.EngineLibrary = "loaded"
+		}
+	}
 	defer func() {
 		if p := recover(); p != nil {
 			form.Panic = fmt.Sprint(p)

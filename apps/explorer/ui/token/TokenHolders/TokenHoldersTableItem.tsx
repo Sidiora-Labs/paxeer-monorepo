@@ -25,7 +25,7 @@ const TokenTransferTableItem = ({ holder, token, isLoading }: Props) => {
           address={ holder.address }
           isLoading={ isLoading }
           flexGrow={ 1 }
-          fontWeight="700"
+          fontWeight="bold"
         />
       </TableCell>
       { (hasTokenIds(token.type)) && 'token_id' in holder && (

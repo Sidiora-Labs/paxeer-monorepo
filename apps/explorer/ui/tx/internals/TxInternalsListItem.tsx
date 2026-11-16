@@ -29,10 +29,10 @@ const TxInternalsListItem = ({ type, from, to, value, success, error, gas_limit:
         to={ toData }
         isLoading={ isLoading }
         w="100%"
-        fontWeight="500"
+        fontWeight="medium"
       />
       <HStack gap={ 3 } textStyle="sm" >
-        <Skeleton loading={ isLoading } fontWeight={ 500 }><span>Value { currencyUnits.ether }</span></Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium"><span>Value { currencyUnits.ether }</span></Skeleton>
         <NativeCoinValue
           amount={ value }
           noSymbol
@@ -41,7 +41,7 @@ const TxInternalsListItem = ({ type, from, to, value, success, error, gas_limit:
         />
       </HStack>
       <HStack gap={ 3 } textStyle="sm" >
-        <Skeleton loading={ isLoading } fontWeight={ 500 }><span>Gas limit</span></Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium"><span>Gas limit</span></Skeleton>
         <NativeCoinValue
           amount={ gasLimit }
           units="wei"

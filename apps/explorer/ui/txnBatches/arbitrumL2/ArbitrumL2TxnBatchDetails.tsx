@@ -1,4 +1,4 @@
-import { GridItem } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import React from 'react';
@@ -10,19 +10,18 @@ import { route } from 'nextjs-routes';
 import type { ResourceError } from 'lib/api/resources';
 import throwOnResourceLoadError from 'lib/errors/throwOnResourceLoadError';
 import { layerLabels } from 'lib/rollups/utils';
-import { CollapsibleDetails } from 'toolkit/chakra/collapsible';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import isCustomAppError from 'ui/shared/AppError/isCustomAppError';
 import ArbitrumL2TxnBatchDA from 'ui/shared/batch/ArbitrumL2TxnBatchDA';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoTimestamp from 'ui/shared/DetailedInfo/DetailedInfoTimestamp';
 import BlockEntityL1 from 'ui/shared/entities/block/BlockEntityL1';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 import PrevNext from 'ui/shared/PrevNext';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import ArbitrumL2TxnBatchDetailsAnyTrustDA from './ArbitrumL2TxnBatchDetailsAnyTrustDA';
 import ArbitrumL2TxnBatchDetailsCelestiaDA from './ArbitrumL2TxnBatchDetailsCelestiaDA';
@@ -63,7 +62,6 @@ const ArbitrumL2TxnBatchDetails = ({ query }: Props) => {
 
   return (
     <DetailedInfo.Container
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(min-content, 200px) minmax(0, 1fr)' }}
     >
       <DetailedInfo.ItemLabel
         isLoading={ isPlaceholderData }
@@ -189,22 +187,43 @@ const ArbitrumL2TxnBatchDetails = ({ query }: Props) => {
         <CopyToClipboard text={ data.after_acc_hash } isLoading={ isPlaceholderData }/>
       </DetailedInfo.ItemValue>
 
-      { (data.data_availability.batch_data_container === 'in_anytrust' || data.data_availability.batch_data_container === 'in_celestia') && (
-        <CollapsibleDetails
-          loading={ isPlaceholderData }
+      { !isPlaceholderData &&
+        (data.data_availability.batch_data_container === 'in_anytrust' || data.data_availability.batch_data_container === 'in_celestia') && (
+        <chakra.details
           mt={ 6 }
-          gridColumn={{ base: undefined, lg: '1 / 3' }}
-          text={ [ 'Show data availability info', 'Hide data availability info' ] }
+          gridColumn="1 / -1"
+          css={{
+            '&[open] > summary [data-availability-expand]': { display: 'none' },
+            '&:not([open]) > summary [data-availability-collapse]': { display: 'none' },
+          }}
         >
-          <GridItem colSpan={{ base: undefined, lg: 2 }} mt={{ base: 1, lg: 4 }}/>
-
-          { data.data_availability.batch_data_container === 'in_anytrust' && (
-            <ArbitrumL2TxnBatchDetailsAnyTrustDA data={ data.data_availability }/>
-          ) }
-          { data.data_availability.batch_data_container === 'in_celestia' && (
-            <ArbitrumL2TxnBatchDetailsCelestiaDA data={ data.data_availability }/>
-          ) }
-        </CollapsibleDetails>
+          <chakra.summary
+            minH="touchTarget"
+            minW="touchTarget"
+            w="fit-content"
+            textStyle="sm"
+            color="accent"
+            cursor="pointer"
+            textDecoration="underline dashed"
+            _focusVisible={{
+              outlineWidth: 'var(--chakra-border-widths-2)',
+              outlineStyle: 'solid',
+              outlineColor: 'focusRing',
+              outlineOffset: 'var(--chakra-spacing-0\\.5)',
+            }}
+          >
+            <chakra.span data-availability-expand>Show data availability info</chakra.span>
+            <chakra.span data-availability-collapse>Hide data availability info</chakra.span>
+          </chakra.summary>
+          <DetailedInfo.Container mt={ 4 }>
+            { data.data_availability.batch_data_container === 'in_anytrust' && (
+              <ArbitrumL2TxnBatchDetailsAnyTrustDA data={ data.data_availability }/>
+            ) }
+            { data.data_availability.batch_data_container === 'in_celestia' && (
+              <ArbitrumL2TxnBatchDetailsCelestiaDA data={ data.data_availability }/>
+            ) }
+          </DetailedInfo.Container>
+        </chakra.details>
       ) }
     </DetailedInfo.Container>
   );

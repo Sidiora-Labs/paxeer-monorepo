@@ -222,7 +222,11 @@ func emptyDatabase(t *testing.T, tag string, roles []production.RoleManifest) (s
 		t.Fatal("administrator connection failed")
 	}
 	t.Cleanup(func() { _ = control.Close(ctx) })
-	names := map[string]bool{"migration_control_owner": true}
+	ddl := production.MigrationControlDDL()
+	if _, err := control.Exec(ctx, "DO $$ BEGIN "+ddl[:strings.Index(ddl, ";")+1]+" EXCEPTION WHEN duplicate_object THEN NULL; END $$"); err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
 	for _, m := range roles {
 		names[m.OwnerRole], names[m.RuntimeRole] = true, true
 	}
@@ -460,5 +464,66 @@ func TestMigrationSourceChecksExactBytes(t *testing.T) {
 	}
 	if _, err := coordinatortest.ReadMigrationSource(filepath.Dir(directory), "../unbound.sql", ""); err == nil {
 		t.Fatal("source outside the repository was admitted")
+	}
+}
+
+func TestRepositoryRegistryRequiresApprovalOnlineIndex(t *testing.T) {
+	root := coordinatortest.RepositoryRoot(t)
+	b, err := loadBundle(filepath.Join(root, "migrations"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[int64]bool{80002: true, 130000: true, 150005: true, 150006: true, 150007: true}
+	order := []int64{}
+	registrations := []production.MigrationManifest{}
+	for _, id := range b.registry.ApplicationOrder {
+		if ids[id] {
+			order = append(order, id)
+			registrations = append(registrations, b.catalog[id])
+		}
+	}
+	if len(order) != len(ids) {
+		t.Fatal("registered holder index predecessors are incomplete")
+	}
+	b.registry.ApplicationOrder, b.registry.Registrations = order, registrations
+	b.owners = map[string]string{"stats": "stats_owner"}
+	b.roles = []production.RoleManifest{{Service: "core/stats-workers", Schema: "stats", OwnerRole: "stats_owner", RuntimeRole: testTag(t) + "_stats", Grants: []production.Grant{{Schema: "stats", Object: "pool_holders", Privileges: []string{"SELECT", "INSERT"}}}}}
+	var histories []legacyHistory
+	for _, h := range b.legacy {
+		if h.Service == "core/stats-workers" {
+			histories = append(histories, h)
+		}
+	}
+	b.legacy = histories
+	grants, err := json.Marshal(struct {
+		SchemaVersion int                       `json:"schema_version"`
+		Roles         []production.RoleManifest `json:"roles"`
+	}{2, b.roles})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.interfaceDigest = production.Checksum(grants)
+	_, conn := emptyDatabase(t, testTag(t), b.roles)
+	ctx := context.Background()
+	if err = b.applyInternal(ctx, conn, true); err != nil {
+		t.Fatalf("registered online index approval and application: %v", err)
+	}
+	plan := b.catalog[150007].OnlineIndex
+	if plan == nil {
+		t.Fatal("registered holder index plan is absent")
+	}
+	state, err := production.InspectOnlineIndex(ctx, conn, *plan)
+	if err != nil || !state.Exists || !state.Valid || !state.Ready || !state.DefinitionMatches {
+		t.Fatalf("registered online index catalog: %+v: %v", state, err)
+	}
+	var applied, attempts, history int
+	if err = conn.QueryRow(ctx, `SELECT (SELECT count(*) FROM migration_control.applied_migrations WHERE migration_id=150007 AND checksum=$1),(SELECT count(*) FROM migration_control.migration_attempts WHERE migration_id=150007 AND state='applied'),(SELECT count(*) FROM migration_control.stats_workers_versions WHERE version_id=150007 AND is_applied)`, b.catalog[150007].SHA256).Scan(&applied, &attempts, &history); err != nil || applied != 1 || attempts != 1 || history != 1 {
+		t.Fatalf("online index publication: applied=%d attempts=%d history=%d: %v", applied, attempts, history, err)
+	}
+	if err = b.apply(ctx, conn); err != nil {
+		t.Fatalf("repeated registered application: %v", err)
+	}
+	if err = conn.QueryRow(ctx, `SELECT count(*) FROM migration_control.migration_attempts WHERE migration_id=150007`).Scan(&attempts); err != nil || attempts != 1 {
+		t.Fatalf("repeated application rebuilt the index: attempts=%d: %v", attempts, err)
 	}
 }

@@ -108,6 +108,8 @@ defmodule BlockScoutWeb.V2.ExchangeRateChannelTest do
 
       MarketHistory.bulk_insert(records)
 
+      Supervisor.terminate_child(Explorer.Supervisor, {ConCache, MarketHistoryCache.cache_name()})
+      Supervisor.restart_child(Explorer.Supervisor, {ConCache, MarketHistoryCache.cache_name()})
       Market.fetch_recent_history()
 
       topic = "exchange_rate:new_rate"

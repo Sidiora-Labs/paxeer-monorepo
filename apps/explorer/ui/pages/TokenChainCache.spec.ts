@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { notifyManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import BigNumber from 'bignumber.js';
 import { RouterContext } from 'next/dist/shared/lib/router-context.shared-runtime';
 import React from 'react';
@@ -129,6 +129,16 @@ function holdTokenResponse(chain: ClusterChainConfig, token: TokenInfo) {
   return { release, path };
 }
 
+async function settleTokenPageQueries() {
+  do {
+    await act(async() => {
+      const queries = client.getQueryCache().findAll({ fetchStatus: 'fetching' });
+      await Promise.all(queries.map(query => query.promise));
+      await new Promise<void>(resolve => notifyManager.schedule(resolve));
+    });
+  } while (client.isFetching() > 0);
+}
+
 async function tokenChainCacheKeyLiveUpdatesIsolateTwoChainsWithTheSameHash(payload: typeof tokenSupplyTranscript[number]) {
   const { container } = view;
   await act(async() => {
@@ -221,6 +231,9 @@ describe('Token chain cache isolation', () => {
     }
     view = render(queryTree(...pages));
     await Promise.all(sockets.map(socket => socket.join(topic)));
+    if (liveCase) {
+      await settleTokenPageQueries();
+    }
     await waitFor(() => {
       if (liveCase) {
         expectSupply(view.container, chainA, tokenA.total_supply!);

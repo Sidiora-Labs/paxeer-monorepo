@@ -6,8 +6,8 @@ import type { ArbitrumL2TxnBatchDACelestia } from 'types/api/arbitrumL2';
 import config from 'configs/app';
 import CeleniumLink from 'ui/shared/batch/CeleniumLink';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 const feature = config.features.rollup;
 

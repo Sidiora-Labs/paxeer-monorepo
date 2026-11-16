@@ -1,4 +1,3 @@
-import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import type { InternalTransaction } from 'types/api/internalTransaction';
@@ -18,6 +17,7 @@ import TxInternalsTable from 'ui/tx/internals/TxInternalsTable';
 import type { Sort, SortField } from 'ui/tx/internals/utils';
 import TxPendingAlert from 'ui/tx/TxPendingAlert';
 import TxSocketAlert from 'ui/tx/TxSocketAlert';
+import ActivityViews from 'ui/txs/ActivityViews';
 
 import type { TxQuery } from './useTxQuery';
 
@@ -100,9 +100,11 @@ const TxInternals = ({ txQuery }: Props) => {
     .sort(sortFn(sort));
 
   const content = filteredData ? (
-    <>
-      <Box hideFrom="lg"><TxInternalsList data={ filteredData } isLoading={ isPlaceholderData }/></Box>
-      <Box hideBelow="lg">
+    <ActivityViews
+      list={
+        <TxInternalsList data={ filteredData } isLoading={ isPlaceholderData }/>
+      }
+      table={ (
         <TxInternalsTable
           data={ filteredData }
           sort={ sort }
@@ -110,8 +112,8 @@ const TxInternals = ({ txQuery }: Props) => {
           top={ 0 }
           isLoading={ isPlaceholderData }
         />
-      </Box>
-    </>
+      ) }
+    />
   ) : null;
 
   const itemsNum = data?.items.length ?? 0;

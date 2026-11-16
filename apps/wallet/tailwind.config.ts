@@ -66,6 +66,9 @@ const config: Config = {
         display: ['var(--font-display)'],
         mono: ['var(--font-mono)'],
       },
+      fontVariantNumeric: {
+        tabular: 'tabular-nums',
+      },
       borderRadius: {
         sm: 'var(--radius-sm)',
         md: 'var(--radius-md)',

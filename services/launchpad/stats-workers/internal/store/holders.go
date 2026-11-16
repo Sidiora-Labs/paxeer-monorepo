@@ -337,10 +337,24 @@ func (s *Store) ListHolderBalances(ctx context.Context, poolAddress string, limi
 	return out, rows.Err()
 }
 
-// EnsureHolderBalanceIndex installs the expression index used by all legacy
-// holder ranks. Invalid numeric data fails startup rather than changing ranks.
-func (s *Store) EnsureHolderBalanceIndex(ctx context.Context) error {
-	_, err := s.db.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_ph_balance_numeric
-        ON stats.pool_holders (pool_address, (balance::numeric) DESC, holder_address ASC)`)
-	return err
+// CheckHolderBalanceIndex verifies the registered numeric holder rank index.
+func (s *Store) CheckHolderBalanceIndex(ctx context.Context) error {
+	var ready bool
+	err := s.db.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM pg_catalog.pg_index i
+		JOIN pg_catalog.pg_class c ON c.oid=i.indexrelid
+		JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+		WHERE n.nspname='stats' AND c.relname='idx_ph_balance_numeric'
+		  AND i.indrelid='stats.pool_holders'::regclass
+		  AND i.indisvalid AND i.indisready AND i.indislive
+		  AND pg_catalog.pg_get_indexdef(i.indexrelid) =
+		      'CREATE INDEX idx_ph_balance_numeric ON stats.pool_holders USING btree (pool_address, ((balance)::numeric) DESC, holder_address)'
+	)`).Scan(&ready)
+	if err != nil {
+		return fmt.Errorf("store: check stats.idx_ph_balance_numeric: %w", err)
+	}
+	if !ready {
+		return errors.New("store: stats.idx_ph_balance_numeric is missing, invalid or has an unexpected definition")
+	}
+	return nil
 }

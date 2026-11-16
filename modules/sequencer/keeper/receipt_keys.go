@@ -205,3 +205,20 @@ func InitReceiptKeys(ctx sdk.Context, paramSpace paramtypes.Subspace, keys Recei
 	paramSpace.Set(ctx, KeyReceiptKeys, keys)
 	return nil
 }
+
+// InitReceiptKeyState initializes the parameter list and the batch admission
+// record together. Governed rotations use the governance handler instead.
+func (k Keeper) InitReceiptKeyState(ctx sdk.Context, paramSpace paramtypes.Subspace, keys ReceiptKeys) error {
+	if err := keys.Validate(); err != nil {
+		return err
+	}
+	branch, write := ctx.CacheContext()
+	if err := k.SetReceiptKeys(branch, keys); err != nil {
+		return err
+	}
+	if err := InitReceiptKeys(branch, paramSpace, keys); err != nil {
+		return err
+	}
+	write()
+	return nil
+}

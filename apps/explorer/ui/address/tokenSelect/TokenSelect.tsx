@@ -44,13 +44,13 @@ const TokenSelect = () => {
 
   const handleIconButtonClick = React.useCallback(() => {
     mixpanel.logEvent(mixpanel.EventTypes.PAGE_WIDGET, { Type: 'Tokens show all (icon)' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0 });
   }, [ ]);
 
   if (isPending) {
     return (
-      <Flex columnGap={ 3 }>
-        <Skeleton loading h={ 8 } w="150px" borderRadius="base"/>
+      <Flex columnGap={ 3 } flexWrap="wrap" rowGap={ 3 } minW={ 0 }>
+        <Skeleton loading h={ 8 } w="{spacing.37.5}" maxW="100%" borderRadius="base"/>
         <Skeleton loading h={ 8 } w={ 9 } borderRadius="base"/>
       </Flex>
     );
@@ -58,11 +58,11 @@ const TokenSelect = () => {
 
   const hasTokens = sumBy(Object.values(data), ({ items }) => items.length) > 0;
   if (isError || !hasTokens) {
-    return <Box py="6px">0</Box>;
+    return <Box py={ 1.5 }>0</Box>;
   }
 
   return (
-    <Flex columnGap={ 3 } mt={{ base: 1, lg: 0 }}>
+    <Flex columnGap={ 3 } rowGap={ 3 } flexWrap="wrap" minW={ 0 } mt={{ base: 1, lg: 0 }}>
       { isMobile ?
         <TokenSelectMobile data={ data } isLoading={ tokensIsFetching === 1 }/> :
         <TokenSelectDesktop data={ data } isLoading={ tokensIsFetching === 1 }/>

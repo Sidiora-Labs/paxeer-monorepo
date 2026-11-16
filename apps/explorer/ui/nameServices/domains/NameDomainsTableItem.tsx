@@ -24,10 +24,10 @@ const NameDomainsTableItem = ({
   return (
     <TableRow>
       <TableCell verticalAlign="middle">
-        <EnsEntity domain={ name } protocol={ protocol } isLoading={ isLoading } fontWeight={ 600 }/>
+        <EnsEntity domain={ name } protocol={ protocol } isLoading={ isLoading } fontWeight="semibold"/>
       </TableCell>
       <TableCell verticalAlign="middle">
-        { resolvedAddress && <AddressEntity address={ resolvedAddress } isLoading={ isLoading } fontWeight={ 500 }/> }
+        { resolvedAddress && <AddressEntity address={ resolvedAddress } isLoading={ isLoading } fontWeight="medium"/> }
       </TableCell>
       <TableCell verticalAlign="middle" pl={ 9 }>
         <TimeWithTooltip timestamp={ registrationDate } isLoading={ isLoading }/>
@@ -36,7 +36,7 @@ const NameDomainsTableItem = ({
         <TimeWithTooltip
           timestamp={ expiryDate }
           isLoading={ isLoading }
-          color={ expiryDate && dayjs(expiryDate).diff(dayjs(), 'day') < 30 ? 'red.600' : 'inherit' }
+          color={ expiryDate && dayjs(expiryDate).diff(dayjs(), 'day') < 30 ? 'text.error' : 'inherit' }
         />
       </TableCell>
     </TableRow>

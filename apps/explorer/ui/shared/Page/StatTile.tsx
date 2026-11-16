@@ -12,12 +12,12 @@ interface Props {
 }
 
 const StatTile = ({ label, children, isLoading, hint }: Props) => (
-  <Box bg="bg.surface" borderWidth="1px" borderColor="hairline" borderRadius="8px" p={ 4 } minW={ 0 } data-stat-tile={ label }>
+  <Box bg="bg.surface" borderWidth="1px" borderColor="hairline" borderRadius="card" p={ 4 } minW={ 0 } data-stat-tile={ label }>
     <Text textStyle="label" color="text.muted" textTransform="uppercase" mb={ 2 } display="flex" alignItems="center" gap={ 2 }>
       { label }
       { hint && <Hint label={ hint } isLoading={ isLoading }/> }
     </Text>
-    <Skeleton loading={ isLoading } fontFamily="mono" fontVariantNumeric="tabular-nums" fontSize="24px" lineHeight="28px" fontWeight={ 600 } data-stat-value>
+    <Skeleton loading={ isLoading } textStyle="statValue" data-stat-value>
       { children }
     </Skeleton>
   </Box>

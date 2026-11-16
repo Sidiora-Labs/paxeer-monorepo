@@ -81,7 +81,7 @@ const AddressForm: React.FC<Props> = ({ data, onOpenChange, onSuccess, setAlertV
 
   return (
     <FormProvider { ...formApi }>
-      <form noValidate onSubmit={ formApi.handleSubmit(onSubmit) }>
+      <form noValidate autoComplete="off" onSubmit={ formApi.handleSubmit(onSubmit) }>
         <FormFieldAddress<Inputs>
           name="address"
           required

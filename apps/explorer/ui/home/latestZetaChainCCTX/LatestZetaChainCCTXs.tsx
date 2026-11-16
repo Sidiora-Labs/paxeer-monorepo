@@ -147,7 +147,7 @@ const LatestZetaChainCCTXs = () => {
           </Box>
         </AddressHighlightProvider>
         <Flex justifyContent="center">
-          <Link textStyle="sm" href={ cctxsUrl }>View all cross chain transactions</Link>
+          <Link textStyle="body" href={ cctxsUrl }>View all cross chain transactions</Link>
         </Flex>
       </>
     );

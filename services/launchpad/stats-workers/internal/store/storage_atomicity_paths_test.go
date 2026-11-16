@@ -28,7 +28,7 @@ func TestStoreTransactionsRejectUnavailableOrInvalidStorage(t *testing.T) {
 		name, setup, want string
 		run               func(*Store) error
 	}{
-		{"holder arithmetic", "UPDATE stats.pool_holders SET balance='invalid'", "holder balance math", func(s *Store) error {
+		{"holder arithmetic", "DROP INDEX stats.idx_ph_balance_numeric; UPDATE stats.pool_holders SET balance='invalid'", "holder balance math", func(s *Store) error {
 			_, e := s.ApplyHolderDelta(ctx, "pool-a", "wallet-a", true, "0", "1", 200)
 			return e
 		}},
@@ -45,7 +45,7 @@ func TestStoreTransactionsRejectUnavailableOrInvalidStorage(t *testing.T) {
 			return e
 		}},
 		{"holder count", "ALTER TABLE stats.pool_holders RENAME TO saved_holders", "count holders", func(s *Store) error { return s.RefreshPoolHolderStats(ctx, "pool-a", 200) }},
-		{"holder rank", "UPDATE stats.pool_holders SET balance='invalid'", "", func(s *Store) error { return s.RefreshPoolHolderStats(ctx, "pool-a", 200) }},
+		{"holder rank", "DROP INDEX stats.idx_ph_balance_numeric; UPDATE stats.pool_holders SET balance='invalid'", "", func(s *Store) error { return s.RefreshPoolHolderStats(ctx, "pool-a", 200) }},
 		{"holder pool", "ALTER TABLE stats.pool_stats RENAME TO saved_stats", "read pool stats", func(s *Store) error { return s.RefreshPoolHolderStats(ctx, "pool-a", 200) }},
 		{"holder stats write", "ALTER TABLE stats.pool_stats ADD CHECK(updated_at=100) NOT VALID", "update holder stats", func(s *Store) error { return s.RefreshPoolHolderStats(ctx, "pool-a", 200) }},
 		{"bucket arithmetic", "UPDATE stats.volume_buckets SET volume_usdl='invalid'", "bucket volume add", func(s *Store) error { return s.ApplyVolumeBucket(ctx, "pool-a", 60, "1", "100", "wallet-a", true) }},

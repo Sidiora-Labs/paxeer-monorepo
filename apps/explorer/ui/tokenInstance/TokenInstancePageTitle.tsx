@@ -87,7 +87,7 @@ const TokenInstancePageTitle = ({ isLoading, token, instance, hash }: Props) => 
             jointSymbol
             variant="subheading"
             w="auto"
-            maxW="400px"
+            maxW="96"
             chain={ multichainContext?.chain }
           />
         ) }

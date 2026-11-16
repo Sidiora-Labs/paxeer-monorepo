@@ -76,13 +76,16 @@ const ChartWidgetPanel = ({
       display="flex"
       flexDirection="column"
       bg="surface"
-      borderWidth="1px"
+      borderWidth="1"
       borderStyle="solid"
       borderColor="hairline"
       borderRadius="card"
       boxShadow="card"
       p={ 4 }
-      minH="300px"
+      minH="var(--chakra-spacing-75)"
+
+      css={{ '& button, & a': { minWidth: 'touchTarget',
+        minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } }, '& .tick text': { color: 'text.muted' } }}
     >
       <Flex data-chart-card-header alignItems="flex-start" justifyContent="space-between" columnGap={ 3 }>
         <Flex alignItems="center" columnGap={ 1.5 } minW={ 0 }>
@@ -107,7 +110,7 @@ const ChartWidgetPanel = ({
             </Tooltip>
           ) }
           { href && (
-            <Link href={ route(href) } data-chart-view textStyle="xs" fontWeight="500" display="inline-flex" alignItems="center" columnGap={ 1 }>
+            <Link href={ route(href) } data-chart-view textStyle="text.xs" fontWeight="medium" display="inline-flex" alignItems="center" columnGap={ 1 }>
               View
               <IconSvg name="arrows/east-mini" boxSize={ 3 }/>
             </Link>
@@ -116,7 +119,7 @@ const ChartWidgetPanel = ({
       </Flex>
 
       { (currentValue !== undefined || showMissingValue) && (
-        <Skeleton loading={ isLoading } mt={ 1 } textStyle="statValue" fontWeight="600" color="text.primary" w="fit-content">
+        <Skeleton loading={ isLoading } mt={ 1 } textStyle="statValue" fontWeight="semibold" color="text.primary" w="fit-content">
           <chakra.span data-chart-value color={ currentValue === undefined ? 'text.muted' : undefined }>{ currentValue ?? '—' }</chakra.span>
         </Skeleton>
       ) }
@@ -127,7 +130,7 @@ const ChartWidgetPanel = ({
         flexDirection="column"
         flexGrow={ 1 }
         mt={ 3 }
-        minH="230px"
+        minH="var(--chakra-spacing-62\.5)"
         css={{
           '& svg text': { color: 'text.secondary' },
           '--chart-bar-color': barColor,

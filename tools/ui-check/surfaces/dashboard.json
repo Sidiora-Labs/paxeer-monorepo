@@ -105,6 +105,52 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
       ]
     },
     {
@@ -163,11 +209,75 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        }
       ]
     },
     {
       "name": "loading",
-      "path": "/?fixture=loading"
+      "path": "/?fixture=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "[role=\"tab\"][aria-selected=\"true\"]"
+        },
+        {
+          "name": "loading-card",
+          "selector": "main .rounded-lg >> nth=0"
+        }
+      ]
     },
     {
       "name": "unavailable",
@@ -187,6 +297,32 @@
           "method": "GET",
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "[role=\"tab\"][aria-selected=\"true\"]"
+        },
+        {
+          "name": "unavailable-card",
+          "selector": "main .rounded-lg:has-text(\"Dashboard unavailable\") >> nth=0"
         }
       ]
     },
@@ -499,6 +635,32 @@
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 401
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
       ]
     },
     {
@@ -565,6 +727,32 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
       ]
     },
     {
@@ -585,6 +773,32 @@
           "method": "GET",
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
         }
       ]
     },
@@ -635,6 +849,32 @@
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 401
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
       ]
     },
     {
@@ -656,6 +896,32 @@
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 401
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
       ]
     },
     {
@@ -676,6 +942,32 @@
           "method": "GET",
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
         }
       ]
     },
@@ -731,6 +1023,32 @@
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 401
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
       ]
     },
     {
@@ -783,6 +1101,32 @@
           "method": "GET",
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
         }
       ]
     },
@@ -846,6 +1190,32 @@
           "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
           "status": 401
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
       ]
     },
     {
@@ -865,6 +1235,52 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
       ]
     },
     {
@@ -879,6 +1295,52 @@
               "selector": "button:has-text(\"Sign out\")"
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
         }
       ]
     },
@@ -906,6 +1368,52 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
       ]
     },
     {
@@ -924,6 +1432,52 @@
               "selector": "button:has-text(\"View receipt\")"
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
         }
       ]
     },
@@ -955,6 +1509,52 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
       ]
     },
     {
@@ -973,6 +1573,52 @@
               "text": "Principal-isolated request log"
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
         }
       ]
     },
@@ -993,11 +1639,67 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
       ]
     },
     {
       "name": "health",
-      "path": "/healthz"
+      "path": "/healthz",
+      "parts": [
+        {
+          "name": "document",
+          "selector": "body"
+        },
+        {
+          "name": "health-response",
+          "selector": "pre"
+        }
+      ]
     },
     {
       "name": "keys-secret",
@@ -1098,6 +1800,52 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
       ]
     },
     {
@@ -1173,6 +1921,52 @@
               "value": "2000"
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
         }
       ]
     }

@@ -1,0 +1,1 @@
+CREATE INDEX CONCURRENTLY "idx_ph_balance_numeric" ON "stats"."pool_holders" ("pool_address", ("balance"::numeric) DESC, "holder_address");

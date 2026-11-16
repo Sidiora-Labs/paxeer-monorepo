@@ -21,7 +21,10 @@ const MultichainInternalTxs = () => {
 
   const filterInput = (
     <FilterInput
-      w={{ base: '100%', lg: '350px' }}
+      minW={ 0 }
+      name="transaction-hash"
+      inputProps={{ 'aria-label': 'Search by transaction hash', type: 'search', autoComplete: 'off' }}
+      w={{ base: '100%', lg: 'calc(var(--chakra-spacing-1) * 87.5)' }}
       size="sm"
       onChange={ onSearchTermChange }
       placeholder="Search by transaction hash"

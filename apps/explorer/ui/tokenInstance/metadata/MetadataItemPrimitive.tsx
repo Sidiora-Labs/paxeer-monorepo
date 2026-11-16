@@ -52,7 +52,7 @@ const MetadataItemPrimitive = ({ name, value, level, ...rest }: Props) => {
   }
 
   return (
-    <Box>
+    <Box minW={ 0 } overflowWrap="anywhere">
       { name && <MetadataAccordionItemTitle name={ name }/> }
       { content }
     </Box>

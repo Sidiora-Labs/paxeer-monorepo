@@ -32,7 +32,7 @@ const AddressMultichainButton = ({ item, addressHash, onClick, isFirst, isLast }
       alt={ item.name }
       boxSize={ 5 }
       mr={ isOnlyOne ? { base: 1, lg: 2 } : 0 }
-      borderRadius="4px"
+      borderRadius="control"
       overflow="hidden"
     />
   );

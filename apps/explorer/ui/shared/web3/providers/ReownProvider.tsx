@@ -66,7 +66,7 @@ export class ReownInitialization {
           themeVariables: {
             '--w3m-font-family': `${ BODY_TYPEFACE }, sans-serif`,
             '--w3m-accent': colors.blue[600].value,
-            '--w3m-border-radius-master': '2px',
+            '--w3m-border-radius-master': 'var(--chakra-radii-sm)',
             '--w3m-z-index': zIndex?.modal2?.value,
           },
           featuredWalletIds: feature.reown.featuredWalletIds,
@@ -74,6 +74,9 @@ export class ReownInitialization {
         };
       }
 
+      if (!createAppKit) {
+        throw new Error('Wallet modal is unavailable');
+      }
       createAppKit(options);
       this.state = { status: 'ready' };
     } catch (error) {

@@ -13,11 +13,11 @@ function ChartsLoadingErrorAlert() {
       mb={ 4 }
       closable
       borderRadius="md"
-      borderWidth="1px"
+      borderWidth="1"
       borderStyle="solid"
       borderColor="border.divider"
     >
-      <Text mr={ 2 } textStyle="sm" color="text.primary">
+      <Text mr={ 2 } textStyle="body" color="text.primary">
         { `Some of the charts did not load because the server didn${ apos }t respond. To reload charts ` }
         <chakra.span>
           <Link href={ window.document.location.href }>click once again.</Link>

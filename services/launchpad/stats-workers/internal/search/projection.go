@@ -433,7 +433,7 @@ func (p *Projection) ConsumeAccountProfile(ctx context.Context, subject string, 
 		var revision, sourceRevision int64
 		var deleted, public bool
 		var updated time.Time
-		err := tx.QueryRow(ctx, `SELECT a.wallet,COALESCE(a.profile->>'displayName',''),a.revision,a.deleted,a.updated_at,o.revision,v.public FROM users.account_outbox o JOIN users.account_state a USING(account_id) JOIN users.account_public_search_v2 v ON v.wallet=a.wallet WHERE o.event_id=$1::uuid AND o.kind=$2 AND o.payload=$3::jsonb`, event.EventID, event.EventType, []byte(event.Payload)).Scan(&wallet, &label, &revision, &deleted, &updated, &sourceRevision, &public)
+		err := tx.QueryRow(ctx, `SELECT wallet,display_name,revision,deleted,updated_at,source_revision,public FROM users.account_search_events_v2 WHERE event_id=$1::uuid AND kind=$2 AND payload=$3::jsonb`, event.EventID, event.EventType, []byte(event.Payload)).Scan(&wallet, &label, &revision, &deleted, &updated, &sourceRevision, &public)
 		if err != nil {
 			return err
 		}

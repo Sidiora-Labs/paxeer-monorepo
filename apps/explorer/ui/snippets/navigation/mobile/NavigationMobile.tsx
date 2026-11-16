@@ -18,11 +18,8 @@ interface Props {
 
 const NavigationMobile = ({ onNavLinkClick, isMarketplaceAppPage }: Props) => {
   const { shellNavItems, accountNavItems } = useNavItems();
-  const [ openedGroup, setOpenedGroup ] = React.useState<string | null>(null);
+  const groupName = React.useId();
   const isAuth = useIsAuth();
-  const handleGroupClick = React.useCallback((text: string) => {
-    setOpenedGroup((current) => current === text ? null : text);
-  }, []);
 
   return (
     <Flex flexDirection="column" flexGrow={ 1 } gap={ 4 } mt={ 4 }>
@@ -32,15 +29,20 @@ const NavigationMobile = ({ onNavLinkClick, isMarketplaceAppPage }: Props) => {
             <NavLinkGroup
               key={ item.text }
               item={ item }
-              onClick={ handleGroupClick }
-              isExpanded={ openedGroup === item.text }
+              groupName={ groupName }
               onNavLinkClick={ onNavLinkClick }
             />
           )) }
         </VStack>
       </Box>
       { isAuth && (
-        <Box as="nav" aria-label="Account navigation" pt={ 3 } borderTopWidth="1px" borderColor="hairline">
+        <Box
+          as="nav"
+          aria-label="Account navigation"
+          pt={ 3 }
+          borderTopWidth="var(--chakra-border-widths-1)"
+          borderColor="hairline"
+        >
           <VStack as="ul" gap={ 1 } alignItems="stretch">
             <NavLinkRewards onClick={ onNavLinkClick } isCollapsed={ false }/>
             { accountNavItems.map((item) => <NavLink key={ item.text } item={ item } onClick={ onNavLinkClick }/>) }

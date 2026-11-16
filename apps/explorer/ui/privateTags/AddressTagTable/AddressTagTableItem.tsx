@@ -29,8 +29,8 @@ const AddressTagTableItem = ({ item, onEditClick, onDeleteClick, isLoading }: Pr
         <AddressEntity
           address={ item.address }
           isLoading={ isLoading }
-          fontWeight="600"
-          py="2px"
+          fontWeight="semibold"
+          py="0.5"
         />
       </TableCell>
       <TableCell whiteSpace="nowrap">

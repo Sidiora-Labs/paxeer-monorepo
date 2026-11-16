@@ -1,0 +1,144 @@
+{
+  "name": "Paxeer Wallet",
+  "directory": "../../../apps/wallet",
+  "build": "NEXT_PUBLIC_PAXEER_WALLET_API=http://127.0.0.1:4174/wallet NEXT_PUBLIC_PAXEER_RPC_URL=http://127.0.0.1:4174/rpc NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:4174/supabase NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=surface-publishable-key NEXT_PUBLIC_AUTH_REDIRECT_URL=http://127.0.0.1:3099/wallet/auth/callback/ NEXT_PUBLIC_FX_RATES_API=http://127.0.0.1:4174/fx NEXT_PUBLIC_MARKET_DATA_API=http://127.0.0.1:4174/market NEXT_PUBLIC_PAXEER_HUMAN_API=http://127.0.0.1:4174/human NEXT_PUBLIC_PAXEER_EXPLORER_URL=http://127.0.0.1:4174/explorer NEXT_PUBLIC_PAXEER_USID_PER_PAX=1000 pnpm run build",
+  "buildMs": 600000,
+  "outputs": [".next", "public/sw.js", "public/manifest.json"],
+  "start": "NEXT_PUBLIC_PAXEER_WALLET_API=http://127.0.0.1:4174/wallet NEXT_PUBLIC_PAXEER_RPC_URL=http://127.0.0.1:4174/rpc NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:4174/supabase NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=surface-publishable-key NEXT_PUBLIC_AUTH_REDIRECT_URL=http://127.0.0.1:3099/wallet/auth/callback/ NEXT_PUBLIC_FX_RATES_API=http://127.0.0.1:4174/fx NEXT_PUBLIC_MARKET_DATA_API=http://127.0.0.1:4174/market NEXT_PUBLIC_PAXEER_HUMAN_API=http://127.0.0.1:4174/human NEXT_PUBLIC_PAXEER_EXPLORER_URL=http://127.0.0.1:4174/explorer NEXT_PUBLIC_PAXEER_USID_PER_PAX=1000 pnpm exec next start -p 3099",
+  "address": "http://127.0.0.1:3099/",
+  "readyPath": "/wallet/",
+  "views": [
+    {
+      "name": "onboarding",
+      "path": "/wallet/",
+      "states": [
+        {
+          "name": "email form",
+          "steps": [
+            { "action": "click", "selector": "button.pax-wallet-choice" },
+            {
+              "action": "fill",
+              "selector": "#signin-email",
+              "value": "holder@example.test"
+            },
+            { "action": "press", "selector": "#signin-email", "key": "Enter" },
+            { "action": "wait", "text": "Check Your Inbox" }
+          ]
+        },
+        {
+          "name": "invalid email error",
+          "steps": [
+            { "action": "click", "selector": "button.pax-wallet-choice" },
+            {
+              "action": "fill",
+              "selector": "#signin-email",
+              "value": "invalid"
+            },
+            { "action": "press", "selector": "#signin-email", "key": "Enter" },
+            { "action": "wait", "text": "Enter a valid email address." }
+          ]
+        },
+        {
+          "name": "invalid code error",
+          "steps": [
+            { "action": "click", "selector": "button.pax-wallet-choice" },
+            {
+              "action": "fill",
+              "selector": "#signin-email",
+              "value": "holder@example.test"
+            },
+            { "action": "press", "selector": "#signin-email", "key": "Enter" },
+            { "action": "wait", "text": "Check Your Inbox" },
+            { "action": "fill", "selector": "#signin-code", "value": "000000" },
+            { "action": "press", "selector": "#signin-code", "key": "Enter" },
+            { "action": "wait", "text": "Token has expired or is invalid" }
+          ],
+          "expects": [
+            {
+              "method": "POST",
+              "pattern": "http://127.0.0.1:4174/supabase/auth/v1/verify",
+              "status": 403
+            }
+          ]
+        }
+      ]
+    },
+    { "name": "wallet-shell", "path": "/wallet/?screen=portfolio" },
+    { "name": "account", "path": "/wallet/account/" },
+    { "name": "account-history", "path": "/wallet/account/history/" },
+    { "name": "account-plan", "path": "/wallet/account/plan/" },
+    { "name": "privacy", "path": "/wallet/privacy/" },
+    { "name": "offline", "path": "/wallet/offline/" },
+    { "name": "auth-callback", "path": "/wallet/auth/callback/" },
+    { "name": "bridge", "path": "/wallet/surfaces/bridge/" },
+    { "name": "inference", "path": "/wallet/surfaces/inference/" },
+    { "name": "exchange", "path": "/wallet/surfaces/exchange/" },
+    { "name": "fees", "path": "/wallet/surfaces/fees/" },
+    { "name": "launchpad", "path": "/wallet/surfaces/launchpad/" },
+    { "name": "web-data", "path": "/wallet/surfaces/web-data/" }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "http://127.0.0.1:4174/fx/latest/USD",
+      "file": "wallet/fx-rates.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "http://127.0.0.1:4174/supabase/auth/v1/otp*",
+      "file": "wallet/otp-sent.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "http://127.0.0.1:4174/supabase/auth/v1/verify*",
+      "file": "wallet/otp-invalid.json",
+      "status": 403,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "OPTIONS",
+      "pattern": "http://127.0.0.1:4174/supabase/auth/v1/otp*",
+      "file": "wallet/empty.json",
+      "status": 204,
+      "headers": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-headers": "apikey, authorization, content-type, x-client-info",
+        "access-control-allow-methods": "POST, OPTIONS"
+      }
+    },
+    {
+      "method": "OPTIONS",
+      "pattern": "http://127.0.0.1:4174/supabase/auth/v1/verify*",
+      "file": "wallet/empty.json",
+      "status": 204,
+      "headers": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-headers": "apikey, authorization, content-type, x-client-info",
+        "access-control-allow-methods": "POST, OPTIONS"
+      }
+    }
+  ],
+  "typeScale": [
+    { "min": 12, "max": 14 },
+    { "min": 14, "max": 16 },
+    { "min": 16, "max": 19 },
+    { "min": 20, "max": 23 },
+    { "min": 28, "max": 32 },
+    { "min": 32, "max": 44 },
+    { "min": 36, "max": 48 },
+    { "min": 36, "max": 64 }
+  ]
+}

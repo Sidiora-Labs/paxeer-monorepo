@@ -65,7 +65,9 @@ export function FilterBar({
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<FilterValues>(values);
 
-  const appliedCount = filters.filter((f) => isFilterActive(values[f.id])).length;
+  const appliedCount = filters.filter((f) =>
+    isFilterActive(values[f.id]),
+  ).length;
 
   const openSheet = () => {
     setDraft(values);
@@ -79,7 +81,7 @@ export function FilterBar({
           type="button"
           onClick={openSheet}
           className={cn(
-            "flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
+            "flex min-h-11 items-center gap-2 rounded-full border border-border-strong bg-surface px-4 py-2 text-sm font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
             className,
           )}
         >
@@ -92,27 +94,40 @@ export function FilterBar({
           )}
         </button>
 
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen} portalContainer={portalContainer}>
+        <Sheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          portalContainer={portalContainer}
+        >
           <SheetHeader title="Filter" />
           <SheetBody className="flex flex-col gap-6">
             {filters.map((def) => (
               <section key={def.id} className="flex flex-col gap-1">
-                <h4 className="pb-1 text-body-sm font-bold text-foreground">{def.label}</h4>
+                <h4 className="pb-1 text-body-sm font-bold text-foreground">
+                  {def.label}
+                </h4>
                 {def.type === "options" ? (
                   <OptionList
                     aria-label={def.label}
                     items={def.options ?? []}
-                    value={(draft[def.id] as string) ?? def.options?.[0]?.value ?? ""}
-                    onValueChange={(v) => setDraft((d) => ({ ...d, [def.id]: v }))}
+                    value={
+                      (draft[def.id] as string) ?? def.options?.[0]?.value ?? ""
+                    }
+                    onValueChange={(v) =>
+                      setDraft((d) => ({ ...d, [def.id]: v }))
+                    }
                   />
                 ) : (
-                  <div className="rounded-md border border-border p-2">
+                  <div className="max-w-full overflow-x-auto rounded-md border border-border-strong">
                     <DayPicker
                       mode="range"
                       numberOfMonths={1}
                       selected={(draft[def.id] as DateRange) ?? undefined}
                       onSelect={(r) => setDraft((d) => ({ ...d, [def.id]: r }))}
-                      classNames={{ ...dayPickerClassNames, root: "w-full text-sm text-foreground" }}
+                      classNames={{
+                        ...dayPickerClassNames,
+                        root: "w-full text-sm text-foreground",
+                      }}
                       modifiersClassNames={dayPickerModifiersClassNames}
                     />
                   </div>
@@ -126,7 +141,10 @@ export function FilterBar({
               size="lg"
               onClick={() => {
                 const cleared: FilterValues = {};
-                filters.forEach((f) => (cleared[f.id] = f.type === "options" ? "all" : undefined));
+                filters.forEach(
+                  (f) =>
+                    (cleared[f.id] = f.type === "options" ? "all" : undefined),
+                );
                 setDraft(cleared);
                 onChange(cleared);
                 setSheetOpen(false);
@@ -174,14 +192,14 @@ export function FilterBar({
               <button
                 type="button"
                 className={cn(
-                  "flex min-h-10 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
+                  "flex min-h-10 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-strong",
                   active
-                    ? "border-accent/40 bg-accent-soft text-accent-strong"
-                    : "border-border bg-surface text-foreground-secondary hover:bg-surface-sunken/60",
+                    ? "border-accent-strong bg-accent-soft text-accent-strong"
+                    : "border-border-strong bg-surface text-foreground-secondary hover:bg-surface-sunken/60",
                 )}
               >
                 {summary ?? def.label}
-                <ChevronDown className="size-4 opacity-60" aria-hidden />
+                <ChevronDown className="size-4 shrink-0" aria-hidden />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-filter p-2">

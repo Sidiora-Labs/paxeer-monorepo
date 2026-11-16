@@ -20,7 +20,7 @@ const AccordionShowcase = () => {
         <SectionHeader>Variant</SectionHeader>
         <SamplesStack>
           <Sample label="variant: outline">
-            <AccordionRoot w="400px">
+            <AccordionRoot w="full" maxW="var(--chakra-spacing-100)">
               { items.map((item, index) => (
                 <AccordionItem key={ index } value={ item.value }>
                   <AccordionItemTrigger>{ item.title }</AccordionItemTrigger>
@@ -30,7 +30,7 @@ const AccordionShowcase = () => {
             </AccordionRoot>
           </Sample>
           <Sample label="variant: faq">
-            <AccordionRoot w="400px" variant="faq">
+            <AccordionRoot w="full" maxW="var(--chakra-spacing-100)" variant="faq">
               { items.map((item, index) => (
                 <AccordionItem key={ index } value={ item.value }>
                   <AccordionItemTrigger variant="faq">{ item.title }</AccordionItemTrigger>
@@ -44,7 +44,7 @@ const AccordionShowcase = () => {
         <SectionHeader>Size</SectionHeader>
         <SamplesStack>
           <Sample label="size: md">
-            <AccordionRoot w="400px">
+            <AccordionRoot w="full" maxW="var(--chakra-spacing-100)">
               { items.map((item, index) => (
                 <AccordionItem key={ index } value={ item.value }>
                   <AccordionItemTrigger>{ item.title }</AccordionItemTrigger>
@@ -54,7 +54,7 @@ const AccordionShowcase = () => {
             </AccordionRoot>
           </Sample>
           <Sample label="size: sm">
-            <AccordionRoot w="400px" size="sm">
+            <AccordionRoot w="full" maxW="var(--chakra-spacing-100)" size="sm">
               { items.map((item, index) => (
                 <AccordionItem key={ index } value={ item.value }>
                   <AccordionItemTrigger indicatorPlacement="start">{ item.title }</AccordionItemTrigger>

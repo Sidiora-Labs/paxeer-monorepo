@@ -35,11 +35,13 @@ const TimeFormatToggle = (props: Props) => {
           variant="icon_secondary"
           onClick={ handleClick }
           boxSize={ 5 }
+          minW="touchTarget"
+          minH="touchTarget"
           selected={ timeFormat === 'absolute' }
           borderRadius="sm"
           verticalAlign="bottom"
         >
-          <IconSvg name="clock-light" boxSize="14px"/>
+          <IconSvg name="clock-light" boxSize={ 3.5 }/>
         </IconButton>
       </Tooltip>
       { text }

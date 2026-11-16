@@ -32,7 +32,7 @@ const UserOpCallDataSwitch = ({ className, initialValue, isDisabled, onChange, i
         disabled={ isDisabled }
         onCheckedChange={ handleChange }
         direction="rtl"
-        labelProps={{ fontWeight: '600', textStyle: 'sm' }}
+        labelProps={{ fontWeight: 'semibold', textStyle: 'sm' }}
       >
         <chakra.span hideBelow="lg">Show external call data</chakra.span>
         <chakra.span hideFrom="lg">External call data</chakra.span>

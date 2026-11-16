@@ -12,14 +12,15 @@ const OptimisticL2TxnBatchBlobWrapper = ({ children, className, isLoading }: Pro
     <Grid
       className={ className }
       columnGap={ 3 }
-      rowGap="10px"
+      rowGap="var(--chakra-spacing-2\.5)"
       p={ 4 }
-      bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.100' }}
-      gridTemplateColumns="auto 1fr"
+      bgColor="bg.surface"
+      gridTemplateColumns="minmax(0, max-content) minmax(0, 1fr)"
       borderRadius="base"
       w="100%"
-      h={ isLoading ? '140px' : undefined }
+      minH={ isLoading ? 'var(--chakra-spacing-36)' : undefined }
       textStyle="sm"
+      css={{ '& > *': { minW: 0, overflowWrap: 'anywhere' } }}
     >
       { isLoading ? null : children }
     </Grid>

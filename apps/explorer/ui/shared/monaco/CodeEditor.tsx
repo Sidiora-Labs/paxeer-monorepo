@@ -15,12 +15,11 @@ import useIsMobile from 'lib/hooks/useIsMobile';
 import isMetaKey from 'lib/isMetaKey';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { useColorMode } from 'toolkit/chakra/color-mode';
-import { useClientRect } from 'toolkit/hooks/useClientRect';
 import ErrorBoundary from 'ui/shared/ErrorBoundary';
 
 import CodeEditorBreadcrumbs from './CodeEditorBreadcrumbs';
 import CodeEditorLoading from './CodeEditorLoading';
-import CodeEditorSideBar, { CONTAINER_WIDTH as SIDE_BAR_WIDTH } from './CodeEditorSideBar';
+import CodeEditorSideBar from './CodeEditorSideBar';
 import CodeEditorTabs from './CodeEditorTabs';
 import useCodeEditorModels from './useCodeEditorModels';
 import addExternalLibraryWarningDecoration from './utils/addExternalLibraryWarningDecoration';
@@ -38,11 +37,8 @@ const EDITOR_OPTIONS: EditorProps['options'] = {
     alwaysConsumeMouseWheel: true,
   },
   dragAndDrop: false,
+  automaticLayout: true,
 };
-
-const TABS_HEIGHT = 35;
-const BREADCRUMBS_HEIGHT = 22;
-const EDITOR_HEIGHT = 500;
 
 interface Props {
   data: Array<File>;
@@ -69,14 +65,10 @@ const CodeEditorViewer = ({ data, remappings, libraries, language, mainFile, con
   const [ tabs, setTabs ] = React.useState([ data[index].file_path ]);
   const [ isMetaPressed, setIsMetaPressed ] = React.useState(false);
 
-  const [ containerRect, containerNodeRef ] = useClientRect<HTMLDivElement>();
-
   const { colorMode } = useColorMode();
   const [ borderRadius ] = useToken('radii', 'md');
   const isMobile = useIsMobile();
   const themeColors = useThemeColors();
-
-  const editorWidth = containerRect ? containerRect.width - (isMobile ? 0 : SIDE_BAR_WIDTH) : 0;
 
   const editorLanguage = (() => {
     switch (language) {
@@ -241,7 +233,7 @@ const CodeEditorViewer = ({ data, remappings, libraries, language, mainFile, con
       position: 'absolute',
       top: 0,
       left: 0,
-      width: `${ editorWidth }px`,
+      width: '100%',
       height: '100%',
     },
     '& .monaco-editor': {
@@ -280,10 +272,10 @@ const CodeEditorViewer = ({ data, remappings, libraries, language, mainFile, con
     '& .main-contract-glyph': {
       zIndex: 1,
       background: 'url(/explorer/static/contract_star.png) no-repeat center center',
-      backgroundSize: '12px',
+      backgroundSize: 'var(--chakra-spacing-3)',
       cursor: 'pointer',
     },
-  }), [ editorWidth, themeColors, borderRadius ]);
+  }), [ themeColors, borderRadius ]);
 
   const renderErrorScreen = React.useCallback(() => {
     return <Center bgColor={ themeColors['editor.background'] } w="100%" h="100%" borderRadius="md">Oops! Something went wrong!</Center>;
@@ -301,7 +293,7 @@ const CodeEditorViewer = ({ data, remappings, libraries, language, mainFile, con
     };
 
     return (
-      <Box height={ `${ EDITOR_HEIGHT }px` } width="100%" css={ css } ref={ containerNodeRef }>
+      <Box height="var(--chakra-spacing-100)" width="100%" minW={ 0 } position="relative" css={ css }>
         <ErrorBoundary renderErrorScreen={ renderErrorScreen }>
           <MonacoEditor
             className="editor-container"
@@ -323,18 +315,16 @@ const CodeEditorViewer = ({ data, remappings, libraries, language, mainFile, con
     <Flex
       className={ isMetaPressed ? 'meta-pressed' : undefined }
       width="100%"
-      height={ `${ EDITOR_HEIGHT + TABS_HEIGHT + BREADCRUMBS_HEIGHT }px` }
       position="relative"
-      ref={ containerNodeRef }
       css={ containerCss }
-      overflow={{ base: 'hidden', lg: 'visible' }}
+      minW={ 0 }
       borderRadius="md"
       onClick={ handleClick }
       onKeyDown={ handleKeyDown }
       onKeyUp={ handleKeyUp }
     >
       <ErrorBoundary renderErrorScreen={ renderErrorScreen }>
-        <Box flexGrow={ 1 }>
+        <Box flexGrow={ 1 } minW={ 0 } w={ 0 }>
           <CodeEditorTabs
             tabs={ tabs }
             activeTab={ data[index].file_path }
@@ -343,18 +333,20 @@ const CodeEditorViewer = ({ data, remappings, libraries, language, mainFile, con
             onTabClose={ handleTabClose }
           />
           <CodeEditorBreadcrumbs path={ data[index].file_path }/>
-          <MonacoEditor
-            className="editor-container"
-            height={ `${ EDITOR_HEIGHT }px` }
-            language={ editorLanguage }
-            path={ modelPath(data[index].file_path) }
-            value={ data[index].source_code }
-            beforeMount={ handleEditorWillMount }
-            keepCurrentModel
-            options={ EDITOR_OPTIONS }
-            onMount={ handleEditorDidMount }
-            loading={ <CodeEditorLoading borderBottomLeftRadius="md"/> }
-          />
+          <Box h="var(--chakra-spacing-100)" position="relative">
+            <MonacoEditor
+              className="editor-container"
+              height="100%"
+              language={ editorLanguage }
+              path={ modelPath(data[index].file_path) }
+              value={ data[index].source_code }
+              beforeMount={ handleEditorWillMount }
+              keepCurrentModel
+              options={ EDITOR_OPTIONS }
+              onMount={ handleEditorDidMount }
+              loading={ <CodeEditorLoading borderBottomLeftRadius="md"/> }
+            />
+          </Box>
         </Box>
         <CodeEditorSideBar
           data={ data }

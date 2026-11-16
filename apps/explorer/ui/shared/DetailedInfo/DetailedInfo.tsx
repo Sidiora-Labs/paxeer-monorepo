@@ -28,22 +28,33 @@ export const Group = ({ label, children, className, ...props }: SectionProps & O
   </Section>
 );
 
-export const ITEM_VALUE_LINE_HEIGHT = { base: '30px', lg: '32px' };
+export const ITEM_VALUE_LINE_HEIGHT = { base: 'var(--chakra-spacing-7\\.5)', lg: 'var(--chakra-spacing-8)' };
 
 export const Container = (props: GridProps) => {
   return (
-    <Grid
-      columnGap={{ base: 4, lg: 6 }}
-      rowGap={ 0 }
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: '220px minmax(0, 1fr)' }}
-      textStyle={{ base: 'sm', lg: 'md' }}
-      data-detailed-info
-      css={{
-        '& > [data-detailed-info-label]': { borderTop: '1px solid', borderColor: 'hairline', pt: '8px' },
-        '& > [data-detailed-info-value]': { borderTop: { base: 'none', lg: '1px solid' }, borderColor: 'hairline', py: '8px' },
-      }}
-      { ...props }
-    />
+    <Box minW={ 0 } containerType="inline-size" containerName="detailed-info">
+      <Grid
+        columnGap={{ base: 4, lg: 6 }}
+        rowGap={ 0 }
+        templateColumns={{ base: 'minmax(0, 1fr)', lg: '220px minmax(0, 1fr)' }}
+        textStyle={{ base: 'sm', lg: 'md' }}
+        data-detailed-info
+        css={{
+          '& > [data-detailed-info-label]': { borderTopWidth: 'var(--chakra-border-widths-1)', borderColor: 'hairline', pt: 2 },
+          '& > [data-detailed-info-value]': { borderTopWidth: { base: 0, lg: 'var(--chakra-border-widths-1)' }, borderColor: 'hairline', py: 2 },
+          '& > [data-detailed-info-divider]': { gridColumn: '1 / -1' },
+          '@supports (container-type: inline-size)': {
+            gridTemplateColumns: 'minmax(0, 1fr)',
+            '& > [data-detailed-info-value]': { borderTopWidth: 0 },
+            '@container detailed-info (min-width: 48rem)': {
+              gridTemplateColumns: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-15)) minmax(0, 1fr)',
+              '& > [data-detailed-info-value]': { borderTopWidth: 'var(--chakra-border-widths-1)' },
+            },
+          },
+        }}
+        { ...props }
+      />
+    </Box>
   );
 };
 
@@ -56,7 +67,7 @@ interface ItemLabelProps extends GridItemProps {
 }
 
 const ItemLabelScrollText = () => (
-  <Text fontWeight={ 500 } color="text.secondary" textStyle="xs" className="note" textAlign="right">
+  <Text fontWeight="medium" color="text.secondary" textStyle="xs" className="note" textAlign="right">
     Scroll to see more
   </Text>
 );
@@ -70,11 +81,11 @@ export const ItemLabel = ({ hint, children, isLoading, id, hasScroll, ...rest }:
       { ...rest }
     >
       <Flex columnGap={{ base: 1, lg: 2 }} alignItems="flex-start" w="100%" color="text.secondary">
-        <Skeleton loading={ isLoading } fontWeight={{ base: 700, lg: 500 }} py={{ base: '5px', lg: '4px' }} flexGrow={ 1 }>
+        <Skeleton loading={ isLoading } fontWeight={{ base: 'bold', lg: 'medium' }} py={{ base: 1.25, lg: 1 }} flexGrow={ 1 }>
           { children }
           { hasScroll && <ItemLabelScrollText/> }
         </Skeleton>
-        { hint && <Hint label={ hint } isLoading={ isLoading } my={{ base: '5px', lg: '6px' }}/> }
+        { hint && <Hint label={ hint } isLoading={ isLoading } my={{ base: 1.25, lg: 1.5 }}/> }
       </Flex>
     </GridItem>
   );
@@ -97,7 +108,8 @@ export const ItemValue = ({ children, multiRow = false, ...rest }: ItemValueProp
       minW={ 0 }
       minH={ ITEM_VALUE_LINE_HEIGHT }
       color="text.primary"
-      whiteSpace={{ base: 'normal', lg: 'nowrap' }}
+      whiteSpace="normal"
+      overflowWrap="anywhere"
       data-detailed-info-value
       data-stack-below="lg"
       { ...(multiRow ? {
@@ -129,9 +141,10 @@ export const ItemDivider = (props: GridItemProps) => {
   return (
     <GridItem
       colSpan={ colSpan }
+      data-detailed-info-divider
       mt={{ base: 2, lg: 3 }}
       mb={{ base: 0, lg: 3 }}
-      borderBottom="1px solid"
+      borderBottomWidth="var(--chakra-border-widths-1)"
       borderColor="border.divider"
       { ...rest }
     />

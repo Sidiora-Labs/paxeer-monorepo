@@ -24,14 +24,14 @@ import (
 // keccak(RLP(header)), so every header, transaction root and receipt root can
 // be recomputed locally. Chain 125 (Paxeer) is a CometBFT-backed EVM: the node
 // reports a consensus block hash that is not the go-ethereum header hash, its
-// transactionsRoot is the CometBFT data hash and its receiptsRoot is a constant
-// placeholder (sha256 of the empty string). On such a chain the block is named
+// transactionsRoot is the CometBFT data hash and its receiptsRoot commits the
+// CometBFT block results. On such a chain the block is named
 // by the node-reported hash; the authority then binds every read to that hash
 // (EIP-1898), requires the canonical number lookup to report the same hash,
 // recomputes every transaction hash from its signed payload, binds every
-// receipt to its transaction and block, and checks the per-receipt and merged
-// log blooms. Only the two trie roots, which the chain does not define in
-// Ethereum form, are not recomputed.
+// receipt to its transaction and block, and checks every receipt's own bloom
+// and the merged bloom of listed receipts. Only the two trie roots, which the
+// chain does not define in Ethereum form, are not recomputed.
 const (
 	BlockIdentityKeccak   = "keccak"
 	BlockIdentityReported = "reported"

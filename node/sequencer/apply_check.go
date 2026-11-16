@@ -6,10 +6,14 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	servertypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types"
@@ -20,9 +24,46 @@ import (
 
 // ApplyCheck uses the node's admission, execution and sealing code for an
 // offline comparison. Sequenced blocks retain their signed batch at index zero.
-type ApplyCheck struct{}
+type ApplyCheck struct {
+	ReceiptKey *ReceiptKey
+}
 
-func (ApplyCheck) BuildBlock(a *app.App, req *abci.RequestFinalizeBlock, home string, opts servertypes.AppOptions) error {
+// PrepareApplyCheckState replaces both receipt-key records in the disposable
+// application with the ephemeral key used by the check.
+func (s ApplyCheck) PrepareApplyCheckState(a *app.App, height int64) error {
+	if s.ReceiptKey == nil {
+		return errors.New("stand-in receipt key is unavailable")
+	}
+	public := s.ReceiptKey.PublicKey()
+	keyID := sha256.Sum256(public[:])
+	keys := seqkeeper.ReceiptKeys{{
+		KeyId:       keyID[:],
+		PublicKey:   public[:],
+		FirstHeight: uint64(height),
+		LastHeight:  math.MaxUint64,
+	}}
+	// Block execution branches from the working store, independently of CheckTx.
+	state := a.NewUncachedContext(false, tmproto.Header{Height: height})
+	if err := a.SequencerKeeper.InitReceiptKeyState(state, a.GetSubspace(seqtypes.ModuleName), keys); err != nil {
+		return err
+	}
+	// Apply the pending changes to the disposable working tree before any
+	// execution branch reads it. Computing its hash does not commit a version.
+	if _, err := a.CommitMultiStore().GetWorkingHash(); err != nil {
+		return err
+	}
+	if err := a.SequencerKeeper.InitReceiptKeyState(a.GetCheckCtx(), a.GetSubspace(seqtypes.ModuleName), keys); err != nil {
+		return err
+	}
+	return s.ReceiptKey.SetPins([]verify.SequencerAuthorization{{
+		SequencerID:      keyID,
+		PublicKey:        public,
+		FirstBatchNumber: uint64(height),
+		LastBatchNumber:  math.MaxUint64,
+	}})
+}
+
+func (s ApplyCheck) BuildBlock(a *app.App, req *abci.RequestFinalizeBlock, home string, opts servertypes.AppOptions) error {
 	ctx := a.GetCheckCtx()
 	if !a.Sequenced(ctx, req.Header.Height) {
 		return nil
@@ -31,13 +72,16 @@ func (ApplyCheck) BuildBlock(a *app.App, req *abci.RequestFinalizeBlock, home st
 	if err != nil {
 		return err
 	}
-	keyFile := cast.ToString(opts.Get(FlagReceiptKeyFile))
-	if keyFile == "" {
-		return fmt.Errorf("sequenced home requires sequencer.receipt-key-file in config/app.toml")
-	}
-	key, err := LoadReceiptKey(keyFile, tmconfig.DefaultConfig().SetRoot(home).PrivValidator.KeyFile(), pins, req.Header.Height)
-	if err != nil {
-		return err
+	key := s.ReceiptKey
+	if key == nil {
+		keyFile := cast.ToString(opts.Get(FlagReceiptKeyFile))
+		if keyFile == "" {
+			return fmt.Errorf("sequenced home requires sequencer.receipt-key-file in config/app.toml")
+		}
+		key, err = LoadReceiptKey(keyFile, tmconfig.DefaultConfig().SetRoot(home).PrivValidator.KeyFile(), pins, req.Header.Height)
+		if err != nil {
+			return err
+		}
 	}
 	keyID, err := key.KeyID(req.Header.Height)
 	if err != nil {

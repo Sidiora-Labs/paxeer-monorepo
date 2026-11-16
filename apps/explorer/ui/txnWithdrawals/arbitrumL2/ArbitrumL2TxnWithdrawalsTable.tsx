@@ -2,7 +2,8 @@ import React from 'react';
 
 import type { ArbitrumL2TxnWithdrawalsItem } from 'types/api/arbitrumL2';
 
-import { TableBody, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableHeader, TableRow } from 'toolkit/chakra/table';
+import ActivityTable from 'ui/txs/ActivityTable';
 
 import ArbitrumL2TxnWithdrawalsTableItem from './ArbitrumL2TxnWithdrawalsTableItem';
 
@@ -14,10 +15,10 @@ interface Props {
 
 const ArbitrumL2TxnWithdrawalsTable = ({ data, txHash, isLoading }: Props) => {
   return (
-    <TableRoot minW="900px">
+    <ActivityTable label="Withdrawals" minW="var(--chakra-sizes-4xl)">
       <TableHeader>
         <TableRow>
-          <TableColumnHeader width="150px">Message #</TableColumnHeader>
+          <TableColumnHeader width="var(--chakra-spacing-37\.5)">Message #</TableColumnHeader>
           <TableColumnHeader width="30%">Receiver</TableColumnHeader>
           <TableColumnHeader width="30%" isNumeric>Value</TableColumnHeader>
           <TableColumnHeader width="40%">Status</TableColumnHeader>
@@ -32,7 +33,7 @@ const ArbitrumL2TxnWithdrawalsTable = ({ data, txHash, isLoading }: Props) => {
             txHash={ txHash }/>
         )) }
       </TableBody>
-    </TableRoot>
+    </ActivityTable>
   );
 };
 

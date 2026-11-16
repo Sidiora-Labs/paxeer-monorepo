@@ -58,7 +58,7 @@ const AppErrorTxNotFound = () => {
         </List.Item>
         <List.Item>
           <span>If it still does not show up after 1 hour, please check with your </span>
-          <chakra.span fontWeight={ 600 }>sender/exchange/wallet/transaction provider</chakra.span>
+          <chakra.span fontWeight="semibold">sender/exchange/wallet/transaction provider</chakra.span>
           <span> for additional information.</span>
         </List.Item>
         <List.Item>

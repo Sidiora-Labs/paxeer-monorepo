@@ -10,7 +10,7 @@
   "recoverySchema": "recovery",
   "recoveryEpoch": 1,
   "recoveryRegion": "mainnet-beta",
-  "visibilityEndpoint": "https://social.example.com/internal/v2/social/ranking-visibility",
+  "visibilityEndpoint": "https://social.example.com:8443/internal/v2/social/ranking-visibility",
   "visibilityDNS": "social.example.com",
   "visibilityCertSHA256": "0000000000000000000000000000000000000000000000000000000000000000",
   "gatewayDNS": "gateway.example.com",

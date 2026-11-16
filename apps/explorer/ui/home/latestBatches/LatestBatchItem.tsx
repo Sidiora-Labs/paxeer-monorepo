@@ -22,7 +22,7 @@ const LatestBatchItem = ({ number, timestamp, txCount, status, isLoading, animat
     <Box
       animation={ animation }
       borderRadius="md"
-      border="1px solid"
+      border="var(--chakra-border-widths-1) solid"
       borderColor="border.divider"
       p={ 3 }
     >
@@ -32,7 +32,7 @@ const LatestBatchItem = ({ number, timestamp, txCount, status, isLoading, animat
           number={ number }
           tailLength={ 2 }
           textStyle="md"
-          fontWeight={ 500 }
+          fontWeight="medium"
           mr="auto"
         />
         <TimeWithTooltip
@@ -42,12 +42,12 @@ const LatestBatchItem = ({ number, timestamp, txCount, status, isLoading, animat
           isLoading={ isLoading }
           color="text.secondary"
           display="inline-block"
-          textStyle="sm"
+          textStyle="body"
           flexShrink={ 0 }
           ml={ 2 }
         />
       </Flex>
-      <Flex alignItems="center" justifyContent="space-between" w="100%" flexWrap="wrap" textStyle="sm">
+      <Flex alignItems="center" justifyContent="space-between" w="100%" flexWrap="wrap" textStyle="body">
         <Flex alignItems="center">
           <Skeleton loading={ isLoading } mr={ 2 }>Txn</Skeleton>
           <Link

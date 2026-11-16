@@ -17,7 +17,7 @@ const ApiKeySnippet = ({ apiKey, name, isLoading }: Props) => {
       <IconSvg name="key" boxSize={ 6 } color="icon.primary" isLoading={ isLoading }/>
       <Box>
         <Flex alignItems={{ base: 'flex-start', lg: 'center' }}>
-          <Skeleton loading={ isLoading } display="inline-block" fontWeight={ 600 } mr={ 1 }>
+          <Skeleton loading={ isLoading } display="inline-block" fontWeight="semibold" mr={ 1 }>
             <span>{ apiKey }</span>
           </Skeleton>
           <CopyToClipboard text={ apiKey } isLoading={ isLoading }/>

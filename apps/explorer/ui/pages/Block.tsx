@@ -171,7 +171,7 @@ const BlockPageContent = () => {
           display="flex"
           minW={ 0 }
           columnGap={ 2 }
-          fontWeight={ 500 }
+          fontWeight="medium"
         >
           <chakra.span flexShrink={ 0 }>
             { capitalize(getNetworkValidatorTitle()) }

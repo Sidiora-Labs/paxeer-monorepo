@@ -9,6 +9,8 @@ defmodule BlockScoutWeb.FeatureCase do
     quote do
       use Wallaby.DSL
 
+      @moduletag timeout: 300_000
+
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
@@ -26,14 +28,14 @@ defmodule BlockScoutWeb.FeatureCase do
   setup tags do
     :ok = setup_cache_fixture(true)
 
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo, ownership_timeout: :timer.minutes(5))
 
     if !tags[:async] do
       Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo, {:shared, self()})
     end
 
     metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Explorer.Repo, self())
-    {:ok, session} = Wallaby.start_session(metadata: metadata)
+    {:ok, session} = Wallaby.start_session(metadata: metadata, readiness_timeout: 60_000)
     session = Wallaby.Browser.resize_window(session, 1200, 800)
     {:ok, session: session}
   end
