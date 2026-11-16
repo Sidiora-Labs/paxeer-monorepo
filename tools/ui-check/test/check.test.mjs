@@ -330,6 +330,81 @@ async function tallFocusKeepsItsStartingEdgeVisible() {
 }
 test(tallFocusKeepsItsStartingEdgeVisible);
 
+async function modalFocusIncludesTheInitiallyFocusedControl() {
+  const { result } = await execute("modal-focus");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual([...render.focused].sort(), ["#first", "#second", "#third"]);
+  }
+}
+test(modalFocusIncludesTheInitiallyFocusedControl);
+
+async function modalFocusReportsOnlyTheUnmarkedControl() {
+  const { result } = await execute("modal-focus", {
+    views: [{ name: "unmarked", path: "/modal-focus.html?unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const finding of result.findings) {
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.mode, "keyboard");
+    assert.equal(finding.selector, "#first");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+  }
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual([...render.focused].sort(), ["#first", "#second", "#third"]);
+    assert.equal(render.findings.length, 1);
+  }
+}
+test(modalFocusReportsOnlyTheUnmarkedControl);
+
+async function nonmodalFocusStillExpectsBackgroundControls() {
+  const { result } = await execute("modal-focus", {
+    views: [{ name: "nonmodal", path: "/modal-focus.html?nonmodal" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const finding of result.findings) {
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.mode, "keyboard");
+    assert.equal(finding.selector, "#behind");
+    assert.equal(finding.values.message, "Element was not reached by Tab");
+  }
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual([...render.focused].sort(), ["#background", "#first", "#second", "#third"]);
+    assert.equal(render.findings.length, 1);
+  }
+}
+test(nonmodalFocusStillExpectsBackgroundControls);
+
+async function modalFocusTraversesShadowRoots() {
+  const { result } = await execute("modal-focus", {
+    views: [{ name: "shadow", path: "/modal-focus.html?shadow" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual([...render.focused].sort(), ["#first", "#second", "#third"]);
+  }
+}
+test(modalFocusTraversesShadowRoots);
+
+async function modalFocusUsesTheTopmostDialog() {
+  const { result } = await execute("modal-focus", {
+    views: [{ name: "stacked", path: "/modal-focus.html?stacked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual([...render.focused].sort(), ["#first", "#second", "#third"]);
+  }
+}
+test(modalFocusUsesTheTopmostDialog);
+
 function refusalView(parameters = "", expects) {
   const refused = `${files.address}/denied?token=a.b`;
   return {
