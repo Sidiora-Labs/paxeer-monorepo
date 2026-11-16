@@ -741,6 +741,14 @@ kbd {
 #graph:focus-visible {
   outline-offset: calc(-1 * var(--focus-width));
 }
+.canvas-shell:focus-within::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: var(--focus-width) solid var(--graph-border);
+  pointer-events: none;
+}
 #graph:active {
   cursor: grabbing;
 }
@@ -1118,5 +1126,15 @@ html:has(dialog:modal) {
   }
   .view-button.active {
     outline: var(--border) solid Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    scroll-behavior: auto !important;
   }
 }
