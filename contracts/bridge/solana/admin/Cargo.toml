@@ -10,7 +10,7 @@ name = "paxeer-x-bridge-solana-admin"
 path = "src/main.rs"
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 bincode = "1.3"
 paxeer-x-bridge-solana-program = { path = ".." }
 serde = { version = "1", features = ["derive"] }
