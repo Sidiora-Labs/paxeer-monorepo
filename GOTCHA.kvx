@@ -22590,3 +22590,8 @@ fix = "Decision 3635. Tasks 22.39.708 and 22.39.709."
 title = "A source file imports a package by its name from a package that declares it"
 symptom = "The consent module of the trading workspace in apps/perps/apps/web/src/legal/useCookieConsent.ts imports the error reporter through a relative path into the module directory of the package apps/perps/packages/paxeer-backend. The web application does not declare that package among its dependencies. An import through such a path does not take the entry the package gives a bundle of the browser, and the production build of the workspace reads the entry the import names. A task that adds a module to the web application builds the workspace in the production form."
 fix = "Decision 3636. Tasks 22.39.710 and 22.39.564."
+
+[gotcha.4554]
+title = "The render step of a task of the explorer names the form of the surface, the sizes and the count of passes"
+symptom = "The explorer is a large application. Its development server compiles a page when the page is first asked for and stays in the foreground of the command that starts it; its production form is built once and then served from the built files. The tasks 22.44.1 to 22.44.11 each hold a step that renders the views of their paths, and the proof 22.44.38 renders every route at the whole device list with the render check. A render step names the form of the surface it renders, the sizes, the count of passes and the order of the work, and no command of it stays in the foreground."
+fix = "Decision 3637. Tasks 22.44.1 to 22.44.11 and 22.44.38."
