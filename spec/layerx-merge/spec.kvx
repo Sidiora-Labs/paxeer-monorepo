@@ -15196,6 +15196,12 @@ value = "A service whose definition names its readiness path as health check sta
 basis = "Gotcha 4598. Decisions 3679 and 3677."
 affects = []
 
+[decision.3681]
+title = "The launchpad surface is closed in parts, each part at the whole device list"
+value = "A surface with many views is closed in parts. The file tools/ui-check/surfaces/launchpad.json stays the list of the whole surface. Each part is a surface file of its own under tools/ui-check/surfaces/launchpad/parts that names the build, the start, the address, the answers and the type scale of the whole file and a share of its views with their states. The script tools/ui-check/surfaces/launchpad/parts.mjs holds the rule: every view of the whole file lies in exactly one part with the same path, the same states and the same modes, every part names the same build, start, address and type scale as the whole file, and the script ends with another code than zero and names the view or the part where the rule does not hold. The parts follow the routes: home with the first visit, the return from the sign-in, the new view and the view for a route that does not exist; community with bounties, chat and the documents; coin with the coin, the token, the token metadata and the creation of a coin and of a chain; explore with explore, search and the watchlist; rewards with the leaderboard, the holder rewards, the rewards and the short link; live with the live views, the profit cards and the profile; terminal with the terminal, the swap and the order views. Each part is closed by a task of its own, at the whole device list and in every mode, with the pass over its screenshots. The division drops no view, no state and no mode. Task 22.44.40 writes the parts and the script and closes the part home; tasks 22.44.64 to 22.44.69 close the other parts."
+basis = "Gotcha 4599. Decisions 3587 and 3591."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44856,6 +44862,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.69]
+title = "Close the terminal, swap and order views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/terminal.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.68]
+title = "Close the live, profit card and profile views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/live.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.67]
+title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/rewards.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.66]
+title = "Close the explore, search and watchlist views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/explore.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.65]
+title = "Close the coin, token and creation views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/coin.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.64]
+title = "Close the bounty, chat and document views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/community.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
 
 [capability.22.39.751]
 title = "Name in the contract and the composer of the launchpad api every document its readiness reads"
@@ -174691,6 +174751,198 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.69]
+title = "Close the terminal, swap and order views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.69"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/terminal.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the terminal, swap and order views: the routes under apps/launchpad/web/src/app in the directories terminal, swap and meta-ag, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.69.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.69.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.68]
+title = "Close the live, profit card and profile views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.68"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/live.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the live, profit card and profile views: the routes under apps/launchpad/web/src/app in the directories live, pnl and profile, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.68.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.68.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.67]
+title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.67"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/rewards.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the leaderboard and reward views: the routes under apps/launchpad/web/src/app in the directories leaderboard, holder-rewards, rewards and r, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.67.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.67.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.66]
+title = "Close the explore, search and watchlist views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.66"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/explore.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the explore, search and watchlist views: the routes under apps/launchpad/web/src/app in the directories explore, search and watchlist, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.66.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.66.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.65]
+title = "Close the coin, token and creation views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.65"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/coin.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the coin, token and creation views: the routes under apps/launchpad/web/src/app in the directories coin, token, tokens and create, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.65.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.65.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.64]
+title = "Close the bounty, chat and document views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.64"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/community.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the bounty, chat and document views: the routes under apps/launchpad/web/src/app in the directories bounties, chat and docs, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.64.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.64.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.63]
 title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
 status = "pending"
@@ -174759,7 +175011,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.61]
 title = "Build the production form of the wallet application in its surface file and close the render check on it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.60"]
@@ -175936,7 +176188,7 @@ touches = ["apps/launchpad/web/src"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/launchpad.json", "tools/ui-check/surfaces/launchpad", "spec/layerx-merge/programme/records/ui/22.44.40.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad.json --out /tmp/ui-check/launchpad && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175948,6 +176200,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3681, gotcha 4599. The work of the earlier candidate stays as it is: the whole surface file with its files, the fixed answers, the changes of the presentation and the record. Write the seven part files under tools/ui-check/surfaces/launchpad/parts, home.json, community.json, coin.json, explore.json, rewards.json, live.json and terminal.json, in the division decision 3681 names, and the script tools/ui-check/surfaces/launchpad/parts.mjs in the form it states. This task closes the part home: do_3 and do_4 hold for the views of that part, with the command run on tools/ui-check/surfaces/launchpad/parts/home.json. The views of the other parts keep every change made so far and are closed by tasks 22.44.64 to 22.44.69; no change made for them is taken back. The record states the counts of the part home, the count of views of each part and the task that closes it. The verification now runs the script and the part home. Work by hand first: run the script, then the build file of the surface once, then the command for the part by hand, and read the summary per view; where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Start the build and the counted verification early and keep time for them. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.39]
 title = "Close the trading workspace on the device list with the render check"
@@ -249134,7 +249387,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.750]
 title = "Make the example values of the launchpad composer one set across the services"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.735"]
@@ -249296,7 +249549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.745]
 title = "List the statements of the livestream service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249328,7 +249581,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.744]
 title = "List the statements of the user service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249360,7 +249613,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.743]
 title = "List the statements of the metadata service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249392,7 +249645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.742]
 title = "List the statements of the social service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249424,7 +249677,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.741]
 title = "List the statements of the api service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249488,7 +249741,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.739]
 title = "List the statements of the pnl service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249617,7 +249870,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.735]
 title = "Give the composer example values of the gateway the forms the gateway admits and hold them with a case of the app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.729"]
