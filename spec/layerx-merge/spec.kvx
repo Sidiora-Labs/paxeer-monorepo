@@ -249113,7 +249113,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.729]
 title = "Admit in the composer the expected schema document with the registry name of the service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
