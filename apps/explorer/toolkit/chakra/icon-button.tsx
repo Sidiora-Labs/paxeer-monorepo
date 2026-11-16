@@ -21,6 +21,8 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           return {
             _icon: { boxSize: 5 },
             boxSize: 5,
+            minW: 'touchTarget',
+            minH: 'touchTarget',
             borderRadius: 'sm',
           };
         }
@@ -28,6 +30,8 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
           return {
             _icon: { boxSize: 3 },
             boxSize: 5,
+            minW: 'touchTarget',
+            minH: 'touchTarget',
             borderRadius: 'sm',
           };
         }
