@@ -20,7 +20,7 @@ const SettingsLocalTime = () => {
       direction="rtl"
       justifyContent="space-between"
       w="100%"
-      minH="34px"
+      minH="touchTarget"
     >
       Local time format
     </Switch>

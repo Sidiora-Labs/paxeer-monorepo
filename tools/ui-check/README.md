@@ -13,8 +13,12 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
-Only `playwright` and `axe-core` are dependencies, at the exact versions in
-`package.json`. The browser and its system packages are installed separately.
+The workflow at `.github/workflows/ui-check-test.yml` runs these same commands
+from this directory for changes to the render check and its workflow.
+
+Only `playwright`, `axe-core` and the PNG decoder `pngjs` are dependencies, at
+the exact versions in `package.json`. The browser and its system packages are
+installed separately.
 Tests use Node's test runner, local static pages and real Chromium.
 
 From the repository root:
@@ -28,9 +32,15 @@ node tools/ui-check/check.mjs --list
 `--surface` selects a JSON file. `--out` selects an output directory outside the
 repository, including when resolved through symlinks. `--view` selects one view
 by its exact name. `--list` prints the device sizes without starting a surface.
-Unknown options and unknown view names are errors.
+`--jobs COUNT` sets the maximum number of concurrent renders and requires a
+positive whole number. It defaults to the number of processors available to the
+process, capped at four. `--jobs 1` renders sequentially. Each render has its own
+browser context; render order, screenshot names, findings and view summaries
+keep matrix order for every job count. Unknown options and unknown view names
+are errors.
 
-Each view, including its default state and every named state, gets 34 renders:
+Each view, including its default state and every named state, gets 34 renders
+when it uses all modes:
 
 - Widths 360, 390, 430, 768, 834, 1024, 1280, 1440, 1920 and 2560 at height 900,
   plus landscape 844 by 390, in both light and dark schemes.
@@ -40,10 +50,16 @@ Each view, including its default state and every named state, gets 34 renders:
   record each focused selector.
 
 Every render has a numbered PNG and an entry in `result.json`, with the view,
-state, width, height, scheme, mode, render status and findings. Findings include
-that context, a selector and measured values. A view summary and a total print
-to stdout. Exit status is zero only when every requested render succeeds with
-no findings. Startup, navigation and screenshot errors produce a nonzero exit.
+state, width, height, scheme, mode, render status, `hasContent` and findings.
+`hasContent` is true only when the document has visible content and the viewport
+screenshot contains more than one colour. Findings include that context, a
+selector and measured values. A view summary and a total print to stdout, each
+including the count of renders that showed nothing. The view summary also counts
+renders that did not render. The report also lists the modes for each view and
+named state. The total line counts views and named states using fewer than all
+four modes, counting the initial state as its view. Exit status is zero only when
+every requested render succeeds with no findings. Startup, navigation and
+screenshot errors produce a nonzero exit.
 A surface that cannot start has a surface-level load finding with null render
 context. Invalid arguments or surface files are rejected before rendering.
 
@@ -57,6 +73,8 @@ The directory may also be absolute. A typical surface file has this form:
   "name": "Example surface",
   "directory": "../../../apps/example",
   "build": "npm run build",
+  "buildMs": 180000,
+  "outputs": ["dist"],
   "start": "npm run start -- --port 4173",
   "address": "http://localhost:4173",
   "readyPath": "/",
@@ -90,8 +108,31 @@ page and performs its own steps in order. `click`, `fill` and `press` use
 Playwright selectors; `press` takes a Playwright key name. `wait` waits for visible
 text containing its `text` value. States and build/start commands are optional.
 
-Commands run in `directory`. The build must finish successfully within 120
-seconds. The start command stays running while readiness is polled for up to
+Views and named states may declare `modes`, a nonempty list of unique names from
+`default`, `reduced-motion`, `double-text` and `keyboard`. Every list must include
+`default`. A view without `modes` uses all four; a state without `modes` inherits
+its view's list. An explicit state list replaces the view's list. Renders use
+only the matrix configurations in that list, in matrix order. For example,
+`"modes": ["default"]` gives 22 configurations per view or state. Invalid lists
+are rejected with the view's name.
+
+Commands run in `directory`. The optional `buildMs` is a whole number from 1000
+to 1800000 milliseconds, inclusive. It bounds the build; without it the bound is
+120000 milliseconds (120 seconds). Invalid values are rejected with the surface
+name, and a build timeout message names the applied bound.
+
+The optional `outputs` is a list of one to sixteen nonempty paths relative to
+`directory`, and requires a `build` command. Absolute paths, paths outside the
+directory, the directory itself, and paths containing a `node_modules` component
+are rejected with the surface name. The same restrictions apply after resolving
+symlinks, including links in parent directories of outputs that do not yet exist.
+Before building, the check recursively removes only the named outputs; absent
+outputs are allowed. A named symlink is removed without removing its target.
+The order is remove outputs, build, start. Without `outputs`, nothing is removed.
+The report records the applied `buildMs` and an `outputs` list of the named paths
+that were present and removed, including when the build fails.
+
+The start command stays running while readiness is polled for up to
 15 seconds. Navigation and state steps have a 10-second bound. Managed processes
 and their children stop when the check finishes. The surface file contains
 local commands, so use a file whose commands you intend to run.
@@ -159,7 +200,7 @@ finding kind.
 
 | Kind | Finding |
 | --- | --- |
-| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request, console error, uncaught error or rejection, unmatched external request, startup or render error. A matching declared refusal and its browser failed-resource console line are allowed. |
+| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. A deadline finding records `source: "deadline"` and the last started `step`; the render is marked not rendered. Its context is closed; if closing exceeds the navigation limit, its browser is ended and replaced before the next render. A matching declared refusal and its browser failed-resource console line are allowed. |
 | `sideways` | Document wider than the viewport, or visible element extending past either side or wider than the viewport. Text clipped to no area is excluded. Descendants of horizontal scroll containers are measured within those containers, whose boxes are measured against the viewport. Element geometry has a 0.5-pixel rounding tolerance. |
 | `cut` | Text with hidden or clipped overflow exceeds its box by more than 1 pixel, without declared ellipsis. Scrollable text is allowed. |
 | `contrast` | Axe measures text below 4.5:1, or large text below 3:1 (24 pixels, or bold at approximately 18.67 pixels). A custom axe check measures visible control borders, identifying fills and SVG fills/strokes below 3:1. Disabled controls are excluded. |
@@ -175,6 +216,12 @@ State steps and the doubled-text mode discard the layout movement caused by
 those intentional changes before that observation interval. Findings concern
 the render and observation interval. Visual review of the screenshots covers
 qualities that these measurements do not establish.
+
+Requests may still be pending when their render finishes, reaches its deadline
+or closes its browser context. Rejections from routing replies and WebSocket
+answers after that point are discarded, and the check finishes with its report
+and the exit status of its findings. Request failures while the render is active
+remain `load` findings with source `requestfailed`.
 
 ## Adding a surface
 

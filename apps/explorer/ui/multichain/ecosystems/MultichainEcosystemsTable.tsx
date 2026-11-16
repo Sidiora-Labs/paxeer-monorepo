@@ -29,7 +29,7 @@ const MultichainEcosystemsTable = ({ data, isLoading, sort, setSorting }: Props)
   }, [ sort, setSorting ]);
 
   return (
-    <TableRoot minW="1000px">
+    <TableRoot minW="calc(var(--chakra-spacing-1) * 250)">
       <TableHeaderSticky>
         <TableRow>
           <TableColumnHeader width="30%">Chain name</TableColumnHeader>

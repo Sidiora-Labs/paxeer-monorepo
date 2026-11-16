@@ -90,7 +90,7 @@ const MultichainTokens = () => {
   }, [ tokensQuery, tokenTypes, debouncedSearchTerm ]);
 
   const filter = (
-    <PopoverFilter contentProps={{ w: '200px' }} appliedFiltersNum={ tokenTypes?.length }>
+    <PopoverFilter contentProps={{ w: 'calc(var(--chakra-spacing-1) * 50)' }} appliedFiltersNum={ tokenTypes?.length }>
       <TokenTypeFilter<TokenType>
         onChange={ handleTokenTypesChange }
         defaultValue={ tokenTypes }
@@ -102,8 +102,10 @@ const MultichainTokens = () => {
 
   const searchInput = (
     <FilterInput
-      w={{ base: '100%', lg: '360px' }}
-      minW={{ base: 'auto', lg: '250px' }}
+      name="token"
+      inputProps={{ 'aria-label': 'Token name or symbol', type: 'search', autoComplete: 'off' }}
+      w={{ base: '100%', lg: 'calc(var(--chakra-spacing-1) * 90)' }}
+      minW={ 0 }
       size="sm"
       onChange={ handleSearchTermChange }
       placeholder="Token name or symbol"
@@ -121,7 +123,7 @@ const MultichainTokens = () => {
 
   const actionBar = isMobile ? (
     <>
-      <HStack gap={ 3 }>
+      <HStack gap={ 3 } flexWrap="wrap" minW={ 0 }>
         { filter }
         { chainSelect }
         { searchInput }
@@ -137,7 +139,7 @@ const MultichainTokens = () => {
       mt={ -6 }
       justifyContent="space-between"
     >
-      <HStack gap={ 3 }>
+      <HStack gap={ 3 } flexWrap="wrap" minW={ 0 }>
         { filter }
         { chainSelect }
         { searchInput }

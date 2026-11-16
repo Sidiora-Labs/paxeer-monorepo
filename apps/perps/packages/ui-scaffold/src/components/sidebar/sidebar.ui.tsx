@@ -1,13 +1,6 @@
+import { Tooltip } from "../../../../ui-connector/src/platformOverlays";
 import React from "react";
-import {
-  Box,
-  Flex,
-  tv,
-  VariantProps,
-  Text,
-  cn,
-  Tooltip,
-} from "@paxeer-network/ui";
+import { Box, Flex, tv, VariantProps, Text, cn } from "@paxeer-network/ui";
 
 type SideMenuItem = {
   name: string;
@@ -21,21 +14,21 @@ type SideMenuItem = {
 const menuItemVariants = tv({
   slots: {
     button: [
-      "oui-min-h-10",
+      "oui-min-h-12",
       "oui-px-3",
       "oui-py-2",
       "oui-rounded-md",
       "oui-w-full",
       "oui-text-start",
       "oui-text-base",
-      "oui-text-base-contrast-36",
+      "oui-text-base-contrast-80",
       // "oui-flex",
       "oui-group",
       // "oui-space-x-2",
       // "oui-items-center",
       "hover:oui-bg-base-8",
       "oui-transition-colors",
-      "group-data-[state=closed]/bar:oui-w-[42px]",
+      "group-data-[state=closed]/bar:oui-w-12",
       "oui-overflow-hidden",
     ],
     icon: [],
@@ -43,7 +36,7 @@ const menuItemVariants = tv({
   variants: {
     mode: {
       "icon-only": {
-        button: "oui-w-10",
+        button: "oui-w-12",
         icon: "w-6 h-6",
       },
       full: {
@@ -80,6 +73,8 @@ const MenuItem = React.memo<
   });
   const children = (
     <button
+      type="button"
+      aria-label={item.name}
       data-actived={props.active}
       disabled={item.disabled}
       className={button()}
@@ -104,7 +99,7 @@ const MenuItem = React.memo<
   );
 
   if (props.open) {
-    return <li className="oui-min-w-[120px]">{children}</li>;
+    return <li className="oui-min-w-32">{children}</li>;
   }
 
   return (
@@ -188,7 +183,7 @@ const SideBarHeader: React.FC<SideBarHeaderProps> = (props) => {
 
   const iconProps = {
     className:
-      "oui-text-base-contrast-36 hover:oui-text-base-contrast-80 oui-cursor-pointer",
+      "oui-text-base-contrast-80 hover:oui-text-base-contrast-80 oui-cursor-pointer",
     onClick: props.onToggle,
   };
 

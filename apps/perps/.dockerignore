@@ -1,0 +1,29 @@
+# Dependencies and generated output are installed inside the image.
+**/node_modules
+**/.next*
+**/dist
+**/out
+**/build
+**/coverage
+**/*.tsbuildinfo
+
+# Local configuration and credentials stay outside the build context.
+.env
+.env.*
+**/.env
+**/.env.*
+**/*.log
+.git
+.github
+.vscode
+.idea
+.DS_Store
+
+# Deployment inputs and licensed charting assets are supplied separately.
+deploy
+docs
+tests
+apps/web/public/static/charting_library
+apps/web/public/static/datafeeds
+
+!tsconfig.json

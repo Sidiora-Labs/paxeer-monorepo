@@ -45,7 +45,6 @@ updates:
       - /apps/inference-peer
       - /apps/launchpad
       - /apps/names
-      - /apps/perps
       - /apps/wallet
       - /apps/web
       - /contracts
@@ -65,6 +64,11 @@ updates:
       - /tools/hyperfide
       - /tools/names
       - /tools/wasm-tools/playground
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /apps/perps
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

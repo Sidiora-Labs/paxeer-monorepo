@@ -66,7 +66,14 @@ connections are live. The `tls` listener uses
 ## Authentication
 
 `GET /healthz` is unauthenticated and returns
-`{"ready": <bool>}` with HTTP 200 when ready and 503 otherwise.
+`{"ready": <bool>, "version": "<package version>"}` with HTTP 200 when ready
+and 503 otherwise, on both the plain and TLS listeners. `version` is always
+the `layerx-platform-dashboard` package version. When the optional
+`LAYERX_DASHBOARD_NETWORK_ID` setting is present, the response also includes
+`"network_id": "<network label>"`; otherwise that member is omitted.
+The setting must match the project gateway's network label: 1–64 printable
+ASCII bytes without spaces (bytes `0x21`–`0x7e`). Empty, non-ASCII, control,
+space-containing or longer values refuse startup.
 
 Every `/v1/dashboard/*` route calls the same developer identity
 introspector as webhooks: `Authorization: Bearer` or cookie

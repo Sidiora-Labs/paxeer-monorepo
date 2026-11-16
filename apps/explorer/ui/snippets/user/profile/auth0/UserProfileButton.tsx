@@ -50,7 +50,13 @@ const UserProfileButton = ({ profileQuery, size, variant, onClick, isPending, ..
       return (
         <HStack gap={ 2 }>
           <UserIdenticon address={ web3AccountWithDomain.address } isAutoConnectDisabled={ isAutoConnectDisabled }/>
-          <Box display={{ base: 'none', md: 'block' }} maxW="200px" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+          <Box
+            display={{ base: 'none', md: 'block' }}
+            maxW="calc(var(--chakra-spacing-40) + var(--chakra-spacing-10))"
+            overflow="hidden"
+            textOverflow="ellipsis"
+            whiteSpace="nowrap"
+          >
             { web3AccountWithDomain.domain || shortenString(web3AccountWithDomain.address) }
           </Box>
         </HStack>
@@ -63,7 +69,7 @@ const UserProfileButton = ({ profileQuery, size, variant, onClick, isPending, ..
 
     return (
       <HStack gap={ 2 }>
-        <IconSvg name="profile" boxSize={ 5 }/>
+        <IconSvg aria-hidden={ true } name="profile" boxSize={ 5 }/>
         <Box display={{ base: 'none', md: 'block' }}>{ data.email ? getUserHandle(data.email) : 'My profile' }</Box>
       </HStack>
     );
@@ -77,7 +83,7 @@ const UserProfileButton = ({ profileQuery, size, variant, onClick, isPending, ..
       disableOnMobile
     >
       <span>
-        <Button
+        <Button minH="touchTarget" minW="touchTarget"
           ref={ ref }
           size={ size }
           variant={ variant }
@@ -86,7 +92,7 @@ const UserProfileButton = ({ profileQuery, size, variant, onClick, isPending, ..
           selected={ dataExists }
           highlighted={ isAutoConnectDisabled }
           px={{ base: 2.5, lg: 3 }}
-          fontWeight={ dataExists ? 700 : 600 }
+          fontWeight={ dataExists ? 'bold' : 'semibold' }
           loading={ isButtonLoading }
           { ...rest }
         >

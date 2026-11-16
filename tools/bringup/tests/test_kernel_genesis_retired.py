@@ -44,7 +44,7 @@ class KernelGenesisRetiredTest(unittest.TestCase):
         self.assertEqual(services.returncode, 0, services.stdout + services.stderr)
         names = {line.split()[0] for line in services.stdout.splitlines()}
         self.assertTrue({"human-event-client", "human-kms", "human-kms-client", "human-kms-executor", "registry", "gateway-client"} <= names)
-        self.assertEqual(len(names), 30)
+        self.assertEqual(len(names), 31)
         self.assertNotIn("receipt-authority", names)
         self.assertNotIn("guarantor-1", names)
         self.assertNotIn("guarantor-2", names)

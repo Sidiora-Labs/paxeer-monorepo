@@ -44,11 +44,11 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
     }
   })();
 
-  const dashElement = <chakra.span color="text.secondary" lineHeight="24px">{ mdash }</chakra.span>;
+  const dashElement = <chakra.span color="text.secondary" lineHeight="h2">{ mdash }</chakra.span>;
 
   return (
     <TableRow>
-      <TableCell w="42px">
+      <TableCell w="calc(var(--chakra-spacing-1) * 10.5)">
         <CrossChainTxsStatusTag status={ data.status } loading={ isLoading }/>
       </TableCell>
       { currentAddress && (
@@ -60,7 +60,7 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
         </TableCell>
       ) }
       <TableCell>
-        <CrossChainMessageEntity id={ data.message_id } isLoading={ isLoading } lineHeight="24px" fontWeight={ 700 }/>
+        <CrossChainMessageEntity id={ data.message_id } isLoading={ isLoading } lineHeight="h2" fontWeight="bold"/>
       </TableCell>
       <TableCell>
         <TimeWithTooltip
@@ -68,11 +68,11 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
           isLoading={ isLoading }
           enableIncrement
           color="text.secondary"
-          lineHeight="24px"
+          lineHeight="h2"
           whiteSpace="nowrap"
         />
       </TableCell>
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         { data.sender ? (
           <AddressEntityInterchain
             chain={ data.source_chain }
@@ -81,13 +81,13 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
             truncation="constant"
             noIcon
             currentAddress={ currentAddress }
-            lineHeight="24px"
+            lineHeight="h2"
             maxW="100%"
             w="fit-content"
           />
         ) : dashElement }
       </TableCell>
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         <VStack alignItems="start">
           { data.source_transaction_hash ? (
             <TxEntityInterchain
@@ -96,7 +96,7 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
               isLoading={ isLoading }
               noIcon
               truncation="constant"
-              lineHeight="24px"
+              lineHeight="h2"
             />
           ) : dashElement }
           <ChainLabel
@@ -109,7 +109,7 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
           />
         </VStack>
       </TableCell>
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         <VStack alignItems="start">
           { data.destination_transaction_hash ? (
             <TxEntityInterchain
@@ -118,7 +118,7 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
               isLoading={ isLoading }
               noIcon
               truncation="constant"
-              lineHeight="24px"
+              lineHeight="h2"
             />
           ) : dashElement }
           <ChainLabel
@@ -136,20 +136,20 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
           <Link
             href={ route({ pathname: '/tx/[hash]', query: { hash: txHashWithTransfers, tab: 'token_transfers_cross_chain' } }) }
             loading={ isLoading }
-            lineHeight="24px"
-            minW="24px"
+            lineHeight="h2"
+            minW="var(--chakra-spacing-6)"
           >
             { data.transfers.length }
           </Link>
         ) : (
-          <Skeleton loading={ isLoading } color="text.secondary" lineHeight="24px">
+          <Skeleton loading={ isLoading } color="text.secondary" lineHeight="h2">
             <span>
               { data.transfers.length }
             </span>
           </Skeleton>
         ) }
       </TableCell>
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         <VStack alignItems="start">
           {
             firstTransfer?.sender ? (
@@ -160,7 +160,7 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
                 truncation="constant"
                 noIcon
                 currentAddress={ currentAddress }
-                lineHeight="24px"
+                lineHeight="h2"
                 maxW="100%"
               />
             ) : dashElement
@@ -192,7 +192,7 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
       <TableCell>
         <AddressFromToIcon type="unspecified" isLoading={ isLoading } mt={ 0.5 }/>
       </TableCell>
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         <VStack alignItems="start">
           {
             firstTransfer?.recipient ? (
@@ -203,7 +203,7 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
                 truncation="constant"
                 noIcon
                 currentAddress={ currentAddress }
-                lineHeight="24px"
+                lineHeight="h2"
                 maxW="100%"
               />
             ) : dashElement
@@ -221,7 +221,7 @@ const TransactionsCrossChainTableItem = ({ data, isLoading, currentAddress }: Pr
         </VStack>
       </TableCell>
       <TableCell>
-        <CrossChainBridgeLink data={ data.bridge } isLoading={ isLoading } lineHeight="24px"/>
+        <CrossChainBridgeLink data={ data.bridge } isLoading={ isLoading } lineHeight="h2"/>
       </TableCell>
     </TableRow>
   );

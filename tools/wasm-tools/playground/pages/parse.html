@@ -6,6 +6,15 @@
     <meta name="color-scheme" content="light dark" />
     <title>wasm-tools parse</title>
     <script type="module" src="parse.js"></script>
+    <script type="module">
+      for (const editor of document.querySelectorAll("textarea")) {
+        editor.addEventListener("focus", () => {
+          requestAnimationFrame(() =>
+            editor.scrollIntoView({ block: "nearest" }),
+          );
+        });
+      }
+    </script>
     <link rel="stylesheet" href="style.css" />
   </head>
 

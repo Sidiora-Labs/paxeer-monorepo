@@ -1,3 +1,31 @@
 /* @tailwind base; */
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .oui-touch-target {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+
+  .oui-data-numeric {
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+  }
+
+  .oui-surface-scroll {
+    max-inline-size: 100%;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

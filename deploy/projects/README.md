@@ -76,27 +76,54 @@ compiled into the production rewrite, and
 origin the web calls at runtime for sign-in. Both values are absolute HTTP(S)
 origins; the API origin remains the web container's build argument.
 
+The dashboard API and both webhook services take these `operator` inputs for
+the network label used by the project gateway. Each value is 1–64 printable
+ASCII bytes without spaces (bytes `0x21`–`0x7e`):
+
+| Service | Input | Runtime setting |
+| --- | --- | --- |
+| `dashboard` | `PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID` | `LAYERX_DASHBOARD_NETWORK_ID` |
+| `webhooks-public` | `PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID` | `LAYERX_WEBHOOKS_NETWORK_ID` |
+| `webhooks-ingress` | `PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_NETWORK_ID` | `LAYERX_WEBHOOKS_NETWORK_ID` |
+
+Their `/healthz` responses always include the package `version` and include
+`network_id` when the runtime setting is present. The gateway bindings use
+`/healthz` for health and identity, `/ready` equal to `true`, `/network_id`
+equal to the gateway network label, and `/version` equal to the deployed
+package version. Webhook `/livez` responses contain only `live` and `role`.
+
 The platform [gateway definition](platform/gateway.kvx) sets `LAYERX_ROLE=identity`
 and `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` for developer registration
 and sessions. `LAYERX_GATEWAY_IDENTITY_URL` reads the operator input
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL`, an absolute HTTPS address of
 the identity service. `LAYERX_GATEWAY_TENANT` reads the operator input
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT`, a tenant of 1–95 lowercase letters,
-digits, dots, underscores or hyphens.
+digits, dots, underscores or hyphens. `LAYERX_GATEWAY_INDEXER_URL` is the
+private HTTPS origin of the `indexer` service on its listener port.
+`LAYERX_GATEWAY_CONSENSUS_RPC_URL` reads the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL`, an absolute HTTPS address
+with a DNS host that may hold a path; calls go to exactly that path.
 
-The native table adds these four `identity` rows, each with mode `0600`.
+The native table adds these six `identity` rows, each with mode `0600`.
 Each file input reads `PLATFORM_GATEWAY_` followed by its name from the launch
 environment; for example, `PLATFORM_GATEWAY_ENDPOINT_IDENTITY_TOKEN` supplies
 `ENDPOINT_IDENTITY_TOKEN`.
 
 | File input | Destination | Gateway file variable | Input category and format |
 | --- | --- | --- | --- |
+| `ENDPOINT_ROUTE_BINDINGS` | `/run/secrets/route-bindings.json` | `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | `operator`: product route bindings JSON document encoded as padded base64 |
 | `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of token text issued by the identity service |
 | `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by the identity service |
+| `ENDPOINT_KEY_PROVISIONING_KEY` | `/run/secrets/key-provisioning-key` | `LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` | `generated`: base64 of 64 hexadecimal characters, generated once and equal on every replica |
 | `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 client bundle written by the launcher |
 | `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client bundle password written by the launcher |
 
-The identity role selects eight native rows: these four plus the outbound CA,
+`PLATFORM_GATEWAY_ENDPOINT_ROUTE_BINDINGS` supplies the complete bindings
+document. Its service predicates, HTTPS trust, supported transports and empty
+document behavior are described in the
+[native gateway inputs](../../docs/wiki/HostedGateway.md#native-deployment-inputs).
+
+The identity role selects ten native rows: these six plus the outbound CA,
 Redis username, Redis password and receipt keys marked `*`. A native start
 without the role and identity settings selects only those four chain files,
 serves the chain methods, and answers `px_register` and `px_openSession` with

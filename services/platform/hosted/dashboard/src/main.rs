@@ -26,6 +26,7 @@ enum Listener {
 
 struct Config {
     listen: SocketAddr,
+    network_id: Option<String>,
     listener: Listener,
     dashboard: Arc<Dashboard>,
     identity: Arc<DeveloperIdentity>,
@@ -83,8 +84,26 @@ fn tls_config() -> Result<Arc<ServerConfig>, String> {
         .map_err(|error| error.to_string())
 }
 
+fn network_id() -> Result<Option<String>, String> {
+    match env::var("LAYERX_DASHBOARD_NETWORK_ID") {
+        Err(env::VarError::NotPresent) => Ok(None),
+        Ok(value)
+            if !value.is_empty()
+                && value.len() <= 64
+                && value.bytes().all(|byte| byte.is_ascii_graphic()) =>
+        {
+            Ok(Some(value))
+        }
+        _ => Err(
+            "LAYERX_DASHBOARD_NETWORK_ID must be 1-64 printable ASCII bytes without spaces"
+                .to_owned(),
+        ),
+    }
+}
+
 fn config() -> Result<Config, String> {
     Ok(Config {
+        network_id: network_id()?,
         listen: env::var("LAYERX_DASHBOARD_LISTEN")
             .unwrap_or_else(|_| "0.0.0.0:9445".to_owned())
             .parse::<SocketAddr>()
@@ -192,10 +211,14 @@ fn owned_route(config: &Config, request: &Request, principal: &Principal, at: u6
 fn route(config: &Config, request: &Request) -> Reply {
     if request.method == "GET" && request.path == "/healthz" {
         let ready = config.dashboard.ready();
-        return Reply::json(
-            if ready { 200 } else { 503 },
-            serde_json::json!({ "ready": ready }).to_string(),
-        );
+        let mut document = serde_json::json!({
+            "ready": ready,
+            "version": env!("CARGO_PKG_VERSION"),
+        });
+        if let Some(network_id) = &config.network_id {
+            document["network_id"] = serde_json::json!(network_id);
+        }
+        return Reply::json(if ready { 200 } else { 503 }, document.to_string());
     }
     match principal(config, request) {
         Ok(principal) => owned_route(config, request, &principal, now()),

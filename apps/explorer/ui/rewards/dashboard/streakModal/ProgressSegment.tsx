@@ -16,14 +16,15 @@ export default function ProgressSegment({ value, target, prevTarget, isFirst }: 
   const progress = clamp(value, prevTarget, target);
 
   return (
-    <Flex gap={ 0 } flex={{ base: isFirst ? 0.7 : 1, lg: 1 }} minW="0">
-      <Flex flex={ 1 } alignItems="center" h={{ base: '32px', lg: '40px' }} mx={ -2.5 }>
+    <Flex gap={ 0 } flex="1 1 var(--chakra-spacing-20)" minW={ 0 }>
+      <Flex flex={ 1 } alignItems="center" h={{ base: 'var(--chakra-spacing-8)', lg: 'var(--chakra-spacing-10)' }} mx={ -2.5 }>
         <Progress
           value={ progress }
           min={ prevTarget }
           max={ target }
+          aria-label={ `${ target } day streak progress` }
           w="full"
-          color="green.400"
+          color="positive"
           trackProps={{
             borderStartRadius: isFirst ? undefined : 0,
             borderEndRadius: 0,
@@ -35,20 +36,20 @@ export default function ProgressSegment({ value, target, prevTarget, isFirst }: 
         alignItems="center"
         gap={ 2 }
         flexShrink={ 0 }
-        w="60px"
+        w="var(--chakra-spacing-15)"
       >
-        <Flex h={{ base: '32px', lg: '40px' }} alignItems="center">
+        <Flex h={{ base: 'var(--chakra-spacing-8)', lg: 'var(--chakra-spacing-10)' }} alignItems="center">
           <Flex
-            w="40px"
-            h="32px"
+            w="var(--chakra-spacing-10)"
+            h="var(--chakra-spacing-8)"
             borderRadius="lg"
-            bgColor={ isDone ? 'green.400' : 'progress.track' }
+            bgColor={ isDone ? 'positive' : 'progress.track' }
             alignItems="center"
             justifyContent="center"
             zIndex={ 1 }
           >
             { isDone ? (
-              <IconSvg name="check" boxSize={ 5 } color="white"/>
+              <IconSvg name="check" boxSize={ 5 } color="onAccent"/>
             ) : (
               <IconSvg name="hexagon" boxSize={ 4 } color="icon.secondary"/>
             ) }

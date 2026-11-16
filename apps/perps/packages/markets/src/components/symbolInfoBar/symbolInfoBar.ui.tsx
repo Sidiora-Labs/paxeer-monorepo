@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import { FC, ReactNode } from "react";
 import { Flex, Text, cn, Divider, Badge, TokenIcon } from "@paxeer-network/ui";
 import { Decimal } from "@paxeer-network/utils";
@@ -30,14 +31,17 @@ export const SymbolInfoBar: FC<SymbolInfoBarProps> = (props) => {
   } = props;
 
   const symbolView = (
-    <Flex
-      className="oui-h-5 oui-cursor-pointer oui-gap-x-[6px]"
-      onClick={onSymbol}
-    >
-      <SymbolDisplay formatString="base" size="sm" showBadge={false}>
-        {symbol}
-      </SymbolDisplay>
-      <TriangleDownIcon className="oui-size-[14px] oui-text-base-contrast-54" />
+    <Flex asChild className="oui-h-5 oui-cursor-pointer oui-gap-x-1.5">
+      <button
+        type="button"
+        onClick={onSymbol}
+        className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+      >
+        <SymbolDisplay formatString="base" size="sm" showBadge={false}>
+          {symbol}
+        </SymbolDisplay>
+        <TriangleDownIcon className="oui-size-3.5 oui-text-base-contrast-80" />
+      </button>
     </Flex>
   );
 
@@ -48,12 +52,16 @@ export const SymbolInfoBar: FC<SymbolInfoBarProps> = (props) => {
       px={3}
       py={2}
       className={cn(
+        styles.surface,
         "oui-symbol-info-bar-mobile",
-        "oui-h-full oui-font-semibold oui-rounded-xl",
+        "oui-h-full oui-font-semibold oui-rounded-xl oui-flex-wrap oui-gap-3",
         props.className,
       )}
     >
-      <Flex gapX={3} className="oui-h-full oui-flex-1 oui-overflow-hidden">
+      <Flex
+        gapX={3}
+        className="oui-h-full oui-min-w-0 oui-flex-1 oui-flex-wrap oui-gap-y-3"
+      >
         <Flex gapX={3}>
           <TokenIcon symbol={symbol} size="xs" />
           <Flex direction="column" itemAlign="start" gap={1}>
@@ -73,7 +81,7 @@ export const SymbolInfoBar: FC<SymbolInfoBarProps> = (props) => {
           </Flex>
         </Flex>
 
-        <Divider className="oui-h-[38px]" direction="vertical" intensity={8} />
+        <Divider className="oui-h-9" direction="vertical" intensity={8} />
         <Text.numeral
           size="2xs"
           rule="percentages"

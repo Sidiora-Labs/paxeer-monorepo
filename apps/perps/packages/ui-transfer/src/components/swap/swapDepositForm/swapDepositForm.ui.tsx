@@ -1,3 +1,4 @@
+import styles from "../../../presentation.module.css";
 import { FC } from "react";
 import { Box, Flex, textVariants } from "@paxeer-network/ui";
 import { ActionButton } from "../../actionButton";
@@ -51,7 +52,7 @@ export const SwapDepositForm: FC<UseSwapDepositFormScriptReturn> = (props) => {
   return (
     <Box
       id="oui-swap-deposit-form"
-      className={textVariants({ weight: "semibold" })}
+      className={`${styles.surface} ${textVariants({ weight: "semibold" })}`}
     >
       <Box className="oui-mb-6 lg:oui-mb-8">
         <Web3Wallet />
@@ -66,7 +67,7 @@ export const SwapDepositForm: FC<UseSwapDepositFormScriptReturn> = (props) => {
           />
           <QuantityInput
             classNames={{
-              root: "oui-mt-[2px] oui-rounded-t-sm oui-rounded-b-xl",
+              root: "oui-mt-0.5 oui-rounded-t-sm oui-rounded-b-xl",
             }}
             value={quantity}
             onValueChange={onQuantityChange}

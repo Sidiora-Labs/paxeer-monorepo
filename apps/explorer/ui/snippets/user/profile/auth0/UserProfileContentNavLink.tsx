@@ -13,12 +13,12 @@ const UserProfileContentNavLink = ({ href, icon, text, onClick }: NavLink) => {
       display="flex"
       alignItems="center"
       columnGap={ 3 }
-      py="14px"
+      py={ 'var(--chakra-spacing-3\\.5)' }
       onClick={ onClick }
       variant="menu"
     >
-      <IconSvg name={ icon } boxSize={ 5 } flexShrink={ 0 }/>
-      <Box textStyle="sm" fontWeight="500">{ text }</Box>
+      <IconSvg aria-hidden={ true } name={ icon } boxSize={ 5 } flexShrink={ 0 }/>
+      <Box textStyle="sm" fontWeight="medium">{ text }</Box>
     </Link>
   );
 };

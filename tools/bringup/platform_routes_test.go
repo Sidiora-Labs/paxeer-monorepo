@@ -398,7 +398,7 @@ func TestEventsUpstreamPlatformDrift(t *testing.T) {
 }
 
 func TestCAObsoleteRoster(t *testing.T) {
-	expected := strings.Fields("pending-core pending-core-admin agent-boundary agentd agentd-client paxeer-boundary-loopback paxeer-boundary-public human human-event-client human-attestor-client human-kms human-kms-client human-kms-executor gateway-redis gateway-client identity internal-kms internal-journeys internal-payments internal-approvals internal-programs internal-redis registry registry-event-client indexer interop-client developer developer-client dashboard-client ramp-client")
+	expected := strings.Fields("pending-core pending-core-admin agent-boundary hosted-authority agentd agentd-client paxeer-boundary-loopback paxeer-boundary-public human human-event-client human-attestor-client human-kms human-kms-client human-kms-executor gateway-redis gateway-client identity internal-kms internal-journeys internal-payments internal-approvals internal-programs internal-redis registry registry-event-client indexer interop-client developer developer-client dashboard-client ramp-client")
 	rows, e := ReadServiceRoster(bytes.NewReader(platformRoutesRead(t, "ca-services.tsv")))
 	if e != nil || len(rows) != len(expected) {
 		t.Fatal("approved identity inventory differs", e)

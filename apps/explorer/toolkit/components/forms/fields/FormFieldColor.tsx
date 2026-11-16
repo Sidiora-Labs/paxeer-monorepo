@@ -69,11 +69,11 @@ const FormFieldColorContent = <
 
   const endElement = (
     <Circle
-      size="30px"
+      size={ 'var(--chakra-spacing-7\\.5)' }
       bgColor={ field.value && colorValidator(field.value) === true ? field.value : sampleDefaultBgColor }
       borderColor="gray.300"
-      borderWidth="1px"
-      mx="15px"
+      borderWidth="var(--chakra-border-widths-1)"
+      mx={ 'var(--chakra-spacing-3\\.75)' }
     />
   );
 

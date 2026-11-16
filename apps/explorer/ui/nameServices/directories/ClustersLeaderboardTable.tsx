@@ -14,7 +14,7 @@ interface Props {
 
 const ClustersLeaderboardTable = ({ data, isLoading, top }: Props) => {
   return (
-    <TableRoot>
+    <TableRoot aria-label="Name service cluster leaderboard" aria-busy={ isLoading }>
       <TableHeaderSticky top={ top }>
         <TableRow>
           <TableColumnHeader width="5%">Rank</TableColumnHeader>

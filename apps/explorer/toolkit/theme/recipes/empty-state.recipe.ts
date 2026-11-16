@@ -32,7 +32,7 @@ export const recipe = defineSlotRecipe({
       md: {
         root: {
           p: '0',
-          mt: '50px',
+          mt: 'var(--chakra-spacing-12\\.5)',
         },
         title: {
           textStyle: 'heading.md',
@@ -45,7 +45,7 @@ export const recipe = defineSlotRecipe({
         },
         indicator: {
           _icon: {
-            width: { base: '160px', lg: '260px' },
+            width: { base: 'var(--chakra-spacing-40)', lg: 'var(--chakra-spacing-65)' },
             height: 'auto',
           },
         },

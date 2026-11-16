@@ -11,7 +11,7 @@ const SearchBarSuggestBlob = ({ data }: ItemsProps<SearchResultBlob>) => {
   return (
     <Flex alignItems="center" minW={ 0 }>
       <BlobEntity.Icon/>
-      <chakra.mark overflow="hidden" whiteSpace="nowrap" fontWeight={ 700 }>
+      <chakra.mark overflow="hidden" whiteSpace="nowrap" fontWeight="bold">
         <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.blob_hash } noTooltip/>
       </chakra.mark>
     </Flex>

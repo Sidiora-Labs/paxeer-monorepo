@@ -213,7 +213,7 @@ describe('the pill and chip sizing', () => {
   it('reserves the outlined chip border inside the height every chip size carries', () => {
     const outlined = (tagRecipe.variants?.variant.outlined as unknown as Record<string, Declarations>).root;
 
-    expect(outlined.borderWidth).toBe('1px');
+    expect(outlined.borderWidth).toBe('var(--chakra-border-widths-1)');
 
     for (const [ , metrics ] of TAG_SIZES) {
       expect(metrics.borderWidth).toBe(1);
@@ -227,7 +227,7 @@ describe('the pill and chip sizing', () => {
     expect(trigger.minH).toBe('var(--tabs-height)');
     expect(trigger.minW).toBe('auto');
     expect(trigger.whiteSpace).toBe('nowrap');
-    expect(trigger.borderWidth).toBe('1px');
+    expect(trigger.borderWidth).toBe('var(--chakra-border-widths-1)');
   });
 
   it('runs the pill tab strip at a height that holds its line box, its padding and its border', () => {

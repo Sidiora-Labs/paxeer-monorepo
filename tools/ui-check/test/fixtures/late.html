@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Render check page</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/base.css"><body><p id="status">Requests in progress</p><script>
+const parameters = new URLSearchParams(location.search);
+if (parameters.has("active")) {
+  fetch("/network-failure").catch(() => { document.getElementById("status").textContent = "Request failed"; });
+} else {
+  fetch("/late-response").catch(() => {});
+  fetch(`/late-answer?address=${encodeURIComponent(parameters.get("answer"))}`).catch(() => {});
+}
+if (parameters.has("finding")) console.error("Page finding");
+</script></body></html>

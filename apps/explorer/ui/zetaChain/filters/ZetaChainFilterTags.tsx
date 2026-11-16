@@ -133,7 +133,7 @@ const ZetaChainFilterTags = ({ filters, onClearFilter, onClearAll }: Props) => {
   return (
     <Flex justifyContent="space-between" alignItems="center" mb={ 6 }>
       <Flex alignItems="center" gap={ 2 }>
-        <Text fontSize="lg" lineHeight="24px" w="100px">Filtered by:</Text>
+        <Text fontSize="lg" lineHeight="h2" w="calc(var(--chakra-spacing-1) * 25)">Filtered by:</Text>
         <HStack gap={ 2 } flexWrap="wrap">
           { filterTags.map(t => (
             <Tag key={ t.name } variant="filter" onClose={ onClearFilter(t.key) } closable label={ t.name }>
@@ -143,7 +143,15 @@ const ZetaChainFilterTags = ({ filters, onClearFilter, onClearAll }: Props) => {
         </HStack>
       </Flex>
       { filterTags.length !== 0 && (
-        <Link onClick={ onClearAll } display="flex" alignItems="center" justifyContent="end" gap={ 2 } fontSize="sm" w="150px">
+        <Link
+          onClick={ onClearAll }
+          display="flex"
+          alignItems="center"
+          justifyContent="end"
+          gap={ 2 }
+          fontSize="sm"
+          w="calc(var(--chakra-spacing-1) * 37.5)"
+        >
           <IconSvg name="repeat" boxSize={ 5 }/>
           Reset filters
         </Link>

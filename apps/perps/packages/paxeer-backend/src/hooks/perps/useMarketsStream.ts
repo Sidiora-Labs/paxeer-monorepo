@@ -8,7 +8,7 @@ import {
   type CancelTask,
 } from "@paxeer-network/paxeer-backend/core/net/realtime";
 
-import { FEED_ORIGIN } from "@paxeer-network/paxeer-backend/core/feeds";
+import { getStreamSocketOrigin } from "@paxeer-network/paxeer-backend/core/feeds";
 import { useEffect, useState } from "react";
 import { parseFundingRateHourly } from "@paxeer-network/paxeer-backend/core/perps/fundingRate";
 
@@ -30,7 +30,7 @@ import { parseFundingRateHourly } from "@paxeer-network/paxeer-backend/core/perp
 
 // The gateway permits the Hyperpax browser origin; no client secret is shipped.
 
-export const MARKETS_WS_URL = `${FEED_ORIGIN.replace(/^http/, "ws")}/ws/markets`;
+export const MARKETS_WS_URL = `${getStreamSocketOrigin()}/ws/markets`;
 
 // ── Public types ──────────────────────────────────────────────────────
 

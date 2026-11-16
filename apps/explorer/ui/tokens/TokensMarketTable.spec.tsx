@@ -1,13 +1,18 @@
 // @vitest-environment jsdom
 
+import NextApp from 'next/app';
+import PageLoader from 'next/dist/client/page-loader';
+import { RouterContext } from 'next/dist/shared/lib/router-context.shared-runtime';
+import Router from 'next/dist/shared/lib/router/router';
+import { makePublicRouterInstance } from 'next/router';
 import React from 'react';
 
 import { getTokenTypes, isFungibleTokenType, NFT_TOKEN_TYPE_IDS } from 'lib/token/tokenTypes';
 import { tokenInfo, tokenInfoERC20a, tokenInfoERC20c } from 'mocks/tokens/tokenInfo';
 import TokensPage from 'ui/pages/Tokens';
-import { render, routerState } from 'ui/shared/layout/testWrapper';
+import { render as renderWithProviders } from 'ui/shared/layout/testWrapper';
 import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test } from 'vitest';
 import { fireEvent, screen, waitFor, within } from 'vitest/lib';
 
 import colors from '../../toolkit/theme/foundations/colors';
@@ -16,14 +21,50 @@ import TokensListItem from './TokensListItem';
 import TokensTable from './TokensTable';
 import { TokenChangePercent, TOKEN_VALUE_PLACEHOLDER } from './TokensTableItem';
 
-vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
-
 const items = [ tokenInfoERC20a, { ...tokenInfo, volume_24h: '12345.67' }, tokenInfoERC20c ];
 const requestedUrls: Array<URL> = [];
 
-beforeEach(() => {
-  routerState.pathname = '/tokens';
-  routerState.query = {};
+let router: Router;
+let publishRouter: (() => void) | undefined;
+
+function RoutedView({ children }: React.PropsWithChildren) {
+  const [ , refresh ] = React.useReducer(value => value + 1, 0);
+  React.useEffect(() => {
+    publishRouter = refresh;
+    return () => {
+      publishRouter = undefined;
+    };
+  }, []);
+  return <RouterContext.Provider value={ makePublicRouterInstance(router) }>{ children }</RouterContext.Provider>;
+}
+
+function render(ui: React.ReactElement) {
+  return renderWithProviders(<RoutedView>{ ui }</RoutedView>);
+}
+
+beforeEach(async() => {
+  window.history.replaceState(null, '', '/tokens');
+  Object.assign(window, {
+    __NEXT_DATA__: { props: { pageProps: {} }, page: '/tokens', query: {}, buildId: 'token-markets' },
+    __BUILD_MANIFEST: { sortedPages: [ '/tokens' ], __rewrites: { beforeFiles: [], afterFiles: [], fallback: [] }, '/tokens': [] },
+    __DEV_PAGES_MANIFEST: { pages: [ '/tokens' ] },
+    __DEV_MIDDLEWARE_MATCHERS: [],
+    __MIDDLEWARE_MATCHERS: [],
+    __SSG_MANIFEST: new Set(),
+  });
+  router = new Router('/tokens', {}, '/tokens', {
+    initialProps: { pageProps: {} },
+    pageLoader: new PageLoader('token-markets', ''),
+    App: NextApp,
+    Component: TokensPage,
+    wrapApp: App => App,
+    isFallback: false,
+    subscription: async() => {
+      publishRouter?.();
+    },
+  });
+  await router._initialMatchesMiddlewarePromise;
+  Reflect.deleteProperty(router.components['/tokens'], 'initial');
   requestedUrls.length = 0;
   fetchMock.resetMocks();
   fetchMock.mockResponse((request) => {
@@ -36,6 +77,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  window.removeEventListener('popstate', router.onPopState);
   document.documentElement.classList.remove('light', 'dark');
 });
 

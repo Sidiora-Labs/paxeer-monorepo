@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import React from "react";
 import {
   Box,
@@ -50,7 +51,7 @@ export type SubMenuMarketsProps = {
   onTabSort: (type: MarketsTabName) => (sort?: SortType) => void;
 };
 
-const cls = "oui-h-[calc(100%_-_36px)]";
+const cls = "oui-h-[calc(100%_-_var(--oui-space-8)-var(--oui-space-1))]";
 
 type MarketTabPanelProps = {
   type: MarketsTabName;
@@ -106,9 +107,9 @@ export const SubMenuMarkets: React.FC<SubMenuMarketsProps> = (props) => {
         className: "oui-p-2",
         render: (_: unknown, record: any) => {
           return (
-            <div className="oui-mx-[-8px]">
+            <div className="-oui-mx-2">
               <Flex gapX={1} itemAlign="center">
-                <TokenIcon symbol={record.symbol} className="oui-size-[18px]" />
+                <TokenIcon symbol={record.symbol} className="oui-size-4" />
                 <SymbolDisplay formatString="base" size="2xs">
                   {record.symbol}
                 </SymbolDisplay>
@@ -223,12 +224,13 @@ export const SubMenuMarkets: React.FC<SubMenuMarketsProps> = (props) => {
   return (
     <Box
       className={cn(
+        styles.surface,
         "oui-subMenuMarkets oui-overflow-hidden oui-bg-base-9 oui-font-semibold",
         className,
       )}
       height="100%"
     >
-      <Box className="oui-flex oui-min-w-0 oui-items-center oui-gap-x-2 oui-p-1">
+      <Box className="oui-flex oui-min-w-0 oui-items-center oui-flex-wrap oui-gap-2 oui-p-1">
         <React.Suspense fallback={null}>
           <LazySearchInput
             classNames={{

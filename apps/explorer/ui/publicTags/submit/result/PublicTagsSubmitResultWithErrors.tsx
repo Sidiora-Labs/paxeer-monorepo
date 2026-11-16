@@ -17,8 +17,8 @@ interface Props {
 
 const PublicTagsSubmitResultWithErrors = ({ data }: Props) => {
   const isMobile = useIsMobile();
-  const bgColorSuccess = { _light: 'green.50', _dark: 'green.800' };
-  const bgColorError = { _light: 'red.50', _dark: 'red.800' };
+  const bgColorSuccess = 'feedback.success.bg';
+  const bgColorError = 'feedback.error.bg';
 
   return (
     <Flex flexDir="column" rowGap={ 3 }>
@@ -42,7 +42,7 @@ const PublicTagsSubmitResultWithErrors = ({ data }: Props) => {
                 rowGap={ 3 }
               >
                 <GridItem px={{ base: 4, lg: 6 }} pt={{ base: 2, lg: 4 }} pb={{ base: 0, lg: 4 }} overflow="hidden">
-                  <Box fontSize="sm" color="text.secondary" fontWeight={ 500 }>Smart contract / Address (0x...)</Box>
+                  <Box fontSize="sm" color="text.secondary" fontWeight="medium">Smart contract / Address (0x...)</Box>
                   <Flex flexDir="column" rowGap={ 2 } mt={ 2 }>
                     { item.addresses.map((hash) => (
                       <AddressEntity
@@ -54,12 +54,12 @@ const PublicTagsSubmitResultWithErrors = ({ data }: Props) => {
                   </Flex>
                 </GridItem>
                 <GridItem px={{ base: 4, lg: 6 }} pb={{ base: 2, lg: 4 }} pt={{ base: 0, lg: 4 }}>
-                  <Box fontSize="sm" color="text.secondary" fontWeight={ 500 }>Tag</Box>
+                  <Box fontSize="sm" color="text.secondary" fontWeight="medium">Tag</Box>
                   <Flex rowGap={ 2 } columnGap={ 2 } mt={ 2 } justifyContent="flex-start" flexWrap="wrap">
                     { item.tags.map((tag) => (
                       <EntityTag
                         key={ tag.name }
-                        maxW={{ base: '100%', lg: '300px' }}
+                        maxW={{ base: '100%', lg: '72' }}
                         data={{ ...tag, slug: '', ordinal: 0 }}
                         noLink
                       />
@@ -67,7 +67,7 @@ const PublicTagsSubmitResultWithErrors = ({ data }: Props) => {
                   </Flex>
                 </GridItem>
               </Grid>
-              { item.error && <Box color="red.500" mt={ 1 } fontSize="sm">{ item.error }</Box> }
+              { item.error && <Box color="feedback.error.fg" mt={ 1 } fontSize="sm" role="alert">{ item.error }</Box> }
             </Box>
             { item.error && (
               <Link
@@ -86,7 +86,7 @@ const PublicTagsSubmitResultWithErrors = ({ data }: Props) => {
                 </Button>
               </Link>
             ) }
-            { !item.error && !isMobile && <Box w="95px" ml={ 6 } flexShrink={ 0 }/> }
+            { !item.error && !isMobile && <Box w="24" ml={ 6 } flexShrink={ 0 }/> }
           </Flex>
         );
       }) }

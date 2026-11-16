@@ -14,25 +14,25 @@ const TextareaShowcase = () => {
       <Section>
         <SectionHeader>Variant</SectionHeader>
         <SamplesStack >
-          <Sample label="variant: outline" w="360px">
+          <Sample label="variant: outline" w="full" maxW="calc(var(--chakra-spacing-1) * 90)">
             <Field label="Description" required floating size="2xl">
               <Textarea/>
             </Field>
             <Field label="Description" required floating size="2xl">
-              <Textarea value={ TEXT }/>
+              <Textarea defaultValue={ TEXT }/>
             </Field>
             <Field label="Description (invalid)" required floating invalid size="2xl">
-              <Textarea value={ TEXT }/>
+              <Textarea defaultValue={ TEXT }/>
             </Field>
             <Field label="Description (readOnly)" required floating readOnly size="2xl">
-              <Textarea value={ TEXT }/>
+              <Textarea defaultValue={ TEXT }/>
             </Field>
             <Field label="Description (disabled)" required floating disabled size="2xl">
-              <Textarea value={ TEXT }/>
+              <Textarea defaultValue={ TEXT }/>
             </Field>
-            <Box bgColor={{ _light: 'blackAlpha.200', _dark: 'whiteAlpha.200' }} p={ 4 } borderRadius="base" w="100%">
+            <Box bgColor="hairline" p={ 4 } borderRadius="base" w="100%">
               <Field label="Description" required floating size="2xl">
-                <Textarea value={ TEXT }/>
+                <Textarea defaultValue={ TEXT }/>
               </Field>
             </Box>
           </Sample>

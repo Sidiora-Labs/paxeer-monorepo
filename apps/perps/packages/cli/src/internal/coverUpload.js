@@ -120,7 +120,26 @@ function inspectCoverImage(filePath) {
 
 /** Match dex-creator's MarketplaceCoverImageUrl, including local GCS hosting. */
 function isManagedCoverImageUrl(value) {
-  const hosts = ["/assets"];
+  if (value.startsWith("/assets/marketplace/")) {
+    const segments = value.slice("/assets/marketplace/".length).split("/");
+    try {
+      return (
+        segments.length >= 2 &&
+        segments.every((segment) => {
+          const decoded = decodeURIComponent(segment);
+          return (
+            decoded.length > 0 &&
+            decoded !== "." &&
+            decoded !== ".." &&
+            !/[\u0000-\u001f\u007f/?#\\]/.test(decoded)
+          );
+        })
+      );
+    } catch {
+      return false;
+    }
+  }
+  const hosts = [];
   const override = process.env.GCS_PUBLIC_BASE_URL?.trim().replace(/\/+$/, "");
   if (override) hosts.push(override);
   try {
@@ -133,9 +152,9 @@ function isManagedCoverImageUrl(value) {
   }
 }
 
-/** True for http(s) cover sources; everything else is treated as a local path. */
+/** HTTP(S) URLs and public asset paths identify hosted cover sources. */
 function isRemoteCoverSource(source) {
-  return /^https?:\/\//i.test(source);
+  return /^https?:\/\//i.test(source) || /^\/assets(?:[/.]|$)/.test(source);
 }
 
 /** Validate every source before starting any uploads. */

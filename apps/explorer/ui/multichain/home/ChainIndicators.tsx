@@ -1,4 +1,4 @@
-import { Text } from '@chakra-ui/react';
+import { Flex, Text } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
@@ -9,7 +9,6 @@ import useApiQuery from 'lib/api/useApiQuery';
 import { HOMEPAGE_STATS } from 'stubs/multichain';
 import { Image } from 'toolkit/chakra/image';
 import ChainIndicatorsChart from 'ui/home/indicators/ChainIndicatorsChart';
-import ChainIndicatorsContainer from 'ui/home/indicators/ChainIndicatorsContainer';
 import ChainIndicatorsList from 'ui/home/indicators/ChainIndicatorsList';
 import { isIndicatorEnabled, sortIndicators } from 'ui/home/indicators/utils/indicators';
 import IconSvg from 'ui/shared/IconSvg';
@@ -62,7 +61,7 @@ const ChainIndicators = () => {
         return undefined;
       })(),
       // FIXME use non-navigation icon
-      icon: <IconSvg name="navigation/transactions" boxSize={ 6 } bgColor="indicator.transactions" borderRadius="base" color="white"/>,
+      icon: <IconSvg name="navigation/transactions" boxSize={ 6 } bgColor="indicator.transactions" borderRadius="base" color="onAccent"/>,
       hint: (() => {
         if (statsQuery.data.new_txns_multichain_window?.info) {
           return statsQuery.data.new_txns_multichain_window.info.description;
@@ -98,7 +97,7 @@ const ChainIndicators = () => {
         }
         return '$N/A';
       })(),
-      icon: <IconSvg name="globe" boxSize={ 6 } bgColor="indicator.addresses" borderRadius="base" color="white"/>,
+      icon: <IconSvg name="globe" boxSize={ 6 } bgColor="indicator.addresses" borderRadius="base" color="onAccent"/>,
       // eslint-disable-next-line max-len
       hint: 'The total market value of a cryptocurrency\'s circulating supply. It is analogous to the free-float capitalization in the stock market. Market Cap = Current Price x Circulating Supply.',
     },
@@ -114,7 +113,24 @@ const ChainIndicators = () => {
   const chartQuery = useChartDataQuery({ indicatorId: selectedIndicator?.id || selectedIndicatorId });
 
   return (
-    <ChainIndicatorsContainer>
+    <Flex
+      p={ 3 }
+      borderRadius="base"
+      bg="surface"
+      gap={ 3 }
+      flex="1 1 var(--chakra-spacing-80)"
+      minW={ 0 }
+      flexWrap="wrap"
+      alignItems="stretch"
+      css={{
+        '& > [data-label="chain-indicator-chart"]': {
+          minWidth: 0,
+          maxWidth: 'full',
+          flexBasis: 'var(--chakra-spacing-40)',
+          '& > div': { maxWidth: 'full', flexWrap: 'wrap' },
+        },
+      }}
+    >
       { selectedIndicator && (
         <ChainIndicatorsChart
           isLoading={ statsQuery.isPlaceholderData || chartQuery.isPending }
@@ -136,7 +152,7 @@ const ChainIndicators = () => {
         selectedId={ selectedIndicator?.id || selectedIndicatorId }
         onItemClick={ selectIndicatorId }
       />
-    </ChainIndicatorsContainer>
+    </Flex>
   );
 };
 

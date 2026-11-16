@@ -30,16 +30,10 @@ const ZetaChainCCTXsStats = (props: Props) => {
   const cctxPendingCountTotal = txsStatsQuery.data?.pending_zetachain_cross_chain_txns;
   const cctxCount24h = txsStatsQuery.data?.new_zetachain_cross_chain_txns_24h;
 
-  const itemsCount = [
-    cctxCountTotal,
-    cctxPendingCountTotal,
-    cctxCount24h,
-  ].filter(item => item !== null && item !== undefined).length;
-
   return (
     <Box
       display="grid"
-      gridTemplateColumns={{ base: '1fr', lg: `repeat(${ itemsCount }, calc(${ 100 / itemsCount }% - 9px))` }}
+      gridTemplateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-40)), 1fr))"
       rowGap={ 3 }
       columnGap={ 3 }
       mb={ 6 }

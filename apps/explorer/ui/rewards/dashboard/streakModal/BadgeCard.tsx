@@ -32,23 +32,32 @@ export default function BadgeCard({ badge, currentStreak, index }: Props) {
   const progress = Math.min(currentStreak, target);
 
   return (
-    <Flex direction={{ base: 'row', lg: 'column' }} alignItems="center" gap={ 3 } flex={ 1 }>
+    <Flex direction={{ base: 'row', lg: 'column' }} flexWrap="wrap" minW={ 0 } alignItems="center" gap={ 3 } flex={ 1 }>
       <Flex
         p={{ base: 2.5, lg: 4 }}
         borderRadius="lg"
-        bgColor={ isUnlocked ? BADGE_BG_COLORS[index] : { _light: 'gray.50', _dark: 'whiteAlpha.100' } }
+        bgColor={ isUnlocked ? BADGE_BG_COLORS[index] : 'surface' }
         alignItems="center"
         justifyContent="center"
-        w={{ base: '92px', lg: 'full' }}
+        w={{ base: 'min(100%, calc(var(--chakra-spacing-1) * 23))', lg: 'full' }}
         flexShrink={ 0 }
       >
         <Image
           src={ isUnlocked ? BADGES[index] : GHOST_BADGES[index] }
-          alt="Streak badge"
-          h={{ base: '54px', lg: '82px' }}
+          alt={ `${ target } day streak badge` }
+          w="full"
+          objectFit="contain"
+          h={{ base: 'calc(var(--chakra-spacing-1) * 13.5)', lg: 'calc(var(--chakra-spacing-1) * 20.5)' }}
         />
       </Flex>
-      <Flex direction="column" gap={ 3 } w="full" alignItems={{ base: 'flex-start', lg: 'center' }}>
+      <Flex
+        direction="column"
+        gap={ 3 }
+        w="full"
+        minW={ 0 }
+        flex={{ base: '1 1 var(--chakra-spacing-30)', lg: undefined }}
+        alignItems={{ base: 'flex-start', lg: 'center' }}
+      >
         <Text textStyle="sm">{ target } Day streak</Text>
         <Flex
           w="full"
@@ -56,12 +65,13 @@ export default function BadgeCard({ badge, currentStreak, index }: Props) {
           justifyContent={{ base: 'flex-start', lg: 'center' }}
           gap={ 2 }
           px={{ base: 0, lg: 2 }}
-          h="32px"
+          minH="var(--chakra-spacing-8)"
+          flexWrap="wrap"
         >
           { (() => {
             if (badge.is_minted) {
               return (
-                <Text textStyle="xs" color="green.500">
+                <Text textStyle="xs" color="positive">
                   Minted
                 </Text>
               );
@@ -79,15 +89,17 @@ export default function BadgeCard({ badge, currentStreak, index }: Props) {
             }
             return (
               <>
-                <Text textStyle="xs" color="text.secondary" minW="50px">
+                <Text textStyle="xs" color="text.secondary" minW="calc(var(--chakra-spacing-1) * 12.5)">
                   { progress }/{ target }
                 </Text>
                 <Progress
                   value={ progress }
                   min={ 0 }
                   max={ target }
+                  aria-label={ `${ target } day streak progress` }
                   flex={ 1 }
-                  color="green.400"
+                  minW="var(--chakra-spacing-10)"
+                  color="positive"
                 />
               </>
             );

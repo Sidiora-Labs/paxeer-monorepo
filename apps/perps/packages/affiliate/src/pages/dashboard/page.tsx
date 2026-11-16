@@ -1,3 +1,4 @@
+import surface from "../../surface.module.css";
 import { useEffect, useState } from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useAppContext } from "@paxeer-network/react-app";
@@ -68,7 +69,7 @@ export const DashboardPage = (props: {
   return (
     <div
       id="oui-affiliate-dashboard-page"
-      className={cn("oui-w-full oui-tracking-tight", root)}
+      className={cn(surface.surface, "oui-w-full oui-tracking-tight", root)}
     >
       <TabWidget classNames={rest} />
     </div>

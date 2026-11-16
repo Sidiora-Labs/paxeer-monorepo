@@ -24,8 +24,9 @@ const spotUserQueueSize = 64
 var spotUserStreams = [...]string{"trade", "position", "pnl", "order", "closed-leg"}
 
 type SpotUser struct {
-	mu      sync.Mutex
-	sockets map[*spotUserSocket]struct{}
+	AllowedOrigins []string
+	mu             sync.Mutex
+	sockets        map[*spotUserSocket]struct{}
 }
 
 type spotUserKey struct {
@@ -108,7 +109,9 @@ func (s *SpotUser) CloseAll() {
 }
 
 func (s *SpotUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool {
+		return originAllowed(r, s.AllowedOrigins)
+	}}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return

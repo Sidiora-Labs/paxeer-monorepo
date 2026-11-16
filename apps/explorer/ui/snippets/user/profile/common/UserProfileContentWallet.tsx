@@ -42,9 +42,9 @@ const UserProfileContentWallet = ({ onClose, className }: Props) => {
         <Flex
           alignItems="center"
           columnGap={ 2 }
-          bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+          bgColor="surface"
           px={ 2 }
-          py="10px"
+          py={ 'var(--chakra-spacing-2\\.5)' }
           borderRadius="base"
           justifyContent="space-between"
         >
@@ -53,19 +53,19 @@ const UserProfileContentWallet = ({ onClose, className }: Props) => {
             isLoading={ web3AccountWithDomain.isLoading }
             truncation="dynamic"
             fontSize="sm"
-            fontWeight={ 500 }
+            fontWeight="medium"
             noAltHash
             onClick={ handleAddressClick }
           />
-          { web3Wallet.isReconnecting ? <Spinner size="sm" m="2px" flexShrink={ 0 }/> : (
-            <IconButton
+          { web3Wallet.isReconnecting ? <Spinner size="sm" m={ 'var(--chakra-spacing-0\\.5)' } flexShrink={ 0 }/> : (
+            <IconButton minH="touchTarget" minW="touchTarget"
               aria-label="Open wallet"
               variant="icon_secondary"
               size="2xs"
               onClick={ handleOpenWalletClick }
               loading={ web3Wallet.isOpen }
             >
-              <IconSvg name="gear"/>
+              <IconSvg aria-hidden={ true } name="gear"/>
             </IconButton>
           ) }
         </Flex>
@@ -73,7 +73,7 @@ const UserProfileContentWallet = ({ onClose, className }: Props) => {
     }
 
     return (
-      <Button
+      <Button minH="touchTarget" minW="touchTarget"
         size="sm"
         onClick={ handleConnectWalletClick }
         loading={ web3Wallet.isOpen }
@@ -87,7 +87,7 @@ const UserProfileContentWallet = ({ onClose, className }: Props) => {
 
   return (
     <Box className={ className }>
-      <Flex px={ 1 } mb="1" textStyle="xs" alignItems="center" fontWeight="500">
+      <Flex px={ 1 } mb="1" textStyle="xs" alignItems="center" fontWeight="medium">
         <span>Connected wallet</span>
         <Hint
           label={

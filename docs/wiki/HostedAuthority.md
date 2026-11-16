@@ -12,18 +12,25 @@ for hosted consumers; it does not create another settlement or finality layer.
 See [Public RPC](PublicRpc.md) for node access.
 
 Receipt lookup uses node JSON-RPC. Batch evidence is read through a loopback
-HTTP adapter configured with the `REPLICA` keys below. The by-activity handler
-verifies signed receipt inclusion. Consumers requiring finality also bind that
-evidence to a committed block.
+HTTP adapter when the optional batch evidence origin group is configured.
+Without that group, activity reads verify signed node receipts and committed
+transaction landing. With it, they verify signed batch inclusion as before;
+consumers requiring finality also bind that evidence to a committed block.
 
 ## Deployment
 
 The [Dockerfile](../../docker/platform-authority/Dockerfile) starts
 `/usr/local/bin/layerx-runtime-clock --runtime-dir /tmp -- /usr/local/bin/layerx-receipt-authority`
 as user `4020:4020`. The default listener is `0.0.0.0:9445`.
-Provide the chain URL, protected receipt-key file, batch-evidence adapter,
-TLS material and service credentials listed below. The native node deployment
+Provide the chain URL, protected receipt-key file, TLS material and service
+credentials listed below. The batch-evidence adapter is optional as a group. The native node deployment
 is described in [Hosted node](HostedNode.md).
+
+The deployment's server certificate and private key come from the
+`hosted-authority` row of the bring-up CA roster. Install the row's `cert.der`
+and `key.der` files as `LAYERX_AUTHORITY_TLS_CERT_DER` and
+`LAYERX_AUTHORITY_TLS_KEY_DER`; the roster defines the server name and its
+`serverAuth` role.
 
 [Hosted identity](HostedIdentity.md) authenticates hosted principals and
 sessions. Authority's general bearer files authenticate calling services;
@@ -44,17 +51,31 @@ Unless marked optional or given a default, they are required.
 | `LAYERX_AUTHORITY_TOKEN_FILES` | Colon-separated paths, one general bearer per file; at least one file. Each calling service receives its own credential. |
 | `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Loopback HTTP node JSON-RPC URL serving `pax_sequencerReceipt`. Use the node's root JSON-RPC path. |
 | `LAYERX_AUTHORITY_RECEIPT_KEYS_FILE` | Protected JSON array of governed receipt-key entries, described below; loaded at startup. |
-| `LAYERX_AUTHORITY_REPLICA_URL` | Loopback HTTP origin serving the batch-evidence route. Accepted hosts are `127.0.0.1`, `localhost`, and `[::1]`, with an explicit nonzero port. |
-| `LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE` | Bearer credential presented to that evidence adapter. |
-| `LAYERX_AUTHORITY_REPLICA_ID` | Nonzero 32-byte identity, encoded as 64 hex characters; must match evidence documents. |
+| `LAYERX_AUTHORITY_REPLICA_URL` | Optional origin group: loopback HTTP origin serving the batch-evidence route. Accepted hosts are `127.0.0.1`, `localhost`, and `[::1]`, with an explicit nonzero port. |
+| `LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE` | Optional origin group: bearer credential presented to that evidence adapter. |
+| `LAYERX_AUTHORITY_REPLICA_ID` | Optional origin group: nonzero 32-byte identity, encoded as 64 hex characters; must match evidence documents. |
 | `LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE` | Optional protected file: distinct 32–4096 printable bytes, without whitespace or a trailing newline. This credential can read only the batch-evidence relay. |
 | `LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID` | Nonzero `u32` checked against signed evidence; separate from the EVM chain id. |
 | `LAYERX_AUTHORITY_NETWORK_ID` | Deployment identifier echoed in responses; 1–64 ASCII letters, digits, `-`, `_`, or `.`. |
 | `LAYERX_AUTHORITY_WIRE_VERSION` | String matching the built state-commitment protocol version; defaults to that version, currently `3`. |
 | `LAYERX_AUTHORITY_SEQUENCER_ID` | Required nonzero 64-hex compatibility authorization identity. Current receipt evidence is authorized using the governed key list. |
 | `LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY` | Required nonzero 64-hex compatibility public key. A single configured key does not replace the governed height ranges. |
-| `LAYERX_AUTHORITY_FIRST_BATCH` | Required compatibility authorization range start, greater than zero. |
-| `LAYERX_AUTHORITY_LAST_BATCH` | Required compatibility authorization range end, at least the start. |
+| `LAYERX_AUTHORITY_FIRST_BATCH` | Optional origin group: compatibility authorization range start, greater than zero. |
+| `LAYERX_AUTHORITY_LAST_BATCH` | Optional origin group: compatibility authorization range end, at least the start. |
+
+The batch evidence origin group contains exactly
+`LAYERX_AUTHORITY_REPLICA_URL`, `LAYERX_AUTHORITY_REPLICA_ID`,
+`LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE`, `LAYERX_AUTHORITY_FIRST_BATCH`
+and `LAYERX_AUTHORITY_LAST_BATCH`. All five enable the origin; omitting all five
+starts the service from the node alone. A partial group refuses startup with
+the group name and every missing setting. Supplied empty values must pass
+normal validation. Other settings retain their requirements.
+
+The deployment definition defaults to the node alone, with a commented
+optional origin group of variables and operator inputs. Enabling it also
+supplies `LAYERX_AUTHORITY_REPLICA_TOKEN_B64` for the container to stage the
+bearer and export its file path. The container stages no origin bearer when
+that encoded value is absent.
 
 General and adapter bearer files trim trailing CR/LF and must contain
 1–4096 printable non-whitespace ASCII bytes. Comparison is length-checked and
@@ -122,32 +143,61 @@ It does not decode the authority's by-activity object as its payment receipt.
 All routes below use `GET`. General service bearers authorize the by-activity
 routes; `/livez` and `/readyz` are unauthenticated.
 
-| Path | Success |
+| Path | Response |
 | --- | --- |
 | `/v1/authorized-batches/by-activity/{activity_id}` | Verified facts and canonical receipt. |
 | `/internal/v1/activities/{activity_id}/authority` | Same handler and response. |
-| `/v1/authorized-batches/wait-by-activity/{activity_id}` | Same verification, polling unknown receipts and missing evidence at 25 ms intervals within the handler's eight-second deadline. |
-| `/v1/batches/{batch_id}/receipt-authority?receipt_digest={digest}` | Relays the adapter's HTTP 200 or 404 body unchanged; also accepts the restricted evidence-read bearer. |
+| `/v1/authorized-batches/wait-by-activity/{activity_id}` | Same response; polls unknown receipts and node commitment or origin evidence at 25 ms intervals, with an eight-second deadline. |
+| `/v1/batches/{batch_id}/receipt-authority?receipt_digest={digest}` | With an origin, relays HTTP 200/404 unchanged; without one, returns 410 `retired_http_contract`. Also accepts the restricted evidence-read bearer. |
 
-The by-activity success object has these ten base members:
+With either configuration, the by-activity success object has these ten base
+members. Without an origin, batch identity, asset and both roots are read from
+the authenticated receipt; signed batch-header inclusion is available only
+with an origin:
 
 | Member | Representation |
 | --- | --- |
 | `activity_id` | Requested 64-hex activity id. |
 | `receipt` | Canonical signed receipt bytes as unprefixed hex. |
-| `batch_id` | Re-derived execution batch identity as unprefixed hex. |
+| `batch_id` | Execution batch identity as unprefixed hex; signed receipt claim without an origin, re-derived with one. |
 | `asset` | Receipt asset as unprefixed hex. |
-| `previous_state_root` | Signed header's predecessor root as unprefixed hex. |
-| `resulting_state_root` | Signed header's successor root as unprefixed hex. |
+| `previous_state_root` | Predecessor root as unprefixed hex; signed receipt in node-only form, verified header with an origin. |
+| `resulting_state_root` | Successor root as unprefixed hex; signed receipt in node-only form, verified header with an origin. |
 | `sequencer_public_key` | Receipt-authorized key from the pinned list, as unprefixed hex. |
 | `network_id` | Configured deployment string. |
 | `protocol_network_id` | Configured numeric protocol network id. |
 | `wire_version` | Configured protocol-version string. |
 
 Maintenance identities (`occupancy_maintenance_v2` or `batch_maintenance_v1`)
-add `batch_evidence` from the verified adapter document. Consumers must handle
+add `batch_evidence` from the verified adapter document when an origin is set.
+Without an origin that member is absent. Consumers must handle
 that form explicitly. Library `AuthorityFacts` additionally carries
 `global_sequence` and `batch_number`; neither is a base HTTP response member.
+
+Without an origin, activity verification requires a canonical signed receipt,
+a pinned signing key within its inclusive receipt-height range and a committed
+node result. It checks the transaction hash at the position in the landing
+block, block number and hash, execution status, and the binding of that block
+and its app root to the node's Comet commit. The committed block is rechecked
+before answering. No origin batch proof, maintenance identity document or
+retained replica record is created. Unknown immediate reads return 404;
+uncommitted immediate reads return 503 `receipt_not_committed`. Wait reads
+poll either condition until commitment or the eight-second deadline; an
+exhausted response deadline returns 503 `receipt_source_unavailable`.
+
+`GET /v1/protocol/account-state/head[?height={height}]` requires a general bearer.
+With an origin, the existing pinned-identity committed-head document is relayed
+unchanged. Without one, the node's committed state answers with `height` as a
+decimal string, `block_hash`, `state_root` and
+`commitment: "native_app_hash"`. Heights must be canonical positive decimals;
+the node must supply consistent committed evidence at a height greater than
+one, no later than its head. Malformed heights return 400 `invalid_height`;
+unavailable or conflicting committed evidence returns 503
+`committed_head_unavailable`. Native heads omit the origin document's
+`authority_replica_id`, `receipt_hex`, `receipt_digest`, `observed_sequence`,
+`observed_at`, `current`, `chain_evidence` and batch evidence. Readers requiring those members continue
+to require an origin. Optional human operations that consume retained signed
+batch evidence retain that requirement.
 
 ## Receipt digest
 
@@ -193,6 +243,8 @@ retryable responses include `retry_after_seconds` and `Retry-After`.
 | 404 | `unknown_activity` | Node lookup has no usable receipt yet. |
 | 502 | `sequencer_key_mismatch` | Receipt signing key/authorization fails the pinned-key checks. |
 | 503 | `receipt_source_unavailable` | Node transport, JSON-RPC, receipt shape or other receipt-source verification failed; retry after 5 seconds. |
+| 410 | `retired_http_contract` | Batch-evidence relay without a configured origin. |
+| 503 | `receipt_not_committed` | Node receipt has no committed block yet; retry after 1 second. |
 | 503 | `replica_evidence_unavailable` | Evidence adapter returned 404; retry after 1 second. |
 | 503 | `replica_unavailable` | Evidence transport failed or answered a status other than 200/404; retry after 5 seconds. |
 | 502 | `evidence_refused` | Receipt locator, evidence parse, signature, network authorization, inclusion, identity or outcome verification refused. |
@@ -210,17 +262,20 @@ These map to HTTP `evidence_refused`; authentication is a separate HTTP check.
 ## Readiness
 
 `GET /livez` returns `200 {"live":true}` without dependency checks.
-`GET /readyz` checks the adapter and node concurrently with a two-second
-readiness deadline. The adapter's zero batch/digest probe accepts HTTP 200 or
-404; the node must answer the expected chain id 125. Readiness requires both.
+`GET /readyz` checks the node alone without an origin, or the adapter and node
+concurrently with an origin, with a two-second readiness deadline. The adapter's zero batch/digest probe accepts HTTP 200 or
+404; the node must answer the expected chain id 125. Readiness requires every configured dependency.
 The body has `ready`, `network_id`, `protocol_network_id`, and `wire_version`.
 Ready is HTTP 200; unavailable is HTTP 503 with `Retry-After: 5`.
 Diagnostic headers are `X-LayerX-Authority-Replica` and
-`X-LayerX-Authority-Chain`. Readiness is not a proof that a particular receipt
+`X-LayerX-Authority-Chain`. The replica header is `not_configured` without an
+origin and otherwise `ready`, `unavailable` or `unprobed`; the chain header uses
+the latter three values. Readiness is not a proof that a particular receipt
 is committed or that every authority route can produce evidence.
 
 ## Storage and restart
 
+Node-only activity lookup re-reads node state and does not retain origin documents.
 Ordinary receipt lookup re-reads node state; it needs no local receipt socket.
 Enabled human authority retains verified receipt/evidence pairs as
 `{activity_id}.json` beneath `LAYERX_AUTHORITY_STATE_ROOT`. Writes use a protected
@@ -232,7 +287,9 @@ A changed principal policy produces `policy_changed_restart_required`.
 
 ## Tests
 
-Current source coverage lives in
+The [startup and node-only tests](../../services/platform/hosted/authority/tests/merged_start.rs)
+cover configuration grouping, receipt members, commitment and landing refusals,
+relay retirement, heads and the waiting deadline. Other source coverage lives in
 [`tests/chain_receipts.rs`](../../services/platform/hosted/authority/tests/chain_receipts.rs)
 (node receipt lookup, unpinned-key refusal, pin snapshots, startup without LNI),
 [`tests/maintenance_identity.rs`](../../services/platform/hosted/authority/tests/maintenance_identity.rs)

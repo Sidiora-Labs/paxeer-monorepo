@@ -9,7 +9,7 @@ describe('tag recipe, outlined variant', () => {
     expect(outlined?.root).toMatchObject({
       bgColor: 'transparent',
       color: 'text.secondary',
-      borderWidth: '1px',
+      borderWidth: 'var(--chakra-border-widths-1)',
       borderColor: 'border.divider',
       borderRadius: 'full',
     });

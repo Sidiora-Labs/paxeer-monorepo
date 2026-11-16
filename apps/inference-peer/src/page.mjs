@@ -78,6 +78,7 @@ export class PeerPage {
   #busy = false;
   #started = false;
   #disposed = false;
+  #resumeOnPageShow = false;
   #generation = 0;
   #listeners = [];
 
@@ -140,9 +141,16 @@ export class PeerPage {
     };
     for (const id of ["manifest-v1", "region", "probe-url"])
       this.#on(element(this.document, id), "input", invalidate);
-    this.#on(this.window, "pagehide", () => this.leave());
-    this.#on(this.window, "beforeunload", () => this.leave());
-    this.#on(this.window, "unload", () => this.leave());
+    this.#on(this.window, "pagehide", () => {
+      const rejoin = this.#signal !== undefined;
+      this.leave();
+      this.#resumeOnPageShow = rejoin;
+    });
+    this.#on(this.window, "pageshow", (event) => {
+      if (!event.persisted || !this.#resumeOnPageShow) return;
+      this.#resumeOnPageShow = false;
+      this.join().catch((error) => this.showError(error));
+    });
     element(this.document, "probe-url").value = new URL(
       "/probe",
       this.window.location.href,
@@ -316,6 +324,7 @@ export class PeerPage {
   }
 
   leave() {
+    this.#resumeOnPageShow = false;
     this.#generation++;
     const signal = this.#signal;
     this.#signal = undefined;

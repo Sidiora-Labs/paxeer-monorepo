@@ -70,20 +70,20 @@ const DailyRewardClaimButton = () => {
 
   return !isLoading && !dailyRewardQuery.data?.available ? (
     <Flex
-      h="40px"
+      h="var(--chakra-spacing-10)"
       alignItems="center"
       justifyContent="center"
       borderRadius="base"
       color="gray.500"
-      bgColor={{ _light: 'gray.200', _dark: 'gray.800' }}
+      bgColor="raised"
       fontSize="md"
-      fontWeight="600"
+      fontWeight="semibold"
       cursor="default"
     >
       Next claim in { timeLeft || 'N/A' }
     </Flex>
   ) : (
-    <Button onClick={ handleClaim } loading={ isLoading }>
+    <Button onClick={ handleClaim } loading={ isLoading } whiteSpace="normal" h="auto" minH={ 10 } py={ 2 }>
       Claim { dailyRewardValue } Merits
     </Button>
   );

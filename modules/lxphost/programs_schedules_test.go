@@ -49,6 +49,7 @@ func TestProgramsSchedulesInstallIsProducedByTheKernel(t *testing.T) {
 		binary.BigEndian.Uint64(fee[121:129]), binary.BigEndian.Uint64(fee[129:137]), binary.BigEndian.Uint64(fee[137:145]),
 	})
 	require.Equal(t, uint64(1), binary.BigEndian.Uint64(fee[145:153]))
+	require.Equal(t, uint64(0), binary.BigEndian.Uint64(fee[153:161]))
 	metering, err := host.ReadMeteringSchedule(ctx)
 	require.NoError(t, err)
 	require.Equal(t, produced["progmet/active/v1"], metering)

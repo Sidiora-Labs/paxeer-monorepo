@@ -148,17 +148,24 @@ Compose loads [prometheus.yaml](docker_compose_monitoring/prometheus.yaml) and [
 The hosted gateway [project definition](../deploy/projects/platform/gateway.kvx)
 selects `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` and `LAYERX_ROLE=identity`.
 The native table has four `*` rows for the outbound CA, Redis username, Redis
-password and receipt keys, plus these four `identity` rows with mode `0600`:
+password and receipt keys, plus these six `identity` rows with mode `0600`:
 
 | File input | Destination | Staged gateway variable | Input category and format |
 | --- | --- | --- | --- |
+| `ENDPOINT_ROUTE_BINDINGS` | `/run/secrets/route-bindings.json` | `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | `operator`: product route bindings JSON document encoded as padded base64 |
 | `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of identity-service token text |
 | `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by identity |
+| `ENDPOINT_KEY_PROVISIONING_KEY` | `/run/secrets/key-provisioning-key` | `LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` | `generated`: base64 of 64 hexadecimal characters, generated once and equal on every replica |
 | `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 client bundle written by the launcher |
 | `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client password written by the launcher |
 
 Each file input comes from the launch input named `PLATFORM_GATEWAY_` plus
-the file input name. The operator also supplies
+the file input name. `PLATFORM_GATEWAY_ENDPOINT_ROUTE_BINDINGS` holds the full
+bindings document; the entrypoint stages its protected authorization files and
+rewrites their paths for the runtime user. See
+[native gateway inputs](../docs/wiki/HostedGateway.md#native-deployment-inputs)
+for binding members, HTTPS trust, transports and readiness with empty bindings.
+The operator also supplies
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL` as the absolute HTTPS identity
 service address for `LAYERX_GATEWAY_IDENTITY_URL`, and
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT` as `LAYERX_GATEWAY_TENANT`, containing

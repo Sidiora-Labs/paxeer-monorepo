@@ -181,7 +181,7 @@ const TokensTableItem = ({
             isLoading={ isLoading }
             jointSymbol
             textStyle="sm"
-            fontWeight="600"
+            fontWeight="semibold"
             noLink={ type === 'NATIVE' }
           />
           <Flex flexShrink={ 0 } columnGap={ 1 } alignItems="center">

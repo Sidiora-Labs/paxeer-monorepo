@@ -82,7 +82,7 @@ export const InnerInput: FC<{
         //   />
         // }
         suffix={
-          <button onClick={onClick}>
+          <button onClick={onClick} type="button">
             <CheckIcon
               size={18}
               color="white"

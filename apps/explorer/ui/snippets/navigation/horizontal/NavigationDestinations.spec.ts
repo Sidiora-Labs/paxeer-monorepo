@@ -74,14 +74,14 @@ async function assertNativeNavigation(pathname: string) {
         fireEvent.click(blockchain);
         expect(blockchain.hasAttribute('data-active')).toBe(true);
         const panel = await waitFor(() => {
-          const content = document.getElementById(blockchain.getAttribute('aria-describedby') || '');
+          const content = document.getElementById(blockchain.getAttribute('aria-controls') || '');
           expect(content).not.toBeNull();
           return content;
         });
 
         for (const [ text, href ] of [ [ 'Blocks', '/blocks' ], [ 'Transactions', '/txs' ], [ 'Top accounts', '/accounts' ] ]) {
           const link = panel?.querySelector(`a[href="${ href }"]`);
-          expect(link?.textContent?.trim()).toBe(text);
+          expect(link?.querySelector('span > span')?.textContent?.trim()).toBe(text);
           expect(link?.hasAttribute('data-selected')).toBe(pathname === href);
         }
 

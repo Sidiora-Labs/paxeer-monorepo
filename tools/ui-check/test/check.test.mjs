@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
 import { checkSurface } from "../check.mjs";
-import { DEVICES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
-import { serveFiles } from "../server.mjs";
+import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
+import { serveFiles, startSurface } from "../server.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 const cli = resolve(dirname(fileURLToPath(import.meta.url)), "../check.mjs");
@@ -21,11 +21,37 @@ let external;
 let externalAddress;
 let externalRequests = 0;
 let sequence = 0;
+const lateRequests = { response: 0, answer: 0 };
+const lateClosures = { response: 0, answer: 0 };
+const lateResponseMs = LIMITS.navigationMs - 1000;
 
 before(async function serveTestPages() {
   root = await mkdtemp(join(tmpdir(), "ui-check-"));
   server = createServer((request, response) => {
     if (request.url === "/never") return;
+    const url = new URL(request.url, "http://localhost");
+    if (["/late.html", "/base.css"].includes(url.pathname)) {
+      readFile(join(fixtures, url.pathname.slice(1))).then((body) => {
+        response.writeHead(200, { "content-type": url.pathname.endsWith(".css") ? "text/css" : "text/html" });
+        response.end(body);
+      }, () => response.destroy());
+      return;
+    }
+    if (url.pathname === "/network-failure") { response.destroy(); return; }
+    if (["/late-response", "/late-answer"].includes(url.pathname)) {
+      const kind = url.pathname === "/late-response" ? "response" : "answer";
+      lateRequests[kind]++;
+      const timer = setTimeout(() => {
+        if (kind === "answer") response.writeHead(302, { location: url.searchParams.get("address") });
+        else response.writeHead(200, { "content-type": "text/plain" });
+        response.end("Late response");
+      }, lateResponseMs);
+      response.on("close", () => {
+        if (!response.writableEnded) lateClosures[kind]++;
+        clearTimeout(timer);
+      });
+      return;
+    }
     response.writeHead(200, { "content-type": "text/plain" });
     response.end("Ready");
   });
@@ -59,11 +85,11 @@ async function surfaceFor(name, options = {}) {
   return filename;
 }
 
-async function execute(name, options = {}) {
+async function execute(name, options = {}, renderOptions = {}) {
   const surface = await surfaceFor(name, options);
   const out = join(root, `renders-${sequence}`);
   const lines = [];
-  const result = await checkSurface({ surface, out }, (line) => lines.push(line));
+  const result = await checkSurface({ surface, out, ...renderOptions }, (line) => lines.push(line));
   assert.deepEqual(JSON.parse(await readFile(join(out, "result.json"), "utf8")), result);
   return { result, out, lines };
 }
@@ -74,6 +100,7 @@ function assertMatrix(result) {
   assert.equal(result.renders.filter((render) => render.size.width === 844 && render.size.height === 390).length, 2);
   for (const render of result.renders) {
     assert.ok(render.rendered, JSON.stringify(render.findings));
+    assert.equal(typeof render.hasContent, "boolean");
     for (const finding of render.findings) {
       for (const key of ["view", "state", "size", "scheme", "mode", "selector", "values"]) assert.ok(key in finding, key);
       assert.equal(finding.view, render.view);
@@ -91,10 +118,11 @@ async function cleanPagePassesWholeDeviceList() {
   const { result, out, lines } = await execute("clean");
   assertMatrix(result);
   assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.ok(result.renders.every((render) => render.hasContent));
   assert.deepEqual(result.findings, []);
   assert.equal(lines.length, 2);
-  assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 findings$/);
-  assert.match(lines[1], /^Total: 34 renders, 0 findings, pass$/);
+  assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 showed nothing, 0 findings$/);
+  assert.match(lines[1], /^Total: 34 renders, 0 showed nothing, 0 findings, pass, 0 views and states with fewer than all modes$/);
   assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 34);
   const png = await readFile(join(out, result.renders[0].screenshot));
   assert.equal(png.readUInt32BE(16), 360);
@@ -104,6 +132,125 @@ async function cleanPagePassesWholeDeviceList() {
   }
 }
 test(cleanPagePassesWholeDeviceList);
+
+async function emptyBodyReportsLoadAtEverySize() {
+  const { result, lines } = await execute("blank");
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  for (const render of result.renders) {
+    assert.equal(render.hasContent, false);
+    assert.deepEqual(render.findings.map((finding) => finding.kind), ["load", "load"]);
+    assert.deepEqual(render.findings.map((finding) => finding.values.source), ["empty-document", "single-colour-viewport"]);
+  }
+  assert.deepEqual(lines, [
+    "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
+    "Total: 34 renders, 34 showed nothing, 68 findings, fail, 0 views and states with fewer than all modes",
+  ]);
+}
+test(emptyBodyReportsLoadAtEverySize);
+
+async function onlyClippedTextReportsLoad() {
+  const { result } = await execute("blank", { views: [{ name: "clipped", path: "/blank.html?clipped" }] });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  for (const render of result.renders) {
+    assert.equal(render.hasContent, false);
+    assert.deepEqual(render.findings.map((finding) => finding.kind), ["load", "load"]);
+    assert.deepEqual(render.findings.map((finding) => finding.values.source), ["empty-document", "single-colour-viewport"]);
+  }
+}
+test(onlyClippedTextReportsLoad);
+
+async function coveredTextReportsTheViewportMeasurement() {
+  const { result, lines, out } = await execute("covered", { views: [{
+    name: "covered", path: "/covered.html", states: [{ name: "revealed", steps: [
+      { action: "press", selector: "body", key: "Escape" },
+    ] }],
+  }] });
+  assert.equal(result.renders.length, 68);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 34);
+  for (const state of ["default", "revealed"]) {
+    const renders = result.renders.filter((render) => render.state === state);
+    assertMatrix({ renders });
+    for (const render of renders) {
+      assert.equal(render.hasContent, state === "revealed");
+      if (state === "default") {
+        assert.equal(render.findings.length, 1);
+        assert.equal(render.findings[0].kind, "load");
+        assert.equal(render.findings[0].values.source, "single-colour-viewport");
+      } else assert.deepEqual(render.findings, []);
+    }
+  }
+  const png = await readFile(join(out, result.renders[0].screenshot));
+  assert.ok(png.readUInt32BE(20) > 900, "Viewport content is measured separately from the full-page screenshot");
+  assert.deepEqual(lines, [
+    "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
+    "Total: 68 renders, 34 showed nothing, 34 findings, fail, 0 views and states with fewer than all modes",
+  ]);
+}
+test(coveredTextReportsTheViewportMeasurement);
+
+async function oneLineOfTextShowsContent() {
+  const { result } = await execute("blank", { views: [{ name: "text", path: "/blank.html?text" }] });
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.ok(result.renders.every((render) => render.hasContent));
+}
+test(oneLineOfTextShowsContent);
+
+async function imageWithAreaShowsContent() {
+  const { result } = await execute("blank", { views: [{ name: "image", path: "/blank.html?image" }] });
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.ok(result.renders.every((render) => render.hasContent));
+}
+test(imageWithAreaShowsContent);
+
+async function contentMeasurementCannotBeOmitted() {
+  for (const change of [
+    { checkContent: false },
+    { views: [{ name: "blank", path: "/blank.html", checkContent: false }] },
+    { views: [{ name: "blank", path: "/blank.html", states: [{ name: "ready", checkContent: false, steps: [{ action: "press", selector: "body", key: "Escape" }] }] }] },
+    { views: [{ name: "blank", path: "/blank.html", states: [{ name: "ready", steps: [{ action: "press", selector: "body", key: "Escape", checkContent: false }] }] }] },
+  ]) {
+    const surface = await surfaceFor("blank", change);
+    await assert.rejects(readSurface(surface), /unknown field checkContent/);
+  }
+}
+test(contentMeasurementCannotBeOmitted);
+
+async function parallelRendersPreserveContentFindingsAndCounts() {
+  const surface = await surfaceFor("content", { views: [
+    { name: "blank", path: "/blank.html" },
+    { name: "covered", path: "/covered.html", states: [{ name: "revealed", steps: [
+      { action: "press", selector: "body", key: "Escape" },
+    ] }] },
+    { name: "text", path: "/blank.html?text" },
+  ] });
+  const results = [];
+  for (const jobs of [1, 4]) {
+    const out = join(root, `content-${sequence}-${jobs}`);
+    const lines = [];
+    const result = await checkSurface({ surface, out, jobs }, (line) => lines.push(line));
+    assert.deepEqual(JSON.parse(await readFile(join(out, "result.json"), "utf8")), result);
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 136);
+    assert.ok(result.renders.every((render) => render.rendered));
+    assert.equal(result.renders.filter((render) => !render.hasContent).length, 68);
+    assert.equal(result.findings.length, 102);
+    assert.deepEqual([...new Set(result.findings.map((finding) => finding.values.source))], ["empty-document", "single-colour-viewport"]);
+    assert.deepEqual(lines, [
+      "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
+      "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
+      "text: 34 renders, 0 did not render, 0 showed nothing, 0 findings",
+      "Total: 136 renders, 68 showed nothing, 102 findings, fail, 0 views and states with fewer than all modes",
+    ]);
+    results.push({ result, lines });
+  }
+  assert.deepEqual(results[1], results[0]);
+}
+test(parallelRendersPreserveContentFindingsAndCounts);
 
 async function eachPageReportsOnlyItsFindingKind() {
   for (const kind of ["load", "sideways", "cut", "contrast", "touch", "focus", "shift", "motion", "scale"]) {
@@ -268,16 +415,295 @@ async function fixedAnswersStayInTheBrowser() {
 }
 test(fixedAnswersStayInTheBrowser);
 
+async function lateRequestsKeepReportsAndExitStatus() {
+  assert.ok(lateResponseMs > LIMITS.settleMs);
+  await writeFile(join(root, "late-answer.txt"), "Fixed answer");
+  const answered = `${externalAddress}/late-answer`;
+  const path = `/late.html?answer=${encodeURIComponent(answered)}`;
+  const outsideRequests = externalRequests;
+  for (const withFinding of [false, true]) {
+    const surface = await surfaceFor("late", {
+      address, readyPath: "/late.html",
+      views: [
+        { name: "late", path, modes: ["default"] },
+        { name: "following", path: `${path}${withFinding ? "&finding" : ""}`, modes: ["default"] },
+      ],
+      answers: [{ method: "GET", pattern: answered, file: "late-answer.txt" }],
+    });
+    const outcomes = [];
+    for (const jobs of [1, 4]) {
+      const started = { ...lateRequests };
+      const closed = { ...lateClosures };
+      const out = join(root, `late-${withFinding}-${jobs}`);
+      const command = await runCli(["--surface", surface, "--out", out, "--jobs", String(jobs)]);
+      assert.equal(command.stderr, "");
+      assert.equal(command.code, withFinding ? 1 : 0, command.stdout);
+      const report = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+      assert.equal(report.passed, !withFinding);
+      assert.equal(report.renders.length, 44);
+      assert.ok(report.renders.every((render) => render.rendered && render.hasContent));
+      assert.equal(report.findings.length, withFinding ? 22 : 0);
+      for (const finding of report.findings) {
+        assert.equal(finding.view, "following");
+        assert.equal(finding.kind, "load");
+        assert.equal(finding.values.source, "console");
+        assert.equal(finding.values.message, "Page finding");
+      }
+      assert.deepEqual(command.stdout.trim().split("\n"), [
+        "late: 22 renders, 0 did not render, 0 showed nothing, 0 findings",
+        `following: 22 renders, 0 did not render, 0 showed nothing, ${withFinding ? 22 : 0} findings`,
+        `Total: 44 renders, 0 showed nothing, ${withFinding ? 22 : 0} findings, ${withFinding ? "fail" : "pass"}, 2 views and states with fewer than all modes`,
+      ]);
+      for (const kind of ["response", "answer"]) {
+        assert.equal(lateRequests[kind] - started[kind], 44);
+        assert.equal(lateClosures[kind] - closed[kind], 44);
+      }
+      outcomes.push({ report, command });
+    }
+    assert.deepEqual(outcomes[1], outcomes[0]);
+  }
+  assert.equal(externalRequests, outsideRequests);
+}
+test(lateRequestsKeepReportsAndExitStatus);
+
+async function activeSurfaceRequestFailuresRemainLoadFindings() {
+  const { result } = await execute("late", {
+    address, readyPath: "/late.html",
+    views: [{ name: "active", path: "/late.html?active", modes: ["default"] }],
+  });
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 22);
+  for (const render of result.renders) {
+    assert.equal(render.rendered, true);
+    assert.ok(render.findings.length > 0);
+    assert.ok(render.findings.every((finding) => finding.kind === "load"));
+    assert.ok(render.findings.some((finding) => finding.values.source === "requestfailed"
+      && finding.values.address === `${address}/network-failure`
+      && finding.values.method === "GET" && finding.values.resource === "fetch"));
+  }
+}
+test(activeSurfaceRequestFailuresRemainLoadFindings);
+
 async function commandBuildsAndServesFiles() {
   const surface = await surfaceFor("clean", {
     build: `${JSON.stringify(process.execPath)} -e "process.stdout.write('Surface ready')"`,
     start: undefined, address: "http://localhost:0",
   });
-  const result = await runCli(["--surface", surface, "--out", join(root, "self-served")]);
+  const result = await runCli(["--surface", surface, "--out", join(root, "self-served"), "--jobs", "1"]);
   assert.equal(result.code, 0, result.stderr + result.stdout);
-  assert.match(result.stdout, /34 renders, 0 findings, pass/);
+  assert.match(result.stdout, /34 renders, 0 showed nothing, 0 findings, pass/);
 }
 test(commandBuildsAndServesFiles);
+
+function nodeCommand(source) {
+  return `${JSON.stringify(process.execPath)} -e '${source.replaceAll("'", "'\\''")}'`;
+}
+
+async function temporaryBuildSurface(options = {}) {
+  const directory = await mkdtemp(join(root, "build-surface-"));
+  await writeFile(join(directory, "index.html"), "Ready");
+  const filename = await surfaceFor("built", {
+    directory, build: nodeCommand("process.stdout.write('Built')"),
+    start: undefined, address: "http://localhost:0", readyPath: "/index.html",
+    views: [{ name: "built", path: "/index.html", modes: ["default"] }],
+    ...options,
+  });
+  return { filename, directory };
+}
+
+async function buildBoundsRequireWholeMilliseconds(context) {
+  for (const buildMs of [null, false, "1000", {}, [], -1, 0, 999, 1000.5, 1800001]) {
+    const { filename } = await temporaryBuildSurface({ buildMs });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface buildMs.*whole number from 1000 to 1800000/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  for (const buildMs of [1000, 1800000]) {
+    const { filename } = await temporaryBuildSurface({ buildMs });
+    assert.equal((await readSurface(filename)).buildMs, buildMs);
+  }
+}
+test(buildBoundsRequireWholeMilliseconds);
+
+async function outputsRequireBuildAndOneToSixteenPaths(context) {
+  for (const outputs of [null, false, "dist", {}, [], Array.from({ length: 17 }, (_, index) => `dist-${index}`), [null], [1], [""], [" "]]) {
+    const { filename } = await temporaryBuildSurface({ outputs });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(one to sixteen paths|nonempty string)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  const { filename } = await temporaryBuildSurface({ build: undefined, outputs: ["dist"] });
+  await assert.rejects(readSurface(filename), (error) => {
+    assert.match(error.message, /Surface Test surface outputs requires a build command/);
+    context.diagnostic(error.message);
+    return true;
+  });
+  const outputs = Array.from({ length: 16 }, (_, index) => `dist-${index}/nested`);
+  const valid = await temporaryBuildSurface({ outputs });
+  assert.deepEqual((await readSurface(valid.filename)).outputs, outputs);
+}
+test(outputsRequireBuildAndOneToSixteenPaths);
+
+async function outputsStayInsideTheSurfaceAndOutsideDependencies(context) {
+  for (const output of [root, "C:\\output", "../outside", "nested/../../outside", ".", "nested/..", "node_modules", "dist/node_modules", "node_modules/pkg/dist", "dist/node_modules/../cache"]) {
+    const { filename } = await temporaryBuildSurface({ outputs: [output] });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(relative paths inside|node_modules)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  for (const target of [root, join(root, "absent-outside")]) {
+    for (const output of ["linked", "linked/nested/output"]) {
+      const { filename, directory } = await temporaryBuildSurface({ outputs: [output] });
+      await symlink(target, join(directory, "linked"));
+      await assert.rejects(readSurface(filename), (error) => {
+        assert.match(error.message, /Surface Test surface outputs.*inside the surface directory after resolving links/);
+        context.diagnostic(error.message);
+        return true;
+      });
+    }
+  }
+  for (const target of [".", "node_modules/pkg"]) {
+    const { filename, directory } = await temporaryBuildSurface({ outputs: ["linked"] });
+    await mkdir(join(directory, "node_modules/pkg"), { recursive: true });
+    await symlink(target, join(directory, "linked"));
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(directory itself|node_modules)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+}
+test(outputsStayInsideTheSurfaceAndOutsideDependencies);
+
+async function surfaceBuildCanExceedTheCommonBound(context) {
+  const duration = LIMITS.buildMs + 1000;
+  const { filename } = await temporaryBuildSurface({
+    build: nodeCommand(`setTimeout(() => process.stdout.write('Built'), ${duration})`),
+    buildMs: duration + 10000,
+  });
+  const surface = await readSurface(filename);
+  const started = Date.now();
+  const service = await startSurface(surface);
+  try {
+    assert.ok(Date.now() - started >= duration);
+    assert.equal(await (await fetch(new URL("/index.html", service.address))).text(), "Ready");
+  } finally { await service.close(); }
+  context.diagnostic(`Build completed within ${surface.buildMs} ms after exceeding ${LIMITS.buildMs} ms`);
+}
+test(surfaceBuildCanExceedTheCommonBound);
+
+async function smallerBuildBoundIsReportedWithRemovedOutputs(context) {
+  const { filename, directory } = await temporaryBuildSurface({
+    build: nodeCommand(`setTimeout(() => process.stdout.write('Built'), ${LIMITS.buildMs + 1000})`), buildMs: 1000,
+    outputs: ["old.txt", "absent"],
+  });
+  await writeFile(join(directory, "old.txt"), "Old output");
+  const out = join(root, `build-timeout-${sequence}`);
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 1, command.stderr + command.stdout);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 0);
+  assert.equal(result.buildMs, 1000);
+  assert.deepEqual(result.outputs, ["old.txt"]);
+  assert.equal(result.findings.length, 1);
+  assert.match(result.findings[0].values.message, /Surface Test surface build did not succeed: timed out after 1000 ms/);
+  await assert.rejects(readFile(join(directory, "old.txt")), { code: "ENOENT" });
+  context.diagnostic(result.findings[0].values.message);
+}
+test(smallerBuildBoundIsReportedWithRemovedOutputs);
+
+async function removedOutputsAreRebuiltBeforeTheStartServesThem() {
+  const outputs = ["dist", "old.txt", "linked.txt", "absent"];
+  const html = (await readFile(join(fixtures, "clean.html"), "utf8"))
+    .replace('<link rel="stylesheet" href="/base.css">', `<style>${await readFile(join(fixtures, "base.css"), "utf8")}</style>`)
+    .replace("<h1>Surface</h1>", "<h1>Fresh build</h1>");
+  const reservation = createServer();
+  await new Promise((resolve) => reservation.listen(0, "localhost", resolve));
+  const origin = `http://localhost:${reservation.address().port}`;
+  await new Promise((resolve) => reservation.close(resolve));
+  const { filename, directory } = await temporaryBuildSurface({
+    buildMs: 3000, outputs,
+    build: nodeCommand(`
+      const fs = require('node:fs');
+      const assert = require('node:assert/strict');
+      for (const path of ${JSON.stringify(outputs)}) assert.equal(fs.existsSync(path), false, path);
+      assert.equal(fs.readFileSync('keep.txt', 'utf8'), 'Keep beside outputs');
+      fs.mkdirSync('dist');
+      fs.writeFileSync('dist/index.html', ${JSON.stringify(html)});
+    `),
+    start: nodeCommand(`
+      const fs = require('node:fs');
+      const http = require('node:http');
+      const body = fs.readFileSync('dist/index.html');
+      http.createServer((request, response) => {
+        response.writeHead(200, { 'content-type': 'text/html' });
+        response.end(body);
+      }).listen(${new URL(origin).port}, 'localhost');
+    `),
+    address: origin,
+    views: [{ name: "built", path: "/index.html", modes: ["default"], states: [{
+      name: "fresh", steps: [{ action: "wait", text: "Fresh build" }],
+    }] }],
+  });
+  await mkdir(join(directory, "dist/nested"), { recursive: true });
+  await writeFile(join(directory, "dist/index.html"), "Stale output");
+  await writeFile(join(directory, "dist/nested/stale.txt"), "Stale nested output");
+  await writeFile(join(directory, "old.txt"), "Old output");
+  await writeFile(join(directory, "keep.txt"), "Keep beside outputs");
+  await symlink("keep.txt", join(directory, "linked.txt"));
+  const out = join(root, `rebuilt-${sequence}`);
+  const result = await checkSurface({ surface: filename, out }, () => {});
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 44);
+  assert.ok(result.renders.every((render) => render.rendered && render.hasContent));
+  assert.equal(result.buildMs, 3000);
+  assert.deepEqual(result.outputs, ["dist", "old.txt", "linked.txt"]);
+  assert.deepEqual(JSON.parse(await readFile(join(out, "result.json"), "utf8")), result);
+  assert.equal(await readFile(join(directory, "dist/index.html"), "utf8"), html);
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep beside outputs");
+  for (const path of ["dist/nested", "old.txt", "linked.txt", "absent"]) {
+    await assert.rejects(readFile(join(directory, path)), { code: "ENOENT" });
+  }
+}
+test(removedOutputsAreRebuiltBeforeTheStartServesThem);
+
+async function outputLinksAreCheckedAgainBeforeCleanup() {
+  const { filename, directory } = await temporaryBuildSurface({ outputs: ["keep.txt", "dist"] });
+  await writeFile(join(directory, "keep.txt"), "Keep output");
+  const surface = await readSurface(filename);
+  await symlink(root, join(directory, "dist"));
+  await assert.rejects(startSurface(surface), /Surface Test surface outputs.*inside the surface directory after resolving links/);
+  assert.equal(await readFile(join(directory, "index.html"), "utf8"), "Ready");
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep output");
+}
+test(outputLinksAreCheckedAgainBeforeCleanup);
+
+async function surfacesWithoutBuildKeysKeepTheCommonBoundAndFiles() {
+  const { filename, directory } = await temporaryBuildSurface();
+  const out = join(root, `unchanged-build-${sequence}`);
+  const html = '<!doctype html><html lang="en"><title>Ready</title><link rel="icon" href="data:,"><body style="font:16px sans-serif;color:black;background:white"><p>Ready</p></body></html>';
+  await writeFile(join(directory, "index.html"), html);
+  await writeFile(join(directory, "keep.txt"), "Keep output");
+  const surface = await readSurface(filename);
+  assert.equal(surface.buildMs, undefined);
+  assert.equal(surface.outputs, undefined);
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 0, command.stderr + command.stdout);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.buildMs, LIMITS.buildMs);
+  assert.deepEqual(result.outputs, []);
+  assert.equal(await readFile(join(directory, "index.html"), "utf8"), html);
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep output");
+}
+test(surfacesWithoutBuildKeysKeepTheCommonBoundAndFiles);
 
 async function textClippedToNothingPasses() {
   const { result } = await execute("hidden-text");
@@ -544,3 +970,121 @@ async function clipboardWritesSucceedWithoutReadPermission() {
   assert.deepEqual([...new Set(result.renders.map((render) => render.state))], ["default", "copied"]);
 }
 test(clipboardWritesSucceedWithoutReadPermission);
+
+async function renderDeadlineContinuesWithTheNextView() {
+  assert.equal(LIMITS.renderMs, 300000);
+  const { result, lines } = await execute("stuck", { views: [
+    { name: "stuck", path: "/stuck.html", modes: ["default"] },
+    { name: "following", path: "/clean.html", modes: ["default"] },
+  ] }, { jobs: 1, renderMs: 3000 });
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 44);
+  const stuck = result.renders.filter((render) => render.view === "stuck");
+  assert.equal(stuck.length, 22);
+  for (const render of stuck) {
+    assert.equal(render.rendered, false);
+    assert.equal(render.screenshot, null);
+    const deadlines = render.findings.filter((finding) => finding.values.source === "deadline");
+    assert.equal(deadlines.length, 1, JSON.stringify(render.findings));
+    assert.equal(deadlines[0].kind, "load");
+    assert.equal(deadlines[0].values.milliseconds, 3000);
+    assert.ok(["navigation", "settle", "measurement", "contrast", "keyboard", "screenshot"].includes(deadlines[0].values.step));
+  }
+  const following = result.renders.filter((render) => render.view === "following");
+  assert.equal(following.length, 22);
+  assert.ok(following.every((render) => render.rendered && render.findings.length === 0), JSON.stringify(following));
+  assert.equal(following[0].screenshot, "00023.png");
+  assert.equal(result.findings.filter((finding) => finding.values.source === "deadline").length, 22);
+  assert.match(lines[1], /^following: 22 renders, 0 did not render, 0 showed nothing, 0 findings$/);
+}
+test(renderDeadlineContinuesWithTheNextView);
+
+async function parallelRendersPreserveResultsAndKeyboardFindings() {
+  const options = { views: [
+    { name: "clean", path: "/clean.html" },
+    { name: "focus", path: "/focus.html" },
+    { name: "modal", path: "/modal-focus.html" },
+  ] };
+  const sequential = await execute("parallel", options, { jobs: 1 });
+  const parallel = await execute("parallel", options, { jobs: 4 });
+  assert.equal(sequential.result.renders.length, 102);
+  assert.ok(sequential.result.renders.every((render) => render.rendered));
+  assert.ok(sequential.result.findings.length > 0);
+  assert.ok(sequential.result.findings.every((finding) => finding.kind === "focus" && finding.mode === "keyboard"));
+  assert.deepEqual(parallel.result.renders, sequential.result.renders);
+  assert.deepEqual(parallel.result.findings, sequential.result.findings);
+  assert.deepEqual(parallel.result.views, sequential.result.views);
+  assert.deepEqual(parallel.lines, sequential.lines);
+  assert.deepEqual(sequential.result.renders.map((render) => render.screenshot), Array.from({ length: 102 }, (_, index) => `${String(index + 1).padStart(5, "0")}.png`));
+  for (const render of sequential.result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.ok(render.focused.length > 0);
+  }
+}
+test(parallelRendersPreserveResultsAndKeyboardFindings);
+
+async function modesRestrictTheMatrixAndStatesInheritThem() {
+  const { result, lines } = await execute("states", { views: [{
+    name: "states", path: "/states.html", modes: ["default"],
+    states: [{ name: "waiting", steps: [{ action: "wait", text: "Waiting" }] }],
+  }] });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 44);
+  for (const state of ["default", "waiting"]) {
+    const renders = result.renders.filter((render) => render.state === state);
+    assert.equal(renders.length, 22);
+    assert.ok(renders.every((render) => render.mode === "default" && render.rendered));
+    assert.deepEqual(renders.map(({ size, scheme, mode }) => ({ ...size, scheme, mode })), renderMatrix(["default"]));
+  }
+  assert.deepEqual(result.views, [{ name: "states", modes: ["default"], states: [{ name: "waiting", modes: ["default"] }] }]);
+  assert.equal(result.reducedModeCount, 2);
+  assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, pass, 2 views and states with fewer than all modes");
+  const surface = await surfaceFor("states", { views: [{
+    name: "states", path: "/states.html", modes: ["default"], states: [
+      { name: "all", modes: [...MODES].reverse(), steps: [{ action: "wait", text: "Waiting" }] },
+      { name: "keyboard", modes: ["keyboard", "default"], steps: [{ action: "wait", text: "Waiting" }] },
+    ],
+  }, { name: "all", path: "/clean.html" }] });
+  const parsed = await readSurface(surface);
+  assert.deepEqual(parsed.views[0].states[0].modes, MODES);
+  assert.deepEqual(parsed.views[0].states[1].modes, ["default", "keyboard"]);
+  assert.deepEqual(parsed.views[1].modes, MODES);
+}
+test(modesRestrictTheMatrixAndStatesInheritThem);
+
+async function invalidModesNameTheirView() {
+  for (const modes of [[], ["keyboard"], ["default", "default"], ["default", "unknown"], "default", null]) {
+    for (const view of [
+      { name: "restricted", path: "/clean.html", modes },
+      { name: "restricted", path: "/clean.html", states: [{ name: "waiting", modes, steps: [{ action: "wait", text: "Surface" }] }] },
+    ]) {
+      const surface = await surfaceFor("clean", { views: [view] });
+      await assert.rejects(readSurface(surface), /View restricted.*modes/);
+    }
+  }
+}
+test(invalidModesNameTheirView);
+
+async function commandValidatesJobsAndKeepsTheDeadlineInternal() {
+  for (const jobs of ["0", "-1", "1.5", "no", "Infinity", "9007199254740992", ""]) {
+    const result = await runCli(["--list", `--jobs=${jobs}`]);
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /jobs must be a positive whole number/);
+  }
+  for (const jobs of ["1", "4"]) {
+    const result = await runCli(["--list", "--jobs", jobs]);
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(result.stdout.trim().split("\n"), DEVICES.map(({ width, height }) => `${width} x ${height}`));
+  }
+  const result = await runCli(["--list", "--renderMs", "100"]);
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /Unknown option/);
+  for (const options of [
+    { limits: { renderMs: 100 } },
+    { renderMs: 100 },
+    { views: [{ name: "deadline", path: "/clean.html", renderMs: 100 }] },
+    { views: [{ name: "deadline", path: "/clean.html", states: [{ name: "waiting", renderMs: 100, steps: [{ action: "wait", text: "Surface" }] }] }] },
+  ]) {
+    await assert.rejects(readSurface(await surfaceFor("clean", options)), /unknown field/);
+  }
+}
+test(commandValidatesJobsAndKeepsTheDeadlineInternal);

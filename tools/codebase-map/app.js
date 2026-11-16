@@ -1159,5 +1159,4 @@ initialization.catch((error) => {
   const wrapper = element("div", "inspector-empty");
   wrapper.append(element("h2", "", "The codebase map could not load"), element("p", "", error.message));
   elements.loading.append(wrapper);
-  console.error(error);
 });

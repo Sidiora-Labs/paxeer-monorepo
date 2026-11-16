@@ -6,6 +6,7 @@ import {
   Box,
   ChainIcon,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuPortal,
   DropdownMenuRoot,
   DropdownMenuTrigger,
@@ -39,8 +40,8 @@ export const ChainSelect: React.FC<ChainSelectProps> = (props) => {
 
   const chainIcon = wrongNetwork ? (
     <Flex
-      width={18}
-      height={18}
+      width="var(--oui-space-4)"
+      height="var(--oui-space-4)"
       intensity={100}
       r="full"
       justify="center"
@@ -51,7 +52,7 @@ export const ChainSelect: React.FC<ChainSelectProps> = (props) => {
       </Text>
     </Flex>
   ) : (
-    <ChainIcon className="oui-size-[18px]" chainId={value?.id} />
+    <ChainIcon className="oui-size-4" chainId={value?.id} />
   );
 
   const chainName = wrongNetwork ? "Unknown" : value?.info?.network_infos?.name;
@@ -68,12 +69,13 @@ export const ChainSelect: React.FC<ChainSelectProps> = (props) => {
       return <Spinner size="sm" />;
     }
     if (selectable) {
-      return <ExchangeIcon className="oui-text-base-contrast-54" />;
+      return <ExchangeIcon className="oui-text-base-contrast-80" />;
     }
   };
 
   const trigger = (
     <Flex
+      asChild
       className={cn(
         "oui-rounded-t-xl oui-rounded-b-sm oui-bg-base-6",
         disabled
@@ -82,34 +84,40 @@ export const ChainSelect: React.FC<ChainSelectProps> = (props) => {
             ? "oui-cursor-pointer"
             : "oui-cursor-auto",
       )}
-      height={54}
+      height="var(--oui-space-12)"
       px={3}
       justify="between"
       itemAlign="center"
     >
-      <div>
-        <Flex>
-          <Text size="2xs" intensity={54}>
-            {t("transfer.network")}
-          </Text>
-        </Flex>
-        <Flex
-          direction={isRTL ? "rowReverse" : "row"}
-          gapX={1}
-          itemAlign="center"
-        >
-          {chainIcon}
-          <Text size="sm" intensity={80}>
-            {chainName}
-          </Text>
-          {!isCurrentChainSupported && (
-            <Badge color="danger" size="xs">
-              {t("common.notSupported")}
-            </Badge>
-          )}
-        </Flex>
-      </div>
-      {renderRightIcon()}
+      <button
+        type="button"
+        disabled={disabled || !selectable}
+        className="oui-w-full oui-text-start oui-min-h-12"
+      >
+        <div>
+          <Flex>
+            <Text size="2xs" intensity={80}>
+              {t("transfer.network")}
+            </Text>
+          </Flex>
+          <Flex
+            direction={isRTL ? "rowReverse" : "row"}
+            gapX={1}
+            itemAlign="center"
+          >
+            {chainIcon}
+            <Text size="sm" intensity={80}>
+              {chainName}
+            </Text>
+            {!isCurrentChainSupported && (
+              <Badge color="danger" size="xs">
+                {t("common.notSupported")}
+              </Badge>
+            )}
+          </Flex>
+        </div>
+        {renderRightIcon()}
+      </button>
     </Flex>
   );
 
@@ -120,55 +128,64 @@ export const ChainSelect: React.FC<ChainSelectProps> = (props) => {
     const isActive = chain.chain_id === value?.id;
     const isSupported = extendedChain.isSupported !== false;
     return (
-      <Flex
-        key={chain.chain_id}
-        px={2}
-        r="base"
-        direction={isRTL ? "rowReverse" : "row"}
-        justify="between"
-        itemAlign="center"
-        className={cn(
-          "oui-deposit-network-select-item",
-          "oui-h-[30px]",
-          isSupported
-            ? "hover:oui-bg-base-5 oui-cursor-pointer"
-            : "oui-cursor-not-allowed",
-          isActive && "oui-bg-base-5",
-          index !== 0 && "oui-mt-[2px]",
-        )}
-        onClick={async () => {
-          if (!isSupported) return;
-          setOpen(false);
-          await props.onValueChange(chain);
-        }}
-      >
+      <DropdownMenuItem asChild key={chain.chain_id} disabled={!isSupported}>
         <Flex
+          asChild
+          key={chain.chain_id}
+          px={2}
+          r="base"
           direction={isRTL ? "rowReverse" : "row"}
-          gapX={1}
+          justify="between"
           itemAlign="center"
-        >
-          <ChainIcon
-            className={cn("oui-size-[18px]", !isSupported && "oui-opacity-50")}
-            chainId={chain.chain_id}
-          />
-          <Text size="2xs" intensity={isSupported ? 54 : 36}>
-            {chain.name}
-          </Text>
-          {!isSupported && (
-            <Badge color="danger" size="xs">
-              {t("common.notSupported")}
-            </Badge>
+          className={cn(
+            "oui-deposit-network-select-item",
+            "oui-h-7",
+            isSupported
+              ? "hover:oui-bg-base-5 oui-cursor-pointer"
+              : "oui-cursor-not-allowed",
+            isActive && "oui-bg-base-5",
+            index !== 0 && "oui-mt-0.5",
           )}
+        >
+          <button
+            type="button"
+            disabled={!isSupported}
+            onClick={async () => {
+              if (!isSupported) return;
+              setOpen(false);
+              await props.onValueChange(chain);
+            }}
+            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+          >
+            <Flex
+              direction={isRTL ? "rowReverse" : "row"}
+              gapX={1}
+              itemAlign="center"
+            >
+              <ChainIcon
+                className={cn("oui-size-4", !isSupported && "oui-opacity-50")}
+                chainId={chain.chain_id}
+              />
+              <Text size="2xs" intensity={80}>
+                {chain.name}
+              </Text>
+              {!isSupported && (
+                <Badge color="danger" size="xs">
+                  {t("common.notSupported")}
+                </Badge>
+              )}
+            </Flex>
+            {isActive && (
+              <Box
+                width="var(--oui-space-1)"
+                height="var(--oui-space-1)"
+                r="full"
+                className="oui-deposit-network-select-active-dot oui-gradient-brand"
+              />
+            )}
+          </button>
         </Flex>
-        {isActive && (
-          <Box
-            width={4}
-            height={4}
-            r="full"
-            className="oui-deposit-network-select-active-dot oui-gradient-brand"
-          />
-        )}
-      </Flex>
+      </DropdownMenuItem>
     );
   });
 
@@ -179,18 +196,17 @@ export const ChainSelect: React.FC<ChainSelectProps> = (props) => {
       </DropdownMenuTrigger>
       <DropdownMenuPortal>
         <DropdownMenuContent
-          onCloseAutoFocus={(e) => e.preventDefault()}
           align={isRTL ? "end" : "start"}
-          sideOffset={2}
+          sideOffset={4}
           className={cn(
             "oui-deposit-token-select-dropdown-menu-content",
             "oui-bg-base-8 oui-p-1",
-            "oui-w-[var(--radix-dropdown-menu-trigger-width)]",
+            "oui-w-[var(--radix-dropdown-menu-trigger-width)] oui-max-w-[calc(100vw-var(--oui-space-6))] [&_[role=menuitem]]:oui-min-h-12 [&_[role=menuitem]]:oui-h-auto",
             "oui-rounded-md oui-select-none",
           )}
         >
           <ScrollArea>
-            <div className="oui-max-h-[254px]">{content}</div>
+            <div className="oui-max-h-64">{content}</div>
           </ScrollArea>
         </DropdownMenuContent>
       </DropdownMenuPortal>

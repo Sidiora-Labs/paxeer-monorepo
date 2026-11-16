@@ -36,6 +36,7 @@ func proofConfigurationEnv(t *testing.T) {
 		"NATS_URL":                  "nats://indexer:proof@nats.example:4222",
 		"PORT":                      "8080",
 		"PERPS_AUTH_SECRET":         "0123456789abcdef0123456789abcdef",
+		"PERPS_ALLOWED_ORIGINS":     "https://app.example, http://localhost:3000",
 		"PERPS_EXPLORER_TX_BASE":    "https://explorer.example",
 		"PERPS_GATEWAY_URL":         "https://gateway.example",
 		"PERPS_START_HEIGHT":        "42",
@@ -86,6 +87,7 @@ func TestProofConfigurationCommands(t *testing.T) {
 			}
 			if service == config.Gateway {
 				want.AuthSecret = "0123456789abcdef0123456789abcdef"
+				want.AllowedOrigins = []string{"https://app.example", "http://localhost:3000"}
 			}
 			if service == config.Gateway || service == config.Explorer {
 				want.TrustedProxies = []netip.Prefix{

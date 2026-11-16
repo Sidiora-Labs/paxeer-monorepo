@@ -1,3 +1,4 @@
+import { Tooltip } from "../../../../../ui-connector/src/platformOverlays";
 import { useCallback } from "react";
 import type { MouseEvent } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -8,7 +9,6 @@ import {
   formatAddress,
   Text,
   toast,
-  Tooltip,
   useScreen,
 } from "@paxeer-network/ui";
 import { EditIcon } from "../icons";
@@ -42,20 +42,24 @@ const AccountIdForCopy = (props: AccountIdForCopyProps) => {
   const info = splitAccountIdForDisplay(props.accountId);
   return (
     <Flex
-      className="oui-min-h-[50px] oui-w-[180px]"
+      className="oui-min-h-12 oui-w-48"
       gap={2}
       justify="between"
       itemAlign="center"
     >
-      <Text className="oui-w-full oui-break-all oui-text-2xs oui-text-base-contrast-36">
+      <Text className="oui-w-full oui-break-all oui-text-2xs oui-text-base-contrast-80">
         <Text className="oui-text-base-contrast">{info.leading}</Text>
         <Text>{info.middle}</Text>
         <Text className="oui-text-base-contrast">{info.trailing}</Text>
       </Text>
-      <CopyIcon
+      <button
+        type="button"
+        className="oui-shell-icon-button oui-pointer-events-auto"
+        aria-label="Copy"
         onClick={props.onCopy}
-        className="oui-cursor-pointer oui-text-base-contrast-36 hover:oui-text-base-contrast"
-      />
+      >
+        <CopyIcon className="oui-cursor-pointer oui-text-base-contrast-80 hover:oui-text-base-contrast" />
+      </button>
     </Flex>
   );
 };
@@ -111,43 +115,57 @@ export const AccountItem = (props: AccountItemProps) => {
       itemAlign="center"
       width="100%"
       className={cn(
-        "oui-relative oui-cursor-pointer oui-rounded-[6px] oui-bg-base-6 oui-px-3 oui-py-4",
+        "oui-relative oui-cursor-pointer oui-rounded-md oui-bg-base-6 oui-px-3 oui-py-4",
         "oui-border oui-border-base-6",
         isCurrent && "oui-border-[rgb(var(--oui-gradient-brand-start))]",
         !isCurrent && "hover:oui-border-base-contrast-16",
       )}
     >
-      <div
-        className="oui-absolute oui-inset-0 oui-z-0"
+      <button
+        type="button"
+        aria-label={`Switch to ${description || userAddress || accountId}`}
+        aria-pressed={!!isCurrent}
+        className="oui-absolute oui-inset-0 oui-z-0 oui-rounded-md"
         onClick={handleSwitch}
       />
       {isCurrent && (
         <div
           className={cn(
-            "oui-absolute -oui-end-[1px] -oui-top-[1px] oui-leading-3",
-            "oui-text-[10px] oui-font-semibold oui-text-base-10",
-            "oui-rounded-[6px] oui-rounded-ee-none oui-rounded-ss-none oui-bg-[rgb(var(--oui-gradient-brand-start))] oui-py-0.5 oui-ps-1 oui-pe-[5px]",
+            "oui-absolute -oui-end-px -oui-top-px oui-leading-normal",
+            "oui-text-3xs oui-font-semibold oui-text-base-10",
+            "oui-rounded-md oui-rounded-ee-none oui-rounded-ss-none oui-bg-[rgb(var(--oui-gradient-brand-start))] oui-py-0.5 oui-ps-1 oui-pe-1",
           )}
         >
           {t("subAccount.modal.current")}
         </div>
       )}
-      <Flex direction="column" itemAlign="start" gap={1} className="oui-z-[2]">
+      <Flex
+        direction="column"
+        itemAlign="start"
+        gap={1}
+        className="oui-pointer-events-none oui-z-[2]"
+      >
         {isMainAccount ? (
-          <Text className="oui-text-xs oui-leading-3 oui-text-base-contrast">
+          <Text className="oui-text-xs oui-leading-normal oui-text-base-contrast">
             {formatAddress(userAddress ?? "")}
           </Text>
         ) : (
           <Flex
+            asChild
             justify="start"
             itemAlign="center"
-            className="oui-cursor-pointer oui-gap-[2px] oui-fill-base-contrast-54 hover:oui-fill-base-contrast"
+            className="oui-cursor-pointer oui-gap-0.5 oui-fill-base-contrast-54 hover:oui-fill-base-contrast"
             onClick={handleEdit}
           >
-            <Text className="oui-text-xs oui-leading-3 oui-text-base-contrast">
-              {description}
-            </Text>
-            <EditIcon className="oui-fill-base-contrast-54 hover:oui-fill-base-contrast" />
+            <button
+              type="button"
+              className="oui-shell-action oui-pointer-events-auto"
+            >
+              <Text className="oui-text-xs oui-leading-normal oui-text-base-contrast">
+                {description}
+              </Text>
+              <EditIcon className="oui-fill-base-contrast-54 hover:oui-fill-base-contrast" />
+            </button>
           </Flex>
         )}
         {isMobile ? (
@@ -158,29 +176,35 @@ export const AccountItem = (props: AccountItemProps) => {
             className="oui-w-full"
             onClick={stopPropagation}
           >
-            <Text className="oui-text-2xs oui-leading-3 oui-text-base-contrast-36">
+            <Text className="oui-text-2xs oui-leading-normal oui-text-base-contrast-80">
               ID: {formatAddress(accountId)}
             </Text>
-            <CopyIcon
-              size={12}
+            <button
+              type="button"
+              className="oui-shell-icon-button oui-pointer-events-auto"
+              aria-label="Copy"
               onClick={copyAccountId}
-              className="oui-shrink-0 oui-cursor-pointer oui-text-base-contrast-36 hover:oui-text-base-contrast"
-            />
+            >
+              <CopyIcon
+                size={12}
+                className="oui-shrink-0 oui-cursor-pointer oui-text-base-contrast-80 hover:oui-text-base-contrast"
+              />
+            </button>
           </Flex>
         ) : (
-          <Tooltip
-            content={
-              <AccountIdForCopy accountId={accountId} onCopy={copyAccountId} />
-            }
-          >
-            <Text className="oui-text-2xs oui-leading-3 oui-text-base-contrast-36 hover:oui-text-base-contrast">
+          <Tooltip content={accountId}>
+            <button
+              type="button"
+              onClick={copyAccountId}
+              className="oui-shell-action oui-pointer-events-auto oui-text-start oui-text-2xs oui-text-base-contrast-80"
+            >
               ID: {formatAddress(accountId)}
-            </Text>
+            </button>
           </Tooltip>
         )}
       </Flex>
       <Flex
-        className="oui-text-xs oui-text-base-contrast"
+        className="oui-pointer-events-none oui-text-xs oui-text-base-contrast"
         itemAlign="end"
         gap={1}
       >

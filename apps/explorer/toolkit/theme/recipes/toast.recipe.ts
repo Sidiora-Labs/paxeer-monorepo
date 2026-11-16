@@ -4,6 +4,7 @@ export const recipe = defineSlotRecipe({
   slots: [ 'root', 'title', 'description', 'indicator', 'actionTrigger', 'closeTrigger' ],
   base: {
     root: {
+      _motionReduce: { transitionProperty: 'color, background-color, border-color, opacity' },
       width: 'full',
       display: 'flex',
       alignItems: 'flex-start',
@@ -19,12 +20,13 @@ export const recipe = defineSlotRecipe({
       height: 'var(--height)',
       opacity: 'var(--opacity)',
       willChange: 'translate, opacity, scale',
-      transition:
-        'translate 400ms, scale 400ms, opacity 400ms, height 400ms, box-shadow 200ms',
-      transitionTimingFunction: 'cubic-bezier(0.21, 1.02, 0.73, 1)',
+      transitionProperty: 'translate, scale, opacity, height, box-shadow',
+      transitionDuration: 'slower',
+      transitionTimingFunction: 'entrance',
       _closed: {
-        transition: 'translate 400ms, scale 400ms, opacity 200ms',
-        transitionTimingFunction: 'cubic-bezier(0.06, 0.71, 0.55, 1)',
+        transitionProperty: 'translate, scale, opacity',
+        transitionDuration: 'normal',
+        transitionTimingFunction: 'exit',
       },
       bg: 'toast.bg.info',
       color: 'toast.fg',
@@ -62,7 +64,7 @@ export const recipe = defineSlotRecipe({
       },
     },
     title: {
-      fontWeight: '700',
+      fontWeight: 'bold',
       textStyle: 'md',
       marginEnd: '0',
     },
@@ -81,9 +83,10 @@ export const recipe = defineSlotRecipe({
       px: '3',
       borderRadius: 'base',
       alignSelf: 'center',
-      borderWidth: '1px',
+      borderWidth: 'var(--chakra-border-widths-1)',
       borderColor: 'var(--toast-border-color, inherit)',
-      transition: 'background 200ms',
+      transitionProperty: 'background',
+      transitionDuration: 'normal',
       _hover: {
         bg: 'var(--toast-trigger-bg)',
       },

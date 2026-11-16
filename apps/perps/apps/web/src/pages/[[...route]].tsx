@@ -11,7 +11,7 @@ export default function Page() {
         <meta name="application-name" content="Paxeer Xtrades" />
         <link rel="icon" type="image/png" href="/brand/paxeer-x.png" />
         <link rel="apple-touch-icon" href="/brand/paxeer-x.png" />
-        <meta name="theme-color" content="#06090f" />
+        <meta name="theme-color" content="" />
       </Head>
       <PaxeerNetwork />
     </>

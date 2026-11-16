@@ -17,7 +17,10 @@ const TooltipButton: FC<{
         className: "oui-fill-base-6",
       }}
     >
-      <button className="oui-border-b oui-border-dashed oui-border-line-12">
+      <button
+        className="oui-border-b oui-border-dashed oui-border-line-12"
+        type="button"
+      >
         {props.label}
       </button>
     </Tooltip>
@@ -170,6 +173,7 @@ export const useLiquidationColumn = (props: {}) => {
                 onClick={() => {
                   ctx.row.getToggleExpandedHandler()();
                 }}
+                type="button"
               >
                 <ArrowIcon className={isExpanded ? "oui-rotate-180" : ""} />
               </button>

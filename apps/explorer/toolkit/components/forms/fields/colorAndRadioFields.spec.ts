@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { ChakraProvider } from '@chakra-ui/react';
-import 'intersection-observer';
 import React from 'react';
 import type { FieldErrors, RegisterOptions } from 'react-hook-form';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
@@ -20,7 +19,29 @@ class TestResizeObserver implements ResizeObserver {
 }
 
 globalThis.ResizeObserver = TestResizeObserver;
-globalThis.IntersectionObserver = window.IntersectionObserver;
+class TestIntersectionObserver implements IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = '0px';
+  readonly thresholds = [ 0 ];
+
+  constructor(private callback: IntersectionObserverCallback) {}
+
+  observe(target: Element) {
+    const rect = target.getBoundingClientRect();
+    this.callback([ {
+      target, time: performance.now(), isIntersecting: true, intersectionRatio: 1,
+      boundingClientRect: rect, intersectionRect: rect, rootBounds: null,
+    } ], this);
+  }
+
+  unobserve() {}
+  disconnect() {}
+  takeRecords(): Array<IntersectionObserverEntry> {
+    return [];
+  }
+}
+
+globalThis.IntersectionObserver = TestIntersectionObserver;
 
 function escapeCssIdentifier(value: string): string {
   const characters = Array.from(value);

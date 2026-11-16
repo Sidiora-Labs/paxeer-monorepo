@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { Button } from 'toolkit/chakra/button';
-import { PopoverRoot, PopoverTrigger, PopoverContent, PopoverBody } from 'toolkit/chakra/popover';
+import { PopoverRoot, PopoverTrigger, PopoverContent, PopoverBody } from 'ui/marketplace/NativePopover';
 
 import { Section, Container, SectionHeader, SamplesStack, Sample } from './parts';
 

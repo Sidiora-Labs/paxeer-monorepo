@@ -1,11 +1,7 @@
 import { FC, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { type API } from "@paxeer-network/types";
-import {
-  InjectableEmptyDataState,
-  ScrollArea,
-  Text,
-} from "@paxeer-network/ui";
+import { InjectableEmptyDataState, ScrollArea, Text } from "@paxeer-network/ui";
 import { cn } from "@paxeer-network/ui";
 import { AnnouncementItem } from "./announcementItem";
 
@@ -21,7 +17,7 @@ export const AnnouncementContent: FC<{
 
   if (!Array.isArray(dataSource) || dataSource.length === 0) {
     return (
-      <div className="oui-flex oui-h-[160px] oui-items-center oui-justify-center">
+      <div className="oui-flex oui-h-40 oui-items-center oui-justify-center">
         <InjectableEmptyDataState title={t("notification.empty")} />
       </div>
     );
@@ -30,7 +26,7 @@ export const AnnouncementContent: FC<{
   return (
     <div
       className={cn(
-        "oui-flex oui-flex-col oui-space-y-1",
+        "oui-announcement-list oui-flex oui-flex-col oui-space-y-1",
         props.showDivider &&
           "[&>*:not(:first-child)]:oui-border-t [&>*:not(:first-child)]:oui-border-line-12  [&>*:not(:first-child)]:oui-pt-1",
       )}
@@ -73,7 +69,7 @@ export const AnnouncementCenterUI: FC<{
         </Text>
       </div>
 
-      <ScrollArea className="oui-flex oui-h-[300px] oui-flex-col oui-space-y-1 oui-p-3">
+      <ScrollArea className="oui-flex oui-h-80 oui-max-h-[60dvh] oui-flex-col oui-space-y-1 oui-p-3">
         <AnnouncementContent
           dataSource={props.dataSource}
           current={expanded}

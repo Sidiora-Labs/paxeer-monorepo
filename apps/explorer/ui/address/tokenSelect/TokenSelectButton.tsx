@@ -30,24 +30,31 @@ const TokenSelectButton = ({ isOpen, isLoading, data, ...rest }: Props, ref: Rea
   }, [ isLoading, isOpen ]);
 
   return (
-    <Box position="relative" className="group">
+    <Box position="relative" className="group" minW={ 0 } maxW="100%">
       <Button
         ref={ ref }
         size="sm"
         variant="dropdown"
         onClick={ handleClick }
         gap={ 0 }
+        minW={ 0 }
+        maxW="100%"
+        flexWrap="wrap"
+        h="auto"
+        py={ 1.5 }
         aria-label="Token select"
         loadingSkeleton={ isLoading && !isOpen }
         { ...rest }
       >
         <IconSvg name="tokens" boxSize={ 4 } mr={ 2 }/>
-        <chakra.span fontWeight={ 600 }>{ prefix }{ num }</chakra.span>
+        <chakra.span fontWeight="semibold">{ prefix }{ num }</chakra.span>
         <chakra.span
           whiteSpace="pre"
           color={ isOpen ? 'inherit' : 'text.secondary' }
-          fontWeight={ 400 }
-          maxW={{ base: 'calc(100vw - 230px)', lg: '500px' }}
+          fontWeight="normal"
+          minW={ 0 }
+          maxW="100%"
+          flex="1"
           _groupHover={{ color: 'inherit' }}
           overflow="hidden"
           textOverflow="ellipsis"

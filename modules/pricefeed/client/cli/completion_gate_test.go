@@ -10,7 +10,7 @@ import (
 )
 
 func TestMarketsCompletionRetiredSurfacesAbsent(t *testing.T) {
-	root, err := filepath.Abs(filepath.Join("..", "..", "..", ".."))
+	workspaceRoot, err := filepath.Abs(filepath.Join("..", "..", "..", ".."))
 	if err != nil {
 		t.Fatalf("locate repository root: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestMarketsCompletionRetiredSurfacesAbsent(t *testing.T) {
 		},
 	} {
 		t.Run("retired/"+retired.id, func(t *testing.T) {
-			path := filepath.Join(root, filepath.FromSlash(retired.path))
+			path := filepath.Join(workspaceRoot, filepath.FromSlash(retired.path))
 			source, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("read retired interface %s source %s: %v", retired.id, retired.path, err)
@@ -89,6 +89,7 @@ func TestMarketsCompletionRetiredSurfacesAbsent(t *testing.T) {
 		})
 	}
 
+	// The trading workspace keeps its client verification cases under apps/perps/tests.
 	for _, planned := range []struct {
 		task string
 		path string
@@ -119,9 +120,9 @@ func TestMarketsCompletionRetiredSurfacesAbsent(t *testing.T) {
 		{"3.97.1", "modules/oracle/keeper/slash_metrics_test.go"},
 	} {
 		t.Run("planned/"+planned.path, func(t *testing.T) {
-			info, err := os.Stat(filepath.Join(root, filepath.FromSlash(planned.path)))
+			info, err := os.Stat(filepath.Join(workspaceRoot, filepath.FromSlash(planned.path)))
 			if err != nil {
-				t.Fatalf("task %s required planned path %s: %v", planned.task, planned.path, err)
+				t.Fatalf("task %s required workspace path %s: %v", planned.task, planned.path, err)
 			}
 			if !info.Mode().IsRegular() {
 				t.Errorf("task %s required planned path %s is not a regular file", planned.task, planned.path)

@@ -1,7 +1,9 @@
 {
   "name": "Paxeer Wallet",
   "directory": "../../../apps/wallet",
-  "build": "pnpm run build:pwa",
+  "build": "NEXT_PUBLIC_PAXEER_WALLET_API=http://127.0.0.1:4174/wallet NEXT_PUBLIC_PAXEER_RPC_URL=http://127.0.0.1:4174/rpc NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:4174/supabase NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=surface-publishable-key NEXT_PUBLIC_AUTH_REDIRECT_URL=http://127.0.0.1:3099/wallet/auth/callback/ NEXT_PUBLIC_FX_RATES_API=http://127.0.0.1:4174/fx NEXT_PUBLIC_MARKET_DATA_API=http://127.0.0.1:4174/market NEXT_PUBLIC_PAXEER_HUMAN_API=http://127.0.0.1:4174/human NEXT_PUBLIC_PAXEER_EXPLORER_URL=http://127.0.0.1:4174/explorer NEXT_PUBLIC_PAXEER_USID_PER_PAX=1000 pnpm run build",
+  "buildMs": 600000,
+  "outputs": [".next", "public/sw.js", "public/manifest.json"],
   "start": "NEXT_PUBLIC_PAXEER_WALLET_API=http://127.0.0.1:4174/wallet NEXT_PUBLIC_PAXEER_RPC_URL=http://127.0.0.1:4174/rpc NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:4174/supabase NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=surface-publishable-key NEXT_PUBLIC_AUTH_REDIRECT_URL=http://127.0.0.1:3099/wallet/auth/callback/ NEXT_PUBLIC_FX_RATES_API=http://127.0.0.1:4174/fx NEXT_PUBLIC_MARKET_DATA_API=http://127.0.0.1:4174/market NEXT_PUBLIC_PAXEER_HUMAN_API=http://127.0.0.1:4174/human NEXT_PUBLIC_PAXEER_EXPLORER_URL=http://127.0.0.1:4174/explorer NEXT_PUBLIC_PAXEER_USID_PER_PAX=1000 pnpm exec next start -p 3099",
   "address": "http://127.0.0.1:3099/",
   "readyPath": "/wallet/",

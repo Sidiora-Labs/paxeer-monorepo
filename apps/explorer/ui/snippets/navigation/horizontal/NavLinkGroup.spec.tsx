@@ -51,7 +51,7 @@ describe('NavLinkGroup', () => {
 
     expect(trigger.hasAttribute('data-active')).toBe(true);
 
-    const panel = document.querySelector('[data-scope="popover"][data-part="content"]');
+    const panel = document.querySelector('[data-shell-popover]');
 
     expect(Array.from(panel?.querySelectorAll('a[href="/blocks"], a[href="/txs"], a[href="/accounts"]') ?? [])
       .map((item) => [ item.querySelector('span > span')?.textContent?.trim(), item.getAttribute('href') ]))

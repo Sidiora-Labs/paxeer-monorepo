@@ -43,15 +43,16 @@ type AppPropsWithLayout = AppProps & {
 };
 
 const ERROR_SCREEN_STYLES: HTMLChakraProps<'div'> = {
-  h: '100vh',
+  minH: '100dvh',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
   justifyContent: 'center',
   width: 'fit-content',
-  maxW: '800px',
-  margin: { base: '0 auto', lg: '0 auto' },
-  p: { base: 4, lg: 0 },
+  maxW: 'var(--chakra-spacing-200)',
+  mx: 'auto',
+  overflowWrap: 'anywhere',
+  p: 'gutter',
 };
 
 const CONSOLE_SCAM_WARNING = `⚠️WARNING: Do not paste or execute any scripts here!
@@ -100,7 +101,11 @@ function MyApp({ Component, pageProps, router }: AppPropsWithLayout) {
 
   return (
     <>
-      <PageMetadata pathname={ router.pathname as Route['pathname'] } query={ pageProps.query } apiData={ pageProps.apiData }/>
+      <PageMetadata
+        pathname={ router.pathname as Route['pathname'] }
+        query={ pageProps.query }
+        apiData={ pageProps.apiData }
+      />
       <ChakraProvider>
         <RollbarProvider config={ rollbarConfig }>
           <AppErrorBoundary

@@ -29,7 +29,7 @@ export const AssetsChart: React.FC<AssetsLineChartProps> = (props) => {
         </React.Suspense>
       }
       id="portfolio-overview-assets-chart"
-      classNames={{ content: "oui-h-[168px] oui-pb-0" }}
+      classNames={{ content: "oui-h-40 oui-pb-0" }}
     >
       <React.Suspense fallback={null}>
         <AssetAreaChart data={data as any} invisible={props.invisible} />

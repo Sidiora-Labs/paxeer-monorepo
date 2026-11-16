@@ -179,7 +179,10 @@ const MultichainAddressPortfolioTokens = ({ addressData, isLoading, onChainChang
 
   const searchInput = (
     <FilterInput
-      w={{ base: '100%', lg: '350px' }}
+      minW={ 0 }
+      name="token"
+      inputProps={{ 'aria-label': 'Filter by token name or symbol', type: 'search', autoComplete: 'off' }}
+      w={{ base: '100%', lg: 'calc(var(--chakra-spacing-1) * 87.5)' }}
       size="sm"
       onChange={ handleSearchTermChange }
       placeholder="Filter by token name or symbol"

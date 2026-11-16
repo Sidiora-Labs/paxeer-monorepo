@@ -72,6 +72,7 @@
         --data-size: 26rem;
         --data-min: 6rem;
         --manifest-size: 16rem;
+        --announcement-size: calc(2em * var(--leading-body));
         --shadow: 0 var(--space-1) var(--space-3)
           color-mix(in srgb, var(--text) 8%, transparent);
       }
@@ -258,6 +259,7 @@
       }
       input,
       textarea {
+        box-sizing: border-box;
         inline-size: 100%;
         min-inline-size: 0;
         min-block-size: var(--control-size);
@@ -275,6 +277,7 @@
         white-space: pre-wrap;
       }
       pre {
+        scroll-margin-block: var(--space-4);
         block-size: var(--data-min);
         max-block-size: var(--data-size);
         padding: var(--space-4);
@@ -330,9 +333,12 @@
       #manifest {
         block-size: var(--manifest-size);
       }
+      #connection,
+      #error {
+        min-block-size: var(--announcement-size);
+      }
       #error {
         color: var(--error);
-        min-block-size: var(--space-6);
       }
       .hint {
         color: var(--muted);
@@ -355,6 +361,16 @@
         min-block-size: var(--space-6);
         color: var(--error);
         font-size: var(--text-small);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0s !important;
+          animation-duration: 0s !important;
+          scroll-behavior: auto !important;
+        }
       }
     </style>
   </head>
@@ -596,6 +612,13 @@ Unavailable — host does not send this state</pre
       );
       const page = new PeerPage(document);
       page.start().catch((error) => page.showError(error));
+      for (const output of document.querySelectorAll("pre[tabindex]")) {
+        output.addEventListener("focus", () => {
+          requestAnimationFrame(() =>
+            output.scrollIntoView({ block: "nearest" }),
+          );
+        });
+      }
     </script>
   </body>
 </html>

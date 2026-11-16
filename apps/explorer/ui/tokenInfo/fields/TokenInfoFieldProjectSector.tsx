@@ -22,6 +22,7 @@ const TokenInfoFieldProjectSector = ({ readOnly, config }: Props) => {
     <FormFieldSelect<Fields, 'project_sector'>
       name="project_sector"
       placeholder="Project industry"
+      triggerProps={{ 'aria-label': 'Project industry' }}
       collection={ collection }
       readOnly={ readOnly }
     />

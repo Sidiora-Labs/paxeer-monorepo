@@ -48,7 +48,7 @@ export default function ApprovalsListItem({
   return (
     <ListItemMobileGrid.Container
       gridTemplateColumns="minmax(0, 1fr) minmax(0, 1fr)"
-      fontWeight="500"
+      fontWeight="medium"
       _first={{
         borderTop: 0,
         paddingTop: 0,

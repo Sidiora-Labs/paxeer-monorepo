@@ -23,7 +23,15 @@ export const TokenTransfersCrossChainContent = ({ items, isLoading, pagination, 
 
   const content = items ? (
     <>
-      <Box hideFrom="lg">
+      <Box
+        hideFrom="lg"
+        css={{
+          '& > [data-list-item-mobile]:nth-of-type(n + 5)': {
+            contentVisibility: 'auto',
+            containIntrinsicBlockSize: 'auto var(--chakra-spacing-100)',
+          },
+        }}
+      >
         { getItemsWithKeys(items).map(({ item, key }) => (
           <TokenTransfersCrossChainListItem
             key={ key }
@@ -32,7 +40,7 @@ export const TokenTransfersCrossChainContent = ({ items, isLoading, pagination, 
             currentAddress={ currentAddress }
             py={ 4 }
             textStyle="sm"
-            rowGap="14px"
+            rowGap="calc(var(--chakra-spacing-1) * 3.5)"
           />
         )) }
       </Box>

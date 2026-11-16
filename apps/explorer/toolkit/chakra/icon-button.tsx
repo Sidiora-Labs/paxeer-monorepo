@@ -34,7 +34,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
         case 'md': {
           return {
             _icon: { boxSize: 5 },
-            boxSize: 8,
+            boxSize: 'touchTarget',
           };
         }
         default:
