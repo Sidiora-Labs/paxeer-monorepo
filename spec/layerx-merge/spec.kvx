@@ -173959,7 +173959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.704]
 title = "Give the error widgets of the trading workspace the modules their files import"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173993,7 +173993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.57]
 title = "Give the link that skips to the content of the bridge application a change with focus that the render check reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.45"]
