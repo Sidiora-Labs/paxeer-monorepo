@@ -119,7 +119,10 @@ type Deps struct {
 	BatchSize    int
 	Concurrency  int
 	PollInterval time.Duration
-	Logger       *slog.Logger
+	// CanonicalReadTimeout bounds one qualified source read. Zero uses the
+	// process default; the lease is renewed while the read is active.
+	CanonicalReadTimeout time.Duration
+	Logger               *slog.Logger
 }
 
 // Processor indexes launchpad events into Postgres + webhooks.
@@ -143,6 +146,9 @@ func New(d Deps) *Processor {
 	}
 	if d.PollInterval <= 0 {
 		d.PollInterval = 100 * time.Millisecond
+	}
+	if d.CanonicalReadTimeout <= 0 {
+		d.CanonicalReadTimeout = 120 * time.Second
 	}
 	return &Processor{
 		readyFence: new(atomic.Int64),
@@ -314,9 +320,7 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 		if conversionErr != nil {
 			return conversionErr
 		}
-		readCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, fromUint64, toUint64)
-		cancel()
+		batch, receipts, err := p.fetchQualifiedWithLease(ctx, fromUint64, toUint64)
 		if err != nil {
 			if p.deps.Quarantine != nil && p.deps.Source != nil {
 				original, fetchErr := p.deps.Source.FetchLogs(ctx, source.FetchOptions{MonitoredAddresses: p.monitored, FromBlock: from, ToBlock: to, Concurrency: p.deps.Concurrency})
@@ -376,6 +380,50 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 		p.deps.Publisher.PublishBatch(ctx, events)
 	}
 	return nil
+}
+
+const (
+	canonicalLeaseTTL           = 30 * time.Second
+	canonicalLeaseRenewInterval = 10 * time.Second
+)
+
+// fetchQualifiedWithLease keeps the canonical lease alive for the complete
+// qualified read. A rejected heartbeat cancels the read before any durable
+// write is attempted and returns the fence error to the caller.
+func (p *Processor) fetchQualifiedWithLease(ctx context.Context, from, to uint64) (store.CanonicalBatch, []*receipt.QualifiedReceipt, error) {
+	readCtx, cancel := context.WithTimeout(ctx, p.deps.CanonicalReadTimeout)
+	defer cancel()
+	type result struct {
+		batch    store.CanonicalBatch
+		receipts []*receipt.QualifiedReceipt
+		err      error
+	}
+	readDone := make(chan result, 1)
+	go func() {
+		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, from, to)
+		readDone <- result{batch: batch, receipts: receipts, err: err}
+	}()
+	ticker := time.NewTicker(canonicalLeaseRenewInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case done := <-readDone:
+			return done.batch, done.receipts, done.err
+		case <-ticker.C:
+			if err := p.deps.Store.RenewLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, p.canonicalFence, canonicalLeaseTTL); err != nil {
+				cancel()
+				<-readDone
+				p.canonicalFence = 0
+				p.readyFence.Store(0)
+				return store.CanonicalBatch{}, nil, err
+			}
+			p.canonicalRenewed = time.Now()
+		case <-ctx.Done():
+			cancel()
+			<-readDone
+			return store.CanonicalBatch{}, nil, ctx.Err()
+		}
+	}
 }
 
 // reconcilePendingCanonical retains the candidate on an unavailable database;
