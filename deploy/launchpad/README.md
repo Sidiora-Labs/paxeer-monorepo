@@ -103,6 +103,23 @@ variable names. `railway-values.json` supplies the shared `RPC_URL`,
 `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_PAXEER_RPC_URL` and
 `NEXT_PUBLIC_RPC_URL_FALLBACK` select node root URLs.
 
+### Object-store account rights
+
+[object-store/accounts.json](object-store/accounts.json) records the object
+actions and key prefixes used by the gateway, user and metadata service
+accounts. Its source-call table is checked against the production service
+trees, so a newly added object call requires a corresponding right.
+
+Render a provider policy with the contract bucket names supplied in order:
+
+```bash
+python3 deploy/launchpad/object-store/policy.py gateway media-approved media-user media-og
+```
+
+The command reads only the reviewed account document, prints an allow-only JSON
+policy, and rejects unknown services, missing or surplus bucket arguments, and
+bucket names outside lowercase letters, digits and hyphens.
+
 ### API network authority document
 
 The API composer emits `ACCOUNTING_READ_CONFIG_DOCUMENT`,
