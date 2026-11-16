@@ -1,13 +1,15 @@
 import { Box } from '@chakra-ui/react';
 import React, { useState, useEffect } from 'react';
 
+import durations from 'toolkit/theme/foundations/durations';
+
 const Confetti = () => {
   const [ shouldGenerate, setShouldGenerate ] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setShouldGenerate(false);
-    }, 5000);
+    }, Number.parseInt(durations.cycle.value, 10) * 5);
 
     return () => clearTimeout(timer);
   }, []);
@@ -15,7 +17,7 @@ const Confetti = () => {
   const getRandomShape = () => {
     const shapes = [
       // Circle
-      { borderRadius: '50%' },
+      { borderRadius: 'var(--chakra-radii-full)' },
       // Triangle
       { clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' },
       // Star
@@ -29,7 +31,7 @@ const Confetti = () => {
   };
 
   const createSplash = (centerX: number, centerY: number, delay: number) => {
-    const confettiCount = 100;
+    const confettiCount = 30;
     return Array.from({ length: confettiCount }).map((_, i) => {
       const angle = Number(Math.random()) * 360;
       const distance = Number(Math.random()) * 200 + 100;
@@ -40,13 +42,13 @@ const Confetti = () => {
         top: `${ centerY }%`,
         angle,
         distance,
-        animationDuration: `${ Number(Math.random()) * 1 + 1 }s`,
-        animationDelay: `${ delay }s`,
-        size: `${ Number(Math.random()) * 10 + 5 }px`,
-        color: `hsl(${ Number(Math.random()) * 360 }, 100%, 50%)`,
+        animationDuration: 'var(--chakra-durations-shimmer)',
+        animationDelay: `calc(var(--chakra-durations-cycle) * ${ delay })`,
+        size: `calc(var(--chakra-spacing-1) * ${ Number(Math.random()) * 2 + 1 })`,
+        color: [ 'accent', 'positive', 'warning', 'negative' ][i % 4],
         transform: `translate(
-          calc(-50% + ${ Math.cos(angle * Math.PI / 180) * distance }px),
-          calc(-50% + ${ Math.sin(angle * Math.PI / 180) * distance }px)
+          calc(-50% + calc(var(--chakra-spacing-1) * ${ Math.cos(angle * Math.PI / 180) * distance / 4 })),
+          calc(-50% + calc(var(--chakra-spacing-1) * ${ Math.sin(angle * Math.PI / 180) * distance / 4 }))
         )`,
         shape,
       };
@@ -90,7 +92,10 @@ const Confetti = () => {
         width="100%"
         height="100%"
         pointerEvents="none"
-        zIndex="9999"
+        zIndex="overlay"
+        aria-hidden="true"
+        overflow="clip"
+        _motionReduce={{ display: 'none' }}
       >
         { splashes.map((piece) => (
           <Box
@@ -102,7 +107,7 @@ const Confetti = () => {
             height={ piece.size }
             backgroundColor={ piece.color }
             opacity={ 0 }
-            animation={ `splash ${ piece.animationDuration } ease-out ${ piece.animationDelay } forwards` }
+            animation={ `splash ${ piece.animationDuration } var(--chakra-easings-exit) ${ piece.animationDelay } forwards` }
             style={{
               transformOrigin: 'center',
               '--final-transform': piece.transform,

@@ -6,11 +6,12 @@ import type { MarketplaceApp } from 'types/client/marketplace';
 
 import useIsMobile from 'lib/hooks/useIsMobile';
 import * as mixpanel from 'lib/mixpanel/index';
+import { Button } from 'toolkit/chakra/button';
 import { useColorModeValue } from 'toolkit/chakra/color-mode';
 import { Heading } from 'toolkit/chakra/heading';
 import { IconButton } from 'toolkit/chakra/icon-button';
 import { Image } from 'toolkit/chakra/image';
-import { Link, LinkBox } from 'toolkit/chakra/link';
+import { LinkBox } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 
 import FavoriteIcon from '../FavoriteIcon';
@@ -61,18 +62,18 @@ const FeaturedApp = ({
   }
 
   return (
-    <LinkBox>
+    <LinkBox as="article" minW={ 0 }>
       <Flex
         gap={ 4 }
         borderRadius="md"
-        height="100px"
+        minH="var(--chakra-spacing-24)"
         padding={ 3 }
-        background={{ _light: 'purple.50', _dark: 'whiteAlpha.100' }}
+        background="accent.soft"
       >
         <Skeleton
           loading={ isLoading }
-          w="76px"
-          h="76px"
+          w="calc(var(--chakra-spacing-1) * 19)"
+          h="calc(var(--chakra-spacing-1) * 19)"
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -81,10 +82,12 @@ const FeaturedApp = ({
             src={ isLoading ? undefined : logoUrl }
             alt={ `${ title } app icon` }
             borderRadius="md"
+            boxSize="full"
+            objectFit="contain"
           />
         </Skeleton>
 
-        <Flex flexDirection="column" flex={ 1 } gap={ 1 }>
+        <Flex flexDirection="column" flex={ 1 } gap={ 1 } minW={ 0 }>
           <Flex alignItems="center" gap={ 3 }>
             <Skeleton loading={ isLoading } display="flex" alignItems="center">
               <Heading level="3">
@@ -109,19 +112,20 @@ const FeaturedApp = ({
             </Skeleton>
 
             { !isLoading && (
-              <Link
+              <Button
+                variant="link"
                 fontSize="sm"
-                fontWeight="500"
-                href="#"
+                fontWeight="medium"
                 onClick={ handleInfoClick }
               >
                 More info
-              </Link>
+              </Button>
             ) }
 
             { !isLoading && (
               <IconButton
-                aria-label="Mark as favorite"
+                aria-label={ `Mark ${ title } as favorite` }
+                aria-pressed={ isFavorite }
                 title="Mark as favorite"
                 variant="icon_background"
                 size="md"

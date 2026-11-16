@@ -15,7 +15,7 @@ const CollapsibleShowcase = () => {
         <SamplesStack >
           <Sample label="variant: default" flexDirection="column" alignItems="flex-start">
             <CollapsibleDetails id="CutLink_1">
-              <Box maxW="500px">{ TEXT }</Box>
+              <Box maxW="calc(var(--chakra-spacing-1) * 125)">{ TEXT }</Box>
             </CollapsibleDetails>
           </Sample>
         </SamplesStack>
@@ -26,7 +26,7 @@ const CollapsibleShowcase = () => {
         <SamplesStack >
           <Sample label="loading: true" flexDirection="column" alignItems="flex-start">
             <CollapsibleDetails id="CutLink_2" loading>
-              <Box maxW="500px">{ TEXT }</Box>
+              <Box maxW="calc(var(--chakra-spacing-1) * 125)">{ TEXT }</Box>
             </CollapsibleDetails>
           </Sample>
         </SamplesStack>
@@ -39,7 +39,7 @@ const CollapsibleShowcase = () => {
         <SamplesStack>
           <Sample label="Show details" flexDirection="column" alignItems="flex-start">
             <CollapsibleDetails id="CutLink_3">
-              <Box maxW="500px">{ TEXT }</Box>
+              <Box maxW="calc(var(--chakra-spacing-1) * 125)">{ TEXT }</Box>
             </CollapsibleDetails>
           </Sample>
           <Sample label="Expand all list" flexDirection="row" alignItems="flex-start" flexWrap="nowrap">

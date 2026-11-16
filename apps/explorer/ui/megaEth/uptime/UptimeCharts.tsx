@@ -224,15 +224,17 @@ const UptimeCharts = ({ historyData }: Props) => {
         alignItems="center"
         justifyContent="space-between"
         mb={ 6 }
+        flexWrap="wrap"
+        gap={ 3 }
       >
         <Heading level="2">Real-time statistics</Heading>
         <TagGroupSelect<IntervalId> items={ INTERVALS } onChange={ handleIntervalChange } value={ interval } tagSize="lg"/>
       </Flex>
       <Grid
-        templateColumns={{ base: '1fr', lg: 'repeat(2, 1fr)' }}
+        templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-100)), 1fr))"
         gap={ 4 }
       >
-        <GridItem colSpan={{ base: 1, lg: 2 }} minH={{ base: '220px', lg: '320px' }}>
+        <GridItem gridColumn="1 / -1" minH={{ base: 'calc(var(--chakra-spacing-1) * 55)', lg: 'var(--chakra-spacing-80)' }}>
           <ChartWidget
             title="TPS"
             charts={ tpsCharts }
@@ -241,7 +243,7 @@ const UptimeCharts = ({ historyData }: Props) => {
             axesConfig={ axesConfig }
           />
         </GridItem>
-        <GridItem minH={{ base: '220px', lg: '320px' }}>
+        <GridItem minH={{ base: 'calc(var(--chakra-spacing-1) * 55)', lg: 'var(--chakra-spacing-80)' }}>
           <ChartWidget
             title="MGas/s"
             charts={ gasCharts }
@@ -250,7 +252,7 @@ const UptimeCharts = ({ historyData }: Props) => {
             axesConfig={ axesConfig }
           />
         </GridItem>
-        <GridItem minH={{ base: '220px', lg: '320px' }}>
+        <GridItem minH={{ base: 'calc(var(--chakra-spacing-1) * 55)', lg: 'var(--chakra-spacing-80)' }}>
           <ChartWidget
             title="Block time (ms)"
             charts={ blockIntervalCharts }

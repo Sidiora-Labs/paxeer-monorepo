@@ -41,7 +41,7 @@ const MarketplaceAppTopBar = ({ appId, data, isLoading }: Props) => {
   }, []);
 
   return (
-    <Flex alignItems="center" mb={{ base: 3, md: 2 }} rowGap={ 3 } columnGap={ 2 }>
+    <Flex alignItems="center" flexWrap="wrap" mb={{ base: 3, md: 2 }} rowGap={ 3 } columnGap={ 2 }>
       { !isMobile && <NetworkIcon mr={ 4 }/> }
       <BackToButton
         href={ goBackUrl }
@@ -55,7 +55,7 @@ const MarketplaceAppTopBar = ({ appId, data, isLoading }: Props) => {
         variant="underlaid"
         textStyle="sm"
         minW={ 0 }
-        maxW={{ base: 'calc(100% - 114px)', md: 'auto' }}
+        maxW={{ base: 'calc(100% - calc(var(--chakra-spacing-1) * 28.5))', md: 'auto' }}
         display="flex"
         loading={ isLoading }
       >

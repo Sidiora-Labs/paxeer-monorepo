@@ -11,13 +11,13 @@ const EmptyStateShowcase = () => {
         <SectionHeader>Type</SectionHeader>
         <SamplesStack>
           <Sample label="type: query">
-            <EmptyState term="transaction" outline="1px dashed deepskyblue"/>
+            <EmptyState term="transaction" outline="var(--chakra-border-widths-1) dashed var(--chakra-colors-hairline)"/>
           </Sample>
           <Sample label="type: stats">
-            <EmptyState type="stats" term="transactions" outline="1px dashed deepskyblue"/>
+            <EmptyState type="stats" term="transactions" outline="var(--chakra-border-widths-1) dashed var(--chakra-colors-hairline)"/>
           </Sample>
           <Sample label="type: coming_soon">
-            <EmptyState type="coming_soon" outline="1px dashed deepskyblue"/>
+            <EmptyState type="coming_soon" outline="var(--chakra-border-widths-1) dashed var(--chakra-colors-hairline)"/>
           </Sample>
         </SamplesStack>
       </Section>

@@ -35,12 +35,12 @@ export default function ApprovalsTable({
           <TableColumnHeader w="17%" isNumeric>
             Value at risk
           </TableColumnHeader>
-          <TableColumnHeader w={ isAddressMatch ? '30px' : '50px' }/>
+          <TableColumnHeader w={ isAddressMatch ? 'calc(var(--chakra-spacing-1) * 7.5)' : 'calc(var(--chakra-spacing-1) * 12.5)' }/>
           <TableColumnHeader w="18%">
             Last updated
             <TimeFormatToggle/>
           </TableColumnHeader>
-          { isAddressMatch && <TableColumnHeader w="95px" isNumeric/> }
+          { isAddressMatch && <TableColumnHeader w="calc(var(--chakra-spacing-1) * 23.75)" isNumeric/> }
         </TableRow>
       </TableHeaderSticky>
       <TableBody>

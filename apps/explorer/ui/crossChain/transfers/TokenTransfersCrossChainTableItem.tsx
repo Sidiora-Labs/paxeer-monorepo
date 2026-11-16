@@ -25,11 +25,11 @@ interface Props {
 
 const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: Props) => {
 
-  const dashElement = <chakra.span color="text.secondary" lineHeight="24px">{ mdash }</chakra.span>;
+  const dashElement = <chakra.span color="text.secondary" lineHeight="h2">{ mdash }</chakra.span>;
 
   return (
     <TableRow>
-      <TableCell w="42px">
+      <TableCell w="calc(var(--chakra-spacing-1) * 10.5)">
         <CrossChainTxsStatusTag status={ data.status } loading={ isLoading }/>
       </TableCell>
       { currentAddress && (
@@ -40,7 +40,7 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
           />
         </TableCell>
       ) }
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         <VStack alignItems="start">
           { data.source_token && (
             <TokenValueInterchain
@@ -48,7 +48,7 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
               amount={ data.source_amount }
               chain={ data.source_chain }
               loading={ isLoading }
-              lineHeight="24px"
+              lineHeight="h2"
             />
           ) }
           {
@@ -69,7 +69,7 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
       <TableCell>
         <AddressFromToIcon type="unspecified" isLoading={ isLoading } mt={ 0.5 }/>
       </TableCell>
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         <VStack alignItems="start">
           { data.destination_token && (
             <TokenValueInterchain
@@ -77,7 +77,7 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
               amount={ data.destination_amount }
               chain={ data.destination_chain }
               loading={ isLoading }
-              lineHeight="24px"
+              lineHeight="h2"
             />
           ) }
           {
@@ -95,7 +95,7 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
           }
         </VStack>
       </TableCell>
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         <VStack alignItems="start">
           { data.source_transaction_hash ? (
             <TxEntityInterchain
@@ -104,7 +104,7 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
               isLoading={ isLoading }
               noIcon
               truncation="constant"
-              lineHeight="24px"
+              lineHeight="h2"
             />
           ) : dashElement }
           <ChainLabel
@@ -116,7 +116,7 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
           />
         </VStack>
       </TableCell>
-      <TableCell maxW="150px">
+      <TableCell maxW="calc(var(--chakra-spacing-1) * 37.5)">
         <VStack alignItems="start">
           { data.destination_transaction_hash ? (
             <TxEntityInterchain
@@ -125,7 +125,7 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
               isLoading={ isLoading }
               noIcon
               truncation="constant"
-              lineHeight="24px"
+              lineHeight="h2"
             />
           ) : dashElement }
           <ChainLabel
@@ -138,17 +138,17 @@ const TokenTransfersCrossChainTableItem = ({ data, isLoading, currentAddress }: 
         </VStack>
       </TableCell>
       <TableCell>
-        <CrossChainBridgeLink data={ data.bridge } isLoading={ isLoading } lineHeight="24px"/>
+        <CrossChainBridgeLink data={ data.bridge } isLoading={ isLoading } lineHeight="h2"/>
       </TableCell>
       <TableCell>
-        <CrossChainMessageEntity id={ data.message_id } isLoading={ isLoading } lineHeight="24px"/>
+        <CrossChainMessageEntity id={ data.message_id } isLoading={ isLoading } lineHeight="h2"/>
       </TableCell>
       <TableCell>
         <TimeWithTooltip
           timestamp={ data.send_timestamp || data.receive_timestamp }
           isLoading={ isLoading }
           color="text.secondary"
-          lineHeight="24px"
+          lineHeight="h2"
           whiteSpace="nowrap"
         />
       </TableCell>
