@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/store"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
@@ -335,6 +336,9 @@ func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) err
 	}
 	if want.Service != "core/stats-workers" {
 		return fmt.Errorf("runtime_schema_service_mismatch")
+	}
+	if err := store.New(pool).CheckHolderBalanceIndex(ctx); err != nil {
+		return err
 	}
 	return dbproduction.CheckReadiness(ctx, pool, want)
 }
