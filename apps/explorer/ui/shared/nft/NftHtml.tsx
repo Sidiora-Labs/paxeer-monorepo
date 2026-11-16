@@ -121,6 +121,7 @@ const NftHtml = ({ src, transport, onLoad, onError, onClick, fullscreen, ...rest
       */ }
       <chakra.iframe
         ref={ ref }
+        title="NFT media"
         h="100%"
         w="100%"
         sandbox="allow-scripts allow-same-origin"
