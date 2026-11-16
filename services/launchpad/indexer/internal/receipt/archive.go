@@ -207,15 +207,6 @@ func (a *RPCQualification) pinnedBlockAtHeight(ctx context.Context, height uint6
 		}
 		return block, nil, true, nil
 	}
-	// An empty block has no transaction or log position to qualify. Its empty
-	// receipt list is still checked against the configured identity rules, so a
-	// receipt RPC would add no evidence.
-	if len(block.Transactions) == 0 {
-		if _, _, err := SeparateShellReceipts(block.Transactions, nil, block.Hash, header.Number, header.Bloom, header.ReceiptHash, a.reportedIdentity()); err != nil {
-			return pinnedBlock{}, nil, false, err
-		}
-		return block, types.Receipts{}, false, nil
-	}
 	block, receipts, err := a.pinnedReceipts(ctx, block)
 	return block, receipts, false, err
 }
