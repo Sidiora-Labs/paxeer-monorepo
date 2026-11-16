@@ -176500,7 +176500,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.567]
 title = "Carry the legal pages and the consent notice into the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.674"]
