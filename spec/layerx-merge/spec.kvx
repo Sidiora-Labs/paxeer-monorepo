@@ -250232,7 +250232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.734]
 title = "Make the analytics tables of the stats service by a registered migration with the rights its runtime role uses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.733"]
