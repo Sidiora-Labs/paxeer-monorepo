@@ -20,16 +20,17 @@ const MudWorldsListItem = ({
 }: Props) => {
 
   return (
-    <ListItemMobile rowGap={ 3 }>
+    <ListItemMobile fontSize="small" lineHeight="small" rowGap={ 3 }>
       <AddressEntity
         address={ item.address }
         isLoading={ isLoading }
-        fontWeight={ 700 }
+        fontWeight="bold"
         mr={ 2 }
-        truncation="constant_long"
+        truncation="tail"
+        w="full"
       />
-      <HStack gap={ 3 } maxW="100%" alignItems="flex-start" textStyle="sm">
-        <Skeleton loading={ isLoading } fontWeight={ 500 } flexShrink={ 0 }><span>{ `Balance ${ currencyUnits.ether }` }</span></Skeleton>
+      <HStack gap={ 3 } flexWrap="wrap" minW={ 0 } maxW="100%" alignItems="flex-start" textStyle="sm">
+        <Skeleton loading={ isLoading } fontWeight="medium" flexShrink={ 0 }><span>{ `Balance ${ currencyUnits.ether }` }</span></Skeleton>
         <NativeCoinValue
           amount={ item.coin_balance }
           noSymbol
@@ -37,8 +38,8 @@ const MudWorldsListItem = ({
           color="text.secondary"
         />
       </HStack>
-      <HStack gap={ 3 }>
-        <Skeleton loading={ isLoading } fontSize="sm" fontWeight={ 500 }>Txn count</Skeleton>
+      <HStack gap={ 3 } flexWrap="wrap" minW={ 0 }>
+        <Skeleton loading={ isLoading } fontSize="sm" fontWeight="medium">Txn count</Skeleton>
         <Skeleton loading={ isLoading } fontSize="sm" color="text.secondary">
           <span>{ Number(item.transactions_count).toLocaleString() }</span>
         </Skeleton>

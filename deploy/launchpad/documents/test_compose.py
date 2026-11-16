@@ -17,12 +17,26 @@ SERVICES = [
     "api", "api-sockets", "indexer", "charts", "stats", "pnl", "ranking",
     "gateway", "user", "social", "metadata", "livestream",
 ]
+REGISTRY_NAMES = {
+    "api": "core/api",
+    "api-sockets": "core/api",
+    "indexer": "core/indexer",
+    "charts": "core/trading-charts",
+    "stats": "core/stats-workers",
+    "pnl": "core/pnl-tracker",
+    "ranking": "core/ranking-algo",
+    "gateway": "media/gateway",
+    "user": "media/user",
+    "social": "media/social",
+    "metadata": "media/metadata",
+    "livestream": "media/livestream",
+}
 
 
 def _schema(service: str) -> dict:
     digest = "0" * 64
     return {
-        "service": service,
+        "service": REGISTRY_NAMES[service],
         "runtime_role": "apid_rest" if service == "api" else "apid_sockets" if service == "api-sockets" else service.replace("-", "_") + "d",
         "registry_digest": digest,
         "interface_digest": digest,
@@ -39,6 +53,8 @@ def _values(tmp_path: Path) -> Path:
     values = tmp_path / "values"
     values.mkdir()
     (values / "common.json").write_bytes((ROOT / "values" / "common.example.json").read_bytes())
+    for service in SERVICES:
+        (values / f"{service}.example.json").write_bytes((ROOT / "values" / f"{service}.example.json").read_bytes())
     expected = values / "expected-schema"
     expected.mkdir()
     for service in SERVICES:
@@ -50,7 +66,7 @@ def _run(values: Path, out: Path, *services: str) -> subprocess.CompletedProcess
     command = ["python3", str(COMPOSER), "--values", str(values), "--out", str(out)]
     for service in services:
         command.extend(("--service", service))
-    return subprocess.run(command, text=True, capture_output=True)
+    return subprocess.run(command, cwd=values.parent, text=True, capture_output=True)
 
 
 def test_compose_documents_have_digests_and_private_files(tmp_path: Path) -> None:
@@ -88,15 +104,46 @@ def test_compose_refuses_missing_expected_schema(tmp_path: Path) -> None:
     assert "api" in result.stderr and "EXPECTED_SCHEMA_DOCUMENT" not in result.stderr
 
 
+def test_compose_registry_names_are_grants_services() -> None:
+    grants = json.loads((ROOT.parents[2] / "migrations" / "grants.json").read_bytes())
+    role_services = {entry["service"] for entry in grants["roles"]}
+    assert set(REGISTRY_NAMES.values()) <= role_services
+
+
+def test_compose_refuses_platform_schema_name(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    path = values / "expected-schema" / "api.json"
+    schema = json.loads(path.read_bytes())
+    schema["service"] = "api"
+    path.write_text(json.dumps(schema, separators=(",", ":")))
+    result = _run(values, tmp_path / "out", "api")
+    assert result.returncode != 0
+    assert "api" in result.stderr and "core/api" in result.stderr
+
+
+def test_compose_refuses_schema_for_another_registry_service(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    path = values / "expected-schema" / "api.json"
+    schema = json.loads(path.read_bytes())
+    schema["service"] = REGISTRY_NAMES["indexer"]
+    path.write_text(json.dumps(schema, separators=(",", ":")))
+    result = _run(values, tmp_path / "out", "api")
+    assert result.returncode != 0
+    assert "api" in result.stderr and "core/api" in result.stderr
+
+
 def test_compose_refuses_contract_document_from_module(tmp_path: Path) -> None:
     values = _values(tmp_path)
     module = ROOT / "api.py"
+    original = module.read_bytes() if module.exists() else None
     try:
         module.write_text("def documents(service, values):\n    return {'NOT_REQUIRED_DOCUMENT': {}}\n")
         result = _run(values, tmp_path / "out", "api")
         assert result.returncode != 0
         assert "api" in result.stderr and "NOT_REQUIRED_DOCUMENT" in result.stderr
     finally:
-        if module.exists():
-            module.unlink()
+        if original is None:
+            module.unlink(missing_ok=True)
+        else:
+            module.write_bytes(original)
 

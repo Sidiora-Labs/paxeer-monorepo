@@ -34,7 +34,7 @@ func composeSocialDocuments(t *testing.T) map[string]string {
 	if err := os.Mkdir(expected, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	schema := []byte(`{"service":"social","runtime_role":"sociald","registry_digest":"` + fmt.Sprintf("%064x", 0) + `","interface_digest":"` + fmt.Sprintf("%064x", 0) + `","reader_version":1,"migrations":{"1":"` + fmt.Sprintf("%064x", 0) + `"},"schemas":{"chat":"` + fmt.Sprintf("%064x", 0) + `"},"epoch":1,"region":"mainnet-beta","privileges":[]}`)
+	schema := []byte(`{"service":"media/social","runtime_role":"sociald","registry_digest":"` + fmt.Sprintf("%064x", 0) + `","interface_digest":"` + fmt.Sprintf("%064x", 0) + `","reader_version":1,"migrations":{"1":"` + fmt.Sprintf("%064x", 0) + `"},"schemas":{"chat":"` + fmt.Sprintf("%064x", 0) + `"},"epoch":1,"region":"mainnet-beta","privileges":[]}`)
 	if err := os.WriteFile(filepath.Join(expected, "social.json"), schema, 0o600); err != nil {
 		t.Fatal(err)
 	}

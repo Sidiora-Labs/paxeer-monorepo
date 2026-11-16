@@ -15,13 +15,13 @@ const InputShowcase = () => {
         <SectionHeader>Size</SectionHeader>
         <SamplesStack>
           <Sample label="size: sm">
-            <Input type="text" placeholder="Name" size="sm"/>
+            <Input aria-label="Name" name="name" autoComplete="name" type="text" placeholder="Name" size="sm"/>
           </Sample>
           <Sample label="size: md">
-            <Input type="text" placeholder="Name" size="md"/>
+            <Input aria-label="Name" name="name" autoComplete="name" type="text" placeholder="Name" size="md"/>
           </Sample>
           <Sample label="size: lg">
-            <Input type="text" placeholder="Name" size="lg"/>
+            <Input aria-label="Name" name="name" autoComplete="name" type="text" placeholder="Name" size="lg"/>
           </Sample>
         </SamplesStack>
       </Section>
@@ -29,12 +29,12 @@ const InputShowcase = () => {
       <Section>
         <SectionHeader>Variant</SectionHeader>
         <SamplesStack>
-          <Sample label="variant: outline" maxW="300px">
-            <Input type="text" placeholder="Name"/>
-            <Input type="text" placeholder="Name (disabled)" disabled/>
-            <Input type="text" placeholder="Name (readOnly)" readOnly/>
-            <Input type="text" placeholder="Name (invalid)" data-invalid/>
-            <Input type="text" placeholder="Name (invalid)" data-invalid value="duck"/>
+          <Sample label="variant: outline" maxW="var(--chakra-spacing-75)">
+            <Input aria-label="Name" name="name" autoComplete="name" type="text" placeholder="Name"/>
+            <Input aria-label="Name" name="name" autoComplete="name" type="text" placeholder="Name (disabled)" disabled/>
+            <Input aria-label="Name" name="name" autoComplete="name" type="text" placeholder="Name (readOnly)" readOnly/>
+            <Input aria-label="Name" name="name" autoComplete="name" type="text" placeholder="Name (invalid)" data-invalid/>
+            <Input aria-label="Name" name="name" autoComplete="name" type="text" placeholder="Name (invalid)" data-invalid defaultValue="duck"/>
           </Sample>
         </SamplesStack>
       </Section>
@@ -43,15 +43,15 @@ const InputShowcase = () => {
         <SectionHeader>Input group</SectionHeader>
         <SamplesStack>
           <Sample label="with end element">
-            <Field label="Referral code" required floating size="lg" w="300px" flexShrink={ 0 }>
+            <Field label="Referral code" required floating size="lg" w="full" maxW="var(--chakra-spacing-75)" flexShrink={ 0 }>
               <InputGroup endElement={ <IconSvg name="copy" boxSize={ 5 }/> } endElementProps={{ px: 3 }}>
-                <Input/>
+                <Input name="referral_code" autoComplete="off"/>
               </InputGroup>
             </Field>
           </Sample>
           <Sample label="with start element">
             <InputGroup startElement={ <IconSvg name="collection" boxSize={ 5 }/> } startElementProps={{ px: 2 }}>
-              <Input placeholder="Type in something"/>
+              <Input aria-label="Search" name="search" placeholder="Type in something"/>
             </InputGroup>
           </Sample>
         </SamplesStack>
@@ -62,8 +62,8 @@ const InputShowcase = () => {
         <SectionSubHeader>Filter input</SectionSubHeader>
         <SamplesStack>
           <Sample>
-            <FilterInput placeholder="Search by method name"/>
-            <FilterInput placeholder="Search by method name" loading/>
+            <FilterInput placeholder="Search by method name" name="method" minW={ 0 } w="full" inputProps={{ 'aria-label': 'Search by method name' }}/>
+            <FilterInput placeholder="Search by method name" name="method" minW={ 0 } w="full" inputProps={{ 'aria-label': 'Search by method name' }} loading/>
           </Sample>
         </SamplesStack>
       </Section>

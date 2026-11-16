@@ -45,7 +45,7 @@ export default function ApprovalsTableItem({
   }, [ revoke, hideApproval, approval, selectedChain?.id ]);
 
   return (
-    <TableRow fontWeight="500">
+    <TableRow fontWeight="medium">
       <TableCell verticalAlign="middle">
         <Flex flexDir="column" gap={ 2 } mr={ 2 }>
           <TokenEntity
@@ -61,7 +61,7 @@ export default function ApprovalsTableItem({
             noCopy
             jointSymbol
             textStyle="sm"
-            fontWeight="600"
+            fontWeight="semibold"
             chain={ selectedChain }
             link={{ noIcon: true, external: true }}
           />

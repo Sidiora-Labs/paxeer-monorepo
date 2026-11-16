@@ -17,7 +17,7 @@ const frameworks = createListCollection<SelectOption>({
   items: [
     { label: 'React.js is the most popular framework', value: 'react', icon: <IconSvg name="navigation/api_keys" boxSize={ 5 } flexShrink={ 0 }/> },
     { label: 'Vue.js is the second most popular framework', value: 'vue' },
-    { value: 'angular', label: 'Angular', renderLabel: () => <div>Angular is <Box as="span" color="red" fontWeight="700">not awesome</Box></div> },
+    { value: 'angular', label: 'Angular', renderLabel: () => <div>Angular is <Box as="span" color="negative" fontWeight="bold">not awesome</Box></div> },
     { label: 'Svelte', value: 'svelte' },
   ],
 });
@@ -40,9 +40,11 @@ const SelectShowcase = () => {
           <Sample label="variant: outline">
             <Select
               collection={ frameworks }
+              triggerProps={{ 'aria-label': 'Framework' }}
+              name="framework"
               placeholder="Select framework"
               size="sm"
-              w="200px"
+              w="full" maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
         </SamplesStack>
@@ -57,48 +59,60 @@ const SelectShowcase = () => {
               <Sample label={ `size: ${ size }` } key={ size }>
                 <Select
                   collection={ frameworks }
+                  triggerProps={{ 'aria-label': 'Framework' }}
+                  name="framework"
                   placeholder="Select framework"
                   size={ size }
-                  w="300px"
+                  w="full" maxW="var(--chakra-spacing-75)"
                 />
                 <Select
                   collection={ frameworks }
+                  triggerProps={{ 'aria-label': 'Framework' }}
+                  name="framework"
                   placeholder="Select framework"
                   defaultValue={ [ frameworks.items[0].value ] }
                   size={ size }
-                  w="300px"
+                  w="full" maxW="var(--chakra-spacing-75)"
                 />
                 <Select
                   collection={ frameworks }
+                  triggerProps={{ 'aria-label': 'Framework' }}
+                  name="framework"
                   placeholder="Select framework"
                   defaultValue={ [ frameworks.items[0].value ] }
                   size={ size }
-                  w="300px"
+                  w="full" maxW="var(--chakra-spacing-75)"
                   readOnly
                 />
                 <Select
                   collection={ frameworks }
+                  triggerProps={{ 'aria-label': 'Framework' }}
+                  name="framework"
                   placeholder="Select framework"
                   defaultValue={ [ frameworks.items[0].value ] }
                   size={ size }
-                  w="300px"
+                  w="full" maxW="var(--chakra-spacing-75)"
                   disabled
                 />
                 <Select
                   collection={ frameworks }
+                  triggerProps={{ 'aria-label': 'Framework' }}
+                  name="framework"
                   placeholder="Select framework"
                   size={ size }
-                  w="300px"
+                  w="full" maxW="var(--chakra-spacing-75)"
                   required
                   invalid
                   errorText="Error message"
                 />
                 <Select
                   collection={ frameworks }
+                  triggerProps={{ 'aria-label': 'Framework' }}
+                  name="framework"
                   placeholder="Select framework"
                   defaultValue={ [ frameworks.items[0].value ] }
                   size={ size }
-                  w="300px"
+                  w="full" maxW="var(--chakra-spacing-75)"
                   required
                   invalid
                   errorText="Error message"
@@ -114,9 +128,11 @@ const SelectShowcase = () => {
         <SamplesStack>
           <Sample label="variant: outline">
             <SelectAsync
+              triggerProps={{ 'aria-label': 'Framework' }}
+              name="framework"
               placeholder="Select framework"
               size="lg"
-              w="300px"
+              w="full" maxW="var(--chakra-spacing-75)"
               // eslint-disable-next-line react/jsx-no-bind
               loadOptions={ () => {
                 return Promise.resolve(frameworks);

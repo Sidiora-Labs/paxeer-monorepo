@@ -16,16 +16,16 @@ type Props = {
 const TacOperationsTable = ({ items, isLoading }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot minW="950px">
+      <TableRoot minW="calc(var(--chakra-spacing-1) * 237.5)">
         <TableHeaderSticky top={ 68 }>
           <TableRow>
-            <TableColumnHeader w="200px">Status</TableColumnHeader>
+            <TableColumnHeader w="calc(var(--chakra-spacing-1) * 50)">Status</TableColumnHeader>
             <TableColumnHeader w="100%">Operation</TableColumnHeader>
-            <TableColumnHeader w="200px">
+            <TableColumnHeader w="calc(var(--chakra-spacing-1) * 50)">
               Timestamp
               <TimeFormatToggle/>
             </TableColumnHeader>
-            <TableColumnHeader w="250px">Sender</TableColumnHeader>
+            <TableColumnHeader w="calc(var(--chakra-spacing-1) * 62.5)">Sender</TableColumnHeader>
           </TableRow>
         </TableHeaderSticky>
         <TableBody>

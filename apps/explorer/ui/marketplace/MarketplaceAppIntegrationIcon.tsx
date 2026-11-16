@@ -1,6 +1,8 @@
 import React from 'react';
 
-import { Tooltip } from 'toolkit/chakra/tooltip';
+import { IconButton } from 'toolkit/chakra/icon-button';
+import durations from 'toolkit/theme/foundations/durations';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import type { IconName } from 'ui/shared/IconSvg';
 import IconSvg from 'ui/shared/IconSvg';
 
@@ -23,7 +25,7 @@ const MarketplaceAppIntegrationIcon = ({ external, internalWallet }: Props) => {
       boxSize = 4;
     } else if (internalWallet) {
       icon = 'integration/full';
-      color = 'green.500';
+      color = 'positive';
       text = 'This app opens in Blockscout and your Blockscout wallet connects automatically';
     }
 
@@ -33,17 +35,19 @@ const MarketplaceAppIntegrationIcon = ({ external, internalWallet }: Props) => {
   return (
     <Tooltip
       content={ text }
-      openDelay={ 300 }
-      contentProps={{ maxW: { base: 'calc(100vw - 8px)', lg: '400px' } }}
+      openDelay={ Number.parseInt(durations.slow.value, 10) }
+      contentProps={{ maxW: { base: 'calc(100vw - var(--chakra-spacing-2))', lg: 'var(--chakra-spacing-100)' } }}
     >
-      <IconSvg
-        name={ icon }
-        boxSize={ boxSize }
-        color={ iconColor }
-        position="relative"
-        cursor="pointer"
-        verticalAlign="middle"
-      />
+      <IconButton aria-label={ text } variant="icon_secondary" size="md">
+        <IconSvg
+          name={ icon }
+          boxSize={ boxSize }
+          color={ iconColor }
+          position="relative"
+          cursor="pointer"
+          verticalAlign="middle"
+        />
+      </IconButton>
     </Tooltip>
   );
 };

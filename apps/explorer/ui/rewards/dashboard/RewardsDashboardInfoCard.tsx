@@ -43,7 +43,7 @@ const RewardsDashboardInfoCard = ({ title, description, imageSrc, imageWidth, im
         external
         href={ linkHref }
         fontSize="md"
-        fontWeight="500"
+        fontWeight="medium"
       >
         { linkText }
       </Link>

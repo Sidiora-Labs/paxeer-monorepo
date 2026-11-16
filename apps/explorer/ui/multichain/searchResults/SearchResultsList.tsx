@@ -89,9 +89,9 @@ const SearchResultsList = <T extends QueryType>({ queryType, query, maxItems = I
         </React.Fragment>
       )) }
 
-      { query.isFetching && <ContentLoader maxW="240px" mt={ 6 }/> }
+      { query.isFetching && <ContentLoader maxW="calc(var(--chakra-spacing-1) * 60)" mt={ 6 }/> }
 
-      <Box h="0" w="100px" ref={ cutRef }/>
+      <Box h="0" w="calc(var(--chakra-spacing-1) * 25)" ref={ cutRef }/>
     </Flex>
   );
 };

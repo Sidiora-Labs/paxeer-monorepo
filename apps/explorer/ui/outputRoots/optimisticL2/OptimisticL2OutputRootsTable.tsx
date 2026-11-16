@@ -16,10 +16,10 @@ type Props = {
 
 const OptimisticL2OutputRootsTable = ({ items, top, isLoading }: Props) => {
   return (
-    <TableRoot minW="900px">
+    <TableRoot minW="calc(var(--chakra-spacing-1) * 225)">
       <TableHeaderSticky top={ top }>
         <TableRow>
-          <TableColumnHeader width="160px">{ layerLabels.current } output index</TableColumnHeader>
+          <TableColumnHeader width="var(--chakra-spacing-40)">{ layerLabels.current } output index</TableColumnHeader>
           <TableColumnHeader width="20%">
             Timestamp
             <TimeFormatToggle/>
