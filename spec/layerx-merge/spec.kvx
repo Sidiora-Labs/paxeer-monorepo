@@ -15328,6 +15328,12 @@ value = "The verification of task 22.44.48 runs the render check with the option
 basis = "Gotcha 4622. Decisions 3587 and 3591."
 affects = []
 
+[decision.3703]
+title = "A ranking publication row at its attempt bound is tried again at a slower pace"
+value = "A row that reached the attempt bound stays in the order of its category and is tried again once a minute, by the same commit to the stream and with the same identity of its event, until it is published. The count of attempts stays at the bound and the table keeps its form, so no migration is added; the pace is held in the process and a start of the service tries such a row at once. The readiness keeps its present refusals: it refuses while a row at the bound exists or the oldest pending row is older than its limit, and it answers again by itself once the rows are published. No row is skipped, removed or published out of order. The service writes one log line when a row reaches the bound and one when the last such row is published, with the category and the class of the error and without an address or a credential."
+basis = "Gotcha 4623."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44988,6 +44994,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.769]
+title = "Try a ranking publication row at its attempt bound again at a slower pace"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "(cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestPublication ./internal/store/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestApplicationPublication ./internal/app/)"
+do_1 = "do_1 Gotcha 4623, decision 3703. Read in services/launchpad/ranking-algo/internal/store the publication with the selection of the next row, the commit to the stream, the count of a failed attempt and the publication health, with their cases; read in services/launchpad/ranking-algo/internal/app the loop that publishes, the readiness of the ranking and the cases of the publication recovery with their fixture. State in the final message what the present code does with a row after the bound, what the rows behind it do, and what the readiness answers then."
+symbols = []
 
 [capability.22.44.72]
 title = "Give the explorer cases that render a whole page or the whole layout their own time bounds"
@@ -249755,6 +249770,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.769]
+title = "Try a ranking publication row at its attempt bound again at a slower pace"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.766"]
+reqs = ["22998.1"]
+capabilities = ["22.39.769"]
+interfaces = []
+do_1 = "do_1 Gotcha 4623, decision 3703. Read in services/launchpad/ranking-algo/internal/store the publication with the selection of the next row, the commit to the stream, the count of a failed attempt and the publication health, with their cases; read in services/launchpad/ranking-algo/internal/app the loop that publishes, the readiness of the ranking and the cases of the publication recovery with their fixture. State in the final message what the present code does with a row after the bound, what the rows behind it do, and what the readiness answers then."
+do_2 = "do_2 The selection takes a row at the bound as well, as decision 3703 states: the oldest unpublished row of a category is tried again once a minute after it reached the bound, with the same event and by the same commit to the stream. A row below the bound keeps the present pace. The count of attempts does not pass the bound and no statement of the table changes its form; no migration is added. A start of the service tries a row at the bound at once."
+do_3 = "do_3 The readiness of the ranking keeps both refusals and answers again without a restart once every row at the bound is published and the oldest pending row is inside its limit. The loop writes one line when a row reaches the bound and one when the last such row is published, with the category and the class of the error; repeated failures of the same row write no further line. No line holds an address, a credential or the text of an error that can carry one."
+do_4 = "do_4 Cases whose names start with TestPublication in services/launchpad/ranking-algo/internal/store and with TestApplicationPublication in services/launchpad/ranking-algo/internal/app, beside the present ones: an append that returns an error for more rounds than the bound and then answers leaves no row unpublished, in the order of each category and with one event for each row; the rows behind a row at the bound are published after it; a row at the bound is not tried more often than the slower pace; the readiness refuses while the row is at the bound and answers after its publication without a restart; a start of the service with a row at the bound publishes it."
+do_5 = "do_5 Run the new cases by hand, one after another, and read each message. The files of services/launchpad/ranking-algo are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/ranking-algo && go build ./... && go vet ./internal/store/ ./internal/app/)"
+verify_cmd = "(cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestPublication ./internal/store/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestApplicationPublication ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.768]
 title = "Make the readiness refresh of the canonical source a reader that holds on a moving head and names its cause"
