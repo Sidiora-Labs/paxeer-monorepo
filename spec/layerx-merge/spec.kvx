@@ -174154,7 +174154,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.53]
 title = "Let the keyboard measurement of the render check follow an open modal dialog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
