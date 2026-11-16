@@ -49,7 +49,7 @@ const GasTrackerChart = () => {
         interval="oneMonth"
         isPlaceholderData={ isPlaceholderData }
         onLoadingError={ handleLoadingError }
-        h="320px"
+        h="var(--chakra-spacing-80)"
       />
     );
   })();
@@ -62,7 +62,7 @@ const GasTrackerChart = () => {
     <Box>
       <Flex justifyContent="space-between" alignItems="center" mb={ 2 }>
         <chakra.h3 textStyle="label" color="text.muted">Gas price history</chakra.h3>
-        <Link href={ route({ pathname: '/stats', hash: 'gas' }) }>Charts & stats</Link>
+        <Link href={ route({ pathname: '/stats', hash: 'gas' }) } minW="touchTarget" minH="touchTarget">Charts & stats</Link>
       </Flex>
       { content }
     </Box>

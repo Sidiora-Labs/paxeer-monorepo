@@ -19,12 +19,14 @@ interface Props {
 
 const PaxeerXReceiptsListItem = ({ item, isLoading }: Props) => {
   return (
-    <ListItemMobileGrid.Container>
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr)" textStyle="small"
+      css={{ '& > *': { minWidth: 0, overflowWrap: 'anywhere' } }}
+    >
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Receipt ID</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
         <Flex overflow="hidden" whiteSpace="nowrap" alignItems="center" w="100%" justifyContent="start">
-          <Skeleton loading={ isLoading } fontWeight={ 600 } color="text.primary">
+          <Skeleton loading={ isLoading } fontWeight="semibold" color="text.primary">
             { item.transaction_hash === null ? (
               <HashStringShorten hash={ item.id } type="long"/>
             ) : (

@@ -9,17 +9,17 @@ import IconSvg from 'ui/shared/IconSvg';
 const LatestTxsFallback = (props: BoxProps) => {
   return (
     <Box { ...props }>
-      <Box color="text.secondary" textStyle="sm">Failed to load data. Please try again later.</Box>
-      <TableRoot mt={ 3 } borderTopWidth="1px" borderColor="border.divider">
+      <Box color="text.secondary" textStyle="body">Failed to load data. Please try again later.</Box>
+      <TableRoot mt={ 3 } borderTopWidth="1" borderColor="border.divider">
         <TableBody>
           { Array.from({ length: 2 }).map((_, index) => (
             <TableRow key={ index }>
-              <TableCell pl={ 0 } pr={{ base: 3, lg: 4 }} w={{ base: '220px', lg: '33%' }}>
+              <TableCell pl={ 0 } pr={{ base: 3, lg: 4 }} w={{ base: 'var(--chakra-spacing-62\\.5)', lg: '33%' }}>
                 <VStack alignItems="stretch">
                   <HStack>
                     <IconSvg name="transactions" boxSize={ 5 } color="text.muted"/>
-                    <FallbackBox w="90px" bgColor="accent.soft"/>
-                    <FallbackBox w="90px" bgColor="raised"/>
+                    <FallbackBox w="var(--chakra-spacing-24)" bgColor="accent.soft"/>
+                    <FallbackBox w="var(--chakra-spacing-24)" bgColor="raised"/>
                   </HStack>
                   <FallbackBox bgColor="raised" w="100%"/>
                 </VStack>

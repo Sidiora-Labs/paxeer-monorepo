@@ -3,7 +3,6 @@ import React from 'react';
 
 import config from 'configs/app';
 import { currencyUnits } from 'lib/units';
-import { AccordionRoot } from 'toolkit/chakra/accordion';
 import { Heading } from 'toolkit/chakra/heading';
 
 import GasTrackerFaqItem from './GasTrackerFaqItem';
@@ -31,13 +30,13 @@ const FAQ_ITEMS = [
 
 const GasTrackerFaq = () => {
   return (
-    <Box mt={ 12 }>
-      <Heading level="2" mb={ 4 }>FAQ</Heading>
-      <AccordionRoot variant="faq">
+    <Box as="section" aria-labelledby="gas-tracker-faq" mt={ 12 }>
+      <Heading id="gas-tracker-faq" level="2" mb={ 4 }>FAQ</Heading>
+      <Box>
         { FAQ_ITEMS.map((item, index) => (
           <GasTrackerFaqItem key={ index } question={ item.question } answer={ item.answer }/>
         )) }
-      </AccordionRoot>
+      </Box>
     </Box>
   );
 };

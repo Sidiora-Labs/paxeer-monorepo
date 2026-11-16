@@ -34,7 +34,7 @@ const ActivityListItem = ({ item, isLoading }: Props) => {
           hash={ item.hash }
           isLoading={ isLoading }
           truncation="constant_long"
-          fontWeight={ 600 }
+          fontWeight="semibold"
           noIcon
         />
       </TableCell>
@@ -43,10 +43,10 @@ const ActivityListItem = ({ item, isLoading }: Props) => {
           number={ item.block_number }
           isLoading={ isLoading }
           truncation="none"
-          fontWeight={ 500 }
+          fontWeight="medium"
           noIcon
         />
-        <TimeWithTooltip timestamp={ item.timestamp } isLoading={ isLoading } color="text.secondary" textStyle="xs" display="block"/>
+        <TimeWithTooltip timestamp={ item.timestamp } isLoading={ isLoading } color="text.secondary" textStyle="text.xs" display="block"/>
       </TableCell>
       <TableCell verticalAlign="middle" isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">

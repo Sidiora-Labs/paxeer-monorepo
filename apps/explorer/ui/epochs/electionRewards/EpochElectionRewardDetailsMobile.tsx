@@ -35,13 +35,19 @@ const CeloEpochElectionRewardDetailsMobile = ({ type, token }: Props) => {
 
   return (
     <Flex
+      ref={ rootRef }
+      role="region"
+      aria-label="Election reward details"
+      tabIndex={ 0 }
       flexDir="column"
       rowGap={ 3 }
       p={ 4 }
-      bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+      bgColor="surface"
       borderRadius="base"
-      maxH="360px"
-      overflowY="scroll"
+      maxH="var(--chakra-spacing-80)"
+      overflowY="auto"
+      overscrollBehavior="contain"
+      scrollbarGutter="stable"
     >
 
       { query.data?.pages
@@ -49,7 +55,7 @@ const CeloEpochElectionRewardDetailsMobile = ({ type, token }: Props) => {
         .flat()
         .map((item, index) => {
           return (
-            <Flex key={ index } flexDir="column" alignItems="flex-start" rowGap={ 1 } fontWeight={ 400 }>
+            <Flex key={ index } flexDir="column" alignItems="flex-start" rowGap={ 1 } fontWeight="normal">
               <AddressEntity address={ item.account } noIcon w="100%"/>
               <TokenValue
                 amount={ item.amount }
@@ -57,7 +63,7 @@ const CeloEpochElectionRewardDetailsMobile = ({ type, token }: Props) => {
                 tokenEntityProps={{ noIcon: true, ml: 1 }}
                 startElement={ <Box flexShrink={ 0 } color="text.secondary">got </Box> }
               />
-              <Flex columnGap={ 1 } alignItems="center" w="100%">
+              <Flex columnGap={ 1 } alignItems="center" flexWrap="wrap" w="100%">
                 <Box flexShrink={ 0 } color="text.secondary">on behalf of</Box>
                 <AddressEntity address={ item.associated_account } noIcon/>
               </Flex>
@@ -65,11 +71,11 @@ const CeloEpochElectionRewardDetailsMobile = ({ type, token }: Props) => {
           );
         }) }
 
-      { query.isFetching && <ContentLoader maxW="200px" mt={ 3 }/> }
+      { query.isFetching && <ContentLoader maxW="var(--chakra-spacing-40\.5)" mt={ 3 }/> }
 
       { query.isError && <Text color="text.error" mt={ 3 }>Something went wrong. Unable to load next page.</Text> }
 
-      <Box h="0" w="100px" mt="-12px" ref={ cutRef }/>
+      <Box h="0" w="var(--chakra-spacing-24)" mt="calc(var(--chakra-spacing-3) * -1)" ref={ cutRef }/>
     </Flex>
   );
 };

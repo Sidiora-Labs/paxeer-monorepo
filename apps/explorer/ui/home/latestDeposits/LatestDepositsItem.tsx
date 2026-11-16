@@ -29,8 +29,8 @@ const LatestDepositsItem = ({ l1BlockNumber, l1TxHash, l2TxHash, timestamp, isLo
       number={ l1BlockNumber }
       isLoading={ isLoading }
       fontSize="sm"
-      lineHeight={ 5 }
-      fontWeight={ 700 }
+      lineHeight="body"
+      fontWeight="bold"
     />
   );
 
@@ -39,7 +39,7 @@ const LatestDepositsItem = ({ l1BlockNumber, l1TxHash, l2TxHash, timestamp, isLo
       isLoading={ isLoading }
       hash={ l1TxHash }
       fontSize="sm"
-      lineHeight={ 5 }
+      lineHeight="body"
       truncation={ isMobile ? 'constant_long' : 'dynamic' }
     />
   );
@@ -49,7 +49,7 @@ const LatestDepositsItem = ({ l1BlockNumber, l1TxHash, l2TxHash, timestamp, isLo
       isLoading={ isLoading }
       hash={ l2TxHash }
       fontSize="sm"
-      lineHeight={ 5 }
+      lineHeight="body"
       truncation={ isMobile ? 'constant_long' : 'dynamic' }
     />
   ) : null;
@@ -67,12 +67,12 @@ const LatestDepositsItem = ({ l1BlockNumber, l1TxHash, l2TxHash, timestamp, isLo
               color="text.secondary"
             />
           </Flex>
-          <Grid gridTemplateColumns="56px auto">
-            <Skeleton loading={ isLoading } my="5px" w="fit-content">
+          <Grid gridTemplateColumns="var(--chakra-spacing-14) auto">
+            <Skeleton loading={ isLoading } my="var(--chakra-spacing-1\.25)" w="fit-content">
               { layerLabels.parent } txn
             </Skeleton>
             { l1TxLink }
-            <Skeleton loading={ isLoading } my="3px" w="fit-content">
+            <Skeleton loading={ isLoading } my="var(--chakra-spacing-0\.5)" w="fit-content">
               { layerLabels.current } txn
             </Skeleton>
             { l2TxLink }
@@ -84,7 +84,7 @@ const LatestDepositsItem = ({ l1BlockNumber, l1TxHash, l2TxHash, timestamp, isLo
     return (
       <Grid width="100%" columnGap={ 4 } rowGap={ 2 } templateColumns="max-content max-content auto" w="100%">
         { l1BlockLink }
-        <Skeleton loading={ isLoading } w="fit-content" h="fit-content" my="5px">
+        <Skeleton loading={ isLoading } w="fit-content" h="fit-content" my="var(--chakra-spacing-1\.25)">
           { layerLabels.parent } txn
         </Skeleton>
         { l1TxLink }
@@ -95,9 +95,9 @@ const LatestDepositsItem = ({ l1BlockNumber, l1TxHash, l2TxHash, timestamp, isLo
           color="text.secondary"
           w="fit-content"
           h="fit-content"
-          my="2px"
+          my="var(--chakra-spacing-0\.5)"
         />
-        <Skeleton loading={ isLoading } w="fit-content" h="fit-content" my="2px">
+        <Skeleton loading={ isLoading } w="fit-content" h="fit-content" my="var(--chakra-spacing-0\.5)">
           { layerLabels.current } txn
         </Skeleton>
         { l2TxLink }
@@ -108,13 +108,13 @@ const LatestDepositsItem = ({ l1BlockNumber, l1TxHash, l2TxHash, timestamp, isLo
   return (
     <Box
       width="100%"
-      borderTop="1px solid"
+      borderTop="var(--chakra-border-widths-1) solid"
       borderColor="border.divider"
       py={ 4 }
       px={{ base: 0, lg: 4 }}
-      _last={{ borderBottom: '1px solid', borderColor: 'border.divider' }}
+      _last={{ borderBottom: 'var(--chakra-border-widths-1) solid', borderColor: 'border.divider' }}
       fontSize="sm"
-      lineHeight={ 5 }
+      lineHeight="body"
     >
       { content }
     </Box>

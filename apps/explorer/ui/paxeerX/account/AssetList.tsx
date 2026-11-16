@@ -4,9 +4,12 @@ import React from 'react';
 import type { PaxeerXBalance } from 'types/api/paxeerX';
 
 import { TableBody, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import Pagination from 'ui/shared/pagination/Pagination';
-import { formatScanTableCount, SCAN_ROWS_PER_PAGE, ScanShowRows, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount, SCAN_ROWS_PER_PAGE } from 'ui/shared/scan';
 
+import AccountRowsSelect from './AccountRowsSelect';
+import AccountTableCard from './AccountTableCard';
 import AssetListItem from './AssetListItem';
 
 export interface Props {
@@ -46,31 +49,33 @@ const AssetList = ({ items, isLoading }: Props) => {
   );
 
   return (
-    <ScanTableCard
+    <AccountTableCard
       title={ formatScanTableCount({ kind: 'total', value: items.length, itemsName: 'assets' }) }
       note="Total balance for each asset held by this account"
       pagination={ paginationNode }
-      showRows={ <ScanShowRows value={ rowsPerPage } onValueChange={ handleRowsPerPageChange } isLoading={ isLoading }/> }
+      showRows={ <AccountRowsSelect value={ rowsPerPage } onValueChange={ handleRowsPerPageChange } isLoading={ isLoading }/> }
     >
       { items.length === 0 ? (
         <Text role="status" color="text.secondary" px={ 4 } py={ 6 }>No assets are held by this account.</Text>
       ) : (
-        <TableRoot variant="scan" minW="700px" data-label="paxeer-x-assets">
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader width="40%">Asset</TableColumnHeader>
-              <TableColumnHeader width="35%">Denom</TableColumnHeader>
-              <TableColumnHeader width="25%" isNumeric>Total</TableColumnHeader>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            { rows.map((item) => (
-              <AssetListItem key={ item.asset.id } item={ item } isLoading={ isLoading }/>
-            )) }
-          </TableBody>
-        </TableRoot>
+        <TableScrollArea label="Account assets">
+          <TableRoot aria-label="Account assets" variant="scan" minW="max-content" data-label="paxeer-x-assets">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader width="40%">Asset</TableColumnHeader>
+                <TableColumnHeader width="35%">Denom</TableColumnHeader>
+                <TableColumnHeader width="25%" isNumeric>Total</TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              { rows.map((item) => (
+                <AssetListItem key={ item.asset.id } item={ item } isLoading={ isLoading }/>
+              )) }
+            </TableBody>
+          </TableRoot>
+        </TableScrollArea>
       ) }
-    </ScanTableCard>
+    </AccountTableCard>
   );
 };
 
