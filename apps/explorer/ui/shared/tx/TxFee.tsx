@@ -39,6 +39,7 @@ const TxFee = ({ tx, accuracy, accuracyUsd, loading, noSymbol: noSymbolProp, noU
         accuracyUsd={ accuracyUsd }
         loading={ loading }
         noTooltip={ noTooltip }
+        aria-label="Transaction fee"
         endElement={ noSymbolProp || config.UI.views.tx.hiddenFields?.fee_currency ? '' : undefined }
         { ...rest }
       />
@@ -53,6 +54,7 @@ const TxFee = ({ tx, accuracy, accuracyUsd, loading, noSymbol: noSymbolProp, noU
         accuracy={ accuracy }
         accuracyUsd={ accuracyUsd }
         loading={ loading }
+        aria-label="Transaction fee"
         { ...rest }
       />
     );
@@ -66,6 +68,7 @@ const TxFee = ({ tx, accuracy, accuracyUsd, loading, noSymbol: noSymbolProp, noU
         accuracy={ accuracy }
         accuracyUsd={ accuracyUsd }
         loading={ loading }
+        aria-label="Transaction fee"
         { ...rest }
       />
     );
@@ -86,6 +89,7 @@ const TxFee = ({ tx, accuracy, accuracyUsd, loading, noSymbol: noSymbolProp, noU
       accuracyUsd={ accuracyUsd }
       loading={ loading }
       noTooltip={ noTooltip }
+      aria-label="Transaction fee"
       flexWrap="wrap"
       { ...rest }
     />

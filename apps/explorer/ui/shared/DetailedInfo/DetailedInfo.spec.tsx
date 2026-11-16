@@ -90,7 +90,7 @@ describe('DetailedInfo', () => {
   });
 
   it('keeps the row height the detail pages share', () => {
-    expect(DetailedInfo.ITEM_VALUE_LINE_HEIGHT).toEqual({ base: '30px', lg: '32px' });
+    expect(DetailedInfo.ITEM_VALUE_LINE_HEIGHT).toEqual({ base: 'var(--chakra-spacing-7\\.5)', lg: 'var(--chakra-spacing-8)' });
   });
 
   it('spans the divider across both columns', () => {
