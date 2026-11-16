@@ -1,3 +1,9 @@
+import { Tooltip } from "../../../../../ui-connector/src/platformOverlays";
+import {
+  PopoverContent,
+  PopoverTrigger,
+  PopoverRoot,
+} from "../../../../../ui-connector/src/platformOverlays";
 import React, {
   cloneElement,
   FC,
@@ -11,9 +17,9 @@ import React, {
   useState,
 } from "react";
 import { useAccount, useLocalStorage } from "@paxeer-network/hooks";
-import { ChevronDownIcon, PopoverContent, Tooltip } from "@paxeer-network/ui";
+import { ChevronDownIcon } from "@paxeer-network/ui";
 import { Flex } from "@paxeer-network/ui";
-import { Box, cn, PopoverAnchor, PopoverRoot, Text } from "@paxeer-network/ui";
+import { Box, cn, Text } from "@paxeer-network/ui";
 
 const ActiveIcon: React.FC = () => (
   <svg
@@ -109,7 +115,8 @@ const isObject = (value: any): value is object => {
   return !!value && value.constructor === Object;
 };
 
-const PAXEER_NETWORK_NAV_BUTTON_TOOLTIP_OPEN = "PAXEER_NETWORK_NAV_BUTTON_TOOLTIP_OPEN";
+const PAXEER_NETWORK_NAV_BUTTON_TOOLTIP_OPEN =
+  "PAXEER_NETWORK_NAV_BUTTON_TOOLTIP_OPEN";
 
 export const NavItem: FC<
   Omit<React.HTMLAttributes<HTMLButtonElement>, "onClick"> & {
@@ -180,13 +187,14 @@ export const NavItem: FC<
     }
     const button = (
       <button
+        type="button"
         id={item.id}
         data-testid={item.testid}
         {...buttonProps}
         disabled={item.disabled}
         data-actived={isActive}
         className={cn(
-          "oui-group oui-relative oui-h-[32px] oui-rounded oui-px-3 oui-py-1 oui-text-sm oui-text-base-contrast-36 hover:oui-bg-base-7",
+          "oui-group oui-relative oui-h-8 oui-rounded oui-px-3 oui-py-1 oui-text-sm oui-text-base-contrast-80 hover:oui-bg-base-7",
           item.className,
           classNames?.navItem,
         )}
@@ -216,9 +224,9 @@ export const NavItem: FC<
           position="absolute"
           bottom={0}
           left={"50%"}
-          height={"3px"}
+          height="var(--oui-space-1)"
           r="full"
-          width={"calc(100% - 24px)"} // oui-px-3 * 2
+          width="calc(100% - var(--oui-space-6))" // oui-px-3 * 2
           gradient="brand"
           angle={45}
           className="-oui-translate-x-1/2 "
@@ -283,60 +291,22 @@ const SubMenus: React.FC<
     customSubMenuRender,
   } = props;
   const [open, setOpen] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const onMouseEnter = useCallback(() => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-    // setOpen(true);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (timer.current) {
-        clearTimeout(timer.current);
-      }
-    };
-  }, []);
-
   const classNames = (children as ReactElement).props?.className;
 
   return (
-    <PopoverRoot open={open}>
-      <PopoverAnchor>
-        <div
-          className={"oui-group"}
-          data-open={open}
-          onMouseEnter={() => {
-            setOpen(true);
-          }}
-          onMouseLeave={() => {
-            timer.current = setTimeout(() => {
-              setOpen(false);
-            }, 150);
-          }}
-        >
-          {cloneElement(children as React.ReactElement<any>, {
-            className: cn(classNames, open && "oui-bg-base-7"),
-          })}
-        </div>
-      </PopoverAnchor>
+    <PopoverRoot open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {cloneElement(children as React.ReactElement<any>, {
+          className: cn(classNames, open && "oui-bg-base-7"),
+        })}
+      </PopoverTrigger>
       <PopoverContent
         align="start"
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={() => {
-          setOpen(false);
-          if (timer.current) {
-            clearTimeout(timer.current);
-          }
-        }}
         className={cn(
-          "oui-subMenu",
+          "oui-shell-overlay oui-subMenu",
           customSubMenuRender
             ? "oui-w-auto oui-rounded-lg oui-border-0 oui-p-0"
-            : "oui-w-[200px] oui-space-y-[2px] oui-border oui-border-line-6 oui-p-1",
+            : "oui-w-52 oui-space-y-0.5 oui-border oui-border-line-6 oui-p-1",
           className,
         )}
       >
@@ -367,6 +337,7 @@ const SubMenu: React.FC<{
   const hasIcon = typeof item.icon !== "undefined" && item.icon !== null;
   return (
     <Flex
+      asChild
       px={2}
       py={3}
       gapX={2}
@@ -382,24 +353,26 @@ const SubMenu: React.FC<{
       }}
       data-testid={item.testid}
     >
-      {hasIcon && (
-        <div
-          className={cn(
-            "oui-relative oui-size-6",
-            hasDescription && "oui-translate-y-1",
-          )}
-        >
-          <ItemIcon isActive={active ?? false} item={item} />
-        </div>
-      )}
-      <div className="oui-flex-1">
-        <SubMenuTitle item={item} isActive={active} />
-        {hasDescription && (
-          <Text size={"2xs"} as={"div"} intensity={36}>
-            {item.description}
-          </Text>
+      <button type="button" className="oui-shell-action">
+        {hasIcon && (
+          <div
+            className={cn(
+              "oui-relative oui-size-6",
+              hasDescription && "oui-translate-y-1",
+            )}
+          >
+            <ItemIcon isActive={active ?? false} item={item} />
+          </div>
         )}
-      </div>
+        <div className="oui-flex-1">
+          <SubMenuTitle item={item} isActive={active} />
+          {hasDescription && (
+            <Text size={"2xs"} as={"div"} intensity={80}>
+              {item.description}
+            </Text>
+          )}
+        </div>
+      </button>
     </Flex>
   );
 };
@@ -458,9 +431,12 @@ const ItemIcon: React.FC<{ item: MainNavItem; isActive: boolean }> = (
   }
   if (typeof props.item.icon === "string") {
     return (
-      <span className={"oui-me-1 oui-size-[20px]"}>
+      <span className={"oui-me-1 oui-size-5"}>
         {
           <img
+            width={24}
+            height={24}
+            alt=""
             src={
               isActive
                 ? (props.item.activeIcon as string) || props.item.icon

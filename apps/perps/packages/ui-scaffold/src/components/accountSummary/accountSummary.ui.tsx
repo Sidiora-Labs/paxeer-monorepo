@@ -1,13 +1,7 @@
-import React, { FC, PropsWithChildren, useEffect } from "react";
+import { Popover } from "../../../../ui-connector/src/platformOverlays";
+import React, { FC, PropsWithChildren } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import {
-  Box,
-  EyeCloseIcon,
-  EyeIcon,
-  Flex,
-  Popover,
-  Text,
-} from "@paxeer-network/ui";
+import { Box, EyeCloseIcon, EyeIcon, Flex, Text } from "@paxeer-network/ui";
 
 type AccountSummaryUi = {
   totalValue: number | null;
@@ -48,11 +42,17 @@ const TotalValue: FC<{
       itemAlign={"start"}
     >
       <Flex gap={1} itemAlign={"center"}>
-        <Text intensity={54} className="oui-whitespace-nowrap">
+        <Text intensity={80} className="oui-whitespace-nowrap">
           {t("common.totalValue")}
         </Text>
         {visibleAvailable && (
-          <button onClick={() => onToggleVisibility?.()}>
+          <button
+            type="button"
+            className="oui-shell-icon-button"
+            aria-label={visible ? "Hide account values" : "Show account values"}
+            aria-pressed={!!visible}
+            onClick={() => onToggleVisibility?.()}
+          >
             {visible ? (
               <EyeIcon
                 size={12}
@@ -69,13 +69,13 @@ const TotalValue: FC<{
           </button>
         )}
 
-        <Text intensity={54}>≈</Text>
+        <Text intensity={80}>≈</Text>
       </Flex>
       <Text.numeral
         intensity={98}
         visible={props.visible}
         unit="USDC"
-        unitClassName="oui-text-base-contrast-20 oui-ms-1"
+        unitClassName="oui-text-base-contrast-80 oui-ms-1"
         as="div"
       >
         {totalValue ?? "-"}
@@ -107,11 +107,17 @@ const FreeCollateral: FC<{
       itemAlign={"start"}
     >
       <Flex gap={1} itemAlign={"center"}>
-        <Text intensity={54} className="oui-whitespace-nowrap">
+        <Text intensity={80} className="oui-whitespace-nowrap">
           {t("trading.asset.freeCollateral")}
         </Text>
         {visibleAvailable && (
-          <button onClick={() => onToggleVisibility?.()}>
+          <button
+            type="button"
+            className="oui-shell-icon-button"
+            aria-label={visible ? "Hide account values" : "Show account values"}
+            aria-pressed={!!visible}
+            onClick={() => onToggleVisibility?.()}
+          >
             {visible ? (
               <EyeIcon
                 size={12}
@@ -129,14 +135,14 @@ const FreeCollateral: FC<{
         )}
       </Flex>
       {/* <Box>
-        <Text intensity={54} className="oui-whitespace-nowrap">
+        <Text intensity={80} className="oui-whitespace-nowrap">
           Free collateral
         </Text>
       </Box> */}
       <Text.numeral
         intensity={98}
         unit="USDC"
-        unitClassName="oui-text-base-contrast-20 oui-ms-1"
+        unitClassName="oui-text-base-contrast-80 oui-ms-1"
         visible={visible}
         as="div"
       >
@@ -161,7 +167,7 @@ const CurrentLeverage: FC<{
       itemAlign={"start"}
     >
       <Box>
-        <Text intensity={54} className="oui-whitespace-nowrap">
+        <Text intensity={80} className="oui-whitespace-nowrap">
           {t("leverage.currentLeverage")}
         </Text>
       </Box>
@@ -191,11 +197,17 @@ const UnrealPnL: FC<{
       itemAlign={"start"}
     >
       <Flex gap={1} itemAlign={"center"}>
-        <Text intensity={54} className="oui-whitespace-nowrap">
+        <Text intensity={80} className="oui-whitespace-nowrap">
           {t("common.unrealizedPnl")}
         </Text>
         {visibleAvailable && (
-          <button onClick={() => onToggleVisibility?.()}>
+          <button
+            type="button"
+            className="oui-shell-icon-button"
+            aria-label={visible ? "Hide account values" : "Show account values"}
+            aria-pressed={!!visible}
+            onClick={() => onToggleVisibility?.()}
+          >
             {visible ? (
               <EyeIcon
                 size={12}
@@ -220,7 +232,13 @@ const UnrealPnL: FC<{
         visible={visible}
         intensity={98}
         suffix={
-          <Text.numeral coloring prefix={"("} suffix={")"} rule={"percentages"}>
+          <Text.numeral
+            coloring
+            intensity={98}
+            prefix={"("}
+            suffix={")"}
+            rule={"percentages"}
+          >
             {props.unrealized_pnl_ROI ?? "-"}
           </Text.numeral>
         }
@@ -259,20 +277,18 @@ const AccountInfoPopover = (props: {
     switch (key) {
       case "totalValue":
         return (
-          <DropdownMenu onSetTop={onSetToTop("totalValue")} key={key}>
-            <Flex className={"oui-text-base-contrast-54"} gapX={2}>
-              <IdentityButton
-                active={keys.includes("totalValue")}
-                onClick={() => props.onToggleItemByKey("totalValue")}
-              />
-              <span>{t("common.totalValue")}</span>
-            </Flex>
+          <DropdownMenu
+            onSetTop={onSetToTop("totalValue")}
+            label={t("common.totalValue")}
+            active={keys.includes("totalValue")}
+            onToggle={() => props.onToggleItemByKey("totalValue")}
+            key={key}
+          >
             <Text.numeral
               intensity={98}
               visible={props.visible}
               unit="USDC"
-              className="oui-transition-transform group-hover:-oui-translate-x-5"
-              unitClassName={"oui-text-base-contrast-36 oui-ms-1"}
+              unitClassName={"oui-text-base-contrast-80 oui-ms-1"}
             >
               {totalValue ?? "-"}
             </Text.numeral>
@@ -280,20 +296,18 @@ const AccountInfoPopover = (props: {
         );
       case "freeCollateral":
         return (
-          <DropdownMenu onSetTop={onSetToTop("freeCollateral")} key={key}>
-            <Flex className={"oui-text-base-contrast-54"} gapX={2}>
-              <IdentityButton
-                active={keys.includes("freeCollateral")}
-                onClick={() => props.onToggleItemByKey("freeCollateral")}
-              />
-              <span>{t("trading.asset.freeCollateral")}</span>
-            </Flex>
+          <DropdownMenu
+            onSetTop={onSetToTop("freeCollateral")}
+            label={t("trading.asset.freeCollateral")}
+            active={keys.includes("freeCollateral")}
+            onToggle={() => props.onToggleItemByKey("freeCollateral")}
+            key={key}
+          >
             <Text.numeral
               intensity={98}
               unit="USDC"
               visible={props.visible}
-              className="oui-transition-transform group-hover:-oui-translate-x-5"
-              unitClassName={"oui-text-base-contrast-36 oui-ms-1"}
+              unitClassName={"oui-text-base-contrast-80 oui-ms-1"}
             >
               {props.freeCollateral ?? "-"}
             </Text.numeral>
@@ -301,23 +315,22 @@ const AccountInfoPopover = (props: {
         );
       case "unrealPnL":
         return (
-          <DropdownMenu onSetTop={onSetToTop("unrealPnL")} key={key}>
-            <Flex className={"oui-text-base-contrast-54"} gapX={2}>
-              <IdentityButton
-                active={keys.includes("unrealPnL")}
-                onClick={() => props.onToggleItemByKey("unrealPnL")}
-              />
-              <span>{t("common.unrealizedPnl")}</span>
-            </Flex>
+          <DropdownMenu
+            onSetTop={onSetToTop("unrealPnL")}
+            label={t("common.unrealizedPnl")}
+            active={keys.includes("unrealPnL")}
+            onToggle={() => props.onToggleItemByKey("unrealPnL")}
+            key={key}
+          >
             <Text.pnl
               intensity={98}
               coloring
               showIdentifier
               visible={props.visible}
-              className="oui-transition-transform group-hover:-oui-translate-x-5"
               suffix={
                 <Text.roi
                   coloring
+                  intensity={98}
                   prefix={"("}
                   visible={props.visible}
                   suffix={")"}
@@ -333,19 +346,14 @@ const AccountInfoPopover = (props: {
         );
       case "currentLeverage":
         return (
-          <DropdownMenu onSetTop={onSetToTop("currentLeverage")} key={key}>
-            <Flex className={"oui-text-base-contrast-54"} gapX={2}>
-              <IdentityButton
-                active={keys.includes("currentLeverage")}
-                onClick={() => props.onToggleItemByKey("currentLeverage")}
-              />
-              <span>{t("leverage.currentLeverage")}</span>
-            </Flex>
-            <Text.numeral
-              intensity={98}
-              className="oui-transition-transform group-hover:-oui-translate-x-5"
-              unit="x"
-            >
+          <DropdownMenu
+            onSetTop={onSetToTop("currentLeverage")}
+            label={t("leverage.currentLeverage")}
+            active={keys.includes("currentLeverage")}
+            onToggle={() => props.onToggleItemByKey("currentLeverage")}
+            key={key}
+          >
+            <Text.numeral intensity={98} unit="x">
               {props.currentLeverage ?? "-"}
             </Text.numeral>
           </DropdownMenu>
@@ -370,49 +378,69 @@ const AccountInfoPopover = (props: {
 const DropdownMenu: FC<
   PropsWithChildren<{
     onSetTop: (event: React.MouseEvent) => void;
+    label: string;
+    active: boolean;
+    onToggle: () => void;
   }>
 > = (props) => {
   return (
-    <div className="oui-group oui-relative oui-w-full oui-rounded oui-px-[6px] oui-py-1 hover:oui-bg-base-6">
-      <Flex justify={"between"} width={"100%"}>
+    <div className="oui-group oui-flex oui-w-full oui-min-w-0 oui-flex-col oui-gap-2 oui-rounded oui-p-2 hover:oui-bg-base-6">
+      <span className="oui-text-base-contrast-80">{props.label}</span>
+      <div className="oui-flex oui-min-w-0 oui-flex-wrap oui-justify-end oui-gap-1 oui-tabular-nums">
         {props.children}
-      </Flex>
-      <button
-        className="oui-absolute oui-end-1 oui-top-1"
-        onClick={props.onSetTop}
-      >
-        <svg
-          className="oui-translate-x-3 oui-cursor-pointer oui-opacity-0 oui-transition-all group-hover:oui-translate-x-0 group-hover:oui-opacity-100 oui-group/icon"
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
+      </div>
+      <div className="oui-flex oui-justify-end oui-gap-2">
+        <IdentityButton
+          active={props.active}
+          onClick={props.onToggle}
+          label={props.label}
+        />
+        <button
+          type="button"
+          aria-label={`Move ${props.label} to top`}
+          className="oui-shell-icon-button"
+          onClick={props.onSetTop}
         >
-          <rect
+          <svg
+            className="oui-group/icon"
             width="16"
             height="16"
-            rx="2"
-            // fill="rgb(var(--oui-color-primary-darken))"
-            className="oui-fill-primary-darken"
-          />
-          <path
-            // fill="rgb(var(--oui-color-primary-contrast))"
-            className="oui-fill-primary-contrast/50 group-hover/icon:oui-fill-primary-contrast"
-            d="M3.507 3.999a.5.5 0 1 0 0 1h9a.5.5 0 0 0 0-1zm4 8.006a.5.5 0 0 0 1 0V7.724l1.5 1.484.703-.703-2.343-2.36a.515.515 0 0 0-.72 0l-2.343 2.36.703.703 1.5-1.484z"
-          />
-        </svg>
-      </button>
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              width="16"
+              height="16"
+              rx="2"
+              // fill="rgb(var(--oui-color-primary-darken))"
+              className="oui-fill-primary-darken"
+            />
+            <path
+              // fill="rgb(var(--oui-color-primary-contrast))"
+              className="oui-fill-primary-contrast/50 group-hover/icon:oui-fill-primary-contrast"
+              d="M3.507 3.999a.5.5 0 1 0 0 1h9a.5.5 0 0 0 0-1zm4 8.006a.5.5 0 0 0 1 0V7.724l1.5 1.484.703-.703-2.343-2.36a.515.515 0 0 0-.72 0l-2.343 2.36.703.703 1.5-1.484z"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 };
 
 const IdentityButton = (props: {
   active: boolean;
+  label: string;
   onClick: React.MouseEventHandler;
 }) => {
   return (
-    <button onClick={props.onClick}>
+    <button
+      type="button"
+      className="oui-shell-icon-button"
+      aria-label={`Show ${props.label}`}
+      aria-pressed={props.active}
+      onClick={props.onClick}
+    >
       {props.active ? (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -462,36 +490,7 @@ const AccountSummaryItems: Record<SummaryKey, JSX.ElementType> = {
 export const AccountSummary: React.FC<AccountSummaryUi> = (props) => {
   const { keys, ...rest } = props;
   let canToggleIndex = 0;
-  const sizeRef = React.useRef(0);
-
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (Array.isArray(entries) && entries.length > 0) {
-        const width = entries[0].contentRect.width;
-        if (width > 1556) {
-          sizeRef.current = 5;
-        } else if (width > 1480) {
-          sizeRef.current = 4;
-        } else if (width > 1366) {
-          sizeRef.current = 3;
-        } else if (width > 1280) {
-          sizeRef.current = 2;
-        } else if (width > 1180) {
-          sizeRef.current = 1;
-        } else {
-          sizeRef.current = 0;
-        }
-      }
-    });
-
-    resizeObserver.observe(document.body);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  const elements = keys.slice(0, sizeRef.current).map((key, index) => {
+  const elements = keys.map((key, index) => {
     switch (key) {
       case "freeCollateral": {
         return (
@@ -532,7 +531,7 @@ export const AccountSummary: React.FC<AccountSummaryUi> = (props) => {
   });
 
   return (
-    <div className="oui-flex oui-items-center oui-gap-6">
+    <div className="oui-flex oui-min-w-0 oui-max-w-full oui-flex-wrap oui-items-center oui-gap-6">
       <Items elements={elements} />
       <Popover
         content={
@@ -550,15 +549,18 @@ export const AccountSummary: React.FC<AccountSummaryUi> = (props) => {
           />
         }
         contentProps={{
-          onOpenAutoFocus: (event) => event.preventDefault(),
           sideOffset: 12,
           className: "oui-p-1",
         }}
         arrow
       >
-        <div className="oui-cursor-pointer oui-group">
+        <button
+          type="button"
+          className="oui-shell-icon-button oui-group"
+          aria-label="Account summary settings"
+        >
           <Dot />
-        </div>
+        </button>
       </Popover>
     </div>
   );
@@ -568,7 +570,7 @@ const Items: FC<{
   elements: JSX.Element[];
 }> = (props) => {
   return (
-    <div className="oui-flex oui-gap-6">
+    <div className="oui-flex oui-min-w-0 oui-flex-wrap oui-gap-6">
       {props.elements.map((Element, index) => (
         <div key={index}>{Element}</div>
       ))}
@@ -584,7 +586,7 @@ const Dot = () => {
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="oui-fill-base-contrast-36 hover:oui-fill-primary-light group-data-[state=open]:oui-fill-primary-light"
+      className="oui-fill-base-contrast-80 hover:oui-fill-primary-light group-data-[state=open]:oui-fill-primary-light"
     >
       <path d="M10.007 8.335a1.666 1.666 0 1 1 0 3.333 1.666 1.666 0 0 1 0-3.333m-5.84 0a1.666 1.666 0 1 1 0 3.333 1.666 1.666 0 0 1 0-3.333m11.666 0a1.666 1.666 0 1 1 0 3.333 1.666 1.666 0 0 1 0-3.333" />
     </svg>
