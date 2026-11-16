@@ -249736,7 +249736,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.767]
 title = "Compose the route that brings the history below the anchor into the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.749"]
