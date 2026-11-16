@@ -1,11 +1,10 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react-dom/test-utils";
-import { afterEach, expect, it, vi } from "vitest";
 import { useSwapQuote } from "../useSwapQuote";
 
-const mock = vi.hoisted(() => ({ trigger: vi.fn(), reset: vi.fn() }));
-vi.mock("../../useMutation", () => ({
+const mock = { trigger: jest.fn(), reset: jest.fn() };
+jest.mock("../../useMutation", () => ({
   useMutation: () => [mock.trigger, { reset: mock.reset, isMutating: false }],
 }));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -13,7 +12,7 @@ let root: ReturnType<typeof createRoot>;
 let state: ReturnType<typeof useSwapQuote>;
 afterEach(() => {
   if (root) act(() => root.unmount());
-  vi.clearAllMocks();
+  jest.clearAllMocks();
 });
 const request = {
   fromToken: "USDC",
