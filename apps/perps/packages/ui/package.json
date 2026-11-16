@@ -46,7 +46,7 @@
     "ethereum-blockies-base64": "^1.0.2",
     "ramda": "^0.29.0",
     "react-day-picker": "^8.10.1",
-    "react-error-boundary": "^4.0.13",
+    "react-error-boundary": "^6.1.6",
     "react-hot-toast": "^2.4.1",
     "tailwind-variants": "^0.2.1",
     "embla-carousel": "8.6.0"
