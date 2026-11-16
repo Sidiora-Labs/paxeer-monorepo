@@ -115,6 +115,12 @@
     ]
   },
   "indexer": {
+    "optional": {
+      "INDEXER_MODE": true,
+      "BACKFILL_FROM_BLOCK": true,
+      "BACKFILL_BATCH_SIZE": true,
+      "BACKFILL_ONLY": true
+    },
     "buildArgs": {
       "SERVICE": "indexer",
       "BIN": "indexerd"
