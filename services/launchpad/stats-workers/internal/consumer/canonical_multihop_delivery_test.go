@@ -138,7 +138,7 @@ func newCanonicalRouteFixture(t *testing.T) *canonicalRouteFixture {
 	f := &canonicalRouteFixture{}
 	f.dsn, f.pg = internaltest.NewPostgresWithDSN(t)
 	f.exec(t, "CREATE SCHEMA indexer")
-	for _, id := range []string{"60000", "80000", "190001"} {
+	for _, id := range []string{"60000", "80000", "190001", "60002"} {
 		ddl, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
