@@ -249617,7 +249617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.735]
 title = "Give the composer example values of the gateway the forms the gateway admits and hold them with a case of the app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.729"]
