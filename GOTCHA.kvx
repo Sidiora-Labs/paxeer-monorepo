@@ -22645,3 +22645,13 @@ fix = "Decision 3646. Tasks 22.39.716 and 22.39.717; task 22.39.571."
 title = "A floor of the trading workspace states one minimum where the lockfile holds a package in several lines"
 symptom = "The file tools/deps/floors/perps-web.json states minimum releases for packages of the lockfile of the trading workspace, and the checker of tools/deps compares every resolved copy with its floor. The workspace holds several packages in more than one line, since the packages that use them admit different lines. An entry of the file is a plain minimum that every copy must meet, or a minimum with the release from which it applies."
 fix = "Decision 3647. Task 22.39.718."
+
+[gotcha.4565]
+title = "The stand-in receipt key of the command applycheck is registered through the check context"
+symptom = "With the flag stand-in-receipt-key the command applycheck registers its key through the check context of the first application copy: the record of the pinned keys, the parameter record and the pins of the key in memory. The admission of a batch reads the record of the pinned keys in the state the block executes on and takes a key only where its range covers the height of the block. The cases of the check in the package node run the forms through an executor of the test, and the cases of the command run on a home made by a test application. No case runs the executor of node/sequencer with the stand-in key on a home opened from its files in which sequencing is active."
+fix = "Decision 3648. Task 22.39.719."
+
+[gotcha.4566]
+title = "The node runs without the engine library and the fast form of the command applycheck refuses without it"
+symptom = "The node loads the engine library of the fast executor where it finds it under the name the package engine/executor/lib gives, and starts and executes without it. The command applycheck opens its fast form with the fast executor enabled and refuses the whole check where the library was not loaded, before any form runs."
+fix = "Decision 3649. Task 22.39.719."

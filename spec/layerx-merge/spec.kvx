@@ -14998,6 +14998,18 @@ value = "A package is raised to its floor through the manifest that names it or 
 basis = "Gotcha 4564. Decision 3646."
 affects = []
 
+[decision.3648]
+title = "The stand-in receipt key is registered in the state every form executes the block of the check on"
+value = "With the flag every form admits the batch of the check under the stand-in key: the record of the pinned keys the admission reads at the height of the block holds the key in the sequencing form, in the fast form and in the ordinary form. This holds on a copy opened from its files whose list of pinned keys was committed by blocks, where the list holds several keys, where keys have closed ranges of heights, and where sequencing is active at the height of the block. The stand-in key lives only in the process, no form commits, and the copy takes no change beyond the changes the check makes now. Without the flag the command behaves as now."
+basis = "Gotcha 4565. Decisions 3641 and 3633."
+affects = []
+
+[decision.3649]
+title = "The fast form of the command applycheck opens as the node opens it"
+value = "The fast form enables the fast executor and loads the engine library where it is found, as the node does. An absent library refuses nothing. The report holds a member for the fast form that names whether the library was loaded, with the values loaded and absent, so that a reader of the report knows what the form ran with. The forms, the results per transaction and the comparison stay as they are."
+basis = "Gotcha 4566. Decision 3633."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44658,6 +44670,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.719]
+title = "Register the stand-in receipt key where every form of applycheck executes, and open the fast form as the node opens it"
+reqs = ["22998.1"]
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md", "modules/sequencer/keeper", "engine/executor/lib"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 60m ./node/sequencer/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+do_1 = "do_1 Gotchas 4565 and 4566, decisions 3648 and 3649. Read node/sequencer/apply_check.go with the preparation of the stand-in key, the building of the block and the execution of a form, node/apply_check.go with the opening of each form, the place of the preparation in the order of the forms, the refusal of the fast form and the report, modules/sequencer/keeper/keeper.go with the record of the pinned keys and the admission of a batch, modules/sequencer/keeper/receipt_keys.go with the parameter record, node/app.go with the loading of the engine library, engine/executor/lib/evmlib.go, the cases of node/apply_check_test.go and daemon/paxd/cmd/applycheck_test.go, and the sections on the command in node/README.md and daemon/README.md."
+symbols = []
 
 [capability.22.39.718]
 title = "Bring the lockfile of the trading workspace to its floors"
@@ -248403,6 +248424,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.719]
+title = "Register the stand-in receipt key where every form of applycheck executes, and open the fast form as the node opens it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.712"]
+reqs = ["22998.1"]
+capabilities = ["22.39.719"]
+interfaces = []
+do_1 = "do_1 Gotchas 4565 and 4566, decisions 3648 and 3649. Read node/sequencer/apply_check.go with the preparation of the stand-in key, the building of the block and the execution of a form, node/apply_check.go with the opening of each form, the place of the preparation in the order of the forms, the refusal of the fast form and the report, modules/sequencer/keeper/keeper.go with the record of the pinned keys and the admission of a batch, modules/sequencer/keeper/receipt_keys.go with the parameter record, node/app.go with the loading of the engine library, engine/executor/lib/evmlib.go, the cases of node/apply_check_test.go and daemon/paxd/cmd/applycheck_test.go, and the sections on the command in node/README.md and daemon/README.md."
+do_2 = "do_2 Make a home by hand first as a case does: a test application in which sequencing is active, whose list of pinned keys holds two keys committed by blocks, one with a closed range below the height of the check and one whose range is open, closed and opened again from its files by the check with the executor of node/sequencer and the flag. Read what each of the three forms answers on the admission of the batch."
+do_3 = "do_3 With the flag the stand-in key is registered in the state each form executes the block of the check on, so that the admission of the batch finds the key at the height of the block in the sequencing form, in the fast form and in the ordinary form. The parameter record and the pins of the key in memory hold the same key. The key is written to no file and appears in no output, no form commits, and the copy takes no change beyond the changes the check makes now. Without the flag the command behaves as now, with its refusals and its exit statuses."
+do_4 = "do_4 The fast form enables the fast executor and loads the engine library where it is found, as the node does, and an absent library refuses nothing. The report holds a member for the fast form that names whether the library was loaded, with the values loaded and absent. The forms, the results per transaction and the comparison stay as they are."
+do_5 = "do_5 Add node/sequencer/apply_check_test.go with cases on the home of do_2, run with the executor of the package and not with an executor of the test: with the flag every form admits the batch over a transfer and over a contract creation, the comparison is equal and the report names the mode stand-in; the same holds where the list of pinned keys holds one open key; without the flag and without key files the home is refused as now. Add a case in which the engine library is not loaded: the fast form runs, the comparison is equal and the report names the library absent; and a case in which it is loaded and the report names it loaded. Bring the cases of node/apply_check_test.go and daemon/paxd/cmd/applycheck_test.go in line where they read the refusal of the fast form or the members of the report. No present case is removed or weakened."
+do_6 = "do_6 State in node/README.md and daemon/README.md what the flag registers and where, how the fast form opens, and the member of the report on the engine library."
+do_7 = "do_7 The files under modules/sequencer/keeper and engine/executor/lib are inside the paths of this task where a repair needs them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md", "modules/sequencer/keeper", "engine/executor/lib"]
+tests = []
+planned_paths = ["node/sequencer/apply_check_test.go"]
+build_cmd = "go build ./node/... ./daemon/... ./modules/sequencer/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 60m ./node/sequencer/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.714]
 title = "Let the perps data gateway admit the browser origins its setting lists"
