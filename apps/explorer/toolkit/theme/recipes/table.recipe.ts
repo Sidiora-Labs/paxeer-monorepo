@@ -41,7 +41,7 @@ export const recipe = defineSlotRecipe({
           },
         },
         cell: {
-          borderBottomWidth: '1px',
+          borderBottomWidth: 'var(--chakra-border-widths-1)',
           borderColor: 'border.divider',
         },
         row: {
@@ -56,9 +56,9 @@ export const recipe = defineSlotRecipe({
           color: 'table.header.fg',
           backgroundColor: 'table.header.bg',
           textStyle: 'xs',
-          fontWeight: '500',
+          fontWeight: 'medium',
           letterSpacing: 'wide',
-          borderBottomWidth: '1px',
+          borderBottomWidth: 'var(--chakra-border-widths-1)',
           borderColor: 'border.strong',
           _first: {
             borderTopLeftRadius: 'sm',
@@ -69,7 +69,7 @@ export const recipe = defineSlotRecipe({
         },
         cell: {
           color: 'text.primary',
-          borderBottomWidth: '1px',
+          borderBottomWidth: 'var(--chakra-border-widths-1)',
           borderColor: 'border.divider',
         },
         row: {
@@ -92,8 +92,8 @@ export const recipe = defineSlotRecipe({
           fontSize: 'sm',
         },
         columnHeader: {
-          px: '6px',
-          py: '10px',
+          px: 'var(--chakra-spacing-1\\.5)',
+          py: 'var(--chakra-spacing-2\\.5)',
           _first: {
             pl: 3,
           },
@@ -102,7 +102,7 @@ export const recipe = defineSlotRecipe({
           },
         },
         cell: {
-          px: '6px',
+          px: 'var(--chakra-spacing-1\\.5)',
           py: 4,
           _first: {
             pl: 3,
@@ -120,27 +120,27 @@ export const recipe = defineSlotRecipe({
     {
       variant: [ 'line', 'scan' ],
       css: {
-        root: { bg: 'canvas', borderTopWidth: '1px', borderColor: 'hairline' },
-        header: { height: '36px' },
+        root: { bg: 'canvas', borderTopWidth: 'var(--chakra-border-widths-1)', borderColor: 'hairline' },
+        header: { height: 'var(--chakra-spacing-9)' },
         columnHeader: {
           textStyle: 'label',
-          height: '36px',
+          height: 'var(--chakra-spacing-9)',
           py: 0,
           color: 'text.muted',
           backgroundColor: 'canvas',
-          borderBottomWidth: '1px',
+          borderBottomWidth: 'var(--chakra-border-widths-1)',
           borderColor: 'hairline',
           _first: { borderTopLeftRadius: 'none' },
           _last: { borderTopRightRadius: 'none' },
           '&[data-is-numeric=true], &[data-numeric]': { textAlign: 'right' },
         },
-        row: { height: '44px', bg: 'canvas', _hover: { bg: 'raised' } },
+        row: { height: 'var(--chakra-spacing-11)', bg: 'canvas', _hover: { bg: 'raised' } },
         cell: {
           textStyle: 'small',
-          height: '44px',
-          py: '12px',
+          height: 'var(--chakra-spacing-11)',
+          py: 'var(--chakra-spacing-3)',
           verticalAlign: 'middle',
-          borderBottomWidth: '1px',
+          borderBottomWidth: 'var(--chakra-border-widths-1)',
           borderColor: 'hairline',
           '&[data-is-numeric=true], &[data-numeric]': { textAlign: 'right', textStyle: 'number' },
         },

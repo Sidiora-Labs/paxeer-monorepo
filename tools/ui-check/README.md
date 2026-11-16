@@ -13,6 +13,9 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
+The workflow at `.github/workflows/ui-check-test.yml` runs these same commands
+from this directory for changes to the render check and its workflow.
+
 Only `playwright`, `axe-core` and the PNG decoder `pngjs` are dependencies, at
 the exact versions in `package.json`. The browser and its system packages are
 installed separately.
@@ -196,6 +199,12 @@ State steps and the doubled-text mode discard the layout movement caused by
 those intentional changes before that observation interval. Findings concern
 the render and observation interval. Visual review of the screenshots covers
 qualities that these measurements do not establish.
+
+Requests may still be pending when their render finishes, reaches its deadline
+or closes its browser context. Rejections from routing replies and WebSocket
+answers after that point are discarded, and the check finishes with its report
+and the exit status of its findings. Request failures while the render is active
+remain `load` findings with source `requestfailed`.
 
 ## Adding a surface
 

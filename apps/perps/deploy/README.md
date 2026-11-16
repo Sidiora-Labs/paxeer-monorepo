@@ -182,8 +182,10 @@ into the image or injected wholesale at runtime.
 
 Public settings are declared once each as sorted Docker build arguments and
 forwarded by Compose. `build-args.production.env` supplies public values to
-the image publishing script. Optional blank arguments use application defaults;
-set `NEXT_PUBLIC_PERPS_GATEWAY_URL` to the deployment's public gateway origin.
+the image publishing script. The production build takes
+`NEXT_PUBLIC_PERPS_GATEWAY_URL=https://perps-api.paxeer.app` from that file.
+Another deployment sets its own gateway origin; `.env.production.example`
+leaves this value empty. Optional blank arguments use application defaults.
 
 The Dockerfile installs the whole workspace with its frozen pnpm lockfile and
 manifest-pinned package manager. It copies the charting library and datafeeds

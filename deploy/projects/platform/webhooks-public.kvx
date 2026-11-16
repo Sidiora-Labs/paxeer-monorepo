@@ -11,6 +11,7 @@ order = 8
 needs = ["redis-internal", "internal-kms", "identity"]
 
 [vars.webhooks-public]
+LAYERX_WEBHOOKS_NETWORK_ID = "env:PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID"
 LAYERX_FILES_OWNER = "65532:65532"
 LAYERX_ROLE = "public"
 PORT = "9444"
@@ -47,6 +48,8 @@ WEBHOOKS_IDENTITY_TOKEN = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_IDENTITY_TOKEN"
 WEBHOOKS_CURSOR_KEY = "env:PLATFORM_WEBHOOKS_PUBLIC_WEBHOOKS_CURSOR_KEY"
 
 [inputs.webhooks-public]
+# Network label used by the project gateway: 1-64 printable ASCII bytes without spaces.
+PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID = "operator"
 # Redis TLS origin used by the durable delivery store.
 PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_REDIS_URL = "operator"
 # KMS HTTPS origin used for webhook signing operations.

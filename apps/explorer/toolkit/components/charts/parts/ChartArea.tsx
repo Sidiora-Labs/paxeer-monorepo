@@ -3,6 +3,9 @@ import React from 'react';
 
 import type { TimeChartItem } from '../types';
 
+import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import { motionDuration } from '../../../theme/motion';
+
 export interface ChartAreaProps extends React.SVGProps<SVGPathElement> {
   id: string;
   xScale: d3.ScaleTime<number, number> | d3.ScaleLinear<number, number>;
@@ -16,20 +19,21 @@ export interface ChartAreaProps extends React.SVGProps<SVGPathElement> {
 }
 
 export const ChartArea = React.memo(({ id, xScale, yScale, gradient, data, noAnimation, ...props }: ChartAreaProps) => {
+  const reducedMotion = useReducedMotion();
   const ref = React.useRef(null);
 
   const gradientId = `gradient-chart-area-${ id }`;
 
   React.useEffect(() => {
-    if (noAnimation) {
+    if (noAnimation || reducedMotion) {
       d3.select(ref.current).attr('opacity', 1);
       return;
     }
     d3.select(ref.current).transition()
-      .duration(750)
+      .duration(motionDuration('chart'))
       .ease(d3.easeBackIn)
       .attr('opacity', 1);
-  }, [ noAnimation ]);
+  }, [ noAnimation, reducedMotion ]);
 
   const d = React.useMemo(() => {
     const area = d3.area<TimeChartItem>()

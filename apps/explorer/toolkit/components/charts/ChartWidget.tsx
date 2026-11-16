@@ -140,7 +140,7 @@ export const ChartWidget = React.memo(({
       flexDir="column"
       padding={{ base: 3, lg: 4 }}
       borderRadius="lg"
-      borderWidth="1px"
+      borderWidth="var(--chakra-border-widths-1)"
       borderColor={{ _light: 'gray.200', _dark: 'gray.600' }}
       { ...rest }
     >

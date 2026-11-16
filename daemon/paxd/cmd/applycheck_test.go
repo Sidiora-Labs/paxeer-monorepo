@@ -129,7 +129,22 @@ func TestApplyCheck(t *testing.T) {
 		require.Equal(t, "pax-test", report.ChainID)
 		require.Equal(t, int64(2), report.Height)
 		require.Len(t, report.Forms, 3)
+		require.Equal(t, "registered", report.ReceiptKeyMode)
+		require.Equal(t, "follower_fast", report.Forms[1].Name)
+		require.Contains(t, []string{"loaded", "absent"}, report.Forms[1].EngineLibrary)
 		require.Equal(t, time.Date(2027, 1, 15, 8, 0, 2, 0, time.UTC), report.Time)
+	})
+	t.Run("stand_in_receipt_key", func(t *testing.T) {
+		output := filepath.Join(t.TempDir(), "report.json")
+		run([]string{"--home", home, "--tx", valid, "--stand-in-receipt-key", "--output", output}, 0)
+		data, err := os.ReadFile(output)
+		require.NoError(t, err)
+		var report app.ApplyCheckReport
+		require.NoError(t, json.Unmarshal(data, &report))
+		require.True(t, report.Comparison.Equal, "%s", data)
+		require.Equal(t, "stand-in", report.ReceiptKeyMode)
+		require.Len(t, report.Forms, 3)
+		require.Contains(t, []string{"loaded", "absent"}, report.Forms[1].EngineLibrary)
 	})
 	t.Run("differs", func(t *testing.T) {
 		output := filepath.Join(t.TempDir(), "report.json")

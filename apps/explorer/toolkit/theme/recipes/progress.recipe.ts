@@ -14,6 +14,7 @@ export const recipe = defineSlotRecipe({
       borderRadius: 'base',
     },
     range: {
+      _motionReduce: { transitionProperty: 'color, background-color, border-color, opacity' },
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -27,7 +28,7 @@ export const recipe = defineSlotRecipe({
         position: 'absolute',
         willChange: 'left',
         minWidth: '50%',
-        animation: 'position 1s ease infinite normal none running',
+        _motionSafe: { animation: 'position var(--chakra-durations-cycle) var(--chakra-easings-standard) infinite normal none running' },
         backgroundImage: `linear-gradient(to right, transparent 0%, var(--track-color) 50%, transparent 100%)`,
       },
     },
@@ -70,7 +71,7 @@ export const recipe = defineSlotRecipe({
           // eslint-disable-next-line max-len
           backgroundImage: `linear-gradient(45deg, var(--stripe-color) 25%, transparent 25%, transparent 50%, var(--stripe-color) 50%, var(--stripe-color) 75%, transparent 75%, transparent)`,
           backgroundSize: `var(--stripe-size) var(--stripe-size)`,
-          '--stripe-size': '1rem',
+          '--stripe-size': 'var(--chakra-spacing-4)',
           '--stripe-color': '{colors.progress.stripe}',
         },
       },
@@ -80,7 +81,7 @@ export const recipe = defineSlotRecipe({
       'true': {
         range: {
           '--animate-from': 'var(--stripe-size)',
-          animation: 'bg-position 1s linear infinite',
+          _motionSafe: { animation: 'bg-position var(--chakra-durations-cycle) linear infinite' },
         },
       },
     },
