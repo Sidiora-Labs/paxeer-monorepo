@@ -76,6 +76,22 @@ compiled into the production rewrite, and
 origin the web calls at runtime for sign-in. Both values are absolute HTTP(S)
 origins; the API origin remains the web container's build argument.
 
+The dashboard API and both webhook services take these `operator` inputs for
+the network label used by the project gateway. Each value is 1–64 printable
+ASCII bytes without spaces (bytes `0x21`–`0x7e`):
+
+| Service | Input | Runtime setting |
+| --- | --- | --- |
+| `dashboard` | `PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID` | `LAYERX_DASHBOARD_NETWORK_ID` |
+| `webhooks-public` | `PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID` | `LAYERX_WEBHOOKS_NETWORK_ID` |
+| `webhooks-ingress` | `PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_NETWORK_ID` | `LAYERX_WEBHOOKS_NETWORK_ID` |
+
+Their `/healthz` responses always include the package `version` and include
+`network_id` when the runtime setting is present. The gateway bindings use
+`/healthz` for health and identity, `/ready` equal to `true`, `/network_id`
+equal to the gateway network label, and `/version` equal to the deployed
+package version. Webhook `/livez` responses contain only `live` and `role`.
+
 The platform [gateway definition](platform/gateway.kvx) sets `LAYERX_ROLE=identity`
 and `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` for developer registration
 and sessions. `LAYERX_GATEWAY_IDENTITY_URL` reads the operator input

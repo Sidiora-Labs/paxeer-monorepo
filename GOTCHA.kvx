@@ -22600,3 +22600,23 @@ fix = "Decision 3637. Tasks 22.44.1 to 22.44.11 and 22.44.38."
 title = "The native file table of the gateway holds rows the general table does not hold, and the general table leaves modes open"
 symptom = "The table docker/platform-gateway/native-files.tsv is the table of the native deployment and docker/platform-gateway/files.tsv the general one. The native table holds rows of inputs the general table does not name, and every row of the native table states a mode while rows of the general table leave the mode open. A case that compares the two tables compares the rows whose name both tables hold, by name and path."
 fix = "Decision 3638. Task 22.39.709."
+
+[gotcha.4556]
+title = "A service that serves TLS under the internal CA has a row in the roster of service certificates"
+symptom = "The definition deploy/projects/platform/receipt-authority.kvx reads the server certificate of the hosted authority and its key as inputs of the kind operator. The CA tool issues a certificate for a row of tools/bringup/ca-services.tsv, and the roster names the hosted authority in no row. The roster refuses the name receipt-authority among the names of retired owners, and several cases hold the count of its rows."
+fix = "Decision 3639. Task 22.39.711."
+
+[gotcha.4557]
+title = "An answer of the render check to a request can end after the render of its page"
+symptom = "The render check answers each request of a page through the routing of its browser context: a request to the surface is fetched and its response is passed on, and another request takes its fixed answer or is refused. A render ends after its measurements or at its deadline, and its context closes while a request can still be in its answer. A call that passes on, answers, continues or refuses a request after its context has closed is rejected, and a rejection without a reader ends the process of the check before its report."
+fix = "Decision 3640. Task 22.44.59; tasks 22.44.55, 22.44.38 and 22.44.39."
+
+[gotcha.4558]
+title = "A copy of a home of a node that does not sequence holds no receipt key"
+symptom = "The command applycheck of the node tool builds the block of its check on a chain with sequencing from the receipt key of the home: it reads the key file the setting sequencer.receipt-key-file names, reads the consensus key file of the home, and takes the key only where it matches a key the state registers. A node that does not sequence holds no receipt key, so a copy of its home holds none, and the command refuses such a copy before any form runs."
+fix = "Decision 3641. Task 22.39.712."
+
+[gotcha.4559]
+title = "The hosted gateway binds a service by its network and its version, and two health answers name neither"
+symptom = "A binding of a product service in the hosted gateway reads the health answer of the service through three pointers: one to its ready state, one to its network and one to its version. The health answer of the dashboard API holds the member ready alone, and the health answer of the hosted webhooks service holds its ready state, its role and its components. Neither answer holds a member for the network or for the version, and neither service reads a setting for its network."
+fix = "Decision 3642. Task 22.39.713."
