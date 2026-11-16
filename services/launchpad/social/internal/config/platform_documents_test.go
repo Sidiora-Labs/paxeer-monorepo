@@ -90,8 +90,43 @@ func setPlatformDocumentEnvironment(t *testing.T, documents map[string]string) {
 func TestPlatformDocumentsComposeAndLoad(t *testing.T) {
 	documents := composeSocialDocuments(t)
 	setPlatformDocumentEnvironment(t, documents)
-	if _, err := Load(); err != nil {
+	cfg, err := Load()
+	if err != nil {
 		t.Fatalf("Load composed platform documents: %v", err)
+	}
+	raw, err := boundBytes(cfg.SocialRuntimeFile, cfg.SocialRuntimeDocument, cfg.SocialRuntimeSHA256)
+	if err != nil {
+		t.Fatalf("read composed social runtime document: %v", err)
+	}
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &document); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := document["voice"]; ok {
+		t.Fatal("composed social runtime document enabled voice")
+	}
+	var binding SocialRuntimeBinding
+	if err := decodeBoundDocument(cfg.SocialRuntimeFile, cfg.SocialRuntimeDocument, cfg.SocialRuntimeSHA256, &binding); err != nil {
+		t.Fatalf("read composed social runtime binding: %v", err)
+	}
+	if binding.Voice != nil {
+		t.Fatal("loaded social runtime binding enabled voice")
+	}
+}
+
+func TestPlatformDocuments(t *testing.T) {
+	documents := composeSocialDocuments(t)
+	setPlatformDocumentEnvironment(t, documents)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load composed platform documents: %v", err)
+	}
+	var binding SocialRuntimeBinding
+	if err := decodeBoundDocument(cfg.SocialRuntimeFile, cfg.SocialRuntimeDocument, cfg.SocialRuntimeSHA256, &binding); err != nil {
+		t.Fatalf("decode loaded social runtime document: %v", err)
+	}
+	if binding.Voice != nil {
+		t.Fatal("service read a voice binding from the composed document")
 	}
 }
 
