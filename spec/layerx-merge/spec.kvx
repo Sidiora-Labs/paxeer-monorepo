@@ -249424,7 +249424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.741]
 title = "List the statements of the api service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249488,7 +249488,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.739]
 title = "List the statements of the pnl service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
