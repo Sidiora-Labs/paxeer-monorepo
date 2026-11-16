@@ -396,8 +396,8 @@ const StatusInfo: React.FC<ButtonProps & { description?: string }> = (
     <Flex direction={"column"}>
       <Button {...buttonProps}></Button>
       {!!description && (
-        <Box mt={4} className="oui-leading-none" style={{ lineHeight: 0 }}>
-          <Text size="2xs" intensity={36}>
+        <Box mt={4} className="oui-leading-normal">
+          <Text size="2xs" intensity={80}>
             {description}
           </Text>
         </Box>

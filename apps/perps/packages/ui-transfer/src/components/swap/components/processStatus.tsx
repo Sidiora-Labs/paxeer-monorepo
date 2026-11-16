@@ -98,8 +98,8 @@ export const ProcessStatus: FC<ProcessStatusProps> = (props) => {
           {showDashLine && (
             <div
               className={cn(
-                "oui-absolute oui-start-[10px] oui-top-[20px] oui-bottom-[38px]",
-                "oui-w-[1px] oui-h-[34px]",
+                "oui-absolute oui-start-2.5 oui-top-5 oui-bottom-9",
+                "oui-w-px oui-h-8",
                 "oui-border-e oui-border-dashed oui-border-e-line-16",
               )}
             />
@@ -111,19 +111,25 @@ export const ProcessStatus: FC<ProcessStatusProps> = (props) => {
         </Box>
 
         <Flex
+          asChild
           gapX={1}
           justify="center"
           itemAlign="center"
           className={cn(
-            statusUrl ? "oui-text-primary-light" : "oui-text-base-contrast-20",
+            statusUrl ? "oui-text-primary-light" : "oui-text-base-contrast-80",
             statusUrl ? "oui-cursor-pointer" : "oui-cursor-not-allowed",
           )}
-          onClick={() => {
-            statusUrl && window.open(statusUrl);
-          }}
         >
-          <Text size="2xs">{t("transfer.swapDeposit.viewStatus")}</Text>
-          <TopRightArrowIcon />
+          <button
+            type="button"
+            onClick={() => {
+              statusUrl && window.open(statusUrl);
+            }}
+            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+          >
+            <Text size="2xs">{t("transfer.swapDeposit.viewStatus")}</Text>
+            <TopRightArrowIcon />
+          </button>
         </Flex>
       </Box>
 
@@ -141,7 +147,7 @@ export const ProcessStatus: FC<ProcessStatusProps> = (props) => {
         )}
 
         <Button
-          className="oui-w-full lg:oui-w-[184px]"
+          className="oui-w-full lg:oui-w-44"
           disabled={disabled}
           onClick={onOk}
         >
@@ -155,7 +161,11 @@ export const ProcessStatus: FC<ProcessStatusProps> = (props) => {
 const ProcessItem: FC<TProcessItem> = ({ title, description, state }) => {
   return (
     <Flex itemAlign="start" gapX={2} key={title}>
-      <Flex width={20} height={20} justify="center">
+      <Flex
+        width="var(--oui-space-5)"
+        height="var(--oui-space-5)"
+        justify="center"
+      >
         <StatusIndicator state={state} />
       </Flex>
       <Flex direction="column" itemAlign="start">
@@ -164,7 +174,7 @@ const ProcessItem: FC<TProcessItem> = ({ title, description, state }) => {
           className={cn(
             state === "pending" || state === "failed"
               ? "oui-text-base-contrast"
-              : "oui-text-base-contrast-54",
+              : "oui-text-base-contrast-80",
           )}
         >
           {title}
@@ -173,8 +183,8 @@ const ProcessItem: FC<TProcessItem> = ({ title, description, state }) => {
           size="2xs"
           className={cn(
             state === "pending"
-              ? "oui-text-base-contrast-54"
-              : "oui-text-base-contrast-20",
+              ? "oui-text-base-contrast-80"
+              : "oui-text-base-contrast-80",
           )}
         >
           {description}
@@ -209,7 +219,14 @@ const StatusIndicator: FC<{ state?: SwapState }> = ({ state }) => {
     );
   }
 
-  return <Box r="full" width={10} height={10} intensity={200}></Box>;
+  return (
+    <Box
+      r="full"
+      width="var(--oui-space-2)"
+      height="var(--oui-space-2)"
+      intensity={200}
+    ></Box>
+  );
 };
 
 function getBridgeStatus(status: SwapProcessStatus) {

@@ -1,0 +1,84 @@
+[manifest]
+task = "22.44.15"
+surface = "The perps order entry, orders, positions, take profit and stop loss, and leverage workspace"
+
+[guide.forms]
+id = "forms"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions"]
+
+[guide.css]
+id = "css"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.html]
+id = "html"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.color]
+id = "color"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions", "apps/perps/packages/ui-tpsl", "apps/perps/packages/ui-leverage"]
+
+[view.order-entry]
+route = "/trade"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.orders]
+route = "/trade/orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.positions]
+route = "/trade/positions"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.leverage]
+route = "/trade/leverage"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.tpsl]
+route = "/trade/tpsl"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]

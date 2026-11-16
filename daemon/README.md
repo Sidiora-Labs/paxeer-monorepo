@@ -46,9 +46,12 @@ defaults to the last committed block's time plus one second. `--output` writes
 the JSON report outside the copied home; without it the report goes to stdout.
 On a home with active sequencing, copy the configured receipt and consensus
 keys and set `sequencer.receipt-key-file` in the copy's `config/app.toml` to the
-copied receipt key so the command can sign the block's sequence batch.
+copied receipt key so the command can sign the block's sequence batch. For a
+copy that has neither key file, pass `--stand-in-receipt-key`; the command uses
+an in-memory key in the temporary forms and does not write it to the copy.
 
-The report contains the chain ID, height, block time, committed height and hash,
+The report contains the chain ID, height, block time, receipt key mode
+(`registered` or `stand-in`), committed height and hash,
 and each form's transaction codes, codespaces, gas, events, EVM status, logs,
 contract addresses, receipts and resulting application hash. Its comparison
 names the first differing transaction and field; transaction positions start

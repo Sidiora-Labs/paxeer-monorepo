@@ -14932,6 +14932,42 @@ value = "The web application declares the error reporter in the range the packag
 basis = "Gotcha 4553. Decision 3630."
 affects = []
 
+[decision.3637]
+title = "The tasks of the explorer series render a bounded sample against the production form, and the whole device list is the part of the proof"
+value = "In the tasks 22.44.1 to 22.44.11 the render step takes this form. The changes of the task are committed before the first render. The surface is prepared by the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server, under the development preset, then built once in its production form and served by its start command as a background process; the development server is not started. Requests that leave the surface are answered by fixed answers given in the browser session. One browser with one page renders the views one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone. The defects of the list of decision 3588 are corrected, the surface is built once more, and the corrected views are rendered once more. What then remains is named with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. Task 22.44.11 closes what the records of the earlier tasks name. The whole device list in every mode is rendered by the render check in task 22.44.38, which corrects what it finds."
+basis = "Gotcha 4554. Decisions 3588, 3591, 3629 and 3630."
+affects = []
+
+[decision.3638]
+title = "The case over the two file tables of the gateway compares name and path of the rows both tables name"
+value = "The case of task 22.39.709 in services/platform/hosted/gateway/tests/env_example.rs takes this form: every row of the native table whose name the general table holds has a row of the same name and the same path in the general table, and the row of the document of bindings holds the same mode in both tables. A row of the native table whose name the general table does not hold is left as it is, and the general table is not changed."
+basis = "Gotcha 4555. Decision 3635."
+affects = []
+
+[decision.3639]
+title = "The hosted authority takes a row of its own in the roster of service certificates"
+value = "The service of docs/wiki/HostedAuthority.md runs on the kernel box beside the node and serves TLS under the internal CA. Its row in tools/bringup/ca-services.tsv has the name hosted-authority, the target box:KERNEL_HOST, the custody volume, the common name layerx-hosted-authority, the use serverAuth and the names DNS:layerx-hosted-authority, DNS:localhost and IP:127.0.0.1, and the names file of the CA tool gives it the name by which the kernel box is reached. The names the roster refuses as retired stay refused, and the roster holds thirty-one rows."
+basis = "Gotcha 4556. Decision 3634."
+affects = []
+
+[decision.3640]
+title = "The render check holds every rejection of an answer to a request, and a request that ends after its render changes nothing"
+value = "Each call of the routing that passes on a fetched response, gives a fixed answer, continues or refuses a request is awaited inside the handling of its errors, and the same holds for the answers of sockets. A rejection while the render is active stays a finding of the kind load, as now. A rejection after the render has ended, after its deadline or after its context has closed is dropped. The check ends with its report, and its findings and counts are the same for every count of renders at once. Tasks 22.44.55, 22.44.38 and 22.44.39 name task 22.44.59 among their requirements."
+basis = "Gotcha 4557. Decisions 3628 and 3629."
+affects = []
+
+[decision.3641]
+title = "The command applycheck takes a stand-in receipt key for a copy that holds none"
+value = "With the flag stand-in-receipt-key the command generates a receipt key in memory and reads neither a receipt key file nor a consensus key file. Before the block of the check is built, the state each form runs on registers the stand-in key in place of the registered keys, bound as a registered key is bound, so that every form admits the batch of the check as it admits a batch under a registered key. The forms and their comparison stay as they are, the report names the mode of the receipt key, and without the flag the command reads the key of the home and refuses as now. The stand-in key lives only in the process and is written to no file."
+basis = "Gotcha 4558. Decision 3633."
+affects = []
+
+[decision.3642]
+title = "The health answers of the dashboard API and of the hosted webhooks service hold the members network_id and version"
+value = "The member version holds the version of the package and is always present. The member network_id holds the network label of the deployment and is present where the service has the label. The dashboard API reads the label from the optional setting LAYERX_DASHBOARD_NETWORK_ID and the hosted webhooks service from the optional setting LAYERX_WEBHOOKS_NETWORK_ID, in both roles. A label is nonempty printable ASCII without spaces of at most 64 bytes, and a value outside that form refuses the start. The definitions of the three services give the setting from an input of the kind operator, the label the gateway of the project takes. The members the answers hold now, their statuses and the liveness route stay as they are."
+basis = "Gotcha 4559. Decisions 3635 and 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44592,6 +44628,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.713]
+title = "Give the health answers of the dashboard API and of the hosted webhooks service a network and a version"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard", "services/platform/hosted/webhooks", "deploy/projects/platform/dashboard.kvx", "deploy/projects/platform/webhooks-public.kvx", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py", "tools/deploy/tests/projects/test_platform_webhooks_public.py", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedDashboard.md", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedGateway.md", "deploy/projects/README.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_webhooks_public.py tools/deploy/tests/projects/test_platform_webhooks_ingress.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard --test plain_listener && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test plain_listener --test liveness_route"
+do_1 = "do_1 Gotcha 4559, decision 3642. Read in services/platform/hosted/gateway/src/routes.rs what a binding of a service holds and how its health answer is read, the section on the bindings in docs/wiki/HostedGateway.md, in services/platform/hosted/dashboard/src/main.rs the reading of the settings and the answer of the health route, in services/platform/hosted/webhooks/src/main.rs the reading of the settings, the answer of the health route in both roles and the liveness route, the cases of services/platform/hosted/dashboard/tests/plain_listener.rs, services/platform/hosted/webhooks/tests/plain_listener.rs and services/platform/hosted/webhooks/tests/liveness_route.rs, the three definitions deploy/projects/platform/dashboard.kvx, deploy/projects/platform/webhooks-public.kvx, deploy/projects/platform/webhooks-ingress.kvx with their cases under tools/deploy/tests/projects, and the sections on the health route of docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md."
+symbols = []
+
+[capability.22.39.712]
+title = "Let the command applycheck run on a copy of a home that holds no receipt key"
+reqs = ["22998.1"]
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+do_1 = "do_1 Gotcha 4558, decision 3641. Read daemon/paxd/cmd/applycheck.go with its flags and exit statuses and its cases, node/apply_check.go with the checks of the home, the forms, the report and the comparison, node/sequencer/apply_check.go with the building of the block and the signing of the batch, node/sequencer/receiptkey.go with the loading of a receipt key and its binding to the consensus key and to the registered keys, the cases of node/apply_check_test.go with the key they register, and the sections on the command in node/README.md and daemon/README.md."
+symbols = []
+
+[capability.22.44.59]
+title = "Let the render check hold a request that ends after its render"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4557, decision 3640. Read in tools/ui-check/check.mjs the function that renders a view with the routing of requests, the answers of sockets, the deadline of a render and the closing of its context, the loop that renders several views at once, the README, and the cases of tools/ui-check/test/check.test.mjs with the server of the test pages."
+symbols = []
+
+[capability.22.39.711]
+title = "Give the hosted authority a row in the roster of service certificates"
+reqs = ["22998.1"]
+touches = ["tools/bringup", "docs/wiki/HostedAuthority.md"]
+tests = []
+verification_contract = "bash tools/bringup/tests/ca.test.sh && go test -count=1 -run 'TestCAApprovedRoster|TestCAObsoleteRoster|TestInternalPlatformShape|TestRuntimeCARosterThirdShape|TestRetirementRetainsAuthority' ./tools/bringup/"
+do_1 = "do_1 Gotcha 4556, decision 3639. Read tools/bringup/ca.sh with its commands services and issue and its reading of the names file, tools/bringup/ca-services.tsv, the names file of the CA tool beside it, tools/bringup/tests/ca.test.sh, the generator and the approved roster under tools/bringup/tests/fixtures/service_identities, every case under tools/bringup that reads the roster or counts its rows, the cases of tools/bringup/check-live.test.sh on the CA tool, and the sections on deployment and configuration of docs/wiki/HostedAuthority.md."
+symbols = []
 
 [capability.22.39.710]
 title = "Let the consent module of the trading workspace import the error reporter by its package name"
@@ -174013,9 +174085,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.59]
+title = "Let the render check hold a request that ends after its render"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.59"]
+interfaces = []
+do_1 = "do_1 Gotcha 4557, decision 3640. Read in tools/ui-check/check.mjs the function that renders a view with the routing of requests, the answers of sockets, the deadline of a render and the closing of its context, the loop that renders several views at once, the README, and the cases of tools/ui-check/test/check.test.mjs with the server of the test pages."
+do_2 = "do_2 In tools/ui-check/check.mjs each call of the routing that passes on a fetched response, gives a fixed answer, continues or refuses a request is awaited inside the handling of its errors. A rejection while the render is active stays a finding of the kind load with the source requestfailed where the request went to the surface. A rejection after the render has ended, after its deadline or after its context has closed is dropped. The same holds for the answers of sockets. No rejection of these calls reaches the process as a rejection without a reader, and the check ends with its report."
+do_3 = "do_3 Add the page tools/ui-check/test/fixtures/late.html whose script starts a request to the surface and a request to an address with a fixed answer that are still open when the render ends, with a route of the test server that answers after a delay longer than the settle time of a render. Add cases: a check over views of that page ends with its report and with the exit status of its findings, for one render at once and for four renders at once, with equal findings and counts; a request to the surface that fails while its render is active is a finding as now. No present case is removed or weakened."
+do_4 = "do_4 State in the README what the check does with a request that ends after its render."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = ["tools/ui-check/test/fixtures/late.html"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.710]
 title = "Let the consent module of the trading workspace import the error reporter by its package name"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174216,7 +174320,7 @@ title = "Render every route of the human web application in its surface file"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.43"]
+requires = ["22.44.43", "22.44.59"]
 reqs = ["22998.1"]
 capabilities = ["22.44.55"]
 interfaces = []
@@ -174245,10 +174349,11 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3640, gotcha 4557. Task 22.44.59 comes before this task: the render check then holds a request that ends after its render. The work of the earlier candidate stays as it is. Run the check of the surface by hand once and read its report, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.54]
 title = "Let the render check report a render that shows nothing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.53", "22.44.58"]
@@ -174678,7 +174783,7 @@ do_7 = "do_7 Decision 3629, gotcha 4546. The render check ends each render at a 
 
 [task.22.44.47]
 title = "Close the page of the inference peer, the playground pages and the codebase map on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.35", "22.44.37"]
@@ -174948,7 +175053,7 @@ title = "Close the trading workspace on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.18", "22.44.37", "22.44.52", "22.44.58"]
+requires = ["22.44.18", "22.44.37", "22.44.52", "22.44.58", "22.44.59"]
 reqs = ["22998.1"]
 capabilities = ["22.44.39"]
 interfaces = []
@@ -174983,7 +175088,7 @@ title = "Close the explorer on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.11", "22.44.37", "22.44.52", "22.44.58"]
+requires = ["22.44.11", "22.44.37", "22.44.52", "22.44.58", "22.44.59"]
 reqs = ["22998.1"]
 capabilities = ["22.44.38"]
 interfaces = []
@@ -175712,7 +175817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.18]
 title = "Close the trading workspace: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.13", "22.44.14", "22.44.15", "22.44.16", "22.44.17"]
@@ -175747,7 +175852,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.17]
 title = "Bring the affiliate, leaderboard, rewards and share views of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
@@ -175782,7 +175887,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.16]
 title = "Bring the markets, portfolio, transfer and vault views of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
@@ -175817,7 +175922,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.15]
 title = "Bring the order entry, orders, positions and leverage parts of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
@@ -175887,7 +175992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.13]
 title = "Bring the shell, layout and connection parts of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12", "22.39.567"]
@@ -175989,6 +176094,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render every route of the surface one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. Read the records of the tasks this task requires and close what they name as remaining. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.10]
 title = "Bring the marketplace, rewards and remaining chain views of the explorer to the web platform guidance"
@@ -176024,6 +176130,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.9]
 title = "Bring the token, contract and account views of the explorer to the web platform guidance"
@@ -176059,6 +176166,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.8]
 title = "Bring the transaction, batch, withdrawal and transfer views of the explorer to the web platform guidance"
@@ -176094,6 +176202,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.7]
 title = "Bring the address and name views of the explorer to the web platform guidance"
@@ -176129,6 +176238,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.6]
 title = "Bring the home, statistics, blocks, validators, epochs, gas and feed views of the explorer to the web platform guidance"
@@ -176164,6 +176274,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.5]
 title = "Bring the page frames of the explorer to the web platform guidance"
@@ -176199,6 +176310,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.4]
 title = "Bring the shared entity, transaction, token and chart parts of the explorer to the web platform guidance"
@@ -176234,6 +176346,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.3]
 title = "Bring the shared structure parts of the explorer to the web platform guidance"
@@ -176269,6 +176382,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.2]
 title = "Bring the explorer shell, its header, navigation, search, footer and page files to the web platform guidance"
@@ -176304,6 +176418,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.1]
 title = "Bring the explorer theme, its base components and its global style to the web platform guidance"
@@ -176339,6 +176454,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.670]
 title = "Sign a developer in on the dashboard"
@@ -176794,7 +176910,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.564]
 title = "Add the container image, the deployment folder and the service routes of the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.710"]
@@ -202313,7 +202429,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.570]
 title = "Run the consumer proofs of the perps data gateway against the client in the workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.675"]
@@ -212786,9 +212902,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.713]
+title = "Give the health answers of the dashboard API and of the hosted webhooks service a network and a version"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.709"]
+reqs = ["22998.1"]
+capabilities = ["22.39.713"]
+interfaces = []
+do_1 = "do_1 Gotcha 4559, decision 3642. Read in services/platform/hosted/gateway/src/routes.rs what a binding of a service holds and how its health answer is read, the section on the bindings in docs/wiki/HostedGateway.md, in services/platform/hosted/dashboard/src/main.rs the reading of the settings and the answer of the health route, in services/platform/hosted/webhooks/src/main.rs the reading of the settings, the answer of the health route in both roles and the liveness route, the cases of services/platform/hosted/dashboard/tests/plain_listener.rs, services/platform/hosted/webhooks/tests/plain_listener.rs and services/platform/hosted/webhooks/tests/liveness_route.rs, the three definitions deploy/projects/platform/dashboard.kvx, deploy/projects/platform/webhooks-public.kvx, deploy/projects/platform/webhooks-ingress.kvx with their cases under tools/deploy/tests/projects, and the sections on the health route of docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md."
+do_2 = "do_2 The dashboard API reads the optional setting LAYERX_DASHBOARD_NETWORK_ID: a label of nonempty printable ASCII without spaces of at most 64 bytes, and a value outside that form refuses the start. The answer of its health route holds the member version with the version of the package on every status, and the member network_id with the label where the setting is given. The member ready and the statuses stay as they are, on both listeners."
+do_3 = "do_3 The hosted webhooks service reads the optional setting LAYERX_WEBHOOKS_NETWORK_ID under the same rule, in both roles. The answer of its health route holds the members version and network_id in the same forms beside the members it holds now, which stay as they are. The liveness route stays as it is."
+do_4 = "do_4 In deploy/projects/platform/dashboard.kvx the variable LAYERX_DASHBOARD_NETWORK_ID reads the input PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID, in deploy/projects/platform/webhooks-public.kvx the variable LAYERX_WEBHOOKS_NETWORK_ID reads the input PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID, and in deploy/projects/platform/webhooks-ingress.kvx it reads the input PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_NETWORK_ID. Each input is of the kind operator with a comment that states its form: the network label the gateway of the project takes. The example of the environment in each of the two packages names the setting with that meaning."
+do_5 = "do_5 Add cases in the three files of cases named in do_1 for the packages: with the setting the answer holds both members, the label as given and the version of the package; without it the answer holds the member version and no member network_id; a label outside the form refuses the start; for the webhooks service in each role its cases start. Add cases in tools/deploy/tests/projects/test_platform_dashboard.py, tools/deploy/tests/projects/test_platform_webhooks_public.py, tools/deploy/tests/projects/test_platform_webhooks_ingress.py: the variable, the input, its kind and its comment. No present case is removed or weakened."
+do_6 = "do_6 State the setting and the two members in docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md. State in the section on the bindings of docs/wiki/HostedGateway.md the members a binding of each of the two services takes: the health path, the pointer to the member ready with the value true, the pointer to the member network_id with the network label, and the pointer to the member version. Bring deploy/projects/README.md in line where it lists the inputs of the three services."
+do_7 = "do_7 The directory web of the dashboard package is not part of this task: change nothing there. The files of the cases under services/platform/hosted/dashboard/tests and services/platform/hosted/webhooks/tests are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard", "services/platform/hosted/webhooks", "deploy/projects/platform/dashboard.kvx", "deploy/projects/platform/webhooks-public.kvx", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py", "tools/deploy/tests/projects/test_platform_webhooks_public.py", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedDashboard.md", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedGateway.md", "deploy/projects/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard -p layerx-platform-webhooks --tests"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_webhooks_public.py tools/deploy/tests/projects/test_platform_webhooks_ingress.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard --test plain_listener && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test plain_listener --test liveness_route"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.709]
 title = "Let the definition of the hosted gateway carry the bindings of the product routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.708"]
@@ -212818,10 +212968,11 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3638, gotcha 4555. The case of do_3 over the two tables takes the form of decision 3638 in place of the form do_3 gives: every row of docker/platform-gateway/native-files.tsv whose name docker/platform-gateway/files.tsv holds has a row of the same name and the same path there, and the row of the document of bindings holds the same mode in both tables. A row of the native table whose name the general table does not hold is left as it is, and docker/platform-gateway/files.tsv is not changed. The work of the earlier candidate stays as it is. Run the cases of the verification by hand first, then the build once and the counted verification once. Keep in the final message the members of a binding for each service as the earlier final message gave them. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.707]
 title = "Let the receipt authority serve from the node alone, with the batch evidence origin as an optional group of settings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -248048,9 +248199,74 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.712]
+title = "Let the command applycheck run on a copy of a home that holds no receipt key"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.706"]
+reqs = ["22998.1"]
+capabilities = ["22.39.712"]
+interfaces = []
+do_1 = "do_1 Gotcha 4558, decision 3641. Read daemon/paxd/cmd/applycheck.go with its flags and exit statuses and its cases, node/apply_check.go with the checks of the home, the forms, the report and the comparison, node/sequencer/apply_check.go with the building of the block and the signing of the batch, node/sequencer/receiptkey.go with the loading of a receipt key and its binding to the consensus key and to the registered keys, the cases of node/apply_check_test.go with the key they register, and the sections on the command in node/README.md and daemon/README.md."
+do_2 = "do_2 The command takes the flag stand-in-receipt-key. With the flag a receipt key is generated in memory, and neither the file the setting sequencer.receipt-key-file names nor the consensus key file of the home is read; the setting may be empty and the files may be absent. Before the block of the check is built, the state each form runs on registers the stand-in key in place of the registered keys, with every record the admission of a batch reads for a registered key, so that every form admits the batch of the check as it admits a batch under a registered key. The key is written to no file and appears in no output, and the copy takes no change beyond the changes the check makes now."
+do_3 = "do_3 The report holds a member that names the mode of the receipt key with the values registered and stand-in. Without the flag the command behaves as now, with its refusals and its exit statuses. The forms, the results per transaction and the comparison stay as they are in both modes."
+do_4 = "do_4 Add cases in node/apply_check_test.go: a home whose state registers a receipt key and that holds neither a receipt key file nor a consensus key file is refused without the flag as now; with the flag every form runs over a transfer and over a contract creation, the comparison is equal, and the report names the mode stand-in; a home that holds its registered key gives the mode registered and the results it gives now. Add cases in daemon/paxd/cmd/applycheck_test.go on the flag, its help text and the exit statuses in both modes. No present case is removed or weakened."
+do_5 = "do_5 State the flag, what it replaces and what the report names in node/README.md and daemon/README.md."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.711]
+title = "Give the hosted authority a row in the roster of service certificates"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.711"]
+interfaces = []
+do_1 = "do_1 Gotcha 4556, decision 3639. Read tools/bringup/ca.sh with its commands services and issue and its reading of the names file, tools/bringup/ca-services.tsv, the names file of the CA tool beside it, tools/bringup/tests/ca.test.sh, the generator and the approved roster under tools/bringup/tests/fixtures/service_identities, every case under tools/bringup that reads the roster or counts its rows, the cases of tools/bringup/check-live.test.sh on the CA tool, and the sections on deployment and configuration of docs/wiki/HostedAuthority.md."
+do_2 = "do_2 In tools/bringup/ca-services.tsv add after the row of the agent boundary the row hosted-authority with the target box:KERNEL_HOST, the custody volume, the common name layerx-hosted-authority, the use serverAuth and the names DNS:layerx-hosted-authority, DNS:localhost and IP:127.0.0.1. In the names file of the CA tool the row takes the name by which the kernel box is reached, as the row of the agent boundary does. The names the roster refuses as retired stay refused, and no present row changes."
+do_3 = "do_3 Bring every file under tools/bringup that lists the rows or counts them in line with thirty-one rows: the approved roster and the recordings under tools/bringup/tests/fixtures/service_identities through the generator of the fixtures, and the cases in shell, Go and Python that hold the rows or their count. Add cases: the command services lists the row with its six fields and the name of the kernel box; the command issue for the row writes the certificate and the key in the forms the other box rows take; the name receipt-authority stays refused. No present case is removed or weakened."
+do_4 = "do_4 State the row and its names in tools/bringup/README.md where it lists the rows, and state in docs/wiki/HostedAuthority.md that the server certificate and its key of the deployment come from the row hosted-authority of the CA tool, in the DER forms the definition reads."
+do_5 = "do_5 The files of the cases under tools/bringup are inside the paths of this task: a case there that reads the roster and does not pass after the change is brought in line here. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/bringup", "docs/wiki/HostedAuthority.md"]
+tests = []
+planned_paths = ["tools/bringup/tests/fixtures/service_identities/hosted-authority"]
+build_cmd = "go build ./tools/bringup/..."
+verify_cmd = "bash tools/bringup/tests/ca.test.sh && go test -count=1 -run 'TestCAApprovedRoster|TestCAObsoleteRoster|TestInternalPlatformShape|TestRuntimeCARosterThirdShape|TestRetirementRetainsAuthority' ./tools/bringup/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.706]
 title = "Give the node tool a command that applies given transactions on a copy of a home in every form and compares the results"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -383807,7 +384023,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.708]
 title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.705"]

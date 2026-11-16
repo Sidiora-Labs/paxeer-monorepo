@@ -1,0 +1,339 @@
+.surface {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+
+.surface
+  :is(
+    button,
+    [role="tab"],
+    [role="combobox"],
+    [role="menuitem"],
+    [role="menuitemcheckbox"]
+  ) {
+  min-block-size: var(--oui-space-12);
+  min-inline-size: var(--oui-space-12);
+  block-size: auto;
+  white-space: normal;
+  @apply oui-leading-normal;
+}
+
+.surface :is(button, a, input, textarea, [tabindex]):focus-visible {
+  outline: var(--oui-focus-ring-width) solid rgb(var(--oui-color-focus-ring));
+  outline-offset: var(--oui-focus-ring-offset);
+}
+
+.surface :is(input, textarea) {
+  min-inline-size: 0;
+  font-size: var(--oui-font-size-base);
+  @apply oui-leading-normal;
+}
+
+.surface :global(.oui-tabs-trigger) {
+  color: rgb(var(--oui-color-base-foreground) / 0.8);
+  flex-shrink: 0;
+}
+
+.surface :global(.oui-tabs-trigger[data-state="active"]) {
+  color: rgb(var(--oui-color-base-foreground));
+}
+
+.surface :global(.oui-tabs-content) {
+  min-inline-size: 0;
+}
+
+.surface :global(.oui-text-base-contrast-36),
+.surface :global(.oui-text-base-contrast-54) {
+  color: rgb(var(--oui-color-base-foreground) / 0.8);
+}
+
+.surface :is(th, td) {
+  font-variant-numeric: tabular-nums;
+}
+
+.surface :is(th, td) button {
+  text-align: inherit;
+}
+
+.surface :is(button:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface :is([class*="animate-"], [class*="transition-"]) {
+    animation: none;
+    transition-property: color, background-color, border-color;
+  }
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--oui-spacing-xs)), 1fr)
+  );
+  gap: var(--oui-space-4);
+}
+
+.metrics {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--oui-space-24)), 1fr)
+  );
+  gap: var(--oui-space-2);
+}
+
+.marketRow.marketRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--oui-space-3);
+  inline-size: 100%;
+  min-block-size: var(--oui-space-12);
+  padding-block: var(--oui-space-2);
+  text-align: start;
+}
+
+.marketRow > * {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.table {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.table :global(.oui-table-scroll) {
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.table tr {
+  block-size: auto;
+  min-block-size: var(--oui-space-12);
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto var(--oui-space-16);
+}
+
+.search {
+  min-block-size: var(--oui-space-12);
+  inline-size: 100%;
+}
+
+.filterAnchor {
+  display: inline-block;
+  anchor-scope: --oui-market-filter;
+}
+
+.filterTarget {
+  anchor-name: --oui-market-filter;
+}
+
+.filter {
+  position: fixed;
+  inline-size: var(--oui-spacing-xs);
+  max-inline-size: calc(100% - var(--oui-space-6));
+  max-block-size: calc(100vh - var(--oui-space-6));
+  max-block-size: calc(100dvh - var(--oui-space-6));
+  overflow: auto;
+  margin: auto;
+  border: var(--oui-focus-ring-width) solid rgb(var(--oui-color-line) / 0.16);
+  border-radius: var(--oui-radius-xl);
+  padding: var(--oui-space-5);
+  background: rgb(var(--oui-color-base-9));
+  color: rgb(var(--oui-color-base-foreground));
+  box-shadow: var(--oui-shadow-lg);
+  overscroll-behavior: contain;
+}
+
+@supports (position-area: bottom) {
+  .filter {
+    position-anchor: --oui-market-filter;
+    position-area: bottom span-right;
+    position-try-fallbacks: flip-block, flip-inline;
+    inset: auto;
+    margin: var(--oui-space-1);
+  }
+  .filter[data-side="top"] {
+    position-area: top span-right;
+  }
+}
+
+.surface :is(h1, h2, h3, p) {
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.surface :is(th, td) {
+  vertical-align: middle;
+}
+
+.surface :is(th, td) {
+  min-inline-size: var(--oui-space-20);
+}
+
+.surface :global(.oui-table-scroll) {
+  max-inline-size: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.watchlistInput {
+  inline-size: var(--oui-space-24);
+  min-block-size: var(--oui-space-12);
+  max-inline-size: 100%;
+}
+
+.watchlistInput input {
+  field-sizing: content;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.surface [role="tablist"] {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.surface :global(.oui-tabs),
+.surface :global(.oui-tabs-list),
+.surface :global(.oui-tabs-content) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.surface :global(.oui-table-scroll) table {
+  table-layout: auto;
+  min-inline-size: 100%;
+}
+
+.surface :global(.oui-tabular-nums) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.search input {
+  min-block-size: var(--oui-space-12);
+  block-size: auto;
+}
+
+@container (max-width: 24rem) {
+  .marketRow.marketRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    row-gap: var(--oui-space-2);
+  }
+  .marketRow > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.surface :global(.oui-text-primary),
+.surface :global(.oui-text-primary-light) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-primary)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-text-success),
+.surface :global(.oui-text-success-light) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-success)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-text-danger),
+.surface :global(.oui-text-danger-light) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-danger)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-text-warning),
+.surface :global(.oui-text-warning-darken) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-warning)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-bg-clip-text) {
+  background-image: linear-gradient(
+    to right,
+    color-mix(
+      in srgb,
+      rgb(var(--oui-gradient-brand-start)) 55%,
+      rgb(var(--oui-color-base-foreground))
+    ),
+    color-mix(
+      in srgb,
+      rgb(var(--oui-gradient-brand-end)) 55%,
+      rgb(var(--oui-color-base-foreground))
+    )
+  );
+}
+
+.surface :global(.oui-table-thead),
+.surface :global(.oui-table-thead-th) {
+  background-color: rgb(var(--oui-color-base-9));
+}
+
+.symbolSections {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  gap: var(--oui-space-6);
+  align-items: center;
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.symbolSections > * {
+  min-inline-size: 0;
+}
+
+@container (max-width: 48rem) {
+  .symbolSections {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--oui-space-3);
+  }
+  .symbolSections > :nth-child(2) {
+    display: none;
+  }
+}
+
+.marketPopover.marketPopover {
+  inline-size: var(--oui-spacing-sm);
+  max-inline-size: calc(100vw - var(--oui-space-6));
+  max-block-size: var(--radix-popover-content-available-height);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.surface :global(.oui-text-trade-profit) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-trading-profit)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-text-trade-loss) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-trading-loss)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}

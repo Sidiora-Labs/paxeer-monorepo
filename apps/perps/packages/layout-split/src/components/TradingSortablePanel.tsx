@@ -113,8 +113,9 @@ export const TradingSortablePanel: FC<
           minHeight: dimensions.height,
           maxWidth: dimensions.width,
           maxHeight: dimensions.height,
-          border: "1px solid rgb(var(--oui-color-primary))",
-          backgroundImage: `repeating-linear-gradient(135deg, rgb(var(--oui-color-base-6)) 0px, rgb(var(--oui-color-base-6)) 4px, transparent 4px, transparent 8px)`,
+          border:
+            "var(--oui-focus-ring-width) solid rgb(var(--oui-color-primary))",
+          backgroundImage: `repeating-linear-gradient(135deg, rgb(var(--oui-color-base-6)) 0, rgb(var(--oui-color-base-6)) var(--oui-space-1), transparent var(--oui-space-1), transparent var(--oui-space-2))`,
         }}
       />
     );
@@ -146,7 +147,7 @@ export const TradingSortablePanel: FC<
           style={{ touchAction: "none" }}
           ref={setActivatorNodeRef}
         >
-          <IndicatorIcon className="oui-text-base-contrast-20 hover:oui-text-base-contrast-80" />
+          <IndicatorIcon className="oui-text-base-contrast-80 hover:oui-text-base-contrast-80" />
         </button>
       )}
     </Box>

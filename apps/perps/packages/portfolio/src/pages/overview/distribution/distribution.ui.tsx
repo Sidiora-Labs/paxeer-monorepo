@@ -63,7 +63,7 @@ export const DistributionHistoryDesktop: FC<FundingHistoryProps> = (props) => {
         // isValidating={isValidating}
         className="oui-font-semibold"
         classNames={{
-          root: "oui-h-[calc(100%_-_49px)]",
+          root: "oui-h-[calc(100%_-_var(--oui-space-12))]",
         }}
         pagination={props.pagination}
       />

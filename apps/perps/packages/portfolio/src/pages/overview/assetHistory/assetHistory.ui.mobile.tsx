@@ -119,7 +119,7 @@ export const AssetHistoryMobile: FC<AssetHistoryMobileProps> = (props) => {
     );
 
     const timeView = (
-      <Text.formatted rule="date" intensity={36} size="2xs">
+      <Text.formatted rule="date" intensity={80} size="2xs">
         {item.created_time}
       </Text.formatted>
     );
@@ -131,21 +131,21 @@ export const AssetHistoryMobile: FC<AssetHistoryMobileProps> = (props) => {
           className="oui-underline oui-decoration-line-16 oui-decoration-dashed oui-underline-offset-4"
           rule="txId"
           onCopy={onCopy}
-          intensity={36}
+          intensity={80}
           size="xs"
         >
           {item.tx_id}
         </Text.formatted>
       </a>
     ) : (
-      <Text intensity={54}>-</Text>
+      <Text intensity={80}>-</Text>
     );
 
     const accountId = isDeposit ? item.from_account_id : item.to_account_id;
 
     const accountIdView = (
       <Flex gapX={1}>
-        <Text intensity={36} size="xs">
+        <Text intensity={80} size="xs">
           {isDeposit
             ? t("transfer.internalTransfer.from")
             : t("transfer.internalTransfer.to")}
@@ -171,7 +171,7 @@ export const AssetHistoryMobile: FC<AssetHistoryMobileProps> = (props) => {
         r="xl"
         className="oui-font-semibold"
       >
-        <Flex justify="between" width="100%" height="18px">
+        <Flex justify="between" width="100%" height="auto">
           {isWeb3Wallet ? (
             <>
               {amountView}
@@ -185,7 +185,7 @@ export const AssetHistoryMobile: FC<AssetHistoryMobileProps> = (props) => {
           )}
         </Flex>
 
-        <Flex justify="between" width="100%" height="18px">
+        <Flex justify="between" width="100%" height="auto">
           {timeView}
           {isWeb3Wallet ? txIdView : statusView}
         </Flex>
@@ -198,7 +198,7 @@ export const AssetHistoryMobile: FC<AssetHistoryMobileProps> = (props) => {
       <DataFilter
         items={[
           {
-            type: "picker",
+            type: "select",
             name: "target",
             options: options,
             value: target,
@@ -216,7 +216,7 @@ export const AssetHistoryMobile: FC<AssetHistoryMobileProps> = (props) => {
         onFilter={(value) => {
           onFilter(value);
         }}
-        className="oui-sticky oui-top-[44px] oui-z-10 oui-border-none oui-bg-base-10 oui-px-3 oui-py-2"
+        className="oui-sticky oui-top-12 oui-z-10 oui-border-none oui-bg-base-10 oui-px-3 oui-py-2"
       />
 
       <ListView
@@ -237,21 +237,27 @@ export const AssetHistoryMobile: FC<AssetHistoryMobileProps> = (props) => {
             <EmptyDataState />
             {dataSource?.length == 0 && (
               <Flex
+                asChild
                 direction="row"
                 itemAlign="center"
                 justify="center"
-                onClick={onDeposit}
                 className="oui-mt-2 oui-h-4 oui-w-full oui-text-secondary"
               >
-                <Text color="primary" size="2xs">
-                  {t("common.deposit")}
-                </Text>
-                <ArrowRightShortIcon
-                  className="oui-ms-0.5 oui-size-4 oui-text-primary oui-opacity-100"
-                  color="primary"
-                  size={16}
-                  opacity={100}
-                />
+                <button
+                  type="button"
+                  onClick={onDeposit}
+                  className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+                >
+                  <Text color="primary" size="2xs">
+                    {t("common.deposit")}
+                  </Text>
+                  <ArrowRightShortIcon
+                    className="oui-ms-0.5 oui-size-4 oui-text-primary oui-opacity-100"
+                    color="primary"
+                    size={16}
+                    opacity={100}
+                  />
+                </button>
               </Flex>
             )}
           </Flex>

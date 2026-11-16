@@ -1,15 +1,16 @@
+import { Tooltip } from "../../../../../ui-connector/src/platformOverlays";
+import { SimpleDialog } from "../../../../../ui-connector/src/platformOverlays";
 import { FC, SVGProps, forwardRef, useEffect, useRef } from "react";
 import { qrcode as qr } from "@akamfoad/qr";
 import { Trans, useTranslation } from "@paxeer-network/i18n";
 import {
   cn,
   CopyIcon,
+  DARK_THEME_CSS_VARS,
   Flex,
-  SimpleDialog,
   SimpleDialogFooter,
   SimpleDialogFooterProps,
   Text,
-  Tooltip,
 } from "@paxeer-network/ui";
 import { MainLogo } from "../mainLogo";
 import { UseLinkDeviceScriptReturn } from "./linkDevice.script";
@@ -22,10 +23,14 @@ export const LinkDevice: FC<LinkDeviceProps> = (props) => {
   return (
     <>
       <Tooltip content={t("linkDevice.tooltip")}>
-        <LinkDeviceIcon
-          className="oui-text-base-contrast-80 oui-cursor-pointer hover:oui-fill-base-contrast oui-transition-colors"
+        <button
+          type="button"
+          className="oui-shell-icon-button"
+          aria-label="Link device"
           onClick={props.showDialog}
-        />
+        >
+          <LinkDeviceIcon className="oui-text-base-contrast-80 oui-cursor-pointer hover:oui-fill-base-contrast oui-transition-colors" />
+        </button>
       </Tooltip>
 
       <SimpleDialog
@@ -96,7 +101,7 @@ const QRCode: FC<QRCodeProps> = (props) => {
       </Text>
       <Text
         size="2xs"
-        intensity={54}
+        intensity={80}
         weight="regular"
         className="oui-text-center"
       >
@@ -104,7 +109,7 @@ const QRCode: FC<QRCodeProps> = (props) => {
         <Trans i18nKey="linkDevice.createQRCode.success.description" />
       </Text>
 
-      <Text size="sm" intensity={54}>
+      <Text size="sm" intensity={80}>
         {`${t("common.countdown")}: `}
         <Text.gradient color="brand" className="oui-tabular-nums">
           {props.seconds}s
@@ -113,14 +118,14 @@ const QRCode: FC<QRCodeProps> = (props) => {
 
       <Flex
         className={cn(
-          "oui-w-[276px] oui-h-[276px] ",
+          "oui-w-72 oui-h-72 ",
           "oui-border oui-border-base-contrast-20 oui-rounded-2xl",
         )}
         justify="center"
         itemAlign="center"
       >
         <Flex
-          className="oui-w-[256px] oui-h-[256px] oui-rounded-lg oui-bg-base-contrast"
+          className="oui-w-64 oui-h-64 oui-rounded-lg oui-bg-base-contrast"
           justify="center"
           itemAlign="center"
         >
@@ -129,22 +134,25 @@ const QRCode: FC<QRCodeProps> = (props) => {
       </Flex>
 
       <Flex
+        asChild
         direction="row"
         gap={1}
         className={cn(
           "oui-cursor-pointer",
-          "oui-group oui-text-base-contrast-54 hover:oui-text-base-contrast",
+          "oui-group oui-text-base-contrast-80 hover:oui-text-base-contrast",
         )}
         onClick={props.copyUrl}
       >
-        <CopyIcon
-          size={16}
-          opacity={1}
-          className="oui-text-base-contrast-54 group-hover:oui-text-base-contrast"
-        />
-        <Text size="2xs" weight="regular">
-          {t("linkDevice.createQRCode.success.copyUrl")}
-        </Text>
+        <button type="button" className="oui-shell-action">
+          <CopyIcon
+            size={16}
+            opacity={1}
+            className="oui-text-base-contrast-80 group-hover:oui-text-base-contrast"
+          />
+          <Text size="2xs" weight="regular">
+            {t("linkDevice.createQRCode.success.copyUrl")}
+          </Text>
+        </button>
       </Flex>
 
       <SimpleDialogFooter
@@ -181,7 +189,7 @@ const QRCodeCanvas: FC<QRCodeCanvasProps> = (props) => {
     for (let r = 0; r < cells.length; ++r) {
       const row = cells[r];
       for (let c = 0; c < row.length; ++c) {
-        ctx.fillStyle = row[c] ? "#000" : "#fff";
+        ctx.fillStyle = `rgb(${DARK_THEME_CSS_VARS[row[c] ? "--oui-color-canvas" : "--oui-color-base-foreground"]})`;
         const w = Math.ceil((c + 1) * tileW) - Math.floor(c * tileW);
         const h = Math.ceil((r + 1) * tileH) - Math.floor(r * tileH);
         ctx.fillRect(Math.round(c * tileW), Math.round(r * tileH), w, h);
@@ -220,7 +228,7 @@ const LinkDeviceConfirm: FC<LinkDeviceConfirmProps> = (props) => {
       </Text>
       <Text
         size="2xs"
-        intensity={54}
+        intensity={80}
         weight="regular"
         className="oui-text-center oui-mt-3"
       >
@@ -244,7 +252,7 @@ const Loading = () => {
   const { t } = useTranslation();
 
   return (
-    <Flex direction="column" gap={5}>
+    <Flex direction="column" gap={5} role="status">
       <Spinner />
       <Text size="sm" intensity={98}>
         {t("linkDevice.createQRCode.loading.description")}
@@ -261,7 +269,8 @@ const Spinner = () => {
       viewBox="0 0 80 80"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="oui-animate-spin"
+      aria-hidden="true"
+      className="oui-size-20 oui-animate-spin"
     >
       <path
         d="M11.4858 52.1631C10.4698 52.5965 9.28872 52.1259 8.91766 51.0855C7.68926 47.6412 7.04029 44.0121 7.00182 40.3463C6.95634 36.0129 7.76483 31.713 9.38113 27.6921C10.9974 23.6712 13.3899 20.0079 16.4219 16.9116C18.9868 14.2923 21.967 12.122 25.2375 10.4861C26.2253 9.99202 27.4035 10.4698 27.8369 11.4858L28.8571 13.8773C29.2904 14.8933 28.8139 16.0615 27.8336 16.5706C25.3569 17.8567 23.0959 19.5294 21.1375 21.5293C18.7119 24.0064 16.7979 26.9369 15.5049 30.1537C14.2119 33.3704 13.5651 36.8103 13.6015 40.277C13.6308 43.076 14.1051 45.8482 15.0026 48.4906C15.3579 49.5365 14.8933 50.7096 13.8773 51.143L11.4858 52.1631Z"

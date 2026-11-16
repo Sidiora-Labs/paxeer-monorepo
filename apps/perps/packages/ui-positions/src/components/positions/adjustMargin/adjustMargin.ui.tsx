@@ -33,7 +33,7 @@ export const AdjustMargin: FC<AdjustMarginState> = (props) => {
   return (
     <Flex
       direction="column"
-      className="oui-w-full oui-rounded-[12px] oui-bg-base-8 oui-font-semibold"
+      className="oui-w-full oui-rounded-xl oui-bg-base-8 oui-font-semibold"
     >
       <Title close={close} />
 

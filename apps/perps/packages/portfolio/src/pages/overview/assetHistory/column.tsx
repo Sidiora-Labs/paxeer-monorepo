@@ -32,10 +32,10 @@ export const useAssetHistoryColumns = (options: Options) => {
     const txIdColumn: Column = {
       title: t("common.txId"),
       dataIndex: "tx_id",
-      width: 120,
+
       render: (value, record) => {
         if (!value) {
-          return <div className="oui-text-base-contrast-54">-</div>;
+          return <div className="oui-text-base-contrast-80">-</div>;
         }
         const chainInfo = chainsInfo?.find(
           (item) => parseInt(record.chain_id) === parseInt(item.chain_id),
@@ -62,7 +62,7 @@ export const useAssetHistoryColumns = (options: Options) => {
     const accountIdColumn: Column = {
       title: t("common.accountId"),
       dataIndex: "account_id",
-      width: 120,
+
       render: (value, record) => {
         const accountId = isDeposit
           ? record.from_account_id
@@ -80,7 +80,7 @@ export const useAssetHistoryColumns = (options: Options) => {
       {
         title: t("common.token"),
         dataIndex: "token",
-        width: 80,
+
         render: (value) => {
           return (
             <Flex gapX={1}>
@@ -93,14 +93,14 @@ export const useAssetHistoryColumns = (options: Options) => {
       {
         title: t("common.time"),
         dataIndex: "created_time",
-        width: 80,
+
         rule: "date",
       },
       isWeb3Wallet ? txIdColumn : accountIdColumn,
       {
         title: t("common.status"),
         dataIndex: "trans_status",
-        width: 100,
+
         render: (value, recoed) => {
           value = isWeb3Wallet ? value : recoed.status;
           const statusMap = {
@@ -124,7 +124,7 @@ export const useAssetHistoryColumns = (options: Options) => {
       {
         title: t("common.amount"),
         dataIndex: "amount",
-        width: 100,
+
         rule: "price",
         render: (value, record) => {
           const netAmount = new Decimal(value).minus(record.fee ?? 0);

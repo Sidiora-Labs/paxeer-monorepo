@@ -1,5 +1,6 @@
+import styles from "../../presentation.module.css";
 import React from "react";
-import { Box, cn, Flex, Marquee } from "@paxeer-network/ui";
+import { Box, cn, Flex, Marquee, useMediaQuery } from "@paxeer-network/ui";
 import { useMarketsContext } from "../marketsProvider";
 import type { HorizontalMarketsScriptReturn } from "./horizontalMarkets.script";
 import { MarketItem } from "./marketItem.ui";
@@ -47,6 +48,8 @@ export const HorizontalMarkets = React.memo<HorizontalMarketsProps>((props) => {
     [tickerData, currentSymbol, onSymbolClick],
   );
 
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+
   const carouselOptions = React.useMemo(
     () => ({
       loop: true,
@@ -61,15 +64,19 @@ export const HorizontalMarkets = React.memo<HorizontalMarketsProps>((props) => {
       speed: 1,
       direction: "forward" as const,
       stopOnMouseEnter: true,
+      stopOnFocusIn: true,
+      stopOnInteraction: true,
+      playOnInit: !reducedMotion,
     }),
-    [],
+    [reducedMotion],
   );
 
   return (
     <Box
       className={cn(
+        styles.surface,
         "oui-horizontal-markets",
-        "oui-bg-base-9 oui-rounded-[12px]",
+        "oui-bg-base-9 oui-rounded-xl",
         "oui-w-full oui-px-3 oui-py-2",
         className,
       )}

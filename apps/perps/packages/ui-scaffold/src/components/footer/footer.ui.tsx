@@ -26,14 +26,10 @@ export const Footer: FC<FooterReturns & FooterProps> = (props) => {
     }
   }, [props.wsStatus]);
 
-  const openUrl = (url?: string) => {
-    window.open(url, "_blank");
-  };
-
   const poweredBy =
     props.poweredBy === true ? (
       <>
-        <Text intensity={54} size="2xs">
+        <Text intensity={80} size="2xs">
           {t("scaffold.footer.poweredBy")}
         </Text>
         <PaxeerNetworkTextIcon />
@@ -46,11 +42,11 @@ export const Footer: FC<FooterReturns & FooterProps> = (props) => {
     <Flex
       direction={"row"}
       justify={"between"}
-      height={28}
+      className="oui-min-h-12 oui-flex-wrap oui-gap-2"
       px={3}
       width={"100%"}
     >
-      <Flex>
+      <Flex className="oui-flex-wrap oui-gap-2">
         <Flex
           direction={"row"}
           itemAlign={"center"}
@@ -66,43 +62,64 @@ export const Footer: FC<FooterReturns & FooterProps> = (props) => {
         </Flex>
         <Divider
           direction="vertical"
-          className="oui-h-[18px] oui-px-1 oui-ms-2 oui-border-line-12"
+          className="oui-h-5 oui-px-1 oui-ms-2 oui-border-line-12"
         />
-        <Flex gap={2}>
-          <Text intensity={54} size="2xs">
+        <Flex gap={2} className="oui-flex-wrap">
+          <Text intensity={80} size="2xs">
             {t("scaffold.footer.joinCommunity")}
           </Text>
           <Flex direction={"row"} gap={1}>
             {typeof props.telegramUrl !== "undefined" && (
-              <CommuntiyTelegramIcon
-                className="oui-fill-base-contrast-54 hover:oui-fill-base-contrast oui-cursor-pointer"
-                fill="currentColor"
-                fillOpacity={1}
-                onClick={(e) => openUrl(props.telegramUrl)}
-              />
+              <a
+                className="oui-shell-icon-button"
+                aria-label="Telegram"
+                href={props.telegramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <CommuntiyTelegramIcon
+                  className="oui-fill-base-contrast-54 hover:oui-fill-base-contrast oui-cursor-pointer"
+                  fill="currentColor"
+                  fillOpacity={1}
+                />
+              </a>
             )}
             {typeof props.discordUrl !== "undefined" && (
-              <CommuntiyDiscordIcon
-                className="oui-fill-base-contrast-54 hover:oui-fill-base-contrast oui-cursor-pointer"
-                fill="currentColor"
-                fillOpacity={1}
-                onClick={(e) => openUrl(props.discordUrl)}
-              />
+              <a
+                className="oui-shell-icon-button"
+                aria-label="Discord"
+                href={props.discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <CommuntiyDiscordIcon
+                  className="oui-fill-base-contrast-54 hover:oui-fill-base-contrast oui-cursor-pointer"
+                  fill="currentColor"
+                  fillOpacity={1}
+                />
+              </a>
             )}
             {typeof props.twitterUrl !== "undefined" && (
-              <CommuntiyXIcon
-                className="oui-fill-base-contrast-54 hover:oui-fill-base-contrast oui-cursor-pointer"
-                fill="currentColor"
-                fillOpacity={1}
-                onClick={(e) => openUrl(props.twitterUrl)}
-              />
+              <a
+                className="oui-shell-icon-button"
+                aria-label="X"
+                href={props.twitterUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <CommuntiyXIcon
+                  className="oui-fill-base-contrast-54 hover:oui-fill-base-contrast oui-cursor-pointer"
+                  fill="currentColor"
+                  fillOpacity={1}
+                />
+              </a>
             )}
           </Flex>
           {typeof props?.trailing !== "undefined" && (
             <>
               <Divider
                 direction="vertical"
-                className="oui-h-[18px] oui-border-line-12"
+                className="oui-h-5 oui-border-line-12"
               />
               {props?.trailing}
             </>
