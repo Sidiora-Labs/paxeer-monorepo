@@ -175130,7 +175130,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.44]
 title = "Close the developer dashboard on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.32", "22.44.37", "22.39.683", "22.44.49", "22.44.52"]
