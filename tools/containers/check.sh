@@ -96,6 +96,9 @@ rpcnode|cd docker && docker build
 
 # tracked Dockerfiles that stay where they are: another lane, vendored upstream trees, fixtures, devcontainers
 OUT_OF_SCOPE='
+# Trading workspace image (apps/perps context)
+apps/perps/Dockerfile
+
 # Launchpad images
 deploy/launchpad/Dockerfile.native
 deploy/launchpad/Dockerfile.svc
