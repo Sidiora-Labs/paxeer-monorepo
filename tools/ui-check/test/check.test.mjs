@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
 import { checkSurface } from "../check.mjs";
-import { DEVICES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
+import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
 import { serveFiles } from "../server.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -59,11 +59,11 @@ async function surfaceFor(name, options = {}) {
   return filename;
 }
 
-async function execute(name, options = {}) {
+async function execute(name, options = {}, renderOptions = {}) {
   const surface = await surfaceFor(name, options);
   const out = join(root, `renders-${sequence}`);
   const lines = [];
-  const result = await checkSurface({ surface, out }, (line) => lines.push(line));
+  const result = await checkSurface({ surface, out, ...renderOptions }, (line) => lines.push(line));
   assert.deepEqual(JSON.parse(await readFile(join(out, "result.json"), "utf8")), result);
   return { result, out, lines };
 }
@@ -94,7 +94,7 @@ async function cleanPagePassesWholeDeviceList() {
   assert.deepEqual(result.findings, []);
   assert.equal(lines.length, 2);
   assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 findings$/);
-  assert.match(lines[1], /^Total: 34 renders, 0 findings, pass$/);
+  assert.match(lines[1], /^Total: 34 renders, 0 findings, pass, 0 views and states with fewer than all modes$/);
   assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 34);
   const png = await readFile(join(out, result.renders[0].screenshot));
   assert.equal(png.readUInt32BE(16), 360);
@@ -273,7 +273,7 @@ async function commandBuildsAndServesFiles() {
     build: `${JSON.stringify(process.execPath)} -e "process.stdout.write('Surface ready')"`,
     start: undefined, address: "http://localhost:0",
   });
-  const result = await runCli(["--surface", surface, "--out", join(root, "self-served")]);
+  const result = await runCli(["--surface", surface, "--out", join(root, "self-served"), "--jobs", "1"]);
   assert.equal(result.code, 0, result.stderr + result.stdout);
   assert.match(result.stdout, /34 renders, 0 findings, pass/);
 }
@@ -544,3 +544,121 @@ async function clipboardWritesSucceedWithoutReadPermission() {
   assert.deepEqual([...new Set(result.renders.map((render) => render.state))], ["default", "copied"]);
 }
 test(clipboardWritesSucceedWithoutReadPermission);
+
+async function renderDeadlineContinuesWithTheNextView() {
+  assert.equal(LIMITS.renderMs, 300000);
+  const { result, lines } = await execute("stuck", { views: [
+    { name: "stuck", path: "/stuck.html", modes: ["default"] },
+    { name: "following", path: "/clean.html", modes: ["default"] },
+  ] }, { jobs: 1, renderMs: 3000 });
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 44);
+  const stuck = result.renders.filter((render) => render.view === "stuck");
+  assert.equal(stuck.length, 22);
+  for (const render of stuck) {
+    assert.equal(render.rendered, false);
+    assert.equal(render.screenshot, null);
+    const deadlines = render.findings.filter((finding) => finding.values.source === "deadline");
+    assert.equal(deadlines.length, 1, JSON.stringify(render.findings));
+    assert.equal(deadlines[0].kind, "load");
+    assert.equal(deadlines[0].values.milliseconds, 3000);
+    assert.ok(["navigation", "settle", "measurement", "contrast", "keyboard", "screenshot"].includes(deadlines[0].values.step));
+  }
+  const following = result.renders.filter((render) => render.view === "following");
+  assert.equal(following.length, 22);
+  assert.ok(following.every((render) => render.rendered && render.findings.length === 0), JSON.stringify(following));
+  assert.equal(following[0].screenshot, "00023.png");
+  assert.equal(result.findings.filter((finding) => finding.values.source === "deadline").length, 22);
+  assert.match(lines[1], /^following: 22 renders, 0 did not render, 0 findings$/);
+}
+test(renderDeadlineContinuesWithTheNextView);
+
+async function parallelRendersPreserveResultsAndKeyboardFindings() {
+  const options = { views: [
+    { name: "clean", path: "/clean.html" },
+    { name: "focus", path: "/focus.html" },
+    { name: "modal", path: "/modal-focus.html" },
+  ] };
+  const sequential = await execute("parallel", options, { jobs: 1 });
+  const parallel = await execute("parallel", options, { jobs: 4 });
+  assert.equal(sequential.result.renders.length, 102);
+  assert.ok(sequential.result.renders.every((render) => render.rendered));
+  assert.ok(sequential.result.findings.length > 0);
+  assert.ok(sequential.result.findings.every((finding) => finding.kind === "focus" && finding.mode === "keyboard"));
+  assert.deepEqual(parallel.result.renders, sequential.result.renders);
+  assert.deepEqual(parallel.result.findings, sequential.result.findings);
+  assert.deepEqual(parallel.result.views, sequential.result.views);
+  assert.deepEqual(parallel.lines, sequential.lines);
+  assert.deepEqual(sequential.result.renders.map((render) => render.screenshot), Array.from({ length: 102 }, (_, index) => `${String(index + 1).padStart(5, "0")}.png`));
+  for (const render of sequential.result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.ok(render.focused.length > 0);
+  }
+}
+test(parallelRendersPreserveResultsAndKeyboardFindings);
+
+async function modesRestrictTheMatrixAndStatesInheritThem() {
+  const { result, lines } = await execute("states", { views: [{
+    name: "states", path: "/states.html", modes: ["default"],
+    states: [{ name: "waiting", steps: [{ action: "wait", text: "Waiting" }] }],
+  }] });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 44);
+  for (const state of ["default", "waiting"]) {
+    const renders = result.renders.filter((render) => render.state === state);
+    assert.equal(renders.length, 22);
+    assert.ok(renders.every((render) => render.mode === "default" && render.rendered));
+    assert.deepEqual(renders.map(({ size, scheme, mode }) => ({ ...size, scheme, mode })), renderMatrix(["default"]));
+  }
+  assert.deepEqual(result.views, [{ name: "states", modes: ["default"], states: [{ name: "waiting", modes: ["default"] }] }]);
+  assert.equal(result.reducedModeCount, 2);
+  assert.equal(lines.at(-1), "Total: 44 renders, 0 findings, pass, 2 views and states with fewer than all modes");
+  const surface = await surfaceFor("states", { views: [{
+    name: "states", path: "/states.html", modes: ["default"], states: [
+      { name: "all", modes: [...MODES].reverse(), steps: [{ action: "wait", text: "Waiting" }] },
+      { name: "keyboard", modes: ["keyboard", "default"], steps: [{ action: "wait", text: "Waiting" }] },
+    ],
+  }, { name: "all", path: "/clean.html" }] });
+  const parsed = await readSurface(surface);
+  assert.deepEqual(parsed.views[0].states[0].modes, MODES);
+  assert.deepEqual(parsed.views[0].states[1].modes, ["default", "keyboard"]);
+  assert.deepEqual(parsed.views[1].modes, MODES);
+}
+test(modesRestrictTheMatrixAndStatesInheritThem);
+
+async function invalidModesNameTheirView() {
+  for (const modes of [[], ["keyboard"], ["default", "default"], ["default", "unknown"], "default", null]) {
+    for (const view of [
+      { name: "restricted", path: "/clean.html", modes },
+      { name: "restricted", path: "/clean.html", states: [{ name: "waiting", modes, steps: [{ action: "wait", text: "Surface" }] }] },
+    ]) {
+      const surface = await surfaceFor("clean", { views: [view] });
+      await assert.rejects(readSurface(surface), /View restricted.*modes/);
+    }
+  }
+}
+test(invalidModesNameTheirView);
+
+async function commandValidatesJobsAndKeepsTheDeadlineInternal() {
+  for (const jobs of ["0", "-1", "1.5", "no", "Infinity", "9007199254740992", ""]) {
+    const result = await runCli(["--list", `--jobs=${jobs}`]);
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /jobs must be a positive whole number/);
+  }
+  for (const jobs of ["1", "4"]) {
+    const result = await runCli(["--list", "--jobs", jobs]);
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(result.stdout.trim().split("\n"), DEVICES.map(({ width, height }) => `${width} x ${height}`));
+  }
+  const result = await runCli(["--list", "--renderMs", "100"]);
+  assert.notEqual(result.code, 0);
+  assert.match(result.stderr, /Unknown option/);
+  for (const options of [
+    { limits: { renderMs: 100 } },
+    { renderMs: 100 },
+    { views: [{ name: "deadline", path: "/clean.html", renderMs: 100 }] },
+    { views: [{ name: "deadline", path: "/clean.html", states: [{ name: "waiting", renderMs: 100, steps: [{ action: "wait", text: "Surface" }] }] }] },
+  ]) {
+    await assert.rejects(readSurface(await surfaceFor("clean", options)), /unknown field/);
+  }
+}
+test(commandValidatesJobsAndKeepsTheDeadlineInternal);
