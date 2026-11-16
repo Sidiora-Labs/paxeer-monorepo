@@ -46,7 +46,7 @@
     "immer": "^10.1.1",
     "lodash": "^4.18.1",
     "ramda": "^0.29.0",
-    "swr": "2.2.4",
+    "swr": "2.5.1",
     "use-constant": "^1.1.1",
     "use-debounce": "^9.0.4",
     "zustand": "^4.5.5",
