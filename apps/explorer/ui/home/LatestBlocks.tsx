@@ -20,6 +20,7 @@ import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableBody } from 'toolkit/chakra/table';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import { nbsp } from 'toolkit/utils/htmlEntities';
+import { getNetworkUtilizationColor } from 'ui/blocks/networkUtilizationColors';
 import FallbackRpcIcon from 'ui/shared/fallbacks/FallbackRpcIcon';
 
 import LatestBlocksDegraded from './fallbacks/LatestBlocksDegraded';
@@ -133,21 +134,21 @@ const LatestBlocks = () => {
   const note = (
     <>
       { typeof utilization === 'number' && networkUtilization && (
-        <Skeleton loading={ statsQueryResult.isPlaceholderData } display="inline-block" textStyle="xs">
+        <Skeleton loading={ statsQueryResult.isPlaceholderData } display="inline-block" textStyle="text.xs">
           <Text as="span" color="text.muted">
             Network utilization:{ nbsp }
           </Text>
           <Tooltip content={ `${ upperFirst(networkUtilization.load) } load` }>
-            <Text as="span" color={ networkUtilization.color } fontWeight="700">
+            <Text as="span" color={ getNetworkUtilizationColor(networkUtilization.load) } fontWeight="bold">
               { utilization.toFixed(2) }%
             </Text>
           </Tooltip>
         </Skeleton>
       ) }
       { statsQueryResult.data?.celo && (
-        <Box whiteSpace="pre-wrap" textStyle="xs" color="text.muted">
+        <Box whiteSpace="pre-wrap" textStyle="text.xs" color="text.muted">
           <span>Current epoch: </span>
-          <chakra.span fontWeight="700">#{ statsQueryResult.data.celo.epoch_number }</chakra.span>
+          <chakra.span fontWeight="bold">#{ statsQueryResult.data.celo.epoch_number }</chakra.span>
         </Box>
       ) }
     </>
@@ -196,7 +197,7 @@ const LatestBlocks = () => {
       );
     }
 
-    return <Box px={{ base: 3, lg: 4 }} py={ 3 } textStyle="sm">No latest blocks found.</Box>;
+    return <Box px={{ base: 3, lg: 4 }} py={ 3 } textStyle="body">No latest blocks found.</Box>;
   })();
 
   return (

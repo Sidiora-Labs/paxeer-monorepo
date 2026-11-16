@@ -53,7 +53,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
         <Flex columnGap={ 2 } alignItems="center" mb={ 0 }>
           { data.celo?.l1_era_finalized_epoch_number && (
             <Tooltip content={ `Finalized epoch #${ data.celo.l1_era_finalized_epoch_number }` }>
-              <IconSvg name="checkered_flag" boxSize={ 5 } p="1px" isLoading={ isLoading } flexShrink={ 0 }/>
+              <IconSvg name="checkered_flag" boxSize={ 5 } p="var(--chakra-spacing-0\.25)" isLoading={ isLoading } flexShrink={ 0 }/>
             </Tooltip>
           ) }
           { data.is_pending_update && <BlockPendingUpdateHint/> }
@@ -65,7 +65,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
                 hash={ data.type !== 'block' ? data.hash : undefined }
                 chain={ chainData }
                 noIcon
-                fontWeight={ 600 }
+                fontWeight="semibold"
               />
             </span>
           </Tooltip>
@@ -75,7 +75,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
           enableIncrement={ enableTimeIncrement }
           isLoading={ isLoading }
           color="text.secondary"
-          fontWeight={ 400 }
+          fontWeight="normal"
           display="inline-block"
         />
       </TableCell>
@@ -134,7 +134,16 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
             justifyContent="flex-end"
           />
           <Tooltip content="Burnt fees / Txn fees * 100%" disabled={ isLoading }>
-            <Utilization mt={ 0 } w="min-content" value={ burntFees.div(txFees).toNumber() } isLoading={ isLoading }/>
+            <Utilization
+              css={{
+                '& .chakra-skeleton': { color: 'positive' },
+                '& .chakra-skeleton > div > div': { bg: 'positive' },
+              }}
+              mt={ 0 }
+              w="min-content"
+              value={ burntFees.div(txFees).toNumber() }
+              isLoading={ isLoading }
+            />
           </Tooltip>
         </TableCell>
       ) }

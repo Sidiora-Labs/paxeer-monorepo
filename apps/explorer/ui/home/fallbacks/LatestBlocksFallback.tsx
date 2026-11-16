@@ -7,14 +7,14 @@ import IconSvg from 'ui/shared/IconSvg';
 const LatestBlocksFallback = () => {
   return (
     <Box>
-      <Box color="text.secondary" textStyle="sm">Failed to load data. Please try again later.</Box>
+      <Box color="text.secondary" textStyle="body">Failed to load data. Please try again later.</Box>
       <VStack rowGap={ 3 } mt={ 3 }>
         { Array.from({ length: 2 }).map((_, index) => (
-          <Box key={ index } width="100%" p={ 3 } borderBottomWidth="1px" borderColor="border.divider">
+          <Box key={ index } width="100%" p={ 3 } borderBottomWidth="1" borderColor="border.divider">
             <Flex alignItems="center" w="100%">
               <IconSvg name="block" boxSize={ 5 } color="text.muted"/>
-              <FallbackBox w="100px" bgColor="accent.soft" ml={ 2 }/>
-              <FallbackBox bgColor="raised" w="50px" ml="auto"/>
+              <FallbackBox w="var(--chakra-spacing-24)" bgColor="accent.soft" ml={ 2 }/>
+              <FallbackBox bgColor="raised" w="var(--chakra-spacing-12\.5)" ml="auto"/>
             </Flex>
             <FallbackBox bgColor="raised" w="100%" mt={ 2 }/>
             <FallbackBox bgColor="raised" w="100%" mt={ 1 }/>

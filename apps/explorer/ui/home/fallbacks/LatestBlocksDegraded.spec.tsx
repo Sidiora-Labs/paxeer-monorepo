@@ -37,10 +37,17 @@ describe('LatestBlocksDegraded', () => {
     fetchMock.mockResponse(JSON.stringify({ jsonrpc: '2.0', id: 1, result: null }));
   });
 
-  it('holds a row for every block the card asks for while the node answer is on its way', () => {
+  it('holds mobile and desktop rows for every requested block while the node answer is on its way', () => {
     const { container } = renderList(3);
 
-    expect(container.querySelectorAll('[data-latest-block]')).toHaveLength(3);
+    const mobileRows = container.querySelectorAll('div[data-latest-block]');
+    const desktopRows = container.querySelectorAll('table[aria-label="Latest blocks"] tbody tr[data-latest-block]');
+
+    expect(mobileRows).toHaveLength(3);
+    expect(desktopRows).toHaveLength(3);
+    expect(container.querySelectorAll('[data-latest-block]')).toHaveLength(6);
+    expect(Array.from(mobileRows, (row) => row.getAttribute('data-latest-block')))
+      .toEqual(Array.from(desktopRows, (row) => row.getAttribute('data-latest-block')));
   });
 
   it('links to every block in the surrounding label row', () => {
