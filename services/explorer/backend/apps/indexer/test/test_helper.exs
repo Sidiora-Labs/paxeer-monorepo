@@ -25,4 +25,5 @@ ExUnit.start()
 Explorer.TestHelper.run_necessary_background_migrations()
 
 Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo, :manual)
+Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo.Account, :manual)
 Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo.EventNotifications, :manual)
