@@ -174315,7 +174315,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.723]
 title = "Copy every compile file the web compile reads into the perps image and hold it with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
