@@ -22525,3 +22525,8 @@ fix = "Decision 3622. Task 22.44.54."
 title = "The type check of the trading workspace reads the built output of a package of the workspace"
 symptom = "The web application under apps/perps/apps/web imports the market data client under apps/perps/packages/chainflow through its built output. The type check script of apps/perps/package.json checks the web application, and task 22.39.674 gives that script the build of the packages the web application imports. A task whose build command runs the type check after an install takes the script in the form task 22.39.674 gives it."
 fix = "Decision 3623. Tasks 22.39.567 and 22.39.674."
+
+[gotcha.4541]
+title = "The device list of a proof task is the list of sizes of the render check"
+symptom = "A proof task of the series closes a surface on the device list: the sizes, schemes and modes tools/ui-check/README.md names. The views of a surface file are the routes of its application. The human web application under apps/web/src/app holds a page file for each route, among them routes with a parameter, and the surface file tools/ui-check/surfaces/human-web.json names its views by route."
+fix = "Decision 3624. Tasks 22.44.55, 22.44.38 and 22.44.39."
