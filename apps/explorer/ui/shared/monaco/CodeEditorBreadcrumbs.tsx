@@ -16,11 +16,10 @@ const CodeEditorBreadcrumbs = ({ path }: Props) => {
     <Flex
       color={ themeColors['breadcrumbs.foreground'] }
       bgColor={ themeColors['editor.background'] }
-      pl="16px"
-      pr="8px"
+      pl={ 4 }
+      pr={ 2 }
       flexWrap="wrap"
-      fontSize="13px"
-      lineHeight="22px"
+      textStyle="sm"
       alignItems="center"
     >
       { chunks.map((chunk, index) => {
@@ -29,7 +28,7 @@ const CodeEditorBreadcrumbs = ({ path }: Props) => {
             { index !== 0 && (
               <Box
                 className="codicon codicon-breadcrumb-separator"
-                boxSize="16px"
+                boxSize={ 4 }
                 _before={{
                   content: '"\\eab6"',
                 }}/>

@@ -19,7 +19,7 @@ const ScanPreviewButton = ({ label = 'Preview', children, isLoading, className }
         <IconButton
           aria-label={ label }
           variant="icon_secondary"
-          size="2xs"
+          size="md"
           borderRadius="sm"
           loadingSkeleton={ isLoading }
           className={ className }
