@@ -15370,6 +15370,12 @@ value = "A claim of the outbox, its head age read and the outbox read of the rea
 basis = "Gotcha 4629."
 affects = []
 
+[decision.3710]
+title = "The shell of a surface belongs to the sizes the surface keeps"
+value = "Decision 3708 holds for the shell of a surface as it holds for its sizes: the sidebar, the header, the navigation and the tracks they form are those of the earlier state at every width. A part of the earlier shell returns with its earlier box where it carries a function of the surface. An entry or a control of the earlier shell that leads nowhere and does nothing is left out and named in the record of the correcting task; the place it held stays as the earlier state laid it out. What a task outside series 22.44 added or changed stays as that task left it and takes the sizes of the like parts of the earlier state. Task 22.44.80 brings the developer dashboard to this rule."
+basis = "Gotcha 4630. Decisions 3707 and 3708."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45030,6 +45036,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.80]
+title = "Bring the developer dashboard back to the shell and the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard/web", "tools/ui-check/surfaces/dashboard.json", "tools/ui-check/surfaces/dashboard"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.80.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/dashboard.json --out /tmp/ui-check/dashboard && npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+do_1 = "do_1 Gotcha 4630, decisions 3708 and 3710. Read the record spec/layerx-merge/programme/records/ui/22.44.77.kvx, tools/ui-check/surfaces/dashboard/earlier-geometry.json, tools/ui-check/surfaces/dashboard.json, services/platform/hosted/dashboard/web/app/page.tsx, services/platform/hosted/dashboard/web/app/layout.tsx and services/platform/hosted/dashboard/web/app/globals.css, and the state of services/platform/hosted/dashboard/web before the change of task 22.44.32 in the history. List in the final message the parts of the record that differ between the two states and, for each part that only the earlier state holds, whether it carries a function."
+symbols = []
 
 [capability.22.39.772]
 title = "Bound the age of the price rows per block in the perps data service"
@@ -175194,6 +175209,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.80]
+title = "Bring the developer dashboard back to the shell and the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.77"]
+reqs = ["22998.1"]
+capabilities = ["22.44.80"]
+interfaces = []
+do_1 = "do_1 Gotcha 4630, decisions 3708 and 3710. Read the record spec/layerx-merge/programme/records/ui/22.44.77.kvx, tools/ui-check/surfaces/dashboard/earlier-geometry.json, tools/ui-check/surfaces/dashboard.json, services/platform/hosted/dashboard/web/app/page.tsx, services/platform/hosted/dashboard/web/app/layout.tsx and services/platform/hosted/dashboard/web/app/globals.css, and the state of services/platform/hosted/dashboard/web before the change of task 22.44.32 in the history. List in the final message the parts of the record that differ between the two states and, for each part that only the earlier state holds, whether it carries a function."
+do_2 = "do_2 The shell of the earlier state returns at every width: the sidebar at the desktop widths with its width, the navigation at the lower edge at the phone widths, and a header of one row with the earlier height. The earlier state takes that shell from the shell component of the UI package under apps/web/packages, which the dashboard builds with; use it again as the earlier state did. That package is outside the paths and is not changed. The entries of the navigation are those of the earlier state, the overview, the keys, the logs and the webhooks, each leading to its section, and the strip of sections below the header keeps its five sections. A control of the earlier shell that leads nowhere and does nothing, such as a search or a notice control without a function, is left out where the component allows it without a change outside the paths, and it is named in the record; the place it held stays as the earlier state laid it out."
+do_3 = "do_3 At the widths above 834 every part that both states hold has the box and the measures of text of the earlier state: the header, its control, the main region, the first heading, the cards, the rows and the strip of tabs where it stays. No size of text grows beyond the earlier value at a width. What the tasks 22.39.682, 22.39.694 and 22.39.700 added stays as they left it in behaviour: the sign-in without a field for the gateway tenant, the issue, the rotation and the revocation of keys with their dialogs. These parts take the sizes of the like parts of the earlier state. At the widths up to 834 a control that takes touch measures at least 44 pixels and no more than the rule asks, and the sizes of text are the earlier ones."
+do_4 = "do_4 What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, values from tokens, and a colour that was changed for the contrast rule. No behaviour changes. A case under services/platform/hosted/dashboard/web/tests that pins a size or a part of the shell the series gave is brought to the earlier one; no assertion on behaviour is weakened and no case is removed or skipped."
+do_5 = "do_5 The surface file names tools/ui-check/surfaces/dashboard/geometry.json as its geometry file with the widths 390, 1280, 1440, 1920 and 2560; write that file once from the corrected state with the option --write-geometry. tools/ui-check/surfaces/dashboard/earlier-geometry.json stays as it is. Run the check by hand with a copy of the surface file outside the checkout that names tools/ui-check/surfaces/dashboard/earlier-geometry.json and write the record spec/layerx-merge/programme/records/ui/22.44.80.kvx in present tense: for each width the count of parts that still differ from the earlier state, and for each such part its cause, content the earlier state does not hold, a part of the earlier shell without a function, the present state of the UI package under apps/web/packages or the touch rule at the widths up to 834. A difference with another cause is corrected."
+do_6 = "do_6 Run the render check of the surface by hand over the whole device list and read the summary per view, then the cases of the package. The files of services/platform/hosted/dashboard/web and of the surface are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard/web", "tools/ui-check/surfaces/dashboard.json", "tools/ui-check/surfaces/dashboard"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/dashboard/geometry.json", "spec/layerx-merge/programme/records/ui/22.44.80.kvx"]
+build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.80.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/dashboard.json --out /tmp/ui-check/dashboard && npm --prefix apps/web run build:ui && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
