@@ -34,13 +34,13 @@ const TokenTransferListItem = ({
 }: Props) => {
   return (
     <ListItemMobile rowGap={ 3 }>
-      <Flex justifyContent="space-between" alignItems="center" lineHeight="24px" width="100%">
+      <Flex justifyContent="space-between" alignItems="center" lineHeight="h2" width="100%">
         { txHash && (
           <TxEntity
             isLoading={ isLoading }
             hash={ txHash }
             truncation="constant_long"
-            fontWeight="700"
+            fontWeight="bold"
             chain={ chainData }
           />
         ) }
@@ -49,7 +49,7 @@ const TokenTransferListItem = ({
           enableIncrement
           isLoading={ isLoading }
           color="text.secondary"
-          fontWeight="400"
+          fontWeight="normal"
           fontSize="sm"
           display="inline-block"
         />
@@ -62,7 +62,7 @@ const TokenTransferListItem = ({
         tokenHash={ token?.address_hash }
         tokenSymbol={ token?.symbol ?? undefined }
         w="100%"
-        fontWeight="500"
+        fontWeight="medium"
       />
       { total && 'value' in total && token && (hasTokenTransferValue(token.type)) && !isConfidentialTokenType(token.type) && (
         <Flex alignItems="center" columnGap={ 2 } maxW="100%" w="full">
@@ -71,7 +71,7 @@ const TokenTransferListItem = ({
             alignItems="center"
             loading={ isLoading }
             flexShrink={ 0 }
-            fontWeight={ 500 }
+            fontWeight="medium"
             maxW="50%"
             whiteSpace="pre"
             overflow="hidden"
@@ -95,7 +95,7 @@ const TokenTransferListItem = ({
             alignItems="center"
             loading={ isLoading }
             flexShrink={ 0 }
-            fontWeight={ 500 }
+            fontWeight="medium"
             maxW="50%"
             whiteSpace="pre"
             overflow="hidden"

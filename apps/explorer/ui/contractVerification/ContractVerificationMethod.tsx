@@ -19,7 +19,11 @@ const ContractVerificationMethod = ({ title, children, disableScroll }: Props) =
   return (
     <section ref={ ref }>
       <Heading level="2" mt={ 12 } mb={ 5 }>{ title }</Heading>
-      <Grid columnGap="30px" rowGap={{ base: 2, lg: 5 }} templateColumns={{ base: '1fr', lg: 'minmax(0, 680px) minmax(0, 340px)' }}>
+      <Grid
+        columnGap={ 8 }
+        rowGap={{ base: 2, lg: 5 }}
+        templateColumns={{ base: '1fr', lg: 'minmax(0, var(--chakra-sizes-2xl)) minmax(0, var(--chakra-sizes-80))' }}
+      >
         { children }
       </Grid>
     </section>

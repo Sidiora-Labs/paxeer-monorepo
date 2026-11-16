@@ -98,24 +98,25 @@ const PublicTagsSubmitForm = ({ config, userInfo, onSubmitResult }: Props) => {
     <FormProvider { ...formApi }>
       <chakra.form
         noValidate
+        autoComplete="off"
         onSubmit={ formApi.handleSubmit(onFormSubmit) }
       >
         <Grid
           columnGap={ 3 }
           rowGap={ 3 }
-          templateColumns={{ base: '1fr', lg: '1fr 1fr minmax(0, 200px)', xl: '1fr 1fr minmax(0, 250px)' }}
+          templateColumns={{ base: '1fr', lg: '1fr 1fr minmax(0, var(--chakra-sizes-48))', xl: '1fr 1fr minmax(0, var(--chakra-sizes-64))' }}
         >
           <GridItem colSpan={{ base: 1, lg: 3 }}>
             <Heading level="2">
               Company info
             </Heading>
           </GridItem>
-          <FormFieldText<FormFields> name="requesterName" required placeholder="Your name"/>
-          <FormFieldEmail<FormFields> name="requesterEmail" required/>
+          <FormFieldText<FormFields> name="requesterName" required placeholder="Your name" inputProps={{ autoComplete: 'name' }}/>
+          <FormFieldEmail<FormFields> name="requesterEmail" required inputProps={{ autoComplete: 'email' }}/>
 
           { !isMobile && <div/> }
-          <FormFieldText<FormFields> name="companyName" placeholder="Company name"/>
-          <FormFieldUrl<FormFields> name="companyWebsite" placeholder="Company website"/>
+          <FormFieldText<FormFields> name="companyName" placeholder="Company name" inputProps={{ autoComplete: 'organization' }}/>
+          <FormFieldUrl<FormFields> name="companyWebsite" placeholder="Company website" inputProps={{ autoComplete: 'url' }}/>
           { !isMobile && <div/> }
 
           <GridItem colSpan={{ base: 1, lg: 3 }} mt={{ base: 3, lg: 5 }}>
@@ -135,7 +136,7 @@ const PublicTagsSubmitForm = ({ config, userInfo, onSubmitResult }: Props) => {
                   'Confirm the connection between addresses and tags' :
                   'Provide a comment to confirm the connection between addresses and tags (max 500 characters)'
               }
-              maxH="160px"
+              maxH="40"
               rules={{ maxLength: 500 }}
               asComponent="Textarea"
               size="2xl"

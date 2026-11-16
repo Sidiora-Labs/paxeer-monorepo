@@ -92,7 +92,7 @@ const ApiKeyForm: React.FC<Props> = ({ data, onOpenChange, setAlertVisible }) =>
 
   return (
     <FormProvider { ...formApi }>
-      <form noValidate onSubmit={ formApi.handleSubmit(onSubmit) }>
+      <form noValidate autoComplete="off" onSubmit={ formApi.handleSubmit(onSubmit) }>
         { data && (
           <FormFieldText<Inputs>
             name="token"
@@ -108,6 +108,7 @@ const ApiKeyForm: React.FC<Props> = ({ data, onOpenChange, setAlertVisible }) =>
           rules={{
             maxLength: NAME_MAX_LENGTH,
           }}
+          inputProps={{ autoComplete: 'organization' }}
           bgColor="dialog.bg"
           mb={ 8 }
         />
