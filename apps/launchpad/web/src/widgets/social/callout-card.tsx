@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeftRight, Link2, Pencil, TrendingDown, TrendingUp } from 'lucide-react';
@@ -65,7 +66,7 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
   }
 
   return (
-    <article aria-labelledby={headingId} className={cn('flex flex-col gap-3 rounded-md bg-surface-1 p-3', variant === 'rail' && 'p-4', className)}>
+    <article aria-labelledby={headingId} data-callout-id={callout.id} className={cn('flex flex-col gap-3 rounded-md bg-surface-1 p-3', variant === 'rail' && 'p-4', className)}>
       <header className="flex items-start gap-3">
         {profileHref ? (
           <Link href={profileHref} className="shrink-0 rounded-pill" aria-label={`Open profile of ${authorLabel}`}>
@@ -114,7 +115,7 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
       {callout.poolAddress && !removed ? (
         <EmbeddedCoinCard poolAddress={callout.poolAddress} stats={stats} positionDisclosure={callout.positionDisclosure} positionVerified={callout.positionVerified} />
       ) : callout.positionDisclosure && !removed ? (
-        <p className="text-xs text-text-muted"><span className="font-semibold uppercase tracking-[.04em] text-text-faint">Position </span>{callout.positionDisclosure}</p>
+        <p className="text-xs text-text-muted"><span className="font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Position </span>{callout.positionDisclosure}</p>
       ) : null}
 
       <footer className="flex items-center gap-1">
@@ -138,7 +139,7 @@ export function CalloutCardSkeleton({ className }: { className?: string }) {
         <div className="flex flex-1 flex-col gap-1.5"><Skeleton width="40%" /><Skeleton width="20%" className="h-3" /></div>
       </div>
       <Skeleton /><Skeleton width="92%" /><Skeleton width="60%" />
-      <Skeleton variant="block" height={64} />
+      <Skeleton variant="block" height={surfaceSpacing(16)} />
     </div>
   );
 }

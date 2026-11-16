@@ -27,6 +27,7 @@ defmodule Explorer.Repair.BackendArchiveApiTest do
 
   import Phoenix.ConnTest
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias BlockScoutWeb.API.V2.PaxeerX
   alias EthereumJSONRPC.Transaction, as: JSONRPCTransaction
   alias Explorer.Chain.Transaction
@@ -39,6 +40,11 @@ defmodule Explorer.Repair.BackendArchiveApiTest do
 
   setup_all do
     {:ok, _} = Application.ensure_all_started(:block_scout_web)
+    :ok
+  end
+
+  setup do
+    :ok = Sandbox.mode(Repo, {:shared, self()})
     :ok
   end
 
@@ -82,7 +88,7 @@ defmodule Explorer.Repair.BackendArchiveApiTest do
     assert tables =~ "Historical anchor and old receipt rows are read-only data."
 
     for resource <- ["anchors", "receipts", "receipts/:id"] do
-      assert tables =~ "`/api/v2/paxeer-x/archive/#{resource}`"
+      assert tables =~ "`/paxeer-x/archive/#{resource}`"
       refute tables =~ "`/api/v2/paxeer-x/#{resource}`"
       refute tables =~ "`/paxeer-x/#{resource}`"
     end

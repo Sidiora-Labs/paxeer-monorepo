@@ -57,34 +57,38 @@ const DataTable: FC<TableProps> = (props) => {
       <div
         className={cn(
           "oui-flex oui-mx-3",
-          "oui-text-xs oui-text-base-contrast-36",
+          "oui-text-xs oui-text-base-contrast-80",
           classNames?.header,
         )}
       >
         {columns.map((column, index) => {
           const sortable = !!column.onSort;
           return (
-            <div
-              key={column.dataIndex}
-              style={{ width: column.width }}
-              className={cn(
-                "oui-flex oui-items-center oui-gap-x-1",
-                "oui-break-normal oui-whitespace-nowrap",
-                "oui-basis-[100%]",
-                sortable && "oui-cursor-pointer",
-                alignClassName(column.align),
-                column.className,
-              )}
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 if (sortable) {
                   onSort(column.dataIndex);
                 }
               }}
+              className={[
+                "oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed",
+                cn(
+                  "oui-flex oui-items-center oui-gap-x-1",
+                  "oui-break-normal oui-whitespace-nowrap",
+                  "oui-basis-full",
+                  sortable && "oui-cursor-pointer",
+                  alignClassName(column.align),
+                  column.className,
+                ),
+              ].join(" ")}
+              key={column.dataIndex}
+              style={{ width: column.width }}
             >
               <span>{column.title}</span>
               {sortable && renderSortIndicator(column.dataIndex)}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -113,7 +117,7 @@ const DataTable: FC<TableProps> = (props) => {
               );
             })
           : props.emptyView || (
-              <div className="oui-w-full oui-h-full oui-flex oui-justify-center oui-items-center oui-mt-[-30px]">
+              <div className="oui-w-full oui-h-full oui-flex oui-justify-center oui-items-center -oui-mt-7">
                 <InjectableEmptyDataState />
               </div>
             )}
@@ -161,7 +165,7 @@ const TableItem: React.FC<TableItemProps> = (props) => {
             style={{ width: column.width }}
             className={cn(
               "oui-flex oui-items-center",
-              "oui-basis-[100%]",
+              "oui-basis-full",
               alignClassName(column.align),
               column.className,
             )}

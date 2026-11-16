@@ -102,6 +102,13 @@ defmodule BlockScoutWeb.API.V2.TransactionControllerTest do
   end
 
   describe "/transactions/watchlist" do
+    setup do
+      previous = Application.get_env(:explorer, Explorer.Account)
+      Application.put_env(:explorer, Explorer.Account, Keyword.put(previous, :enabled, true))
+      on_exit(fn -> Application.put_env(:explorer, Explorer.Account, previous) end)
+      :ok
+    end
+
     test "unauthorized", %{conn: conn} do
       request = get(conn, "/api/v2/transactions/watchlist")
 

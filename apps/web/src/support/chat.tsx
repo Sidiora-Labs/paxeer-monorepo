@@ -68,8 +68,8 @@ function EntryBubble({
 }>) {
   const authorKey = entry.author === "you" ? "support.author.you" : "support.author.support";
   const bubbleClass = entry.author === "you"
-    ? "self-end max-w-[85%] rounded-xl bg-surface-sunken px-4 py-2"
-    : "self-start max-w-[85%] rounded-xl border border-border bg-surface px-4 py-2";
+    ? "human-support-bubble self-end rounded-xl bg-surface-sunken px-4 py-2"
+    : "human-support-bubble self-start rounded-xl border border-border bg-surface px-4 py-2";
   return (
     <li className="flex flex-col gap-2">
       <div className={bubbleClass}>
@@ -197,7 +197,7 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
   const draftEmpty = snapshot.draft.trim().length === 0;
   const containerClass = resolved === "mobile"
     ? "flex min-h-dvh flex-col"
-    : "fixed bottom-6 right-6 z-40 flex max-h-[calc(100dvh-6rem)] w-96 max-w-[calc(100vw-3rem)] flex-col";
+    : "human-support-shell-desktop";
 
   const composer = (
     <form
@@ -210,6 +210,9 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
       <KitTextField
         label={copyEntry("support.compose.label").message}
         className="flex-1"
+        name="message"
+        autoComplete="off"
+        spellCheck={false}
         maxLength={2000}
         value={snapshot.draft}
         onChange={(event) => {
@@ -282,7 +285,7 @@ function SupportChatForAccount({ platform, traceId }: Readonly<{ platform: "mobi
             ) : (
               <ul
                 aria-label={copyEntry("support.history").message}
-                className="flex max-h-[50dvh] flex-1 flex-col gap-3 overflow-y-auto"
+                className="human-support-history flex flex-1 flex-col gap-3 overflow-y-auto"
               >
                 {snapshot.entries.map((entry) => (
                   <EntryBubble key={entry.message_id} entry={entry} session={session} snapshot={snapshot} />

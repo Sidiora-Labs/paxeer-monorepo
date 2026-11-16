@@ -1,3 +1,4 @@
+import styles from "../../../presentation.module.css";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import {
@@ -66,7 +67,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = (props) => {
       }
       id="portfolio-overview-performance"
     >
-      <Grid cols={3} gap={4}>
+      <div className={styles.metrics}>
         <Box gradient="neutral" r="md" px={4} py={2} angle={184}>
           <Statistic
             label={
@@ -120,8 +121,8 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = (props) => {
             {invisible ? "--" : aggregateValue.vol}
           </Statistic>
         </Box>
-      </Grid>
-      <Grid cols={2} gap={4}>
+      </div>
+      <div className={styles.charts}>
         <PerformancePnL
           data={props.data ?? EMPTY_LIST}
           invisible={props.invisible}
@@ -130,8 +131,8 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = (props) => {
           data={props.data ?? EMPTY_LIST}
           invisible={props.invisible || (props.data?.length ?? 0) <= 2}
         />
-      </Grid>
-      <Grid cols={2} gap={4}>
+      </div>
+      <div className={styles.charts}>
         <DailyVolumeChart
           data={props.data ?? EMPTY_LIST}
           invisible={props.invisible}
@@ -140,7 +141,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = (props) => {
           data={props.data ?? EMPTY_LIST}
           invisible={props.invisible || (props.data?.length ?? 0) <= 2}
         />
-      </Grid>
+      </div>
     </Card>
   );
 };
@@ -156,13 +157,13 @@ const LabelWithHint: React.FC<LabelWithHintProps> = (props) => {
     <Tooltip
       open={hint ? undefined : false}
       content={hint}
-      className="oui-max-w-[240px] oui-bg-base-6 "
+      className="oui-max-w-60 oui-bg-base-6 "
       arrow={{ className: "oui-fill-base-6" }}
       delayDuration={300}
     >
       <Text
         size="xs"
-        intensity={36}
+        intensity={80}
         className={cn(
           hint &&
             "oui-cursor-pointer oui-border-b oui-border-dashed oui-border-line-12",
@@ -188,11 +189,11 @@ export const PerformancePnL: React.FC<{
     [props.data],
   );
   return (
-    <Box mt={4} height={"188px"}>
+    <Box mt={4}>
       <Text as="div" size="sm" className="oui-mb-3">
         {t("portfolio.overview.performance.dailyPnl")}
       </Text>
-      <Box r="md" className="oui-h-[188px] oui-border oui-border-line-4">
+      <Box r="md" className="oui-h-48 oui-border oui-border-line-4">
         <PnLBarChart
           data={chartData}
           invisible={props.invisible || (chartData?.length ?? 0) <= 2}
@@ -212,7 +213,7 @@ export const CumulativePnlChart: React.FC<{
       <Text as="div" size="sm" className="oui-mb-3">
         {t("portfolio.overview.performance.cumulativePnl")}
       </Text>
-      <Box r="md" className="oui-h-[188px] oui-border oui-border-line-4">
+      <Box r="md" className="oui-h-48 oui-border oui-border-line-4">
         <PnlAreaChart
           data={props.data}
           invisible={props.invisible || (props.data?.length ?? 0) <= 2}
@@ -236,17 +237,17 @@ export const DailyVolumeChart: React.FC<{
     [props.data],
   );
   return (
-    <Box mt={4} height={"188px"}>
+    <Box mt={4}>
       <Text as="div" size="sm" className="oui-mb-3">
         {t("portfolio.overview.performance.dailyVolume")}
       </Text>
-      <Box r="md" className="oui-h-[188px] oui-border oui-border-line-4">
+      <Box r="md" className="oui-h-48 oui-border oui-border-line-4">
         <VolBarChart
           data={volumeData}
           invisible={props.invisible || volumeData.length <= 2}
           responsiveContainerProps={{
             width: "100%",
-            height: 188,
+            height: "calc(var(--oui-space-24)*2)",
           }}
         />
       </Box>
@@ -264,7 +265,7 @@ export const CumulativeVolumeChart: React.FC<{
       <Text as="div" size="sm" className="oui-mb-3">
         {t("portfolio.overview.performance.cumulativeVolume")}
       </Text>
-      <Box r="md" className="oui-h-[188px] oui-border oui-border-line-4">
+      <Box r="md" className="oui-h-48 oui-border oui-border-line-4">
         <VolumeAreaChart
           data={props.data ?? EMPTY_LIST}
           invisible={props.invisible || (props.data?.length ?? 0) <= 2}

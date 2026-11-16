@@ -3,75 +3,373 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>Paxeer inference peer</title>
     <style>
       :root {
         color-scheme: light dark;
-        font:
-          16px/1.5 system-ui,
-          sans-serif;
+        --background-light: #f4f6f8;
+        --background-dark: #0c1119;
+        --background: var(--background-light);
+        --surface-light: #ffffff;
+        --surface-dark: #151e2a;
+        --surface: var(--surface-light);
+        --text-light: #182331;
+        --text-dark: #eef2f8;
+        --text: var(--text-light);
+        --muted-light: #48586a;
+        --muted-dark: #b5c2d3;
+        --muted: var(--muted-light);
+        --border-color-light: #69798c;
+        --border-color-dark: #8294a9;
+        --border-color: var(--border-color-light);
+        --accent-light: #1859a9;
+        --accent-dark: #92c0ff;
+        --accent: var(--accent-light);
+        --selection-text-light: #ffffff;
+        --selection-text-dark: #0c1119;
+        --selection-text: var(--selection-text-light);
+        --hover-light: #edf3fb;
+        --hover-dark: #23364d;
+        --hover: var(--hover-light);
+        --selected-light: #dceafa;
+        --selected-dark: #2b4564;
+        --selected: var(--selected-light);
+        --error-light: #a41616;
+        --error-dark: #ffb4b4;
+        --error: var(--error-light);
+        --space-1: 0.25rem;
+        --space-2: 0.5rem;
+        --space-3: 0.75rem;
+        --space-4: 1rem;
+        --space-5: 1.25rem;
+        --space-6: 1.5rem;
+        --space-8: 2rem;
+        --space-12: 3rem;
+        --font-sans:
+          system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+        --text-small: clamp(0.875rem, 0.855rem + 0.09vw, 1rem);
+        --text-body: clamp(1rem, 0.98rem + 0.09vw, 1.125rem);
+        --text-heading: clamp(1.25rem, 1.21rem + 0.18vw, 1.5rem);
+        --text-title: clamp(1.75rem, 1.63rem + 0.54vw, 2.5rem);
+        --weight-normal: 400;
+        --weight-medium: 600;
+        --weight-bold: 700;
+        --leading-body: 1.5;
+        --leading-heading: 1.2;
+        --radius-small: 0.5rem;
+        --radius: 0.75rem;
+        --border: 1px;
+        --focus-width: 3px;
+        --focus-offset: 3px;
+        --control-size: 3rem;
+        --duration: 150ms;
+        --announcement-delay: 200ms;
+        --ease: ease-out;
+        --measure: 75ch;
+        --page-size: 64rem;
+        --data-size: 26rem;
+        --data-min: 6rem;
+        --manifest-size: 16rem;
+        --announcement-size: calc(2em * var(--leading-body));
+        --shadow: 0 var(--space-1) var(--space-3)
+          color-mix(in srgb, var(--text) 8%, transparent);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: var(--background-dark);
+          --surface: var(--surface-dark);
+          --text: var(--text-dark);
+          --muted: var(--muted-dark);
+          --border-color: var(--border-color-dark);
+          --accent: var(--accent-dark);
+          --selection-text: var(--selection-text-dark);
+          --hover: var(--hover-dark);
+          --selected: var(--selected-dark);
+          --error: var(--error-dark);
+        }
+      }
+
+      @supports (color: light-dark(white, black)) {
+        :root {
+          --background: light-dark(
+            var(--background-light),
+            var(--background-dark)
+          );
+          --surface: light-dark(var(--surface-light), var(--surface-dark));
+          --text: light-dark(var(--text-light), var(--text-dark));
+          --muted: light-dark(var(--muted-light), var(--muted-dark));
+          --border-color: light-dark(
+            var(--border-color-light),
+            var(--border-color-dark)
+          );
+          --accent: light-dark(var(--accent-light), var(--accent-dark));
+          --selection-text: light-dark(
+            var(--selection-text-light),
+            var(--selection-text-dark)
+          );
+          --hover: light-dark(var(--hover-light), var(--hover-dark));
+          --selected: light-dark(var(--selected-light), var(--selected-dark));
+          --error: light-dark(var(--error-light), var(--error-dark));
+        }
+      }
+
+      html {
+        box-sizing: border-box;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: inherit;
       }
       body {
-        max-width: 64rem;
-        margin: auto;
-        padding: 2rem 1rem;
+        margin: 0;
+        background: var(--background);
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-size: var(--text-body);
+        line-height: var(--leading-body);
+        font-variant-numeric: tabular-nums;
+        font-weight: var(--weight-normal);
       }
-      h1,
+      :where(button, input, textarea) {
+        font: inherit;
+      }
+      :where(h1, h2, h3, strong) {
+        font-weight: var(--weight-bold);
+      }
+      :where(h1, h2, h3) {
+        line-height: var(--leading-heading);
+        text-wrap: balance;
+        overflow-wrap: anywhere;
+      }
+      h1 {
+        font-size: var(--text-title);
+      }
       h2 {
-        line-height: 1.2;
+        font-size: var(--text-heading);
+      }
+      h3 {
+        font-size: var(--text-body);
+      }
+      :where(p, dd) {
+        text-wrap: pretty;
+        overflow-wrap: anywhere;
+      }
+      p {
+        max-inline-size: var(--measure);
+      }
+      :where(pre, code, textarea) {
+        font-family: var(--font-mono);
+      }
+      :where(
+        a,
+        button,
+        input,
+        textarea,
+        summary,
+        [tabindex],
+        [contenteditable]
+      ):focus-visible {
+        outline: var(--focus-width) solid var(--accent);
+        outline-offset: var(--focus-offset);
+      }
+      :root {
+        accent-color: var(--accent);
+        scrollbar-color: var(--muted) var(--background);
+        scrollbar-width: auto;
+      }
+      ::selection {
+        color: var(--selection-text);
+        background: var(--accent);
+      }
+      :where([hidden]:not([hidden="until-found"])) {
+        display: none !important;
+      }
+      :where(button) {
+        min-inline-size: var(--control-size);
+        min-block-size: var(--control-size);
+        padding: var(--space-2) var(--space-4);
+        border: var(--border) solid var(--border-color);
+        border-radius: var(--radius-small);
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        transition:
+          background-color var(--duration) var(--ease),
+          border-color var(--duration) var(--ease);
+      }
+      :where(button):hover:not(:disabled) {
+        background: var(--hover);
+        border-color: var(--accent);
+      }
+      :where(button):active:not(:disabled) {
+        background: var(--selected);
+      }
+      :where(button, input, textarea):disabled {
+        color: var(--muted);
+        background: var(--background);
+        cursor: not-allowed;
+      }
+      a {
+        color: var(--accent);
+        text-underline-offset: var(--space-1);
+      }
+      a:hover {
+        text-decoration-thickness: var(--border);
+      }
+      @media (forced-colors: active) {
+        :root {
+          --background: Canvas;
+          --surface: Canvas;
+          --text: CanvasText;
+          --muted: CanvasText;
+          --border-color: ButtonText;
+          --accent: LinkText;
+          --selection-text: HighlightText;
+          --hover: Canvas;
+          --selected: Canvas;
+          --error: CanvasText;
+        }
+      }
+
+      body {
+        max-inline-size: var(--page-size);
+        margin-inline: auto;
+        padding: var(--space-8) var(--space-4);
+      }
+      :where(h1, h2, h3, p, dl, pre) {
+        margin-block: 0 var(--space-4);
       }
       section {
-        border: 1px solid #8886;
-        border-radius: 0.75rem;
-        padding: 1.25rem;
-        margin: 1.25rem 0;
+        container: peer-section / inline-size;
+        border: var(--border) solid var(--border-color);
+        border-radius: var(--radius);
+        padding: var(--space-5);
+        margin-block: var(--space-6);
+        background: var(--surface);
+        box-shadow: var(--shadow);
       }
       label {
         display: block;
-        margin-top: 1rem;
-      }
-      input,
-      textarea,
-      button {
-        box-sizing: border-box;
-        font: inherit;
-        padding: 0.6rem;
+        margin-block: var(--space-5) var(--space-2);
+        font-weight: var(--weight-medium);
       }
       input,
       textarea {
-        width: 100%;
+        box-sizing: border-box;
+        inline-size: 100%;
+        min-inline-size: 0;
+        min-block-size: var(--control-size);
+        padding: var(--space-3);
+        border: var(--border) solid var(--border-color);
+        border-radius: var(--radius-small);
+        background: var(--surface);
+        color: var(--text);
       }
-      textarea,
-      pre,
-      code {
+      textarea {
+        resize: vertical;
+      }
+      :where(textarea, pre, code) {
         overflow-wrap: anywhere;
         white-space: pre-wrap;
       }
+      pre {
+        scroll-margin-block: var(--space-4);
+        block-size: var(--data-min);
+        max-block-size: var(--data-size);
+        padding: var(--space-4);
+        overflow: auto;
+        scrollbar-gutter: stable;
+        border: var(--border) solid var(--border-color);
+        border-radius: var(--radius-small);
+        background: var(--background);
+        font-size: var(--text-small);
+      }
       button {
-        margin: 1rem 0.5rem 0 0;
+        margin-block-start: var(--space-4);
+        margin-inline-end: var(--space-2);
+      }
+      summary {
+        min-block-size: var(--control-size);
+        padding-block: var(--space-3);
         cursor: pointer;
       }
-      button:disabled {
-        cursor: default;
+      summary:hover {
+        color: var(--accent);
+      }
+      summary:active {
+        background: var(--selected);
+      }
+      details {
+        border-block-start: var(--border) solid var(--border-color);
+      }
+      details[open] {
+        margin-block-end: var(--space-4);
       }
       dl {
         display: grid;
-        grid-template-columns: minmax(8rem, 1fr) 3fr;
-        gap: 0.5rem 1rem;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-2) var(--space-4);
+      }
+      dt {
+        color: var(--muted);
+        font-weight: var(--weight-medium);
       }
       dd {
-        margin: 0;
-        overflow-wrap: anywhere;
+        min-inline-size: 0;
+        margin: 0 0 var(--space-3);
+      }
+      @container peer-section (min-width: 32rem) {
+        dl {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+        }
+        dd {
+          margin: 0;
+        }
+      }
+      #manifest {
+        block-size: var(--manifest-size);
+      }
+      #connection,
+      #error {
+        min-block-size: var(--announcement-size);
       }
       #error {
-        color: light-dark(#a41616, #ffb4b4);
+        color: var(--error);
       }
       .hint {
-        opacity: 0.8;
+        color: var(--muted);
+        font-size: var(--text-small);
+        margin-block-start: var(--space-3);
       }
-      @media (max-width: 32rem) {
-        dl {
-          grid-template-columns: 1fr;
+      .field-error {
+        display: none;
+        color: var(--error);
+        font-size: var(--text-small);
+        margin-block: var(--space-2);
+      }
+      :where(input, textarea):user-invalid {
+        border-color: var(--error);
+      }
+      :where(input, textarea):user-invalid + .field-error {
+        display: block;
+      }
+      .validation-status {
+        min-block-size: var(--space-6);
+        color: var(--error);
+        font-size: var(--text-small);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0s !important;
+          animation-duration: 0s !important;
+          scroll-behavior: auto !important;
         }
       }
     </style>
@@ -94,70 +392,145 @@
         </dl>
         <details open>
           <summary>Measure the participant manifest</summary>
-          <p class="hint">
+          <p class="hint" id="manifest-hint">
             Paste the canonical v1 participant manifest supplied by your room
             operator. Measurement preserves its identity, capabilities and
             validity window and adds this device's measured v2 fields.
           </p>
-          <label for="manifest-v1">Participant manifest v1 (hex)</label>
-          <textarea
-            id="manifest-v1"
-            rows="4"
-            spellcheck="false"
-            required
-          ></textarea>
-          <label for="region">Region code</label>
-          <input
-            id="region"
-            minlength="2"
-            maxlength="2"
-            pattern="[A-Za-z]{2}"
-            placeholder="US"
-            required
-          />
-          <label for="probe-url">Bandwidth probe URL</label>
-          <input id="probe-url" type="url" required />
-          <p class="hint">
-            The probe must serve 64 KiB to 1 MiB of uncompressed bytes over
-            HTTPS or HTTP loopback, with a Content-Length header and CORS access
-            for this page.
-          </p>
-          <button id="measure" type="button" disabled>Measure device</button>
+          <form id="measure-form" aria-label="Measure the participant manifest">
+            <label for="manifest-v1">Participant manifest v1 (hex)</label>
+            <textarea
+              id="manifest-v1"
+              name="manifest-v1"
+              autocomplete="off"
+              autocapitalize="none"
+              autocorrect="off"
+              aria-describedby="manifest-hint"
+              aria-invalid="false"
+              data-error="manifest-v1-error"
+              rows="4"
+              spellcheck="false"
+              required
+            ></textarea>
+            <p class="field-error" id="manifest-v1-error">
+              Please paste the participant manifest as hexadecimal bytes.
+            </p>
+            <label for="region">Region code</label>
+            <input
+              id="region"
+              name="region"
+              autocomplete="country"
+              autocapitalize="characters"
+              autocorrect="off"
+              spellcheck="false"
+              aria-invalid="false"
+              data-error="region-error"
+              minlength="2"
+              maxlength="2"
+              pattern="[A-Za-z]{2}"
+              placeholder="US"
+              required
+            />
+            <p class="field-error" id="region-error">
+              Please enter a two-letter region code.
+            </p>
+            <label for="probe-url">Bandwidth probe URL</label>
+            <input
+              id="probe-url"
+              name="probe-url"
+              type="url"
+              inputmode="url"
+              autocomplete="url"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck="false"
+              aria-describedby="probe-hint"
+              aria-invalid="false"
+              data-error="probe-url-error"
+              required
+            />
+            <p class="field-error" id="probe-url-error">
+              Please enter the complete bandwidth probe URL.
+            </p>
+            <p class="hint" id="probe-hint">
+              The probe must serve 64 KiB to 1 MiB of uncompressed bytes over
+              HTTPS or HTTP loopback, with a Content-Length header and CORS
+              access for this page.
+            </p>
+            <button id="measure" type="submit" disabled>Measure device</button>
+          </form>
         </details>
-        <pre id="manifest" aria-label="Measured manifest">Not measured</pre>
+        <pre
+          tabindex="0"
+          role="region"
+          id="manifest"
+          aria-label="Measured manifest"
+        >
+Not measured</pre
+        >
       </section>
       <section aria-labelledby="room-heading">
         <h2 id="room-heading">Join a room</h2>
-        <form id="join-form">
+        <form id="join-form" aria-labelledby="room-heading">
           <label for="host">Host signalling address</label>
           <input
             id="host"
+            name="host"
+            autocomplete="url"
+            inputmode="url"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            aria-invalid="false"
+            data-error="host-error"
             type="url"
             placeholder="wss://host.example/"
             required
           />
+          <p class="field-error" id="host-error">
+            Please enter a ws:// or wss:// signalling address.
+          </p>
           <label for="room">Room ID (64 lowercase hex characters)</label>
           <input
             id="room"
+            name="room"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            aria-invalid="false"
+            data-error="room-error"
             autocomplete="off"
             pattern="[0-9a-f]{64}"
             minlength="64"
             maxlength="64"
             required
           />
+          <p class="field-error" id="room-error">
+            Please enter 64 lowercase hexadecimal characters.
+          </p>
           <button id="join" type="submit" disabled>Join room</button>
           <button id="leave" type="button" disabled>Leave room</button>
         </form>
       </section>
+      <p id="validation-status" class="validation-status" role="status"></p>
       <section aria-labelledby="status-heading" aria-live="polite">
         <h2 id="status-heading">Room status</h2>
         <details>
           <summary>Host offer</summary>
-          <pre id="offer">Awaiting host</pre>
+          <pre tabindex="0" role="region" aria-label="Host offer" id="offer">
+Awaiting host</pre
+          >
         </details>
         <details>
           <summary>Host deal</summary>
-          <pre id="deal-details">Awaiting host</pre>
+          <pre
+            tabindex="0"
+            role="region"
+            aria-label="Host deal"
+            id="deal-details"
+          >
+Awaiting host</pre
+          >
         </details>
         <dl>
           <dt>Deal</dt>
@@ -175,13 +548,77 @@
           validation and acceptance before work can begin.
         </p>
         <h3>Countersigned receipts</h3>
-        <pre id="receipts">Unavailable — host does not send this state</pre>
+        <pre
+          tabindex="0"
+          role="region"
+          aria-label="Countersigned receipts"
+          id="receipts"
+        >
+Unavailable — host does not send this state</pre
+        >
       </section>
     </main>
     <script type="module">
       import { PeerPage } from "./src/page.mjs";
+      const fields = [...document.querySelectorAll("[data-error]")];
+      const status = document.getElementById("validation-status");
+      const announcementDelay = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--announcement-delay",
+        ),
+      );
+      let announcement;
+      function syncField(field, announce = false) {
+        const invalid = field.matches(":user-invalid");
+        field.setAttribute("aria-invalid", String(invalid));
+        const errorId = field.dataset.error;
+        const descriptions = new Set(
+          (field.getAttribute("aria-describedby") || "")
+            .split(" ")
+            .filter(Boolean),
+        );
+        descriptions.delete(errorId);
+        if (invalid) descriptions.add(errorId);
+        if (descriptions.size)
+          field.setAttribute("aria-describedby", [...descriptions].join(" "));
+        else field.removeAttribute("aria-describedby");
+        if (announce) {
+          clearTimeout(announcement);
+          status.textContent = "";
+          if (invalid)
+            announcement = setTimeout(() => {
+              status.textContent = document.getElementById(errorId).textContent;
+            }, announcementDelay);
+        }
+      }
+      for (const field of fields) {
+        field.addEventListener("blur", () => syncField(field, true));
+        field.addEventListener("input", () => syncField(field));
+        field.addEventListener("invalid", () =>
+          queueMicrotask(() => syncField(field)),
+        );
+      }
+      const measureForm = document.getElementById("measure-form");
+      measureForm.addEventListener("submit", (event) => event.preventDefault());
+      document.getElementById("measure").addEventListener(
+        "click",
+        (event) => {
+          if (!measureForm.reportValidity()) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        },
+        { capture: true },
+      );
       const page = new PeerPage(document);
       page.start().catch((error) => page.showError(error));
+      for (const output of document.querySelectorAll("pre[tabindex]")) {
+        output.addEventListener("focus", () => {
+          requestAnimationFrame(() =>
+            output.scrollIntoView({ block: "nearest" }),
+          );
+        });
+      }
     </script>
   </body>
 </html>

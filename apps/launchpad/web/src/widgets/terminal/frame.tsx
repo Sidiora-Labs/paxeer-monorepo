@@ -1,4 +1,5 @@
 'use client';
+import { launchpadMedia } from '@/app/presentation-tokens';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject, type FormEvent, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ClipboardPaste, Search, Settings } from 'lucide-react';
@@ -42,19 +43,25 @@ function useShellTop(): number | null {
   return top;
 }
 
-function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number | null] {
+function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number | null, number] {
   const ref = useRef<T | null>(null);
   const [width, setWidth] = useState<number | null>(null);
+  const [textScale, setTextScale] = useState(1);
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const update = () => setWidth(element.clientWidth);
+    const update = () => {
+      setWidth(element.clientWidth);
+      setTextScale(Number.parseFloat(getComputedStyle(document.documentElement).fontSize) / 16);
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(element);
-    return () => observer.disconnect();
+    const rootObserver = new MutationObserver(update);
+    rootObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] });
+    return () => { observer.disconnect(); rootObserver.disconnect(); };
   }, []);
-  return [ref, width];
+  return [ref, width, textScale];
 }
 
 function PasteCaButton() {
@@ -106,7 +113,7 @@ function PasteCaButton() {
           onSubmit={submit}
           role="dialog"
           aria-label="Open a coin by address"
-          className="absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-1 flex w-72 flex-col gap-2 rounded-md bg-surface-2 p-3 shadow-pop"
+          className="absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-1 flex w-full max-w-menu-min flex-col gap-2 rounded-md bg-surface-2 p-3 shadow-pop"
         >
           <label htmlFor={inputId} className="text-xs font-bold text-text-muted">Paste the coin address.</label>
           <input
@@ -139,7 +146,7 @@ interface ColumnHandleProps {
   onToggle(): void;
 }
 
-/** 4px gutter between columns: the ResizeHandle drags / arrow-keys the width, the chevron collapses the side column. */
+/** Column controls reserve separate space for resizing and collapsing. */
 function ColumnHandle({ side, layout, onResize, onToggle }: ColumnHandleProps) {
   const min = side === 'left' ? columnLimits.leftMin : columnLimits.rightMin;
   const fallback = side === 'left' ? columnLimits.leftDefault : columnLimits.rightDefault;
@@ -147,7 +154,7 @@ function ColumnHandle({ side, layout, onResize, onToggle }: ColumnHandleProps) {
   const label = side === 'left' ? 'left column' : 'right column';
 
   return (
-    <div className="group relative hidden w-1 shrink-0 lg:block">
+    <div className="group hidden w-touch-target-min shrink-0 flex-col lg:flex">
       {open ? (
         <ResizeHandle
           orientation="vertical"
@@ -158,7 +165,7 @@ function ColumnHandle({ side, layout, onResize, onToggle }: ColumnHandleProps) {
           defaultValue={fallback}
           onChange={onResize}
           label={`Resize ${label}`}
-          className="absolute -inset-x-1 inset-y-0 z-10 h-auto w-auto rounded-sm"
+          className="h-auto min-h-touch-target-min w-full flex-1 rounded-sm"
         />
       ) : null}
       <button
@@ -167,10 +174,7 @@ function ColumnHandle({ side, layout, onResize, onToggle }: ColumnHandleProps) {
         aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
         aria-expanded={open}
         title={open ? `Collapse ${label}` : `Expand ${label}`}
-        className={cn(
-          'absolute top-1/2 z-20 flex h-8 w-4 -translate-y-1/2 items-center justify-center rounded-sm bg-surface-2 text-text-muted opacity-0 transition-opacity duration-fast hover:bg-surface-hover hover:text-text focus-visible:opacity-100 group-hover:opacity-100 [&_svg]:size-3',
-          side === 'left' ? '-left-1.5' : '-right-1.5',
-        )}
+        className="flex size-touch-target-min shrink-0 items-center justify-center rounded-sm bg-surface-2 text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text [&_svg]:size-icon-sm"
       >
         {(side === 'left') === open ? <ChevronLeft aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
       </button>
@@ -181,8 +185,8 @@ function ColumnHandle({ side, layout, onResize, onToggle }: ColumnHandleProps) {
 function CollapsedStrip({ side, onExpand }: { side: 'left' | 'right'; onExpand(): void }) {
   const label = side === 'left' ? 'Expand left column' : 'Expand right column';
   return (
-    <div className="hidden w-6 shrink-0 flex-col items-center rounded-md bg-surface-1 py-1 lg:flex">
-      <IconButton label={label} icon={side === 'left' ? <ChevronRight /> : <ChevronLeft />} variant="ghost" size="sm" className="w-6" onClick={onExpand} />
+    <div className="hidden w-touch-target-min shrink-0 flex-col items-center rounded-md bg-surface-1 py-1 lg:flex">
+      <IconButton label={label} icon={side === 'left' ? <ChevronRight /> : <ChevronLeft />} variant="ghost" size="sm" className="w-full" onClick={onExpand} />
     </div>
   );
 }
@@ -208,8 +212,8 @@ export default function TerminalFrame({ left, center, right, status, children }:
   const active = terminalViewForPath(pathname) ?? 'trending';
   const top = useShellTop();
   const columns = useTerminalColumns();
-  const [bodyRef, bodyWidth] = useElementWidth<HTMLDivElement>();
-  const wide = useMediaQuery('(min-width: 1024px)');
+  const [bodyRef, bodyWidth, textScale] = useElementWidth<HTMLDivElement>();
+  const wide = useMediaQuery(launchpadMedia.large);
   const hasLeft = left !== undefined && left !== null;
   const hasRight = right !== undefined && right !== null;
 
@@ -229,6 +233,7 @@ export default function TerminalFrame({ left, center, right, status, children }:
     wide && bodyWidth !== null ? bodyWidth : Number.POSITIVE_INFINITY,
     { present: hasLeft, width: columns.leftWidth, collapsed: columns.leftCollapsed, min: columnLimits.leftMin },
     { present: hasRight, width: columns.rightWidth, collapsed: columns.rightCollapsed, min: columnLimits.rightMin },
+    textScale,
   );
 
   const toggle = (side: 'left' | 'right') => {
@@ -255,10 +260,10 @@ export default function TerminalFrame({ left, center, right, status, children }:
 
   return (
     <div style={style} data-terminal-frame className="flex min-w-0 flex-col bg-canvas lg:h-[calc(100dvh-var(--terminal-top))] lg:overflow-hidden">
-      <header className="flex h-10 shrink-0 items-center gap-2 px-2">
+      <header className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 px-2 py-1">
         <h1 className="shrink-0 px-1 text-sm font-extrabold text-text">Terminal</h1>
-        <div className="min-w-0 flex-1"><TerminalSubNav active={active} /></div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="order-last min-w-0 basis-full lg:order-none lg:flex-1 lg:basis-0"><TerminalSubNav active={active} /></div>
+        <div className="flex max-w-full flex-wrap items-center gap-1">
           <PasteCaButton />
           <IconButton label="Search pairs (press /)" icon={<Search />} variant="raised" size="sm" onClick={openSearchPalette} />
           <DropdownMenu label="Terminal layout" align="end" size="sm" trigger={<Settings aria-hidden="true" className="size-icon-sm" />} items={settingsItems} />
@@ -275,7 +280,7 @@ export default function TerminalFrame({ left, center, right, status, children }:
             <ColumnHandle side="left" layout={layout.left} onResize={columns.setLeftWidth} onToggle={() => toggle('left')} />
           </>
         ) : null}
-        <section aria-label="Workspace" className="flex min-w-0 flex-col gap-1 bg-canvas lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        <section aria-label="Workspace" className="@container/workspace flex min-w-0 flex-col gap-1 bg-canvas lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           {center}
         </section>
         {hasRight ? (

@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import Link from 'next/link';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { Avatar, CountdownProgress, EmptyState, ErrorState, KeyValueRow, LoadMore, Skeleton, StatusBadge, UnavailableState } from '@/ui/primitives';
@@ -64,8 +65,8 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
       <h2 id="bounty-submissions-heading" className="text-lg font-bold text-text">Submissions</h2>
       {loadable.state === 'loading' ? (
         <div aria-busy="true" className="flex flex-col gap-3">
-          <Skeleton height={120} label="Loading submissions" />
-          <Skeleton height={120} />
+          <Skeleton height={surfaceSpacing(30)} label="Loading submissions" />
+          <Skeleton height={surfaceSpacing(30)} />
         </div>
       ) : null}
       {loadable.state === 'unsupported' ? (
@@ -94,10 +95,10 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
 function DetailSkeleton() {
   return (
     <div aria-busy="true" className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4 md:p-6">
-      <Skeleton variant="pill" width={64} height={20} label="Loading bounty" />
-      <Skeleton width="70%" height={32} />
-      <Skeleton width={160} height={16} />
-      <Skeleton width={120} height={28} />
+      <Skeleton variant="pill" width={surfaceSpacing(16)} height={surfaceSpacing(5)} label="Loading bounty" />
+      <Skeleton width="70%" height={surfaceSpacing(8)} />
+      <Skeleton width={surfaceSpacing(40)} height={surfaceSpacing(4)} />
+      <Skeleton width={surfaceSpacing(30)} height={surfaceSpacing(7)} />
       <Skeleton variant="text" rows={4} />
     </div>
   );
@@ -119,7 +120,7 @@ export function BountyDetail({ bountyId, className }: { bountyId: string; classN
   return (
     <div className={cn('flex flex-col gap-6', className)}>
       <BackLink />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,var(--sl-dashboard-column-width))]">
         <div className="flex min-w-0 flex-col gap-6">
           {detail.state === 'loading' ? <DetailSkeleton /> : null}
           {detail.state === 'unsupported' ? (

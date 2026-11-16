@@ -221,12 +221,14 @@ const FundingFeeLabelButton: FC<{
       {tooltip && (
         <button
           className="oui-flex oui-items-center"
+          aria-label={t("common.moreInfo")}
           onClick={() => {
             modal.alert({
               message: tooltip,
               title: t("positions.fundingFee.title"),
             });
           }}
+          type="button"
         >
           <ExclamationFillIcon
             className="oui-cursor-pointer oui-text-base-contrast-54"

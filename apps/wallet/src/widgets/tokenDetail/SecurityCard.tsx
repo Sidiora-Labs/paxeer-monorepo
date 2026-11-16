@@ -33,7 +33,7 @@ export function SecurityCard({ top10Pct, riskRating }: SecurityCardProps) {
       <div className="col-span-2 px-1 pt-1">
         <SectionLabel text="Security" />
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-[20px]  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         {top10Pct > 0 && (
           <InfoRow
             label={

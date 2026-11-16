@@ -1,0 +1,386 @@
+[manifest]
+task = "22.44.35"
+surface = "Inference peer, WebAssembly playground and codebase map"
+paths = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.css]
+id = "css"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.html]
+id = "html"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.color]
+id = "color"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.dark-mode]
+id = "dark-mode"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.responsive-design]
+id = "responsive-design"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.css-layout]
+id = "css-layout"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.browser-ui-theming]
+id = "browser-ui-theming"
+directories = ["apps/inference-peer", "tools/wasm-tools/playground/pages", "tools/codebase-map"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/inference-peer"]
+
+[guide.validate-input-after-interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/inference-peer"]
+
+[guide.accessible-error-announcement]
+id = "accessible-error-announcement"
+directories = ["apps/inference-peer"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["tools/codebase-map"]
+
+[guide.size-aware-styling]
+id = "size-aware-styling"
+directories = ["apps/inference-peer", "tools/codebase-map"]
+
+[guide.icons]
+id = "icons"
+directories = ["tools/codebase-map"]
+
+[guide.component-specific-light-dark-theme]
+id = "component-specific-light-dark-theme"
+directories = ["tools/codebase-map"]
+
+[view.peer-ready]
+route = "/apps/inference-peer/index.html"
+state = "Device identity and room controls"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.peer-validation]
+route = "/apps/inference-peer/index.html"
+state = "Field validation feedback"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.peer-status]
+route = "/apps/inference-peer/index.html"
+state = "Manifest, host offer, deal and receipt details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.parse]
+route = "/tools/wasm-tools/playground/pages/parse.html"
+state = "Text input and binary output"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.parse-error]
+route = "/tools/wasm-tools/playground/pages/parse.html"
+state = "Conversion error"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.print]
+route = "/tools/wasm-tools/playground/pages/print.html"
+state = "Binary upload and text output"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.print-drop]
+route = "/tools/wasm-tools/playground/pages/print.html"
+state = "File drop cue"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.print-error]
+route = "/tools/wasm-tools/playground/pages/print"
+state = "Binary conversion error"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.parse-route]
+route = "/tools/wasm-tools/playground/pages/parse"
+state = "Text conversion"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.print-route]
+route = "/tools/wasm-tools/playground/pages/print"
+state = "Binary conversion"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.redirect]
+route = "/tools/wasm-tools/playground/pages/index.html"
+state = "Project redirect and fallback link"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-systems]
+route = "/tools/codebase-map/index.html"
+state = "System relationships"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-systems-selection]
+route = "/tools/codebase-map/index.html"
+state = "System selection details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-packages]
+route = "/tools/codebase-map/index.html"
+state = "Package dependencies"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-packages-selection]
+route = "/tools/codebase-map/index.html"
+state = "Package selection details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-files]
+route = "/tools/codebase-map/index.html"
+state = "File relationships"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-files-selection]
+route = "/tools/codebase-map/index.html"
+state = "File selection details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-file-imports-empty]
+route = "/tools/codebase-map/index.html"
+state = "File imports without relationships"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-symbols]
+route = "/tools/codebase-map/index.html"
+state = "Symbol calls"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-symbols-selection]
+route = "/tools/codebase-map/index.html"
+state = "Symbol selection details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-imports]
+route = "/tools/codebase-map/index.html"
+state = "Import relationships"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-imports-selection]
+route = "/tools/codebase-map/index.html"
+state = "Import selection details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-routes]
+route = "/tools/codebase-map/index.html"
+state = "Routes and frameworks"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-routes-selection]
+route = "/tools/codebase-map/index.html"
+state = "Route selection details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-framework]
+route = "/tools/codebase-map/index.html"
+state = "Framework selection details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-tasks]
+route = "/tools/codebase-map/index.html"
+state = "Delivery waves"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-wave]
+route = "/tools/codebase-map/index.html"
+state = "Wave task inventory"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-tasks-selection]
+route = "/tools/codebase-map/index.html"
+state = "Task selection details"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-search]
+route = "/tools/codebase-map/index.html"
+state = "Search results"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-search-empty]
+route = "/tools/codebase-map/index.html"
+state = "Search without results"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-help]
+route = "/tools/codebase-map/index.html"
+state = "Navigation help dialog"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-empty]
+route = "/tools/codebase-map/index.html"
+state = "Empty map"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-loading]
+route = "/tools/codebase-map/index.html"
+state = "Map loading"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]
+
+[view.map-load-error]
+route = "/tools/codebase-map/index.html"
+state = "Map loading error"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = ["reduce"]

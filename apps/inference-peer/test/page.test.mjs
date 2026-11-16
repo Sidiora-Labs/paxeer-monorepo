@@ -282,7 +282,7 @@ async function host_error_code_is_rendered_and_socket_is_closed(t) {
   );
 }
 
-async function unload_closes_the_real_socket_once_without_inventing_bye(t) {
+async function pagehide_closes_the_real_socket_once_without_inventing_bye(t) {
   const env = await environment(t);
   const { document, dom } = await env.page();
   submit(document, dom.window);
@@ -295,9 +295,17 @@ async function unload_closes_the_real_socket_once_without_inventing_bye(t) {
   let closes = 0;
   socket.on("close", () => closes++);
   const closed = once(socket, "close");
-  for (const event of ["beforeunload", "pagehide", "unload"])
+  assert.doesNotMatch(
+    PeerPage.prototype.start.toString(),
+    /["'](?:beforeunload|unload)["']/,
+  );
+  for (const event of ["beforeunload", "unload"])
     dom.window.dispatchEvent(new dom.window.Event(event));
+  assert.equal(document.getElementById("leave").disabled, false);
+  assert.equal(socket.readyState, "open");
+  dom.window.dispatchEvent(new dom.window.PageTransitionEvent("pagehide"));
   await closed;
+  dom.window.dispatchEvent(new dom.window.PageTransitionEvent("pagehide"));
   assert.equal(closes, 1);
   assert.deepEqual(
     env.received.map((frame) => frame.type),
@@ -306,6 +314,63 @@ async function unload_closes_the_real_socket_once_without_inventing_bye(t) {
   assert.equal(document.getElementById("connection").textContent, "Left room");
   assert.equal(document.getElementById("leave").disabled, true);
   assert.equal(document.getElementById("join").disabled, false);
+}
+
+async function persisted_pageshow_rejoins_the_room_with_the_stored_identity(t) {
+  const env = await environment(t);
+  const { document, dom, page } = await env.page();
+  const saved = await readFile(env.path);
+  const measured = JSON.parse(document.getElementById("manifest").textContent);
+  const restored = new dom.window.PageTransitionEvent("pageshow", {
+    persisted: true,
+  });
+  dom.window.dispatchEvent(restored);
+  assert.equal(env.received.length, 0);
+  await page.join();
+  const closed = once(env.connections[0].socket, "close");
+  dom.window.dispatchEvent(
+    new dom.window.PageTransitionEvent("pagehide", { persisted: true }),
+  );
+  await closed;
+  dom.window.dispatchEvent(new dom.window.PageTransitionEvent("pageshow"));
+  assert.equal(env.received.length, 1);
+  assert.equal(document.getElementById("join").disabled, false);
+  dom.window.dispatchEvent(restored);
+  await eventually(
+    () =>
+      env.received.length === 2 &&
+      document.getElementById("connection").textContent ===
+        "Joined room — awaiting deal",
+  );
+  const hello = env.received[1];
+  assert.equal(hello.type, "hello");
+  assert.equal(signalHex(hello.room_id), roomId);
+  assert.equal(signalHex(hello.peer_key), fixtures.key.peer_key_hex);
+  assert.equal(Buffer.from(hello.manifest).toString("hex"), measured.bytes);
+  const key = createPublicKey({
+    key: Buffer.concat([
+      Buffer.from("302a300506032b6570032100", "hex"),
+      Buffer.from(fixtures.key.peer_key_hex, "hex"),
+    ]),
+    format: "der",
+    type: "spki",
+  });
+  assert.ok(
+    verify(
+      null,
+      hostHelloBytes(hello.room_id, hello.nonce),
+      key,
+      Buffer.from(hello.signature),
+    ),
+  );
+  assert.deepEqual(await readFile(env.path), saved);
+  assert.equal(document.getElementById("error").textContent, "");
+  dom.window.dispatchEvent(restored);
+  assert.equal(env.connections.length, 2);
+  page.leave();
+  dom.window.dispatchEvent(restored);
+  assert.equal(env.connections.length, 2);
+  assert.equal(document.getElementById("leave").disabled, true);
 }
 
 async function failed_measurement_cannot_reuse_a_stale_manifest(t) {
@@ -369,5 +434,6 @@ test(status_panel_renders_host_offer_deal_and_unavailable_earnings);
 test(status_renderer_displays_deal_live_and_host_error_vectors);
 test(host_error_code_is_rendered_and_socket_is_closed);
 test(failed_measurement_cannot_reuse_a_stale_manifest);
-test(unload_closes_the_real_socket_once_without_inventing_bye);
+test(pagehide_closes_the_real_socket_once_without_inventing_bye);
+test(persisted_pageshow_rejoins_the_room_with_the_stored_identity);
 test(static_server_serves_modules_probe_and_rejects_private_paths);

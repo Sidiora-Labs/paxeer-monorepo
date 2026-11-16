@@ -8,7 +8,7 @@ const CopyIcon: FC<{ copied: boolean }> = ({ copied }) => (
     viewBox="0 0 17 16"
     fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
-    className={`oui-fill-base-contrast oui-text-base-contrast-54 ${copied ? "oui-fill-success oui-text-success" : ""}`}
+    className={`oui-fill-base-contrast oui-text-base-contrast-80 ${copied ? "oui-fill-success oui-text-success" : ""}`}
   >
     {copied ? (
       <path
@@ -43,21 +43,27 @@ export const CopyAddress: FC<CopyAddressProps> = ({ address }) => {
 
   return (
     <Flex
+      asChild
       gap={1}
       itemAlign="start"
       className="oui-mt-6 oui-w-full oui-cursor-pointer oui-justify-center"
-      onClick={handleCopy}
     >
-      <Text
-        size="xs"
-        className="oui-break-all oui-text-center oui-text-base-contrast-80"
-        title={address}
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
       >
-        {address}
-      </Text>
-      <Box className="oui-mt-0.5 oui-shrink-0">
-        <CopyIcon copied={copied} />
-      </Box>
+        <Text
+          size="xs"
+          className="oui-break-all oui-text-center oui-text-base-contrast-80"
+          title={address}
+        >
+          {address}
+        </Text>
+        <Box className="oui-mt-0.5 oui-shrink-0">
+          <CopyIcon copied={copied} />
+        </Box>
+      </button>
     </Flex>
   );
 };

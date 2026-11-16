@@ -128,13 +128,23 @@ export function LayoutHost<TLayout extends LayoutModel = LayoutModel>(
   }
 
   return (
-    <Renderer
-      layout={currentLayout}
-      panels={panels}
-      onLayoutChange={handleLayoutChange}
-      onLayoutPersist={handleLayoutPersist}
-      className={className}
-      style={style}
-    />
+    <div
+      className="oui-layout-host"
+      style={{
+        minWidth: 0,
+        width: "100%",
+        height: "100%",
+        containerType: "inline-size",
+      }}
+    >
+      <Renderer
+        layout={currentLayout}
+        panels={panels}
+        onLayoutChange={handleLayoutChange}
+        onLayoutPersist={handleLayoutPersist}
+        className={className}
+        style={style}
+      />
+    </div>
   );
 }

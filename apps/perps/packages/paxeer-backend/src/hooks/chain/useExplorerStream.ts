@@ -6,7 +6,7 @@ import {
   watchSocket,
   type CancelTask,
 } from "@paxeer-network/paxeer-backend/core/net/realtime";
-import { FEED_ORIGIN } from "@paxeer-network/paxeer-backend/core/feeds";
+import { getStreamSocketOrigin } from "@paxeer-network/paxeer-backend/core/feeds";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -32,7 +32,7 @@ import { useEffect, useRef, useState } from "react";
 
 // The gateway permits the Hyperpax browser origin; no client secret is shipped.
 
-export const EXPLORER_WS_URL = `${FEED_ORIGIN.replace(/^http/, "ws")}/ws/explorer`;
+export const EXPLORER_WS_URL = `${getStreamSocketOrigin()}/ws/explorer`;
 
 const MAX_BLOCKS = 50;
 const MAX_TXS = 100;

@@ -24,7 +24,7 @@ export default function AccountPage() {
           <Link
             key={link.href}
             href={link.href}
-            className="rounded-xl bg-white/[0.06] px-3 py-3 text-center text-xs font-semibold"
+            className="rounded-xl bg-pax-control px-3 py-3 text-center text-xs font-semibold"
           >
             {link.label}
           </Link>

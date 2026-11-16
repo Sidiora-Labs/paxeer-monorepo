@@ -20,21 +20,18 @@ export const CampaignContentCard: FC<{
         className="oui-rounded-xl oui-bg-base-9 oui-bg-cover oui-bg-center oui-bg-no-repeat"
         style={{
           backgroundImage: `url(${coverImage})`,
-          height: "100px",
+          minHeight: "var(--oui-space-24)",
         }}
       ></div>
       {typeof url === "string" &&
         url !== "" &&
         typeof onItemClick === "function" && (
           <button
-            className="oui-flex oui-items-center oui-gap-1"
+            type="button"
+            className="oui-shell-action oui-flex oui-items-center oui-gap-1"
             onClick={() => onItemClick(url)}
           >
-            <Text
-              size="xs"
-              color="buy"
-              className="oui-bg-clip-text oui-text-transparent oui-gradient-brand"
-            >
+            <Text size="xs" color="buy" className="oui-text-primary">
               {t("notification.joinNow")}
             </Text>
             <ArrowRightShortIcon size={18} color="success" />
@@ -83,7 +80,7 @@ export const MaintenanceContentCard: FC<{
 
   return (
     <div className="oui-flex oui-flex-col oui-gap-1">
-      <Text size="xs" intensity={54}>
+      <Text size="xs" intensity={80}>
         {t("notification.recentlyUpdated")}
       </Text>
       {/* <Flex itemAlign={"center"}>
@@ -108,7 +105,7 @@ export const DelistingContentCard: FC<{
     <div className="oui-flex oui-flex-col oui-gap-1">
       <Text.formatted
         rule="date"
-        intensity={54}
+        intensity={80}
         formatString="yyyy-MM-dd HH:mm:ss"
         size="xs"
       >
@@ -129,7 +126,7 @@ export const ListingContentCard: FC<{
     <div className="oui-flex oui-flex-col oui-gap-1">
       <Text.formatted
         rule="date"
-        intensity={54}
+        intensity={80}
         formatString="yyyy-MM-dd HH:mm:ss"
         size="xs"
       >
@@ -157,14 +154,11 @@ export const CommunityVoteContentCard: FC<{
         url !== "" &&
         typeof onItemClick === "function" && (
           <button
-            className="oui-flex oui-items-center oui-gap-1"
+            type="button"
+            className="oui-shell-action oui-flex oui-items-center oui-gap-1"
             onClick={() => onItemClick(url)}
           >
-            <Text
-              size="xs"
-              color="buy"
-              className="oui-bg-clip-text oui-text-transparent oui-gradient-brand"
-            >
+            <Text size="xs" color="buy" className="oui-text-primary">
               {t("notification.joinNow")}
             </Text>
             <ArrowRightShortIcon size={18} color="success" />

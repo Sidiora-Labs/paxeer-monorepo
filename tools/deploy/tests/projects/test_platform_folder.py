@@ -33,3 +33,23 @@ def test_platform_folder_loads_every_service_with_project_repository() -> None:
     for service in services:
         if service["kind"] == "repo":
             assert service["repo"] == project["repo"], service["name"]
+
+    by_name = {service["name"]: service for service in services}
+    dashboard = by_name["dashboard"]["vars"]
+    assert (
+        dashboard["PORT"]
+        == dashboard["LAYERX_DASHBOARD_LISTEN"].rsplit(":", 1)[1]
+        == "9445"
+    )
+    web = by_name["dashboard-web"]
+    assert web["vars"]["DASHBOARD_GATEWAY_ORIGIN"] == (
+        "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN"
+    )
+    assert web["vars"]["DASHBOARD_API_ORIGIN"] == (
+        "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN"
+    )
+    assert web["inputs"] == {
+        "PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN": "operator",
+        "PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN": "operator",
+        "PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT": "operator",
+    }

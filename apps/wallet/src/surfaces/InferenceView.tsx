@@ -108,7 +108,7 @@ export function InferenceAskForm({
             setAskRef('');
             setSettlement('');
           }}
-          className="w-full rounded-xl bg-[var(--color-surface-control)] p-3"
+          className="w-full rounded-xl bg-pax-control p-3"
         >
           <option value="">Choose a model and room</option>
           {rooms
@@ -126,7 +126,7 @@ export function InferenceAskForm({
           name="askRef"
           value={askRef}
           onChange={(event) => setAskRef(event.target.value)}
-          className="w-full rounded-xl bg-[var(--color-surface-control)] p-3"
+          className="w-full rounded-xl bg-pax-control p-3"
         >
           <option value="">Choose an unfunded ask</option>
           {room?.askStreams
@@ -181,7 +181,7 @@ export function InferenceAskList({ rooms }: { readonly rooms: readonly Inference
           <li
             key={`${room.roomId}:${ask.askId}`}
             data-ask={ask.askId}
-            className="space-y-2 rounded-2xl bg-[var(--color-surface-card)] p-4 text-xs text-pax-light"
+            className="space-y-2 rounded-2xl bg-pax-card p-4 text-xs text-pax-light"
           >
             <p className="break-all">Model: {room.modelDigest}</p>
             <p className="break-all">Ask: {ask.askId}</p>
@@ -238,7 +238,7 @@ export function InferenceEarnings({
   return (
     <section
       aria-label="Peer earnings"
-      className="space-y-2 rounded-2xl bg-[var(--color-surface-card)] p-4 text-xs text-pax-light"
+      className="space-y-2 rounded-2xl bg-pax-card p-4 text-xs text-pax-light"
     >
       <h2 className="text-base font-semibold">Peer earnings</h2>
       {earnings.state === 'loading' ? (

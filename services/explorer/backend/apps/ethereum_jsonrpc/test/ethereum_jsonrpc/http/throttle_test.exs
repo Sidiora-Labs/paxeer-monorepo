@@ -127,15 +127,18 @@ defmodule EthereumJSONRPC.HTTP.ThrottleTest do
   @unlimited_rps 100_000
 
   setup do
-    {:ok, _agent} = CountingTransport.start_link()
-
-    original = Application.get_env(:ethereum_jsonrpc, Throttle)
+    {:ok, agent} = CountingTransport.start_link()
 
     on_exit(fn ->
-      if is_nil(original) do
-        Application.delete_env(:ethereum_jsonrpc, Throttle)
-      else
-        Application.put_env(:ethereum_jsonrpc, Throttle, original)
+      if Process.alive?(agent), do: Agent.stop(agent)
+    end)
+
+    original = Application.fetch_env(:ethereum_jsonrpc, Throttle)
+
+    on_exit(fn ->
+      case original do
+        {:ok, config} -> Application.put_env(:ethereum_jsonrpc, Throttle, config)
+        :error -> Application.delete_env(:ethereum_jsonrpc, Throttle)
       end
 
       restart_guard()

@@ -1,3 +1,5 @@
+import surface from "../../../../surface.module.css";
+import { PeriodSelect } from "../../../../components/periodSelect";
 import { FC } from "react";
 import { VolBarChart } from "@paxeer-network/chart";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -15,7 +17,7 @@ export const CommissionChart: FC<TitleStatisticReturns> = (props) => {
       width={"100%"}
       gap={4}
       direction={"column"}
-      className="oui-affiliate-commissionChart oui-border oui-border-line-6 oui-bg-base-9"
+      className={`${surface.surface} oui-affiliate-commissionChart oui-border oui-border-line-6 oui-bg-base-9`}
     >
       <Flex
         justify={"between"}
@@ -24,7 +26,7 @@ export const CommissionChart: FC<TitleStatisticReturns> = (props) => {
       >
         <Text size="lg">{`${t("affiliate.commission")} (USDC)`}</Text>
         <div className="oui-commissionChart-period-select">
-          <Select.options
+          <PeriodSelect
             size={"xs"}
             value={props.period}
             onValueChange={props.onPeriodChange}
@@ -33,10 +35,10 @@ export const CommissionChart: FC<TitleStatisticReturns> = (props) => {
         </div>
       </Flex>
 
-      <Flex className="oui-commissionChart-body oui-flex oui-h-[170px] oui-w-full oui-flex-row oui-items-stretch 2xl:oui-h-[196px]">
+      <Flex className="oui-commissionChart-body oui-flex oui-h-[calc(var(--oui-space-24)*2)] oui-w-full oui-flex-row oui-items-stretch 2xl:oui-h-[calc(var(--oui-space-24)*2)]">
         <VolBarChart
           data={props.dataSource!}
-          colors={{ fill: "rgba(0, 180, 158, 1)" }}
+          colors={{ fill: "rgb(var(--oui-color-success))" }}
           className="oui-w-full oui-flex-1"
           tooltip={{
             rm: Decimal.ROUND_DOWN,

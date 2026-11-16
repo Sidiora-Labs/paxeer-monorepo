@@ -8,6 +8,7 @@ import {
 } from "@paxeer-network/paxeer-backend/core/net/realtime";
 
 import { fetchWithPolicy } from "@paxeer-network/paxeer-backend/core/net/fetch";
+import { getStreamSocketOrigin } from "@paxeer-network/paxeer-backend/core/feeds";
 import {
   isVenueSymbol,
   parseVenueBook,
@@ -54,12 +55,7 @@ import { useEffect, useState } from "react";
    mirroring the pattern used in `useRealtimePrices`.
    ══════════════════════════════════════════════════════════════════════ */
 
-const MARKET_WS_ORIGIN = process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL
-  ? new URL(process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL).origin.replace(
-      /^http/,
-      "ws",
-    )
-  : "";
+const MARKET_WS_ORIGIN = getStreamSocketOrigin("");
 
 /**
  * Symbols that have a dedicated upstream behind the market proxy. Each
@@ -90,7 +86,7 @@ const SUPPORTED_WS_SYMBOLS = new Set([
 
 // The gateway permits the Hyperpax browser origin; no client secret is shipped.
 
-function buildSymbolWsUrl(symbol: string): string {
+export function buildSymbolWsUrl(symbol: string): string {
   return `${MARKET_WS_ORIGIN}/ws/${symbol.toLowerCase()}`;
 }
 

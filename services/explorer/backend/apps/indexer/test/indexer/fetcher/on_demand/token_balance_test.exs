@@ -66,13 +66,6 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalanceTest do
 
       TokenBalanceOnDemand.trigger_fetch(address.hash)
 
-      Process.sleep(200)
-
-      [%{value: updated_value} = updated_ctb] = Repo.all(CurrentTokenBalance)
-
-      assert updated_value == Decimal.new(1_000_000_000_000_000_000_000_000)
-      refute is_nil(updated_ctb.value_fetched_at)
-
       address_hash = to_string(address.hash)
 
       assert_receive(
@@ -80,10 +73,16 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalanceTest do
          %{
            address_hash: ^address_hash,
            address_current_token_balances: [
-             %{value: ^updated_value, token_contract_address_hash: ^token_contract_address_hash}
+             %{value: updated_value, token_contract_address_hash: ^token_contract_address_hash}
            ]
-         }}
+         }},
+        5_000
       )
+
+      [%{value: updated_value} = updated_ctb] = Repo.all(CurrentTokenBalance)
+
+      assert updated_value == Decimal.new(1_000_000_000_000_000_000_000_000)
+      refute is_nil(updated_ctb.value_fetched_at)
     end
 
     test "historic balances are imported and broadcasted" do
@@ -99,13 +98,6 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalanceTest do
         token_balance.block_number
       )
 
-      Process.sleep(100)
-
-      [%{value: updated_value} = updated_tb] = Repo.all(TokenBalance)
-
-      assert updated_value == Decimal.new(1_000_000_000_000_000_000_000_000)
-      refute is_nil(updated_tb.value_fetched_at)
-
       address_hash = token_balance.address_hash
       token_contract_address_hash = token_balance.token_contract_address_hash
 
@@ -115,10 +107,16 @@ defmodule Indexer.Fetcher.OnDemand.TokenBalanceTest do
            %{
              address_hash: ^address_hash,
              token_contract_address_hash: ^token_contract_address_hash,
-             value: ^updated_value
+             value: updated_value
            }
-         ]}
+         ]},
+        5_000
       )
+
+      [%{value: updated_value} = updated_tb] = Repo.all(TokenBalance)
+
+      assert updated_value == Decimal.new(1_000_000_000_000_000_000_000_000)
+      refute is_nil(updated_tb.value_fetched_at)
     end
   end
 

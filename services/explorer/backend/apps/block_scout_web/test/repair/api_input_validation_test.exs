@@ -22,8 +22,8 @@ defmodule BlockScoutWeb.ApiInputValidationTest do
   alias Indexer.Fetcher.Optimism.Interop.MessageQueue
 
   @key "repair+22&33=398"
-  @private_key <<51, 169, 186, 160, 251, 109, 12, 35, 225, 13, 110, 62, 216, 253, 27, 181, 187,
-                 222, 222, 75, 79, 84, 185, 24, 245, 213, 28, 21, 76, 179, 162, 16>>
+  @private_key <<51, 169, 186, 160, 251, 109, 12, 35, 225, 13, 110, 62, 216, 253, 27, 181, 187, 222, 222, 75, 79, 84,
+                 185, 24, 245, 213, 28, 21, 76, 179, 162, 16>>
   @transaction "0xf463ce43ac52251f60f437a0346b7168874e6eb13a9689d7efde4ce907826897"
   @payload "0x30787849217424792273712777707576696a6c5d"
   @sender "0x06012c8cf97bead5deae237070f9587f8e7a266d"
@@ -32,8 +32,7 @@ defmodule BlockScoutWeb.ApiInputValidationTest do
     {Indexer.Fetcher.InternalTransaction.Supervisor, "internal_transactions_fetcher_enabled"},
     {Indexer.Fetcher.PendingTransaction.Supervisor, "pending_transactions_fetcher_enabled"},
     {Indexer.Fetcher.TokenInstance.Retry.Supervisor, "token_instance_retry_fetcher_enabled"},
-    {Indexer.Fetcher.TokenInstance.Sanitize.Supervisor,
-     "token_instance_sanitize_fetcher_enabled"},
+    {Indexer.Fetcher.TokenInstance.Sanitize.Supervisor, "token_instance_sanitize_fetcher_enabled"},
     {Indexer.Fetcher.BlockReward.Supervisor, "block_reward_fetcher_enabled"}
   ]
 
@@ -63,7 +62,8 @@ defmodule BlockScoutWeb.ApiInputValidationTest do
     end
   end
 
-  setup do
+  @moduletag :tmp_dir
+  setup %{tmp_dir: tmp_dir} do
     settings =
       [
         {:indexer, Indexer.Supervisor},
@@ -84,6 +84,13 @@ defmodule BlockScoutWeb.ApiInputValidationTest do
         end
       end)
     end
+
+    tls = tls_fixture()
+    ca_file = Path.join(tmp_dir, "trusted-ca.pem")
+    File.write!(ca_file, :public_key.pem_encode([{:Certificate, tls.root.cert, :not_encrypted}]))
+    :ok = :public_key.cacerts_load(String.to_charlist(ca_file))
+    on_exit(fn -> :public_key.cacerts_load() end)
+    Process.put(:interop_tls, tls.options)
 
     Application.put_env(:explorer, :addresses_blacklist, "")
     Application.put_env(:explorer, :addresses_blacklist_key, @key)
@@ -317,9 +324,7 @@ defmodule BlockScoutWeb.ApiInputValidationTest do
              }
     end
 
-    Application.put_env(:indexer, MessageQueue,
-      private_key: "0x" <> Base.encode16(@private_key, case: :lower)
-    )
+    Application.put_env(:indexer, MessageQueue, private_key: "0x" <> Base.encode16(@private_key, case: :lower))
 
     {:ok, key} = ExSecp256k1.create_public_key(@private_key)
     response = OptimismController.interop_public_key(json_conn(OptimismView), %{})
@@ -558,9 +563,7 @@ defmodule BlockScoutWeb.ApiInputValidationTest do
           InteropMessage.interop_chain_id_to_instance_info_cache()
         ] do
       if Process.whereis(cache) == nil do
-        start_supervised!(
-          Supervisor.child_spec({ConCache, name: cache, ttl_check_interval: false}, id: cache)
-        )
+        start_supervised!(Supervisor.child_spec({ConCache, name: cache, ttl_check_interval: false}, id: cache))
       end
     end
 
@@ -570,10 +573,13 @@ defmodule BlockScoutWeb.ApiInputValidationTest do
     ref = make_ref()
 
     start_supervised!(
-      {Plug.Cowboy, scheme: :http, plug: {Peer, self()}, options: [port: 0, ref: ref]}
+      {Plug.Cowboy,
+       scheme: :https,
+       plug: {Peer, self()},
+       options: [port: 0, ref: ref, ip: {127, 0, 0, 1}] ++ Process.get(:interop_tls)}
     )
 
-    peer = "http://127.0.0.1:#{:ranch.get_port(ref)}"
+    peer = "https://localhost:#{:ranch.get_port(ref)}"
 
     Application.put_env(:indexer, MessageQueue,
       private_key: hex(@private_key),
@@ -594,6 +600,23 @@ defmodule BlockScoutWeb.ApiInputValidationTest do
       )
 
     {response.status, Jason.decode!(response.body)}
+  end
+
+  defp tls_fixture do
+    curve = {:namedCurve, {1, 2, 840, 10045, 3, 1, 7}}
+    root = :public_key.pkix_test_root_cert(~c"Interop trust root", key: curve, digest: :sha256)
+
+    options =
+      :public_key.pkix_test_data(%{
+        root: root,
+        peer: [
+          key: curve,
+          digest: :sha256,
+          extensions: [{:Extension, {2, 5, 29, 17}, false, [{:dNSName, ~c"localhost"}]}]
+        ]
+      })
+
+    %{root: root, options: options}
   end
 
   defp hex(bytes), do: "0x" <> Base.encode16(bytes, case: :lower)

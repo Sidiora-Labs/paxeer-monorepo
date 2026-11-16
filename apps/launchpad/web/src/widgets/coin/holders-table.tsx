@@ -174,15 +174,15 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
     </div>
     <HoldersFilters value={search} onChange={setSearch} pnlReason={pnlReason} />
     {coverage && coverage !== 'complete' ? <NoticeBar tone="warning" announce>Some holders may be missing from this list.</NoticeBar> : null}
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-sm">
+    <div role="region" aria-label="Token holders table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
+      <table className="w-full min-w-160 text-sm">
         <thead>
           <tr>
             <SortHeader label="Holder" />
             <SortHeader label="Held" align="right" sort={sort.key === 'held' ? sort.direction : null} onSort={() => cycle('held')} />
             <SortHeader label="% supply" align="right" sort={sort.key === 'supply' ? sort.direction : null} onSort={() => cycle('supply')} />
             <SortHeader label="Position" align="right" />
-            <th scope="colgroup" colSpan={3} className="h-table-header-height px-3 text-right text-2xs font-bold uppercase tracking-[.04em] text-text-faint">
+            <th scope="colgroup" colSpan={3} className="h-table-header-height px-3 text-right text-2xs font-bold uppercase tracking-wider text-text-faint">
               <span className="inline-flex items-center justify-end gap-1">
                 <span>Profit / Avg entry / Bought</span>
                 <Tooltip content={pnlReason}>

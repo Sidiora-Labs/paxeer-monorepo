@@ -79,7 +79,7 @@ export function FilterBar({
           type="button"
           onClick={openSheet}
           className={cn(
-            "flex h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
+            "flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
             className,
           )}
         >
@@ -97,7 +97,7 @@ export function FilterBar({
           <SheetBody className="flex flex-col gap-6">
             {filters.map((def) => (
               <section key={def.id} className="flex flex-col gap-1">
-                <h4 className="pb-1 text-[15px] font-bold text-foreground">{def.label}</h4>
+                <h4 className="pb-1 text-body-sm font-bold text-foreground">{def.label}</h4>
                 {def.type === "options" ? (
                   <OptionList
                     aria-label={def.label}
@@ -174,7 +174,7 @@ export function FilterBar({
               <button
                 type="button"
                 className={cn(
-                  "flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
+                  "flex min-h-10 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
                   active
                     ? "border-accent/40 bg-accent-soft text-accent-strong"
                     : "border-border bg-surface text-foreground-secondary hover:bg-surface-sunken/60",
@@ -184,7 +184,7 @@ export function FilterBar({
                 <ChevronDown className="size-4 opacity-60" aria-hidden />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-[240px] p-2">
+            <PopoverContent className="w-filter p-2">
               <OptionList
                 aria-label={def.label}
                 items={def.options ?? []}

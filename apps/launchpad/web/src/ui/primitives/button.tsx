@@ -9,17 +9,22 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dang
 export type ControlSize = 'sm' | 'md' | 'lg';
 
 const sizeClass: Record<ControlSize, string> = {
-  sm: 'h-control-height-sm px-3 text-sm gap-1.5',
-  md: 'h-control-height-md px-4 text-base gap-2',
-  lg: 'h-control-height-lg px-5 text-base gap-2',
+  sm: 'min-h-control-height-sm px-3 py-2 text-sm gap-1.5',
+  md: 'min-h-control-height-md px-4 py-2 text-base gap-2',
+  lg: 'min-h-control-height-lg px-5 py-2 text-base gap-2',
 };
 
 const variantClass: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-active disabled:bg-accent-soft-strong disabled:text-text-disabled aria-disabled:bg-accent-soft-strong aria-disabled:text-text-disabled',
-  secondary: 'bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
-  ghost: 'bg-transparent text-text-muted hover:bg-surface-hover hover:text-text active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
-  danger: 'bg-danger-strong text-on-danger hover:bg-danger active:bg-danger-strong disabled:text-text-disabled aria-disabled:text-text-disabled',
-  'danger-text': 'bg-surface-2 text-danger hover:bg-surface-hover active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
+  primary:
+    'bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-active disabled:bg-accent-soft-strong disabled:text-text-disabled aria-disabled:bg-accent-soft-strong aria-disabled:text-text-disabled',
+  secondary:
+    'bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
+  ghost:
+    'bg-transparent text-text-muted hover:bg-surface-hover hover:text-text active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
+  danger:
+    'bg-danger-strong text-on-danger hover:bg-danger active:bg-danger-strong disabled:text-text-disabled aria-disabled:text-text-disabled',
+  'danger-text':
+    'bg-surface-2 text-danger hover:bg-surface-hover active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
   link: 'bg-transparent px-0 text-accent hover:underline disabled:text-text-disabled aria-disabled:text-text-disabled h-auto',
 };
 
@@ -34,16 +39,22 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   children: ReactNode;
 }
 
-export function buttonClass(opts: { variant?: ButtonVariant; size?: ControlSize; fullWidth?: boolean; pill?: boolean; className?: string }) {
+export function buttonClass(opts: {
+  variant?: ButtonVariant;
+  size?: ControlSize;
+  fullWidth?: boolean;
+  pill?: boolean;
+  className?: string;
+}) {
   const { variant = 'secondary', size = 'md', fullWidth, pill, className } = opts;
   return cn(
-    'inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-bold transition-colors duration-fast',
+    'inline-flex min-w-0 max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-colors duration-fast',
     'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed aria-busy:cursor-progress',
     pill ? 'rounded-pill' : 'rounded-sm',
     sizeClass[size],
     variantClass[variant],
     fullWidth && 'w-full',
-    className,
+    className
   );
 }
 
@@ -62,17 +73,22 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const classes = buttonClass({ variant, size, fullWidth, pill, className });
-  const leading = loading
-    ? <LoaderCircle aria-hidden="true" className="size-icon-md animate-spin" />
-    : icon
-      ? <span aria-hidden="true" className="inline-flex size-icon-md items-center justify-center [&>svg]:size-full">{icon}</span>
-      : null;
+  const leading = loading ? (
+    <LoaderCircle aria-hidden="true" className="size-icon-md animate-spin" />
+  ) : icon ? (
+    <span
+      aria-hidden="true"
+      className="inline-flex size-icon-md shrink-0 items-center justify-center [&>svg]:size-full"
+    >
+      {icon}
+    </span>
+  ) : null;
 
-  if (href && !disabled) {
+  if (href && !disabled && !loading) {
     return (
       <Link href={href} className={classes} aria-disabled={disabled || undefined}>
         {leading}
-        <span>{children}</span>
+        <span className="min-w-0 max-w-full">{children}</span>
       </Link>
     );
   }
@@ -81,19 +97,20 @@ export function Button({
     <button
       type={type}
       className={classes}
-      disabled={disabled}
+      disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}
     >
       {leading}
-      <span>{children}</span>
+      <span className="min-w-0 max-w-full">{children}</span>
     </button>
   );
 }
 
 export type IconButtonVariant = 'ghost' | 'raised' | 'round' | 'on-media';
 
-export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'aria-label'> {
+export interface IconButtonProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'aria-label'> {
   label: string;
   icon: ReactNode;
   variant?: IconButtonVariant;
@@ -103,16 +120,17 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
 }
 
 const iconSizeClass: Record<ControlSize, string> = {
-  sm: 'size-control-height-sm [&_svg]:size-icon-sm',
-  md: 'size-control-height-md [&_svg]:size-icon-md',
-  lg: 'size-control-height-lg [&_svg]:size-icon-lg',
+  sm: 'size-control-height-sm min-w-touch-target-min [&_svg]:size-icon-sm',
+  md: 'size-control-height-md min-w-touch-target-min [&_svg]:size-icon-md',
+  lg: 'size-control-height-lg min-w-touch-target-min [&_svg]:size-icon-lg',
 };
 
 const iconVariantClass: Record<IconButtonVariant, string> = {
-  ghost: 'bg-transparent text-text-muted hover:bg-surface-hover hover:text-text active:bg-surface-active rounded-sm',
+  ghost:
+    'bg-transparent text-text-muted hover:bg-surface-hover hover:text-text active:bg-surface-active rounded-sm',
   raised: 'bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-sm',
   round: 'bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-pill',
-  'on-media': 'bg-media-overlay text-text hover:bg-surface-hover active:bg-surface-active rounded-sm',
+  'on-media': 'bg-media-overlay text-on-media hover:bg-scrim active:bg-scrim rounded-sm',
 };
 
 export function IconButton({
@@ -134,18 +152,24 @@ export function IconButton({
       title={label}
       aria-pressed={pressed}
       aria-busy={loading || undefined}
-      disabled={disabled}
+      disabled={disabled || loading}
       className={cn(
         'inline-flex shrink-0 items-center justify-center transition-colors duration-fast',
         'disabled:cursor-not-allowed disabled:text-text-disabled aria-disabled:text-text-disabled',
         iconSizeClass[size],
         iconVariantClass[variant],
         pressed && 'bg-accent-soft text-accent hover:bg-accent-soft-strong',
-        className,
+        className
       )}
       {...rest}
     >
-      {loading ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : <span aria-hidden="true" className="inline-flex items-center justify-center">{icon}</span>}
+      {loading ? (
+        <LoaderCircle aria-hidden="true" className="animate-spin" />
+      ) : (
+        <span aria-hidden="true" className="inline-flex items-center justify-center">
+          {icon}
+        </span>
+      )}
     </button>
   );
 }

@@ -245,7 +245,7 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
 
   return (
     <div className="flex flex-col gap-3">
-      <dl className="flex items-center justify-between gap-2 text-xs">
+      <dl className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex min-w-0 items-center gap-1.5">
           <dt className="text-text-faint">Price change</dt>
           <dd aria-busy={(loading && change === null) || undefined}>
@@ -270,7 +270,7 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
         {!agg && series?.state !== 'error' ? <SplitBarFrame leftLabel="buy vol" rightLabel="sell vol" title="Buy and sell volume" operation={series?.state === 'unsupported' ? series.operation : 'IF_CANDLES'} loading={loading} /> : null}
         {series?.state === 'error' ? <p role="alert" className="text-xs text-danger">Buy and sell volume can&apos;t load right now. {userFacingMessage(series.error)}</p> : null}
         {traders !== null || txns !== null ? (
-          <dl className="flex items-center justify-between gap-2 text-xs">
+          <dl className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-baseline gap-1.5"><dt className="text-text-faint">Traders</dt><dd data-numeric className="text-sm font-bold tabular-nums text-text">{traders === null ? '—' : formatCount(traders)}</dd></div>
             <div className="flex items-baseline gap-1.5"><dt className="text-text-faint">Txns</dt><dd data-numeric className="text-sm font-bold tabular-nums text-text">{txns === null ? '—' : formatCount(txns)}</dd></div>
           </dl>

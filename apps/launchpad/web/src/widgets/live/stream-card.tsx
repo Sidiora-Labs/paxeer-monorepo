@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -40,10 +41,10 @@ export function StreamTileMedia({ entry, className }: { entry: Pick<LiveDirector
   return (
     <div className={cn('relative aspect-video w-full overflow-hidden rounded-md bg-surface-2', className)}>
       {tile.kind === 'thumbnail' ? (
-        <img src={tile.src} alt="" loading="lazy" className="size-full object-cover" />
+        <img src={tile.src} alt="" loading="lazy" width={640} height={360} className="aspect-video size-full object-cover" />
       ) : tile.kind === 'coin' ? (
         <div className="flex size-full items-center justify-center">
-          <img src={tile.src} alt="" loading="lazy" className="aspect-square h-3/5 rounded-lg object-cover" />
+          <img src={tile.src} alt="" loading="lazy" width={320} height={320} className="aspect-square h-3/5 rounded-lg object-cover" />
         </div>
       ) : (
         <div className="flex size-full items-center justify-center text-text-faint">
@@ -74,7 +75,7 @@ export function StreamCard({ entry, creatorLabel, className }: StreamCardProps) 
         <LiveBadge className="absolute left-2 top-2" />
         <MarketCapChip raw={entry.mcapRaw} variant="media" className="absolute right-2 top-2" />
         <ViewerCountChip count={entry.viewerCount} quality={entry.viewerQuality} variant="media" className="absolute bottom-2 left-2" />
-        <span aria-hidden="true" className="absolute bottom-2 right-2 rounded-sm bg-media-overlay px-1 py-0.5">
+        <span aria-hidden="true" className="absolute bottom-2 right-2 rounded-sm bg-media-overlay px-1 py-0.5 [--sl-candle-up:var(--sl-accent-dark)] [--sl-candle-down:var(--sl-danger-dark)] [--sl-text-faint:var(--sl-text-faint-dark)]">
           <StreamSparkline poolAddress={entry.poolAddress} variant="overlay" />
         </span>
       </div>
@@ -98,7 +99,7 @@ export function StreamCardSkeleton({ className }: { className?: string }) {
     <div aria-hidden="true" className={cn('flex flex-col overflow-hidden rounded-lg bg-surface-1', className)}>
       <Skeleton variant="block" className="aspect-video h-auto w-full rounded-none" />
       <div className="flex items-start gap-3 p-3">
-        <Skeleton variant="circle" width={40} height={40} />
+        <Skeleton variant="circle" width={surfaceSpacing(10)} height={surfaceSpacing(10)} />
         <div className="flex-1 space-y-2">
           <Skeleton variant="text" width="60%" />
           <Skeleton variant="text" width="40%" />

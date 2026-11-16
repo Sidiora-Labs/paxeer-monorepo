@@ -1,5 +1,24 @@
 defmodule BlockScoutWeb.API.EthRPC.EthController do
   use BlockScoutWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  operation :eth_request,
+    summary: "Ethereum JSON-RPC request or batch",
+    responses: [
+      ok: {"JSON-RPC result or error", "application/json", BlockScoutWeb.Schemas.API.EthRPC.response()},
+      request_entity_too_large:
+        {"Batch limit exceeded", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{
+             status: %OpenApiSpex.Schema{type: :string, enum: ["0"]},
+             message: %OpenApiSpex.Schema{type: :string},
+             result: %OpenApiSpex.Schema{type: :string, nullable: true}
+           },
+           required: [:status, :message, :result],
+           additionalProperties: false
+         }}
+    ]
 
   alias BlockScoutWeb.API.EthRPC.View, as: EthRPCView
   alias BlockScoutWeb.API.RPC.RPCView

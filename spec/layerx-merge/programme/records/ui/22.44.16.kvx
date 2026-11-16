@@ -1,0 +1,711 @@
+[manifest]
+task = "22.44.16"
+surface = "Trading workspace markets, portfolio, transfers and vaults"
+patterns = ["container layouts", "tables and lists", "dialogs", "popovers", "menus", "tooltips", "tabs", "forms and validation", "selects and account lookup", "notifications", "skeletons and spinners", "scroll regions and sticky filters", "theme selection", "icons and images", "typography", "reduced motion"]
+
+[guide.css]
+id = "css"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.html]
+id = "html"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.color]
+id = "color"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.dark-mode]
+id = "dark-mode"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.responsive-design]
+id = "responsive-design"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.css-layout]
+id = "css-layout"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.responsive-table]
+id = "responsive-table"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/vaults"]
+
+[guide.sortable-table]
+id = "sortable-table"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/vaults"]
+
+[guide.card]
+id = "card"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/vaults"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.viewport-aware-dropdowns]
+id = "viewport-aware-dropdowns"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/ui-transfer"]
+
+[guide.interest-triggered-tooltips]
+id = "interest-triggered-tooltips"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.form-fields-automatically-fit-contents]
+id = "form-fields-automatically-fit-contents"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer"]
+
+[guide.validate-input-after-interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer"]
+
+[guide.persistent-toast-notifications]
+id = "persistent-toast-notifications"
+directories = ["apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer", "apps/perps/packages/vaults"]
+
+[guide.customize-scrollbar-color-and-thickness]
+id = "customize-scrollbar-color-and-thickness"
+directories = ["apps/perps/packages/markets"]
+
+[guide.dark-mode-toggle]
+id = "dark-mode-toggle"
+directories = ["apps/perps/packages/portfolio"]
+
+[view.markets]
+route = "/markets"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-crypto]
+route = "/markets"
+tab = "Crypto"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-new-listings]
+route = "/markets"
+tab = "New listings"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-tradfi]
+route = "/markets"
+tab = "TradFi"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-funding]
+route = "/markets"
+tab = "funding"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-funding-comparison]
+route = "/markets"
+tab = "funding-comparison"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-compact]
+route = "/markets/compact"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-expanded]
+route = "/markets/expanded"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-panel]
+route = "/markets/panel"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-sheet]
+route = "/markets/sheet"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-submenu]
+route = "/markets/submenu"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-symbol]
+route = "/markets/symbol"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-symbol-mobile]
+route = "/markets/symbol-mobile"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.markets-ticker]
+route = "/markets/ticker"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio]
+route = "/portfolio"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-api-create]
+route = "/portfolio/api/create"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-api-created]
+route = "/portfolio/api/created"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-api-delete]
+route = "/portfolio/api/delete"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-api-edit]
+route = "/portfolio/api/edit"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-apikey]
+route = "/portfolio/apiKey"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-assets]
+route = "/portfolio/assets"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-data-assets]
+route = "/portfolio/data/assets"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-data-convert]
+route = "/portfolio/data/convert"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-data-deposit]
+route = "/portfolio/data/deposit"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-data-distribution]
+route = "/portfolio/data/distribution"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-data-funding]
+route = "/portfolio/data/funding"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-data-transfer]
+route = "/portfolio/data/transfer"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-data-vaults]
+route = "/portfolio/data/vaults"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-data-withdraw]
+route = "/portfolio/data/withdraw"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-feetier]
+route = "/portfolio/feeTier"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-history]
+route = "/portfolio/history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-history-convert-history]
+route = "/portfolio/history"
+tab = "Convert history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-history-distribution]
+route = "/portfolio/history"
+tab = "Distribution"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-history-funding]
+route = "/portfolio/history"
+tab = "Funding"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-history-transfer-history]
+route = "/portfolio/history"
+tab = "Transfer history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-history-vaults]
+route = "/portfolio/history"
+tab = "Vaults"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-history-withdrawals]
+route = "/portfolio/history"
+tab = "Withdrawals"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-orders]
+route = "/portfolio/orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-orders-canceled]
+route = "/portfolio/orders"
+tab = "Canceled"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-orders-filled]
+route = "/portfolio/orders"
+tab = "Filled"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-orders-pending]
+route = "/portfolio/orders"
+tab = "Pending"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-orders-rejected]
+route = "/portfolio/orders"
+tab = "Rejected"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-orders-tp-sl]
+route = "/portfolio/orders"
+tab = "TP/SL"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-positions]
+route = "/portfolio/positions"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-positions-liquidation]
+route = "/portfolio/positions"
+tab = "Liquidation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-positions-position-history]
+route = "/portfolio/positions"
+tab = "Position history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.portfolio-setting]
+route = "/portfolio/setting"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-convert]
+route = "/transfer/convert"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-deposit]
+route = "/transfer/deposit"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-exclusive]
+route = "/transfer/exclusive"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-internal]
+route = "/transfer/internal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-progress-completed]
+route = "/transfer/progress/completed"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-progress-failed]
+route = "/transfer/progress/failed"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-progress-pending]
+route = "/transfer/progress/pending"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-reverse]
+route = "/transfer/reverse"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-slippage]
+route = "/transfer/slippage"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-swap]
+route = "/transfer/swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-wallet]
+route = "/transfer/wallet"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-withdraw]
+route = "/transfer/withdraw"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.transfer-withdraw-account]
+route = "/transfer/withdraw/account"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.vaults]
+route = "/vaults"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.vaults-activity]
+route = "/vaults/activity"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.vaults-deposit]
+route = "/vaults/deposit"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.vaults-list]
+route = "/vaults/list"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"
+
+[view.vaults-withdraw]
+route = "/vaults/withdraw"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = "844x390"
+schemes = ["light", "dark"]
+text_scales = [100, 200]
+motion = "reduced"
+navigation = "keyboard"

@@ -56,6 +56,7 @@ struct RpcReply<'a> {
 enum Method {
     Status,
     Commit(Option<u64>),
+    Block(u64),
     Validators { height: u64, page: u64 },
     Query(u64),
 }
@@ -97,13 +98,13 @@ fn validate(body: &[u8]) -> Result<Validated, Response> {
     }
     let invalid = || rpc_error(&id, -32602, "invalid Comet parameters");
     if !request.params.get().starts_with('{')
-        && (request.method != "status" || request.params.get() != "null")
+        && !(request.method == "status" && matches!(request.params.get(), "null" | "[]"))
     {
         return Err(invalid());
     }
     let method = match request.method {
         "status" => {
-            if request.params.get() != "null" {
+            if !matches!(request.params.get(), "null" | "[]") {
                 serde_json::from_str::<EmptyParams>(request.params.get()).map_err(|_| invalid())?;
             }
             Method::Status
@@ -116,6 +117,11 @@ fn validate(body: &[u8]) -> Result<Validated, Response> {
                     serde_json::from_str(request.params.get()).map_err(|_| invalid())?;
                 Method::Commit(Some(decimal(params.height).ok_or_else(invalid)?))
             }
+        }
+        "block" => {
+            let params: HeightParams<'_> =
+                serde_json::from_str(request.params.get()).map_err(|_| invalid())?;
+            Method::Block(decimal(params.height).ok_or_else(invalid)?)
         }
         "validators" => {
             let params: ValidatorParams<'_> =
@@ -146,6 +152,7 @@ fn validate(body: &[u8]) -> Result<Validated, Response> {
             }
             let allowed_key = match params.path {
                 "/store/evm/key" => true,
+                "/store/sequencer/key" => digits == "03",
                 "/store/lxphost/key" => {
                     digits == "02" || (digits.len() == 66 && digits.starts_with("06"))
                 }
@@ -293,6 +300,16 @@ fn validate_result(method: &Method, result: &Value) -> Result<(), Failure> {
                 return Err(NodeFailure::Invalid.into());
             }
         }
+        Method::Block(expected) => {
+            if result
+                .pointer("/block/header/height")
+                .and_then(Value::as_str)
+                .and_then(decimal)
+                != Some(*expected)
+            {
+                return Err(NodeFailure::Invalid.into());
+            }
+        }
         Method::Validators { height, page } => {
             let count = result
                 .get("count")
@@ -401,7 +418,8 @@ pub(super) fn response(node: &NodeEndpoint, request: &Request, deadline: Instant
 
 #[cfg(test)]
 mod tests {
-    use super::{validate, Method};
+    use super::{validate, validate_result, Method};
+    use serde_json::Value;
 
     #[test]
     fn read_requests_preserve_ids_and_translate_hex_bytes() {
@@ -424,7 +442,7 @@ mod tests {
 
     #[test]
     fn status_and_evm_store_proofs_are_admitted() {
-        for params in ["{}", "null"] {
+        for params in ["{}", "null", "[]"] {
             let body = format!(r#"{{"jsonrpc":"2.0","id":1,"method":"status","params":{params}}}"#);
             let request = validate(body.as_bytes()).unwrap_or_else(|_| panic!("status refused"));
             assert_eq!(request.method, Method::Status);
@@ -454,7 +472,7 @@ mod tests {
                 serde_json::json!({"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/store/evm/key","data":&data[2..],"height":"17","prove":true}})
             );
         }
-        for params in ["[]", r#"{"extra":1}"#, r#"{"height":"1"}"#] {
+        for params in ["[1]", r#"{"extra":1}"#, r#"{"height":"1"}"#] {
             let body = format!(r#"{{"jsonrpc":"2.0","id":1,"method":"status","params":{params}}}"#);
             assert!(validate(body.as_bytes()).is_err());
         }
@@ -504,6 +522,68 @@ mod tests {
                 "accepted {request}"
             );
         }
+    }
+
+    #[test]
+    fn receipt_verifier_consensus_calls_are_admitted_and_forwarded() {
+        let calls: Vec<Value> = serde_json::from_str(include_str!(
+            "../../webhooks/tests/fixtures/verifier-consensus-calls.json"
+        ))
+        .unwrap_or_else(|error| panic!("consensus call fixture: {error}"));
+        for call in calls {
+            let method = call["method"]
+                .as_str()
+                .unwrap_or_else(|| panic!("fixture method: {call}"));
+            let params = call
+                .get("params")
+                .unwrap_or_else(|| panic!("fixture params: {call}"));
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": "verifier",
+                "method": method,
+                "params": params,
+            })
+            .to_string();
+            let request = validate(body.as_bytes())
+                .unwrap_or_else(|_| panic!("receipt verifier call refused: {call}"));
+            let upstream: Value = serde_json::from_slice(&request.body)
+                .unwrap_or_else(|error| panic!("upstream request: {error}"));
+            assert_eq!(upstream["method"], method);
+            if method == "abci_query" {
+                assert_eq!(upstream["params"]["data"], "03");
+            } else {
+                assert_eq!(upstream["params"], *params);
+            }
+        }
+    }
+
+    #[test]
+    fn block_height_and_sequencer_proof_bounds_are_enforced() {
+        for params in [r#"{}"#, r#"{"height":"not-decimal"}"#] {
+            let body = format!(r#"{{"jsonrpc":"2.0","id":1,"method":"block","params":{params}}}"#);
+            assert!(validate(body.as_bytes()).is_err(), "accepted {body}");
+        }
+        let block = serde_json::json!({"block": {"header": {"height": "7"}}});
+        assert!(validate_result(&Method::Block(8), &block).is_err());
+        let accepted = serde_json::json!({
+            "jsonrpc":"2.0", "id":1, "method":"abci_query",
+            "params":{"path":"/store/sequencer/key","data":"0x03","height":"7","prove":true}
+        });
+        assert!(validate(accepted.to_string().as_bytes()).is_ok());
+        for data in ["0x04", "0x03"] {
+            let mut query = accepted.clone();
+            query["params"]["data"] = Value::String(data.to_owned());
+            query["params"]["prove"] = Value::Bool(data == "0x03");
+            if data == "0x03" {
+                assert!(validate(query.to_string().as_bytes()).is_ok());
+            } else {
+                assert!(validate(query.to_string().as_bytes()).is_err());
+            }
+        }
+        let unproved = accepted
+            .to_string()
+            .replace("\"prove\":true", "\"prove\":false");
+        assert!(validate(unproved.as_bytes()).is_err());
     }
 
     #[test]

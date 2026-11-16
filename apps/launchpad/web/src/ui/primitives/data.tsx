@@ -1,9 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatCompactUsd, formatCount, formatPercent, formatUsdl, type FormatUsdlOptions } from '@/utils/format';
+import {
+  formatCompactUsd,
+  formatCount,
+  formatPercent,
+  formatUsdl,
+  type FormatUsdlOptions,
+} from '@/utils/format';
 
 const EM_DASH = '—';
 const MASK = '••••••';
@@ -35,9 +41,24 @@ const toneClass: Record<StatTone, string> = {
 };
 
 /** One stat. Wrap a row of tiles in a `<dl>`; each tile renders its own dt/dd pair. */
-export function StatTile({ label, value, unit, tone = 'neutral', size = 'bar', loading = false, masked = false, surface = 1, className }: StatTileProps) {
+export function StatTile({
+  label,
+  value,
+  unit,
+  tone = 'neutral',
+  size = 'bar',
+  loading = false,
+  masked = false,
+  surface = 1,
+  className,
+}: StatTileProps) {
   const empty = value === null || value === undefined;
-  const valueClass = size === 'bar' ? 'text-2xl font-extrabold' : size === 'inline' ? 'text-lg font-bold' : 'text-md font-bold';
+  const valueClass =
+    size === 'bar'
+      ? 'text-2xl font-extrabold'
+      : size === 'inline'
+        ? 'text-lg font-bold'
+        : 'text-md font-bold';
   return (
     <div
       className={cn(
@@ -45,13 +66,19 @@ export function StatTile({ label, value, unit, tone = 'neutral', size = 'bar', l
         size === 'row' ? 'p-0' : 'p-4',
         size !== 'row' && (surface === 1 ? 'bg-surface-2' : 'bg-surface-3'),
         size === 'inline' && 'min-h-16 min-w-24 p-3',
-        className,
+        className
       )}
     >
-      <dt className="text-2xs font-bold uppercase tracking-[.04em] text-text-faint">{label}</dt>
-      <dd data-numeric className={cn('truncate tabular-nums', valueClass, empty ? 'text-text-faint' : toneClass[tone])} aria-busy={loading || undefined}>
+      <dt className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
+        {label}
+      </dt>
+      <dd
+        data-numeric
+        className={cn('tabular-nums', valueClass, empty ? 'text-text-faint' : toneClass[tone])}
+        aria-busy={loading || undefined}
+      >
         {loading ? (
-          <span aria-hidden="true" className="sl-skeleton inline-block h-[1em] w-20 align-middle" />
+          <span aria-hidden="true" className="sl-skeleton inline-block h-[var(--sl-skeleton-text-height)] w-20 align-middle" />
         ) : masked ? (
           <span aria-label="Hidden">{MASK}</span>
         ) : empty ? (
@@ -76,12 +103,28 @@ export interface CompactNumberProps {
   className?: string;
 }
 
-export function CompactNumber({ value, kind = 'count', decimals = 2, className }: CompactNumberProps) {
-  if (value === null || value === undefined || value === '') return <span className={cn('text-text-faint', className)}>{EM_DASH}</span>;
+export function CompactNumber({
+  value,
+  kind = 'count',
+  decimals = 2,
+  className,
+}: CompactNumberProps) {
+  if (value === null || value === undefined || value === '')
+    return <span className={cn('text-text-faint', className)}>{EM_DASH}</span>;
   const numeric = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(numeric)) return <span className={cn('text-text-faint', className)}>{EM_DASH}</span>;
-  const text = kind === 'usd' ? formatCompactUsd(numeric) : kind === 'percent' ? formatPercent(numeric, { decimals, sign: 'negative' }) : formatCount(numeric);
-  return <span data-numeric title={numeric.toLocaleString()} className={cn('tabular-nums', className)}>{text}</span>;
+  if (!Number.isFinite(numeric))
+    return <span className={cn('text-text-faint', className)}>{EM_DASH}</span>;
+  const text =
+    kind === 'usd'
+      ? formatCompactUsd(numeric)
+      : kind === 'percent'
+        ? formatPercent(numeric, { decimals, sign: 'negative' })
+        : formatCount(numeric);
+  return (
+    <span data-numeric title={numeric.toLocaleString()} className={cn('tabular-nums', className)}>
+      {text}
+    </span>
+  );
 }
 
 /* ---------------------------------------------------------- MoneyValue */
@@ -97,17 +140,31 @@ export interface MoneyValueProps extends FormatUsdlOptions {
 
 const moneySize = { sm: 'text-num-sm', md: 'text-num-md', lg: 'text-lg', xl: 'text-2xl' } as const;
 
-export function MoneyValue({ raw, tone = 'neutral', size = 'md', masked = false, className, ...opts }: MoneyValueProps) {
+export function MoneyValue({
+  raw,
+  tone = 'neutral',
+  size = 'md',
+  masked = false,
+  className,
+  ...opts
+}: MoneyValueProps) {
   const text = formatUsdl(raw, opts);
-  const negative = typeof raw === 'bigint' ? raw < 0n : typeof raw === 'string' && raw.trim().startsWith('-');
-  const zero = typeof raw === 'bigint' ? raw === 0n : typeof raw === 'string' && /^[+-]?0+$/.test(raw.trim());
-  const color = text === EM_DASH
-    ? 'text-text-faint'
-    : tone === 'accent'
-      ? 'text-accent'
-      : tone === 'auto'
-        ? negative ? 'text-danger' : zero ? 'text-text' : 'text-success'
-        : 'text-text';
+  const negative =
+    typeof raw === 'bigint' ? raw < 0n : typeof raw === 'string' && raw.trim().startsWith('-');
+  const zero =
+    typeof raw === 'bigint' ? raw === 0n : typeof raw === 'string' && /^[+-]?0+$/.test(raw.trim());
+  const color =
+    text === EM_DASH
+      ? 'text-text-faint'
+      : tone === 'accent'
+        ? 'text-accent'
+        : tone === 'auto'
+          ? negative
+            ? 'text-danger'
+            : zero
+              ? 'text-text'
+              : 'text-success'
+          : 'text-text';
   return (
     <span data-numeric className={cn('font-bold tabular-nums', moneySize[size], color, className)}>
       {masked ? <span aria-label="Hidden">{MASK}</span> : text}
@@ -129,49 +186,111 @@ export interface SparklineProps {
   className?: string;
 }
 
-export function Sparkline({ data, width = 96, height = 28, direction = 'auto', label = 'Price trend', decorative = false, loading = false, className }: SparklineProps) {
+export function Sparkline({
+  data,
+  width: displayWidth,
+  height: displayHeight,
+  direction = 'auto',
+  label = 'Price trend',
+  decorative = false,
+  loading = false,
+  className,
+}: SparklineProps) {
+  const width = displayWidth ?? 96;
+  const height = displayHeight ?? 28;
+  const dimensions = { width: displayWidth, height: displayHeight };
+  const sizeClass = 'w-[var(--sl-chart-small-width)] h-[var(--sl-chart-small-height)]';
   const geometry = useMemo(() => {
     if (data.length < 2) return null;
     const min = Math.min(...data);
     const max = Math.max(...data);
     const range = max - min || 1;
     const step = width / (data.length - 1);
-    const points = data.map((v, i) => `${(i * step).toFixed(2)},${(height - 1.5 - ((v - min) / range) * (height - 3)).toFixed(2)}`);
+    const points = data.map(
+      (v, i) =>
+        `${(i * step).toFixed(2)},${(height - 1.5 - ((v - min) / range) * (height - 3)).toFixed(2)}`
+    );
     const line = `M${points.join(' L')}`;
-    return { line, area: `${line} L${width},${height} L0,${height} Z`, first: data[0], last: data[data.length - 1] };
+    return {
+      line,
+      area: `${line} L${width},${height} L0,${height} Z`,
+      first: data[0],
+      last: data[data.length - 1],
+    };
   }, [data, width, height]);
 
-  if (loading) return <span aria-hidden="true" style={{ width, height }} className={cn('sl-skeleton inline-block', className)} />;
+  if (loading)
+    return (
+      <span
+        aria-hidden="true"
+        style={dimensions}
+        className={cn('sl-skeleton inline-block', sizeClass, className)}
+      />
+    );
 
   const insufficient = geometry === null;
-  const resolved = direction === 'auto'
-    ? geometry && geometry.last > geometry.first ? 'up' : geometry && geometry.last < geometry.first ? 'down' : 'flat'
-    : direction;
-  const pct = geometry && geometry.first !== 0 ? ((geometry.last - geometry.first) / Math.abs(geometry.first)) * 100 : null;
+  const resolved =
+    direction === 'auto'
+      ? geometry && geometry.last > geometry.first
+        ? 'up'
+        : geometry && geometry.last < geometry.first
+          ? 'down'
+          : 'flat'
+      : direction;
+  const pct =
+    geometry && geometry.first !== 0
+      ? ((geometry.last - geometry.first) / Math.abs(geometry.first)) * 100
+      : null;
   const description = insufficient
     ? `${label}, not enough data`
     : `${label}, ${resolved === 'flat' ? 'flat' : resolved}${pct !== null ? ` ${Math.abs(pct).toFixed(1)} percent` : ''}`;
-  const stroke = insufficient || resolved === 'flat' ? 'stroke-text-faint' : resolved === 'up' ? 'stroke-candle-up' : 'stroke-candle-down';
-  const fill = resolved === 'up' ? 'var(--sl-tint-accent-fill-chart)' : resolved === 'down' ? 'var(--sl-tint-danger-fill-chart)' : 'transparent';
+  const stroke =
+    insufficient || resolved === 'flat'
+      ? 'stroke-text-faint'
+      : resolved === 'up'
+        ? 'stroke-candle-up'
+        : 'stroke-candle-down';
+  const fill =
+    resolved === 'up'
+      ? 'var(--sl-tint-accent-fill-chart)'
+      : resolved === 'down'
+        ? 'var(--sl-tint-danger-fill-chart)'
+        : 'transparent';
 
   return (
     <svg
-      width={width}
-      height={height}
+      style={dimensions}
       viewBox={`0 0 ${width} ${height}`}
       role={decorative ? undefined : 'img'}
       aria-label={decorative ? undefined : description}
       aria-hidden={decorative || undefined}
       preserveAspectRatio="none"
-      className={cn('shrink-0 overflow-visible', className)}
+      className={cn('shrink-0 overflow-visible', sizeClass, className)}
     >
       {geometry ? (
         <>
           <path d={geometry.area} style={{ fill }} />
-          <path d={geometry.line} fill="none" className={stroke} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <path
+            d={geometry.line}
+            fill="none"
+            className={stroke}
+            style={{ strokeWidth: 'var(--sl-chart-stroke)' }}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
         </>
       ) : (
-        <line x1={0} x2={width} y1={height / 2} y2={height / 2} className={stroke} strokeWidth={1.5} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+        <line
+          x1={0}
+          x2={width}
+          y1={height / 2}
+          y2={height / 2}
+          className={stroke}
+          style={{ strokeWidth: 'var(--sl-chart-stroke)' }}
+          strokeDasharray="3 3"
+          vectorEffect="non-scaling-stroke"
+        />
       )}
     </svg>
   );
@@ -194,25 +313,53 @@ export interface ProgressBarProps {
   className?: string;
 }
 
-export function ProgressBar({ value, label, size = 6, tone = 'auto', showValue = false, completeLabel, flash = false, width, className }: ProgressBarProps) {
+export function ProgressBar({
+  value,
+  label,
+  size = 6,
+  tone = 'auto',
+  showValue = false,
+  completeLabel,
+  flash = false,
+  width,
+  className,
+}: ProgressBarProps) {
   const known = typeof value === 'number' && Number.isFinite(value);
   const pct = known ? Math.max(0, Math.min(100, value)) : 0;
-  const fillTone = tone === 'warning' || (tone === 'auto' && pct >= 95) ? 'bg-warning' : tone === 'danger' ? 'bg-danger' : 'bg-track-fill';
+  const fillTone =
+    tone === 'warning' || (tone === 'auto' && pct >= 95)
+      ? 'var(--sl-warning)'
+      : tone === 'danger'
+        ? 'var(--sl-danger)'
+        : 'var(--sl-track-fill)';
   return (
-    <span className={cn('inline-flex items-center gap-2', className)} style={width !== undefined ? { width } : undefined}>
-      <span
+    <span
+      className={cn('inline-flex items-center gap-2', className)}
+      style={width !== undefined ? { width } : undefined}
+    >
+      <progress
         role="progressbar"
+        max={100}
+        value={known ? pct : undefined}
+        style={{ '--sl-progress-fill': fillTone } as CSSProperties}
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={known ? Math.round(pct) : undefined}
         aria-valuetext={known ? `${Math.round(pct)} percent, ${label}` : `unknown, ${label}`}
-        className={cn('relative block min-w-10 flex-1 overflow-hidden rounded-pill bg-track', size === 6 ? 'h-1.5' : 'h-1', flash && 'sl-flash-up')}
+        className={cn(
+          'sl-progress block min-w-10 flex-1 rounded-pill',
+          size === 6 ? 'h-1.5' : 'h-1',
+          flash && 'sl-flash-up'
+        )}
       >
-        <span className={cn('absolute inset-y-0 left-0 rounded-pill transition-[width] duration-base ease-sl', fillTone)} style={{ width: `${pct}%` }} />
-      </span>
+        {known ? `${Math.round(pct)}%` : 'Unknown'}
+      </progress>
       {showValue ? (
-        <span data-numeric className={cn('text-num-sm tabular-nums', known ? 'text-text' : 'text-text-faint')}>
+        <span
+          data-numeric
+          className={cn('text-num-sm tabular-nums', known ? 'text-text' : 'text-text-faint')}
+        >
           {known ? (pct >= 100 && completeLabel ? completeLabel : `${Math.round(pct)}%`) : EM_DASH}
         </span>
       ) : null}
@@ -232,20 +379,45 @@ export interface PairedBarProps {
   className?: string;
 }
 
-export function PairedBar({ left, right, leftLabel, rightLabel, format = formatCount, className }: PairedBarProps) {
+export function PairedBar({
+  left,
+  right,
+  leftLabel,
+  rightLabel,
+  format = formatCount,
+  className,
+}: PairedBarProps) {
   const total = left + right;
   const leftPct = total > 0 ? (left / total) * 100 : 50;
-  const description = total > 0
-    ? `${format(left)} ${leftLabel} versus ${format(right)} ${rightLabel}, ${Math.round(leftPct)} percent ${leftLabel}`
-    : `No ${leftLabel} or ${rightLabel} yet`;
+  const description =
+    total > 0
+      ? `${format(left)} ${leftLabel} versus ${format(right)} ${rightLabel}, ${Math.round(leftPct)} percent ${leftLabel}`
+      : `No ${leftLabel} or ${rightLabel} yet`;
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-text-faint">{leftLabel} <span data-numeric className="font-bold tabular-nums text-success">{format(left)}</span></span>
-        <span className="text-text-faint"><span data-numeric className="font-bold tabular-nums text-danger">{format(right)}</span> {rightLabel}</span>
+        <span className="text-text-faint">
+          {leftLabel}{' '}
+          <span data-numeric className="font-bold tabular-nums text-success">
+            {format(left)}
+          </span>
+        </span>
+        <span className="text-text-faint">
+          <span data-numeric className="font-bold tabular-nums text-danger">
+            {format(right)}
+          </span>{' '}
+          {rightLabel}
+        </span>
       </div>
-      <div role="img" aria-label={description} className="flex h-1 w-full overflow-hidden rounded-pill bg-track">
-        <span className={cn('h-full', total > 0 ? 'bg-candle-up' : 'bg-transparent')} style={{ width: `${leftPct}%` }} />
+      <div
+        role="img"
+        aria-label={description}
+        className="flex h-1 w-full overflow-hidden rounded-pill bg-track"
+      >
+        <span
+          className={cn('h-full', total > 0 ? 'bg-candle-up' : 'bg-transparent')}
+          style={{ width: `${leftPct}%` }}
+        />
         <span className={cn('h-full flex-1', total > 0 ? 'bg-candle-down' : 'bg-transparent')} />
       </div>
     </div>
@@ -283,7 +455,14 @@ export function remainingLabel(ms: number): string {
   return 'Under a minute left';
 }
 
-export function CountdownProgress({ endsAt, startsAt, variant = 'text', now, tick = 60, className }: CountdownProgressProps) {
+export function CountdownProgress({
+  endsAt,
+  startsAt,
+  variant = 'text',
+  now,
+  tick = 60,
+  className,
+}: CountdownProgressProps) {
   const [clock, setClock] = useState(() => now ?? Date.now());
   useEffect(() => {
     if (now !== undefined) {
@@ -295,23 +474,35 @@ export function CountdownProgress({ endsAt, startsAt, variant = 'text', now, tic
   }, [now, tick]);
 
   const end = toMs(endsAt);
-  if (Number.isNaN(end)) return <span className={cn('text-xs text-text-faint', className)}>{EM_DASH}</span>;
+  if (Number.isNaN(end))
+    return <span className={cn('text-xs text-text-faint', className)}>{EM_DASH}</span>;
   const remaining = end - clock;
   const ended = remaining <= 0;
   const endingSoon = !ended && remaining < 48 * 3600_000;
   const start = startsAt !== undefined ? toMs(startsAt) : Number.NaN;
-  const pct = !Number.isNaN(start) && end > start ? Math.max(0, Math.min(100, (remaining / (end - start)) * 100)) : null;
+  const pct =
+    !Number.isNaN(start) && end > start
+      ? Math.max(0, Math.min(100, (remaining / (end - start)) * 100))
+      : null;
   const textTone = ended ? 'text-text-faint' : endingSoon ? 'text-warning' : 'text-text-muted';
 
   return (
     <span className={cn('inline-flex flex-col gap-1', className)}>
       <span className={cn('inline-flex items-center gap-1 text-xs tabular-nums', textTone)}>
         {variant !== 'text' ? <Clock aria-hidden="true" className="size-icon-sm" /> : null}
-        <time dateTime={new Date(end).toISOString()} title={new Date(end).toLocaleString()}>{remainingLabel(remaining)}</time>
+        <time dateTime={new Date(end).toISOString()} title={new Date(end).toLocaleString()}>
+          {remainingLabel(remaining)}
+        </time>
       </span>
       {variant === 'bar' ? (
         <span aria-hidden="true" className="block h-1 w-full overflow-hidden rounded-pill bg-track">
-          <span className={cn('block h-full rounded-pill', ended ? 'bg-transparent' : endingSoon ? 'bg-warning-strong' : 'bg-track-fill')} style={{ width: `${ended ? 0 : pct ?? 100}%` }} />
+          <span
+            className={cn(
+              'block h-full rounded-pill',
+              ended ? 'bg-transparent' : endingSoon ? 'bg-warning-strong' : 'bg-track-fill'
+            )}
+            style={{ width: `${ended ? 0 : (pct ?? 100)}%` }}
+          />
         </span>
       ) : null}
     </span>
@@ -330,13 +521,37 @@ export interface KeyValueRowProps {
 }
 
 /** Wrap rows in a `<dl>`; each row renders its own dt/dd pair. */
-export function KeyValueRow({ label, value, loading = false, masked = false, trailing, className }: KeyValueRowProps) {
+export function KeyValueRow({
+  label,
+  value,
+  loading = false,
+  masked = false,
+  trailing,
+  className,
+}: KeyValueRowProps) {
   const empty = value === null || value === undefined;
   return (
-    <div className={cn('flex min-h-10 items-center justify-between gap-3 py-1', className)}>
-      <dt className="shrink-0 text-sm text-text-faint">{label}</dt>
-      <dd data-numeric className={cn('flex min-w-0 items-center justify-end gap-2 text-right text-num-md font-bold tabular-nums', empty ? 'text-text-faint' : 'text-text')} aria-busy={loading || undefined}>
-        {loading ? <span aria-hidden="true" className="sl-skeleton inline-block h-4 w-16" /> : masked ? <span aria-label="Hidden" className="text-text-muted">{MASK}</span> : empty ? EM_DASH : <span className="min-w-0 break-words">{value}</span>}
+    <div className={cn('flex min-h-10 flex-wrap items-center justify-between gap-3 py-1', className)}>
+      <dt className="min-w-0 flex-1 basis-32 break-words text-sm text-text-faint">{label}</dt>
+      <dd
+        data-numeric
+        className={cn(
+          'flex min-w-0 max-w-full flex-1 basis-32 flex-wrap items-center justify-end gap-2 text-right text-num-md font-bold tabular-nums',
+          empty ? 'text-text-faint' : 'text-text'
+        )}
+        aria-busy={loading || undefined}
+      >
+        {loading ? (
+          <span aria-hidden="true" className="sl-skeleton inline-block h-4 w-16" />
+        ) : masked ? (
+          <span aria-label="Hidden" className="text-text-muted">
+            {MASK}
+          </span>
+        ) : empty ? (
+          EM_DASH
+        ) : (
+          <span className="min-w-0 break-words">{value}</span>
+        )}
         {trailing}
       </dd>
     </div>

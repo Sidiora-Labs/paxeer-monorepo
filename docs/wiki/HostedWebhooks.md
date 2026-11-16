@@ -38,12 +38,17 @@ binary's SHA-256. The init script maps `LAYERX_ROLE` to the binary's role, selec
 TLS and credential file paths, assigns the instance ID from
 `RAILWAY_REPLICA_ID` or hostname, and runs as UID `65532`.
 
-For Railway, public TLS defaults to `[::]:9444` and ingress TLS to `[::]:9443`.
-`LAYERX_WEBHOOKS_LISTEN` overrides these defaults. The separate plain HTTP health
-listener uses `LAYERX_HEALTH_ADDR`, then `[::]:$PORT`, then `[::]:9442` for public
-or `[::]:8080` for ingress. `PORT` moves only the health listener. When launching
-the binary directly, set `LAYERX_WEBHOOKS_HEALTH_LISTEN` explicitly if needed;
-its application listener default is `0.0.0.0:9444` for either role.
+For Railway, the public role is normally the plain HTTP form behind the hosting
+front: set `LAYERX_WEBHOOKS_LISTENER=plain`, `PORT=9444`, and
+`LAYERX_WEBHOOKS_LISTEN=[::]:9444`; the front reaches the application and its
+`/healthz` route on port `9444`. The public role also supports its TLS form when
+`LAYERX_WEBHOOKS_LISTENER` is absent or `tls`: its application listener defaults
+to `[::]:9444`, and its separate plain health listener uses `LAYERX_HEALTH_ADDR`,
+then `[::]:$PORT`, then `[::]:9442`. Ingress remains TLS on `[::]:9443` with a
+separate health listener that uses `LAYERX_HEALTH_ADDR`, then `[::]:$PORT`, then
+`[::]:8080`. `LAYERX_WEBHOOKS_LISTEN` overrides an application listener in either
+role; the init script derives the plain public listener from it, then `PORT`,
+then `[::]:9444`.
 
 Configure the Redis TLS origin, KMS, identity and all four event-source HTTPS
 origins through the keys below.
@@ -62,8 +67,8 @@ The active `TrustedSources::from_environment` constructs the node-backed
 
 | Key | Meaning |
 | --- | --- |
-| `LAYERX_WEBHOOKS_NODE_URL` | HTTPS node JSON-RPC origin; requests are POSTed to `/` |
-| `LAYERX_WEBHOOKS_COMET_URL` | HTTPS consensus JSON-RPC origin; requests are POSTed to `/` |
+| `LAYERX_WEBHOOKS_NODE_URL` | HTTPS node JSON-RPC origin; calls use the origin path exactly (the root path when none is given). It may name the node front. |
+| `LAYERX_WEBHOOKS_COMET_URL` | HTTPS consensus JSON-RPC origin; calls use the origin path exactly (the node front's consensus route ends in `/comet`). |
 | `LAYERX_WEBHOOKS_NODE_TOKEN_FILE` | Bearer credential used for both origins |
 | `LAYERX_WEBHOOKS_CHAIN_POLICY_FILE` | JSON policy containing `chain_id` and pinned `validators` |
 
@@ -176,6 +181,19 @@ Publication stores the event and pending deliveries in the principal's Redis
 shard before transmission. Identical republishing returns `duplicate = true`;
 reusing an ID with different content yields `EventConflict`. A new event must
 advance its subject sequence or publication yields `OrderViolation`.
+
+### Receipt activity index
+
+For every payment event carrying an `activity_id` fact, the publication CAS
+script writes the event JSON into
+`webhooks:principal:DIGEST:activities` under that activity ID and sets
+`webhooks:principal:DIGEST:activities:version` to `1`. A later event for the
+same activity replaces the hash field; an unchanged duplicate does not create a
+second record. Retention removes the field when it removes the event.
+
+At startup the service asynchronously rebuilds a missing index from each
+principal shard. The rebuild is idempotent and its failures are reported under
+the activity-index worker stage while request serving continues.
 
 ### Committed AI market events
 
@@ -304,12 +322,15 @@ process (`src/hosted.rs`).
 ## HTTP surface
 
 The public role returns `404` for internal paths, and ingress returns `404` for
-developer paths. `/healthz` is available on the application listener and on the
-optional dedicated health listener; the health listener serves no other routes.
-Ingress application TLS still requires a client certificate even for health.
+developer paths. `/livez` reports that the process is alive without checking
+dependencies. `/healthz` reports readiness and is available on the application
+listener and on the optional dedicated health listener; the health listener
+serves no other routes. Ingress application TLS still requires a client
+certificate even for health.
 
 | Method | Path | Role / authentication | Success |
 | --- | --- | --- | --- |
+| GET | `/livez` | Either role; no bearer; health listener allowed | `200` |
 | GET | `/healthz` | Either role; health listener needs no application bearer | `200` or `503` |
 | GET | `/v1/webhooks/scheme` | Public; no session | `200` |
 | GET / POST | `/v1/webhooks/endpoints` | Public; session; POST needs idempotency key | `200` / `201` |
@@ -362,7 +383,9 @@ turn a failed evidence fetch into a verified event.
 
 ## Readiness
 
-Public `/healthz` checks durable delivery state and signer readiness. Ingress
+`/livez` always returns `200` with `{"live":true,"role":"public"}` or
+`{"live":true,"role":"ingress"}` and does not contact dependencies. Public
+`/healthz` checks durable delivery state and signer readiness. Ingress
 also checks canonical sources and the node receipt verifier. Responses name
 `delivery_state_and_signer` and, for ingress,
 `canonical_sources_and_node_receipts`. Overall readiness is `200` only when the
@@ -376,7 +399,7 @@ checks each source `/readyz`; the node verifier checks root JSON-RPC
 match. Readiness does not replace per-event receipt and commit verification.
 
 The Kubernetes public probe uses HTTPS application `/healthz`; ingress probes
-its dedicated HTTP health port `9447`. Both use TCP application-listener
+its dedicated HTTP health port `9447` with `/livez`. Both use TCP application-listener
 liveness. The separate producer route `/internal/v1/readiness/{kind}` checks the
 source reader admission document and delivery readiness, and accepts an optional
 `x-layerx-admission-deadline-ms` bounded to five seconds.

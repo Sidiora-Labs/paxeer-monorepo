@@ -53,7 +53,7 @@ export function CoinPreviewCard({ name, symbol, description, image, strategy, so
           {socialLinks.length > 0 ? (
             <ul className="flex flex-wrap gap-1.5">
               {socialLinks.map(link => (
-                <li key={link} className="inline-flex h-[22px] items-center rounded-pill bg-surface-2 px-2 text-xs text-text-muted">{hostLabel(link)}</li>
+                <li key={link} className="inline-flex min-h-badge-height-sm items-center rounded-pill bg-surface-2 px-2 text-xs text-text-muted">{hostLabel(link)}</li>
               ))}
             </ul>
           ) : null}

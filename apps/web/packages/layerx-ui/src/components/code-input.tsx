@@ -146,7 +146,7 @@ export function Keypad({
             type="button"
             aria-label="Backspace"
             onClick={onBackspace}
-            className="flex h-14 items-center justify-center bg-surface text-foreground transition-colors active:bg-surface-sunken"
+            className="flex min-h-14 items-center justify-center py-3 bg-surface text-foreground transition-colors active:bg-surface-sunken"
           >
             <Delete className="size-5" />
           </button>
@@ -155,11 +155,11 @@ export function Keypad({
             key={k.main}
             type="button"
             onClick={() => /^\d$/.test(k.main) && onDigit(k.main)}
-            className="flex h-14 flex-col items-center justify-center gap-0 bg-surface text-foreground transition-colors active:bg-surface-sunken"
+            className="flex min-h-14 flex-col items-center justify-center gap-0 py-3 bg-surface text-foreground transition-colors active:bg-surface-sunken"
           >
             <span className="text-xl font-semibold leading-tight">{k.main}</span>
             {k.sub && (
-              <span className="text-[9px] font-semibold tracking-[0.18em] text-muted-foreground">
+              <span className="text-nano font-semibold tracking-widest text-muted-foreground">
                 {k.sub}
               </span>
             )}

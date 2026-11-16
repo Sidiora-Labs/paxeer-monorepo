@@ -43,7 +43,7 @@ export function BalanceHeader({
     <div className={cn("flex flex-col gap-1", align === "center" && "items-center", className)}>
       {label && <span className="text-sm text-muted-foreground">{label}</span>}
       <div className="flex items-center gap-2.5">
-        <span className="text-[32px] leading-none font-extrabold tabular-nums tracking-tight text-foreground">
+        <span className="text-display leading-none font-extrabold tabular-nums tracking-tight text-foreground">
           {hidden ? `${symbol} ••••••` : formatBalance(value, symbol)}
         </span>
         <button
@@ -52,7 +52,7 @@ export function BalanceHeader({
           aria-label={hidden ? "Show balance" : "Hide balance"}
           className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-sunken"
         >
-          {hidden ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
+          {hidden ? <EyeOff className="size-icon-sm" /> : <Eye className="size-icon-sm" />}
         </button>
       </div>
       {change && !hidden && (

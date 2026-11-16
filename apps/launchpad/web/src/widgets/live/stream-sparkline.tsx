@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 import { Sparkline, UnavailableState } from '@/ui/primitives';
 import { useSparkline } from '@/core/market/use-sparkline';
 import { toUnsupported } from '@/core/market/unsupported';
@@ -11,7 +12,7 @@ export interface StreamSparklineProps {
   className?: string;
 }
 
-const sizes = { overlay: { width: 90, height: 30 }, hero: { width: 460, height: 120 } } as const;
+const sizes = launchpadGeometry.streamSparkline;
 
 /** 24 x 1h closes for the stream's pool through IF_CANDLES (shared useSparkline cache). */
 export function StreamSparkline({ poolAddress, variant = 'overlay', className }: StreamSparklineProps) {

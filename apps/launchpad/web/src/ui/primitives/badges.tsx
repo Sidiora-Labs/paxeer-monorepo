@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Trophy,
 } from 'lucide-react';
+import { surfaceToken } from '@/core/app-foundation/surface-token';
 import { cn } from '@/lib/utils';
 import { formatCount, formatPercent, relativeAge, shortAddress } from '@/utils/format';
 
@@ -36,28 +37,56 @@ export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>,
   href?: string;
 }
 
-export function Chip({ children, variant = 'filter', size = 'sm', selected = false, pressed, count, icon, href, className, disabled, type = 'button', ...rest }: ChipProps) {
+export function Chip({
+  children,
+  variant = 'filter',
+  size = 'sm',
+  selected = false,
+  pressed,
+  count,
+  icon,
+  href,
+  className,
+  disabled,
+  type = 'button',
+  ...rest
+}: ChipProps) {
   const isOn = selected || pressed === true;
   const classes = cn(
-    'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill font-bold transition-colors duration-fast',
-    size === 'sm' ? 'h-control-height-sm px-3 text-sm' : 'h-control-height-md px-4 text-sm',
-    variant === 'token' && 'h-[22px] px-2 text-xs',
+    'inline-flex shrink-0 items-center gap-1.5 py-1 rounded-pill font-bold transition-colors duration-fast',
+    size === 'sm' ? 'min-h-control-height-sm px-3 text-sm' : 'min-h-control-height-md px-4 text-sm',
+    variant === 'token' && 'min-h-[var(--sl-badge-height-sm)] px-2 text-xs',
     isOn
       ? variant === 'preset'
         ? 'bg-accent text-on-accent'
         : 'bg-accent-soft-strong text-accent'
       : 'bg-surface-2 text-text-muted hover:bg-surface-hover hover:text-text',
     disabled && 'cursor-not-allowed text-text-disabled hover:bg-surface-2',
-    className,
+    className
   );
   const body = (
     <>
-      {icon ? <span aria-hidden="true" className="inline-flex [&>svg]:size-icon-sm">{icon}</span> : null}
+      {isOn ? (
+        <Check aria-hidden="true" className="size-icon-sm shrink-0" />
+      ) : icon ? (
+        <span aria-hidden="true" className="inline-flex [&>svg]:size-icon-sm">
+          {icon}
+        </span>
+      ) : null}
       <span>{children}</span>
-      {count !== undefined ? <span className="text-xs text-text-faint" data-numeric>{formatCount(count)}</span> : null}
+      {count !== undefined ? (
+        <span className="text-xs text-text-faint" data-numeric>
+          {formatCount(count)}
+        </span>
+      ) : null}
     </>
   );
-  if (href) return <Link href={href} className={classes} aria-current={selected ? 'page' : undefined}>{body}</Link>;
+  if (href)
+    return (
+      <Link href={href} className={classes} aria-current={selected ? 'page' : undefined}>
+        {body}
+      </Link>
+    );
   if (!rest.onClick && pressed === undefined) return <span className={classes}>{body}</span>;
   return (
     <button type={type} className={classes} aria-pressed={pressed} disabled={disabled} {...rest}>
@@ -78,24 +107,54 @@ export interface PercentPillProps {
   className?: string;
 }
 
-export function PercentPill({ value, variant = 'pill', size = 'sm', arrow = false, decimals = 2, flash = null, className }: PercentPillProps) {
+export function PercentPill({
+  value,
+  variant = 'pill',
+  size = 'sm',
+  arrow = false,
+  decimals = 2,
+  flash = null,
+  className,
+}: PercentPillProps) {
   if (value === null || value === undefined || !Number.isFinite(value)) {
-    return <span className={cn('text-text-faint', size === 'lg' ? 'text-md' : size === 'md' ? 'text-sm' : 'text-xs', className)} aria-label="No change yet">{'—'}</span>;
+    return (
+      <span
+        className={cn(
+          'text-text-faint',
+          size === 'lg' ? 'text-md' : size === 'md' ? 'text-sm' : 'text-xs',
+          className
+        )}
+        aria-label="No change yet"
+      >
+        {'—'}
+      </span>
+    );
   }
   const direction = value > 0 ? 'up' : value < 0 ? 'down' : 'flat';
-  const tone = direction === 'up'
-    ? 'text-percent-up'
-    : direction === 'down'
-      ? 'text-percent-down'
-      : 'text-percent-flat';
-  const bg = variant === 'pill'
-    ? direction === 'up' ? 'bg-percent-up-soft' : direction === 'down' ? 'bg-percent-down-soft' : 'bg-surface-3'
-    : '';
-  const sizing = size === 'lg'
-    ? 'text-md'
-    : variant === 'pill'
-      ? size === 'md' ? 'h-[26px] px-2 text-sm' : 'h-[22px] px-2 text-xs'
-      : size === 'md' ? 'text-sm' : 'text-xs';
+  const tone =
+    direction === 'up'
+      ? 'text-percent-up'
+      : direction === 'down'
+        ? 'text-percent-down'
+        : 'text-percent-flat';
+  const bg =
+    variant === 'pill'
+      ? direction === 'up'
+        ? 'bg-percent-up-soft'
+        : direction === 'down'
+          ? 'bg-percent-down-soft'
+          : 'bg-surface-3'
+      : '';
+  const sizing =
+    size === 'lg'
+      ? 'text-md'
+      : variant === 'pill'
+        ? size === 'md'
+          ? 'min-h-[var(--sl-badge-height-md)] px-2 text-sm'
+          : 'min-h-[var(--sl-badge-height-sm)] px-2 text-xs'
+        : size === 'md'
+          ? 'text-sm'
+          : 'text-xs';
   const Arrow = direction === 'down' ? TrendingDown : TrendingUp;
   return (
     <span
@@ -107,7 +166,7 @@ export function PercentPill({ value, variant = 'pill', size = 'sm', arrow = fals
         bg,
         flash === 'up' && 'sl-flash-up',
         flash === 'down' && 'sl-flash-down',
-        className,
+        className
       )}
     >
       {direction !== 'flat' ? <span className="sr-only">{direction}</span> : null}
@@ -119,7 +178,16 @@ export function PercentPill({ value, variant = 'pill', size = 'sm', arrow = fals
 
 /* --------------------------------------------------------- StatusBadge */
 
-export type BadgeStatus = 'open' | 'paid' | 'submission' | 'ending' | 'finished' | 'live' | 'recent' | 'detected' | 'neutral';
+export type BadgeStatus =
+  | 'open'
+  | 'paid'
+  | 'submission'
+  | 'ending'
+  | 'finished'
+  | 'live'
+  | 'recent'
+  | 'detected'
+  | 'neutral';
 
 const statusLabel: Record<BadgeStatus, string> = {
   open: 'Open',
@@ -154,11 +222,19 @@ export interface StatusBadgeProps {
   className?: string;
 }
 
-export function StatusBadge({ status, children, dot = false, size = 'sm', className }: StatusBadgeProps) {
+export function StatusBadge({
+  status,
+  children,
+  dot = false,
+  size = 'sm',
+  className,
+}: StatusBadgeProps) {
   const label = children ?? statusLabel[status];
   if (status === 'live' && dot) {
     return (
-      <span className={cn('inline-flex items-center gap-1.5 text-xs font-bold text-text', className)}>
+      <span
+        className={cn('inline-flex items-center gap-1.5 text-xs font-bold text-text', className)}
+      >
         <span aria-hidden="true" className="size-2 rounded-pill bg-accent" />
         <span>{label}</span>
       </span>
@@ -167,10 +243,10 @@ export function StatusBadge({ status, children, dot = false, size = 'sm', classN
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-1.5 font-bold uppercase tracking-[.04em]',
+        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-1.5 font-bold uppercase tracking-[var(--sl-tracking-label)]',
         size === 'md' ? 'h-6 text-xs' : 'h-5 text-2xs',
         statusClass[status],
-        className,
+        className
       )}
     >
       {dot ? <span aria-hidden="true" className="size-1.5 rounded-pill bg-current" /> : null}
@@ -195,20 +271,40 @@ export function RankBadge({ rank, variant = 'inline', className }: RankBadgeProp
   const tone = top ? rankTone[rank] : 'text-text-faint';
   if (variant === 'media') {
     return (
-      <span className={cn('inline-flex h-5 items-center rounded-xs bg-media-overlay px-1.5 text-2xs font-bold text-text', className)}>
+      <span
+        className={cn(
+          'inline-flex h-5 items-center rounded-xs bg-media-overlay px-1.5 text-2xs font-bold text-on-media',
+          className
+        )}
+      >
         <span className="sr-only">Rank </span>#{rank}
       </span>
     );
   }
   if (variant === 'disc') {
     return (
-      <span className={cn('inline-flex size-5 items-center justify-center rounded-pill bg-surface-3 text-2xs font-bold', tone, className)} data-numeric>
-        <span className="sr-only">Rank </span>{rank}
+      <span
+        className={cn(
+          'inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-pill bg-surface-3 text-2xs font-bold',
+          tone,
+          className
+        )}
+        data-numeric
+      >
+        <span className="sr-only">Rank </span>
+        {rank}
       </span>
     );
   }
   return (
-    <span className={cn('inline-flex items-center gap-1 text-sm font-bold tabular-nums', tone, className)} data-numeric>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 text-sm font-bold tabular-nums',
+        tone,
+        className
+      )}
+      data-numeric
+    >
       <span className="sr-only">Rank </span>
       {top ? <Crown aria-hidden="true" className="size-3.5" /> : null}
       <span>{rank}</span>
@@ -242,7 +338,13 @@ export interface StageBadgeProps {
 
 const haloBg = { 1: 'bg-surface-1', 2: 'bg-surface-2', 3: 'bg-surface-3' } as const;
 
-export function StageBadge({ stage, size = 16, decorative = false, surface = 1, className }: StageBadgeProps) {
+export function StageBadge({
+  stage,
+  size = 16,
+  decorative = false,
+  surface = 1,
+  className,
+}: StageBadgeProps) {
   const meta = stageMeta[stage];
   const Icon = meta.icon;
   return (
@@ -254,7 +356,13 @@ export function StageBadge({ stage, size = 16, decorative = false, surface = 1, 
       tabIndex={decorative ? undefined : 0}
       className={cn('inline-flex rounded-pill p-0.5', haloBg[surface], className)}
     >
-      <span className={cn('inline-flex items-center justify-center rounded-pill', meta.className, size === 16 ? 'size-4' : 'size-3.5')}>
+      <span
+        className={cn(
+          'inline-flex items-center justify-center rounded-pill',
+          meta.className,
+          size === 16 ? 'size-4' : 'size-3.5'
+        )}
+      >
         <Icon aria-hidden="true" className={size === 16 ? 'size-2.5' : 'size-2'} />
       </span>
     </span>
@@ -276,7 +384,13 @@ export interface CountPillProps {
 
 export function CountPill({ count, label, className }: CountPillProps) {
   return (
-    <span data-numeric className={cn('inline-flex h-5 items-center rounded-pill bg-surface-3 px-1.5 text-xs font-bold tabular-nums text-text-muted', className)}>
+    <span
+      data-numeric
+      className={cn(
+        'inline-flex h-5 items-center rounded-pill bg-surface-3 px-1.5 text-xs font-bold tabular-nums text-text-muted',
+        className
+      )}
+    >
       {formatCount(count)}
       {label ? <span className="sr-only"> {label}</span> : null}
     </span>
@@ -324,7 +438,15 @@ export interface ShortAddressProps {
   className?: string;
 }
 
-export function ShortAddress({ address, head = 4, tail = 4, copy = true, explorerHref = null, onCopied, className }: ShortAddressProps) {
+export function ShortAddress({
+  address,
+  head = 4,
+  tail = 4,
+  copy = true,
+  explorerHref = null,
+  onCopied,
+  className,
+}: ShortAddressProps) {
   const [copied, setCopied] = useState(false);
   const short = shortAddress(address, head, tail);
 
@@ -335,15 +457,20 @@ export function ShortAddress({ address, head = 4, tail = 4, copy = true, explore
       await navigator.clipboard.writeText(address);
       setCopied(true);
       onCopied?.();
-      window.setTimeout(() => setCopied(false), 1500);
+      window.setTimeout(() => setCopied(false), surfaceToken('--sl-duration-feedback'));
     } catch {
       setCopied(false);
     }
   }
 
   return (
-    <span className={cn('inline-flex items-center gap-1 font-mono text-xs text-text-faint', className)}>
-      <span title={address}>
+    <span
+      className={cn(
+        'inline-flex min-w-0 max-w-full flex-wrap items-center gap-1 font-mono text-xs text-text-faint',
+        className
+      )}
+    >
+      <span title={address} className="max-w-full break-all">
         <span aria-hidden="true">{short}</span>
         <span className="sr-only">{address}</span>
       </span>
@@ -352,10 +479,19 @@ export function ShortAddress({ address, head = 4, tail = 4, copy = true, explore
           type="button"
           onClick={handleCopy}
           aria-label={`Copy address ${short}`}
-          className={cn('inline-flex size-5 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text', copied && 'text-accent')}
+          className={cn(
+            'inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text',
+            copied && 'text-accent'
+          )}
         >
-          {copied ? <Check aria-hidden="true" className="size-icon-sm" /> : <Copy aria-hidden="true" className="size-icon-sm" />}
-          <span className="sr-only" role="status">{copied ? 'Address copied' : ''}</span>
+          {copied ? (
+            <Check aria-hidden="true" className="size-icon-sm" />
+          ) : (
+            <Copy aria-hidden="true" className="size-icon-sm" />
+          )}
+          <span className="sr-only" role="status">
+            {copied ? 'Address copied' : ''}
+          </span>
         </button>
       ) : null}
       {explorerHref ? (
@@ -363,9 +499,9 @@ export function ShortAddress({ address, head = 4, tail = 4, copy = true, explore
           href={explorerHref}
           target="_blank"
           rel="noreferrer noopener"
-          onClick={event => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
           aria-label="View on Paxeer explorer, opens in new tab"
-          className="inline-flex size-5 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text"
+          className="inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text"
         >
           <ExternalLink aria-hidden="true" className="size-icon-sm" />
         </a>

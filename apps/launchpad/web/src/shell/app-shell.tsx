@@ -45,52 +45,107 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    const clear = () => setPrivateEpoch(epoch => epoch + 1);
-    const restored = (event: PageTransitionEvent) => { if (event.persisted) void clearPrivateFoundationCache(queryClient); };
+    const clear = () => setPrivateEpoch((epoch) => epoch + 1);
+    const restored = (event: PageTransitionEvent) => {
+      if (event.persisted) void clearPrivateFoundationCache(queryClient);
+    };
     window.addEventListener('kindle:private-state-cleared', clear);
     window.addEventListener('pageshow', restored);
-    return () => { window.removeEventListener('kindle:private-state-cleared', clear); window.removeEventListener('pageshow', restored); };
+    return () => {
+      window.removeEventListener('kindle:private-state-cleared', clear);
+      window.removeEventListener('pageshow', restored);
+    };
   }, [queryClient]);
   useEffect(() => {
     const guard = (event: MouseEvent) => {
       const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
       if (!(anchor instanceof HTMLAnchorElement)) return;
       let target: URL;
-      try { target = new URL(anchor.href); } catch { event.preventDefault(); event.stopPropagation(); setLinkBlocked(true); return; }
-      if (target.origin === window.location.origin && target.protocol === window.location.protocol && !target.username && !target.password) return;
+      try {
+        target = new URL(anchor.href);
+      } catch {
+        event.preventDefault();
+        event.stopPropagation();
+        setLinkBlocked(true);
+        return;
+      }
+      if (
+        target.origin === window.location.origin &&
+        target.protocol === window.location.protocol &&
+        !target.username &&
+        !target.password
+      )
+        return;
       const approved = safeExternalDestination(anchor.href);
-      if (!approved) { event.preventDefault(); event.stopPropagation(); setLinkBlocked(true); return; }
+      if (!approved) {
+        event.preventDefault();
+        event.stopPropagation();
+        setLinkBlocked(true);
+        return;
+      }
       anchor.href = approved;
       anchor.rel = 'noopener noreferrer';
       anchor.referrerPolicy = 'no-referrer';
     };
     document.addEventListener('click', guard, true);
     document.addEventListener('auxclick', guard, true);
-    return () => { document.removeEventListener('click', guard, true); document.removeEventListener('auxclick', guard, true); };
+    return () => {
+      document.removeEventListener('click', guard, true);
+      document.removeEventListener('auxclick', guard, true);
+    };
   }, []);
   useEffect(() => installNavigationHistory(), []);
-  useEffect(() => { window.dispatchEvent(new Event('kindle:navigation-complete')); }, [pathname]);
+  useEffect(() => {
+    window.dispatchEvent(new Event('kindle:navigation-complete'));
+  }, [pathname]);
   useWalletToasts();
 
   const route = routeForPath(pathname);
   // --shell-top is the fixed header stack height: measured once mounted, and
   // before that the CSS default (top bar, plus the ticker from md up).
-  const shellTop = topHeight === null ? undefined : ({ '--shell-top': `${topHeight}px` } as CSSProperties);
+  const shellTop =
+    topHeight === null ? undefined : ({ '--shell-top': `${topHeight}px` } as CSSProperties);
 
   return (
     <div
+      onFocusCapture={(event) => {
+        const control = event.target;
+        if (!(control instanceof HTMLElement) || !control.closest('[data-shell-content]') || !control.matches(':focus-visible')) return;
+        if (typeof control.scrollIntoView !== 'function') return;
+        requestAnimationFrame(() => {
+          control.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+          const headerBottom = topRef.current?.getBoundingClientRect().bottom ?? 0;
+          const controlTop = control.getBoundingClientRect().top;
+          if (controlTop < headerBottom) {
+            window.scrollBy({ top: controlTop - headerBottom, behavior: 'instant' });
+          }
+        });
+      }}
       data-shell-pathname={pathname}
       data-shell-route-id={route?.id || 'unknown'}
       style={shellTop}
       className={cn('foundation-shell min-w-0 max-w-full bg-canvas text-text', SHELL_TOP_VARS)}
     >
-      <a href="#main-content" className="sr-only focus:not-sr-only fixed left-0 top-0 z-[var(--sl-z-tooltip)] rounded-sm bg-surface-3 p-3 text-sm text-text">Skip to content</a>
+      <a
+        href="#main-content"
+        className="fixed left-3 top-3 z-[var(--sl-z-tooltip)] min-h-touch-target-min -translate-y-[calc(100%+var(--sl-space-6))] rounded-sm bg-surface-3 p-3 text-sm text-text focus:translate-y-0"
+      >
+        Skip to content
+      </a>
       <SquiCircleFilterStatic />
       <SidebarNav />
-      <div className={cn('flex min-h-screen flex-col transition-[margin] duration-base md:ml-rail-width', railExpanded && 'xl:ml-rail-expanded-width')}>
+      <div
+        className={cn(
+          'flex min-h-screen flex-col transition-[margin] duration-base md:ml-rail-width',
+          railExpanded && 'xl:ml-rail-expanded-width'
+        )}
+      >
         <div
           ref={topRef}
-          className={cn('fixed left-0 right-0 top-0 z-[var(--sl-z-header)] flex flex-col bg-canvas transition-[left] duration-base md:left-rail-width', railExpanded && 'xl:left-rail-expanded-width')}
+          className={cn(
+            'fixed left-0 right-0 top-0 z-[var(--sl-z-header)] flex flex-col bg-canvas transition-[left] duration-base md:left-rail-width',
+            railExpanded && 'xl:left-rail-expanded-width'
+          )}
         >
           <TopBar />
           <TickerStrip />
@@ -104,21 +159,30 @@ export default function AppShell({ children }: { children: ReactNode }) {
           // padding covers the header stack and, below md, the bottom tab bar),
           // the page grows into the free space and the slim footer row sits at
           // the viewport bottom on short pages, or after the content on long ones.
-          className="flex min-h-dvh min-w-0 flex-1 flex-col overflow-x-clip pb-14 pt-[var(--shell-top)] md:pb-0"
+          className="flex min-h-dvh min-w-0 flex-1 flex-col pb-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem))] pt-[var(--shell-top)] md:pb-0"
         >
           {linkBlocked ? (
-            <p role="alert" className="flex items-center gap-2 bg-warning-soft px-4 py-2 text-sm text-text">
+            <p
+              role="alert"
+              className="flex items-center gap-2 bg-warning-soft px-4 py-2 text-sm text-text"
+            >
               This link can't be opened
-              <Button variant="ghost" size="sm" onClick={() => setLinkBlocked(false)}>Dismiss</Button>
+              <Button variant="ghost" size="sm" onClick={() => setLinkBlocked(false)}>
+                Dismiss
+              </Button>
             </p>
           ) : null}
           {route ? (
-            <div key={privateEpoch} data-shell-content="" className="flex min-w-0 flex-1 flex-col">{children}</div>
+            <div key={privateEpoch} data-shell-content="" className="flex min-w-0 flex-1 flex-col">
+              {children}
+            </div>
           ) : (
             <section data-shell-content="" className="flex flex-1 flex-col items-start gap-3 p-6">
               <h1 className="text-xl font-extrabold text-text">Page not found</h1>
               <p className="text-sm text-text-muted">We couldn't find that page</p>
-              <Button href="/" variant="secondary" size="md">Go home</Button>
+              <Button href="/" variant="secondary" size="md">
+                Go home
+              </Button>
             </section>
           )}
           {route?.id === 'terminal' ? null : <ShellFooter />}

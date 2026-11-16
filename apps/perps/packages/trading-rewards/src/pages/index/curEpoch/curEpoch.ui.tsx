@@ -1,3 +1,4 @@
+import surface from "../../../surface.module.css";
 import { useState, useEffect, FC, ReactNode, SVGProps, useMemo } from "react";
 import { EpochStatus } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -55,7 +56,7 @@ export const CurEpoch: FC<CurEpochReturns> = (props) => {
       <Flex
         id="oui-tradingRewards-home-currentEpoch"
         r={"2xl"}
-        className="oui-bg-base-9 oui-font-semibold oui-p-10"
+        className={`${surface.surface} oui-bg-base-9 oui-font-semibold oui-p-10`}
         width={"100%"}
         height={"100%"}
         direction={"column"}
@@ -111,7 +112,7 @@ export const CurEpoch: FC<CurEpochReturns> = (props) => {
     <Flex
       id="oui-tradingRewards-home-currentEpoch"
       r={"2xl"}
-      className="oui-bg-base-9 oui-font-semibold"
+      className={`${surface.surface} oui-bg-base-9 oui-font-semibold`}
       width={"100%"}
       height={"100%"}
       direction={"column"}
@@ -143,11 +144,6 @@ export const CurEpoch: FC<CurEpochReturns> = (props) => {
           hideData={state.hideData}
           estRewards={state.hideData ? "--" : props.estimate?.est_r_wallet}
           rewardsTooltip={props.rewardsTooltip}
-          background={
-            state.notConnected
-              ? "linear-gradient(28.29deg, rgb(var(--oui-gradient-neutral-start)) 21.6%, rgb(var(--oui-gradient-neutral-end)) 83.23%)"
-              : "linear-gradient(0deg, rgb(var(--oui-gradient-secondary-end)) 2.62%, rgb(var(--oui-gradient-secondary-start)) 86.5%)"
-          }
         />
         <div className="oui-w-full">
           <AuthGuard
@@ -167,7 +163,6 @@ const EstRewards: FC<{
   estRewards?: number | string;
   direction: "row" | "column";
   justify: "center" | "between";
-  background: string;
   hideData: boolean;
   rewardsTooltip:
     | {
@@ -189,10 +184,7 @@ const EstRewards: FC<{
       r="xl"
       itemAlign={"center"}
       justify={props.justify}
-      style={{
-        background: props.background,
-      }}
-      className="oui-flex-1 oui-h-full"
+      className="oui-flex-1 oui-h-full oui-bg-base-8"
     >
       <Text className="oui-text-base xl:oui-text-lg oui-text-base-contrast-54">
         {t("tradingRewards.myEstRewards")}
@@ -206,7 +198,7 @@ const EstRewards: FC<{
         )}
         <Text
           children={commifyOptional(props.estRewards, { fix: 2 })}
-          className="oui-text-xl md:oui-text-2xl xl:oui-text-[32px]"
+          className="oui-text-xl md:oui-text-2xl xl:oui-text-4xl"
         />
         {props.rewardsTooltip && (
           <RewardsTooltip rewardsTooltip={props.rewardsTooltip} />
@@ -237,7 +229,7 @@ const Statics: FC<{
           // font size
           "oui-text-xs md:oui-text-sm xl:oui-text-base",
           /// leading
-          "oui-leading-[20px] xl:oui-leading-[24px]",
+          "oui-leading-normal xl:oui-leading-normal",
         )}
       >
         {title}
@@ -252,7 +244,7 @@ const Statics: FC<{
         </Text.gradient>
         <Text
           intensity={80}
-          className="oui-mb-[3px] oui-text-2xs md:oui-text-xs xl:oui-text-sm"
+          className="oui-mb-1 oui-text-2xs md:oui-text-xs xl:oui-text-sm"
         >
           {text}
         </Text>
@@ -326,7 +318,7 @@ const Countdown: FC<{
           gap={1}
           className={cn(
             "oui-text-2xs md:oui-text-xs lg:oui-text-sm",
-            isStandalone ? "oui-py-0" : "oui-py-[13px]",
+            isStandalone ? "oui-py-0" : "oui-py-3",
           )}
         >
           {num(`${timeLeft.days}`.padStart(2, "0"))}
@@ -405,7 +397,7 @@ export const ArrowRightIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
     <g mask="url(#mask0_1997_45723)">
       <path
         d="M12.0384 14.7111L11.1603 13.8073L14.343 10.6246H4.25V9.37463H14.343L11.1603 6.19192L12.0384 5.28809L16.75 9.99961L12.0384 14.7111Z"
-        // fill="black"
+        // fill="rgb(var(--oui-color-base-static-contrast))"
         // fill-opacity="0.8"
       />
     </g>
@@ -414,17 +406,16 @@ export const ArrowRightIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
 const TwitterLInk: FC = () => {
   const { t } = useTranslation();
   return (
-    <Flex
-      gap={1}
-      itemAlign={"center"}
-      justify={"center"}
-      className="oui-group oui-cursor-pointer oui-fill-base-contrast-36 oui-text-sm  oui-text-base-contrast-36 group-hover:oui-text-base-contrast-80"
-      onClick={() => window.open("https://x.com/PaxeerNetworkNetwork")}
+    <a
+      href="https://x.com/PaxeerNetworkNetwork"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="oui-inline-flex oui-items-center oui-justify-center oui-gap-1 oui-text-sm oui-text-content-muted oui-underline"
     >
       <div className="oui-cursor-pointer oui-fill-base-contrast-36 oui-text-sm oui-text-base-contrast-36  group-hover:oui-text-base-contrast-80">
         {t("tradingRewards.eopchStatus.linkDescription")}
       </div>
       <ArrowRightIcon className="oui-text-fill-base-contrast-36 oui-fill-base-contrast-36  group-hover:oui-fill-base-contrast-80" />
-    </Flex>
+    </a>
   );
 };

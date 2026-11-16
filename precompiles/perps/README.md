@@ -55,8 +55,10 @@ The root [`Makefile`](../../Makefile) target `paxd-build` builds the native
 libraries and the node, including this precompile. Its `paxeer-test` target
 runs the Go package test groups defined in [`chain.mk`](../../chain.mk),
 covering this package and `abi/`. These targets use cached Go dependencies.
-The collateral settlement parity test in `positions_test.go` also runs Node
-with `tsx` from [`apps/perps`](../../apps/perps).
+The collateral settlement parity test in `positions_test.go` starts
+`node --import tsx --test tests/collateral-removal-margin-risk.test.ts` from the
+[`apps/perps` workspace](../../apps/perps), so the production client package and
+its workspace dependencies resolve as they do for the web application.
 
 ## Configuration
 

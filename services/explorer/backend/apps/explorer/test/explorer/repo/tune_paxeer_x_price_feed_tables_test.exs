@@ -15,6 +15,7 @@ defmodule Explorer.Repo.TunePaxeerXPriceFeedTablesTest do
 
     on_exit(fn ->
       Ecto.Migrator.up(Repo, @version, TunePaxeerXPriceFeedTables, log: false)
+      Ecto.Adapters.SQL.Sandbox.mode(Repo, :auto)
     end)
 
     :ok

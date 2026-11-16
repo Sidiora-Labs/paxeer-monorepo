@@ -99,7 +99,7 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
           role="dialog"
           aria-labelledby={titleId}
           onKeyDown={onKeyDown}
-          className="absolute right-0 top-full z-30 mt-2 w-[280px] max-w-[calc(100vw-32px)] rounded-md bg-surface-3 p-3 shadow-pop"
+          className="absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-2 w-full max-w-sm rounded-md bg-surface-3 p-3 shadow-pop"
         >
           <div className="flex items-center justify-between">
             <h3 id={titleId} className="text-sm font-bold text-text">Settings</h3>
@@ -134,7 +134,10 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
                 aria-invalid={customError ? true : undefined}
                 aria-describedby={customError ? customErrorId : undefined}
                 onChange={event => { setCustom(event.target.value); if (customError) setCustomError(null); }}
-                onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); applyCustom(); } }}
+                onKeyDown={event => {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                  if (event.key === 'Enter') { event.preventDefault(); applyCustom(); }
+                }}
                 placeholder="Custom %"
                 className={cn('h-control-height-sm min-w-0 flex-1 rounded-sm px-2 text-sm text-text tabular-nums placeholder:text-text-faint outline-none focus-visible:outline-2 focus-visible:outline-focus', customError ? 'bg-danger-soft' : 'bg-surface-2')}
               />

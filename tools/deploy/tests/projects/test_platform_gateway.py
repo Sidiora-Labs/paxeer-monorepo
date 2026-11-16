@@ -5,11 +5,13 @@ import fnmatch
 import re
 import tomllib
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFINITION = ROOT / "deploy/projects/platform/gateway.kvx"
 CONTAINER = ROOT / "docker/platform-gateway"
 GATEWAY = ROOT / "services/platform/hosted/gateway"
+PAXEER = ROOT / "services/platform/hosted/paxeer"
 ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]*\Z")
 RUST_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
 RUST_TOKEN = re.compile(
@@ -79,7 +81,11 @@ def rust_functions(source):
     functions = {}
     for match in re.finditer(r"\bfn\s+(\w+)\b[^{}]*\{", masked):
         end = block_end(masked, match.end() - 1)
-        functions[match[1]] = source[match.start():end]
+        name = match[1]
+        # Distinct impls can declare the same method name; retain every reader.
+        if name in functions:
+            name = f"{name}@{match.start()}"
+        functions[name] = source[match.start():end]
     return functions
 
 
@@ -90,9 +96,11 @@ def constant_environments(source):
     return constants
 
 
-def environment_reads(body, constants):
+def environment_reads(body, constants, aliases=None):
     reads = set()
     required = set()
+    masked = mask_rust(body)
+    aliases = {} if aliases is None else aliases
     calls = re.finditer(
         r'\b(?:env::var(?:_os)?|(?:super::)?read_secret)\s*\(\s*'
         r'("(?:[^"\\]|\\.)*"|\w+)\s*\)',
@@ -102,20 +110,33 @@ def environment_reads(body, constants):
         argument = call[1]
         if argument.startswith('"'):
             names = environment_literals(argument)
+        elif argument in aliases:
+            names = aliases[argument]
         elif argument in constants:
             names = constants[argument]
         else:
             names = environment_literals(body)
             for name, values in constants.items():
-                if re.search(rf"\b{re.escape(name)}\b", body):
+                if re.search(rf"\b{re.escape(name)}\b", masked):
                     names |= values
         reads |= names
         tail = body[call.end():]
-        if "read_secret" in call[0] or re.match(r"\s*\.map_err\b", tail):
+        guarded = False
+        for guard in re.finditer(
+            rf"\bif\s+(?:std::)?env::var_os\(\s*{re.escape(argument)}\s*\)"
+            r"\.is_some\(\)\s*\{",
+            body,
+        ):
+            end = block_end(mask_rust(body), guard.end() - 1)
+            if guard.end() <= call.start() < end:
+                guarded = True
+        if not guarded and (
+            "read_secret" in call[0] or re.match(r"\s*\.map_err\b", tail)
+        ):
             required |= names
     if re.search(r"\.map\((?:std::)?env::var(?:_os)?\)", body):
         for name, values in constants.items():
-            if re.search(rf"\b{re.escape(name)}\b", body):
+            if re.search(rf"\b{re.escape(name)}\b", masked):
                 reads |= values
     return reads, required
 
@@ -140,7 +161,37 @@ def startup_requirements(sources, variables):
             body = re.split(
                 r"\bfor\s+\w+\s+in\s+\w+\.incoming\(\)", body, maxsplit=1
             )[0]
-        reads, needed = environment_reads(body, constant_environments(sources[module]))
+        aliases = {}
+        if key == ("main", "configured_service_identity"):
+            pairs = {
+                match[1]: (match[2], match[3])
+                for match in re.finditer(
+                    r'let (\w+) = \(\s*"([A-Z][A-Z0-9_]*)",\s*'
+                    r'"([A-Z][A-Z0-9_]*)",?\s*\);',
+                    body,
+                )
+            }
+            selection = re.search(
+                r"let \((\w+), (\w+)\) = if (\w+) \{ (\w+) \} else \{ (\w+) \};",
+                body,
+            )
+            assert selection
+            identity, password, flag, first, second = selection.groups()
+            assert first in pairs and second in pairs
+            assert re.search(
+                rf"let {flag} = env::var_os\({first}\.0\)\.is_some\(\)"
+                rf" \|\| env::var_os\({first}\.1\)\.is_some\(\);",
+                body,
+            )
+            selected = (
+                first if set(pairs[first]).intersection(variables) else second
+            )
+            aliases = dict(zip(
+                (identity, password), ({name} for name in pairs[selected]),
+            ))
+        reads, needed = environment_reads(
+            body, constant_environments(sources[module]), aliases,
+        )
         # Optional groups return before loading their inputs when none are configured.
         if reads and not reads.intersection(variables) and (
             "Ok(None)" in body or (".all(" in body and "return Ok(())" in body)
@@ -211,7 +262,18 @@ def selected_file_rows(variables):
     selector, default = re.search(r"table=\$\{(\w+):-([^}]+)\}", shim).groups()
     destination = variables.get(selector, default)
     table = ROOT / image_copies()[destination]
-    return [line.split("\t") for line in table.read_text().splitlines() if line and not line.startswith("#")]
+    rows = [
+        line.split("\t")
+        for line in table.read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    assert all(len(row) == 4 for row in rows)
+    role_variable = re.search(r"role=\$\{(\w+):-\}", shim)[1]
+    role = variables.get(role_variable, "")
+    return [
+        row for row in rows
+        if "*" in row[3].split(",") or role in row[3].split(",")
+    ]
 
 
 def test_gateway_service_matches_container_and_rollout():
@@ -327,6 +389,141 @@ def test_gateway_inputs_have_names_categories_and_formats():
         assert len(lines[index - 1].split()) >= 6
 
 
+def test_gateway_identity_variables_follow_source_readers():
+    variables = definition()["vars"]["gateway"]
+    sources = runtime_sources()
+    groups = {
+        ("main", "configured_identity"): {
+            "LAYERX_GATEWAY_IDENTITY_URL",
+            "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
+            "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
+        },
+        ("main", "configured_service_identity"): {
+            "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
+            "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
+        },
+        ("rpc_register", "configured_token"): {
+            "LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE",
+        },
+        ("rpc_register", "configured_tenant"): {"LAYERX_GATEWAY_TENANT"},
+    }
+    for (module, function), expected in groups.items():
+        body = rust_functions(sources[module])[function]
+        reads, _ = environment_reads(body, constant_environments(sources[module]))
+        assert expected <= reads
+        assert expected <= variables.keys()
+    identity = rust_functions(sources["main"])["configured_identity"]
+    _, required = environment_reads(identity, constant_environments(sources["main"]))
+    assert required == {"LAYERX_GATEWAY_IDENTITY_TOKEN_FILE"}
+    assert variables["LAYERX_ROLE"] == "identity"
+    for name in ("LAYERX_GATEWAY_IDENTITY_URL", "LAYERX_GATEWAY_TENANT"):
+        assert variables[name] == f"env:PLATFORM_GATEWAY_{name}"
+    paths = {
+        "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE": "/run/secrets/identity-token",
+        "LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE": "/run/secrets/identity-provisioning-token",
+        "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE": "/run/secrets/key-provisioning-key",
+        "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12": "/run/secrets/client.p12",
+        "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE": "/run/secrets/client-password",
+    }
+    for name, path in paths.items():
+        assert variables[name] == path
+
+
+def test_gateway_identity_inputs_are_categorized_and_documented():
+    inputs = definition()["inputs"]["gateway"]
+    expected = {
+        "LAYERX_GATEWAY_IDENTITY_URL": (
+            "operator", ("absolute HTTPS", "identity service"),
+        ),
+        "LAYERX_GATEWAY_TENANT": (
+            "operator",
+            ("1 to 95", "lowercase", "digits", "dots", "underscores", "hyphens"),
+        ),
+        "ENDPOINT_IDENTITY_TOKEN": (
+            "operator", ("base64-encoded token text", "issued by the identity service"),
+        ),
+        "ENDPOINT_IDENTITY_PROVISIONING_TOKEN": (
+            "operator", ("base64-encoded token text", "issued by the identity service"),
+        ),
+        "ENDPOINT_KEY_PROVISIONING_KEY": (
+            "generated",
+            (
+                "base64-encoded", "64 hexadecimal characters",
+                "generated once", "equal on every replica",
+            ),
+        ),
+        "ENDPOINT_CLIENT_P12": (
+            "generated", ("Base64-encoded", "PKCS#12", "written by the launcher"),
+        ),
+        "ENDPOINT_CLIENT_PASSWORD": (
+            "generated", ("Base64-encoded", "password", "written by the launcher"),
+        ),
+    }
+    lines = DEFINITION.read_text().splitlines()
+    for variable, (category, descriptions) in expected.items():
+        name = f"PLATFORM_GATEWAY_{variable}"
+        assert inputs[name] == category
+        index = next(
+            i for i, line in enumerate(lines) if line.startswith(name + " =")
+        )
+        comment = lines[index - 1]
+        assert comment.startswith("# ")
+        assert all(description in comment for description in descriptions)
+
+
+def test_gateway_backend_origins_follow_indexer_and_consensus_contracts():
+    data = definition()
+    variables = data["vars"]["gateway"]
+    indexer = tomllib.loads(
+        (ROOT / "deploy/projects/platform/indexer.kvx").read_text()
+    )
+    listener = indexer["vars"]["indexer"]["LAYERX_INDEXER_LISTEN"]
+    listener_port = int(listener.rsplit(":", 1)[1])
+    indexer_origin = variables["LAYERX_GATEWAY_INDEXER_URL"]
+    parsed_indexer = urlsplit(indexer_origin)
+    assert parsed_indexer.scheme == "https"
+    assert parsed_indexer.hostname == "${{indexer.railway_private_domain}}"
+    assert parsed_indexer.port == listener_port
+    assert parsed_indexer.path == ""
+    consensus = variables["LAYERX_GATEWAY_CONSENSUS_RPC_URL"]
+    assert consensus == (
+        "env:PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL"
+    )
+    assert data["inputs"]["gateway"][
+        "PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL"
+    ] == "operator"
+
+
+def test_gateway_consensus_input_documents_an_absolute_path_preserving_https_url():
+    lines = DEFINITION.read_text().splitlines()
+    name = "PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL"
+    index = next(i for i, line in enumerate(lines) if line.startswith(name + " ="))
+    comment = lines[index - 1]
+    assert comment.startswith("# ")
+    assert "absolute HTTPS address" in comment
+    assert "DNS host" in comment
+    assert "may hold a path" in comment
+    assert "exactly that path" in comment
+
+
+def test_gateway_consensus_methods_are_admitted_by_the_node_front():
+    gateway_methods = set()
+    for source in runtime_sources().values():
+        gateway_methods.update(
+            re.findall(
+                r"\b(?:consensus|consensus_request)\s*\([^)]*?\"([a-z_]+)\"",
+                source,
+                re.S,
+            )
+        )
+    assert gateway_methods
+    node_source = production_source(PAXEER / "src/comet.rs")
+    admitted_methods = set(
+        re.findall(r'^\s*\"([a-z_]+)\"\s*=>', node_source, re.M)
+    )
+    assert gateway_methods <= admitted_methods
+
+
 def test_gateway_port_listener_and_health_are_served():
     data = definition()
     variables = data["vars"]["gateway"]
@@ -352,24 +549,52 @@ def test_gateway_port_listener_and_health_are_served():
 def test_gateway_file_inputs_are_materialized_and_staged():
     variables = definition()["vars"]["gateway"]
     rows = selected_file_rows(variables)
+    assert len(rows) == 10
+    assert {row[0]: row[1] for row in rows if row[3] == "identity"} == {
+        "ENDPOINT_ROUTE_BINDINGS": "/run/secrets/route-bindings.json",
+        "ENDPOINT_IDENTITY_TOKEN": "/run/secrets/identity-token",
+        "ENDPOINT_IDENTITY_PROVISIONING_TOKEN": "/run/secrets/identity-provisioning-token",
+        "ENDPOINT_KEY_PROVISIONING_KEY": "/run/secrets/key-provisioning-key",
+        "ENDPOINT_CLIENT_P12": "/run/secrets/client.p12",
+        "ENDPOINT_CLIENT_PASSWORD": "/run/secrets/client-password",
+    }
     entry = (CONTAINER / "entrypoint.sh").read_text().split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
     tree = ast.parse(entry)
     staged = set()
+    bindings_variable = None
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "FILE_VARIABLES" for target in node.targets):
             staged.update(ast.literal_eval(node.value))
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "BINDINGS_VARIABLE" for target in node.targets):
+            bindings_variable = ast.literal_eval(node.value)
     assert staged
+    assert bindings_variable == "LAYERX_GATEWAY_ROUTE_BINDINGS_FILE"
+    assert "protected_bytes(environment[BINDINGS_VARIABLE])" in entry
+    assert "environment[BINDINGS_VARIABLE] = private_copy(" in entry
+    assert 'bindings["services"].values()' in entry
+    assert 'binding["health_authorization_file"] = copy_file(authorization)' in entry
     destinations = set()
     for row in rows:
         assert len(row) == 4
         name, destination, mode, roles = row
         assert name in variables
         assert destination.startswith("/run/secrets/")
-        assert mode == "0600" and roles == "*"
+        assert mode == "0600"
+        assert roles == (
+            "identity" if name in {
+                "ENDPOINT_IDENTITY_TOKEN", "ENDPOINT_IDENTITY_PROVISIONING_TOKEN",
+                "ENDPOINT_KEY_PROVISIONING_KEY",
+                "ENDPOINT_CLIENT_P12", "ENDPOINT_CLIENT_PASSWORD",
+                "ENDPOINT_ROUTE_BINDINGS",
+            } else "*"
+        )
         assert destination not in destinations
         destinations.add(destination)
         consumers = {name for name, value in variables.items() if value == destination}
-        assert consumers and consumers <= staged, consumers - staged
+        if name == "ENDPOINT_ROUTE_BINDINGS":
+            assert consumers == {bindings_variable}
+        else:
+            assert consumers and consumers <= staged, consumers - staged
     for name, value in variables.items():
         if value.startswith("/run/secrets/"):
             assert value in destinations, name
@@ -383,6 +608,59 @@ def test_gateway_file_inputs_are_materialized_and_staged():
     assert '"4020:4020"' in entry
     assert 'stat.S_IMODE(before.st_mode) == 0o600' in entry
     assert 'os.fchown(output.fileno(), UID, UID)' in entry
+
+
+def test_gateway_selected_table_covers_every_file_path_and_input():
+    variables = definition()["vars"]["gateway"]
+    rows = selected_file_rows(variables)
+    paths = {row[1] for row in rows}
+    inputs = {row[0] for row in rows}
+    for name, value in variables.items():
+        if value.startswith("/run/secrets/"):
+            assert value in paths, f"{name} has no selected file row for {value}"
+        if name.startswith("ENDPOINT_"):
+            assert name in inputs, f"{name} has no selected file row"
+
+
+def test_gateway_route_bindings_use_the_protected_operator_document():
+    data = definition()
+    variables = data["vars"]["gateway"]
+    general_rows = [
+        line.split("\t")
+        for line in (CONTAINER / "files.tsv").read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    general = [row for row in general_rows if row[0] == "ENDPOINT_ROUTE_BINDINGS"]
+    assert general == [[
+        "ENDPOINT_ROUTE_BINDINGS", "/run/secrets/route-bindings.json", "0600", "*",
+    ]]
+    native = [
+        row for row in selected_file_rows(variables)
+        if row[0] == "ENDPOINT_ROUTE_BINDINGS"
+    ]
+    assert native == [[*general[0][:3], variables["LAYERX_ROLE"]]]
+    assert variables["LAYERX_GATEWAY_ROUTE_BINDINGS_FILE"] == general[0][1]
+    name = "PLATFORM_GATEWAY_ENDPOINT_ROUTE_BINDINGS"
+    assert variables["ENDPOINT_ROUTE_BINDINGS"] == f"env:{name}"
+    assert data["inputs"]["gateway"][name] == "operator"
+    lines = DEFINITION.read_text().splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith(name + " ="))
+    comment = lines[index - 1]
+    assert comment.startswith("# ")
+    assert "bindings document" in comment
+    assert "JSON" in comment
+    assert "padded base64" in comment
+
+
+def test_gateway_without_role_selects_only_chain_files():
+    variables = dict(definition()["vars"]["gateway"])
+    del variables["LAYERX_ROLE"]
+    assert selected_file_rows(variables) == [
+        ["ENDPOINT_OUTBOUND_CA", "/run/secrets/ca.crt.der", "0600", "*"],
+        ["ENDPOINT_REDIS_USERNAME", "/run/secrets/redis-username", "0600", "*"],
+        ["ENDPOINT_REDIS_PASSWORD", "/run/secrets/redis-password", "0600", "*"],
+        ["ENDPOINT_RECEIPT_KEYS", "/run/secrets/receipt-keys.json", "0600", "*"],
+    ]
 
 
 def test_gateway_wiring_avoids_retired_roster_names():

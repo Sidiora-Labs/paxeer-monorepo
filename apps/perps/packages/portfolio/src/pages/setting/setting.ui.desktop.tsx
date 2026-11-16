@@ -46,7 +46,7 @@ export const SettingDesktop: FC<SettingScriptReturns> = (props) => {
             <Text intensity={80} size="base">
               {t("portfolio.setting.cancelOpenOrders")}
             </Text>
-            <Text intensity={54} size="sm">
+            <Text intensity={80} size="sm">
               {t("portfolio.setting.cancelOpenOrders.description")}
             </Text>
           </Flex>
@@ -84,7 +84,7 @@ export const SettingDesktop: FC<SettingScriptReturns> = (props) => {
                 itemAlign={"start"}
                 className="oui-flex-1"
               >
-                <Text intensity={54} size="sm">
+                <Text intensity={80} size="sm">
                   {t("portfolio.setting.soundAlerts.description")}
                 </Text>
               </Flex>

@@ -1,4 +1,5 @@
 'use client';
+import { launchpadMedia } from '@/app/presentation-tokens';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,7 +12,7 @@ import { Column } from './column';
  * Below lg (1024) home is the callouts feed, not the board: pump.fun's 768 and 390 home is a single
  * centred callouts feed. Touch tablets at 1024 keep the board (3 columns), as the reference does.
  */
-export const compactHomeQuery = '(max-width: 1023px)';
+export const compactHomeQuery = launchpadMedia.compact;
 
 function subscribeMedia(onChange: () => void) {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => undefined;
@@ -38,14 +39,14 @@ export function useCompactHome(): boolean {
  * instead of leaving an empty tail, and a board with more scrolls behind the rail. The 288 px slot
  * minimum keeps every tab row on one line; the column never gets narrower than that.
  */
-export const boardVisibleClass = '[--board-visible:2] lg:[--board-visible:3] min-[1800px]:[--board-visible:4] min-[2400px]:[--board-visible:5]';
-export const columnSlotClass = 'min-w-[288px]';
+export const boardVisibleClass = '[--board-visible:2] lg:[--board-visible:3] board-wide:[--board-visible:4] board-ultrawide:[--board-visible:5]';
+export const columnSlotClass = 'min-w-72';
 /**
  * Flush board, as on pump.fun: no outer padding, square column edges, and a 2 px seam of canvas
  * between the surface-1 columns. The seam is background contrast (canvas against surface-1), not a
  * stroke; the slot maths reads the same token, so this override keeps columns filling the width.
  */
-export const boardSeamClass = '[--sl-dashboard-column-gap:2px]';
+export const boardSeamClass = '[--sl-dashboard-column-gap:var(--sl-board-seam)]';
 const shown = 'min(var(--board-visible), var(--board-count))';
 export const columnSlotStyle = { width: `calc((100% - (${shown} - 1) * var(--sl-dashboard-column-gap)) / ${shown})` } as const;
 
@@ -111,15 +112,15 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
     // One column: the distance between two neighbouring slots, which includes the gap.
     const [first, second] = Array.from(element.children) as HTMLElement[];
     const pitch = first && second ? second.offsetLeft - first.offsetLeft : 0;
-    element.scrollBy({ left: direction * (pitch > 0 ? pitch : element.clientWidth), behavior: 'smooth' });
+    element.scrollBy({ left: direction * (pitch > 0 ? pitch : element.clientWidth), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
   }, []);
 
   return (
-    <div className={cn('flex min-h-0 flex-1 gap-dashboard-column-gap', boardSeamClass, className)} style={{ height: 'calc(100dvh - var(--sl-shell-top-total))' }}>
+    <div className={cn('flex min-h-0 flex-1 gap-dashboard-column-gap', boardSeamClass, className)} style={{ height: 'calc(100dvh - var(--shell-top))' }}>
       {columns.length === 0 ? (
         <div data-board-empty="" className="flex flex-1 flex-col items-center justify-center gap-3 bg-surface-1 text-text-muted">
           <p className="text-md font-bold text-text">Your board has no columns</p>
-          <p className="max-w-[280px] text-center text-sm text-text-muted">Add Trending, callouts, the leaderboard or any other widget as a column.</p>
+          <p className="max-w-70 text-center text-sm text-text-muted">Add Trending, callouts, the leaderboard or any other widget as a column.</p>
           <DropdownMenu
             label="Add column"
             menuLabel="Add column"
@@ -136,9 +137,10 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
           ref={listRef}
           role="list"
           aria-label="Dashboard columns"
+          data-home-board="true"
           data-board-overflow={overflow.overflow ? 'true' : 'false'}
           data-board-full={full ? 'true' : 'false'}
-          className={cn('relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory gap-dashboard-column-gap overflow-x-auto overflow-y-hidden', overflow.overflow && 'pb-1', boardVisibleClass, boardScrollbarClass)}
+          className={cn('relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory focus-within:snap-none gap-dashboard-column-gap overflow-x-auto overflow-y-hidden scroll-px-2', overflow.overflow && 'pb-1', boardVisibleClass, boardScrollbarClass)}
           style={{ '--board-count': String(columns.length) } as CSSProperties}
         >
           {columns.map((column, index) => (
@@ -163,7 +165,7 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
         </div>
       )}
       {overflow.overflow && columns.length > 0 ? (
-        <div data-board-rail="" className="flex w-8 shrink-0 flex-col items-center justify-center gap-2 bg-surface-2 py-2">
+        <div data-board-rail="" className="flex w-control-height-sm shrink-0 flex-col items-center justify-center gap-2 bg-surface-2 py-2">
           <IconButton size="sm" className="text-text" label="Scroll columns left" icon={<ChevronLeft />} disabled={overflow.atStart} onClick={() => scrollColumns(-1)} />
           {overflow.hiddenAfter > 0 ? <span aria-hidden="true" className="text-xs font-bold text-text-muted">+{overflow.hiddenAfter}</span> : null}
           <IconButton size="sm" className="text-text" label={overflow.hiddenAfter > 0 ? `Scroll columns right, ${overflow.hiddenAfter} more` : 'Scroll columns right'} icon={<ChevronRight />} disabled={overflow.atEnd} onClick={() => scrollColumns(1)} />
