@@ -45,6 +45,44 @@ type ArchiveOptions struct {
 	AttemptTimeout time.Duration
 }
 
+// BatchRead is the immutable block and receipt material used by a recovery
+// walk. It is retained by the authority so the subsequent qualification pass
+// can validate the same reads without issuing them again.
+type BatchRead struct {
+	Height       uint64
+	Header       *types.Header
+	Hash         common.Hash
+	ParentHash   common.Hash
+	Transactions types.Transactions
+	Receipts     types.Receipts
+}
+
+// ReadBatch pins every block and its receipts with the configured archive
+// concurrency. The returned entries are ordered by height even though the
+// network requests run concurrently. A nil bloom gate deliberately reads
+// receipts for every block: recovery must discover emitters that are not in
+// the authority's current set yet.
+func (a *RPCQualification) ReadBatch(ctx context.Context, from, to uint64) ([]BatchRead, error) {
+	if a == nil || a.reads == nil || from > to || to-from >= 64 {
+		return nil, ErrQualification
+	}
+	pinned, err := a.pinRange(ctx, from, to, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]BatchRead, len(pinned))
+	for i, item := range pinned {
+		if item.skipped || item.block.Header == nil {
+			return nil, ErrQualification
+		}
+		height := from + uint64(i)
+		cached := cachedBlock{block: item.block, receipts: item.receipts}
+		a.reads.storeHeight(height, cached)
+		out[i] = BatchRead{Height: height, Header: item.header, Hash: item.block.Hash, ParentHash: item.block.Header.ParentHash, Transactions: item.block.Transactions, Receipts: item.receipts}
+	}
+	return out, nil
+}
+
 func (o ArchiveOptions) normalized() (ArchiveOptions, error) {
 	if o.Concurrency == 0 {
 		o.Concurrency = DefaultArchiveConcurrency
@@ -168,6 +206,15 @@ func (a *RPCQualification) pinnedBlockAtHeight(ctx context.Context, height uint6
 			return pinnedBlock{}, nil, false, ErrQualification
 		}
 		return block, nil, true, nil
+	}
+	// An empty block has no transaction or log position to qualify. Its empty
+	// receipt list is still checked against the configured identity rules, so a
+	// receipt RPC would add no evidence.
+	if len(block.Transactions) == 0 {
+		if _, _, err := SeparateShellReceipts(block.Transactions, nil, block.Hash, header.Number, header.Bloom, header.ReceiptHash, a.reportedIdentity()); err != nil {
+			return pinnedBlock{}, nil, false, err
+		}
+		return block, types.Receipts{}, false, nil
 	}
 	block, receipts, err := a.pinnedReceipts(ctx, block)
 	return block, receipts, false, err

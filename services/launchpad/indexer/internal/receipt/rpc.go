@@ -94,6 +94,9 @@ type rpcReadState struct {
 	// of re-reading the same code epochs and blocks per log and per emitter.
 	codeEpochs map[string]string
 	blocks     map[common.Hash]cachedBlock
+	// heights lets a recovery walk hand its full block and receipt reads to
+	// the qualification pass without reading the same height again.
+	heights map[uint64]cachedBlock
 	// Archive-rate reads: range concurrency, readahead depth and the
 	// read-ahead pins by height (see archive.go).
 	concurrency, readahead                int
@@ -150,6 +153,28 @@ func (r *rpcReadState) storeBlock(hash common.Hash, value cachedBlock) {
 		r.blocks = map[common.Hash]cachedBlock{}
 	}
 	r.blocks[hash] = value
+}
+
+func (r *rpcReadState) height(height uint64) (cachedBlock, bool) {
+	if r == nil {
+		return cachedBlock{}, false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	v, ok := r.heights[height]
+	return v, ok
+}
+
+func (r *rpcReadState) storeHeight(height uint64, value cachedBlock) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.heights == nil || len(r.heights) >= pinnedCacheEntries {
+		r.heights = map[uint64]cachedBlock{}
+	}
+	r.heights[height] = value
 }
 
 type rpcDecimalRead struct {
@@ -1686,6 +1711,10 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 	a.reads.dropAheadBelow(from)
 	out := make([]pinnedHeight, to-from+1)
 	errs := make([]error, len(out))
+	readCtx, cancelAll := context.WithCancel(ctx)
+	defer cancelAll()
+	var firstErr error
+	var firstErrOnce sync.Once
 	slots := make(chan struct{}, a.reads.rangeConcurrency())
 	var wg sync.WaitGroup
 	for i := range out {
@@ -1697,36 +1726,53 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 				errs[i] = err
 				return
 			}
-			if pinned, ok := a.reads.takeAhead(ctx, from+offset); ok {
+			if pinned, ok := a.reads.takeAhead(readCtx, from+offset); ok {
 				if !pinned.skipped {
 					a.reads.storeBlock(pinned.block.Hash, cachedBlock{pinned.block, pinned.receipts})
+				}
+				if !pinned.skipped {
+					a.reads.storeHeight(from+offset, cachedBlock{pinned.block, pinned.receipts})
 				}
 				out[i] = pinned
 				return
 			}
+			if cached, ok := a.reads.height(from + offset); ok {
+				out[i] = pinnedHeight{header: cached.block.Header, block: cached.block, receipts: cached.receipts}
+				return
+			}
 			select {
 			case slots <- struct{}{}:
-			case <-ctx.Done():
-				errs[i] = ctx.Err()
+			case <-readCtx.Done():
+				errs[i] = readCtx.Err()
 				return
 			}
 			defer func() { <-slots }()
-			read, cancel := context.WithTimeout(ctx, a.options.Timeout)
+			read, cancel := context.WithTimeout(readCtx, a.options.Timeout)
 			defer cancel()
 			block, receipts, skipped, err := a.pinnedBlockAtHeight(read, from+offset, gate)
 			if err != nil {
 				errs[i] = err
+				firstErrOnce.Do(func() { firstErr = err; cancelAll() })
 				return
 			}
 			if !skipped {
 				a.reads.storeBlock(block.Hash, cachedBlock{block, receipts})
 			}
+			if !skipped {
+				a.reads.storeHeight(from+offset, cachedBlock{block, receipts})
+			}
 			out[i] = pinnedHeight{header: block.Header, block: block, receipts: receipts, skipped: skipped}
 		}(i)
 	}
 	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
 	for _, err := range errs {
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			return nil, err
 		}
 	}
