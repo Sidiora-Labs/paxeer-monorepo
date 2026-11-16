@@ -34,6 +34,7 @@ export function LiveUnavailable({ operation, status, onRetry, variant = 'chip', 
     return (
       <StateNotice
         kind="unavailable"
+        wrap
         title={liveUnavailableSubject}
         plural="auto"
         detail={technicalDetail(operation, status)}

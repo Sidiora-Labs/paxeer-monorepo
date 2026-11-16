@@ -1,3 +1,5 @@
+import surface from "../../../surface.module.css";
+import { PeriodSelect } from "../../../components/periodSelect";
 import { FC } from "react";
 import { VolBarChart } from "@paxeer-network/chart";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -15,10 +17,10 @@ export const TitleStatistic: FC<TitleStatisticReturns> = (props) => {
       width={"100%"}
       gap={4}
       direction={"column"}
-      className="oui-bg-base-9"
+      className={`${surface.surface} oui-bg-base-9`}
     >
       <Title {...props} />
-      <Flex className="oui-h-[170px] 2xl:oui-h-[196px] oui-w-full oui-flex oui-flex-row oui-items-stretch">
+      <Flex className="oui-h-[calc(var(--oui-space-24)*2)] 2xl:oui-h-[calc(var(--oui-space-24)*2)] oui-w-full oui-flex oui-flex-row oui-items-stretch">
         <VolBarChart
           data={props.dataSource || EMPTY_LIST}
           colors={{ fill: "rgb(var(--oui-color-success))" }}
@@ -40,13 +42,14 @@ const Title: FC<TitleStatisticReturns> = (props) => {
     <Flex direction={"row"} justify={"between"} width={"100%"}>
       <Text className="oui-text-lg">{t("affiliate.statistics")}</Text>
       <Flex direction={"row"} gap={2} className={"oui-min-w-14"}>
-        <Select.options
+        <PeriodSelect
           size={"xs"}
           value={props.period}
           onValueChange={props.onPeriodChange}
           options={props.periodTypes}
         />
-        <Select.options
+        <PeriodSelect
+          label={t("common.type")}
           size={"xs"}
           value={props.volType}
           onValueChange={props.onVolTypeChange}

@@ -17,12 +17,12 @@ type TileState =
   | { kind: 'value'; value: string; unit?: string; caption?: string }
   | { kind: 'unavailable'; title: string; plural?: boolean };
 
-const numeral = 'text-[36px] font-bold leading-[40px] tracking-[-.01em] [font-variant-numeric:proportional-nums] sm:text-[44px] sm:leading-[48px]';
+const numeral = 'text-2xl font-bold tracking-tight tabular-nums';
 
 function DisplayTile({ label, state, tone = 'text', detail, onRetry, className }: { label: string; state: TileState; tone?: 'text' | 'success'; detail: string | null; onRetry?: () => void; className?: string }) {
   let body: ReactNode;
   if (state.kind === 'loading') {
-    body = <span aria-hidden="true" className="sl-skeleton inline-block h-[0.8em] w-40 max-w-full align-middle" />;
+    body = <span aria-hidden="true" className="sl-skeleton inline-block h-[var(--sl-skeleton-text-height)] w-40 max-w-full align-middle" />;
   } else if (state.kind === 'unavailable') {
     // Holds the numeral slot at display height so the bar keeps its shape; no number is invented.
     body = <span aria-label="Not available yet" className="text-text-faint">{'—'}</span>;
@@ -36,8 +36,8 @@ function DisplayTile({ label, state, tone = 'text', detail, onRetry, className }
   }
   return (
     <div className={cn('flex min-w-0 flex-col gap-2 rounded-md bg-surface-2 px-5 py-4', className)}>
-      <dt className="text-2xs font-semibold uppercase tracking-[.1em] text-text-faint">{label}</dt>
-      <dd data-numeric className={cn('truncate', numeral)} aria-busy={state.kind === 'loading' || undefined}>{body}</dd>
+      <dt className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">{label}</dt>
+      <dd data-numeric className={numeral} aria-busy={state.kind === 'loading' || undefined}>{body}</dd>
       {state.kind === 'unavailable' ? (
         <dd className="flex min-w-0"><StateNotice kind="unavailable" surface={2} title={state.title} plural={state.plural} detail={detail} onRetry={onRetry} /></dd>
       ) : state.kind === 'value' && state.caption ? (
@@ -68,12 +68,12 @@ export default function StatsRow({ stats }: StatsRowProps) {
   return (
     <section aria-labelledby="holder-rewards-stats-title" className="flex flex-col gap-2">
       <h2 id="holder-rewards-stats-title" className="sr-only">Holder rewards totals</h2>
-      <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))] gap-2">
         <DisplayTile label="Holder rewards" tone="success" detail={detail} onRetry={onRetry}
           state={tile(distributed, { title: 'Holder rewards', plural: true }, { unit: 'USDL' })} />
         <DisplayTile label="At today's prices" detail={detail} onRetry={onRetry}
           state={tile(distributed, { title: "Today's value" }, { unit: 'USDL', caption: 'Valued in USDL' })} />
-        <DisplayTile label="Wallets rewarded" className="sm:col-span-2 lg:col-span-1" detail={detail} onRetry={onRetry}
+        <DisplayTile label="Wallets rewarded" detail={detail} onRetry={onRetry}
           state={tile(data ? data.walletsRewarded.toLocaleString('en-US') : null, { title: 'Wallet count' })} />
       </dl>
       {stats.state === 'error' ? (

@@ -89,7 +89,7 @@ defmodule BlockScoutWeb.TokenInteractionAccessTest do
     token = recorded_token()
     hash = Address.checksum(token.contract_address_hash)
     Application.put_env(:explorer, :addresses_blacklist, String.upcase(hash))
-    cache_key = "hash_#{token.contract_address_hash}"
+    cache_key = to_string(token.contract_address_hash)
     tables = [:token_holders_count, :token_transfers_counter]
 
     for table <- tables, key <- [cache_key, cache_key <> "_last_update"] do
@@ -113,8 +113,10 @@ defmodule BlockScoutWeb.TokenInteractionAccessTest do
       conn |> get("/token-counters", %{"id" => hash, "key" => @key}) |> json_response(200)
 
     assert authorized == %{"transfer_count" => 0, "token_holder_count" => 1}
-    assert :ets.lookup(:token_holders_count, cache_key) == [{cache_key, 1}]
-    assert :ets.lookup(:token_transfers_counter, cache_key) == [{cache_key, 0}]
+    assert [{^cache_key, 1, holders_updated_at}] = :ets.lookup(:token_holders_count, cache_key)
+    assert is_integer(holders_updated_at)
+    assert [{^cache_key, 0, transfers_updated_at}] = :ets.lookup(:token_transfers_counter, cache_key)
+    assert is_integer(transfers_updated_at)
 
     assert conn |> get("/token-counters", %{"id" => hash}) |> html_response(404)
 

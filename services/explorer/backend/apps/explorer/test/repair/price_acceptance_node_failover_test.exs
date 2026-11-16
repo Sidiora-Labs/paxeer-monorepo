@@ -435,7 +435,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
   end
 
   defp seed_queue(context) do
-    assert :ok = Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
+    assert Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_down]
     blocks = for height <- @first..@height, do: insert(:block, number: height, consensus: true)
 
     on_exit(fn ->
@@ -443,7 +443,8 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
       Repo.delete_all(from(b in Block, where: b.hash in ^hashes))
       Repo.delete_all(from(s in PriceFeedScannedBlock, where: s.block_number in ^Enum.to_list(@first..@height)))
       LastFetchedCounter.delete("paxeer_x_price_update_total")
-      Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
+      assert Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_up]
+      Ecto.Adapters.SQL.Sandbox.mode(Repo, :auto)
     end)
 
     transactions = %{"txs" => context.body["txs"], "raw" => context.body["block"]["data"]["txs"]}

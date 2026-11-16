@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { availableParallelism } from "node:os";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { chromium } from "playwright";
-import { DEVICES, LIMITS, outputDirectory, readSurface, renderMatrix } from "./config.mjs";
+import { DEVICES, LIMITS, MODES, outputDirectory, readSurface, renderMatrix } from "./config.mjs";
 import { startSurface } from "./server.mjs";
 import { doubleText, focusedElement, focusSnapshot, measureContrast, measurePage, observePage } from "./browser.mjs";
 
@@ -85,153 +86,258 @@ async function settlePage(page) {
   await page.waitForTimeout(LIMITS.settleMs);
 }
 
-async function renderView(browser, surface, view, state, configuration, out, index) {
+async function withinTime(operation, milliseconds) {
+  let timer;
+  try {
+    return await Promise.race([
+      operation.then(() => true),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(false), milliseconds); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function closeBrowser(worker, force = false) {
+  if (!worker.server) return;
+  const server = worker.server;
+  worker.server = null;
+  worker.browser = null;
+  if (force || !await withinTime(server.close(), LIMITS.navigationMs)) await server.kill();
+}
+
+async function openBrowser(worker) {
+  if (worker.browser) return;
+  worker.server = await chromium.launchServer();
+  worker.browser = await chromium.connect(worker.server.wsEndpoint());
+}
+
+async function renderView(worker, surface, view, state, configuration, out, index, renderMs) {
   const { width, height, scheme, mode } = configuration;
-  const context = await browser.newContext({
-    viewport: { width, height }, colorScheme: scheme,
-    reducedMotion: mode === "reduced-motion" ? "reduce" : "no-preference",
-    serviceWorkers: "block", deviceScaleFactor: 1,
-    hasTouch: width <= LIMITS.touchWidth,
-  });
+  let context;
+  let active = true;
+  let step = "navigation";
+  let timer;
+  const deadline = new Error("Render deadline exceeded");
+  const startStep = (name) => {
+    if (!active) throw deadline;
+    step = name;
+  };
   const findings = [];
-  const addLoad = (values) => findings.push({ kind: "load", selector: "document", values });
+  const addLoad = (values) => { if (active) findings.push({ kind: "load", selector: "document", values }); };
+  const expects = state.expects ?? [];
+  const matchedExpectations = new Set();
+  const expectedResponses = new WeakSet();
+  const failedResponses = [];
+  const consoleErrors = [];
   const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, screenshot: `${String(index + 1).padStart(5, "0")}.png`, findings: [] };
   let page;
-  try {
-    await context.addInitScript(observePage);
-    await context.route("**/*", async (route) => {
-      const request = route.request();
-      const url = new URL(request.url());
-      if (!["http:", "https:"].includes(url.protocol)) return route.continue();
-      if (url.origin === surface.address) {
-        try {
-          const response = await route.fetch({ maxRedirects: 0, timeout: LIMITS.navigationMs });
-          const location = response.headers()["location"];
-          if (response.status() >= 300 && response.status() < 400 && location) {
-            const redirected = new URL(location, url);
-            if (redirected.origin !== surface.address) {
-              const method = [307, 308].includes(response.status()) ? request.method() : "GET";
-              const answer = surface.answers.find((entry) => entry.method === method && entry.pattern.test(redirected.href));
-              if (answer) return route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body });
-              addLoad({ source: "unanswered-request", method, address: redirected.href, resource: request.resourceType() });
-              return route.abort("blockedbyclient");
+  const work = async () => {
+    try {
+      context = await worker.browser.newContext({
+        viewport: { width, height }, colorScheme: scheme,
+        reducedMotion: mode === "reduced-motion" ? "reduce" : "no-preference",
+        serviceWorkers: "block", deviceScaleFactor: 1,
+        hasTouch: width <= LIMITS.touchWidth,
+      });
+      if (!active) { await context.close(); return; }
+      await context.grantPermissions(["clipboard-write"], { origin: surface.address });
+      await context.addInitScript(observePage);
+      await context.route("**/*", async (route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+        if (!["http:", "https:"].includes(url.protocol)) return route.continue();
+        if (url.origin === surface.address) {
+          try {
+            const response = await route.fetch({ maxRedirects: 0, timeout: LIMITS.navigationMs });
+            const location = response.headers()["location"];
+            if (response.status() >= 300 && response.status() < 400 && location) {
+              const redirected = new URL(location, url);
+              if (redirected.origin !== surface.address) {
+                const method = [307, 308].includes(response.status()) ? request.method() : "GET";
+                const answer = surface.answers.find((entry) => entry.method === method && entry.pattern.test(redirected.href));
+                if (answer) return route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body });
+                addLoad({ source: "unanswered-request", method, address: redirected.href, resource: request.resourceType() });
+                return route.abort("blockedbyclient");
+              }
             }
+            return route.fulfill({ response });
+          } catch (error) {
+            addLoad({ source: "requestfailed", method: request.method(), address: url.href, resource: request.resourceType(), message: error.message });
+            return route.abort("failed");
           }
-          return route.fulfill({ response });
-        } catch (error) {
-          addLoad({ source: "requestfailed", method: request.method(), address: url.href, resource: request.resourceType(), message: error.message });
-          return route.abort("failed");
         }
+        const answer = surface.answers.find((entry) => entry.method === request.method() && entry.pattern.test(url.href));
+        if (answer) return route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body });
+        addLoad({ source: "unanswered-request", method: request.method(), address: url.href, resource: request.resourceType() });
+        await route.abort("blockedbyclient");
+      });
+      await context.routeWebSocket("**/*", (socket) => {
+        const url = new URL(socket.url());
+        const origin = `${url.protocol === "wss:" ? "https:" : "http:"}//${url.host}`;
+        if (origin === surface.address) socket.connectToServer();
+        else {
+          addLoad({ source: "unanswered-request", method: "GET", address: url.href, resource: "websocket" });
+          socket.close({ code: 1008, reason: "No fixed answer" });
+        }
+      });
+      page = await context.newPage();
+      page.setDefaultTimeout(LIMITS.navigationMs);
+      page.setDefaultNavigationTimeout(LIMITS.navigationMs);
+      page.on("console", (message) => {
+        if (message.type() === "error") consoleErrors.push({ source: "console", message: message.text(), location: message.location() });
+      });
+      page.on("pageerror", (error) => addLoad({ source: "pageerror", message: error.message }));
+      page.on("requestfailed", (request) => addLoad({ source: "requestfailed", method: request.method(), address: request.url(), resource: request.resourceType(), message: request.failure()?.errorText }));
+      page.on("response", (response) => {
+        if (response.status() < 400) return;
+        const matches = expects.filter((entry) => entry.method === response.request().method() && entry.matcher.test(response.url()) && entry.status === response.status());
+        for (const entry of matches) matchedExpectations.add(entry);
+        if (matches.length) expectedResponses.add(response);
+        else addLoad({ source: "response", method: response.request().method(), address: response.url(), status: response.status(), resource: response.request().resourceType() });
+        failedResponses.push({ address: response.url(), status: response.status(), expected: matches.length > 0 });
+      });
+      const response = await page.goto(new URL(view.path, surface.address).href, { waitUntil: "load" });
+      if (!response || (!response.ok() && !expectedResponses.has(response))) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
+      if (new URL(page.url()).origin !== surface.address) throw new Error("View navigated outside the surface");
+      if (state.steps.length) {
+        const shiftStart = await page.evaluate(() => window.__uiCheck.shifts.length);
+        await applySteps(page, state.steps);
+        await discardIntentionalShifts(page, shiftStart);
       }
-      const answer = surface.answers.find((entry) => entry.method === request.method() && entry.pattern.test(url.href));
-      if (answer) return route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body });
-      addLoad({ source: "unanswered-request", method: request.method(), address: url.href, resource: request.resourceType() });
-      await route.abort("blockedbyclient");
-    });
-    await context.routeWebSocket("**/*", (socket) => {
-      const url = new URL(socket.url());
-      const origin = `${url.protocol === "wss:" ? "https:" : "http:"}//${url.host}`;
-      if (origin === surface.address) socket.connectToServer();
-      else {
-        addLoad({ source: "unanswered-request", method: "GET", address: url.href, resource: "websocket" });
-        socket.close({ code: 1008, reason: "No fixed answer" });
+      if (mode === "double-text") {
+        const shiftStart = await page.evaluate(() => window.__uiCheck.shifts.length);
+        await page.evaluate(doubleText);
+        await discardIntentionalShifts(page, shiftStart);
       }
-    });
-    page = await context.newPage();
-    page.setDefaultTimeout(LIMITS.navigationMs);
-    page.setDefaultNavigationTimeout(LIMITS.navigationMs);
-    page.on("console", (message) => {
-      if (message.type() === "error") addLoad({ source: "console", message: message.text(), location: message.location() });
-    });
-    page.on("pageerror", (error) => addLoad({ source: "pageerror", message: error.message }));
-    page.on("requestfailed", (request) => addLoad({ source: "requestfailed", method: request.method(), address: request.url(), resource: request.resourceType(), message: request.failure()?.errorText }));
-    page.on("response", (response) => {
-      if (response.status() >= 400) addLoad({ source: "response", address: response.url(), status: response.status(), resource: response.request().resourceType() });
-    });
-    const response = await page.goto(new URL(view.path, surface.address).href, { waitUntil: "load" });
-    if (!response?.ok()) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
-    if (new URL(page.url()).origin !== surface.address) throw new Error("View navigated outside the surface");
-    if (state.steps.length) {
-      const shiftStart = await page.evaluate(() => window.__uiCheck.shifts.length);
-      await applySteps(page, state.steps);
-      await discardIntentionalShifts(page, shiftStart);
+      startStep("settle");
+      await settlePage(page);
+      startStep("measurement");
+      const measurements = await page.evaluate(measurePage, { limits: LIMITS, typeScale: surface.typeScale, doubled: mode === "double-text", reduced: mode === "reduced-motion" });
+      startStep("contrast");
+      findings.push(...measurements);
+      await page.evaluate(axeSource);
+      const contrast = await page.evaluate(measureContrast, LIMITS);
+      if (!active) return;
+      findings.push(...contrast);
+      if (mode === "keyboard") {
+        startStep("keyboard");
+        await page.bringToFront();
+        const keyboard = await keyboardFindings(page);
+        if (!active) return;
+        findings.push(...keyboard.findings);
+        render.focused = keyboard.visited;
+      }
+      render.rendered = true;
+    } catch (error) {
+      if (!active) return;
+      addLoad({ source: "render", message: error.message });
+      render.rendered = false;
     }
-    if (mode === "double-text") {
-      const shiftStart = await page.evaluate(() => window.__uiCheck.shifts.length);
-      await page.evaluate(doubleText);
-      await discardIntentionalShifts(page, shiftStart);
-    }
-    await settlePage(page);
-    render.rendered = true;
-    findings.push(...await page.evaluate(measurePage, { limits: LIMITS, typeScale: surface.typeScale, doubled: mode === "double-text", reduced: mode === "reduced-motion" }));
-    await page.evaluate(axeSource);
-    findings.push(...await page.evaluate(measureContrast, LIMITS));
-    if (mode === "keyboard") {
-      const keyboard = await keyboardFindings(page);
-      findings.push(...keyboard.findings);
-      render.focused = keyboard.visited;
-    }
-  } catch (error) {
-    addLoad({ source: "render", message: error.message });
-    render.rendered = false;
-  } finally {
-    if (page) {
+    if (page && active) {
+      startStep("screenshot");
       try {
         await page.screenshot({ path: join(out, render.screenshot), fullPage: true, timeout: LIMITS.navigationMs, animations: "allow" });
       } catch (error) {
+        if (!active) return;
         addLoad({ source: "screenshot", message: error.message });
         render.screenshot = null;
         render.rendered = false;
       }
     }
-    await context.close();
+  };
+  try {
+    await Promise.race([
+      work(),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(deadline), renderMs); }),
+    ]);
+  } catch (error) {
+    if (error !== deadline) throw error;
+    addLoad({ source: "deadline", step, milliseconds: renderMs });
+    render.rendered = false;
+    render.screenshot = null;
+  } finally {
+    clearTimeout(timer);
+    active = false;
+    if (context && !await withinTime(context.close(), LIMITS.navigationMs)) await closeBrowser(worker, true);
+    for (const error of consoleErrors) {
+      const status = error.message.match(/^Failed to load resource: the server responded with a status of (\d{3})(?: \(.*\))?$/);
+      const responses = status ? failedResponses.filter((response) => response.address === error.location.url && response.status === Number(status[1])) : [];
+      if (!responses.length || !responses.every((response) => response.expected) || error.location.lineNumber !== 0 || error.location.columnNumber !== 0) findings.push({ kind: "load", selector: "document", values: error });
+    }
+    for (const entry of expects) {
+      if (!matchedExpectations.has(entry)) findings.push({ kind: "load", selector: "document", values: { source: "unmatched-expectation", method: entry.method, pattern: entry.pattern, status: entry.status } });
+    }
   }
-  render.findings = findings.map((finding) => ({ view: view.name, state: state.name, size: render.size, scheme, mode, ...finding }));
-  return render;
+  const completed = { ...render };
+  completed.findings = findings.map((finding) => ({ view: view.name, state: state.name, size: render.size, scheme, mode, ...finding }));
+  return completed;
 }
 
-export async function checkSurface({ surface: filename, out: destination, view: selected }, print = console.log) {
+function jobCount(value = Math.min(availableParallelism(), 4)) {
+  if (!["number", "string"].includes(typeof value) || (typeof value === "string" && !/^[1-9]\d*$/.test(value)) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) {
+    throw new Error("jobs must be a positive whole number");
+  }
+  return Number(value);
+}
+
+export async function checkSurface({ surface: filename, out: destination, view: selected, jobs, renderMs = LIMITS.renderMs }, print = console.log) {
+  const count = jobCount(jobs);
+  if (!Number.isSafeInteger(renderMs) || renderMs <= 0 || renderMs > LIMITS.renderMs) throw new Error("renderMs must be a positive whole number within the render limit");
   const out = await outputDirectory(destination);
   const surface = await readSurface(filename);
   const views = selected ? surface.views.filter((view) => view.name === selected) : surface.views;
   if (!views.length) throw new Error(`Unknown view: ${selected}`);
   await mkdir(out, { recursive: true });
-  const result = { surface: surface.name, devices: DEVICES, limits: LIMITS, renders: [], findings: [], passed: false };
+  const summaries = views.map((view) => ({ name: view.name, modes: view.modes, states: (view.states ?? []).map((state) => ({ name: state.name, modes: state.modes })) }));
+  const reducedModeCount = summaries.reduce((total, view) => total + Number(view.modes.length < MODES.length) + view.states.filter((state) => state.modes.length < MODES.length).length, 0);
+  const result = { surface: surface.name, devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, renders: [], findings: [], passed: false };
+  const tasks = views.flatMap((view) => [{ name: "default", steps: [], expects: view.expects, modes: view.modes }, ...(view.states ?? [])].flatMap((state) => renderMatrix(state.modes).map((configuration) => ({ view, state, configuration }))));
+  const workers = Array.from({ length: Math.min(count, tasks.length) }, () => ({}));
+  let next = 0;
   let service;
-  let browser;
   try {
     service = await startSurface(surface);
     surface.address = service.address;
-    browser = await chromium.launch();
-    for (const view of views) {
-      const first = result.renders.length;
-      for (const state of [{ name: "default", steps: [] }, ...(view.states ?? [])]) {
-        for (const configuration of renderMatrix()) {
-          result.renders.push(await renderView(browser, surface, view, state, configuration, out, result.renders.length));
+    const outcomes = await Promise.allSettled(workers.map(async (worker) => {
+      try {
+        while (next < tasks.length) {
+          const index = next++;
+          const { view, state, configuration } = tasks[index];
+          await openBrowser(worker);
+          result.renders[index] = await renderView(worker, surface, view, state, configuration, out, index, renderMs);
         }
+      } finally {
+        await closeBrowser(worker);
       }
-      const renders = result.renders.slice(first);
+    }));
+    const failed = outcomes.find((outcome) => outcome.status === "rejected");
+    if (failed) throw failed.reason;
+    for (const view of views) {
+      const renders = result.renders.filter((render) => render.view === view.name);
       print(`${view.name}: ${renders.length} renders, ${renders.filter((render) => !render.rendered).length} did not render, ${renders.reduce((total, render) => total + render.findings.length, 0)} findings`);
     }
   } catch (error) {
     result.findings.push({ kind: "load", view: null, state: null, size: null, scheme: null, mode: null, selector: "document", values: { source: "surface", message: error.message } });
   } finally {
-    try { await browser?.close(); } finally { await service?.close(); }
+    await service?.close();
   }
+  result.renders = result.renders.filter(Boolean);
   result.findings.push(...result.renders.flatMap((render) => render.findings));
-  result.passed = result.renders.length > 0 && result.renders.every((render) => render.rendered) && result.findings.length === 0;
+  result.passed = result.renders.length === tasks.length && result.renders.every((render) => render.rendered) && result.findings.length === 0;
   await writeFile(join(out, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
-  print(`Total: ${result.renders.length} renders, ${result.findings.length} findings, ${result.passed ? "pass" : "fail"}`);
+  print(`Total: ${result.renders.length} renders, ${result.findings.length} findings, ${result.passed ? "pass" : "fail"}, ${reducedModeCount} views and states with fewer than all modes`);
   return result;
 }
 
 export async function main(args = process.argv.slice(2)) {
-  const { values } = parseArgs({ args, options: { surface: { type: "string" }, out: { type: "string" }, view: { type: "string" }, list: { type: "boolean" } }, allowPositionals: false });
+  const { values } = parseArgs({ args, options: { surface: { type: "string" }, out: { type: "string" }, view: { type: "string" }, list: { type: "boolean" }, jobs: { type: "string" } }, allowPositionals: false });
+  if (values.jobs !== undefined) jobCount(values.jobs);
   if (values.list) {
     for (const device of DEVICES) console.log(`${device.width} x ${device.height}`);
     return 0;
   }
-  if (!values.surface || !values.out) throw new Error("Usage: node tools/ui-check/check.mjs --surface FILE --out DIRECTORY [--view NAME] | --list");
+  if (!values.surface || !values.out) throw new Error("Usage: node tools/ui-check/check.mjs --surface FILE --out DIRECTORY [--view NAME] [--jobs COUNT] | --list");
   const result = await checkSurface(values);
   return result.passed ? 0 : 1;
 }

@@ -606,7 +606,7 @@ fn missing_producer_wiring_is_an_error_instead_of_empty_history() {
     ));
     assert!(matches!(
         fixture.reader().receipt(&tenant, &"ab".repeat(32)),
-        Err(DashboardError::Webhooks(WebhookError::Unavailable))
+        Err(DashboardError::UnknownReceipt)
     ));
     let mut data = checked(fixture.data.lock());
     data.initialize(&tenant);
@@ -616,6 +616,20 @@ fn missing_producer_wiring_is_an_error_instead_of_empty_history() {
     assert!(matches!(
         fixture.reader().receipt(&tenant, &"ab".repeat(32)),
         Err(DashboardError::UnknownReceipt)
+    ));
+}
+
+#[test]
+fn principal_activity_entry_without_version_is_refused() {
+    let tenant = principal("tenant:activity-unversioned");
+    let retained = payment(&tenant, 0, 1);
+    let id = activity(&retained);
+    let mut data = IndexData::default();
+    data.publish(retained);
+    let fixture = IndexFixture::start(data);
+    assert!(matches!(
+        fixture.reader().receipt(&tenant, &id),
+        Err(DashboardError::Webhooks(WebhookError::Unavailable))
     ));
 }
 

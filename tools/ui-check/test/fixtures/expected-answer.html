@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Refusal response</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<body>
+<button id="request" type="button">Request access</button>
+<p id="result" role="status">Ready</p>
+<script>
+  const parameters = new URLSearchParams(location.search);
+  async function requestAccess() {
+    const response = await fetch(parameters.get("address"), { method: parameters.get("method") || "GET" });
+    document.getElementById("result").textContent = await response.text();
+    if (parameters.has("second")) await fetch(parameters.get("second"));
+    if (parameters.has("console")) console.error("Access was refused");
+  }
+  document.getElementById("request").addEventListener("click", requestAccess);
+  if (parameters.has("initial")) requestAccess();
+</script>
+</body>
+</html>

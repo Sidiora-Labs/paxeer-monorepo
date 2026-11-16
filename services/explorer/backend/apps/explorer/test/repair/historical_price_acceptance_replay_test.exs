@@ -32,7 +32,7 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
 
   setup do
     Explorer.TestHelper.start_migration_owner!()
-    assert :ok = Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
+    assert Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_down]
 
     body = fixture("block_txs.json")
     results = fixture("block_results.json")["txs_results"]
@@ -47,6 +47,7 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
       LastFetchedCounter.delete("paxeer_x_price_feed_scanned_through_#{@height}")
       Ecto.Migrator.up(Repo, @accepted_version, AddPaxeerXPriceObservationAccepted, log: false)
       Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
+      Ecto.Adapters.SQL.Sandbox.mode(Repo, :auto)
     end)
 
     %{block: block, transactions: transactions, results: results}

@@ -40,8 +40,19 @@ impl ReceiptReader {
             .store
             .command(&["GET", &format!("{key}:version")])
             .map_err(|_| WebhookError::Unavailable)?;
-        if text(&version).as_deref() != Some("1") {
-            return Err(WebhookError::Unavailable.into());
+        match text(&version).as_deref() {
+            Some("1") => {}
+            None => {
+                let response = self
+                    .store
+                    .command(&["HGET", &key, &activity_id])
+                    .map_err(|_| WebhookError::Unavailable)?;
+                if matches!(response, Resp::Bulk(None)) {
+                    return Err(DashboardError::UnknownReceipt);
+                }
+                return Err(WebhookError::Unavailable.into());
+            }
+            Some(_) => return Err(WebhookError::Unavailable.into()),
         }
         let response = self
             .store

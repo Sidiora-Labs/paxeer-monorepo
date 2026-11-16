@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import PremiumErrorBoundary from '@/ui/common/error-boundary';
@@ -30,7 +31,7 @@ export default function AboutTab({ poolAddress }: { poolAddress: string }) {
     <section aria-label="Coin chat" className="flex flex-col gap-2">
       <h3 className="text-sm font-bold text-text">Chat</h3>
       <PremiumErrorBoundary area="PoolChat">
-        <Suspense fallback={<Skeleton variant="block" height={200} label="chat" />}>
+        <Suspense fallback={<Skeleton variant="block" height={surfaceSpacing(50)} label="chat" />}>
           {data ? <PoolChat poolAddress={data.pool.poolAddress} /> : <p role="status" className="text-sm text-text-faint">Chat opens once this coin finishes loading.</p>}
         </Suspense>
       </PremiumErrorBoundary>

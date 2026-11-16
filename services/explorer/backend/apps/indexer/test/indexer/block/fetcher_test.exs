@@ -15,6 +15,7 @@ defmodule Indexer.Block.FetcherTest do
 
   alias Explorer.Chain
   alias Explorer.Chain.{Address, Log, Transaction, Wei}
+  alias Explorer.Chain.Address.CoinBalance
   # alias Explorer.TestHelper
   alias Indexer.Block.Fetcher
   alias Indexer.BufferedTask
@@ -39,6 +40,25 @@ defmodule Indexer.Block.FetcherTest do
 
   setup :verify_on_exit!
 
+  setup do
+    health_config = Application.fetch_env!(:explorer, Explorer.Chain.Health.Monitor)
+
+    Application.put_env(
+      :explorer,
+      Explorer.Chain.Health.Monitor,
+      Keyword.put(health_config, :check_interval, :timer.hours(1))
+    )
+
+    Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Health.Monitor)
+
+    on_exit(fn ->
+      Application.put_env(:explorer, Explorer.Chain.Health.Monitor, health_config)
+      Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Health.Monitor)
+    end)
+
+    :ok
+  end
+
   # First block with all schemas to import
   # 37 is determined using the following query:
   # SELECT MIN(blocks.number) FROM
@@ -59,6 +79,8 @@ defmodule Indexer.Block.FetcherTest do
 
   describe "import_range/2" do
     setup %{json_rpc_named_arguments: json_rpc_named_arguments} do
+      Repo.delete_all(from(balance in CoinBalance, where: is_nil(balance.value_fetched_at)))
+
       CoinBalanceCatchup.Supervisor.Case.start_supervised!(
         json_rpc_named_arguments: json_rpc_named_arguments,
         poll: false
@@ -1087,24 +1109,18 @@ defmodule Indexer.Block.FetcherTest do
   end
 
   defp wait_until(timeout, producer) do
-    parent = self()
-    ref = make_ref()
-
-    spawn(fn -> do_wait_until(parent, ref, producer) end)
-
-    receive do
-      {^ref, :ok} -> :ok
-    after
-      timeout -> exit(:timeout)
-    end
+    deadline = System.monotonic_time(:millisecond) + timeout
+    do_wait_until(deadline, producer)
   end
 
-  defp do_wait_until(parent, ref, producer) do
+  defp do_wait_until(deadline, producer) do
     if producer.() do
-      send(parent, {ref, :ok})
+      :ok
     else
-      :timer.sleep(100)
-      do_wait_until(parent, ref, producer)
+      remaining = deadline - System.monotonic_time(:millisecond)
+      if remaining <= 0, do: exit(:timeout)
+      Process.sleep(min(100, remaining))
+      do_wait_until(deadline, producer)
     end
   end
 

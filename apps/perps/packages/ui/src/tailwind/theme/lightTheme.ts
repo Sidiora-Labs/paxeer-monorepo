@@ -4,6 +4,13 @@ export const LIGHT_THEME_CSS_VARS = {
   "--oui-font-family":
     '"Manrope", "PingFang SC", "Noto Sans CJK SC", "Noto Sans", sans-serif',
 
+  "--oui-color-canvas": "245 245 245",
+  "--oui-color-surface": "255 255 255",
+  "--oui-color-surface-raised": "255 255 255",
+  "--oui-color-text": "0 0 0",
+  "--oui-color-text-muted": "105 105 105",
+  "--oui-color-focus-ring": "176 132 233",
+
   /* colors */
   "--oui-color-primary": "240 185 11",
   "--oui-color-primary-light": "240 185 11",

@@ -49,7 +49,7 @@ export const PricePoolWidget: FC<PricePoolWidgetProps> = (props) => {
                   color="brand"
                   className={cn([
                     "oui-text-center oui-font-semibold",
-                    "oui-text-[14px] oui-leading-[20px] lg:oui-text-[16px] lg:oui-leading-[24px]",
+                    "oui-text-sm oui-leading-normal lg:oui-text-base lg:oui-leading-normal",
                   ])}
                 >
                   {emphasisConfig?.walletConnect?.description}

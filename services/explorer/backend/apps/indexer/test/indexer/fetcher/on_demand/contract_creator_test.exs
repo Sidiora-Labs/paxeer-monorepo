@@ -139,11 +139,11 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreatorTest do
                  |> Repo.preload([:contract_creation_transaction, :contract_creation_internal_transaction])
                )
 
-      :timer.sleep(100)
+      assert :sys.get_state(ContractCreatorOnDemand) == %{}
 
-      assert :ets.lookup(:contract_creator_lookup, contract_address_hash) == [{contract_address_hash, :in_progress}]
-
-      :timer.sleep(200)
+      assert :ets.lookup(:contract_creator_lookup, contract_address_hash) == [
+               {contract_address_hash, {:pending_import, 3}}
+             ]
 
       assert [%{from_number: 3, to_number: 3, priority: 1}] = Repo.all(MissingBlockRange)
 
@@ -177,11 +177,11 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreatorTest do
                |> Repo.preload([:contract_creation_transaction, :contract_creation_internal_transaction])
              )
 
-    :timer.sleep(100)
+    assert :sys.get_state(ContractCreatorOnDemand) == %{}
 
-    assert :ets.lookup(:contract_creator_lookup, contract_address_hash) == [{contract_address_hash, :in_progress}]
-
-    :timer.sleep(200)
+    assert :ets.lookup(:contract_creator_lookup, contract_address_hash) == [
+             {contract_address_hash, {:pending_import, 2}}
+           ]
 
     assert [%{from_number: 2, to_number: 2, priority: 1}] = Repo.all(MissingBlockRange)
 
@@ -215,11 +215,11 @@ defmodule Indexer.Fetcher.OnDemand.ContractCreatorTest do
                |> Repo.preload([:contract_creation_transaction, :contract_creation_internal_transaction])
              )
 
-    :timer.sleep(100)
+    assert :sys.get_state(ContractCreatorOnDemand) == %{}
 
-    assert :ets.lookup(:contract_creator_lookup, contract_address_hash) == [{contract_address_hash, :in_progress}]
-
-    :timer.sleep(200)
+    assert :ets.lookup(:contract_creator_lookup, contract_address_hash) == [
+             {contract_address_hash, {:pending_import, 1}}
+           ]
 
     assert [%{from_number: 1, to_number: 1, priority: 1}] = Repo.all(MissingBlockRange)
 

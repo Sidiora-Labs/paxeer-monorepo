@@ -6,13 +6,13 @@ export const Wrap = styled.div`
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
+  gap: var(--oui-space-2, 0.5rem);
+  margin-top: var(--oui-space-2, 0.5rem);
 `;
 
 const StyledGroupName = styled.h3`
-  font-size: 14px;
-  color: #999;
+  font-size: var(--oui-font-size-sm, 0.875rem);
+  color: rgb(var(--oui-color-text-muted, 132 131 136));
   font-weight: 700;
 `;
 
@@ -54,18 +54,18 @@ export const Radius = () => {
 };
 
 export const Label = styled.div`
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 5px;
+  font-size: var(--oui-font-size-2xs, 0.75rem);
+  color: rgb(var(--oui-color-text-muted, 132 131 136));
+  margin-bottom: var(--oui-space-1, 0.25rem);
 `;
 
 export const StyledInput = styled.input`
   width: 100%;
-  border: 1px solid #aaa;
+  border: 1px solid rgb(var(--oui-color-line, 255 255 255) / 0.2);
   background: transparent;
-  border-radius: 5px;
-  padding: 4px 10px;
-  font-size: 12px;
+  border-radius: var(--oui-rounded-md, 0.375rem);
+  padding: var(--oui-space-1, 0.25rem) var(--oui-space-2, 0.5rem);
+  font-size: var(--oui-font-size-2xs, 0.75rem);
 `;
 
 const RadiusInput = ({

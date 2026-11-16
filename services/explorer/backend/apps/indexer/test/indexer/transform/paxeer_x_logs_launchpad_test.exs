@@ -323,11 +323,103 @@ defmodule Indexer.Transform.PaxeerXLogsLaunchpadTest do
           "timestamp" => 1_700_000_012,
           "blockNumber" => 4_000_012
         }
+      },
+      %{
+        event_name: "ChainLaunched",
+        kind: "chain_launched",
+        signature: "ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)",
+        topic: "0xcc3fdcbf1588c99f8d97297b1e742174af195b321237d1f9517f600bdb62817d",
+        indexed: [word(125), word(35), word(36)],
+        data:
+          encode([125, amount, <<37::160>>, 1_700_000_013, 4_000_013], [
+            {:uint, 64},
+            {:uint, 256},
+            :address,
+            {:uint, 256},
+            {:uint, 256}
+          ]),
+        address_hash: address(37),
+        asset_address_hash: address(36),
+        amount: nil,
+        parameters: %{
+          "chain" => 125,
+          "pool" => address(35),
+          "token" => address(36),
+          "chainId" => 125,
+          "nftId" => amount,
+          "creator" => address(37),
+          "timestamp" => 1_700_000_013,
+          "blockNumber" => 4_000_013
+        }
+      },
+      %{
+        event_name: "ChainRevenueEpochOpened",
+        kind: "chain_revenue_epoch_opened",
+        signature: "ChainRevenueEpochOpened(uint32,uint64,uint256,uint64,uint256,uint256,uint256)",
+        topic: "0x052cccce5cfb5c079d591a2ac716ddd1759e66d62f036bd44be608ac47615703",
+        indexed: [word(125), word(8)],
+        data:
+          encode([amount, 4_000_010, amount + 1, 1_700_000_014, 4_000_014], [
+            {:uint, 256},
+            {:uint, 64},
+            {:uint, 256},
+            {:uint, 256},
+            {:uint, 256}
+          ]),
+        address_hash: nil,
+        asset_address_hash: nil,
+        amount: nil,
+        parameters: %{
+          "chain" => 125,
+          "epoch" => 8,
+          "epochAmount" => amount,
+          "snapshotBlock" => 4_000_010,
+          "eligibleSupply" => amount + 1,
+          "timestamp" => 1_700_000_014,
+          "blockNumber" => 4_000_014
+        }
+      },
+      %{
+        event_name: "ChainRevenueClaimed",
+        kind: "chain_revenue_claimed",
+        signature: "ChainRevenueClaimed(uint32,uint64,address,uint256,uint256,uint256)",
+        topic: "0x1e561bbeb84dbf638f5444931d883ff8a4ff458bea55b7c85f2f198bcd17630e",
+        indexed: [word(125), word(8), word(38)],
+        data: encode([amount, 1_700_000_015, 4_000_015], [{:uint, 256}, {:uint, 256}, {:uint, 256}]),
+        address_hash: address(38),
+        asset_address_hash: nil,
+        amount: amount,
+        parameters: %{
+          "chain" => 125,
+          "epoch" => 8,
+          "holder" => address(38),
+          "amount" => amount,
+          "timestamp" => 1_700_000_015,
+          "blockNumber" => 4_000_015
+        }
+      },
+      %{
+        event_name: "LaunchedChainRetired",
+        kind: "launched_chain_retired",
+        signature: "LaunchedChainRetired(uint32,address,uint256,uint256,uint256)",
+        topic: "0x562436e1654eaa173e7e0825a3f072b8d0f9056f0ae31ef5c72a894137a0392a",
+        indexed: [word(125), word(39)],
+        data: encode([amount, 1_700_000_016, 4_000_016], [{:uint, 256}, {:uint, 256}, {:uint, 256}]),
+        address_hash: address(39),
+        asset_address_hash: nil,
+        amount: nil,
+        parameters: %{
+          "chain" => 125,
+          "holder" => address(39),
+          "bond" => amount,
+          "timestamp" => 1_700_000_016,
+          "blockNumber" => 4_000_016
+        }
       }
     ]
 
     definitions = Enum.filter(PaxeerXLogs.definitions(), &(&1.address == @launchpad_precompile))
-    assert length(definitions) == 22
+    assert length(definitions) == 26
     keys = Enum.map(definitions, &{&1.address, &1.topic})
     assert Enum.uniq(keys) == keys
 

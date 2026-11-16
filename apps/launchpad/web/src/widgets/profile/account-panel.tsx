@@ -56,7 +56,7 @@ export default function AccountPanel({ onLinkSocials, onSignOut, signingOut = fa
         <div className="flex items-center gap-3 rounded-sm bg-surface-2 px-3 py-2">
           <RowIcon><Wallet /></RowIcon>
           <div className="min-w-0 flex-1">
-            <p className="text-2xs font-bold uppercase tracking-[.04em] text-text-faint">Connected with</p>
+            <p className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Connected with</p>
             <p className="truncate text-sm font-bold text-text">{provider} <span className="font-semibold text-text-muted">· external wallet</span></p>
           </div>
           <BalanceVisibilityToggle />

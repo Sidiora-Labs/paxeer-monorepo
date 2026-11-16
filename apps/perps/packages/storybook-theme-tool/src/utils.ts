@@ -28,9 +28,18 @@ export function hexToRgb(hex: string) {
   return `${r} ${g} ${b}`;
 }
 
-export function rgbToHex(rgb: string[]) {
-  return `#${rgb
-    .map((c) => parseInt(c).toString(16).padStart(2, "0"))
+export function rgbToHex(rgb: string | string[]) {
+  const channels = Array.isArray(rgb)
+    ? rgb
+    : (rgb.match(/\d+(?:\.\d+)?/g)?.slice(0, 3) ?? []);
+  if (
+    channels.length !== 3 ||
+    channels.some((channel) => !Number.isFinite(Number(channel)))
+  ) {
+    return rgb.toString();
+  }
+  return `#${channels
+    .map((channel) => Math.round(Number(channel)).toString(16).padStart(2, "0"))
     .join("")}`;
 }
 

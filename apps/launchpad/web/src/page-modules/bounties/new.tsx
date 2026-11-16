@@ -10,7 +10,7 @@ export default function NewBountyPage() {
         <ArrowLeft aria-hidden="true" className="size-icon-sm" />All bounties
       </Link>
       <header className="flex flex-col gap-1">
-        <p className="text-2xs font-bold uppercase tracking-[.04em] text-text-faint">Bounties</p>
+        <p className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Bounties</p>
         <h1 className="text-2xl font-extrabold text-text">Create a bounty</h1>
         <p className="text-sm text-text-muted">Post a task, lock in a reward, then pick the winners yourself</p>
       </header>

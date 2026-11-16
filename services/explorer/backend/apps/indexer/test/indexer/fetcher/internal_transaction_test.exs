@@ -569,14 +569,14 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
       assert InternalTransaction.oldest_traceable_block_number() == nil
     end
 
-    test "marks blocks below the lookback window as not traceable instead of retrying them", %{
+    test "retains blocks below the lookback window for archive backfill without retrying the pruned node", %{
       head_block: head_block,
       json_rpc_named_arguments: json_rpc_named_arguments
     } do
       block = insert(:block, number: head_block.number - @lookback_blocks - 1)
       block_hash = block.hash
 
-      insert(:pending_block_operation, block_hash: block_hash, block_number: block.number)
+      pending = insert(:pending_block_operation, block_hash: block_hash, block_number: block.number)
 
       assert %{block_hash: ^block_hash} = Repo.get(PendingBlockOperation, block_hash)
 
@@ -585,10 +585,12 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
           assert :ok == InternalTransaction.run([block.number], json_rpc_named_arguments)
         end)
 
-      assert log =~ "Skipping 1 entries below the oldest traceable block number #{head_block.number - @lookback_blocks}"
-      assert log =~ "cleared 1 pending operations that the node can no longer trace"
+      assert log =~
+               "Deferring 1 block_number entries below the oldest traceable block number #{head_block.number - @lookback_blocks}"
 
-      assert nil == Repo.get(PendingBlockOperation, block_hash)
+      assert log =~ "pending operations retained for archive backfill"
+
+      assert Repo.get!(PendingBlockOperation, block_hash) == pending
     end
 
     test "still fetches blocks inside the lookback window", %{
@@ -771,4 +773,3 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
     defp start_token_balance_fetcher(_json_rpc_named_arguments), do: :ok
   end
 end
-

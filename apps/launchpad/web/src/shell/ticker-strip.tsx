@@ -1,4 +1,5 @@
 'use client';
+import { launchpadMedia } from '@/app/presentation-tokens';
 
 import {
   useCallback,
@@ -60,7 +61,7 @@ function subscribeMode(listener: () => void) {
 const noChoice = (): TickerMode | null => null;
 
 /** md (768) and up, where the strip is shown; below it the strip is hidden and its feed is not mounted. */
-const WIDE = '(min-width: 768px)';
+const WIDE = launchpadMedia.medium;
 function subscribeWide(listener: () => void) {
   if (typeof window.matchMedia !== 'function') return () => {};
   const query = window.matchMedia(WIDE);

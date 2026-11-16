@@ -40,7 +40,7 @@ export function bountyTotals({ stats, openCount, openLoading = false, serviceDow
 }
 
 function Value({ total, className }: { total: BountyTotal; className?: string }) {
-  if (total.loading) return <span aria-hidden="true" className={cn('sl-skeleton inline-block h-[1em] w-10 align-middle', className)} />;
+  if (total.loading) return <span aria-hidden="true" className={cn('sl-skeleton inline-block h-[var(--sl-skeleton-text-height)] w-10 align-middle', className)} />;
   if (total.value === null) return <span aria-label="No data" className={cn('text-text-faint', className)}>{EM_DASH}</span>;
   return <span data-numeric className={cn('tabular-nums', total.positive ? 'text-success' : 'text-text', className)}>{total.value}</span>;
 }
@@ -82,8 +82,8 @@ export function BountiesStats({ stats, openCount, openLoading = false, serviceDo
       <dl aria-label="Bounty totals" className="flex flex-nowrap items-stretch gap-2">
         {totals.map(total => (
           <div key={total.key} data-stat={total.key} className="flex min-w-16 flex-col-reverse justify-center gap-0.5 rounded-md bg-surface-1 px-3 py-1.5">
-            <dt className="whitespace-nowrap text-2xs font-bold uppercase tracking-[.06em] text-text-faint">{total.label}</dt>
-            <dd className="text-base font-bold leading-5"><Value total={total} /></dd>
+            <dt className="whitespace-nowrap text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">{total.label}</dt>
+            <dd className="text-base font-bold leading-[var(--sl-leading-base)]"><Value total={total} /></dd>
           </div>
         ))}
       </dl>

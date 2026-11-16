@@ -35,9 +35,9 @@ export function HomeFeed({ className }: { className?: string }) {
   }
 
   return (
-    <div data-home-feed="" className={cn('mx-auto flex w-full max-w-[480px] flex-col gap-3 px-4 pb-6 pt-4', className)}>
-      <div className="flex items-center gap-4">
-        <div role="tablist" aria-label="Callout feed" className="flex min-w-0 items-baseline gap-5">
+    <div data-home-feed="" className={cn('mx-auto flex w-full max-w-120 flex-col gap-3 px-4 pb-6 pt-4', className)}>
+      <div className="flex flex-wrap items-center gap-4">
+        <div role="tablist" aria-label="Callout feed" className="flex min-w-0 max-w-full flex-1 basis-60 flex-wrap items-baseline gap-5">
           {homeFeedTabs.map((tab, index) => {
             const selected = tab.value === feed;
             return (

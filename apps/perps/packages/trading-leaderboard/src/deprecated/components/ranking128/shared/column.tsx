@@ -1,3 +1,4 @@
+import { CopyButton } from "../../../../components/copyButton";
 import { ReactNode, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Text, Column, Box, useScreen, cn, toast } from "@paxeer-network/ui";
@@ -24,7 +25,7 @@ export const useRankingColumns = (
       {
         title: t("tradingLeaderboard.rank"),
         dataIndex: "rank",
-        width: 50,
+
         render: (value: number, record: any) => {
           const isYou = record.key === getCurrentAddressRowKey(address!);
 
@@ -34,16 +35,13 @@ export const useRankingColumns = (
           if (!isYou) {
             if (value === 1) {
               rankIcon = <FirstRankIcon />;
-              badgeImg =
-                "/assets/static/sdk/leaderboard/first_badge.png";
+              badgeImg = "/assets/static/sdk/leaderboard/first_badge.png";
             } else if (value === 2) {
               rankIcon = <SecondRankIcon />;
-              badgeImg =
-                "/assets/static/sdk/leaderboard/second_badge.png";
+              badgeImg = "/assets/static/sdk/leaderboard/second_badge.png";
             } else if (value === 3) {
               rankIcon = <ThirdRankIcon />;
-              badgeImg =
-                "/assets/static/sdk/leaderboard/third_badge.png";
+              badgeImg = "/assets/static/sdk/leaderboard/third_badge.png";
             }
           }
 
@@ -52,9 +50,14 @@ export const useRankingColumns = (
               {badgeImg && (
                 <img
                   src={badgeImg as string}
-                  alt={`${value}th badge`}
+                  alt=""
+                  width={160}
+                  height={96}
+                  loading="lazy"
+                  decoding="async"
+                  aria-hidden="true"
                   className={cn(
-                    "oui-z-0 oui-h-[38px] oui-opacity-30 md:oui-h-[46px]",
+                    "oui-z-0 oui-h-10 oui-opacity-30 md:oui-h-12",
                     "oui-absolute oui-start-0 oui-top-0",
                     "oui-mix-blend-luminosity",
                     // force create a separate layer in order to fix mix-blend-luminosity not working on ios
@@ -64,7 +67,11 @@ export const useRankingColumns = (
               )}
               <div className="oui-relative">
                 {rankIcon || (
-                  <Box width={20} pl={2} className="oui-text-center">
+                  <Box
+                    width={"var(--oui-space-5)"}
+                    pl={2}
+                    className="oui-text-center"
+                  >
                     {value}
                   </Box>
                 )}
@@ -82,65 +89,37 @@ export const useRankingColumns = (
             return <Text>You</Text>;
           }
 
-          let linearGradientText;
-
-          if (!isYou) {
-            if (record.rank === 1) {
-              linearGradientText =
-                "linear-gradient(169deg, #FBE67B 2.09%, #FCFBE7 15.8%, #F7D14E 40.73%, #D4A041 58.8%)";
-            } else if (record.rank === 2) {
-              linearGradientText =
-                "linear-gradient(201.05deg, #D9D9D9 38.79%, #F7F6F4 53.85%, #D9D9D9 71.71%, #7F7F7F 91.87%), rgba(255, 255, 255, 0.8)";
-            } else if (record.rank === 3) {
-              linearGradientText =
-                "linear-gradient(149.05deg, #B6947E 15.63%, #F8DAC8 31.37%, #B6947E 44.29%, #F8DCCB 56.6%), rgba(255, 255, 255, 0.8)";
-            }
-          }
-
           return (
             <>
-              <a
-                className="oui-flex oui-items-start oui-gap-1"
-                href={`https://paxeer-network-dashboard.paxeer-network.network/address/${value}?broker_id=${record.broker_id}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Text.formatted
-                  rule="address"
-                  key={record.rank}
-                  copyable
-                  onCopy={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigator.clipboard.writeText(value);
-                    toast.success(t("common.copy.copied"));
-                  }}
-                  // style={
-                  //   linearGradientText
-                  //     ? {
-                  //         background: linearGradientText,
-                  //         WebkitBackgroundClip: "text",
-                  //         WebkitTextFillColor: "transparent",
-                  //         backgroundClip: "text",
-                  //       }
-                  //     : {}
-                  // }
-                  className="oui-cursor-pointer oui-underline oui-decoration-line-16 oui-decoration-dashed oui-underline-offset-4"
+              <span className="oui-inline-flex oui-items-center oui-gap-1">
+                <a
+                  className="oui-flex oui-items-start oui-gap-1"
+                  href={`https://paxeer-network-dashboard.paxeer-network.network/address/${value}?broker_id=${record.broker_id}`}
+                  target="_blank"
+                  rel="noreferrer"
                 >
-                  {value}
-                </Text.formatted>
-                {isYou && <Text> (You)</Text>}
-              </a>
+                  <Text.formatted
+                    rule="address"
+                    key={record.rank}
+                    className="oui-cursor-pointer oui-underline oui-decoration-line-16 oui-decoration-dashed oui-underline-offset-4"
+                  >
+                    {value}
+                  </Text.formatted>
+                  {isYou && <Text> (You)</Text>}
+                </a>
+                <CopyButton value={value} />
+              </span>
             </>
           );
         },
-        width: 90,
       },
       {
-        title: t("tradingLeaderboard.tradingVolume"),
+        title: (
+          <button type="button">{t("tradingLeaderboard.tradingVolume")}</button>
+        ),
         dataIndex: "volume",
         onSort: enableSort,
-        align: isMobile ? "right" : "left",
+        align: "right",
         render: (value: string) => {
           if (!value) {
             return "-";
@@ -151,13 +130,12 @@ export const useRankingColumns = (
             </Text.numeral>
           );
         },
-        width: 105,
       },
       {
         title: t("common.pnl"),
         dataIndex: "pnl",
         onSort: enableSort,
-        align: isMobile ? "right" : "left",
+        align: "right",
         render: (value: string) => {
           if (!value) {
             return "-";
@@ -168,12 +146,11 @@ export const useRankingColumns = (
             </Text.numeral>
           );
         },
-        width: 90,
       },
       {
         title: t("tradingLeaderboard.estimatedRewards"),
         dataIndex: "rewards",
-        align: isMobile ? "right" : "left",
+        align: "right",
         render: (value: { amount: number; currency: string }) => {
           if (!value) {
             return "-";
@@ -188,7 +165,6 @@ export const useRankingColumns = (
             </Text.numeral>
           );
         },
-        width: 90,
       },
     ] as Column[];
 
@@ -220,11 +196,11 @@ const FirstRankIcon = () => {
           y2="18.1659"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#8C421D" />
-          <stop offset="0.325272" stopColor="#FBE67B" />
-          <stop offset="0.535488" stopColor="#FCFBE7" />
-          <stop offset="0.769917" stopColor="#F7D14E" />
-          <stop offset="1" stopColor="#D4A041" />
+          <stop stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.325272" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.535488" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.769917" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="1" stopColor="rgb(var(--oui-color-primary))" />
         </linearGradient>
       </defs>
     </svg>
@@ -253,11 +229,11 @@ const SecondRankIcon = () => {
           y2="18.1659"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#7F7F7F" />
-          <stop offset="0.325272" stopColor="#D9D9D9" />
-          <stop offset="0.535488" stopColor="#F7F6F4" />
-          <stop offset="0.769917" stopColor="#D9D9D9" />
-          <stop offset="1" stopColor="#7F7F7F" />
+          <stop stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.325272" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.535488" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.769917" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="1" stopColor="rgb(var(--oui-color-primary))" />
         </linearGradient>
       </defs>
     </svg>
@@ -286,12 +262,12 @@ const ThirdRankIcon = () => {
           y2="20.4383"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#B6947E" />
-          <stop offset="0.2" stopColor="#8F6959" />
-          <stop offset="0.475" stopColor="#F8DAC8" />
-          <stop offset="0.67" stopColor="#AC836E" />
-          <stop offset="0.83" stopColor="#B6947E" />
-          <stop offset="1" stopColor="#F8DCCB" />
+          <stop stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.2" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.475" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.67" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="0.83" stopColor="rgb(var(--oui-color-primary))" />
+          <stop offset="1" stopColor="rgb(var(--oui-color-primary))" />
         </linearGradient>
       </defs>
     </svg>

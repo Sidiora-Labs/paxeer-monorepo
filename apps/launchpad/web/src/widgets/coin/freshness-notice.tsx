@@ -39,7 +39,7 @@ export function FreshnessNotice({ freshness, stream, error, onReconnect, classNa
       data-freshness-chip={freshness}
       title={`${text.title}. ${text.body}`}
       className={cn(
-        'inline-flex h-7 max-w-full shrink-0 items-center gap-1 rounded-pill pl-2 pr-0.5 text-xs font-bold',
+        'inline-flex min-h-7 max-w-full shrink-0 flex-wrap items-center gap-1 rounded-pill pl-2 pr-0.5 text-xs font-bold',
         danger ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning',
         className,
       )}

@@ -26,7 +26,7 @@ export const CampaignRuleUI: FC<RuleUIProps> = ({
   const { t } = useTranslation();
   return (
     <div
-      className={cn("oui-mx-auto oui-max-w-[992px] oui-py-10", className)}
+      className={cn("oui-mx-auto oui-max-w-screen-xl oui-py-10", className)}
       id={id}
     >
       <LeaderboardTitle
