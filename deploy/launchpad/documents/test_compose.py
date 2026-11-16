@@ -300,6 +300,12 @@ def test_compose_api_readiness_documents_are_bound(tmp_path: Path) -> None:
     assert discovery["push"]["EnableAPNS"] is False
 
 
+def test_private_listener_fixed_names() -> None:
+    contracts = json.loads((ROOT.parent / "railway" / "variables.json").read_bytes())
+    assert contracts["api"]["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "0.0.0.0:8443"
+    assert "API_PRIVATE_LISTEN_ADDRESS" not in contracts["api-sockets"]["fixed"]
+
+
 @pytest.mark.parametrize(("section", "member", "message"), [
     ("stream_relay", "batch", "stream_relay.batch"),
     ("discovery_runtime", "d11_base", "discovery_runtime.d11_base"),

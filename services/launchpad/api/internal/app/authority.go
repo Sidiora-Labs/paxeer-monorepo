@@ -62,6 +62,27 @@ func runtimeIdentity(c *config.Config) (sharedauth.MTLSIdentityAuthority, error)
 	return sharedauth.NewMTLSIdentityAuthority(c.IdentityURL, c.IdentityPeerCertSHA256, &http.Client{Transport: transport, Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, issuer)
 }
 
+func privateNotificationTLS(c config.Config) (*tls.Config, error) {
+	caPEM, certPEM, keyPEM, err := c.IdentityTLSMaterial()
+	if err != nil {
+		return nil, err
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(caPEM) {
+		return nil, errors.New("private notification trust roots unavailable")
+	}
+	pair, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS13,
+		Certificates: []tls.Certificate{pair},
+		ClientCAs:    roots,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+	}, nil
+}
+
 // NetworkAuthorityConfig is the digest-bound network authority document.
 type NetworkAuthorityConfig struct {
 	SchemaVersion          int                        `json:"schemaVersion"`

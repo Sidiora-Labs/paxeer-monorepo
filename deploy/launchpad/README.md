@@ -103,6 +103,23 @@ variable names. `railway-values.json` supplies the shared `RPC_URL`,
 `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_PAXEER_RPC_URL` and
 `NEXT_PUBLIC_RPC_URL_FALLBACK` select node root URLs.
 
+### Object-store account rights
+
+[object-store/accounts.json](object-store/accounts.json) records the object
+actions and key prefixes used by the gateway, user and metadata service
+accounts. Its source-call table is checked against the production service
+trees, so a newly added object call requires a corresponding right.
+
+Render a provider policy with the contract bucket names supplied in order:
+
+```bash
+python3 deploy/launchpad/object-store/policy.py gateway media-approved media-user media-og
+```
+
+The command reads only the reviewed account document, prints an allow-only JSON
+policy, and rejects unknown services, missing or surplus bucket arguments, and
+bucket names outside lowercase letters, digits and hyphens.
+
 ### API network authority document
 
 The API composer emits `ACCOUNTING_READ_CONFIG_DOCUMENT`,
@@ -195,12 +212,14 @@ The Go service definitions set `NODE_ENV`, `RUNTIME_PROFILE`, `BIND_ADDRESS`,
 `API_ROLE`. The Railway definitions select readiness checks: the API uses
 `/health/ready` and the web uses `/api/health`.
 
-The connected ranking, user, metadata and social services keep their health
+The connected API, ranking, user, metadata and social services keep their health
 listener on `PORT=8080` and serve their private mTLS routes on
-`RANKING_PRIVATE_LISTEN_ADDRESS`, `USER_PRIVATE_LISTEN_ADDRESS`,
-`METADATA_PRIVATE_LISTEN_ADDRESS` and `SOCIAL_PRIVATE_LISTEN_ADDRESS`, each set
-to `0.0.0.0:8443` in the Railway contract. Gateway upstreams for user, metadata
-and social use their corresponding HTTPS `:8443` origins; the ranking runtime's
+`API_PRIVATE_LISTEN_ADDRESS`, `RANKING_PRIVATE_LISTEN_ADDRESS`,
+`USER_PRIVATE_LISTEN_ADDRESS`, `METADATA_PRIVATE_LISTEN_ADDRESS` and
+`SOCIAL_PRIVATE_LISTEN_ADDRESS`, each set to `0.0.0.0:8443` in the Railway
+contract. The user and social services reach the API's internal notification
+routes at that private API address. Gateway upstreams for user, metadata and
+social use their corresponding HTTPS `:8443` origins; the ranking runtime's
 social visibility endpoint does the same.
 
 Metadata uses `METADATA_INGRESS=mtls`. Its private listener requires TLS 1.3

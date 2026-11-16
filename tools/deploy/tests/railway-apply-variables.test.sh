@@ -447,6 +447,9 @@ api_readiness_documents() {
 import json, sys
 
 api = json.load(open(sys.argv[1]))["api"]
+api_sockets = json.load(open(sys.argv[1]))["api-sockets"]
+assert api["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "0.0.0.0:8443"
+assert "API_PRIVATE_LISTEN_ADDRESS" not in api_sockets["fixed"]
 assert api["documentSources"] == {
     "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE",
     "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE",
