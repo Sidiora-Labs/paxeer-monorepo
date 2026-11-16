@@ -25,7 +25,7 @@ const TableColumnFilter = ({ title, isFilled, isTouched, hasReset, onFilter, onR
   return (
     <>
       <Flex alignItems="center" justifyContent="space-between" columnGap={ 6 }>
-        <Text color="text.secondary" fontWeight="600">{ title }</Text>
+        <Text color="text.secondary" fontWeight="semibold">{ title }</Text>
         { hasReset && (
           <Button
             variant="link"
