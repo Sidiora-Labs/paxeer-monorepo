@@ -59,6 +59,7 @@ export const BracketOrderPrice: FC<BracketOrderPriceState> = (props) => {
           onClick={() => {
             props.setOpen(!props.open);
           }}
+          type="button"
         >
           <Flex gap={1} width={"1"}>
             {props.tp_trigger_price && (

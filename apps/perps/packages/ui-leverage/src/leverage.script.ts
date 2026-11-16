@@ -31,11 +31,11 @@ export const useLeverageScript = (options?: UseLeverageScriptOptions) => {
     setLeverage(leverage);
   };
 
-  const onLeverageIncrease: React.MouseEventHandler<SVGSVGElement> = () => {
+  const onLeverageIncrease = () => {
     setLeverage((prev) => prev + 1);
   };
 
-  const onLeverageReduce: React.MouseEventHandler<SVGSVGElement> = () => {
+  const onLeverageReduce = () => {
     setLeverage((prev) => prev - 1);
   };
 
