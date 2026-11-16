@@ -17,7 +17,7 @@ type DurableWebhookStager struct {
 }
 
 func NewDurableWebhookStager(durable *DurableStager, bridge *delivery.WebhookBridge, generation string) (*DurableWebhookStager, error) {
-	if durable == nil || bridge == nil || !deploymentToken.MatchString(generation) {
+	if durable == nil || bridge == nil || !generationToken.MatchString(generation) {
 		return nil, errors.New("publisher: durable webhook providers required")
 	}
 	return &DurableWebhookStager{durable, bridge, generation}, nil
