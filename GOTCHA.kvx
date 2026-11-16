@@ -22665,3 +22665,13 @@ fix = "Decision 3650. Task 22.39.714."
 title = "The pages of the perps portal admit an absent explorer base and the portal configuration asks for one"
 symptom = "The pages of the perps portal take the base of the transaction links as an optional value: with a base the rows link their transactions, and without one the pages hold no transaction link. The cases of services/platform/perps-data/internal/portal/explorer_links_test.go load the portal configuration without the setting PERPS_EXPLORER_TX_BASE and build the pages from it. The portal configuration in services/platform/perps-data/internal/config/config.go asks for the setting, and the case optional_explorer_requires_consumer_wiring of services/platform/perps-data/internal/config/endpoint_validation_test.go states that form for the configuration and for the pages."
 fix = "Decision 3651. Task 22.39.720."
+
+[gotcha.4569]
+title = "Three cases of the node package read parts of the product that later tasks gave their form"
+symptom = "The function SetSequencerRPC of the application keeps the two options of the sequencer, and where the receipt option holds a forward address and no keeper it gives the option the sequencer keeper of the application, the form of task 22.39.551. The case TestSetSequencerRPCKeepsOptions of node/sequencer_seams_test.go compares the kept receipt option with the option as it was handed in. The case TestMergeUpgradeInstallsProgramsSchedules of node/upgrades_merge_schedules_test.go reads the members of the fee schedule row the merge upgrade installs by their positions in the row. The case TestUpgradesSequencerSwitchAtActivation of node/upgrades_sequencer_test.go commits the first sequenced block of a chain whose merge upgrade installed the schedules of Programs, and the occupancy step of Programs runs at the end of that block."
+fix = "Decision 3652. Task 22.39.721."
+
+[gotcha.4570]
+title = "The function TestPortalPages of the perps portal runs where a node is given"
+symptom = "The function TestPortalPages of services/platform/perps-data/internal/portal/pages_test.go builds a gateway through the helper gatewayServer of services/platform/perps-data/internal/portal/server_test.go, which reads a node from the environment of the test, and it runs where a node is given. The cases of services/platform/perps-data/internal/portal/explorer_links_test.go and the function TestPortalChainMarketPage build their pages without that helper and need no node."
+fix = "Decision 3653. Task 22.39.720."

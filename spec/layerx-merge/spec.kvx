@@ -15022,6 +15022,18 @@ value = "The setting PERPS_EXPLORER_TX_BASE is optional for the perps portal as 
 basis = "Gotcha 4568. Decision 3644."
 affects = []
 
+[decision.3652]
+title = "The three cases assert the present form of the product, and the product keeps every decided rule"
+value = "For each of the three cases the side that departs from the decided form is repaired. A case that states a form a later decision or task replaced is brought in line with the product: it keeps asserting on every part it asserts on now, in the form the product gives. Where the product departs from a decided rule the product is repaired and the case stays as written. The final message names for each case the side that was changed and the decision or task that states the form."
+basis = "Gotcha 4569. Decisions 3046 and 3052."
+affects = []
+
+[decision.3653]
+title = "The verification of the explorer base of the portal configuration runs the cases that need no node"
+value = "The verification of task 22.39.720 runs the cases on the configuration and on the trusted proxies, the cases whose name starts with TestExplorerLinks and the function TestPortalChainMarketPage. It leaves out the function TestPortalPages, which runs where a node is given. The build stays as it is."
+basis = "Gotcha 4570. Decisions 3651 and 3650."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44682,6 +44694,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.721]
+title = "Bring three cases of the node package and the parts of the product they read in line"
+reqs = ["22998.1"]
+touches = ["node", "modules/lxphost"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run 'TestSetSequencerRPC|TestMergeUpgrade|TestUpgradesSequencer'"
+do_1 = "do_1 Gotcha 4569, decision 3652. Read the three cases with their fixtures: TestSetSequencerRPCKeepsOptions in node/sequencer_seams_test.go, TestMergeUpgradeInstallsProgramsSchedules in node/upgrades_merge_schedules_test.go and TestUpgradesSequencerSwitchAtActivation in node/upgrades_sequencer_test.go. Read in node/app.go the function SetSequencerRPC and the occupancy step of Programs at the end of a block, in the node package the installation of the fee schedule and of the metering schedule by the merge upgrade, and in modules/lxphost the forms of the schedule rows, the next sequence and the occupancy step with its refusals. The output of git log for each of these files names the tasks that last changed it: read their decisions in spec/layerx-merge/spec.kvx. Run each of the three cases alone by hand and read its message."
+symbols = []
 
 [capability.22.39.720]
 title = "Let the portal configuration of the perps data services admit an absent explorer base"
@@ -248446,6 +248467,39 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.721]
+title = "Bring three cases of the node package and the parts of the product they read in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.721"]
+interfaces = []
+do_1 = "do_1 Gotcha 4569, decision 3652. Read the three cases with their fixtures: TestSetSequencerRPCKeepsOptions in node/sequencer_seams_test.go, TestMergeUpgradeInstallsProgramsSchedules in node/upgrades_merge_schedules_test.go and TestUpgradesSequencerSwitchAtActivation in node/upgrades_sequencer_test.go. Read in node/app.go the function SetSequencerRPC and the occupancy step of Programs at the end of a block, in the node package the installation of the fee schedule and of the metering schedule by the merge upgrade, and in modules/lxphost the forms of the schedule rows, the next sequence and the occupancy step with its refusals. The output of git log for each of these files names the tasks that last changed it: read their decisions in spec/layerx-merge/spec.kvx. Run each of the three cases alone by hand and read its message."
+do_2 = "do_2 The case TestSetSequencerRPCKeepsOptions asserts the form of the product: the sequencer option is kept as handed in, the forward address of the receipt option is kept as the same pointer, a keeper that is given is kept, a receipt option with a forward address and without a keeper holds the sequencer keeper of the application afterwards, and a receipt option without a forward address holds no keeper it was not given. Where the product departs from the form of task 22.39.551, repair the product."
+do_3 = "do_3 For the case TestMergeUpgradeInstallsProgramsSchedules read which member of the installed fee schedule row differs from the value the case states, and read the decision that states the values of the schedules the merge upgrade installs. Where the installation departs from the decided values, repair the installation. Where the case states a value or a position a later decision replaced, bring the case in line with the decided row. The case keeps asserting on both schedules, on every member of the rows it reads now, and on the views of the two schedules."
+do_4 = "do_4 For the case TestUpgradesSequencerSwitchAtActivation read the refusal the occupancy step of Programs gives at the first sequenced height and the record it reads. A chain that activates the merge upgrade and commits its first sequenced block passes the occupancy step: where the product refuses a state such a chain reaches, repair the product and add a case in the node package that states the rule. Where the fixture of the case lacks a record the product writes on such a chain before that block, give the fixture the record in the way the product writes it. The final message states which of the two held."
+do_5 = "do_5 No present case is removed or weakened. Run by hand every case of the node package whose name starts with TestSetSequencerRPC, TestMergeUpgrade or TestUpgradesSequencer, and the cases of modules/lxphost on the schedules and on the occupancy step where the task changed that package, and read each message."
+do_6 = "do_6 The three test files and the files of the node package and of modules/lxphost they read are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node", "modules/lxphost"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run 'TestSetSequencerRPC|TestMergeUpgrade|TestUpgradesSequencer'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.720]
 title = "Let the portal configuration of the perps data services admit an absent explorer base"
 status = "pending"
@@ -248465,7 +248519,7 @@ touches = ["services/platform/perps-data/internal/config", "services/platform/pe
 tests = []
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 -timeout 20m -run 'TestConfig|TestLoadTrustedProxies' ./services/platform/perps-data/internal/config/ && go test -count=1 -timeout 20m -run 'TestExplorerLinks|TestPortalPages|TestPortalChainMarketPage' ./services/platform/perps-data/internal/portal/"
+verify_cmd = "go test -count=1 -timeout 20m -run 'TestConfig|TestLoadTrustedProxies' ./services/platform/perps-data/internal/config/ && go test -count=1 -timeout 20m -run 'TestExplorerLinks|TestPortalChainMarketPage' ./services/platform/perps-data/internal/portal/"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -248477,6 +248531,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3653, gotcha 4570. The verification now runs the cases on the configuration and on the trusted proxies, the cases whose name starts with TestExplorerLinks and the function TestPortalChainMarketPage, and it leaves out the function TestPortalPages, which runs where a node is given: change nothing in that function. The work of the earlier candidate stays as it is. Run the commands of the verification by hand once and correct what they name inside the paths, then run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.719]
 title = "Register the stand-in receipt key where every form of applycheck executes, and open the fast form as the node opens it"
