@@ -22555,3 +22555,8 @@ fix = "Decision 3628. Task 22.39.704."
 title = "The render check renders one render after the other, and its calls to a page have no limit of time"
 symptom = "The function checkSurface of tools/ui-check/check.mjs renders the views of a surface one after the other, each view and each state in the thirty-four configurations of the matrix of tools/ui-check/config.mjs. The calls that measure a page wait for the page without a limit of time, so the time of a check has no bound. Twelve of the configurations are the modes reduced-motion, double-text and keyboard, and the keyboard mode presses Tab through every control of the page. The time of a check grows with the count of views, the configurations and the controls of each page."
 fix = "Decision 3629. Task 22.44.58; task 22.44.48."
+
+[gotcha.4547]
+title = "A case or a proof that reads a shared part follows the task that gives the part"
+symptom = "The parity case of the perps precompile starts a case of the trading workspace, and that case loads the error widgets of the workspace. The measurement of a render that shows nothing and the proofs of the surfaces with many views run inside the loop of the render check that task 22.44.58 changes. A task names the task that gives such a part among its requirements."
+fix = "Decision 3630. Tasks 22.39.569, 22.44.54, 22.44.38, 22.44.39 and 22.44.48."
