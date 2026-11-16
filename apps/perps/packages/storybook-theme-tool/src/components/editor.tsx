@@ -12,20 +12,20 @@ import { Typography } from "./typography";
 const Layout = styled.div`
   display: flex;
   flex-direction: row;
-  gap: 20px;
-  max-width: 1200px;
+  gap: var(--oui-space-5, 1.25rem);
+  max-width: var(--oui-layout-max-width, 75rem);
   margin: 0 auto;
   position: relative;
-  @media (max-width: 420px) {
+  @media (max-width: 30rem) {
     // flex-direction: column;
     display: block;
   }
 `;
 
 const MenuWrap = styled.div`
-  width: 200px;
+  width: var(--oui-menu-width, 12.5rem);
   //   height: 100vh;
-  @media (max-width: 480px) {
+  @media (max-width: 30rem) {
     display: none;
   }
 `;
@@ -36,11 +36,11 @@ const EditorWrap = styled.div`
 `;
 
 const SectionWrap = styled.div`
-  padding: 20px;
+  padding: var(--oui-space-4, 1rem);
 `;
 
 const SectionTitle = styled.h2`
-  font-size: 16px;
+  font-size: var(--oui-font-size-base, 1rem);
   font-weight: 600;
   //   margin-top: 20px;
 `;
@@ -92,13 +92,13 @@ const StyledMasker = styled.div`
   top: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(10px);
+  background-color: rgb(var(--oui-color-base-static, 255 255 255) / 0.5);
+  backdrop-filter: blur(var(--oui-space-2, 0.5rem));
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: rgb(var(--oui-color-text-muted, 132 131 136));
 `;
 
 const Masker = () => {
@@ -108,21 +108,21 @@ const Masker = () => {
 
 const ResetButtonWrap = styled.div`
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: var(--oui-space-4, 1rem);
+  right: var(--oui-space-4, 1rem);
   z-index: 10;
 `;
 
 const StyledResetButton = styled.button`
-  width: 28px;
-  height: 28px;
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 50%;
+  width: var(--oui-space-8, 2rem);
+  height: var(--oui-space-8, 2rem);
+  background-color: rgb(var(--oui-color-base-static-contrast, 0 0 0) / 0.2);
+  border-radius: var(--oui-rounded-full, 9999px);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border: 1px solid rgba(0, 0, 0, 0.6);
+  border: 1px solid rgb(var(--oui-color-base-static-contrast, 0 0 0) / 0.6);
 `;
 
 const ResetButton = () => {

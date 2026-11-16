@@ -14,6 +14,13 @@ export const DARK_THEME_CSS_VARS = {
   "--oui-font-family":
     '"Manrope", "PingFang SC", "Noto Sans CJK SC", "Noto Sans", sans-serif',
 
+  "--oui-color-canvas": "9 6 16",
+  "--oui-color-surface": "19 14 29",
+  "--oui-color-surface-raised": "22 18 32",
+  "--oui-color-text": "255 255 255",
+  "--oui-color-text-muted": "132 131 136",
+  "--oui-color-focus-ring": "156 117 255",
+
   // Main brand accent for primary actions and emphasis.
   "--oui-color-primary": "156 117 255",
   // Primary-light slot; intentionally equal to primary in this flat palette.
