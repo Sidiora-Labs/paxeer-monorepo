@@ -10,7 +10,7 @@ export const recipe = defineSlotRecipe({
     },
     circle: {
       _indeterminate: {
-        animation: 'spin 2s linear infinite',
+        _motionSafe: { animation: 'spin var(--chakra-durations-shimmer) linear infinite' },
       },
     },
     circleTrack: {
@@ -18,11 +18,12 @@ export const recipe = defineSlotRecipe({
       stroke: 'var(--track-color)',
     },
     circleRange: {
+      _motionReduce: { transitionProperty: 'color, background-color, border-color, opacity' },
       stroke: 'selected.option.bg',
       transitionProperty: 'stroke-dasharray',
-      transitionDuration: '0.6s',
+      transitionDuration: 'var(--chakra-durations-progress)',
       _indeterminate: {
-        animation: 'circular-progress 1.5s linear infinite',
+        _motionSafe: { animation: 'circular-progress var(--chakra-durations-circular) linear infinite' },
       },
     },
     label: {
@@ -40,8 +41,8 @@ export const recipe = defineSlotRecipe({
     size: {
       sm: {
         circle: {
-          '--size': '20px',
-          '--thickness': '2px',
+          '--size': 'var(--chakra-spacing-5)',
+          '--thickness': 'var(--chakra-border-widths-2)',
         },
         valueText: {
           textStyle: 'xs',
@@ -49,8 +50,8 @@ export const recipe = defineSlotRecipe({
       },
       md: {
         circle: {
-          '--size': '32px',
-          '--thickness': '3px',
+          '--size': 'var(--chakra-spacing-8)',
+          '--thickness': 'var(--chakra-border-widths-3)',
         },
         valueText: {
           textStyle: 'xs',
@@ -58,8 +59,8 @@ export const recipe = defineSlotRecipe({
       },
       lg: {
         circle: {
-          '--size': '80px',
-          '--thickness': '8px',
+          '--size': 'var(--chakra-spacing-20)',
+          '--thickness': 'var(--chakra-border-widths-8)',
         },
         valueText: {
           textStyle: 'sm',

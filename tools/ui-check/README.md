@@ -197,6 +197,12 @@ those intentional changes before that observation interval. Findings concern
 the render and observation interval. Visual review of the screenshots covers
 qualities that these measurements do not establish.
 
+Requests may still be pending when their render finishes, reaches its deadline
+or closes its browser context. Rejections from routing replies and WebSocket
+answers after that point are discarded, and the check finishes with its report
+and the exit status of its findings. Request failures while the render is active
+remain `load` findings with source `requestfailed`.
+
 ## Adding a surface
 
 Add one JSON file under `tools/ui-check/surfaces` with its answer files alongside

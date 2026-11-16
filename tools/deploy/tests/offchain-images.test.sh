@@ -33,6 +33,16 @@ sha=0123456789ab
 run() { env -u REVIEWED_BUILD_IMAGE -u REVIEWED_RUNTIME_IMAGE -u PERPS_BUILD_IMAGE -u PERPS_RUNTIME_IMAGE BUILD_SHA=$sha "$@"; }
 args_of() { jq -r --arg n "$2" '.[] | select(.name == $n) | .build_args' <<<"$1"; }
 
+# The repository inputs plan the trading workspace image with its production gateway.
+repository_plan=$(run bash "$repo/tools/deploy/offchain-images.sh" --plan 2> "$work/repository-plan.err") ||
+	fail "--plan must pass on repository inputs: $(cat "$work/repository-plan.err")"
+repository_images=$(sed -n 's/^images=//p' <<<"$repository_plan")
+repository_unbuilt=$(sed -n 's/^unbuilt=//p' <<<"$repository_plan")
+jq -e 'any(.[]; .name == "perps-web")' <<<"$repository_images" >/dev/null ||
+	fail "repository plan must build perps-web: $repository_plan"
+jq -e 'index("perps-web") == null' <<<"$repository_unbuilt" >/dev/null ||
+	fail "repository plan must not leave perps-web unbuilt: $repository_plan"
+
 run bash "$script" --check || fail "--check must pass on a complete tree"
 
 # unset base images are left out so the Dockerfile defaults hold

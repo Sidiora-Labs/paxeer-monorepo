@@ -22,6 +22,7 @@ export function ColorModeProvider(props: ColorModeProviderProps) {
       scriptProps={{ 'data-cfasync': 'false' }}
       defaultTheme={ defaultTheme }
       storageKey={ config.UI.colorTheme.storageKey }
+      enableColorScheme
       disableTransitionOnChange
       { ...props }
     />

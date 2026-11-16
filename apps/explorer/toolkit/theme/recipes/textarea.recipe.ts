@@ -4,7 +4,7 @@ export const recipe = defineRecipe({
   base: {
     width: '100%',
     minWidth: '0',
-    minHeight: '160px',
+    minHeight: 'var(--chakra-spacing-40)',
     outline: '0',
     position: 'relative',
     appearance: 'none',
@@ -32,7 +32,7 @@ export const recipe = defineRecipe({
     variant: {
       outline: {
         bg: 'input.bg',
-        borderWidth: '2px',
+        borderWidth: 'var(--chakra-border-widths-2)',
         borderColor: 'input.border',
         focusVisibleRing: 'none',
         _hover: {

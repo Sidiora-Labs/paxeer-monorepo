@@ -8,13 +8,13 @@ export const recipe = defineRecipe({
     flexShrink: 0,
     verticalAlign: 'top',
     color: 'white',
-    borderWidth: '2px',
+    borderWidth: 'var(--chakra-border-widths-2)',
     borderColor: 'transparent',
     borderRadius: 'full',
     _focusVisible: {
-      outline: '2px solid',
+      outline: 'var(--chakra-border-widths-2) solid',
       outlineColor: 'colorPalette.focusRing',
-      outlineOffset: '2px',
+      outlineOffset: 'var(--chakra-spacing-0\\.5)',
     },
     _disabled: {
       cursor: 'disabled',
@@ -33,7 +33,7 @@ export const recipe = defineRecipe({
   variants: {
     variant: {
       solid: {
-        borderWidth: '2px',
+        borderWidth: 'var(--chakra-border-widths-2)',
         borderColor: 'radio.control.border',
         _hover: {
           borderColor: 'radio.control.border.hover',
