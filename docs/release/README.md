@@ -38,7 +38,7 @@ Use the page for each deployed component before preparing its configuration. Req
 | [variables/app-inference-peer.md](variables/app-inference-peer.md) | Inference peer operators | Configure required and optional inputs, defaults and feature dependencies. |
 | [variables/app-launchpad.md](variables/app-launchpad.md) | Launchpad application operators | Configure required and optional inputs, defaults and feature dependencies. |
 | [variables/app-names.md](variables/app-names.md) | Paxeer Names shell operators | Configure required and optional inputs, defaults and feature dependencies. |
-| [variables/app-perps.md](variables/app-perps.md) | Perps application operators | Configure required and optional inputs, defaults and feature dependencies. |
+| [variables/app-perps.md](variables/app-perps.md) | Paxeer Xtrades application operators | Configure the workspace settings, defaults and feature dependencies. |
 | [variables/app-wallet.md](variables/app-wallet.md) | Wallet application operators | Configure required and optional inputs, defaults and feature dependencies. |
 | [variables/app-web.md](variables/app-web.md) | Web application operators | Configure required and optional inputs, defaults and feature dependencies. |
 | [variables/chain-node.md](variables/chain-node.md) | Chain node operators | Configure required and optional inputs, defaults and feature dependencies. |
@@ -72,7 +72,7 @@ Fill a private copy of the example for the selected component and supply it thro
 | [../../apps/inference-peer/.env.example](../../apps/inference-peer/.env.example) | Inference-peer application operators | Supply application and build inputs for the selected deployment. |
 | [../../apps/launchpad/.env.example](../../apps/launchpad/.env.example) | Launchpad application operators | Supply application and build inputs for the selected deployment. |
 | [../../apps/names/.env.example](../../apps/names/.env.example) | Names application operators | Supply application and build inputs for the selected deployment. |
-| [../../apps/perps/.env.example](../../apps/perps/.env.example) | Perps application operators | Supply application and build inputs for the selected deployment. |
+| [../../apps/perps/apps/web/.env.example](../../apps/perps/apps/web/.env.example) | Paxeer Xtrades application operators | Supply the workspace settings used by the web application. |
 | [../../apps/wallet/.env.example](../../apps/wallet/.env.example) | Wallet application operators | Supply application and build inputs for the selected deployment. |
 | [../../apps/web/.env.example](../../apps/web/.env.example) | Web application operators | Supply application and build inputs for the selected deployment. |
 | [../../tools/ops/.env.example](../../tools/ops/.env.example) | Operations teams | Supply keyring migration inputs. |
