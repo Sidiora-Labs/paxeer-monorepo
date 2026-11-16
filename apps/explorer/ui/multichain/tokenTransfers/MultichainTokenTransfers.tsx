@@ -80,7 +80,7 @@ const MultichainTokenTransfers = () => {
   }, [ queryLocal.query, queryLocal.typeFilter, queryLocal.onTokenTypesChange, chainId ]);
 
   const filter = isLocalTab && (
-    <PopoverFilter contentProps={{ w: '200px' }} appliedFiltersNum={ queryLocal.typeFilter.length }>
+    <PopoverFilter contentProps={{ w: 'calc(var(--chakra-spacing-1) * 50)' }} appliedFiltersNum={ queryLocal.typeFilter.length }>
       <TokenTypeFilter<TokenType>
         onChange={ queryLocal.onTokenTypesChange }
         defaultValue={ queryLocal.typeFilter }

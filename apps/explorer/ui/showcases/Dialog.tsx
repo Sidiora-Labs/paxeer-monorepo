@@ -2,7 +2,7 @@ import { noop } from 'es-toolkit';
 import React from 'react';
 
 import { Button } from 'toolkit/chakra/button';
-import { DialogActionTrigger, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogRoot, DialogTitle, DialogTrigger } from 'toolkit/chakra/dialog';
+import { DialogActionTrigger, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogRoot, DialogTrigger } from 'ui/marketplace/NativeDialog';
 
 import { Section, Container, SectionHeader, SamplesStack, Sample } from './parts';
 import { TEXT } from './utils';
@@ -23,7 +23,7 @@ const DialogShowcase = () => {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Dialog Title</DialogTitle>
+                  Dialog Title
                 </DialogHeader>
                 <DialogBody>
                   <p>{ TEXT }</p>
@@ -47,7 +47,7 @@ const DialogShowcase = () => {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader onBackToClick={ noop }>
-                  <DialogTitle>Dialog Title</DialogTitle>
+                  Dialog Title
                 </DialogHeader>
                 <DialogBody>
                   <p>{ TEXT }</p>
@@ -71,7 +71,7 @@ const DialogShowcase = () => {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Dialog Title</DialogTitle>
+                  Dialog Title
                 </DialogHeader>
                 <DialogBody>
                   <p>{ TEXT }</p>

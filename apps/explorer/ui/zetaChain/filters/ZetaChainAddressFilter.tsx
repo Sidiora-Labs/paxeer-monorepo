@@ -43,7 +43,18 @@ const AddressFilterInput = ({ address, onChange, onClear, isLast, onAddFieldClic
         flexGrow={ 1 }
         endElement={ <ClearButton onClick={ onClear } mx={ 2 } disabled={ !address }/> }
       >
-        <Input value={ address } onChange={ onChange } placeholder={ placeholder } size="sm" autoComplete="off"/>
+        <Input
+          aria-label={ placeholder }
+          name="address"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={ false }
+          value={ address }
+          onChange={ onChange }
+          placeholder={ placeholder }
+          size="sm"
+          autoComplete="off"
+        />
       </InputGroup>
       { isLast && (
         <AddButton
@@ -171,6 +182,7 @@ const ZetaChainAddressFilter = ({
     >
       <VStack gap={ 3 } align="stretch">
         <ChainSelect
+          aria-label="Chain"
           value={ currentChainValue }
           onValueChange={ handleChainChange }
           chainsConfig={ chains }

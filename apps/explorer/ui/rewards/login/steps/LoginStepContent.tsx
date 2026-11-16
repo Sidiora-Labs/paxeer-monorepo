@@ -1,4 +1,4 @@
-import { Text, Box, Flex, Separator } from '@chakra-ui/react';
+import { chakra, Text, Box, Flex, Separator } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import type { ChangeEvent } from 'react';
 import React from 'react';
@@ -32,6 +32,7 @@ const LoginStepContent = ({ goNext, closeModal, openAuthModal }: Props) => {
   const [ isRefCodeUsed, setIsRefCodeUsed ] = React.useState(Boolean(savedRefCode));
   const [ isLoading, setIsLoading ] = React.useState(false);
   const [ refCode, setRefCode ] = React.useState(savedRefCode || '');
+  const refCodeInput = React.useRef<HTMLInputElement>(null);
   const [ refCodeError, setRefCodeError ] = React.useState(false);
   const { login, checkUserQuery, rewardsConfigQuery } = useRewardsContext();
   const profileQuery = useProfileQuery();
@@ -50,15 +51,27 @@ const LoginStepContent = ({ goNext, closeModal, openAuthModal }: Props) => {
 
   const handleRefCodeChange = React.useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setRefCode(event.target.value);
+    setRefCodeError(false);
   }, []);
 
+  const validateRefCode = React.useCallback(() => {
+    const invalid = isSignUp && isRefCodeUsed && refCode.length !== 6 && refCode.length !== 12;
+    setRefCodeError(invalid);
+    return !invalid;
+  }, [ isSignUp, isRefCodeUsed, refCode ]);
+
   const loginToRewardsProgram = React.useCallback(async() => {
+    if (!validateRefCode()) {
+      refCodeInput.current?.focus();
+      return;
+    }
     try {
       setRefCodeError(false);
       setIsLoading(true);
       const { isNewUser, reward, invalidRefCodeError } = await login(isSignUp && isRefCodeUsed ? refCode : '');
       if (invalidRefCodeError) {
         setRefCodeError(true);
+        refCodeInput.current?.focus();
       } else {
         if (isNewUser) {
           goNext(isRefCodeUsed, reward);
@@ -69,12 +82,7 @@ const LoginStepContent = ({ goNext, closeModal, openAuthModal }: Props) => {
       }
     } catch (error) {}
     setIsLoading(false);
-  }, [ login, goNext, router, closeModal, refCode, isRefCodeUsed, isSignUp ]);
-
-  React.useEffect(() => {
-    const isInvalid = isSignUp && isRefCodeUsed && refCode.length > 0 && refCode.length !== 6 && refCode.length !== 12;
-    setRefCodeError(isInvalid);
-  }, [ refCode, isRefCodeUsed, isSignUp ]);
+  }, [ login, goNext, router, closeModal, refCode, isRefCodeUsed, isSignUp, validateRefCode ]);
 
   const handleButtonClick = React.useCallback(() => {
     if (canTrySharedLogin) {
@@ -94,7 +102,13 @@ const LoginStepContent = ({ goNext, closeModal, openAuthModal }: Props) => {
 
   const handleToggleChange = React.useCallback(() => {
     setIsRefCodeUsed((prev) => !prev);
+    setRefCodeError(false);
   }, []);
+
+  const handleSubmit = React.useCallback((event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    handleButtonClick();
+  }, [ handleButtonClick ]);
 
   const buttonText = React.useMemo(() => {
     if (canTrySharedLogin) {
@@ -111,16 +125,19 @@ const LoginStepContent = ({ goNext, closeModal, openAuthModal }: Props) => {
   }, [ canTrySharedLogin, isConnected, isLoggedIntoAccountWithWallet, profileQuery.data?.email, isSignUp ]);
 
   return (
-    <>
+    <chakra.form aria-label="Blockscout Merits sign in" onSubmit={ handleSubmit }>
       <Image
         src="/explorer/static/merits/merits_program.png"
         alt="Merits program"
+        w="full"
+        aspectRatio={ 3 }
+        objectFit="contain"
         mb={ 3 }
-        fallback={ <Skeleton loading w="full" h="120px"/> }
+        fallback={ <Skeleton loading w="full" h="var(--chakra-spacing-30)"/> }
       />
       <Box mb={ 6 }>
         Merits are awarded for a variety of different Blockscout activities. Connect a wallet to get started.
-        <Link external href="https://docs.blockscout.com/using-blockscout/merits" ml={ 1 } fontWeight="500">
+        <Link external href="https://docs.blockscout.com/using-blockscout/merits" ml={ 1 } fontWeight="medium">
           More about Blockscout Merits
         </Link>
       </Box>
@@ -144,10 +161,21 @@ const LoginStepContent = ({ goNext, closeModal, openAuthModal }: Props) => {
               size="lg"
               mt={ 3 }
               invalid={ refCodeError }
-              helperText="The code should be in format XXXXXX"
+              helperText="Enter a referral code of 6 or 12 characters"
               errorText={ refCodeError ? 'Incorrect code or format (6 or 12 characters)' : undefined }
             >
               <Input
+                ref={ refCodeInput }
+                name="referral-code"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={ false }
+                minLength={ 6 }
+                maxLength={ 12 }
+                required
+                pattern="(?:.{6}|.{12})"
+                onBlur={ validateRefCode }
                 value={ refCode }
                 onChange={ handleRefCodeChange }
               />
@@ -165,17 +193,17 @@ const LoginStepContent = ({ goNext, closeModal, openAuthModal }: Props) => {
         w="full"
         whiteSpace="normal"
         mb={ 4 }
-        onClick={ handleButtonClick }
+        type="submit"
         loading={ isLoading || profileQuery.isLoading || checkUserQuery.isFetching }
         loadingText={ isLoading ? 'Sign message in your wallet' : undefined }
-        disabled={ isAddressMismatch || refCodeError }
+        disabled={ isAddressMismatch }
       >
         { buttonText }
       </Button>
       <Text textStyle="sm" color="text.secondary" textAlign="center">
         Already registered for Blockscout Merits on another network or chain? Connect the same wallet here.
       </Text>
-    </>
+    </chakra.form>
   );
 };
 

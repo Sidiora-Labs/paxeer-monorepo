@@ -77,54 +77,58 @@ const AlertShowcase = () => {
         <SectionSubHeader>Inside table (SocketNewItemsNotice)</SectionSubHeader>
         <SamplesStack>
           <Sample label="loading">
-            <TableRoot tableLayout="auto">
-              <TableHeader>
-                <TableRow>
-                  <TableColumnHeader w="100px">Block</TableColumnHeader>
-                  <TableColumnHeader w="100px">Age</TableColumnHeader>
-                  <TableColumnHeader w="100px">Gas used</TableColumnHeader>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <SocketNewItemsNotice.Desktop
-                  num={ 1234 }
-                  type="block"
-                  isLoading
-                />
-              </TableBody>
-            </TableRoot>
+            <Box w="full" minW={ 0 } overflowX="auto" tabIndex={ 0 } role="region" aria-label="Loading blocks">
+              <TableRoot tableLayout="auto">
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader w="calc(var(--chakra-spacing-1) * 25)">Block</TableColumnHeader>
+                    <TableColumnHeader w="calc(var(--chakra-spacing-1) * 25)">Age</TableColumnHeader>
+                    <TableColumnHeader w="calc(var(--chakra-spacing-1) * 25)">Gas used</TableColumnHeader>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <SocketNewItemsNotice.Desktop
+                    num={ 1234 }
+                    type="block"
+                    isLoading
+                  />
+                </TableBody>
+              </TableRoot>
+            </Box>
           </Sample>
           <Sample label="success">
-            <TableRoot tableLayout="auto">
-              <TableHeader>
-                <TableRow>
-                  <TableColumnHeader w="100px">Block</TableColumnHeader>
-                  <TableColumnHeader w="100px">Age</TableColumnHeader>
-                  <TableColumnHeader w="100px">Gas used</TableColumnHeader>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <SocketNewItemsNotice.Desktop
-                  num={ 1234 }
-                  type="block"
-                  isLoading={ false }
-                />
-              </TableBody>
-            </TableRoot>
+            <Box w="full" minW={ 0 } overflowX="auto" tabIndex={ 0 } role="region" aria-label="New blocks">
+              <TableRoot tableLayout="auto">
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader w="calc(var(--chakra-spacing-1) * 25)">Block</TableColumnHeader>
+                    <TableColumnHeader w="calc(var(--chakra-spacing-1) * 25)">Age</TableColumnHeader>
+                    <TableColumnHeader w="calc(var(--chakra-spacing-1) * 25)">Gas used</TableColumnHeader>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <SocketNewItemsNotice.Desktop
+                    num={ 1234 }
+                    type="block"
+                    isLoading={ false }
+                  />
+                </TableBody>
+              </TableRoot>
+            </Box>
           </Sample>
         </SamplesStack>
 
         <SectionSubHeader>Multiple lines</SectionSubHeader>
         <SamplesStack>
           <Sample label="multiple lines, with title, inline=false">
-            <Alert status="warning" title="Warning" inline={ false } maxWidth="500px" showIcon closable>
+            <Alert status="warning" title="Warning" inline={ false } maxWidth="calc(var(--chakra-spacing-1) * 125)" showIcon closable>
               <Box>
                 Participated in our recent Blockscout activities? Check your eligibility and claim your NFT Scout badges. More exciting things are coming soon!
               </Box>
             </Alert>
           </Sample>
           <Sample label="multiple lines, no title">
-            <Alert status="warning" maxWidth="500px">
+            <Alert status="warning" maxWidth="calc(var(--chakra-spacing-1) * 125)">
               <Box>
                 Participated in our recent Blockscout activities? Check your eligibility and claim your NFT Scout badges. More exciting things are coming soon!
               </Box>

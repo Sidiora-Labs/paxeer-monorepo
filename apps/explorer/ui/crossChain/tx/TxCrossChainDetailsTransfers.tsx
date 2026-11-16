@@ -94,7 +94,7 @@ const TxCrossChainDetailsTransfers = ({ data, id, isLoading }: Props) => {
       { data.length > MAX_NUM && (
         <>
           <GridItem hideBelow="lg"/>
-          <GridItem fontSize="sm" alignItems="center" display="inline-flex" pl={{ base: '28px', lg: 0 }}>
+          <GridItem fontSize="sm" alignItems="center" display="inline-flex" pl={{ base: 'var(--chakra-spacing-7)', lg: 0 }}>
             { /* FIXME use non-navigation icon */ }
             <IconSvg name="navigation/tokens" boxSize={ 6 }/>
             <Link

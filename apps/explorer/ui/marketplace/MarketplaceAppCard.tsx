@@ -4,10 +4,12 @@ import React, { useCallback } from 'react';
 
 import type { MarketplaceApp } from 'types/client/marketplace';
 
+import { Button } from 'toolkit/chakra/button';
 import { useColorModeValue } from 'toolkit/chakra/color-mode';
+import { Heading } from 'toolkit/chakra/heading';
 import { IconButton } from 'toolkit/chakra/icon-button';
 import { Image } from 'toolkit/chakra/image';
-import { Link, LinkBox } from 'toolkit/chakra/link';
+import { LinkBox } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { isBrowser } from 'toolkit/utils/isBrowser';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
@@ -65,6 +67,10 @@ const MarketplaceAppCard = ({
 
   return (
     <LinkBox
+      as="article"
+      minW={ 0 }
+      containerType="inline-size"
+      bg="surface"
       className={ className }
       _hover={{
         boxShadow: isLoading ? 'none' : 'md',
@@ -74,8 +80,8 @@ const MarketplaceAppCard = ({
       }}
       borderRadius="base"
       padding={ 3 }
-      borderWidth="1px"
-      borderColor={{ _light: 'blackAlpha.300', _dark: 'whiteAlpha.300' }}
+      borderWidth="1"
+      borderColor="hairline"
     >
       <Flex
         flexDirection="column"
@@ -83,11 +89,11 @@ const MarketplaceAppCard = ({
         alignContent="start"
         gap={ 2 }
       >
-        <Flex gap={ 4 }>
+        <Flex gap={ 4 } minW={ 0 }>
           <Skeleton
             loading={ isLoading }
-            w="64px"
-            h="64px"
+            w="var(--chakra-spacing-16)"
+            h="var(--chakra-spacing-16)"
             display="flex"
             alignItems="center"
             justifyContent="center"
@@ -96,25 +102,29 @@ const MarketplaceAppCard = ({
             <Image
               src={ isLoading ? undefined : logoUrl }
               alt={ `${ title } app icon` }
-              borderRadius="8px"
+              borderRadius="card"
+              boxSize="full"
+              objectFit="contain"
             />
           </Skeleton>
 
-          <Flex flexDirection="column" gap={ 2 } pt={ 1 }>
+          <Flex flexDirection="column" gap={ 2 } pt={ 1 } minW={ 0 }>
             <Skeleton
               loading={ isLoading }
               display="inline-flex"
               alignItems="center"
             >
-              <MarketplaceAppCardLink
-                id={ id }
-                url={ url }
-                external={ external }
-                title={ title }
-                onClick={ onAppClick }
-                textStyle="sm"
-                fontWeight="semibold"
-              />
+              <Heading level="3" textStyle="small">
+                <MarketplaceAppCardLink
+                  id={ id }
+                  url={ url }
+                  external={ external }
+                  title={ title }
+                  onClick={ onAppClick }
+                  textStyle="sm"
+                  fontWeight="semibold"
+                />
+              </Heading>
               <MarketplaceAppIntegrationIcon external={ external } internalWallet={ internalWallet }/>
               <MarketplaceAppGraphLinks
                 links={ graphLinks }
@@ -127,7 +137,7 @@ const MarketplaceAppCard = ({
               loading={ isLoading }
               color="text.secondary"
               fontSize="xs"
-              lineHeight="16px"
+              lineHeight="label"
             >
               <span>{ categoriesLabel }</span>
             </Skeleton>
@@ -147,19 +157,23 @@ const MarketplaceAppCard = ({
           <Flex
             alignItems="center"
             justifyContent="space-between"
+            flexWrap="wrap"
+            gap={ 2 }
             marginTop="auto"
-            h="30px"
+            minH="touchTarget"
+            position="relative"
+            zIndex={ 1 }
           >
-            <Link
+            <Button
+              variant="link"
               textStyle="sm"
-              fontWeight="500"
+              fontWeight="medium"
               paddingRight={ 3 }
               h="full"
-              href="#"
               onClick={ handleInfoClick }
             >
               Info
-            </Link>
+            </Button>
             <Flex alignItems="center" gap={ 3 }>
               <Rating
                 appId={ id }
@@ -171,7 +185,8 @@ const MarketplaceAppCard = ({
               />
               <Flex gap={ 2 }>
                 <IconButton
-                  aria-label="Mark as favorite"
+                  aria-label={ `${ isFavorite ? 'Remove' : 'Mark' } ${ title } ${ isFavorite ? 'from' : 'as' } favorite` }
+                  aria-pressed={ isFavorite }
                   title="Mark as favorite"
                   variant="icon_background"
                   size="md"

@@ -26,7 +26,7 @@ const TAB_LIST_PROPS = {
   pt: 6,
   pb: 6,
   marginTop: -6,
-  minW: { base: 'auto', lg: '1080px' },
+  minW: 0,
 };
 const PRESERVED_PARAMS = [ 'q', 'tab', 'chain_id' ];
 
@@ -128,7 +128,7 @@ const SearchResults = () => {
       <>
         <PageTitle title="Search results"/>
         <Skeleton loading={ totalResults === undefined } mb={ 6 } w="fit-content">
-          Found <chakra.span fontWeight={ 700 }>{ totalResults?.num }{ totalResults?.isOverflow ? '+' : '' }</chakra.span> matching results
+          Found <chakra.span fontWeight="bold">{ totalResults?.num }{ totalResults?.isOverflow ? '+' : '' }</chakra.span> matching results
         </Skeleton>
         <RoutedTabs
           tabs={ tabs }

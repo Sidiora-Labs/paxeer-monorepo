@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Tooltip } from 'toolkit/chakra/tooltip';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import Utilization from 'ui/shared/Utilization/Utilization';
 
 import { Section, Container, SectionHeader, SamplesStack, Sample } from './parts';
@@ -13,15 +13,15 @@ const TooltipShowcase = () => {
         <SamplesStack>
           <Sample label="variant: regular">
             <Tooltip content="Tooltip content">
-              <span>Default</span>
+              <button type="button">Default</button>
             </Tooltip>
             <Tooltip content="Tooltip content" interactive>
-              <Utilization value={ 0.5 }/>
+              <button type="button" aria-label="Utilization 50%"><Utilization value={ 0.5 }/></button>
             </Tooltip>
           </Sample>
           <Sample label="variant: popover">
             <Tooltip content="Tooltip content" variant="popover">
-              <span>Default</span>
+              <button type="button">Default</button>
             </Tooltip>
           </Sample>
         </SamplesStack>

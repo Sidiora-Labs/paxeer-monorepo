@@ -22,7 +22,7 @@ const RewardsDashboardCardValue = ({ label, value, withIcon, hint, isLoading, bo
     { label && (
       <Flex alignItems="center" gap={ 1 }>
         { hint && <Hint label={ hint }/> }
-        <Text textStyle="xs" fontWeight="500" color="text.secondary">
+        <Text textStyle="xs" fontWeight="medium" color="text.secondary">
           { label }
         </Text>
       </Flex>
@@ -33,7 +33,7 @@ const RewardsDashboardCardValue = ({ label, value, withIcon, hint, isLoading, bo
       alignItems="center"
       justifyContent="center"
       gap={ 2 }
-      minW="100px"
+      minW="calc(var(--chakra-spacing-1) * 25)"
     >
       { withIcon && <MeritsIcon boxSize={ 8 }/> }
       <Heading level="1">
@@ -41,7 +41,7 @@ const RewardsDashboardCardValue = ({ label, value, withIcon, hint, isLoading, bo
       </Heading>
     </Skeleton>
     { bottomText && (
-      <Skeleton loading={ isBottomTextLoading || isLoading } minW="100px">
+      <Skeleton loading={ isBottomTextLoading || isLoading } minW="calc(var(--chakra-spacing-1) * 25)">
         <Text textStyle={{ base: 'xs', md: 'sm' }} color="text.secondary">
           { bottomText }
         </Text>

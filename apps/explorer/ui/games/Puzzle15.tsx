@@ -1,4 +1,4 @@
-import { Grid, Box, Flex, Text } from '@chakra-ui/react';
+import { chakra, Grid, Flex, Text } from '@chakra-ui/react';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 import config from 'configs/app';
@@ -143,69 +143,75 @@ const Puzzle15 = () => {
   return (
     <Flex flexDirection="column" alignItems="center" justifyContent="center" my={ 10 }>
       { isWon && <Confetti/> }
-      <Grid templateColumns="repeat(4, 1fr)" w="400px" h="400px">
-        { tiles.map((tile, index) => (
-          <div
+      <Grid
+        templateColumns="repeat(4, minmax(0, 1fr))"
+        w="full"
+        maxW="var(--chakra-spacing-100)"
+        aspectRatio={ 1 }
+        gap={ 0.5 }
+        role="group"
+        aria-label="Sliding puzzle"
+      >
+        { tiles.map((tile, index) => tile === 15 ? (
+          <chakra.span key={ tile } aria-hidden="true"/>
+        ) : (
+          <chakra.button
             key={ tile }
+            type="button"
+            aria-label={ `Move tile ${ tile + 1 }` }
+            aria-disabled={ isWon || !isAdjacent(index, tiles.indexOf(15)) }
             onClick={ handleTileClick(index) }
-            style={{
-              transition: 'all 0.3s ease',
-              transform: 'translate3d(0, 0, 0)',
-            }}
+            position="relative"
+            minW={ 0 }
+            aspectRatio={ 1 }
+            borderWidth="1"
+            borderColor="hairline"
+            borderRadius="control"
+            cursor={ isAdjacent(index, tiles.indexOf(15)) ? 'pointer' : 'default' }
+            _hover={{ borderColor: 'accent' }}
+            _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', zIndex: 'docked' }}
           >
-            <Box position="relative">
-              <canvas
-                ref={ (el) => {
-                  canvasRefs.current[index] = el;
-                } }
-                width="512"
-                height="512"
-                style={{
-                  display: tile !== 15 ? 'block' : 'none',
-                  border: '1px solid gray',
-                  width: '100px',
-                  height: '100px',
-                  imageRendering: 'pixelated',
-                }}
-              />
-              <Box
-                position="absolute"
-                top="0"
-                left="0"
-                right="0"
-                bottom="0"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                fontSize="3xl"
-                fontWeight="bold"
-                color="white"
-                opacity="0"
-                _hover={{ opacity: 0.3 }}
-                transition="opacity 0.2s"
-              >
-                { tile !== 15 && tile + 1 }
-              </Box>
-            </Box>
-          </div>
+            <chakra.canvas
+              ref={ (el: HTMLCanvasElement | null) => {
+                canvasRefs.current[index] = el;
+              } }
+              width={ 512 }
+              height={ 512 }
+              aria-hidden="true"
+              display="block"
+              w="full"
+              h="full"
+              css={{ imageRendering: 'pixelated' }}
+            />
+            <chakra.span
+              position="absolute"
+              insetInlineStart={ 1 }
+              insetBlockEnd={ 1 }
+              bg="surface"
+              color="text.primary"
+              borderRadius="control"
+              px={ 1 }
+              textStyle="number"
+            >
+              { tile + 1 }
+            </chakra.span>
+          </chakra.button>
         )) }
       </Grid>
+      <Text role="status" mt={ 4 }>{ isWon ? 'Puzzle complete!' : 'Put the pieces together to complete the puzzle.' }</Text>
       { !isWon && (
         <>
           <Text mt={ 10 }>Put the pieces together and win a prize</Text>
-          <Text mb={ 1 }>Click on a square to move it</Text>
+          <Text mb={ 1 }>Choose a tile next to the empty space. Click or press Enter or Space to move it.</Text>
         </>
       ) }
       { isWon && easterEggPuzzleBadgeFeature.isEnabled && (
         <Flex flexDirection="column" alignItems="center" justifyContent="center" gap={ 4 } mt={ 10 }>
           <Text fontSize="2xl" fontWeight="bold">You unlocked a hidden badge!</Text>
           <Text fontSize="lg" textAlign="center">Congratulations! You're eligible to claim an epic hidden badge!</Text>
-          <Link
-            href={ easterEggPuzzleBadgeFeature.badgeClaimLink }
-            external noIcon
-          >
-            <Button>Claim</Button>
-          </Link>
+          <Button asChild>
+            <Link href={ easterEggPuzzleBadgeFeature.badgeClaimLink } external noIcon>Claim</Link>
+          </Button>
         </Flex>
       ) }
     </Flex>
