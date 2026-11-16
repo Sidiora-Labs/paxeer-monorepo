@@ -22755,3 +22755,23 @@ fix = "Decision 3668. Task 22.44.61."
 title = "The builder tool of the explorer backend runs one mix command for each call"
 symptom = "The tool services/explorer/deploy/tools/mix-in-builder.sh reads its own options, such as --reuse-db and --check, before the mix command, starts the builder container beside a database made for the call and ends with the exit code of the one mix command it ran. The test command of mix writes under the build path a record of the cases that did not pass, and its option --failed runs the cases that record names and no other case. The build path and the database of a call belong to the container of that call."
 fix = "Decision 3669. Task 22.39.695."
+
+[gotcha.4587]
+title = "A fixed answer of the render check holds for every view and state of its surface"
+symptom = "The function readSurface of tools/ui-check/config.mjs reads the fixed answers of a surface from the key answers of the surface file, and the first entry whose method and pattern match a request answers it in every view and in every state. A view admits the keys name, path, states, expects and modes, and a state admits the keys name, steps, expects and modes. One address therefore has one answer in a surface, whatever view or state asks."
+fix = "Decision 3670. Task 22.44.62."
+
+[gotcha.4588]
+title = "The surface file of the wallet application holds its views in the form before sign-in"
+symptom = "The surface file tools/ui-check/surfaces/wallet.json holds 14 views and three named states, all three of the view onboarding, and its fixed answers give the sign-in provider one answer for the sent code and one refusal for the entered code. No view of the file runs with a session, so each view renders in the form a person sees before sign-in. The application holds under apps/wallet/src/widgets the parts a signed-in person works with: portfolio, send, receive, swap, tokenDetail, transactions, txDetail, settings, contacts, discover and pns, and under apps/wallet/src/surfaces the views of bridge, exchange, fees, inference, launchpad and web data, each with a connected form."
+fix = "Decision 3671. Task 22.44.63."
+
+[gotcha.4589]
+title = "The analytics part of the stats service uses five tables and the registered migrations make one of them"
+symptom = "The analytics part of the stats service, in internal/analytics of the directory of the stats service under services/launchpad, whose binary is statsd, reads and writes the tables analytics_progress, analytics_trades, analytics_outbox, analytics_risk_inputs and analytics_snapshots in the schema of the service: the projector, the expiry job the service starts in internal/app/app.go, the risk inputs and the read of the outbox. The function ProjectionSQL of projector.go holds the statements that make the first four tables, and the cases call it. The registered migrations make the table analytics_snapshots, in migrations/150001.sql, and the grants document migrations/grants.json names that table for the runtime role of the stats service."
+fix = "Decision 3672. Task 22.39.734."
+
+[gotcha.4590]
+title = "The gateway admits a bound route by its own lists, the approved bucket by a logical name and the recovery schema by the epoch function"
+symptom = "The function allowedConnectedRoute of services/launchpad/gateway/internal/proxy/connected.go admits a route that the runtime document binds to an upstream where the lists of the gateway hold its method and template with the same flags. The app in services/launchpad/gateway/internal/app/app.go reads the approved bucket of the runtime document as the logical name of one of the buckets of its configuration, and it makes its epoch guard on the recovery schema, the schema that holds the function assert_epoch of deploy/launchpad/production/recovery/epoch.sql. The composer module deploy/launchpad/documents/gateway.py writes the routes, the bucket and the schema as its values file gives them. The case TestPlatformDocuments of services/launchpad/gateway/internal/config composes the example values deploy/launchpad/documents/values/gateway.example.json and loads the configuration with the documents."
+fix = "Decision 3673. Task 22.39.735."

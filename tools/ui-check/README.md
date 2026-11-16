@@ -73,6 +73,8 @@ The directory may also be absolute. A typical surface file has this form:
   "name": "Example surface",
   "directory": "../../../apps/example",
   "build": "npm run build",
+  "buildMs": 180000,
+  "outputs": ["dist"],
   "start": "npm run start -- --port 4173",
   "address": "http://localhost:4173",
   "readyPath": "/",
@@ -114,8 +116,23 @@ only the matrix configurations in that list, in matrix order. For example,
 `"modes": ["default"]` gives 22 configurations per view or state. Invalid lists
 are rejected with the view's name.
 
-Commands run in `directory`. The build must finish successfully within 120
-seconds. The start command stays running while readiness is polled for up to
+Commands run in `directory`. The optional `buildMs` is a whole number from 1000
+to 1800000 milliseconds, inclusive. It bounds the build; without it the bound is
+120000 milliseconds (120 seconds). Invalid values are rejected with the surface
+name, and a build timeout message names the applied bound.
+
+The optional `outputs` is a list of one to sixteen nonempty paths relative to
+`directory`, and requires a `build` command. Absolute paths, paths outside the
+directory, the directory itself, and paths containing a `node_modules` component
+are rejected with the surface name. The same restrictions apply after resolving
+symlinks, including links in parent directories of outputs that do not yet exist.
+Before building, the check recursively removes only the named outputs; absent
+outputs are allowed. A named symlink is removed without removing its target.
+The order is remove outputs, build, start. Without `outputs`, nothing is removed.
+The report records the applied `buildMs` and an `outputs` list of the named paths
+that were present and removed, including when the build fails.
+
+The start command stays running while readiness is polled for up to
 15 seconds. Navigation and state steps have a 10-second bound. Managed processes
 and their children stop when the check finishes. The surface file contains
 local commands, so use a file whose commands you intend to run.

@@ -17,7 +17,7 @@ const ContractVerificationFieldOptimization = () => {
 
   return (
     <ContractVerificationFormRow>
-      <Flex columnGap={ 5 } h={{ base: 'auto', lg: '32px' }}>
+      <Flex columnGap={ 5 } alignItems="start" flexWrap="wrap">
         <FormFieldCheckbox<FormFields, 'is_optimization_enabled'>
           name="is_optimization_enabled"
           label="Optimization enabled"
@@ -33,8 +33,8 @@ const ContractVerificationFieldOptimization = () => {
               type: 'number',
             }}
             size="sm"
-            minW="100px"
-            maxW="200px"
+            minW="24"
+            maxW="48"
             flexShrink={ 1 }
           />
         ) }

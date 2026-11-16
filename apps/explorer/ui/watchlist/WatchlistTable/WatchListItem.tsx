@@ -79,13 +79,13 @@ const WatchListItem = ({ item, isLoading, onEditClick, onDeleteClick, hasEmail }
       <Box maxW="100%">
         <WatchListAddressItem item={ item } isLoading={ isLoading }/>
         <HStack gap={ 3 } mt={ 6 }>
-          <Text textStyle="sm" fontWeight={ 500 }>Private tag</Text>
+          <Text textStyle="sm" fontWeight="medium">Private tag</Text>
           <Tag loading={ isLoading } truncated>{ item.name }</Tag>
         </HStack>
       </Box>
       <Flex alignItems="center" justifyContent="space-between" mt={ 6 } w="100%">
         <HStack gap={ 3 }>
-          <Text textStyle="sm" fontWeight={ 500 }>Email notification</Text>
+          <Text textStyle="sm" fontWeight="medium">Email notification</Text>
           <Skeleton loading={ isLoading } display="inline-block">
             <Switch
               checked={ notificationEnabled }

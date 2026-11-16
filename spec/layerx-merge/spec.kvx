@@ -15130,6 +15130,30 @@ value = "The tool takes the option --retry-failed before the mix command, and th
 basis = "Gotcha 4586. Decisions 3046 and 3052."
 affects = []
 
+[decision.3670]
+title = "A view and a state of a surface file may name fixed answers of their own"
+value = "A view and a state of a surface file may hold the key answers, a list in the form of the fixed answers of the surface. In the renders of a named state the entries of the state come first, then the entries of its view, then the entries of the surface, and the first match answers. In the initial state of a view the entries of the view come before those of the surface. The files of these entries follow the rule of the surface answers: beside the surface file or below it. A surface file without the key in its views and states runs as before. The result names for each view and state the count of its own entries."
+basis = "Gotcha 4587. Decisions 3667, 3591 and 3588."
+affects = []
+
+[decision.3671]
+title = "The surface file of the wallet application holds the signed-in form of each view"
+value = "The surface file of the wallet application holds, for each view that differs after sign-in, named states that run with a session and with data, both given by fixed answers of the state in the key of decision 3670. The states cover each part a signed-in person works with: the portfolio with several assets, among them a long name, a large amount and a very small amount, and the portfolio without assets; send with its form filled, with a validation message and at its confirmation; receive; swap with its form filled and with a quote that fails; the detail of an asset; the transactions with rows and without rows; the detail of a transaction; settings; contacts with rows and without rows; discover; names; the three account views; and each of the six surface views in its connected form, with its form filled, with a validation message and with a read that fails. The data of the answers are test values: no address of a person, no key and no token of a live system. The render check passes for the whole file on the device list, in both schemes and in every mode, in a tree that held no output of an earlier build. A finding that shows there is corrected in the application, and no view, state, mode or expectation is taken out of the surface file."
+basis = "Gotcha 4588. Decisions 3670, 3668, 3591 and 3588."
+affects = []
+
+[decision.3672]
+title = "The registered migrations make every table the analytics part of the stats service uses"
+value = "A registered migration of the stats service makes the tables analytics_progress, analytics_trades, analytics_outbox and analytics_risk_inputs with the columns, keys and indexes of the statements the function ProjectionSQL holds, and the grants document gives the runtime role of the stats service on each of them the rights the statements of the service use, in the narrowest form. Every other table, sequence and function that a statement of the stats service names on the pool of its runtime role is compared with the registered migrations and the grants document, and what is missing is added in the same way. The registry and its digests follow. No right is taken away and no other role changes. The function ProjectionSQL stays for the cases that make a schema of their own, and a case holds its statements equal to the registered migration."
+basis = "Gotcha 4589. Decisions 3666 and 3661."
+affects = []
+
+[decision.3673]
+title = "The example values of the composer for the gateway give a document the gateway admits"
+value = "The example values of the gateway name for each upstream routes that the lists of the gateway hold, with their flags, a logical bucket name as the approved bucket, object roles in the form the app admits, and the recovery schema that the example values of the ranking and of the social module name. A case of the gateway composes the example values and runs the checks of the app on the runtime document that need no network: the routes of every upstream, the approved bucket, the object roles, the pools and the identity keys. The README of the composer states for these values which form the gateway reads."
+basis = "Gotcha 4590. Decisions 3663 and 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44790,6 +44814,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.735]
+title = "Give the composer example values of the gateway the forms the gateway admits and hold them with a case of the app"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/documents", "services/launchpad/gateway"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/ ./internal/app/)"
+do_1 = "do_1 Gotcha 4590, decision 3673. Read deploy/launchpad/documents/gateway.py, deploy/launchpad/documents/values/gateway.example.json, the part of deploy/launchpad/documents/README.md on the gateway, the cases of deploy/launchpad/documents/test_compose.py that compose the gateway, the case TestPlatformDocuments of services/launchpad/gateway/internal/config, the function allowedConnectedRoute with the four route lists and the frozen surface in services/launchpad/gateway/internal/proxy/connected.go, and in services/launchpad/gateway/internal/app/app.go the type of the runtime document, every check the app runs on it before it opens a connection, the join of the bound routes with the lists of the gateway, the buckets, the object roles, the pools and the epoch guard."
+symbols = []
+
+[capability.22.39.734]
+title = "Make the analytics tables of the stats service by a registered migration with the rights its runtime role uses"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+verification_contract = "cd services/launchpad/stats-*ers && go test -count=1 -timeout 30m -run '^TestRuntimeRoleAnalyticsTables' ./internal/analytics/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+do_1 = "do_1 Gotcha 4589, decision 3672. Read in the directory of the stats service under services/launchpad, whose binary is statsd the package internal/analytics with the function ProjectionSQL, the projector, the expiry, the risk inputs, the reads and the snapshot, the place in internal/app/app.go that makes the projector and starts its jobs, the registrations of the stats service in migrations/registry.json with their files under migrations, the entry of the stats service in migrations/grants.json, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the case beside it, and the history of the registration that was added last with every file that changed with it."
+symbols = []
+
+[capability.22.44.63]
+title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "apps/wallet"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.63.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+do_1 = "do_1 Gotcha 4588, decision 3671. Read tools/ui-check/surfaces/wallet.json with the files under tools/ui-check/surfaces/wallet, the part of tools/ui-check/README.md on the answers of views and states, the code of apps/wallet/src that takes the session from the sign-in provider at the code step and at the route auth/callback and keeps it, the clients of the wallet API, of the node, of the market data, of the rates and of the human API that the signed-in parts read, each directory under apps/wallet/src/widgets, the views under apps/wallet/src/surfaces with apps/wallet/src/surfaces/routes.ts, and the records of tasks 22.44.41 and 22.44.61 under spec/layerx-merge/programme/records/ui/."
+symbols = []
+
+[capability.22.44.62]
+title = "Let a view and a state of a surface file of the render check name fixed answers of their own"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4587, decision 3670. Read tools/ui-check/config.mjs with the function readSurface and the reading of the fixed answers, tools/ui-check/check.mjs where it routes the requests of a page to the fixed answers and where it writes the result, the part of tools/ui-check/README.md on fixed answers and on expects, the cases of tools/ui-check/test/check.test.mjs on fixed answers, and the surface files under tools/ui-check/surfaces that hold answers."
+symbols = []
 
 [capability.22.44.61]
 title = "Build the production form of the wallet application in its surface file and close the render check on it"
@@ -174445,6 +174505,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.63]
+title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.61", "22.44.62"]
+reqs = ["22998.1"]
+capabilities = ["22.44.63"]
+interfaces = []
+do_1 = "do_1 Gotcha 4588, decision 3671. Read tools/ui-check/surfaces/wallet.json with the files under tools/ui-check/surfaces/wallet, the part of tools/ui-check/README.md on the answers of views and states, the code of apps/wallet/src that takes the session from the sign-in provider at the code step and at the route auth/callback and keeps it, the clients of the wallet API, of the node, of the market data, of the rates and of the human API that the signed-in parts read, each directory under apps/wallet/src/widgets, the views under apps/wallet/src/surfaces with apps/wallet/src/surfaces/routes.ts, and the records of tasks 22.44.41 and 22.44.61 under spec/layerx-merge/programme/records/ui/."
+do_2 = "do_2 Give a session by fixed answers: find which answer of the sign-in provider ends the code step in a session and which reads the application makes right after it, by running the application by hand against the answers and reading each request the check reports as blocked. Write the answers as files under tools/ui-check/surfaces/wallet and name them in the states that need them, in the key answers of the state. The data are test values that are plainly marked as such: no address of a person, no key and no token of a live system."
+do_3 = "do_3 Add the named states of decision 3671 to the surface file, each reached by steps a person would take from the path of its view, with the answers for the reads it makes: the two portfolio forms; send filled, with a validation message and at its confirmation; receive; swap filled and with a quote that fails; the detail of an asset; the transactions with rows and without rows; the detail of a transaction; settings; contacts with rows and without rows; discover; names; the views account, account-history and account-plan with a session; and the views bridge, inference, exchange, fees, launchpad and web-data connected, each with its form filled, with a validation message and with a read that fails. A read that fails by design is named in the expects of its state. Where a part can be reached in more than one form that looks different, such as a dialog and a sheet, hold both. State in the final message each part that has no state and why."
+do_4 = "do_4 Run the render check by hand state by state. Look at the written images of the portfolio, of send and of one surface view, one narrow and one wide in each scheme, and state in the final message what they show: a view that shows the form before sign-in or an empty frame is a finding of this task. Correct every finding in the application under apps/wallet: spacing, type, colour, contrast, focus, touch size, overflow, cut text, long values and layout shift as the check names them and as the images show them. Take no view, state, mode or expectation out of the surface file and loosen no limit."
+do_5 = "do_5 Run the render check of the whole surface by hand in a tree without the outputs of an earlier build until it passes with zero findings. Write the record of this task at spec/layerx-merge/programme/records/ui/22.44.63.kvx with the list of the states, the count of renders, the device list and the revision, in the form of the record of task 22.44.61. The records of the earlier tasks stay as they are. The present cases of the application stay and none is weakened. Run by hand the type check of the application and the cases of the directories src/components, src/widgets and src/surfaces and read each message."
+do_6 = "do_6 The surface file, the files under tools/ui-check/surfaces/wallet and the files of apps/wallet are inside the paths of this task: a case there that does not pass is corrected here whether or not it passed before, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "apps/wallet"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.63.kvx"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.63.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.62]
+title = "Let a view and a state of a surface file of the render check name fixed answers of their own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.60"]
+reqs = ["22998.1"]
+capabilities = ["22.44.62"]
+interfaces = []
+do_1 = "do_1 Gotcha 4587, decision 3670. Read tools/ui-check/config.mjs with the function readSurface and the reading of the fixed answers, tools/ui-check/check.mjs where it routes the requests of a page to the fixed answers and where it writes the result, the part of tools/ui-check/README.md on fixed answers and on expects, the cases of tools/ui-check/test/check.test.mjs on fixed answers, and the surface files under tools/ui-check/surfaces that hold answers."
+do_2 = "do_2 The function readSurface admits the key answers in a view and in a state, read and checked by the code that reads the answers of the surface: the same fields, the same rule for the place of the file, the same refusals, each with the name of the view or the state. An empty list is admitted and means no own entry."
+do_3 = "do_3 The check answers a request of a render from the entries in the order of decision 3670: state, view, surface, first match. The entries of one state do not reach another state or another view. A request that no entry matches is blocked and reported as before, and the expects of a view and a state apply as before."
+do_4 = "do_4 The result names for each view and state the count of its own entries. The README states the key at both levels, the order and one example: a sign-in step that is refused in one state and admitted in another by two answers to one address. The surface files that are present stay as they are."
+do_5 = "do_5 Cases in tools/ui-check/test/check.test.mjs with surfaces made in a temporary directory: one address answered with three different bodies by the surface, by a view and by a state, each shown in the render that the order gives; a state entry that does not reach the next state of the same view; a view entry that does not reach another view; each refusal of do_2; a surface without the key behaves as before. The present cases stay and none is weakened. Run the cases by hand and read each message."
+do_6 = "do_6 The files of tools/ui-check are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.61]
 title = "Build the production form of the wallet application in its surface file and close the render check on it"
 status = "pending"
@@ -174480,7 +174606,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.60]
 title = "Let a surface file of the render check name the bound of its build and the outputs its build makes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176723,7 +176849,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.9]
 title = "Bring the token, contract and account views of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -248788,6 +248914,72 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.735]
+title = "Give the composer example values of the gateway the forms the gateway admits and hold them with a case of the app"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.729"]
+reqs = ["22998.1"]
+capabilities = ["22.39.735"]
+interfaces = []
+do_1 = "do_1 Gotcha 4590, decision 3673. Read deploy/launchpad/documents/gateway.py, deploy/launchpad/documents/values/gateway.example.json, the part of deploy/launchpad/documents/README.md on the gateway, the cases of deploy/launchpad/documents/test_compose.py that compose the gateway, the case TestPlatformDocuments of services/launchpad/gateway/internal/config, the function allowedConnectedRoute with the four route lists and the frozen surface in services/launchpad/gateway/internal/proxy/connected.go, and in services/launchpad/gateway/internal/app/app.go the type of the runtime document, every check the app runs on it before it opens a connection, the join of the bound routes with the lists of the gateway, the buckets, the object roles, the pools and the epoch guard."
+do_2 = "do_2 The example values name for each of the four upstreams routes that the lists of the gateway hold, each with the flags its list gives it. The approved bucket is a logical bucket name of the configuration. The object roles name buckets and prefixes in the form the app admits for each kind. The recovery schema is the schema the example values of the ranking and of the social module name. Every other example value that a check of the app refuses is brought into the admitted form, and the final message names each value that changed and the check that reads it."
+do_3 = "do_3 The composer module keeps its checks and refuses nothing more than before. Where the module can refuse a value the gateway would refuse at start, without knowledge of the lists of the gateway, add that refusal with a message that names the key, and a case for it in deploy/launchpad/documents/test_compose.py."
+do_4 = "do_4 The README of the composer states for the routes, the approved bucket, the object roles and the recovery schema which form the gateway reads and where the gateway holds its lists."
+do_5 = "do_5 Cases: a case in services/launchpad/gateway/internal/app whose name starts with TestPlatformDocumentsBinding composes the example values with the composer, as the case of internal/config does, decodes the runtime document and runs every check of the app on it that needs no network, with certificate files and keys made for the test: the routes of every upstream through the function that admits them, the approved bucket, the object roles, the pools and the identity keys. It asserts that each is admitted, and that one changed value of each kind is refused. The present cases stay and none is weakened. Run by hand the cases of deploy/launchpad/documents/test_compose.py and the cases of internal/config and internal/app of the gateway and read each message."
+do_6 = "do_6 The files of deploy/launchpad/documents and the files of services/launchpad/gateway are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/documents", "services/launchpad/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/gateway.py && (cd services/launchpad/gateway && go vet ./internal/app/ ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/ ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.734]
+title = "Make the analytics tables of the stats service by a registered migration with the rights its runtime role uses"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.733"]
+reqs = ["22998.1"]
+capabilities = ["22.39.734"]
+interfaces = []
+do_1 = "do_1 Gotcha 4589, decision 3672. Read in the directory of the stats service under services/launchpad, whose binary is statsd the package internal/analytics with the function ProjectionSQL, the projector, the expiry, the risk inputs, the reads and the snapshot, the place in internal/app/app.go that makes the projector and starts its jobs, the registrations of the stats service in migrations/registry.json with their files under migrations, the entry of the stats service in migrations/grants.json, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the case beside it, and the history of the registration that was added last with every file that changed with it."
+do_2 = "do_2 Add a registered migration of the stats service that makes the tables analytics_progress, analytics_trades, analytics_outbox and analytics_risk_inputs in the schema of the service, with the columns, types, keys, defaults and indexes of the statements the function ProjectionSQL holds. The registry follows: the registration with its predecessor, the application order, the digests, the approval, and every file the code of sdk/launchpad/shared/db/production and the command of the schema hold equal to the registry. A file that records an approval of an earlier release stays as it is where the code reads it as history."
+do_3 = "do_3 List every statement the stats service and its search part run on the pool of the runtime role, in every package of the directory and in the packages of sdk/launchpad/shared as the service calls them, with the tables, sequences, functions, columns and the kind of each statement. Compare the list with the registered migrations and with the grants of the role. Add to the grants document each right a statement needs and the document lacks, in the narrowest form, and add to a registered migration each object a statement names and no registered migration makes. Take no right away and change no other role. The final message names each object and each right that was added and the statement that needs it."
+do_4 = "do_4 The function ProjectionSQL stays for the cases that make a schema of their own. A case holds the tables it makes equal to the tables of the registered migration, by columns, types, keys and indexes read from the catalog."
+do_5 = "do_5 Cases: a case in internal/analytics of the stats service whose name starts with TestRuntimeRoleAnalyticsTables makes a database with the helper Bootstrap for the runtime role of the stats service, where the database of the coordinator is given, and runs with the connection of the role one projection of a trade, one run of the expiry, the statements of the risk inputs and the read of the outbox, and asserts the rows they leave. A case asserts for each statement of the list of do_3 that the grants of the role cover it, by running the statement or its plan with the connection of the role. The present cases stay and none is weakened. Run by hand the cases of internal/analytics, internal/store and internal/app of the stats service, the cases of sdk/launchpad/shared/db/production, of sdk/launchpad/shared/db/production/coordinatortest and of the command of the schema, and read each message."
+do_6 = "do_6 The files under migrations, the files of sdk/launchpad/shared/db/production and the files of the stats service under services/launchpad are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/stats-*ers && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "cd services/launchpad/stats-*ers && go test -count=1 -timeout 30m -run '^TestRuntimeRoleAnalyticsTables' ./internal/analytics/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.733]
 title = "Make the holder balance index of the stats service by a registered migration and read it at start"
 status = "pending"
@@ -248955,7 +249147,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.728]
 title = "Give the runtime role of the charts service the rights its outbox relay uses and hold them with a case under that role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

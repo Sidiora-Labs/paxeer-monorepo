@@ -74,7 +74,7 @@ const TokensListItem = ({
       alignItems="flex-start"
       data-token-field={ label }
     >
-      <Skeleton loading={ isLoading } textStyle="sm" fontWeight={ 500 } flexShrink={ 0 }>{ label }</Skeleton>
+      <Skeleton loading={ isLoading } textStyle="sm" fontWeight="medium" flexShrink={ 0 }>{ label }</Skeleton>
       { value }
     </HStack>
   );
@@ -108,7 +108,7 @@ const TokensListItem = ({
           jointSymbol
           w="auto"
           textStyle="sm"
-          fontWeight="600"
+          fontWeight="semibold"
           noLink={ type === 'NATIVE' }
         />
         <Flex ml="auto" flexShrink={ 0 } columnGap={ 1 } alignItems="center">

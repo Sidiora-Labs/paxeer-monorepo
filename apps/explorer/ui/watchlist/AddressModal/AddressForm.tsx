@@ -114,7 +114,7 @@ const AddressForm: React.FC<Props> = ({ data, onSuccess, setAlertVisible, isAdd,
 
   return (
     <FormProvider { ...formApi }>
-      <form noValidate onSubmit={ formApi.handleSubmit(onSubmit) }>
+      <form noValidate autoComplete="off" onSubmit={ formApi.handleSubmit(onSubmit) }>
         <FormFieldAddress<Inputs>
           name="address"
           required
@@ -139,7 +139,7 @@ const AddressForm: React.FC<Props> = ({ data, onSuccess, setAlertVisible, isAdd,
             <Box marginBottom={ 8 }>
               <AddressFormNotifications/>
             </Box>
-            <Text color="text.secondary" fontSize="sm" marginBottom={{ base: '10px', lg: 5 }}>Notification methods</Text>
+            <Text color="text.secondary" fontSize="sm" marginBottom={{ base: '2.5', lg: 5 }}>Notification methods</Text>
             <FormFieldCheckbox<Inputs, 'notification'>
               name="notification"
               label="Email notifications"
