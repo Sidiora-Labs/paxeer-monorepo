@@ -177324,7 +177324,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.8]
 title = "Bring the transaction, batch, withdrawal and transfer views of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -249805,7 +249805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.737]
 title = "List the statements of the gateway service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.736"]
