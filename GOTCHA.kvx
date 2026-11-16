@@ -22500,3 +22500,8 @@ fix = "Decision 3617. Task 22.44.44; tasks 22.44.38, 22.44.39, 22.44.40 and 22.4
 title = "A page that listens for the unload event and a page that logs its error state report the kind load"
 symptom = "The page of apps/inference-peer registers its leave for three events in apps/inference-peer/src/page.mjs: pagehide, beforeunload and unload. A browser refuses the unload listener of a document by its permissions policy and writes a console line, and a page with an unload listener is kept out of the back and forward cache. The codebase map in tools/codebase-map/app.js shows a map it cannot read as an error state on the page and also writes the error to the console. The render check reports a console error as the kind load, and the paths of task 22.44.47 held the two documents and not these two scripts."
 fix = "Decision 3618. Task 22.44.47."
+
+[gotcha.4536]
+title = "The webhooks ingress joins the path of an origin with a slash, and the node front serves its consensus route at one exact path"
+symptom = "The node front in services/platform/hosted/paxeer/src/main.rs answers consensus calls at the path /comet and no other. The webhooks ingress in services/platform/hosted/webhooks/src/trusted.rs posts each node call and each consensus call with the request path of a single slash, and services/platform/hosted/webhooks/src/boundary.rs joins the path of the origin with that request path, so an origin that ends in /comet is addressed at /comet followed by a slash. The case of services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs states the joined path with the slash, and its stand-in answers at any path."
+fix = "Decision 3619. Task 22.39.701."

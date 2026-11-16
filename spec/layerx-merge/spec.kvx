@@ -14824,6 +14824,12 @@ value = "A page that has to act when a person leaves registers the pagehide even
 basis = "Gotcha 4535. Decisions 3587 and 3591."
 affects = []
 
+[decision.3619]
+title = "A call to an origin that holds a path goes to that path exactly"
+value = "A node call and a consensus call of the webhooks ingress go to the path of the origin as the setting gives it: the root path for an origin without a path, and the path without a slash added for an origin with a path. The readiness of the ingress uses the same paths as its calls. A case that stands in for the node front answers only at the paths the node front serves, the root path for node calls and /comet for consensus calls, and refuses every other path as not found, by decision 3046. The other requests of the ingress keep their paths."
+basis = "Gotcha 4536. Decisions 3046 and 3614."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44484,6 +44490,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.701]
+title = "Send the node and consensus calls of the webhooks ingress to the exact path of their origin"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/webhooks/src/trusted.rs", "services/platform/hosted/webhooks/src/boundary.rs", "services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs", "docs/wiki/HostedWebhooks.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test verifier_consensus_calls"
+do_1 = "do_1 Gotcha 4536, decision 3619. Read in services/platform/hosted/webhooks/src/boundary.rs the type of an origin with its parse and its path join and the cases of that file, in services/platform/hosted/webhooks/src/trusted.rs the readiness of the receipt verifier and its call function, the case of services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs with its stand-in, and in services/platform/hosted/paxeer/src/main.rs the paths the node front serves."
+symbols = []
 
 [capability.22.44.52]
 title = "Let the render check measure what a person can see and take the declared answers of a state"
@@ -212218,6 +212233,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.701]
+title = "Send the node and consensus calls of the webhooks ingress to the exact path of their origin"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.701"]
+interfaces = []
+do_1 = "do_1 Gotcha 4536, decision 3619. Read in services/platform/hosted/webhooks/src/boundary.rs the type of an origin with its parse and its path join and the cases of that file, in services/platform/hosted/webhooks/src/trusted.rs the readiness of the receipt verifier and its call function, the case of services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs with its stand-in, and in services/platform/hosted/paxeer/src/main.rs the paths the node front serves."
+do_2 = "do_2 In services/platform/hosted/webhooks/src/trusted.rs the readiness of the receipt verifier and its call function post to the path of the origin exactly: the root path for an origin without a path, the path of the origin with no slash added for an origin with a path. Use the form of the path join in services/platform/hosted/webhooks/src/boundary.rs that gives the path of the origin for an empty request path, and change that join only where it is wrong. Every other request of the ingress keeps its path."
+do_3 = "do_3 In services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs the stand-in for the consensus origin answers only at /comet and the stand-in for the node origin only at the root path; every other path is answered as not found with status 404. The case states /comet for each consensus call. Add cases: an origin given with a slash after /comet is addressed at /comet; the readiness is false where the consensus origin answers only at /comet followed by a slash. No present case is removed or weakened."
+do_4 = "do_4 In the cases of services/platform/hosted/webhooks/src/boundary.rs state the join for an empty request path with and without a path of the origin."
+do_5 = "do_5 In docs/wiki/HostedWebhooks.md state at the rows of the two origins that calls go to the path of the origin exactly and that the consensus origin of the node front ends in /comet."
+do_6 = "do_6 Run the tests of the package by hand before the counted verification. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/webhooks/src/trusted.rs", "services/platform/hosted/webhooks/src/boundary.rs", "services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs", "docs/wiki/HostedWebhooks.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test verifier_consensus_calls"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
