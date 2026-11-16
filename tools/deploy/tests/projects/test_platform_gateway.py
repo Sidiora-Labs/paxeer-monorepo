@@ -5,11 +5,13 @@ import fnmatch
 import re
 import tomllib
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFINITION = ROOT / "deploy/projects/platform/gateway.kvx"
 CONTAINER = ROOT / "docker/platform-gateway"
 GATEWAY = ROOT / "services/platform/hosted/gateway"
+PAXEER = ROOT / "services/platform/hosted/paxeer"
 ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]*\Z")
 RUST_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
 RUST_TOKEN = re.compile(
@@ -463,6 +465,59 @@ def test_gateway_identity_inputs_are_categorized_and_documented():
         comment = lines[index - 1]
         assert comment.startswith("# ")
         assert all(description in comment for description in descriptions)
+
+
+def test_gateway_backend_origins_follow_indexer_and_consensus_contracts():
+    data = definition()
+    variables = data["vars"]["gateway"]
+    indexer = tomllib.loads(
+        (ROOT / "deploy/projects/platform/indexer.kvx").read_text()
+    )
+    listener = indexer["vars"]["indexer"]["LAYERX_INDEXER_LISTEN"]
+    listener_port = int(listener.rsplit(":", 1)[1])
+    indexer_origin = variables["LAYERX_GATEWAY_INDEXER_URL"]
+    parsed_indexer = urlsplit(indexer_origin)
+    assert parsed_indexer.scheme == "https"
+    assert parsed_indexer.hostname == "${{indexer.railway_private_domain}}"
+    assert parsed_indexer.port == listener_port
+    assert parsed_indexer.path == ""
+    consensus = variables["LAYERX_GATEWAY_CONSENSUS_RPC_URL"]
+    assert consensus == (
+        "env:PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL"
+    )
+    assert data["inputs"]["gateway"][
+        "PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL"
+    ] == "operator"
+
+
+def test_gateway_consensus_input_documents_an_absolute_path_preserving_https_url():
+    lines = DEFINITION.read_text().splitlines()
+    name = "PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL"
+    index = next(i for i, line in enumerate(lines) if line.startswith(name + " ="))
+    comment = lines[index - 1]
+    assert comment.startswith("# ")
+    assert "absolute HTTPS address" in comment
+    assert "DNS host" in comment
+    assert "may hold a path" in comment
+    assert "exactly that path" in comment
+
+
+def test_gateway_consensus_methods_are_admitted_by_the_node_front():
+    gateway_methods = set()
+    for source in runtime_sources().values():
+        gateway_methods.update(
+            re.findall(
+                r"\b(?:consensus|consensus_request)\s*\([^)]*?\"([a-z_]+)\"",
+                source,
+                re.S,
+            )
+        )
+    assert gateway_methods
+    node_source = production_source(PAXEER / "src/comet.rs")
+    admitted_methods = set(
+        re.findall(r'^\s*\"([a-z_]+)\"\s*=>', node_source, re.M)
+    )
+    assert gateway_methods <= admitted_methods
 
 
 def test_gateway_port_listener_and_health_are_served():
