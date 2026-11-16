@@ -175089,7 +175089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.72]
 title = "Give the explorer cases that render a whole page or the whole layout their own time bounds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.71"]
