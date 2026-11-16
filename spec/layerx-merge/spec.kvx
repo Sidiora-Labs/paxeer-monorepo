@@ -14956,6 +14956,18 @@ value = "Each call of the routing that passes on a fetched response, gives a fix
 basis = "Gotcha 4557. Decisions 3628 and 3629."
 affects = []
 
+[decision.3641]
+title = "The command applycheck takes a stand-in receipt key for a copy that holds none"
+value = "With the flag stand-in-receipt-key the command generates a receipt key in memory and reads neither a receipt key file nor a consensus key file. Before the block of the check is built, the state each form runs on registers the stand-in key in place of the registered keys, bound as a registered key is bound, so that every form admits the batch of the check as it admits a batch under a registered key. The forms and their comparison stay as they are, the report names the mode of the receipt key, and without the flag the command reads the key of the home and refuses as now. The stand-in key lives only in the process and is written to no file."
+basis = "Gotcha 4558. Decision 3633."
+affects = []
+
+[decision.3642]
+title = "The health answers of the dashboard API and of the hosted webhooks service hold the members network_id and version"
+value = "The member version holds the version of the package and is always present. The member network_id holds the network label of the deployment and is present where the service has the label. The dashboard API reads the label from the optional setting LAYERX_DASHBOARD_NETWORK_ID and the hosted webhooks service from the optional setting LAYERX_WEBHOOKS_NETWORK_ID, in both roles. A label is nonempty printable ASCII without spaces of at most 64 bytes, and a value outside that form refuses the start. The definitions of the three services give the setting from an input of the kind operator, the label the gateway of the project takes. The members the answers hold now, their statuses and the liveness route stay as they are."
+basis = "Gotcha 4559. Decisions 3635 and 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44616,6 +44628,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.713]
+title = "Give the health answers of the dashboard API and of the hosted webhooks service a network and a version"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard", "services/platform/hosted/webhooks", "deploy/projects/platform/dashboard.kvx", "deploy/projects/platform/webhooks-public.kvx", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py", "tools/deploy/tests/projects/test_platform_webhooks_public.py", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedDashboard.md", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedGateway.md", "deploy/projects/README.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_webhooks_public.py tools/deploy/tests/projects/test_platform_webhooks_ingress.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard --test plain_listener && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test plain_listener --test liveness_route"
+do_1 = "do_1 Gotcha 4559, decision 3642. Read in services/platform/hosted/gateway/src/routes.rs what a binding of a service holds and how its health answer is read, the section on the bindings in docs/wiki/HostedGateway.md, in services/platform/hosted/dashboard/src/main.rs the reading of the settings and the answer of the health route, in services/platform/hosted/webhooks/src/main.rs the reading of the settings, the answer of the health route in both roles and the liveness route, the cases of services/platform/hosted/dashboard/tests/plain_listener.rs, services/platform/hosted/webhooks/tests/plain_listener.rs and services/platform/hosted/webhooks/tests/liveness_route.rs, the three definitions deploy/projects/platform/dashboard.kvx, deploy/projects/platform/webhooks-public.kvx, deploy/projects/platform/webhooks-ingress.kvx with their cases under tools/deploy/tests/projects, and the sections on the health route of docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md."
+symbols = []
+
+[capability.22.39.712]
+title = "Let the command applycheck run on a copy of a home that holds no receipt key"
+reqs = ["22998.1"]
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+do_1 = "do_1 Gotcha 4558, decision 3641. Read daemon/paxd/cmd/applycheck.go with its flags and exit statuses and its cases, node/apply_check.go with the checks of the home, the forms, the report and the comparison, node/sequencer/apply_check.go with the building of the block and the signing of the batch, node/sequencer/receiptkey.go with the loading of a receipt key and its binding to the consensus key and to the registered keys, the cases of node/apply_check_test.go with the key they register, and the sections on the command in node/README.md and daemon/README.md."
+symbols = []
 
 [capability.22.44.59]
 title = "Let the render check hold a request that ends after its render"
@@ -212872,6 +212902,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.713]
+title = "Give the health answers of the dashboard API and of the hosted webhooks service a network and a version"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.709"]
+reqs = ["22998.1"]
+capabilities = ["22.39.713"]
+interfaces = []
+do_1 = "do_1 Gotcha 4559, decision 3642. Read in services/platform/hosted/gateway/src/routes.rs what a binding of a service holds and how its health answer is read, the section on the bindings in docs/wiki/HostedGateway.md, in services/platform/hosted/dashboard/src/main.rs the reading of the settings and the answer of the health route, in services/platform/hosted/webhooks/src/main.rs the reading of the settings, the answer of the health route in both roles and the liveness route, the cases of services/platform/hosted/dashboard/tests/plain_listener.rs, services/platform/hosted/webhooks/tests/plain_listener.rs and services/platform/hosted/webhooks/tests/liveness_route.rs, the three definitions deploy/projects/platform/dashboard.kvx, deploy/projects/platform/webhooks-public.kvx, deploy/projects/platform/webhooks-ingress.kvx with their cases under tools/deploy/tests/projects, and the sections on the health route of docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md."
+do_2 = "do_2 The dashboard API reads the optional setting LAYERX_DASHBOARD_NETWORK_ID: a label of nonempty printable ASCII without spaces of at most 64 bytes, and a value outside that form refuses the start. The answer of its health route holds the member version with the version of the package on every status, and the member network_id with the label where the setting is given. The member ready and the statuses stay as they are, on both listeners."
+do_3 = "do_3 The hosted webhooks service reads the optional setting LAYERX_WEBHOOKS_NETWORK_ID under the same rule, in both roles. The answer of its health route holds the members version and network_id in the same forms beside the members it holds now, which stay as they are. The liveness route stays as it is."
+do_4 = "do_4 In deploy/projects/platform/dashboard.kvx the variable LAYERX_DASHBOARD_NETWORK_ID reads the input PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID, in deploy/projects/platform/webhooks-public.kvx the variable LAYERX_WEBHOOKS_NETWORK_ID reads the input PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID, and in deploy/projects/platform/webhooks-ingress.kvx it reads the input PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_NETWORK_ID. Each input is of the kind operator with a comment that states its form: the network label the gateway of the project takes. The example of the environment in each of the two packages names the setting with that meaning."
+do_5 = "do_5 Add cases in the three files of cases named in do_1 for the packages: with the setting the answer holds both members, the label as given and the version of the package; without it the answer holds the member version and no member network_id; a label outside the form refuses the start; for the webhooks service in each role its cases start. Add cases in tools/deploy/tests/projects/test_platform_dashboard.py, tools/deploy/tests/projects/test_platform_webhooks_public.py, tools/deploy/tests/projects/test_platform_webhooks_ingress.py: the variable, the input, its kind and its comment. No present case is removed or weakened."
+do_6 = "do_6 State the setting and the two members in docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md. State in the section on the bindings of docs/wiki/HostedGateway.md the members a binding of each of the two services takes: the health path, the pointer to the member ready with the value true, the pointer to the member network_id with the network label, and the pointer to the member version. Bring deploy/projects/README.md in line where it lists the inputs of the three services."
+do_7 = "do_7 The directory web of the dashboard package is not part of this task: change nothing there. The files of the cases under services/platform/hosted/dashboard/tests and services/platform/hosted/webhooks/tests are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard", "services/platform/hosted/webhooks", "deploy/projects/platform/dashboard.kvx", "deploy/projects/platform/webhooks-public.kvx", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py", "tools/deploy/tests/projects/test_platform_webhooks_public.py", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedDashboard.md", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedGateway.md", "deploy/projects/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard -p layerx-platform-webhooks --tests"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_webhooks_public.py tools/deploy/tests/projects/test_platform_webhooks_ingress.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard --test plain_listener && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test plain_listener --test liveness_route"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.709]
 title = "Let the definition of the hosted gateway carry the bindings of the product routes"
 status = "done"
@@ -248134,6 +248198,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.712]
+title = "Let the command applycheck run on a copy of a home that holds no receipt key"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.706"]
+reqs = ["22998.1"]
+capabilities = ["22.39.712"]
+interfaces = []
+do_1 = "do_1 Gotcha 4558, decision 3641. Read daemon/paxd/cmd/applycheck.go with its flags and exit statuses and its cases, node/apply_check.go with the checks of the home, the forms, the report and the comparison, node/sequencer/apply_check.go with the building of the block and the signing of the batch, node/sequencer/receiptkey.go with the loading of a receipt key and its binding to the consensus key and to the registered keys, the cases of node/apply_check_test.go with the key they register, and the sections on the command in node/README.md and daemon/README.md."
+do_2 = "do_2 The command takes the flag stand-in-receipt-key. With the flag a receipt key is generated in memory, and neither the file the setting sequencer.receipt-key-file names nor the consensus key file of the home is read; the setting may be empty and the files may be absent. Before the block of the check is built, the state each form runs on registers the stand-in key in place of the registered keys, with every record the admission of a batch reads for a registered key, so that every form admits the batch of the check as it admits a batch under a registered key. The key is written to no file and appears in no output, and the copy takes no change beyond the changes the check makes now."
+do_3 = "do_3 The report holds a member that names the mode of the receipt key with the values registered and stand-in. Without the flag the command behaves as now, with its refusals and its exit statuses. The forms, the results per transaction and the comparison stay as they are in both modes."
+do_4 = "do_4 Add cases in node/apply_check_test.go: a home whose state registers a receipt key and that holds neither a receipt key file nor a consensus key file is refused without the flag as now; with the flag every form runs over a transfer and over a contract creation, the comparison is equal, and the report names the mode stand-in; a home that holds its registered key gives the mode registered and the results it gives now. Add cases in daemon/paxd/cmd/applycheck_test.go on the flag, its help text and the exit statuses in both modes. No present case is removed or weakened."
+do_5 = "do_5 State the flag, what it replaces and what the report names in node/README.md and daemon/README.md."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.711]
 title = "Give the hosted authority a row in the roster of service certificates"
