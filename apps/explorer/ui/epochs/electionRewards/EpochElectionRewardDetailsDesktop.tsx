@@ -37,27 +37,33 @@ const CeloEpochElectionRewardDetailsDesktop = ({ type, token }: Props) => {
 
   return (
     <Box
+      ref={ rootRef }
+      role="region"
+      aria-label="Election reward details"
+      tabIndex={ 0 }
       p={ 4 }
-      bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+      bgColor="surface"
       borderRadius="base"
-      maxH="360px"
-      overflowY="scroll"
-      fontWeight={ 400 }
-      textStyle="sm"
+      maxH="var(--chakra-spacing-80)"
+      overflow="auto"
+      overscrollBehavior="contain"
+      scrollbarGutter="stable"
+      fontWeight="normal"
+      textStyle="body"
     >
       { query.data && (
         <Grid
-          gridTemplateColumns="min-content min-content min-content"
+          gridTemplateColumns="minmax(max-content, 1fr) max-content minmax(max-content, 1fr)"
           rowGap={ 5 }
           columnGap={ 5 }
         >
-          <GridItem fontWeight={ 600 } mb={ 1 } whiteSpace="nowrap">
+          <GridItem fontWeight="semibold" mb={ 1 } whiteSpace="nowrap">
             { titles[0] }
           </GridItem>
-          <GridItem fontWeight={ 600 } mb={ 1 } whiteSpace="nowrap" textAlign="right">
+          <GridItem fontWeight="semibold" mb={ 1 } whiteSpace="nowrap" textAlign="right">
             Amount { token.symbol }
           </GridItem>
-          <GridItem fontWeight={ 600 } mb={ 1 } whiteSpace="nowrap">
+          <GridItem fontWeight="semibold" mb={ 1 } whiteSpace="nowrap">
             { titles[1] }
           </GridItem>
 
@@ -70,7 +76,7 @@ const CeloEpochElectionRewardDetailsDesktop = ({ type, token }: Props) => {
                   <GridItem>
                     <AddressEntity address={ item.account } noIcon truncation="constant"/>
                   </GridItem>
-                  <GridItem textAlign="right">
+                  <GridItem textAlign="right" textStyle="number">
                     <AssetValue
                       amount={ item.amount }
                       decimals={ token.decimals }
@@ -85,11 +91,11 @@ const CeloEpochElectionRewardDetailsDesktop = ({ type, token }: Props) => {
         </Grid>
       ) }
 
-      { query.isFetching && <ContentLoader maxW="200px" mt={ 3 }/> }
+      { query.isFetching && <ContentLoader maxW="var(--chakra-spacing-40\.5)" mt={ 3 }/> }
 
       { query.isError && <Text color="text.error" mt={ 3 }>Something went wrong. Unable to load next page.</Text> }
 
-      <Box h="0" w="100px" ref={ cutRef }/>
+      <Box h="0" w="var(--chakra-spacing-24)" ref={ cutRef }/>
     </Box>
   );
 };

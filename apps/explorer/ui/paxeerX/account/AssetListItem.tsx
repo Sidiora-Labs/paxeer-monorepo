@@ -21,9 +21,9 @@ const AssetListItem = ({ item, isLoading }: Props) => {
     <TableRow data-asset={ item.asset.id }>
       <TableCell verticalAlign="middle">
         <Flex flexDirection="column" rowGap={ 1 } minW={ 0 }>
-          <Skeleton loading={ isLoading } fontWeight={ 600 }>{ label }</Skeleton>
+          <Skeleton loading={ isLoading } fontWeight="semibold">{ label }</Skeleton>
           { item.asset.id !== label && (
-            <Skeleton loading={ isLoading } color="text.secondary" textStyle="xs" wordBreak="break-all" data-label="asset-id">
+            <Skeleton loading={ isLoading } color="text.secondary" textStyle="text.xs" wordBreak="break-all" data-label="asset-id">
               { item.asset.id }
             </Skeleton>
           ) }
@@ -33,7 +33,7 @@ const AssetListItem = ({ item, isLoading }: Props) => {
         <Skeleton loading={ isLoading } color="text.secondary" wordBreak="break-all">{ item.asset.denom }</Skeleton>
       </TableCell>
       <TableCell verticalAlign="middle" isNumeric>
-        <Skeleton loading={ isLoading } display="inline-block" fontWeight={ 500 } data-label="total">
+        <Skeleton loading={ isLoading } display="inline-block" fontWeight="medium" data-label="total">
           { total }
         </Skeleton>
       </TableCell>

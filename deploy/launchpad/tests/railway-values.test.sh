@@ -51,7 +51,9 @@ want="$tmp/want"
 		for n in $runtime; do echo "$s $n"; done
 	done
 	for s in api api-sockets social livestream metadata user; do for n in $db; do echo "$s $n"; done; done
-	for n in $identity ACCOUNTING_READ_CONFIG_DOCUMENT ACCOUNTING_READ_CONFIG_SHA256 STATS_SERVICE_URL; do echo "api $n"; done
+	for n in $identity ACCOUNTING_READ_CONFIG_DOCUMENT ACCOUNTING_READ_CONFIG_SHA256 STATS_SERVICE_URL \
+		DISCOVERY_RUNTIME_CONFIG_DOCUMENT DISCOVERY_RUNTIME_CONFIG_SHA256 STREAM_RELAY_CONFIG_DOCUMENT STREAM_RELAY_CONFIG_SHA256 \
+		NETWORK_AUTHORITY_CONFIG_DOCUMENT NETWORK_AUTHORITY_CONFIG_SHA256 NATS_CREDENTIALS NATS_URL; do echo "api $n"; done
 	for n in $identity NATS_CREDENTIALS NATS_URL STREAM_CONSUMER_CONFIG_DOCUMENT STREAM_CONSUMER_CONFIG_SHA256; do
 		echo "api-sockets $n"
 	done
@@ -85,6 +87,7 @@ diff -u "$want" "$tmp/got" || fail "unresolved names differ from the reported op
 
 grep -q 'not in project' "$tmp/plan.out" && fail "a manifest service is missing from the replay"
 grep -q '^  missing RPC_URL = https://api5.mainnet-beta.paxeer.network$' "$tmp/plan.out" || fail "RPC_URL not taken from the values file"
+grep -q '^  missing NETWORK_RPC_URL = https://api5.mainnet-beta.paxeer.network$' "$tmp/plan.out" || fail "NETWORK_RPC_URL not taken from the values file"
 grep -q '^  missing LIVEPEER_API_URL = https://livepeer.studio/api$' "$tmp/plan.out" || fail "LIVEPEER_API_URL not taken"
 grep -q '^  missing METADATA_INGRESS = edge$' "$tmp/plan.out" || fail "metadata ingress is not edge"
 grep -q '^  missing MODERATION_SOURCE = database$' "$tmp/plan.out" || fail "edge metadata does not read moderation from the database"

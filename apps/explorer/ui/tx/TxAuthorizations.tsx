@@ -1,9 +1,9 @@
-import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import TxPendingAlert from 'ui/tx/TxPendingAlert';
 import TxSocketAlert from 'ui/tx/TxSocketAlert';
+import ActivityViews from 'ui/txs/ActivityViews';
 
 import TxAuthorizationsList from './authorizations/TxAuthorizationsList';
 import TxAuthorizationsTable from './authorizations/TxAuthorizationsTable';
@@ -20,14 +20,14 @@ const TxAuthorizations = ({ txQuery }: Props) => {
   }
 
   const content = (
-    <>
-      <Box hideFrom="lg">
+    <ActivityViews
+      list={
         <TxAuthorizationsList data={ txQuery.data?.authorization_list } isLoading={ txQuery.isPlaceholderData }/>
-      </Box>
-      <Box hideBelow="lg">
+      }
+      table={
         <TxAuthorizationsTable data={ txQuery.data?.authorization_list } isLoading={ txQuery.isPlaceholderData }/>
-      </Box>
-    </>
+      }
+    />
   );
 
   return (

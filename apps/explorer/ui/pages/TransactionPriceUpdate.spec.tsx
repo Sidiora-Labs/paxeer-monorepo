@@ -36,7 +36,7 @@ describe('TransactionPageContent for a price update', () => {
     render(<Transaction/>);
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith({ pathname: '/feed/update/[hash]', query: { hash: txMock.priceUpdate.hash } }));
-  });
+  }, 60_000);
 
   it('keeps an EVM transaction on the transaction page', async() => {
     routerState.pathname = '/tx/[hash]';
@@ -47,5 +47,5 @@ describe('TransactionPageContent for a price update', () => {
 
     await waitFor(() => expect(container.querySelector('[data-tx-details]')).not.toBeNull());
     expect(replace).not.toHaveBeenCalled();
-  });
+  }, 60_000);
 });

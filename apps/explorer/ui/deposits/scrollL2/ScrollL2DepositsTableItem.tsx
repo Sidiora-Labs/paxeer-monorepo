@@ -23,11 +23,11 @@ const ScrollL2DepositsTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BlockEntityL1
           number={ item.origination_transaction_block_number }
           isLoading={ isLoading }
-          fontWeight={ 600 }
+          fontWeight="semibold"
           noIcon
         />
       </TableCell>

@@ -27,35 +27,38 @@ export function InferenceRoomsTable({ rooms, onSelect }: { rooms: Array<Inferenc
       title={ `${ rooms.length } inference rooms` }
       note="Select a room to inspect its market profile. Peer and settlement totals are unavailable in the room view."
     >
-      <TableRoot variant="scan" minW="850px" aria-label="Inference rooms">
-        <TableHeader>
-          <TableRow>
-            <TableColumnHeader>Room / model</TableColumnHeader>
-            <TableColumnHeader>Host</TableColumnHeader>
-            <TableColumnHeader isNumeric>Peers</TableColumnHeader>
-            <TableColumnHeader isNumeric>Open asks</TableColumnHeader>
-            <TableColumnHeader isNumeric>Settled tokens</TableColumnHeader>
-            <TableColumnHeader>State</TableColumnHeader>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          { rooms.map((room) => (
-            <TableRow key={ room.room_id } data-room={ room.room_id }>
-              <TableCell>
-                <Button variant="plain" size="sm" value={ room.room_id } onClick={ handleRoom } aria-label={ `Open room ${ room.room_id }` }>
-                  <Identifier value={ room.room_id }/>
-                </Button>
-                <Text color="text.secondary" textStyle="xs">Model <Identifier value={ room.model_digest }/></Text>
-              </TableCell>
-              <TableCell><Identifier value={ room.host_key }/></TableCell>
-              <TableCell isNumeric title="Peer count is not included in the room view">—</TableCell>
-              <TableCell isNumeric fontFamily="mono">{ room.open_asks.length }</TableCell>
-              <TableCell isNumeric title="Settled tokens are available per deal below">—</TableCell>
-              <TableCell>{ room.state === 0 ? 'Open' : 'Closed' }</TableCell>
+      <Box overflowX="auto" maxW="100%" tabIndex={ 0 } role="region"
+        _focusVisible={{ outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))' }} aria-label="Inference rooms">
+        <TableRoot variant="scan" minW="var(--chakra-spacing-200)" aria-label="Inference rooms">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Room / model</TableColumnHeader>
+              <TableColumnHeader>Host</TableColumnHeader>
+              <TableColumnHeader isNumeric>Peers</TableColumnHeader>
+              <TableColumnHeader isNumeric>Open asks</TableColumnHeader>
+              <TableColumnHeader isNumeric>Settled tokens</TableColumnHeader>
+              <TableColumnHeader>State</TableColumnHeader>
             </TableRow>
-          )) }
-        </TableBody>
-      </TableRoot>
+          </TableHeader>
+          <TableBody>
+            { rooms.map((room) => (
+              <TableRow key={ room.room_id } data-room={ room.room_id }>
+                <TableCell>
+                  <Button variant="plain" size="sm" value={ room.room_id } onClick={ handleRoom } aria-label={ `Open room ${ room.room_id }` }>
+                    <Identifier value={ room.room_id }/>
+                  </Button>
+                  <Text color="text.secondary" textStyle="xs">Model <Identifier value={ room.model_digest }/></Text>
+                </TableCell>
+                <TableCell><Identifier value={ room.host_key }/></TableCell>
+                <TableCell isNumeric title="Peer count is not included in the room view">—</TableCell>
+                <TableCell isNumeric fontFamily="mono">{ room.open_asks.length }</TableCell>
+                <TableCell isNumeric title="Settled tokens are available per deal below">—</TableCell>
+                <TableCell>{ room.state === 0 ? 'Open' : 'Closed' }</TableCell>
+              </TableRow>
+            )) }
+          </TableBody>
+        </TableRoot>
+      </Box>
       { rooms.length === 0 && <Text p={ 4 }>There are no inference rooms.</Text> }
     </ScanTableCard>
   );
@@ -83,11 +86,11 @@ export function InferenceDealPanel({ deal, room }: { deal: InferenceDeal; room?:
 
   return (
     <ScanTableCard title="Deal" note={ <Identifier value={ deal.deal_id }/> }>
-      <Box p={ 4 } textStyle="sm" data-deal={ deal.deal_id }>
+      <Box p={ 4 } textStyle="sm" overflowWrap="anywhere" data-deal={ deal.deal_id }>
         <Text>Room: <Identifier value={ deal.room_id }/></Text>
         <Text>Ask: <Identifier value={ deal.ask_id }/></Text>
         <Text>Roster: <Identifier value={ deal.roster_digest }/></Text>
-        <Flex gap={ 6 } flexWrap="wrap" mt={ 3 } fontFamily="mono">
+        <Flex gap={ 6 } flexWrap="wrap" mt={ 3 } fontFamily="mono" css={{ '& > p': { minWidth: 0, maxWidth: '100%' } }}>
           <Text>Price / 1,000 tokens: { count(deal.agreed_price_per_thousand_tokens) }</Text>
           <Text>Settled tokens: { count(deal.settled_tokens) }</Text>
           <Text>Amount owed: { count(deal.settled_amount_owed) }</Text>
@@ -95,33 +98,36 @@ export function InferenceDealPanel({ deal, room }: { deal: InferenceDeal; room?:
         </Flex>
         <Heading level="3" mt={ 4 } mb={ 2 }>Payout split</Heading>
         { profile && peerBps !== undefined ? (
-          <Flex gap={ 6 } data-payout-split>
+          <Flex gap={ 6 } flexWrap="wrap" data-payout-split>
             <Text>Host { percent(profile.host_share_bps) }</Text>
             <Text>Protocol { percent(profile.protocol_share_bps) }</Text>
             <Text>Peer pool { percent(peerBps) }</Text>
           </Flex>
         ) : <Text>Payout shares are unavailable until the room profile loads.</Text> }
       </Box>
-      <TableRoot variant="scan" minW="620px" aria-label="Deal layer split">
-        <TableHeader>
-          <TableRow>
-            <TableColumnHeader>Bid</TableColumnHeader>
-            <TableColumnHeader isNumeric>First layer</TableColumnHeader>
-            <TableColumnHeader isNumeric>End layer (exclusive)</TableColumnHeader>
-            <TableColumnHeader isNumeric>Peer pool weight</TableColumnHeader>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          { deal.layers.map((layer) => (
-            <TableRow key={ layer.bid_id } data-bid={ layer.bid_id }>
-              <TableCell><Identifier value={ layer.bid_id }/></TableCell>
-              <TableCell isNumeric>{ layer.first_layer }</TableCell>
-              <TableCell isNumeric>{ layer.end_layer }</TableCell>
-              <TableCell isNumeric fontFamily="mono">{ layer.end_layer - layer.first_layer } / { totalLayers }</TableCell>
+      <Box overflowX="auto" maxW="100%" tabIndex={ 0 } role="region"
+        _focusVisible={{ outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))' }} aria-label="Deal layer split">
+        <TableRoot variant="scan" minW="var(--chakra-spacing-182)" aria-label="Deal layer split">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Bid</TableColumnHeader>
+              <TableColumnHeader isNumeric>First layer</TableColumnHeader>
+              <TableColumnHeader isNumeric>End layer (exclusive)</TableColumnHeader>
+              <TableColumnHeader isNumeric>Peer pool weight</TableColumnHeader>
             </TableRow>
-          )) }
-        </TableBody>
-      </TableRoot>
+          </TableHeader>
+          <TableBody>
+            { deal.layers.map((layer) => (
+              <TableRow key={ layer.bid_id } data-bid={ layer.bid_id }>
+                <TableCell><Identifier value={ layer.bid_id }/></TableCell>
+                <TableCell isNumeric>{ layer.first_layer }</TableCell>
+                <TableCell isNumeric>{ layer.end_layer }</TableCell>
+                <TableCell isNumeric fontFamily="mono">{ layer.end_layer - layer.first_layer } / { totalLayers }</TableCell>
+              </TableRow>
+            )) }
+          </TableBody>
+        </TableRoot>
+      </Box>
     </ScanTableCard>
   );
 }
@@ -129,34 +135,38 @@ export function InferenceDealPanel({ deal, room }: { deal: InferenceDeal; room?:
 export function InferenceReceiptsTable({ receipts }: { receipts: Array<InferenceReceipt> }) {
   return (
     <ScanTableCard title={ `${ receipts.length } receipt batches` } note="Countersigned lap batches for the selected deal">
-      <TableRoot variant="scan" minW="660px" aria-label="Inference receipt batches">
-        <TableHeader>
-          <TableRow>
-            <TableColumnHeader>Batch digest</TableColumnHeader>
-            <TableColumnHeader isNumeric>First lap</TableColumnHeader>
-            <TableColumnHeader isNumeric>Last lap</TableColumnHeader>
-            <TableColumnHeader isNumeric>Cumulative tokens</TableColumnHeader>
-            <TableColumnHeader isNumeric>Countersign quorum</TableColumnHeader>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          { receipts.map((receipt) => (
-            <TableRow key={ receipt.batch_digest } data-receipt={ receipt.batch_digest }>
-              <TableCell><Identifier value={ receipt.batch_digest }/></TableCell>
-              <TableCell isNumeric fontFamily="mono">{ count(receipt.first_lap_index) }</TableCell>
-              <TableCell isNumeric fontFamily="mono">{ count(receipt.last_lap_index) }</TableCell>
-              <TableCell isNumeric fontFamily="mono">{ count(receipt.cumulative_tokens) }</TableCell>
-              <TableCell isNumeric>{ receipt.countersign_quorum }</TableCell>
+      <Box overflowX="auto" maxW="100%" tabIndex={ 0 } role="region"
+        _focusVisible={{ outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))' }} aria-label="Inference receipt batches">
+        <TableRoot variant="scan" minW="var(--chakra-spacing-182)" aria-label="Inference receipt batches">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Batch digest</TableColumnHeader>
+              <TableColumnHeader isNumeric>First lap</TableColumnHeader>
+              <TableColumnHeader isNumeric>Last lap</TableColumnHeader>
+              <TableColumnHeader isNumeric>Cumulative tokens</TableColumnHeader>
+              <TableColumnHeader isNumeric>Countersign quorum</TableColumnHeader>
             </TableRow>
-          )) }
-        </TableBody>
-      </TableRoot>
+          </TableHeader>
+          <TableBody>
+            { receipts.map((receipt) => (
+              <TableRow key={ receipt.batch_digest } data-receipt={ receipt.batch_digest }>
+                <TableCell><Identifier value={ receipt.batch_digest }/></TableCell>
+                <TableCell isNumeric fontFamily="mono">{ count(receipt.first_lap_index) }</TableCell>
+                <TableCell isNumeric fontFamily="mono">{ count(receipt.last_lap_index) }</TableCell>
+                <TableCell isNumeric fontFamily="mono">{ count(receipt.cumulative_tokens) }</TableCell>
+                <TableCell isNumeric>{ receipt.countersign_quorum }</TableCell>
+              </TableRow>
+            )) }
+          </TableBody>
+        </TableRoot>
+      </Box>
       { receipts.length === 0 && <Text p={ 4 }>There are no receipt batches for this deal.</Text> }
     </ScanTableCard>
   );
 }
 
 export default function PaxeerXInference() {
+  const dealInputRef = React.useRef<HTMLInputElement>(null);
   const [ selectedRoom, setSelectedRoom ] = React.useState<string>();
   const [ dealInput, setDealInput ] = React.useState('');
   const [ dealId, setDealId ] = React.useState<string>();
@@ -202,14 +212,17 @@ export default function PaxeerXInference() {
     if (isInferenceId(id)) {
       if (id === dealId) void refetchDeal();
       else setDealId(id);
+    } else {
+      dealInputRef.current?.focus();
     }
   }, [ dealInput, dealId, refetchDeal ]);
   const handleDealInput = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setDealInput(event.target.value);
+    if (isInferenceId(event.target.value.trim())) setInputError(false);
   }, []);
 
   return (
-    <Flex direction="column" gap={ 5 }>
+    <Flex direction="column" gap={ 5 } minW={ 0 }>
       <Box>
         <Heading level="1">Inference</Heading>
         <Text mt={ 2 } color="text.secondary">Room markets, layer assignments and settled receipt batches.</Text>
@@ -222,10 +235,13 @@ export default function PaxeerXInference() {
       { room.data && <RoomDetails room={ room.data }/> }
       <Box as="form" onSubmit={ handleDeal }>
         <chakra.label htmlFor="inference-deal" display="block" mb={ 2 } textStyle="sm">Deal ID</chakra.label>
+        <Text id="inference-deal-hint" textStyle="small" color="text.secondary" mb={ 2 }>64 lowercase hexadecimal characters</Text>
         <Flex gap={ 3 } flexWrap="wrap">
-          <Input id="inference-deal" value={ dealInput } onChange={ handleDealInput }
+          <Input ref={ dealInputRef } id="inference-deal" name="deal_id" value={ dealInput } onChange={ handleDealInput }
+            autoCorrect="off" autoCapitalize="none" spellCheck={ false } enterKeyHint="search"
             placeholder="64 lowercase hexadecimal characters" fontFamily="mono" maxLength={ 64 }
-            aria-invalid={ inputError } aria-describedby={ inputError ? 'inference-deal-error' : undefined } flex="1" minW="240px"/>
+            aria-invalid={ inputError } aria-describedby={ inputError ? 'inference-deal-hint inference-deal-error' : 'inference-deal-hint' }
+            flex="1 1 var(--chakra-spacing-65)" minW={ 0 }/>
           <Button type="submit">Look up deal</Button>
         </Flex>
         { inputError && <Text id="inference-deal-error" role="alert">Enter a nonzero deal ID of 64 lowercase hexadecimal characters.</Text> }

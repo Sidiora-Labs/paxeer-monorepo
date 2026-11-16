@@ -14,12 +14,12 @@ import { Skeleton } from 'toolkit/chakra/skeleton';
 import isCustomAppError from 'ui/shared/AppError/isCustomAppError';
 import ScrollL2TxnBatchDA from 'ui/shared/batch/ScrollL2TxnBatchDA';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoTimestamp from 'ui/shared/DetailedInfo/DetailedInfoTimestamp';
 import BlockEntityL1 from 'ui/shared/entities/block/BlockEntityL1';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
 import PrevNext from 'ui/shared/PrevNext';
 import ScrollL2TxnBatchStatus from 'ui/shared/statusTag/ScrollL2TxnBatchStatus';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 interface Props {
   query: UseQueryResult<ScrollL2TxnBatch, ResourceError>;
 }
@@ -56,7 +56,6 @@ const ScrollL2TxnBatchDetails = ({ query }: Props) => {
 
   return (
     <DetailedInfo.Container
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(min-content, 200px) minmax(0, 1fr)' }}
     >
       <DetailedInfo.ItemLabel
         isLoading={ isPlaceholderData }

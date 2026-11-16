@@ -9,10 +9,10 @@ import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import NftEntity from 'ui/shared/entities/nft/NftEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 import ConfidentialTokenValue from 'ui/shared/value/ConfidentialTokenValue';
 import TokenValue from 'ui/shared/value/TokenValue';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 type Props = {
   item: TokenTransfer;

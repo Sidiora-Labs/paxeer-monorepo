@@ -105,6 +105,13 @@ variable names. `railway-values.json` supplies the shared `RPC_URL`,
 
 ### API network authority document
 
+The API composer emits `ACCOUNTING_READ_CONFIG_DOCUMENT`,
+`STREAM_RELAY_CONFIG_DOCUMENT` and `DISCOVERY_RUNTIME_CONFIG_DOCUMENT` from
+the API values. The authority command below writes
+`network-authority.json`; set `network_authority_rendered_file` and
+`network_authority_runtime_path` in the API values so the composer emits
+`NETWORK_AUTHORITY_CONFIG_FILE` and its `NETWORK_AUTHORITY_CONFIG_SHA256`.
+
 Generate `network-authority.json` from the repository root with:
 
 ```bash

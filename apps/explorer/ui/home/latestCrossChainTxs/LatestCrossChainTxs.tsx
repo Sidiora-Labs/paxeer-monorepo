@@ -9,6 +9,7 @@ import { INTERCHAIN_MESSAGE } from 'stubs/interchainIndexer';
 import { generateListStub } from 'stubs/utils';
 import { Link } from 'toolkit/chakra/link';
 import { TableBody, TableRoot } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import TransactionsCrossChainListItem from 'ui/crossChain/txs/TransactionsCrossChainListItem';
 
 import LatestCrossChainTxsItemDesktop from './LatestCrossChainTxsItemDesktop';
@@ -34,37 +35,39 @@ const LatestCrossChainTxs = () => {
 
   return (
     <>
-      <Box mb={ 3 } hideFrom="lg" textStyle="sm">
+      <Box mb={ 3 } hideFrom="lg" textStyle="body">
         { data.items.slice(0, txsCount).map(((tx, index) => (
           <TransactionsCrossChainListItem
             key={ tx.message_id + (isPlaceholderData ? index : '') }
             data={ tx }
             isLoading={ isPlaceholderData }
             py={ 4 }
-            textStyle="sm"
-            rowGap="14px"
+            textStyle="body"
+            rowGap="var(--chakra-spacing-3\.5)"
             _first={{
               borderTopWidth: '0',
-              paddingTop: '4px',
+              paddingTop: 'var(--chakra-spacing-1)',
             }}
           />
         ))) }
       </Box>
-      <Box mb={ 3 } hideBelow="lg" textStyle="sm">
-        <TableRoot minWidth="750px">
-          <TableBody>
-            { data.items.slice(0, txsCount).map(((tx, index) => (
-              <LatestCrossChainTxsItemDesktop
-                key={ tx.message_id + (isPlaceholderData ? index : '') }
-                data={ tx }
-                isLoading={ isPlaceholderData }
-              />
-            ))) }
-          </TableBody>
-        </TableRoot>
+      <Box mb={ 3 } hideBelow="lg" textStyle="body">
+        <TableScrollArea label="Cross-chain transactions">
+          <TableRoot aria-label="Cross-chain transactions" minWidth="max-content">
+            <TableBody>
+              { data.items.slice(0, txsCount).map(((tx, index) => (
+                <LatestCrossChainTxsItemDesktop
+                  key={ tx.message_id + (isPlaceholderData ? index : '') }
+                  data={ tx }
+                  isLoading={ isPlaceholderData }
+                />
+              ))) }
+            </TableBody>
+          </TableRoot>
+        </TableScrollArea>
       </Box>
       <Flex justifyContent="center">
-        <Link textStyle="sm" href={ route({ pathname: '/txs', query: { tab: 'txs_cross_chain' } }) }>View all transactions</Link>
+        <Link textStyle="body" href={ route({ pathname: '/txs', query: { tab: 'txs_cross_chain' } }) }>View all transactions</Link>
       </Flex>
     </>
   );

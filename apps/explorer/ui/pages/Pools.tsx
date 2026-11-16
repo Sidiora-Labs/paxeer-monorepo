@@ -6,14 +6,15 @@ import config from 'configs/app';
 import useDebounce from 'lib/hooks/useDebounce';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { POOL } from 'stubs/pools';
-import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import PoolsListItem from 'ui/pools/PoolsListItem';
 import PoolsTable from 'ui/pools/PoolsTable';
 import ActionBar, { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
-import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
+
+import PageDataListDisplay from './PageDataListDisplay';
+import { PageFilterInput } from './PageFilterInput';
 
 const Pools = () => {
   const router = useRouter();
@@ -59,8 +60,8 @@ const Pools = () => {
   );
 
   const filter = (
-    <FilterInput
-      w={{ base: '100%', lg: '360px' }}
+    <PageFilterInput
+      w={{ base: '100%', lg: 'var(--chakra-spacing-80)' }}
       size="sm"
       onChange={ handleSearchTermChange }
       placeholder="Pair, token symbol or token address"
@@ -74,6 +75,9 @@ const Pools = () => {
         { filter }
       </Flex>
       <ActionBar
+        w="100%"
+        mx={ 0 }
+        px={ 0 }
         mt={ -6 }
         display={{ base: poolsQuery.pagination.isVisible ? 'flex' : 'none', lg: 'flex' }}
       >
@@ -91,7 +95,7 @@ const Pools = () => {
         title="DEX tracker"
         withTextAd
       />
-      <DataListDisplay
+      <PageDataListDisplay
         isError={ poolsQuery.isError }
         itemsNum={ poolsQuery.data?.items.length }
         emptyText="There are no pools."
@@ -102,7 +106,7 @@ const Pools = () => {
         }}
       >
         { content }
-      </DataListDisplay>
+      </PageDataListDisplay>
     </>
   );
 };

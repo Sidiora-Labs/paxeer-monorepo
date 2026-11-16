@@ -4,9 +4,11 @@ import React from 'react';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import Pagination from 'ui/shared/pagination/Pagination';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
-import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount } from 'ui/shared/scan';
 import BeaconChainWithdrawalsList from 'ui/withdrawals/beaconChain/BeaconChainWithdrawalsList';
 import BeaconChainWithdrawalsTable from 'ui/withdrawals/beaconChain/BeaconChainWithdrawalsTable';
+
+import BlockListCard from './BlockListCard';
 
 type Props = {
   blockWithdrawalsQuery: QueryWithPagesResult<'general:block_withdrawals'>;
@@ -18,7 +20,7 @@ const BlockWithdrawals = ({ blockWithdrawalsQuery, itemsCount }: Props) => {
 
   const content = items ? (
     <>
-      <Box hideFrom="lg">
+      <Box hideFrom="lg" data-block-mobile-grid>
         <BeaconChainWithdrawalsList
           items={ items }
           isLoading={ blockWithdrawalsQuery.isPlaceholderData }
@@ -47,7 +49,7 @@ const BlockWithdrawals = ({ blockWithdrawalsQuery, itemsCount }: Props) => {
     undefined;
 
   return (
-    <ScanTableCard title={ title } pagination={ pagination }>
+    <BlockListCard title={ title } pagination={ pagination }>
       <DataListDisplay
         isError={ blockWithdrawalsQuery.isError }
         itemsNum={ items?.length }
@@ -55,7 +57,7 @@ const BlockWithdrawals = ({ blockWithdrawalsQuery, itemsCount }: Props) => {
       >
         { content }
       </DataListDisplay>
-    </ScanTableCard>
+    </BlockListCard>
   );
 };
 

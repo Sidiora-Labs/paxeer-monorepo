@@ -9,10 +9,10 @@ import { CollapsibleDetails } from 'toolkit/chakra/collapsible';
 import InteropMessageDestinationTx from 'ui/interopMessages/InteropMessageDestinationTx';
 import InteropMessageSourceTx from 'ui/interopMessages/InteropMessageSourceTx';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import AddressEntityInterop from 'ui/shared/entities/address/AddressEntityInterop';
 import InteropMessageStatus from 'ui/shared/statusTag/InteropMessageStatus';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 const rollupFeature = config.features.rollup;
 
@@ -30,9 +30,9 @@ const TxDetailsInterop = ({ data, isLoading }: Props) => {
 
   const details = (
     <Grid
-      gridTemplateColumns="100px 1fr"
+      gridTemplateColumns="var(--chakra-spacing-24) minmax(0, 1fr)"
       textStyle="sm"
-      bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+      bgColor="bg.surface"
       px={ 4 }
       py={ 2 }
       mt={ 3 }

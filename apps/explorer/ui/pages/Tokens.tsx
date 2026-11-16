@@ -125,11 +125,11 @@ const TokensContent = () => {
   }, [ fungibleTypes, handleTokenTypesChange, router, searchTerm, tab ]);
 
   const filter = tab === 'bridged' ? (
-    <PopoverFilter contentProps={{ maxW: '350px' }} appliedFiltersNum={ bridgeChains?.length }>
+    <PopoverFilter contentProps={{ maxW: 'var(--chakra-spacing-80)' }} appliedFiltersNum={ bridgeChains?.length }>
       <TokensBridgedChainsFilter onChange={ handleBridgeChainsChange } defaultValue={ bridgeChains }/>
     </PopoverFilter>
   ) : (
-    <PopoverFilter contentProps={{ w: '200px' }} appliedFiltersNum={ tokenTypes?.length }>
+    <PopoverFilter contentProps={{ w: 'var(--chakra-spacing-40\\.5)' }} appliedFiltersNum={ tokenTypes?.length }>
       <TokenTypeFilter<TokenType> key={ tokenTypes?.join(',') } onChange={ handleTokenTypesChange } defaultValue={ tokenTypes } nftOnly={ false }/>
     </PopoverFilter>
   );

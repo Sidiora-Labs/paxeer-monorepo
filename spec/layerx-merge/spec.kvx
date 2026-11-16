@@ -177324,7 +177324,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.8]
 title = "Bring the transaction, batch, withdrawal and transfer views of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -177396,7 +177396,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.6]
 title = "Bring the home, statistics, blocks, validators, epochs, gas and feed views of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -177432,7 +177432,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.5]
 title = "Bring the page frames of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -249419,7 +249419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.749]
 title = "Compare the bloom and the root of a header in the launchpad indexer with the receipts the header of the node covers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249484,7 +249484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.747]
 title = "Answer the health paths of the ranking, user, metadata and social services without TLS on the port the health check reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249805,7 +249805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.737]
 title = "List the statements of the gateway service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.736"]
@@ -249837,7 +249837,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.736]
 title = "Add the restriction column and the inventory cursor table of the gateway by a registered migration and give the ranking role the lock right of its prune"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.733"]

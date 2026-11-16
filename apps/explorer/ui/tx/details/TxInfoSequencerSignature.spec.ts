@@ -66,7 +66,9 @@ async function receiptedCanonicalSignatureReachesMountedTxInfo() {
   expect(view.client.getQueryData(signatureQueryKey())).toEqual(answer);
   expect(requests).toEqual([ `/api/v2/transactions/${ hash }/signature` ]);
   expect(exchanges).toEqual([ { path: requests[0], status: 200, body: answer } ]);
-  expect(Array.from(view.container.querySelectorAll('[data-tx-info] > [data-detailed-info] [data-detailed-info-label]'))
+  expect(Array.from(view.container.querySelectorAll(
+    '[data-tx-info] > [data-section-group="SUMMARY"] > [data-activity-details] > [data-detailed-info] [data-detailed-info-label]',
+  ))
     .map(label => label.textContent).slice(0, 4)).toEqual([ 'Transaction hash', 'Status and method', 'Sequencer signature', 'Block' ]);
 }
 

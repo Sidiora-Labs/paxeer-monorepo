@@ -384,4 +384,29 @@ PY
 	echo PASS indexer-document-sources
 }
 indexer_document_sources
+
+api_readiness_documents() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" <<'PY'
+import json, sys
+
+api = json.load(open(sys.argv[1]))["api"]
+assert api["documentSources"] == {
+    "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE",
+}
+required = set(api["required"])
+declared = required | set(api["documentSources"]) | set(api["documentSources"].values())
+for name in (
+    "NETWORK_AUTHORITY_CONFIG_DOCUMENT", "NETWORK_AUTHORITY_CONFIG_SHA256",
+    "STREAM_RELAY_CONFIG_DOCUMENT", "STREAM_RELAY_CONFIG_SHA256",
+    "DISCOVERY_RUNTIME_CONFIG_DOCUMENT", "DISCOVERY_RUNTIME_CONFIG_SHA256",
+    "NETWORK_RPC_URL",
+):
+    assert name in declared, name
+assert "NETWORK_AUTHORITY_CONFIG_SHA256" in required
+assert "DISCOVERY_RUNTIME_CONFIG_DOCUMENT" in api["secrets"]
+assert set(api["secrets"]) & set(api["fixed"]) == {"SECRETS_PROVIDER"}
+PY
+	echo PASS api-readiness-documents
+}
+api_readiness_documents
 echo PASS railway-apply-variables

@@ -2,9 +2,9 @@ import React from 'react';
 
 import useApiQuery from 'lib/api/useApiQuery';
 import { TX_INTERPRETATION } from 'stubs/txInterpretation';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoActionsWrapper from 'ui/shared/DetailedInfo/DetailedInfoActionsWrapper';
 import TxInterpretation from 'ui/shared/tx/interpretation/TxInterpretation';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 interface Props {
   hash?: string;

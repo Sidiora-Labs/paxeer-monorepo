@@ -19,11 +19,11 @@ type Props = {
 const LatestZetaChainCCTXItem = ({ tx, isLoading, animation }: Props) => {
   return (
     <Grid
-      gridTemplateColumns="18px 120px 80px 350px auto"
+      gridTemplateColumns="var(--chakra-spacing-4\.5) var(--chakra-spacing-30) var(--chakra-spacing-20) var(--chakra-spacing-80) auto"
       gridGap={ 3 }
       width="100%"
-      minW="740px"
-      borderBottom="1px solid"
+      minW="max-content"
+      borderBottom="var(--chakra-border-widths-1) solid"
       borderColor="border.divider"
       alignItems="center"
       p={ 4 }
@@ -32,7 +32,7 @@ const LatestZetaChainCCTXItem = ({ tx, isLoading, animation }: Props) => {
 
     >
       <ZetaChainCCTXReducedStatus status={ tx.status_reduced } isLoading={ isLoading }/>
-      <TxEntityZetaChainCC truncation="constant" hash={ tx.index } isLoading={ isLoading } fontWeight={ 600 }/>
+      <TxEntityZetaChainCC truncation="constant" hash={ tx.index } isLoading={ isLoading } fontWeight="semibold"/>
       <TimeWithTooltip color="text.secondary" timestamp={ Number(tx.last_update_timestamp) * SECOND } isLoading={ isLoading } timeFormat="relative"/>
       <AddressFromTo
         from={{ hash: tx.sender_address, chainId: tx.source_chain_id.toString(), chainType: 'zeta' }}

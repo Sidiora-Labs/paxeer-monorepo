@@ -24,7 +24,7 @@ const TxStateTokenIdList = ({ items, tokenAddress, isLoading }: Props) => {
       items={ items }
       renderItem={ renderItem }
       triggerProps={{
-        pb: { base: '5px', md: 0 },
+        pb: { base: 'var(--chakra-spacing-1\\.25)', md: 0 },
       }}
       rowGap={ 2 }
     />

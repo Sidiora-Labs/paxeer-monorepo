@@ -26,11 +26,11 @@ const ScrollL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BatchEntityL2
           isLoading={ isLoading }
           number={ item.number }
-          fontWeight={ 600 }
+          fontWeight="semibold"
           noIcon
         />
       </TableCell>
@@ -40,7 +40,7 @@ const ScrollL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
       <TableCell verticalAlign="middle">
         <ScrollL2TxnBatchStatus status={ item.confirmation_transaction.hash ? 'Finalized' : 'Committed' } isLoading={ isLoading }/>
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BlockEntityL1
           number={ item.commitment_transaction.block_number }
           isLoading={ isLoading }
@@ -62,7 +62,7 @@ const ScrollL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
           color="text.secondary"
         />
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         { item.confirmation_transaction.block_number ? (
           <BlockEntityL1
             number={ item.confirmation_transaction.block_number }
