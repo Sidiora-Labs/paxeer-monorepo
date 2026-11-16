@@ -571,6 +571,20 @@ type typedTxHash struct {
 	txIndex uint64
 }
 
+func getTxHashesFromMessages(block *coretypes.ResultBlock, txs []indexedMsg) []typedTxHash {
+	txHashes := make([]typedTxHash, 0, len(txs))
+	for _, tx := range txs {
+		switch msg := tx.msg.(type) {
+		case *types.MsgEVMTransaction:
+			ethtx, _ := msg.AsTransaction()
+			txHashes = append(txHashes, typedTxHash{hash: ethtx.Hash(), isEvm: true, txIndex: uint64(len(txHashes))})
+		case *wasmtypes.MsgExecuteContract:
+			txHashes = append(txHashes, typedTxHash{hash: common.Hash(sha256.Sum256(block.Block.Txs[tx.index])), isEvm: false, txIndex: uint64(len(txHashes))})
+		}
+	}
+	return txHashes
+}
+
 // syntheticTxIndex is the fixed TransactionIndex of a venue synthetic receipt of kind in block:
 // N + kind - 1, N the block's transaction count, whether or not an earlier kind is present.
 func syntheticTxIndex(block *coretypes.ResultBlock, kind keeper.SyntheticReceiptKind) uint64 {
@@ -600,20 +614,11 @@ func getTxHashesFromBlockWithReceiptErrors(
 	globalBlockCache BlockCache,
 	strict bool,
 ) ([]typedTxHash, error) {
-	txHashes := []typedTxHash{}
 	txs, err := filterTransactionsWithReceiptErrors(k, ctxProvider, txConfigProvider, block, shouldIncludeSynthetic, false, cacheCreationMutex, globalBlockCache, strict)
 	if err != nil {
 		return nil, err
 	}
-	for _, tx := range txs {
-		switch tx.msg.(type) {
-		case *types.MsgEVMTransaction:
-			ethtx, _ := tx.msg.(*types.MsgEVMTransaction).AsTransaction()
-			txHashes = append(txHashes, typedTxHash{hash: ethtx.Hash(), isEvm: true, txIndex: uint64(len(txHashes))})
-		case *wasmtypes.MsgExecuteContract:
-			txHashes = append(txHashes, typedTxHash{hash: common.Hash(sha256.Sum256(block.Block.Txs[tx.index])), isEvm: false, txIndex: uint64(len(txHashes))})
-		}
-	}
+	txHashes := getTxHashesFromMessages(block, txs)
 	latestCtx := ctxProvider(LatestCtxHeight)
 	for _, kind := range keeper.SyntheticReceiptKinds {
 		hash := keeper.SyntheticReceiptHash(kind, block.Block.Height)

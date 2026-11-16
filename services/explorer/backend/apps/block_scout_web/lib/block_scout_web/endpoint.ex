@@ -29,7 +29,7 @@ defmodule BlockScoutWeb.Endpoint do
     plug(
       Plug.Static,
       at: "/",
-      from: :block_scout_web,
+      from: {__MODULE__, :static_dir, []},
       gzip: true,
       only: ~w(
       css
@@ -103,6 +103,12 @@ defmodule BlockScoutWeb.Endpoint do
     )
 
     plug(BlockScoutWeb.Router)
+  end
+
+  def static_dir do
+    :block_scout_web
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:static_dir, Application.app_dir(:block_scout_web, "priv/static"))
   end
 
   def init(_key, config) do

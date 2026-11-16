@@ -116,6 +116,8 @@ def test_compose_app_build_context_and_public_inputs():
     assert "MARKET_PROXY_ORIGIN" not in build["args"]
     assert "PRICE_FEED_ORIGIN" not in build["args"]
     assert "COPY package.json pnpm-lock.yaml ./" in dockerfile
+    assert "COPY tsconfig.json ./" in dockerfile
+    assert dockerfile.index("COPY tsconfig.json ./") < dockerfile.index("RUN pnpm install --frozen-lockfile")
     assert "RUN pnpm install --frozen-lockfile" in dockerfile
     assert "pnpm build" in dockerfile
     ignore = (context / ".dockerignore").read_text().splitlines()

@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
@@ -303,32 +302,22 @@ func (s *recoveringQualifiedSource) marketAddresses(ctx context.Context, from, t
 				}
 			}
 		}
-		if len(receipts) != len(transactions) {
+		regularReceipts, shellReceipts, err := receipt.SeparateShellReceipts(transactions, types.Receipts(receipts), block.Hash, header.Number, header.Bloom, header.ReceiptHash, s.blockIdentity == receipt.BlockIdentityReported)
+		if err != nil {
 			return nil, nil, receipt.ErrBinding
 		}
-		logIndex := uint(0)
-		for i, r := range receipts {
-			iUint, conversionErr := checked.Convert[uint](i)
-			if conversionErr != nil {
-				return nil, nil, conversionErr
-			}
-			if r == nil || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != block.Hash || r.TxHash != transactions[i].Hash() || r.TransactionIndex != iUint || r.Type != transactions[i].Type() || r.Status > 1 || len(r.Logs) > 4096 {
-				return nil, nil, receipt.ErrBinding
-			}
+		allReceipts := append(append(types.Receipts(nil), regularReceipts...), shellReceipts...)
+		for _, r := range allReceipts {
+			totalLogs += len(r.Logs)
 			for _, log := range r.Logs {
-				iUint2, conversionErr := checked.Convert[uint](i)
-				if conversionErr != nil {
-					return nil, nil, conversionErr
-				}
-				if log == nil || log.Removed || log.BlockHash != block.Hash || log.BlockNumber != height || log.TxHash != r.TxHash || log.TxIndex != iUint2 || log.Index != logIndex || len(log.Topics) > 4 || len(log.Data) > decode.MaxFieldBytes {
-					return nil, nil, receipt.ErrBinding
-				}
-				logIndex++
-				totalLogs++
 				totalBytes += 256 + len(log.Data) + 32*len(log.Topics)
-				if totalLogs > 65536 || totalBytes > 32<<20 {
-					return nil, nil, receipt.ErrQualification
-				}
+			}
+		}
+		if totalLogs > 65536 || totalBytes > 32<<20 {
+			return nil, nil, receipt.ErrQualification
+		}
+		for _, r := range regularReceipts {
+			for _, log := range r.Logs {
 				if err = add(log.Address.Bytes()); err != nil {
 					return nil, nil, err
 				}
@@ -343,12 +332,6 @@ func (s *recoveringQualifiedSource) marketAddresses(ctx context.Context, from, t
 					}
 				}
 			}
-			if r.Bloom != types.CreateBloom(r) {
-				return nil, nil, receipt.ErrBinding
-			}
-		}
-		if types.MergeBloom(receipts) != header.Bloom || s.blockIdentity != receipt.BlockIdentityReported && types.DeriveSha(types.Receipts(receipts), trie.NewStackTrie(nil)) != header.ReceiptHash {
-			return nil, nil, receipt.ErrBinding
 		}
 	}
 	out := make([]common.Address, 0, len(addresses))

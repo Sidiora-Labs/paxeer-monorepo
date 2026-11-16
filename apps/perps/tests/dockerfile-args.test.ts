@@ -90,3 +90,18 @@ function runnerStageCarriesNoPublicVariables() {
   );
 }
 test(runnerStageCarriesNoPublicVariables);
+
+function workspaceCompileConfigReachesWebBuild() {
+  const deps = DOCKERFILE.split(" AS deps\n")[1].split("\nFROM ")[0];
+  const builder = DOCKERFILE.split(" AS builder\n")[1].split("\nFROM ")[0];
+  assert.ok(deps.includes("COPY tsconfig.json ./"));
+  assert.ok(
+    deps.indexOf("COPY tsconfig.json ./") <
+      deps.indexOf("RUN pnpm install --frozen-lockfile"),
+  );
+  assert.ok(builder.includes("COPY --from=deps /app ./"));
+  assert.ok(
+    builder.indexOf("COPY --from=deps /app ./") < builder.indexOf("pnpm build"),
+  );
+}
+test(workspaceCompileConfigReachesWebBuild);
