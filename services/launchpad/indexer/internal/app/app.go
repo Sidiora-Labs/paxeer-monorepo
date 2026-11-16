@@ -65,15 +65,16 @@ import (
 
 // App is a fully-wired, ready-to-run indexer service.
 type App struct {
-	runStop    context.CancelFunc
-	workers    *runtimeWorkers
-	history    *source.HistoricalSource
-	webhook    *delivery.WebhookBridge
-	archive    *processor.Archive
-	rawArchive *delivery.Archive
-	replay     *processor.ReplayRunner
-	lifecycle  lifecycleRuntimeDocument
-	transport  *http.Transport
+	runStop         context.CancelFunc
+	workers         *runtimeWorkers
+	canonicalSource *canonicalSourceReadiness
+	history         *source.HistoricalSource
+	webhook         *delivery.WebhookBridge
+	archive         *processor.Archive
+	rawArchive      *delivery.Archive
+	replay          *processor.ReplayRunner
+	lifecycle       lifecycleRuntimeDocument
+	transport       *http.Transport
 
 	runtimeRPC      *ethclient.Client
 	runtimeRPCClose func()
@@ -232,11 +233,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var replay *processor.ReplayRunner
 	var webhookTransport *http.Transport
 	workers := newRuntimeWorkers(logger)
+	var canonicalSource *canonicalSourceReadiness
 	var selectionAuthority *source.SelectionAuthority
 	status := httpapi.StatusDeps{Mode: httpapi.StatusLegacy}
 
 	defer func() {
 		if !secretOwned {
+			if canonicalSource != nil {
+				canonicalSource.Close()
+			}
 			workers.Close()
 			if history != nil {
 				_ = history.Close()
@@ -603,17 +608,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			deps.HistoricalRequest = request
 		}
 		secretChecks["workers"] = workers.Ready
-		secretChecks["canonical_source"] = func(c context.Context) error {
-			_, e := deps.Head.Head(c)
-			if e != nil {
-				return e
-			}
-			watermark, e := st.GetCanonicalWatermark(c, 125, d.CanonicalStreamID)
-			if e != nil {
-				return e
-			}
-			return verifyCanonicalRuntimeCheckpoint(c, pool, history.RPC, d.CanonicalStreamID, watermark, lifecycle)
-		}
+		canonicalSource = newCanonicalSourceReadiness(deps.Head, st, pool, history.RPC, d.CanonicalStreamID, lifecycle, time.Now)
+		secretChecks["canonical_source"] = canonicalSource.Ready
+		canonicalSource.Start(ctx)
 		deps.QualifiedBatchSource = liveQualified
 		deps.CanonicalOwner = d.Owner
 		deps.CanonicalStreamID = d.CanonicalStreamID
@@ -652,7 +649,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 	secretOwned = true
-	return &App{workers: workers, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
+	return &App{workers: workers, canonicalSource: canonicalSource, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
 		runtimeRPC: runtimeRPC, runtimeRPCClose: runtimeRPCClose, nats: nc, relay: relay,
 		Router:    runtimeHandlerWithIngestionState(tracker, router, metrics, proc.LeaseState),
 		Processor: proc,
@@ -673,6 +670,9 @@ func (a *App) Close() {
 	defer cancel()
 	if a.runStop != nil {
 		a.runStop()
+	}
+	if a.canonicalSource != nil {
+		a.canonicalSource.Close()
 	}
 	if a.workers != nil {
 		a.workers.Stop()
@@ -1218,6 +1218,9 @@ func (h *canonicalRuntimeHead) Head(ctx context.Context) (int64, error) {
 	h.height.Store(durableUint64)
 	head, err := h.source.ObserveHead(ctx, durableUint64)
 	if err != nil {
+		if ctx.Err() != nil {
+			return 0, ctx.Err()
+		}
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 		defer cancel()
 		return 0, errors.Join(err, h.store.QuarantineCommittedHead(cleanup, h.stream))
@@ -1413,7 +1416,7 @@ func verifyCanonicalRuntimeCheckpoint(ctx context.Context, pool *pgxpool.Pool, p
 	err := pool.QueryRow(ctx, `SELECT block_hash FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2 AND fetch_complete AND required_decode_complete`, stream, height).Scan(&expected)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if height != doc.InitialCheckpointHeight {
-			return errors.New("indexer: canonical checkpoint has no complete source block or issued initial checkpoint")
+			return errCanonicalCheckpointIncomplete
 		}
 		expected = doc.InitialCheckpointHash
 	} else if err != nil {
@@ -1428,7 +1431,7 @@ func verifyCanonicalRuntimeCheckpoint(ctx context.Context, pool *pgxpool.Pool, p
 		return err
 	}
 	if strings.ToLower(original.Hash.Hex()) != expected {
-		return errors.New("indexer: persisted checkpoint differs from canonical source")
+		return errCanonicalCheckpointMismatch
 	}
 	return nil
 }
