@@ -20,6 +20,11 @@ Bureaucrat.start(
 # Bureaucrat.start()
 
 ExUnit.configure(formatters: [JUnitFormatter, ExUnit.CLIFormatter, Bureaucrat.Formatter])
+
+if System.get_env("MIX_IN_BUILDER_BROWSER_DRIVER") == "1" do
+  ExUnit.configure(max_cases: 1)
+end
+
 ExUnit.start()
 
 Mox.defmock(Explorer.Market.Source.TestSource, for: Explorer.Market.Source)
