@@ -15,7 +15,7 @@ import (
 // They are unset before each test so the struct-tag defaults apply
 // deterministically regardless of the ambient environment.
 var optionalKeys = []string{
-	"PORT", "LOG_LEVEL", "NODE_ENV", "CORS_ALLOWED_ORIGINS",
+	"PORT", "LOG_LEVEL", "NODE_ENV", "API_PRIVATE_LISTEN_ADDRESS", "CORS_ALLOWED_ORIGINS",
 	"API_RATE_LIMIT_MAX", "API_RATE_LIMIT_WINDOW_SEC", "API_MAX_INFLIGHT_REQUESTS",
 	"WS_MAX_CONNECTIONS", "WS_MAX_PER_IP", "SSE_MAX_CONNECTIONS", "SSE_MAX_PER_IP",
 	"CLIENT_SEND_BUFFER", "COALESCE_FLUSH_MS", "ADMIN_API_KEY",
@@ -167,6 +167,39 @@ func TestValidate_DirectBoundary(t *testing.T) {
 	bad.Port = 0
 	if err := bad.Validate(); err == nil {
 		t.Error("Port=0 should fail validation")
+	}
+}
+
+func TestPrivateNotificationListenAddressValidation(t *testing.T) {
+	base := Config{
+		DatabaseURL: "postgres://localhost/kl", RedisURL: "redis://localhost:6379",
+		Port: 8080, LogLevel: "info", NodeEnv: literalProduction, APIRole: "rest",
+		DiscoveryRuntimeDocument: "bound", PrivateListenAddress: "127.0.0.1:8443",
+		RateLimitMax: 1, RateLimitWindowSec: 1, MaxInFlightRequests: 1,
+		WSMaxConnections: 1, WSMaxPerIP: 1, SSEMaxConnections: 1, SSEMaxPerIP: 1,
+		ClientSendBuffer: 1, CoalesceFlushMS: 1,
+	}
+	if err := base.Validate(); err != nil {
+		t.Fatalf("valid private listener rejected: %v", err)
+	}
+	for _, address := range []string{"", "localhost:8443", "127.0.0.1", "127.0.0.1:8080", "127.0.0.1:65536"} {
+		candidate := base
+		candidate.PrivateListenAddress = address
+		if err := candidate.Validate(); err == nil || !strings.Contains(err.Error(), "API_PRIVATE_LISTEN_ADDRESS") {
+			t.Fatalf("address %q was accepted or had the wrong error: %v", address, err)
+		}
+	}
+	ignored := base
+	ignored.PrivateListenAddress = "not-an-address"
+	ignored.DiscoveryRuntimeDocument = ""
+	if err := ignored.Validate(); err != nil {
+		t.Fatalf("unbound discovery ignored private address: %v", err)
+	}
+	ignored = base
+	ignored.PrivateListenAddress = "not-an-address"
+	ignored.APIRole = "sockets"
+	if err := ignored.Validate(); err != nil {
+		t.Fatalf("socket role ignored private address: %v", err)
 	}
 }
 

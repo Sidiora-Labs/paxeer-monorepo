@@ -11,10 +11,12 @@ package app
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -71,6 +73,8 @@ type App struct {
 	admission        *rest.Admission
 	authority        *networkAuthority
 	discoveryRuntime *notifications.HTTPRuntime
+	privateHandler   http.Handler
+	privateTLS       *tls.Config
 	redis            *goredis.Client
 	subRdb           *goredis.Client
 	wsHub            *ws.Hub
@@ -528,7 +532,17 @@ func Run(parent context.Context) error {
 		// No WriteTimeout: SSE/WSS are long-lived; per-write deadlines bound
 		// slow clients instead (internal/sse uses http.ResponseController).
 	}
-	serveErr := make(chan error, 1)
+	var privateSrv *http.Server
+	if app.privateHandler != nil {
+		privateSrv = &http.Server{
+			Addr:              cfg.PrivateListenAddress,
+			Handler:           app.privateHandler,
+			ConnState:         app.tracker.ConnState,
+			ReadHeaderTimeout: 10 * time.Second,
+			TLSConfig:         app.privateTLS.Clone(),
+		}
+	}
+	serveErr := make(chan error, 2)
 	go func() {
 		logger.Info("http server listening", slog.Int("port", cfg.Port))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -536,14 +550,32 @@ func Run(parent context.Context) error {
 			cancel()
 		}
 	}()
+	if privateSrv != nil {
+		go func() {
+			logger.Info("http private listener listening", slog.String("address", privateSrv.Addr))
+			listener, err := net.Listen("tcp", privateSrv.Addr)
+			if err == nil {
+				err = privateSrv.Serve(tls.NewListener(listener, privateSrv.TLSConfig))
+			}
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- err
+				cancel()
+			}
+		}()
+	}
 
 	shutErr := sharedprocess.Run(ctx, sharedprocess.Options{Tracker: app.tracker,
 		Logger: logger,
 		OnShutdown: func(sctx context.Context) error {
 			app.wsHub.Drain()
 			app.sseHub.Drain()
-			shutdown := make(chan error, 1)
+			shutdown := make(chan error, 2)
 			go func() { shutdown <- srv.Shutdown(sctx) }()
+			if privateSrv != nil {
+				go func() { shutdown <- privateSrv.Shutdown(sctx) }()
+			} else {
+				shutdown <- nil
+			}
 			if app.wsHub.Connections() > 0 || app.sseHub.Connections() > 0 {
 				timer := time.NewTimer(30 * time.Second)
 				select {
@@ -553,7 +585,7 @@ func Run(parent context.Context) error {
 				timer.Stop()
 			}
 			cancel()
-			return <-shutdown
+			return errors.Join(<-shutdown, <-shutdown)
 		},
 	})
 
@@ -699,6 +731,12 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 		runtime, err := notifications.NewHTTPRuntime(ctx, a.sqlDB, authenticate, runtimeConfig)
 		if err == nil {
 			a.discoveryRuntime = runtime
+			privateTLS, tlsErr := privateNotificationTLS(a.cfg)
+			if tlsErr != nil {
+				return tlsErr
+			}
+			a.privateHandler = runtime.InternalHandler()
+			a.privateTLS = privateTLS
 			handler := rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(runtime.Handler()))
 			router.Handle("/v2/discovery/*", handler)
 			router.Handle("/v2/discovery/notifications", handler)

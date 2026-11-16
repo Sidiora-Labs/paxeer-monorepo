@@ -12,6 +12,7 @@
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
       "API_ROLE": "rest",
+      "API_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
       "PORT": "8080",
       "IDENTITY_ASSERTION_AUDIENCE": "identity"
     },

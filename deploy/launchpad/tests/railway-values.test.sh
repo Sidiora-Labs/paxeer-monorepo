@@ -21,6 +21,8 @@ python3 - "$manifest" "$fixture" "$tmp/replay.json" <<'PY'
 import json, sys
 services = list(json.load(open(sys.argv[1])))
 manifest = json.load(open(sys.argv[1]))
+assert manifest["api"]["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "0.0.0.0:8443"
+assert "API_PRIVATE_LISTEN_ADDRESS" not in manifest["api-sockets"]["fixed"]
 for service in services:
 
     entry = manifest[service]
@@ -100,6 +102,7 @@ grep -q '^  missing LIVEPEER_API_URL = https://livepeer.studio/api$' "$tmp/plan.
 grep -q '^  missing METADATA_INGRESS = mtls$' "$tmp/plan.out" || fail "metadata ingress is not mtls"
 grep -q '^  missing MODERATION_SOURCE = database$' "$tmp/plan.out" || fail "metadata does not read moderation from the database"
 [ "$(grep -c '^  missing PORT = 8080$' "$tmp/plan.out")" -eq 12 ] || fail "not every Go service binds the container port 8080"
+[ "$(grep -c '^  missing API_PRIVATE_LISTEN_ADDRESS = 0.0.0.0:8443$' "$tmp/plan.out")" -eq 1 ] || fail "the API private listener fixed value is missing"
 grep -q '^  missing NEXT_PUBLIC_EXPLORER_API = https://api.paxscan.io/api/v2$' "$tmp/plan.out" || fail "explorer API not taken"
 for kv in DATA_API_URL=https://api.sidiora.fun GATEWAY_URL=https://gateway.sidiora.fun \
 	METADATA_API_URL=https://gateway.sidiora.fun PNL_API_URL=https://pnl.sidiora.fun \

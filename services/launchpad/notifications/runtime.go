@@ -289,6 +289,10 @@ func (r *HTTPRuntime) Handler() http.Handler {
 	}
 	return mux
 }
+
+// InternalHandler must be served only on a private listener that requires and
+// verifies a client certificate, never on a public router. The runtime's
+// InternalPolicy authorizes both the account removal and chat intent routes.
 func (r *HTTPRuntime) InternalHandler() http.Handler { return r.Notifications.InternalHandler() }
 func (r *HTTPRuntime) Ready(ctx context.Context) error {
 	if r == nil || r.DB == nil {

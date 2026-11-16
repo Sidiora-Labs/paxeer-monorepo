@@ -249525,7 +249525,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.756]
 title = "Keep a result of the secrets check of the launchpad services only for an answer of the provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.751", "22.39.752"]
