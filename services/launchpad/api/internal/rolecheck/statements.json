@@ -1,0 +1,5755 @@
+[
+  {
+    "id": "sourcebootstrap/sourcebootstrap.FirstMarketPosition.1",
+    "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
+    "function": "FirstMarketPosition",
+    "line": 81,
+    "expression": "`SELECT position FROM `+pgx.Identifier{partitionSchema}.Sanitize()+`.indexer_market_partition_positions_v1 WHERE projection_version=$1 AND partition_kind='market' AND partition_key=$2 AND sequence=1`",
+    "sql": "SELECT position FROM \"indexer\".indexer_market_partition_positions_v1 WHERE projection_version=$1 AND partition_kind='market' AND partition_key=$2 AND sequence=1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/accounting/sourcebootstrap",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_market_partition_positions_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "partition_key",
+      "partition_kind",
+      "position",
+      "projection_version",
+      "sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "sourcebootstrap/sourcebootstrap.MarketPublication.1",
+    "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
+    "function": "MarketPublication",
+    "line": 89,
+    "expression": "`SELECT payload FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'facet'='market' AND payload->>'sourceFillId'=$1 AND payload->'positions'->0->>'projectionVersion'=$2`",
+    "sql": "SELECT payload FROM indexer.indexer_accounting_publications_v1 WHERE payload->>'facet'='market' AND payload->>'sourceFillId'=$1 AND payload->'positions'->0->>'projectionVersion'=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/accounting/sourcebootstrap",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_accounting_publications_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "sourcebootstrap/sourcebootstrap.InitialPreviousHeight.1",
+    "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
+    "function": "InitialPreviousHeight",
+    "line": 97,
+    "expression": "`SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 ORDER BY previous_height LIMIT 1`",
+    "sql": "SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 ORDER BY previous_height LIMIT 1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/accounting/sourcebootstrap",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_ingest_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "chain_id",
+      "previous_height",
+      "stream_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "sourcebootstrap/sourcebootstrap.CommitContaining.1",
+    "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
+    "function": "CommitContaining",
+    "line": 112,
+    "expression": "`SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`",
+    "sql": "SELECT batch_id,last_complete_height,block_hash FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/accounting/sourcebootstrap",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_ingest_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "batch_id",
+      "block_hash",
+      "chain_id",
+      "last_complete_height",
+      "previous_height",
+      "stream_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "sourcebootstrap/sourcebootstrap.PreviousHeightContaining.1",
+    "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
+    "function": "PreviousHeightContaining",
+    "line": 120,
+    "expression": "`SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2`",
+    "sql": "SELECT previous_height FROM indexer.indexer_ingest_commits_v1 WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/accounting/sourcebootstrap",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_ingest_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "chain_id",
+      "last_complete_height",
+      "previous_height",
+      "stream_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "sourcebootstrap/sourcebootstrap.CanonicalCreation.1",
+    "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
+    "function": "CanonicalCreation",
+    "line": 137,
+    "expression": "`SELECT k.height,k.block_hash,k.transaction_hash,k.transaction_index,k.log_index,k.factory,r.topics,r.data FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.height=k.height AND r.transaction_index=k.transaction_index AND r.block_hash=k.block_hash AND r.emitter=lower(k.factory) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$2 AND c.height=k.height AND c.block_hash=k.block_hash AND c.fetch_complete AND c.required_decode_complete WHERE lower(k.pool)=$1`",
+    "sql": "SELECT k.height,k.block_hash,k.transaction_hash,k.transaction_index,k.log_index,k.factory,r.topics,r.data FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_raw_logs_v1 r ON r.chain_id=125 AND r.transaction_hash=k.transaction_hash AND r.log_index=k.log_index AND r.height=k.height AND r.transaction_index=k.transaction_index AND r.block_hash=k.block_hash AND r.emitter=lower(k.factory) JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$2 AND c.height=k.height AND c.block_hash=k.block_hash AND c.fetch_complete AND c.required_decode_complete WHERE lower(k.pool)=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/accounting/sourcebootstrap",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_canonical_creations_v1",
+      "indexer.indexer_raw_logs_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "lower"
+    ],
+    "columns": [
+      "c.block_hash",
+      "c.chain_id",
+      "c.fetch_complete",
+      "c.height",
+      "c.required_decode_complete",
+      "c.stream_id",
+      "k.block_hash",
+      "k.factory",
+      "k.height",
+      "k.log_index",
+      "k.pool",
+      "k.transaction_hash",
+      "k.transaction_index",
+      "r.block_hash",
+      "r.chain_id",
+      "r.data",
+      "r.emitter",
+      "r.height",
+      "r.log_index",
+      "r.topics",
+      "r.transaction_hash",
+      "r.transaction_index"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.CatalogFingerprint.1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CatalogFingerprint",
+    "line": 394,
+    "expression": "`SELECT kind,identity,definition FROM (\n SELECT 'relation'::text kind,c.relname identity,concat_ws('|',c.relkind::text,pg_get_userbyid(c.relowner),c.relrowsecurity::text,c.relforcerowsecurity::text) definition FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind IN ('r','p','v','S')\n UNION ALL SELECT 'column',c.relname||'.'||a.attname,concat_ws('|',a.attnum::text,format_type(a.atttypid,a.atttypmod),a.attnotnull::text,a.attidentity::text,coalesce(pg_get_expr(d.adbin,d.adrelid),'')) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum WHERE n.nspname=$1 AND a.attnum>0 AND NOT a.attisdropped\n UNION ALL SELECT 'constraint',c.relname||'.'||k.conname,pg_get_constraintdef(k.oid,true) FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1\n UNION ALL SELECT 'index',c.relname,pg_get_indexdef(c.oid) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='i'\n UNION ALL SELECT 'trigger',c.relname||'.'||t.tgname,pg_get_triggerdef(t.oid,true) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND NOT t.tgisinternal\n UNION ALL SELECT 'function',p.proname||'('||pg_get_function_identity_arguments(p.oid)||')',pg_get_functiondef(p.oid)||'|'||pg_get_userbyid(p.proowner) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1\n UNION ALL SELECT 'view',c.relname,pg_get_viewdef(c.oid,true) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='v'\n ) catalog ORDER BY kind,identity,definition`",
+    "sql": "SELECT kind,identity,definition FROM (\n SELECT 'relation'::text kind,c.relname identity,concat_ws('|',c.relkind::text,pg_get_userbyid(c.relowner),c.relrowsecurity::text,c.relforcerowsecurity::text) definition FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind IN ('r','p','v','S')\n UNION ALL SELECT 'column',c.relname||'.'||a.attname,concat_ws('|',a.attnum::text,format_type(a.atttypid,a.atttypmod),a.attnotnull::text,a.attidentity::text,coalesce(pg_get_expr(d.adbin,d.adrelid),'')) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum WHERE n.nspname=$1 AND a.attnum>0 AND NOT a.attisdropped\n UNION ALL SELECT 'constraint',c.relname||'.'||k.conname,pg_get_constraintdef(k.oid,true) FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1\n UNION ALL SELECT 'index',c.relname,pg_get_indexdef(c.oid) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='i'\n UNION ALL SELECT 'trigger',c.relname||'.'||t.tgname,pg_get_triggerdef(t.oid,true) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND NOT t.tgisinternal\n UNION ALL SELECT 'function',p.proname||'('||pg_get_function_identity_arguments(p.oid)||')',pg_get_functiondef(p.oid)||'|'||pg_get_userbyid(p.proowner) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1\n UNION ALL SELECT 'view',c.relname,pg_get_viewdef(c.oid,true) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='v'\n ) catalog ORDER BY kind,identity,definition",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pg_catalog.pg_attrdef",
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_constraint",
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_proc",
+      "pg_catalog.pg_trigger"
+    ],
+    "sequences": [],
+    "functions": [
+      "concat_ws",
+      "format_type",
+      "pg_get_constraintdef",
+      "pg_get_expr",
+      "pg_get_function_identity_arguments",
+      "pg_get_functiondef",
+      "pg_get_indexdef",
+      "pg_get_triggerdef",
+      "pg_get_userbyid",
+      "pg_get_viewdef"
+    ],
+    "columns": [
+      "a.attidentity",
+      "a.attisdropped",
+      "a.attname",
+      "a.attnotnull",
+      "a.attnum",
+      "a.attrelid",
+      "a.atttypid",
+      "a.atttypmod",
+      "c.oid",
+      "c.relforcerowsecurity",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "c.relowner",
+      "c.relrowsecurity",
+      "d.adbin",
+      "d.adnum",
+      "d.adrelid",
+      "definition",
+      "identity",
+      "k.conname",
+      "k.conrelid",
+      "k.oid",
+      "kind",
+      "n.nspname",
+      "n.oid",
+      "p.oid",
+      "p.proname",
+      "p.pronamespace",
+      "p.proowner",
+      "t.oid",
+      "t.tgisinternal",
+      "t.tgname",
+      "t.tgrelid"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.CheckReadiness.1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "line": 452,
+    "expression": "\"SET LOCAL search_path TO public\"",
+    "sql": "SET LOCAL search_path TO public",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SET"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.CheckReadiness.2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "line": 457,
+    "expression": "`SELECT current_user,r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolbypassrls OR EXISTS(SELECT 1 FROM pg_class c WHERE c.relowner=r.oid AND c.relnamespace NOT IN (SELECT oid FROM pg_namespace WHERE nspname LIKE 'pg_%')) OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT LIKE 'pg_%' AND (pg_has_role(current_user,n.nspowner,'MEMBER') OR has_schema_privilege(current_user,n.oid,'CREATE'))) FROM pg_roles r WHERE r.rolname=current_user`",
+    "sql": "SELECT current_user,r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolbypassrls OR EXISTS(SELECT 1 FROM pg_class c WHERE c.relowner=r.oid AND c.relnamespace NOT IN (SELECT oid FROM pg_namespace WHERE nspname LIKE 'pg_%')) OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT LIKE 'pg_%' AND (pg_has_role(current_user,n.nspowner,'MEMBER') OR has_schema_privilege(current_user,n.oid,'CREATE'))) FROM pg_roles r WHERE r.rolname=current_user",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_roles"
+    ],
+    "sequences": [],
+    "functions": [
+      "has_schema_privilege",
+      "pg_has_role"
+    ],
+    "columns": [
+      "c.relnamespace",
+      "c.relowner",
+      "n.nspname",
+      "n.nspowner",
+      "n.oid",
+      "nspname",
+      "oid",
+      "r.oid",
+      "r.rolbypassrls",
+      "r.rolcreatedb",
+      "r.rolcreaterole",
+      "r.rolname",
+      "r.rolsuper"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.CheckReadiness.3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "line": 467,
+    "expression": "\"SELECT registry_digest,interface_digest,reader_min_version,migrations FROM migration_control.readiness($1)\"",
+    "sql": "SELECT registry_digest,interface_digest,reader_min_version,migrations FROM migration_control.readiness($1)",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "migration_control.readiness"
+    ],
+    "columns": [
+      "interface_digest",
+      "migrations",
+      "reader_min_version",
+      "registry_digest"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.CheckReadiness.4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "line": 491,
+    "expression": "\"SELECT has_schema_privilege(current_user,$1,'CREATE') OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname=$1 AND pg_has_role(current_user,n.nspowner,'MEMBER'))\"",
+    "sql": "SELECT has_schema_privilege(current_user,$1,'CREATE') OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname=$1 AND pg_has_role(current_user,n.nspowner,'MEMBER'))",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "has_schema_privilege",
+      "pg_has_role"
+    ],
+    "columns": [
+      "n.nspname",
+      "n.nspowner"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.CheckReadiness.5",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "line": 507,
+    "expression": "\"SELECT epoch,region FROM recovery.current_epoch()\"",
+    "sql": "SELECT epoch,region FROM recovery.current_epoch()",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "recovery.current_epoch"
+    ],
+    "columns": [
+      "epoch",
+      "region"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.checkPrivilege.1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "line": 534,
+    "expression": "\"SELECT has_function_privilege($1,$2,$3)\"",
+    "sql": "SELECT has_function_privilege($1,$2,$3)",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "has_function_privilege"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.checkPrivilege.2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "line": 536,
+    "expression": "\"SELECT has_sequence_privilege($1,$2,$3)\"",
+    "sql": "SELECT has_sequence_privilege($1,$2,$3)",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "has_sequence_privilege"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.checkPrivilege.3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "line": 542,
+    "expression": "\"SELECT has_column_privilege($1,$2,$3,$4)\"",
+    "sql": "SELECT has_column_privilege($1,$2,$3,$4)",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "has_column_privilege"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.checkPrivilege.4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "line": 548,
+    "expression": "\"SELECT has_table_privilege($1,$2,$3)\"",
+    "sql": "SELECT has_table_privilege($1,$2,$3)",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "has_table_privilege"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.checkUnexpectedPrivileges.1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "line": 817,
+    "expression": "`SELECT n.nspname,c.relname,p.privilege,has_table_privilege($1,c.oid,p.privilege),has_table_privilege($1,c.oid,p.privilege||' WITH GRANT OPTION') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind IN ('r','p','v')`",
+    "sql": "SELECT n.nspname,c.relname,p.privilege,has_table_privilege($1,c.oid,p.privilege),has_table_privilege($1,c.oid,p.privilege||' WITH GRANT OPTION') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind IN ('r','p','v')",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "has_table_privilege"
+    ],
+    "columns": [
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.checkUnexpectedPrivileges.2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "line": 837,
+    "expression": "`SELECT n.nspname,c.relname,a.attname,p.privilege,has_column_privilege($1,c.oid,a.attnum,p.privilege),has_column_privilege($1,c.oid,a.attnum,p.privilege||' WITH GRANT OPTION') FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('REFERENCES')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind IN ('r','p','v') AND a.attnum>0 AND NOT a.attisdropped`",
+    "sql": "SELECT n.nspname,c.relname,a.attname,p.privilege,has_column_privilege($1,c.oid,a.attnum,p.privilege),has_column_privilege($1,c.oid,a.attnum,p.privilege||' WITH GRANT OPTION') FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('REFERENCES')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind IN ('r','p','v') AND a.attnum>0 AND NOT a.attisdropped",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "has_column_privilege"
+    ],
+    "columns": [
+      "a.attisdropped",
+      "a.attname",
+      "a.attnum",
+      "a.attrelid",
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.checkUnexpectedPrivileges.3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "line": 858,
+    "expression": "`SELECT n.nspname,p.proname,oidvectortypes(p.proargtypes),has_function_privilege($1,p.oid,'EXECUTE'),has_function_privilege($1,p.oid,'EXECUTE WITH GRANT OPTION') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=ANY($2)`",
+    "sql": "SELECT n.nspname,p.proname,oidvectortypes(p.proargtypes),has_function_privilege($1,p.oid,'EXECUTE'),has_function_privilege($1,p.oid,'EXECUTE WITH GRANT OPTION') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=ANY($2)",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_proc"
+    ],
+    "sequences": [],
+    "functions": [
+      "has_function_privilege",
+      "oidvectortypes"
+    ],
+    "columns": [
+      "n.nspname",
+      "n.oid",
+      "p.oid",
+      "p.proargtypes",
+      "p.proname",
+      "p.pronamespace"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "production/migrations.checkUnexpectedPrivileges.4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "line": 878,
+    "expression": "`SELECT n.nspname,c.relname,p.privilege,has_sequence_privilege($1,c.oid,p.privilege),has_sequence_privilege($1,c.oid,p.privilege||' WITH GRANT OPTION') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('USAGE'),('SELECT'),('UPDATE')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind='S'`",
+    "sql": "SELECT n.nspname,c.relname,p.privilege,has_sequence_privilege($1,c.oid,p.privilege),has_sequence_privilege($1,c.oid,p.privilege||' WITH GRANT OPTION') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('USAGE'),('SELECT'),('UPDATE')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind='S'",
+    "bindings": {},
+    "roles": [
+      "api_runtime",
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "sdk/launchpad/shared/db/production",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "has_sequence_privilege"
+    ],
+    "columns": [
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.claim.1",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.claim",
+    "line": 397,
+    "expression": "`INSERT INTO api_stream.stream_delivery_offsets(partition_id) SELECT partition_id FROM api_stream.stream_projection ON CONFLICT DO NOTHING`",
+    "sql": "INSERT INTO api_stream.stream_delivery_offsets(partition_id) SELECT partition_id FROM api_stream.stream_projection ON CONFLICT DO NOTHING",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets",
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "partition_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.claim.2",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.claim",
+    "line": 400,
+    "expression": "`SELECT o.partition_id,o.sequence,o.event_id,o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_delivery_offsets c ON c.partition_id=o.partition_id AND c.next_sequence=o.sequence LEFT JOIN api_stream.stream_delivery_publications p ON p.partition_id=o.partition_id AND p.sequence=o.sequence WHERE p.partition_id IS NULL ORDER BY o.created_at,o.partition_id LIMIT $1`",
+    "sql": "SELECT o.partition_id,o.sequence,o.event_id,o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_delivery_offsets c ON c.partition_id=o.partition_id AND c.next_sequence=o.sequence LEFT JOIN api_stream.stream_delivery_publications p ON p.partition_id=o.partition_id AND p.sequence=o.sequence WHERE p.partition_id IS NULL ORDER BY o.created_at,o.partition_id LIMIT $1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets",
+      "api_stream.stream_delivery_outbox",
+      "api_stream.stream_delivery_publications"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.next_sequence",
+      "c.partition_id",
+      "o.created_at",
+      "o.event_id",
+      "o.frame",
+      "o.partition_id",
+      "o.sequence",
+      "p.partition_id",
+      "p.sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.claim.3",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.claim",
+    "line": 419,
+    "expression": "`INSERT INTO api_stream.stream_delivery_publications(partition_id,sequence,event_id,frame_sha256) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`",
+    "sql": "INSERT INTO api_stream.stream_delivery_publications(partition_id,sequence,event_id,frame_sha256) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_publications"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "event_id",
+      "frame_sha256",
+      "partition_id",
+      "sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.claim.4",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.claim",
+    "line": 424,
+    "expression": "`WITH picked AS(SELECT p.partition_id,p.sequence FROM api_stream.stream_delivery_publications p JOIN api_stream.stream_delivery_offsets c ON c.partition_id=p.partition_id AND c.next_sequence=p.sequence WHERE p.state='pending' AND p.available_at<=clock_timestamp() AND (p.expires_at IS NULL OR p.expires_at<=clock_timestamp()) ORDER BY p.available_at,p.partition_id FOR UPDATE OF p SKIP LOCKED LIMIT 1) UPDATE api_stream.stream_delivery_publications p SET lease_expiry_count=p.lease_expiry_count+CASE WHEN p.expires_at<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),owner=$1,epoch=p.epoch+1,expires_at=clock_timestamp()+$2::bigint*interval '1 millisecond',attempts=p.attempts+1 FROM picked q WHERE p.partition_id=q.partition_id AND p.sequence=q.sequence RETURNING p.partition_id,p.sequence,p.epoch,p.event_id,p.frame_sha256,p.attempts`",
+    "sql": "WITH picked AS(SELECT p.partition_id,p.sequence FROM api_stream.stream_delivery_publications p JOIN api_stream.stream_delivery_offsets c ON c.partition_id=p.partition_id AND c.next_sequence=p.sequence WHERE p.state='pending' AND p.available_at<=clock_timestamp() AND (p.expires_at IS NULL OR p.expires_at<=clock_timestamp()) ORDER BY p.available_at,p.partition_id FOR UPDATE OF p SKIP LOCKED LIMIT 1) UPDATE api_stream.stream_delivery_publications p SET lease_expiry_count=p.lease_expiry_count+CASE WHEN p.expires_at<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),owner=$1,epoch=p.epoch+1,expires_at=clock_timestamp()+$2::bigint*interval '1 millisecond',attempts=p.attempts+1 FROM picked q WHERE p.partition_id=q.partition_id AND p.sequence=q.sequence RETURNING p.partition_id,p.sequence,p.epoch,p.event_id,p.frame_sha256,p.attempts",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "SELECT",
+      "UPDATE"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets",
+      "api_stream.stream_delivery_publications",
+      "p"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "c.next_sequence",
+      "c.partition_id",
+      "claimed_at",
+      "epoch",
+      "expires_at",
+      "lease_expiry_count",
+      "owner",
+      "p.attempts",
+      "p.available_at",
+      "p.epoch",
+      "p.event_id",
+      "p.expires_at",
+      "p.frame_sha256",
+      "p.lease_expiry_count",
+      "p.partition_id",
+      "p.sequence",
+      "p.state",
+      "q.partition_id",
+      "q.sequence"
+    ],
+    "ctes": [
+      "picked"
+    ]
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.claim.5",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.claim",
+    "line": 431,
+    "expression": "`SELECT s.topic,o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection s USING(partition_id) WHERE o.partition_id=$1 AND o.sequence=$2 AND o.event_id=$3`",
+    "sql": "SELECT s.topic,o.frame FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection s USING(partition_id) WHERE o.partition_id=$1 AND o.sequence=$2 AND o.event_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_outbox",
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "o.event_id",
+      "o.frame",
+      "o.partition_id",
+      "o.sequence",
+      "partition_id",
+      "s.topic"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.fail.1",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.fail",
+    "line": 441,
+    "expression": "`UPDATE api_stream.stream_delivery_publications SET state=CASE WHEN attempts>=$5 OR $6<>'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$6,available_at=clock_timestamp()+$7::bigint*interval '1 millisecond',owner=NULL,expires_at=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'`",
+    "sql": "UPDATE api_stream.stream_delivery_publications SET state=CASE WHEN attempts>=$5 OR $6<>'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$6,available_at=clock_timestamp()+$7::bigint*interval '1 millisecond',owner=NULL,expires_at=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_publications"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "available_at",
+      "epoch",
+      "expires_at",
+      "failure_class",
+      "owner",
+      "partition_id",
+      "sequence",
+      "state"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.markPublished.1",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.markPublished",
+    "line": 458,
+    "expression": "`SELECT o.frame,s.topic FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection s USING(partition_id) WHERE o.partition_id=$1 AND o.sequence=$2 AND o.event_id=$3`",
+    "sql": "SELECT o.frame,s.topic FROM api_stream.stream_delivery_outbox o JOIN api_stream.stream_projection s USING(partition_id) WHERE o.partition_id=$1 AND o.sequence=$2 AND o.event_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_outbox",
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "o.event_id",
+      "o.frame",
+      "o.partition_id",
+      "o.sequence",
+      "partition_id",
+      "s.topic"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.markPublished.2",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.markPublished",
+    "line": 465,
+    "expression": "`UPDATE api_stream.stream_delivery_publications SET state='published',broker_stream=$5,broker_sequence=$6,published_at=clock_timestamp(),acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM(clock_timestamp()-claimed_at))*1000)::bigint,owner=NULL,expires_at=NULL,failure_class=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'`",
+    "sql": "UPDATE api_stream.stream_delivery_publications SET state='published',broker_stream=$5,broker_sequence=$6,published_at=clock_timestamp(),acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM(clock_timestamp()-claimed_at))*1000)::bigint,owner=NULL,expires_at=NULL,failure_class=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_publications"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp",
+      "pg_catalog.extract"
+    ],
+    "columns": [
+      "acknowledgement_latency_ms",
+      "broker_sequence",
+      "broker_stream",
+      "claimed_at",
+      "epoch",
+      "expires_at",
+      "failure_class",
+      "owner",
+      "partition_id",
+      "published_at",
+      "sequence",
+      "state"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.markPublished.3",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.markPublished",
+    "line": 473,
+    "expression": "`UPDATE api_stream.stream_delivery_offsets SET next_sequence=$2+1,broker_stream=$3,broker_sequence=$4,updated_at=clock_timestamp() WHERE partition_id=$1 AND next_sequence=$2`",
+    "sql": "UPDATE api_stream.stream_delivery_offsets SET next_sequence=$2+1,broker_stream=$3,broker_sequence=$4,updated_at=clock_timestamp() WHERE partition_id=$1 AND next_sequence=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "broker_sequence",
+      "broker_stream",
+      "next_sequence",
+      "partition_id",
+      "updated_at"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.Stats.1",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.Stats",
+    "line": 548,
+    "expression": "`SELECT count(*) FILTER(WHERE p.state IS NULL OR p.state='pending'),COALESCE(sum(octet_length(o.frame)) FILTER(WHERE p.state IS NULL OR p.state<>'published'),0)::bigint,count(*) FILTER(WHERE p.state='quarantined'),COALESCE(sum(p.lease_expiry_count),0)::bigint,COALESCE(max(p.acknowledgement_latency_ms),0)::bigint,COALESCE(EXTRACT(EPOCH FROM(clock_timestamp()-min(o.created_at) FILTER(WHERE p.state IS NULL OR p.state<>'published'))),0)::double precision FROM api_stream.stream_delivery_outbox o LEFT JOIN api_stream.stream_delivery_publications p USING(partition_id,sequence)`",
+    "sql": "SELECT count(*) FILTER(WHERE p.state IS NULL OR p.state='pending'),COALESCE(sum(octet_length(o.frame)) FILTER(WHERE p.state IS NULL OR p.state<>'published'),0)::bigint,count(*) FILTER(WHERE p.state='quarantined'),COALESCE(sum(p.lease_expiry_count),0)::bigint,COALESCE(max(p.acknowledgement_latency_ms),0)::bigint,COALESCE(EXTRACT(EPOCH FROM(clock_timestamp()-min(o.created_at) FILTER(WHERE p.state IS NULL OR p.state<>'published'))),0)::double precision FROM api_stream.stream_delivery_outbox o LEFT JOIN api_stream.stream_delivery_publications p USING(partition_id,sequence)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_outbox",
+      "api_stream.stream_delivery_publications"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp",
+      "count",
+      "max",
+      "min",
+      "octet_length",
+      "pg_catalog.extract",
+      "sum"
+    ],
+    "columns": [
+      "o.created_at",
+      "o.frame",
+      "p.acknowledgement_latency_ms",
+      "p.lease_expiry_count",
+      "p.state",
+      "partition_id",
+      "sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "delivery/stream.StreamOutboxRelay.Stats.2",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.Stats",
+    "line": 552,
+    "expression": "`SELECT count(*) FROM api_stream.stream_projection s JOIN api_stream.stream_delivery_offsets c USING(partition_id) LEFT JOIN api_stream.stream_delivery_outbox o ON o.partition_id=c.partition_id AND o.sequence=c.next_sequence WHERE c.next_sequence<=s.sequence AND o.sequence IS NULL`",
+    "sql": "SELECT count(*) FROM api_stream.stream_projection s JOIN api_stream.stream_delivery_offsets c USING(partition_id) LEFT JOIN api_stream.stream_delivery_outbox o ON o.partition_id=c.partition_id AND o.sequence=c.next_sequence WHERE c.next_sequence<=s.sequence AND o.sequence IS NULL",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/delivery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_offsets",
+      "api_stream.stream_delivery_outbox",
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [
+      "count"
+    ],
+    "columns": [
+      "c.next_sequence",
+      "c.partition_id",
+      "o.partition_id",
+      "o.sequence",
+      "partition_id",
+      "s.sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "queue/queue.EpochGuard.Assert.1",
+    "file": "sdk/launchpad/shared/queue/queue.go",
+    "function": "EpochGuard.Assert",
+    "line": 105,
+    "expression": "\"SELECT \"+g.schema+\".assert_epoch($1,$2)\"",
+    "sql": "SELECT \"recovery\".assert_epoch($1,$2)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "sdk/launchpad/shared/queue",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "recovery.assert_epoch"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "app/authority.networkAuthority.head.1",
+    "file": "services/launchpad/api/internal/app/authority.go",
+    "function": "networkAuthority.head",
+    "line": 205,
+    "expression": "\"SELECT height::text,block_hash,integrity FROM \"+pgx.Identifier{a.config.SourceSchema, \"indexer_committed_heads_v2\"}.Sanitize()+\" WHERE chain_id=125 ORDER BY height DESC LIMIT 1\"",
+    "sql": "SELECT height::text,block_hash,integrity FROM \"indexer\".\"indexer_committed_heads_v2\" WHERE chain_id=125 ORDER BY height DESC LIMIT 1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/app",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_committed_heads_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "chain_id",
+      "height",
+      "integrity"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/handoff.PostgresStream.ConsumeCommitted.1",
+    "file": "services/launchpad/api/internal/broker/handoff.go",
+    "function": "PostgresStream.ConsumeCommitted",
+    "line": 163,
+    "expression": "\"SELECT o.frame,p.topic,p.partition_id::text,o.sequence::text FROM \"+s.table(\"stream_delivery_outbox\")+\" o JOIN \"+s.table(\"stream_projection\")+\" p USING(partition_id) WHERE o.event_id=$1\"",
+    "sql": "SELECT o.frame,p.topic,p.partition_id::text,o.sequence::text FROM \"api_stream\".\"stream_delivery_outbox\" o JOIN \"api_stream\".\"stream_projection\" p USING(partition_id) WHERE o.event_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_outbox",
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "o.event_id",
+      "o.frame",
+      "o.sequence",
+      "p.partition_id",
+      "p.topic",
+      "partition_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresStream.projections.1",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresStream.projections",
+    "line": 188,
+    "expression": "\"SELECT topic,partition_id::text,sequence::text,frame FROM \"+s.table(\"stream_projection\")+\" WHERE topic=ANY($1) ORDER BY topic\"",
+    "sql": "SELECT topic,partition_id::text,sequence::text,frame FROM \"api_stream\".\"stream_projection\" WHERE topic=ANY($1) ORDER BY topic",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "frame",
+      "partition_id",
+      "sequence",
+      "topic"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresStream.Snapshot.1",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresStream.Snapshot",
+    "line": 243,
+    "expression": "\"SELECT generation::text,transaction_timestamp() FROM \"+s.table(\"stream_generation\")+\" WHERE singleton\"",
+    "sql": "SELECT generation::text,transaction_timestamp() FROM \"api_stream\".\"stream_generation\" WHERE singleton",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_generation"
+    ],
+    "sequences": [],
+    "functions": [
+      "transaction_timestamp"
+    ],
+    "columns": [
+      "generation",
+      "singleton"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresStream.Snapshot.2",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresStream.Snapshot",
+    "line": 273,
+    "expression": "\"INSERT INTO \"+s.table(\"stream_snapshots\")+\"(snapshot_id,account_id,session_id,auth_epoch,filter_digest,generation,scope,initial_offsets,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)\"",
+    "sql": "INSERT INTO \"api_stream\".\"stream_snapshots\"(snapshot_id,account_id,session_id,auth_epoch,filter_digest,generation,scope,initial_offsets,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "auth_epoch",
+      "created_at",
+      "expires_at",
+      "filter_digest",
+      "generation",
+      "initial_offsets",
+      "scope",
+      "session_id",
+      "snapshot_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresStream.Resume.1",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresStream.Resume",
+    "line": 342,
+    "expression": "\"SELECT generation::text,transaction_timestamp() FROM \"+s.table(\"stream_generation\")+\" WHERE singleton\"",
+    "sql": "SELECT generation::text,transaction_timestamp() FROM \"api_stream\".\"stream_generation\" WHERE singleton",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_generation"
+    ],
+    "sequences": [],
+    "functions": [
+      "transaction_timestamp"
+    ],
+    "columns": [
+      "generation",
+      "singleton"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresStream.Resume.2",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresStream.Resume",
+    "line": 351,
+    "expression": "\"SELECT s.scope,s.initial_offsets,transaction_timestamp(),g.generation::text FROM \"+s.table(\"stream_snapshots\")+\" s CROSS JOIN \"+s.table(\"stream_generation\")+\" g WHERE s.snapshot_id=$1 AND s.account_id=$2 AND s.session_id=$3 AND s.auth_epoch=$4 AND s.filter_digest=$5 AND s.expires_at>transaction_timestamp() AND g.singleton AND s.generation=g.generation\"",
+    "sql": "SELECT s.scope,s.initial_offsets,transaction_timestamp(),g.generation::text FROM \"api_stream\".\"stream_snapshots\" s CROSS JOIN \"api_stream\".\"stream_generation\" g WHERE s.snapshot_id=$1 AND s.account_id=$2 AND s.session_id=$3 AND s.auth_epoch=$4 AND s.filter_digest=$5 AND s.expires_at>transaction_timestamp() AND g.singleton AND s.generation=g.generation",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_generation",
+      "api_stream.stream_snapshots"
+    ],
+    "sequences": [],
+    "functions": [
+      "transaction_timestamp"
+    ],
+    "columns": [
+      "g.generation",
+      "g.singleton",
+      "s.account_id",
+      "s.auth_epoch",
+      "s.expires_at",
+      "s.filter_digest",
+      "s.generation",
+      "s.initial_offsets",
+      "s.scope",
+      "s.session_id",
+      "s.snapshot_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresStream.Resume.3",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresStream.Resume",
+    "line": 378,
+    "expression": "\"SELECT COALESCE(min(sequence),0)::text FROM \"+s.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1\"",
+    "sql": "SELECT COALESCE(min(sequence),0)::text FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "min"
+    ],
+    "columns": [
+      "partition_id",
+      "sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresStream.Resume.4",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresStream.Resume",
+    "line": 389,
+    "expression": "\"SELECT count(*),COALESCE(sum(octet_length(frame)),0)::bigint FROM (SELECT frame FROM \"+s.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT 10001) retained\"",
+    "sql": "SELECT count(*),COALESCE(sum(octet_length(frame)),0)::bigint FROM (SELECT frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT 10001) retained",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "count",
+      "octet_length",
+      "sum"
+    ],
+    "columns": [
+      "frame",
+      "partition_id",
+      "sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresReplay.Check.1",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresReplay.Check",
+    "line": 445,
+    "expression": "\"SELECT generation::text FROM \"+r.source.table(\"stream_generation\")+\" WHERE singleton\"",
+    "sql": "SELECT generation::text FROM \"api_stream\".\"stream_generation\" WHERE singleton",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_generation"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "generation",
+      "singleton"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "broker/postgres_stream.PostgresReplay.Batch.1",
+    "file": "services/launchpad/api/internal/broker/postgres_stream.go",
+    "function": "PostgresReplay.Batch",
+    "line": 488,
+    "expression": "\"SELECT sequence::text,frame FROM \"+r.source.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4\"",
+    "sql": "SELECT sequence::text,frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime",
+      "api_sockets_runtime"
+    ],
+    "package": "services/launchpad/api/internal/broker",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "frame",
+      "partition_id",
+      "sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "cache/adapter.PostgresQueryBudget.admitWithWait.1",
+    "file": "services/launchpad/api/internal/cache/adapter.go",
+    "function": "PostgresQueryBudget.admitWithWait",
+    "line": 91,
+    "expression": "`WITH clock AS MATERIALIZED (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS ms), slot AS (SELECT ms,ms/$3::bigint AS bucket FROM clock), admitted AS (INSERT INTO ` + table + ` (namespace,origin,window_bucket,window_ms,budget_limit,used) SELECT $1,$2,bucket,$3,$4,$5 FROM slot ON CONFLICT(namespace,origin,window_bucket,window_ms) DO UPDATE SET used=cache_query_budgets_v2.used+EXCLUDED.used WHERE cache_query_budgets_v2.used<=EXCLUDED.budget_limit-EXCLUDED.used AND cache_query_budgets_v2.budget_limit=EXCLUDED.budget_limit RETURNING used) SELECT COALESCE((SELECT used FROM admitted),0),$3::bigint-(ms%$3::bigint) FROM slot`",
+    "sql": "WITH clock AS MATERIALIZED (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS ms), slot AS (SELECT ms,ms/$3::bigint AS bucket FROM clock), admitted AS (INSERT INTO \"api_limits\".\"cache_query_budgets_v2\" (namespace,origin,window_bucket,window_ms,budget_limit,used) SELECT $1,$2,bucket,$3,$4,$5 FROM slot ON CONFLICT(namespace,origin,window_bucket,window_ms) DO UPDATE SET used=cache_query_budgets_v2.used+EXCLUDED.used WHERE cache_query_budgets_v2.used<=EXCLUDED.budget_limit-EXCLUDED.used AND cache_query_budgets_v2.budget_limit=EXCLUDED.budget_limit RETURNING used) SELECT COALESCE((SELECT used FROM admitted),0),$3::bigint-(ms%$3::bigint) FROM slot",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/cache",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "api_limits.cache_query_budgets_v2"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp",
+      "floor",
+      "pg_catalog.extract"
+    ],
+    "columns": [
+      "bucket",
+      "budget_limit",
+      "cache_query_budgets_v2.budget_limit",
+      "cache_query_budgets_v2.used",
+      "excluded.budget_limit",
+      "excluded.used",
+      "ms",
+      "namespace",
+      "origin",
+      "used",
+      "window_bucket",
+      "window_ms"
+    ],
+    "ctes": [
+      "admitted",
+      "clock",
+      "slot"
+    ]
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.vector.1.candles",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.vector",
+    "line": 162,
+    "expression": "`SELECT o.checkpoint_digest,c.sequence,c.position FROM `+q+`.delivery_partition_offsets_v1 o JOIN `+q+`.delivery_partition_commits_v1 c USING(consumer_id,projection_generation,partition_kind,partition_key) WHERE o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$3 AND c.sequence=COALESCE($4::bigint,o.next_sequence-1) AND c.sequence<o.next_sequence AND ($4::bigint IS NOT NULL OR c.effect_identity=o.previous_effect_identity)`",
+    "sql": "SELECT o.checkpoint_digest,c.sequence,c.position FROM \"candles\".delivery_partition_offsets_v1 o JOIN \"candles\".delivery_partition_commits_v1 c USING(consumer_id,projection_generation,partition_kind,partition_key) WHERE o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$3 AND c.sequence=COALESCE($4::bigint,o.next_sequence-1) AND c.sequence<o.next_sequence AND ($4::bigint IS NOT NULL OR c.effect_identity=o.previous_effect_identity)",
+    "bindings": {
+      "deliverySchema": "candles"
+    },
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "candles.delivery_partition_commits_v1",
+      "candles.delivery_partition_offsets_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.effect_identity",
+      "c.position",
+      "c.sequence",
+      "consumer_id",
+      "o.checkpoint_digest",
+      "o.consumer_id",
+      "o.next_sequence",
+      "o.partition_key",
+      "o.partition_kind",
+      "o.previous_effect_identity",
+      "o.projection_generation",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.vector.1.stats",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.vector",
+    "line": 162,
+    "expression": "`SELECT o.checkpoint_digest,c.sequence,c.position FROM `+q+`.delivery_partition_offsets_v1 o JOIN `+q+`.delivery_partition_commits_v1 c USING(consumer_id,projection_generation,partition_kind,partition_key) WHERE o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$3 AND c.sequence=COALESCE($4::bigint,o.next_sequence-1) AND c.sequence<o.next_sequence AND ($4::bigint IS NOT NULL OR c.effect_identity=o.previous_effect_identity)`",
+    "sql": "SELECT o.checkpoint_digest,c.sequence,c.position FROM \"stats\".delivery_partition_offsets_v1 o JOIN \"stats\".delivery_partition_commits_v1 c USING(consumer_id,projection_generation,partition_kind,partition_key) WHERE o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$3 AND c.sequence=COALESCE($4::bigint,o.next_sequence-1) AND c.sequence<o.next_sequence AND ($4::bigint IS NOT NULL OR c.effect_identity=o.previous_effect_identity)",
+    "bindings": {
+      "deliverySchema": "stats"
+    },
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.delivery_partition_commits_v1",
+      "stats.delivery_partition_offsets_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.effect_identity",
+      "c.position",
+      "c.sequence",
+      "consumer_id",
+      "o.checkpoint_digest",
+      "o.consumer_id",
+      "o.next_sequence",
+      "o.partition_key",
+      "o.partition_kind",
+      "o.previous_effect_identity",
+      "o.projection_generation",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.vector.2.candles",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.vector",
+    "line": 176,
+    "expression": "`SELECT EXISTS(SELECT 1 FROM `+q+`.delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools))`",
+    "sql": "SELECT EXISTS(SELECT 1 FROM \"candles\".delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools))",
+    "bindings": {
+      "deliverySchema": "candles"
+    },
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "candles.delivery_ordered_quarantine_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "affected_pools",
+      "consumer_id",
+      "projection_generation"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.vector.2.stats",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.vector",
+    "line": 176,
+    "expression": "`SELECT EXISTS(SELECT 1 FROM `+q+`.delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools))`",
+    "sql": "SELECT EXISTS(SELECT 1 FROM \"stats\".delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools))",
+    "bindings": {
+      "deliverySchema": "stats"
+    },
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.delivery_ordered_quarantine_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "affected_pools",
+      "consumer_id",
+      "projection_generation"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.snapshot.1",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.snapshot",
+    "line": 201,
+    "expression": "`SELECT frozen FROM `+pgx.Identifier{s.config.ChartsSchema}.Sanitize()+`.chart_pool_fences_v1 WHERE chain_id='125' AND pool=$1`",
+    "sql": "SELECT frozen FROM \"candles\".chart_pool_fences_v1 WHERE chain_id='125' AND pool=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "candles.chart_pool_fences_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "chain_id",
+      "frozen",
+      "pool"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.snapshot.2",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.snapshot",
+    "line": 208,
+    "expression": "`SELECT frozen FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_pool_fences_v1 WHERE pool=$1`",
+    "sql": "SELECT frozen FROM \"stats\".accounting_pool_fences_v1 WHERE pool=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.accounting_pool_fences_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "frozen",
+      "pool"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.snapshot.3",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.snapshot",
+    "line": 228,
+    "expression": "`SELECT transaction_timestamp()`",
+    "sql": "SELECT transaction_timestamp()",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "transaction_timestamp"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.sourceFills.1",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.sourceFills",
+    "line": 284,
+    "expression": "`SELECT source_fill_id,source_fact_digest,fill FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND source_fill_id=ANY($3) AND sequence<=$4 LIMIT $5`",
+    "sql": "SELECT source_fill_id,source_fact_digest,fill FROM \"stats\".accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND source_fill_id=ANY($3) AND sequence<=$4 LIMIT $5",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.accounting_market_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "fill",
+      "pool",
+      "projection_version",
+      "sequence",
+      "source_fact_digest",
+      "source_fill_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.Candles.1",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.Candles",
+    "line": 395,
+    "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
+    "sql": "SET LOCAL statement_timeout = '150ms'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SET"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.Candles.2",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.Candles",
+    "line": 409,
+    "expression": "`SELECT start,snapshot FROM `+pgx.Identifier{s.config.ChartsSchema}.Sanitize()+`.chart_exact_v1 WHERE chain_id='125' AND pool=$1 AND interval=$2 AND start>=$3 AND start<$4 ORDER BY start ASC LIMIT $5`",
+    "sql": "SELECT start,snapshot FROM \"candles\".chart_exact_v1 WHERE chain_id='125' AND pool=$1 AND interval=$2 AND start>=$3 AND start<$4 ORDER BY start ASC LIMIT $5",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "candles.chart_exact_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "chain_id",
+      "interval",
+      "pool",
+      "snapshot",
+      "start"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.Trades.1",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.Trades",
+    "line": 492,
+    "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
+    "sql": "SET LOCAL statement_timeout = '150ms'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SET"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.Trades.2",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.Trades",
+    "line": 513,
+    "expression": "`SELECT fill,source_fact_digest,sequence FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND sequence<=$3 AND ($4::bigint IS NULL OR sequence<$4) AND ($5='' OR fill->>'side'=$5) ORDER BY sequence DESC LIMIT $6`",
+    "sql": "SELECT fill,source_fact_digest,sequence FROM \"stats\".accounting_market_commits_v1 WHERE pool=$1 AND projection_version=$2 AND sequence<=$3 AND ($4::bigint IS NULL OR sequence<$4) AND ($5='' OR fill->>'side'=$5) ORDER BY sequence DESC LIMIT $6",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.accounting_market_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "fill",
+      "pool",
+      "projection_version",
+      "sequence",
+      "source_fact_digest"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.PublicProjections.1",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.PublicProjections",
+    "line": 620,
+    "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
+    "sql": "SET LOCAL statement_timeout = '150ms'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SET"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.PublicProjections.2",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.PublicProjections",
+    "line": 623,
+    "expression": "\"SELECT topic,sequence::text,frame FROM \"+pgx.Identifier{s.config.StreamSchema, literalStreamProjection}.Sanitize()+\" WHERE topic=ANY($1) ORDER BY topic\"",
+    "sql": "SELECT topic,sequence::text,frame FROM \"api_stream\".\"stream_projection\" WHERE topic=ANY($1) ORDER BY topic",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_projection"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "frame",
+      "sequence",
+      "topic"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.1",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.TopicSnapshotAt",
+    "line": 688,
+    "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
+    "sql": "SET LOCAL statement_timeout = '150ms'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SET"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.2",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.TopicSnapshotAt",
+    "line": 714,
+    "expression": "\"SELECT frame FROM \"+pgx.Identifier{s.config.StreamSchema, \"stream_delivery_outbox\"}.Sanitize()+\" WHERE partition_id=$1 AND sequence=$2\"",
+    "sql": "SELECT frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "api_stream.stream_delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "frame",
+      "partition_id",
+      "sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/accounting_readmodel.AccountingReadModel.TopicSnapshotAt.3",
+    "file": "services/launchpad/api/internal/store/accounting_readmodel.go",
+    "function": "AccountingReadModel.TopicSnapshotAt",
+    "line": 724,
+    "expression": "\"SELECT transaction_timestamp()\"",
+    "sql": "SELECT transaction_timestamp()",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "transaction_timestamp"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/chain_reads.Store.LaunchedChains.1",
+    "file": "services/launchpad/api/internal/store/chain_reads.go",
+    "function": "Store.LaunchedChains",
+    "line": 102,
+    "expression": "`SELECT count(*)::int,COALESCE(max(chain),0)::text FROM indexer.launched_chains`",
+    "sql": "SELECT count(*)::int,COALESCE(max(chain),0)::text FROM indexer.launched_chains",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.launched_chains"
+    ],
+    "sequences": [],
+    "functions": [
+      "count",
+      "max"
+    ],
+    "columns": [
+      "chain"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/chain_reads.Store.LaunchedChains.2",
+    "file": "services/launchpad/api/internal/store/chain_reads.go",
+    "function": "Store.LaunchedChains",
+    "line": 111,
+    "expression": "`SELECT `+chainColumns+` FROM indexer.launched_chains ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2`",
+    "sql": "SELECT chain::text,chain_id::text,pool,token,fee_right,creator,block_number::text,status FROM indexer.launched_chains ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.launched_chains"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "chain",
+      "chain_id",
+      "creator",
+      "fee_right",
+      "pool",
+      "status",
+      "token"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/chain_reads.Store.LaunchedChain.1",
+    "file": "services/launchpad/api/internal/store/chain_reads.go",
+    "function": "Store.LaunchedChain",
+    "line": 133,
+    "expression": "`SELECT `+chainColumns+` FROM indexer.launched_chains WHERE chain=$1`",
+    "sql": "SELECT chain::text,chain_id::text,pool,token,fee_right,creator,block_number::text,status FROM indexer.launched_chains WHERE chain=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.launched_chains"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "chain",
+      "chain_id",
+      "creator",
+      "fee_right",
+      "pool",
+      "status",
+      "token"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/chain_reads.Store.ChainRevenue.1",
+    "file": "services/launchpad/api/internal/store/chain_reads.go",
+    "function": "Store.ChainRevenue",
+    "line": 163,
+    "expression": "`SELECT count(*)::int,COALESCE(max(epoch),0)::text FROM indexer.chain_revenue_epochs WHERE chain=$1`",
+    "sql": "SELECT count(*)::int,COALESCE(max(epoch),0)::text FROM indexer.chain_revenue_epochs WHERE chain=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.chain_revenue_epochs"
+    ],
+    "sequences": [],
+    "functions": [
+      "count",
+      "max"
+    ],
+    "columns": [
+      "chain",
+      "epoch"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/chain_reads.Store.ChainRevenue.2",
+    "file": "services/launchpad/api/internal/store/chain_reads.go",
+    "function": "Store.ChainRevenue",
+    "line": 172,
+    "expression": "`SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3`",
+    "sql": "SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.chain_revenue_epochs"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "amount",
+      "chain",
+      "eligible_supply",
+      "epoch",
+      "snapshot_block"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/chain_reads.Store.ChainRevenue.3",
+    "file": "services/launchpad/api/internal/store/chain_reads.go",
+    "function": "Store.ChainRevenue",
+    "line": 209,
+    "expression": "`SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC`",
+    "sql": "SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.chain_revenue_claims"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "amount",
+      "block_number",
+      "chain",
+      "epoch",
+      "holder"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/chain_reads.Store.PoolHomeChains.1",
+    "file": "services/launchpad/api/internal/store/chain_reads.go",
+    "function": "Store.PoolHomeChains",
+    "line": 261,
+    "expression": "`SELECT lower(pool_address),home_chain::text FROM indexer.pools WHERE lower(pool_address)=ANY($1)`",
+    "sql": "SELECT lower(pool_address),home_chain::text FROM indexer.pools WHERE lower(pool_address)=ANY($1)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.pools"
+    ],
+    "sequences": [],
+    "functions": [
+      "lower"
+    ],
+    "columns": [
+      "home_chain",
+      "pool_address"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/holder_rewards_readmodel.committedWatermark.1",
+    "file": "services/launchpad/api/internal/store/holder_rewards_readmodel.go",
+    "function": "committedWatermark",
+    "line": 54,
+    "expression": "`SELECT height::text, block_hash, integrity, transaction_timestamp() FROM indexer.indexer_committed_heads_v2 WHERE chain_id=125 ORDER BY height DESC LIMIT 1`",
+    "sql": "SELECT height::text, block_hash, integrity, transaction_timestamp() FROM indexer.indexer_committed_heads_v2 WHERE chain_id=125 ORDER BY height DESC LIMIT 1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_committed_heads_v2"
+    ],
+    "sequences": [],
+    "functions": [
+      "transaction_timestamp"
+    ],
+    "columns": [
+      "block_hash",
+      "chain_id",
+      "height",
+      "integrity"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/holder_rewards_readmodel.holderRewardsTotals.1",
+    "file": "services/launchpad/api/internal/store/holder_rewards_readmodel.go",
+    "function": "holderRewardsTotals",
+    "line": 102,
+    "expression": "`SELECT COALESCE((SELECT sum(amount::numeric) FROM indexer.fee_distributions WHERE strategy=$1), 0)::text, (SELECT count(DISTINCT lower(holder)) FROM indexer.airdrop_claims)`",
+    "sql": "SELECT COALESCE((SELECT sum(amount::numeric) FROM indexer.fee_distributions WHERE strategy=$1), 0)::text, (SELECT count(DISTINCT lower(holder)) FROM indexer.airdrop_claims)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.airdrop_claims",
+      "indexer.fee_distributions"
+    ],
+    "sequences": [],
+    "functions": [
+      "count",
+      "lower",
+      "sum"
+    ],
+    "columns": [
+      "amount",
+      "holder",
+      "strategy"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/holder_rewards_readmodel.Store.HolderRewardPools.1",
+    "file": "services/launchpad/api/internal/store/holder_rewards_readmodel.go",
+    "function": "Store.HolderRewardPools",
+    "line": 129,
+    "expression": "`WITH dist AS (SELECT pool_id, sum(amount::numeric) AS distributed FROM indexer.fee_distributions WHERE strategy=$1 GROUP BY pool_id),\nclaims AS (SELECT pool_id, count(DISTINCT lower(holder)) AS holders FROM indexer.airdrop_claims WHERE pool_id IS NOT NULL GROUP BY pool_id),\nevents AS (SELECT pool_id, block_number, log_index, new_strategy AS strategy FROM indexer.fee_strategy_changes UNION ALL SELECT pool_id, block_number, log_index, strategy FROM indexer.fee_distributions),\nlatest AS (SELECT DISTINCT ON (pool_id) pool_id, strategy FROM events ORDER BY pool_id, block_number DESC, log_index DESC),\ncandidates AS (SELECT pool_id FROM dist UNION SELECT pool_id FROM claims UNION SELECT pool_id FROM latest WHERE strategy=$1)\nSELECT lower(p.pool_address), lower(p.token_address), COALESCE(d.distributed, 0)::text, COALESCE(c.holders, 0), l.strategy, COALESCE(cc.block_timestamp, p.created_at), ps.market_cap\nFROM candidates k JOIN indexer.pools p ON p.pool_id=k.pool_id\nLEFT JOIN dist d ON d.pool_id=k.pool_id\nLEFT JOIN claims c ON c.pool_id=k.pool_id\nLEFT JOIN latest l ON l.pool_id=k.pool_id\nLEFT JOIN indexer.indexer_canonical_creations_v1 cc ON cc.pool=lower(p.pool_address)\nLEFT JOIN stats.pool_stats ps ON lower(ps.pool_address)=lower(p.pool_address)\nORDER BY lower(p.pool_address)`",
+    "sql": "WITH dist AS (SELECT pool_id, sum(amount::numeric) AS distributed FROM indexer.fee_distributions WHERE strategy=$1 GROUP BY pool_id),\nclaims AS (SELECT pool_id, count(DISTINCT lower(holder)) AS holders FROM indexer.airdrop_claims WHERE pool_id IS NOT NULL GROUP BY pool_id),\nevents AS (SELECT pool_id, block_number, log_index, new_strategy AS strategy FROM indexer.fee_strategy_changes UNION ALL SELECT pool_id, block_number, log_index, strategy FROM indexer.fee_distributions),\nlatest AS (SELECT DISTINCT ON (pool_id) pool_id, strategy FROM events ORDER BY pool_id, block_number DESC, log_index DESC),\ncandidates AS (SELECT pool_id FROM dist UNION SELECT pool_id FROM claims UNION SELECT pool_id FROM latest WHERE strategy=$1)\nSELECT lower(p.pool_address), lower(p.token_address), COALESCE(d.distributed, 0)::text, COALESCE(c.holders, 0), l.strategy, COALESCE(cc.block_timestamp, p.created_at), ps.market_cap\nFROM candidates k JOIN indexer.pools p ON p.pool_id=k.pool_id\nLEFT JOIN dist d ON d.pool_id=k.pool_id\nLEFT JOIN claims c ON c.pool_id=k.pool_id\nLEFT JOIN latest l ON l.pool_id=k.pool_id\nLEFT JOIN indexer.indexer_canonical_creations_v1 cc ON cc.pool=lower(p.pool_address)\nLEFT JOIN stats.pool_stats ps ON lower(ps.pool_address)=lower(p.pool_address)\nORDER BY lower(p.pool_address)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.airdrop_claims",
+      "indexer.fee_distributions",
+      "indexer.fee_strategy_changes",
+      "indexer.indexer_canonical_creations_v1",
+      "indexer.pools",
+      "stats.pool_stats"
+    ],
+    "sequences": [],
+    "functions": [
+      "count",
+      "lower",
+      "sum"
+    ],
+    "columns": [
+      "amount",
+      "block_number",
+      "c.holders",
+      "c.pool_id",
+      "cc.block_timestamp",
+      "cc.pool",
+      "d.distributed",
+      "d.pool_id",
+      "distributed",
+      "holder",
+      "holders",
+      "k.pool_id",
+      "l.pool_id",
+      "l.strategy",
+      "log_index",
+      "new_strategy",
+      "p.created_at",
+      "p.pool_address",
+      "p.pool_id",
+      "p.token_address",
+      "pool_id",
+      "ps.market_cap",
+      "ps.pool_address",
+      "strategy"
+    ],
+    "ctes": [
+      "candidates",
+      "claims",
+      "dist",
+      "events",
+      "latest"
+    ]
+  },
+  {
+    "id": "store/leaderboard_readmodel.AccountingReadModel.Leaderboard.1",
+    "file": "services/launchpad/api/internal/store/leaderboard_readmodel.go",
+    "function": "AccountingReadModel.Leaderboard",
+    "line": 81,
+    "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
+    "sql": "SET LOCAL statement_timeout = '150ms'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SET"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/leaderboard_readmodel.AccountingReadModel.Leaderboard.2",
+    "file": "services/launchpad/api/internal/store/leaderboard_readmodel.go",
+    "function": "AccountingReadModel.Leaderboard",
+    "line": 86,
+    "expression": "`SELECT floor(extract(epoch FROM transaction_timestamp()))::bigint`",
+    "sql": "SELECT floor(extract(epoch FROM transaction_timestamp()))::bigint",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "floor",
+      "pg_catalog.extract",
+      "transaction_timestamp"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/leaderboard_readmodel.AccountingReadModel.Leaderboard.3",
+    "file": "services/launchpad/api/internal/store/leaderboard_readmodel.go",
+    "function": "AccountingReadModel.Leaderboard",
+    "line": 91,
+    "expression": "`SELECT w.height, w.block_hash, (SELECT max(sequence) FROM `+commits+` WHERE projection_version=$1)::text, (SELECT max((fill->>'blockTimestampSeconds')::bigint) FROM `+commits+` WHERE projection_version=$1)::text FROM (SELECT fill->'position'->>'height' AS height, fill->'position'->>'blockHash' AS block_hash FROM `+commits+` WHERE projection_version=$1 ORDER BY (fill->'position'->>'height')::numeric DESC, (fill->'position'->>'transactionIndex')::numeric DESC, (fill->'position'->>'logIndex')::numeric DESC LIMIT 1) w`",
+    "sql": "SELECT w.height, w.block_hash, (SELECT max(sequence) FROM \"stats\".accounting_market_commits_v1 WHERE projection_version=$1)::text, (SELECT max((fill->>'blockTimestampSeconds')::bigint) FROM \"stats\".accounting_market_commits_v1 WHERE projection_version=$1)::text FROM (SELECT fill->'position'->>'height' AS height, fill->'position'->>'blockHash' AS block_hash FROM \"stats\".accounting_market_commits_v1 WHERE projection_version=$1 ORDER BY (fill->'position'->>'height')::numeric DESC, (fill->'position'->>'transactionIndex')::numeric DESC, (fill->'position'->>'logIndex')::numeric DESC LIMIT 1) w",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.accounting_market_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "max"
+    ],
+    "columns": [
+      "block_hash",
+      "fill",
+      "height",
+      "projection_version",
+      "sequence",
+      "w.block_hash",
+      "w.height"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/leaderboard_readmodel.AccountingReadModel.Leaderboard.4",
+    "file": "services/launchpad/api/internal/store/leaderboard_readmodel.go",
+    "function": "AccountingReadModel.Leaderboard",
+    "line": 122,
+    "expression": "`SELECT wallet, sum(usdl)::text, '0', bool_and(complete) FROM (SELECT COALESCE(fill->'attribution'->>'trader', fill->'attribution'->>'transactionSender') AS wallet, (fill->>'usdlAmountRaw')::numeric AS usdl, fill->'attribution'->>'quality' <> 'unavailable' AS complete FROM `+commits+` WHERE projection_version=$1 AND (fill->>'blockTimestampSeconds')::bigint > $2 AND (fill->>'blockTimestampSeconds')::bigint <= $3) f GROUP BY wallet`",
+    "sql": "SELECT wallet, sum(usdl)::text, '0', bool_and(complete) FROM (SELECT COALESCE(fill->'attribution'->>'trader', fill->'attribution'->>'transactionSender') AS wallet, (fill->>'usdlAmountRaw')::numeric AS usdl, fill->'attribution'->>'quality' <> 'unavailable' AS complete FROM \"stats\".accounting_market_commits_v1 WHERE projection_version=$1 AND (fill->>'blockTimestampSeconds')::bigint > $2 AND (fill->>'blockTimestampSeconds')::bigint <= $3) f GROUP BY wallet",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.accounting_market_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "bool_and",
+      "sum"
+    ],
+    "columns": [
+      "complete",
+      "fill",
+      "projection_version",
+      "usdl",
+      "wallet"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/leaderboard_readmodel.AccountingReadModel.Leaderboard.5",
+    "file": "services/launchpad/api/internal/store/leaderboard_readmodel.go",
+    "function": "AccountingReadModel.Leaderboard",
+    "line": 124,
+    "expression": "`SELECT c.creator, sum(CASE WHEN f.fill->>'side'='buy' THEN (f.fill->>'feeRaw')::numeric ELSE 0 END)::text, '0', bool_and(f.fill->'execution'->>'quality' <> 'unavailable' AND (f.fill->>'side'='buy' OR (f.fill->>'feeRaw')::numeric = 0)) FROM `+commits+` f JOIN indexer.indexer_canonical_creations_v1 c ON c.pool=f.pool WHERE f.projection_version=$1 AND (f.fill->>'blockTimestampSeconds')::bigint > $2 AND (f.fill->>'blockTimestampSeconds')::bigint <= $3 GROUP BY c.creator`",
+    "sql": "SELECT c.creator, sum(CASE WHEN f.fill->>'side'='buy' THEN (f.fill->>'feeRaw')::numeric ELSE 0 END)::text, '0', bool_and(f.fill->'execution'->>'quality' <> 'unavailable' AND (f.fill->>'side'='buy' OR (f.fill->>'feeRaw')::numeric = 0)) FROM \"stats\".accounting_market_commits_v1 f JOIN indexer.indexer_canonical_creations_v1 c ON c.pool=f.pool WHERE f.projection_version=$1 AND (f.fill->>'blockTimestampSeconds')::bigint > $2 AND (f.fill->>'blockTimestampSeconds')::bigint <= $3 GROUP BY c.creator",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_canonical_creations_v1",
+      "stats.accounting_market_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "bool_and",
+      "sum"
+    ],
+    "columns": [
+      "c.creator",
+      "c.pool",
+      "f.fill",
+      "f.pool",
+      "f.projection_version"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/leaderboard_realized.traderRealizedRows.1",
+    "file": "services/launchpad/api/internal/store/leaderboard_realized.go",
+    "function": "traderRealizedRows",
+    "line": 31,
+    "expression": "`WITH f AS (SELECT CASE WHEN fill->>'side'='buy' THEN COALESCE(fill->'attribution'->>'recipient',fill->'attribution'->>'trader',fill->'attribution'->>'transactionSender') ELSE COALESCE(fill->'attribution'->>'payer',fill->'attribution'->>'trader',fill->'attribution'->>'transactionSender') END AS wallet,pool,fill,(fill->>'blockTimestampSeconds')::bigint AS ts FROM `+commits+` WHERE projection_version=$1 AND (fill->>'blockTimestampSeconds')::bigint <= $3) SELECT fill FROM f WHERE (wallet,pool) IN (SELECT wallet,pool FROM f WHERE fill->>'side'='sell' AND ts > $2) ORDER BY wallet,pool,(fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric`",
+    "sql": "WITH f AS (SELECT CASE WHEN fill->>'side'='buy' THEN COALESCE(fill->'attribution'->>'recipient',fill->'attribution'->>'trader',fill->'attribution'->>'transactionSender') ELSE COALESCE(fill->'attribution'->>'payer',fill->'attribution'->>'trader',fill->'attribution'->>'transactionSender') END AS wallet,pool,fill,(fill->>'blockTimestampSeconds')::bigint AS ts FROM \"stats\".\"accounting_market_commits_v1\" WHERE projection_version=$1 AND (fill->>'blockTimestampSeconds')::bigint <= $3) SELECT fill FROM f WHERE (wallet,pool) IN (SELECT wallet,pool FROM f WHERE fill->>'side'='sell' AND ts > $2) ORDER BY wallet,pool,(fill->'position'->>'height')::numeric,(fill->'position'->>'transactionIndex')::numeric,(fill->'position'->>'logIndex')::numeric",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.accounting_market_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "fill",
+      "pool",
+      "projection_version",
+      "ts",
+      "wallet"
+    ],
+    "ctes": [
+      "f"
+    ]
+  },
+  {
+    "id": "store/leaderboard_realized.traderRealizedRows.2",
+    "file": "services/launchpad/api/internal/store/leaderboard_realized.go",
+    "function": "traderRealizedRows",
+    "line": 75,
+    "expression": "`SELECT DISTINCT m.payload FROM indexer.indexer_token_transfers_v1 m JOIN jsonb_to_recordset($1::jsonb) AS s(wallet text,token text,height bigint) ON m.token=s.token AND (m.from_address=s.wallet OR m.to_address=s.wallet) AND m.height<=s.height WHERE m.chain_id=125`",
+    "sql": "SELECT DISTINCT m.payload FROM indexer.indexer_token_transfers_v1 m JOIN jsonb_to_recordset($1::jsonb) AS s(wallet text,token text,height bigint) ON m.token=s.token AND (m.from_address=s.wallet OR m.to_address=s.wallet) AND m.height<=s.height WHERE m.chain_id=125",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_token_transfers_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_to_recordset"
+    ],
+    "columns": [
+      "m.chain_id",
+      "m.from_address",
+      "m.height",
+      "m.payload",
+      "m.to_address",
+      "m.token",
+      "s.height",
+      "s.token",
+      "s.wallet"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/pool_registry.Store.PoolRegistry.1",
+    "file": "services/launchpad/api/internal/store/pool_registry.go",
+    "function": "Store.PoolRegistry",
+    "line": 47,
+    "expression": "`SELECT pool,token,creator,height::text,block_hash,transaction_hash,transaction_index::text,log_index::text,block_timestamp,payload FROM indexer.indexer_canonical_creations_v1 WHERE pool=ANY($1)`",
+    "sql": "SELECT pool,token,creator,height::text,block_hash,transaction_hash,transaction_index::text,log_index::text,block_timestamp,payload FROM indexer.indexer_canonical_creations_v1 WHERE pool=ANY($1)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "block_timestamp",
+      "creator",
+      "height",
+      "log_index",
+      "payload",
+      "pool",
+      "token",
+      "transaction_hash",
+      "transaction_index"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/pool_registry.Store.PoolReserves.1",
+    "file": "services/launchpad/api/internal/store/pool_registry.go",
+    "function": "Store.PoolReserves",
+    "line": 99,
+    "expression": "`SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools p JOIN indexer.pool_state_snapshots st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC`",
+    "sql": "SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools p JOIN indexer.pool_state_snapshots st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.pool_state_snapshots",
+      "indexer.pools"
+    ],
+    "sequences": [],
+    "functions": [
+      "lower"
+    ],
+    "columns": [
+      "p.pool_address",
+      "p.pool_id",
+      "st.block_number",
+      "st.log_index",
+      "st.pool_id",
+      "st.real_reserve",
+      "st.token_reserve",
+      "st.virtual_reserve"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/pool_registry.AccountingReadModel.ObservedFeeBps.1",
+    "file": "services/launchpad/api/internal/store/pool_registry.go",
+    "function": "AccountingReadModel.ObservedFeeBps",
+    "line": 143,
+    "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
+    "sql": "SET LOCAL statement_timeout = '150ms'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SET"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "store/pool_registry.AccountingReadModel.ObservedFeeBps.2",
+    "file": "services/launchpad/api/internal/store/pool_registry.go",
+    "function": "AccountingReadModel.ObservedFeeBps",
+    "line": 146,
+    "expression": "`SELECT DISTINCT ON (pool) pool,COALESCE(fill->'execution'->>'feeBPS',fill->'execution'->>'feeBps') FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=ANY($1) AND projection_version=$2 AND fill->'execution'->>'quality'='qualified_execution' AND COALESCE(fill->'execution'->>'feeBPS',fill->'execution'->>'feeBps') IS NOT NULL ORDER BY pool,sequence DESC`",
+    "sql": "SELECT DISTINCT ON (pool) pool,COALESCE(fill->'execution'->>'feeBPS',fill->'execution'->>'feeBps') FROM \"stats\".accounting_market_commits_v1 WHERE pool=ANY($1) AND projection_version=$2 AND fill->'execution'->>'quality'='qualified_execution' AND COALESCE(fill->'execution'->>'feeBPS',fill->'execution'->>'feeBps') IS NOT NULL ORDER BY pool,sequence DESC",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "stats.accounting_market_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "fill",
+      "pool",
+      "projection_version",
+      "sequence"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "store/store.Store.beginLegacyRead.1",
+    "file": "services/launchpad/api/internal/store/store.go",
+    "function": "Store.beginLegacyRead",
+    "line": 46,
+    "expression": "\"SET LOCAL statement_timeout = '150ms'\"",
+    "sql": "SET LOCAL statement_timeout = '150ms'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/store",
+    "kinds": [
+      "SET"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.Store.SaveRule.1",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "Store.SaveRule",
+    "line": 38,
+    "expression": "`SELECT document FROM narrative_discovery.rules WHERE id=$1 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.rules WHERE id=$1 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.Store.SaveRule.2",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "Store.SaveRule",
+    "line": 44,
+    "expression": "`SELECT count(*) FROM narrative_discovery.rules WHERE account_id=$1 AND document->>'Disabled'='false'`",
+    "sql": "SELECT count(*) FROM narrative_discovery.rules WHERE account_id=$1 AND document->>'Disabled'='false'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [
+      "count"
+    ],
+    "columns": [
+      "account_id",
+      "document"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.Store.SaveRule.3",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "Store.SaveRule",
+    "line": 51,
+    "expression": "`INSERT INTO narrative_discovery.rules(id,account_id,document,checkpoint)VALUES($1,$2,$3,$4)`",
+    "sql": "INSERT INTO narrative_discovery.rules(id,account_id,document,checkpoint)VALUES($1,$2,$3,$4)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "checkpoint",
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.Store.SaveRule.4",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "Store.SaveRule",
+    "line": 69,
+    "expression": "`SELECT count(*) FROM narrative_discovery.rules WHERE account_id=$1 AND document->>'Disabled'='false'`",
+    "sql": "SELECT count(*) FROM narrative_discovery.rules WHERE account_id=$1 AND document->>'Disabled'='false'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [
+      "count"
+    ],
+    "columns": [
+      "account_id",
+      "document"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.Store.SaveRule.5",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "Store.SaveRule",
+    "line": 76,
+    "expression": "`UPDATE narrative_discovery.rules SET document=$1 WHERE id=$2`",
+    "sql": "UPDATE narrative_discovery.rules SET document=$1 WHERE id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.Store.DisableRule.1",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "Store.DisableRule",
+    "line": 90,
+    "expression": "`SELECT document FROM narrative_discovery.rules WHERE id=$1 AND account_id=$2 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.rules WHERE id=$1 AND account_id=$2 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.Store.DisableRule.2",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "Store.DisableRule",
+    "line": 105,
+    "expression": "`UPDATE narrative_discovery.rules SET document=$1 WHERE id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.rules SET document=$1 WHERE id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.evaluateRuleTx.1",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "evaluateRuleTx",
+    "line": 126,
+    "expression": "`SELECT document,checkpoint FROM narrative_discovery.rules WHERE id=$1 FOR UPDATE`",
+    "sql": "SELECT document,checkpoint FROM narrative_discovery.rules WHERE id=$1 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "checkpoint",
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.evaluateRuleTx.2",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "evaluateRuleTx",
+    "line": 144,
+    "expression": "`UPDATE narrative_discovery.rules SET checkpoint=$1,last_reason=$3 WHERE id=$2`",
+    "sql": "UPDATE narrative_discovery.rules SET checkpoint=$1,last_reason=$3 WHERE id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "checkpoint",
+      "id",
+      "last_reason"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.evaluateRuleTx.3",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "evaluateRuleTx",
+    "line": 149,
+    "expression": "`INSERT INTO narrative_discovery.triggers(id,rule_id,rule_revision,metric_revision,document)VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`",
+    "sql": "INSERT INTO narrative_discovery.triggers(id,rule_id,rule_revision,metric_revision,document)VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.triggers"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id",
+      "metric_revision",
+      "rule_id",
+      "rule_revision"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/alerts.evaluateRuleTx.4",
+    "file": "services/launchpad/discovery/alerts.go",
+    "function": "evaluateRuleTx",
+    "line": 153,
+    "expression": "`INSERT INTO narrative_discovery.outbox(id,kind,document)VALUES($1,'threshold-crossing-v2',$2)ON CONFLICT DO NOTHING`",
+    "sql": "INSERT INTO narrative_discovery.outbox(id,kind,document)VALUES($1,'threshold-crossing-v2',$2)ON CONFLICT DO NOTHING",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id",
+      "kind"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.CalloutService.Publish.1",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "CalloutService.Publish",
+    "line": 65,
+    "expression": "`SELECT count(*) FROM narrative_discovery.callouts WHERE document->>'AuthorAccountID'=$1 AND (document->>'CreatedAt')::timestamptz>clock_timestamp()-interval '1 minute'`",
+    "sql": "SELECT count(*) FROM narrative_discovery.callouts WHERE document->>'AuthorAccountID'=$1 AND (document->>'CreatedAt')::timestamptz>clock_timestamp()-interval '1 minute'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.callouts"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp",
+      "count"
+    ],
+    "columns": [
+      "document"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.CalloutService.Publish.2",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "CalloutService.Publish",
+    "line": 81,
+    "expression": "`INSERT INTO narrative_discovery.callouts(id,document)VALUES($1,$2)`",
+    "sql": "INSERT INTO narrative_discovery.callouts(id,document)VALUES($1,$2)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.callouts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.persistCallout.1",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "persistCallout",
+    "line": 89,
+    "expression": "`INSERT INTO narrative_discovery.callout_revisions(id,revision,document)VALUES($1,$2,$3)`",
+    "sql": "INSERT INTO narrative_discovery.callout_revisions(id,revision,document)VALUES($1,$2,$3)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.callout_revisions"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id",
+      "revision"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.persistCallout.2",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "persistCallout",
+    "line": 94,
+    "expression": "`UPDATE narrative_discovery.callout_revisions SET document=jsonb_set(jsonb_set(document,'{Body}','\"\"'::jsonb),'{PositionDisclosure}','\"\"'::jsonb) WHERE id=$1`",
+    "sql": "UPDATE narrative_discovery.callout_revisions SET document=jsonb_set(jsonb_set(document,'{Body}','\"\"'::jsonb),'{PositionDisclosure}','\"\"'::jsonb) WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.callout_revisions"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_set"
+    ],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.persistCallout.3",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "persistCallout",
+    "line": 98,
+    "expression": "`UPDATE narrative_discovery.outbox SET document=jsonb_set(jsonb_set(document,'{Body}','\"\"'::jsonb),'{PositionDisclosure}','\"\"'::jsonb) WHERE id LIKE $1`",
+    "sql": "UPDATE narrative_discovery.outbox SET document=jsonb_set(jsonb_set(document,'{Body}','\"\"'::jsonb),'{PositionDisclosure}','\"\"'::jsonb) WHERE id LIKE $1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_set"
+    ],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.persistCallout.4",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "persistCallout",
+    "line": 109,
+    "expression": "`SELECT document FROM narrative_discovery.sources WHERE id=$1`",
+    "sql": "SELECT document FROM narrative_discovery.sources WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.persistCallout.5",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "persistCallout",
+    "line": 121,
+    "expression": "`INSERT INTO narrative_discovery.sources(id,kind,document,published_at,event_id,observed_at)VALUES($1,'callout',$2,$3,$4,clock_timestamp())ON CONFLICT(id)DO UPDATE SET document=EXCLUDED.document,event_id=EXCLUDED.event_id,observed_at=EXCLUDED.observed_at`",
+    "sql": "INSERT INTO narrative_discovery.sources(id,kind,document,published_at,event_id,observed_at)VALUES($1,'callout',$2,$3,$4,clock_timestamp())ON CONFLICT(id)DO UPDATE SET document=EXCLUDED.document,event_id=EXCLUDED.event_id,observed_at=EXCLUDED.observed_at",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "document",
+      "event_id",
+      "excluded.document",
+      "excluded.event_id",
+      "excluded.observed_at",
+      "id",
+      "kind",
+      "observed_at",
+      "published_at"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.persistCallout.6",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "persistCallout",
+    "line": 126,
+    "expression": "`INSERT INTO narrative_discovery.outbox(id,kind,document)VALUES($1,'callout-target-ref-v2',$2)`",
+    "sql": "INSERT INTO narrative_discovery.outbox(id,kind,document)VALUES($1,'callout-target-ref-v2',$2)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id",
+      "kind"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.CalloutService.Edit.1",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "CalloutService.Edit",
+    "line": 133,
+    "expression": "`SELECT document FROM narrative_discovery.callouts WHERE id=$1 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.callouts WHERE id=$1 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.callouts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.CalloutService.Edit.2",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "CalloutService.Edit",
+    "line": 165,
+    "expression": "`UPDATE narrative_discovery.callouts SET document=$1 WHERE id=$2`",
+    "sql": "UPDATE narrative_discovery.callouts SET document=$1 WHERE id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.callouts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/callouts.CalloutService.Read.1",
+    "file": "services/launchpad/discovery/callouts.go",
+    "function": "CalloutService.Read",
+    "line": 176,
+    "expression": "`SELECT document FROM narrative_discovery.callouts WHERE id=$1`",
+    "sql": "SELECT document FROM narrative_discovery.callouts WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.callouts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/feed.Feed.Page.1",
+    "file": "services/launchpad/discovery/feed.go",
+    "function": "Feed.Page",
+    "line": 68,
+    "expression": "`SELECT document FROM narrative_discovery.snapshots WHERE id=$1 AND account_id=$2 AND expires_at>$3`",
+    "sql": "SELECT document FROM narrative_discovery.snapshots WHERE id=$1 AND account_id=$2 AND expires_at>$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "expires_at",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/feed.Feed.Page.2",
+    "file": "services/launchpad/discovery/feed.go",
+    "function": "Feed.Page",
+    "line": 125,
+    "expression": "`INSERT INTO narrative_discovery.snapshots(id,account_id,preference_revision,graph_revision,algorithm,document,expires_at)VALUES($1,$2,$3,$4,$5,$6,$7)`",
+    "sql": "INSERT INTO narrative_discovery.snapshots(id,account_id,preference_revision,graph_revision,algorithm,document,expires_at)VALUES($1,$2,$3,$4,$5,$6,$7)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "algorithm",
+      "document",
+      "expires_at",
+      "graph_revision",
+      "id",
+      "preference_revision"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/http.HTTP.squadMembers.1",
+    "file": "services/launchpad/discovery/http.go",
+    "function": "HTTP.squadMembers",
+    "line": 498,
+    "expression": "`SELECT document FROM narrative_discovery.members WHERE squad_id=$1 ORDER BY account_id`",
+    "sql": "SELECT document FROM narrative_discovery.members WHERE squad_id=$1 ORDER BY account_id",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/http.HTTP.squadMember.1",
+    "file": "services/launchpad/discovery/http.go",
+    "function": "HTTP.squadMember",
+    "line": 524,
+    "expression": "`SELECT document FROM narrative_discovery.members WHERE squad_id=$1 AND account_id=$2`",
+    "sql": "SELECT document FROM narrative_discovery.members WHERE squad_id=$1 AND account_id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/invitations.Store.InvitationDelivery.1",
+    "file": "services/launchpad/discovery/invitations.go",
+    "function": "Store.InvitationDelivery",
+    "line": 97,
+    "expression": "`SELECT d.document FROM narrative_discovery.invitation_deliveries d JOIN narrative_discovery.invitations i USING(squad_id,account_id) JOIN narrative_discovery.members m USING(squad_id,account_id) WHERE d.squad_id=$1 AND d.account_id=$2 AND i.document->>'Consumed'='false' AND m.document->>'Status'='invited'`",
+    "sql": "SELECT d.document FROM narrative_discovery.invitation_deliveries d JOIN narrative_discovery.invitations i USING(squad_id,account_id) JOIN narrative_discovery.members m USING(squad_id,account_id) WHERE d.squad_id=$1 AND d.account_id=$2 AND i.document->>'Consumed'='false' AND m.document->>'Status'='invited'",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.invitation_deliveries",
+      "narrative_discovery.invitations",
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "d.account_id",
+      "d.document",
+      "d.squad_id",
+      "i.document",
+      "m.document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/invitations.Store.RedeemInvitation.1",
+    "file": "services/launchpad/discovery/invitations.go",
+    "function": "Store.RedeemInvitation",
+    "line": 124,
+    "expression": "`SELECT document FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/invitations.Store.RedeemInvitation.2",
+    "file": "services/launchpad/discovery/invitations.go",
+    "function": "Store.RedeemInvitation",
+    "line": 144,
+    "expression": "`UPDATE narrative_discovery.invitations SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.invitations SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/invitations.Store.RedeemInvitation.3",
+    "file": "services/launchpad/discovery/invitations.go",
+    "function": "Store.RedeemInvitation",
+    "line": 147,
+    "expression": "`UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/invitations.Store.RedeemInvitation.4",
+    "file": "services/launchpad/discovery/invitations.go",
+    "function": "Store.RedeemInvitation",
+    "line": 150,
+    "expression": "`DELETE FROM narrative_discovery.invitation_deliveries WHERE squad_id=$1 AND account_id=$2`",
+    "sql": "DELETE FROM narrative_discovery.invitation_deliveries WHERE squad_id=$1 AND account_id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "DELETE"
+    ],
+    "tables": [
+      "narrative_discovery.invitation_deliveries"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/invitations.Store.InvitationInbox.1",
+    "file": "services/launchpad/discovery/invitations.go",
+    "function": "Store.InvitationInbox",
+    "line": 175,
+    "expression": "`SELECT d.document FROM narrative_discovery.invitation_deliveries d JOIN narrative_discovery.invitations i USING(squad_id,account_id) JOIN narrative_discovery.members m USING(squad_id,account_id) WHERE d.account_id=$1 AND d.squad_id>$2 AND i.document->>'Consumed'='false' AND m.document->>'Status'='invited' AND (d.document->>'ExpiresAt')::timestamptz>$3 ORDER BY d.squad_id LIMIT 101`",
+    "sql": "SELECT d.document FROM narrative_discovery.invitation_deliveries d JOIN narrative_discovery.invitations i USING(squad_id,account_id) JOIN narrative_discovery.members m USING(squad_id,account_id) WHERE d.account_id=$1 AND d.squad_id>$2 AND i.document->>'Consumed'='false' AND m.document->>'Status'='invited' AND (d.document->>'ExpiresAt')::timestamptz>$3 ORDER BY d.squad_id LIMIT 101",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.invitation_deliveries",
+      "narrative_discovery.invitations",
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "d.account_id",
+      "d.document",
+      "d.squad_id",
+      "i.document",
+      "m.document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/leaderboard.Store.SquadPerformance.1",
+    "file": "services/launchpad/discovery/leaderboard.go",
+    "function": "Store.SquadPerformance",
+    "line": 168,
+    "expression": "`SELECT document FROM narrative_discovery.members WHERE squad_id=$1`",
+    "sql": "SELECT document FROM narrative_discovery.members WHERE squad_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/leaderboard.SQLIntervalAuthority.Intervals.1",
+    "file": "services/launchpad/discovery/leaderboard.go",
+    "function": "SQLIntervalAuthority.Intervals",
+    "line": 252,
+    "expression": "`WITH admitted AS(SELECT DISTINCT ON(wallet) snapshot_id,wallet,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 WHERE start_at<=$1 AND end_at>=$2 ORDER BY wallet,generation DESC) SELECT r.snapshot_id::text,r.wallet,r.input_digest,r.watermark,COALESCE(jsonb_agg(i.payload ORDER BY i.bucket) FILTER(WHERE i.bucket IS NOT NULL),'[]'::jsonb) FROM admitted r LEFT JOIN pnl.inventory_l16_wallet_intervals_v3 i ON i.snapshot_id=r.snapshot_id AND i.interval='1h' AND i.bucket>=$1 AND i.bucket<$2 GROUP BY r.snapshot_id,r.wallet,r.input_digest,r.watermark ORDER BY r.wallet LIMIT 10001`",
+    "sql": "WITH admitted AS(SELECT DISTINCT ON(wallet) snapshot_id,wallet,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 WHERE start_at<=$1 AND end_at>=$2 ORDER BY wallet,generation DESC) SELECT r.snapshot_id::text,r.wallet,r.input_digest,r.watermark,COALESCE(jsonb_agg(i.payload ORDER BY i.bucket) FILTER(WHERE i.bucket IS NOT NULL),'[]'::jsonb) FROM admitted r LEFT JOIN pnl.inventory_l16_wallet_intervals_v3 i ON i.snapshot_id=r.snapshot_id AND i.interval='1h' AND i.bucket>=$1 AND i.bucket<$2 GROUP BY r.snapshot_id,r.wallet,r.input_digest,r.watermark ORDER BY r.wallet LIMIT 10001",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pnl.inventory_l16_wallet_intervals_v3",
+      "pnl.inventory_l16_wallet_ranges_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_agg"
+    ],
+    "columns": [
+      "end_at",
+      "generation",
+      "i.bucket",
+      "i.interval",
+      "i.payload",
+      "i.snapshot_id",
+      "input_digest",
+      "r.input_digest",
+      "r.snapshot_id",
+      "r.wallet",
+      "r.watermark",
+      "snapshot_id",
+      "start_at",
+      "wallet",
+      "watermark"
+    ],
+    "ctes": [
+      "admitted"
+    ]
+  },
+  {
+    "id": "discovery/prices.canonicalPrice.1",
+    "file": "services/launchpad/discovery/prices.go",
+    "function": "canonicalPrice",
+    "line": 71,
+    "expression": "`SELECT api_stream.market_projection_head($1)`",
+    "sql": "SELECT api_stream.market_projection_head($1)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "api_stream.market_projection_head"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Runtime.PublishBatch.1",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Runtime.PublishBatch",
+    "line": 29,
+    "expression": "`SELECT id,kind,document FROM narrative_discovery.outbox WHERE NOT published ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1`",
+    "sql": "SELECT id,kind,document FROM narrative_discovery.outbox WHERE NOT published ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id",
+      "kind",
+      "published"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Runtime.PublishBatch.2",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Runtime.PublishBatch",
+    "line": 45,
+    "expression": "`SELECT document FROM narrative_discovery.callouts WHERE id=$1`",
+    "sql": "SELECT document FROM narrative_discovery.callouts WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.callouts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Runtime.PublishBatch.3",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Runtime.PublishBatch",
+    "line": 63,
+    "expression": "`UPDATE narrative_discovery.outbox SET published=true WHERE id=$1`",
+    "sql": "UPDATE narrative_discovery.outbox SET published=true WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "published"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Store.ExpireSnapshots.1",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Store.ExpireSnapshots",
+    "line": 97,
+    "expression": "`DELETE FROM narrative_discovery.snapshots WHERE id IN(SELECT id FROM narrative_discovery.snapshots WHERE expires_at<=$1 LIMIT 1000)`",
+    "sql": "DELETE FROM narrative_discovery.snapshots WHERE id IN(SELECT id FROM narrative_discovery.snapshots WHERE expires_at<=$1 LIMIT 1000)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "DELETE",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "expires_at",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Runtime.EvaluateBatch.1",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Runtime.EvaluateBatch",
+    "line": 110,
+    "expression": "`SELECT last_rule_id FROM narrative_discovery.evaluation_cursor WHERE id=true FOR UPDATE SKIP LOCKED`",
+    "sql": "SELECT last_rule_id FROM narrative_discovery.evaluation_cursor WHERE id=true FOR UPDATE SKIP LOCKED",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.evaluation_cursor"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "last_rule_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Runtime.EvaluateBatch.2",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Runtime.EvaluateBatch",
+    "line": 117,
+    "expression": "`SELECT document FROM narrative_discovery.rules WHERE document->>'Disabled'='false' ORDER BY (id>$1) DESC,id LIMIT $2`",
+    "sql": "SELECT document FROM narrative_discovery.rules WHERE document->>'Disabled'='false' ORDER BY (id>$1) DESC,id LIMIT $2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Runtime.EvaluateBatch.3",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Runtime.EvaluateBatch",
+    "line": 141,
+    "expression": "`UPDATE narrative_discovery.rules SET last_reason='price_context_missing' WHERE id=$1`",
+    "sql": "UPDATE narrative_discovery.rules SET last_reason='price_context_missing' WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "last_reason"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Runtime.EvaluateBatch.4",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Runtime.EvaluateBatch",
+    "line": 147,
+    "expression": "`UPDATE narrative_discovery.rules SET last_reason='price_unavailable' WHERE id=$1`",
+    "sql": "UPDATE narrative_discovery.rules SET last_reason='price_unavailable' WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "last_reason"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/runtime.Runtime.EvaluateBatch.5",
+    "file": "services/launchpad/discovery/runtime.go",
+    "function": "Runtime.EvaluateBatch",
+    "line": 159,
+    "expression": "`UPDATE narrative_discovery.evaluation_cursor SET last_rule_id=$1 WHERE id=true`",
+    "sql": "UPDATE narrative_discovery.evaluation_cursor SET last_rule_id=$1 WHERE id=true",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.evaluation_cursor"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "last_rule_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.CreateSquad.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.CreateSquad",
+    "line": 21,
+    "expression": "`INSERT INTO narrative_discovery.squads(id,document)VALUES($1,$2)`",
+    "sql": "INSERT INTO narrative_discovery.squads(id,document)VALUES($1,$2)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.squads"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.CreateSquad.2",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.CreateSquad",
+    "line": 26,
+    "expression": "`INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)`",
+    "sql": "INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.member.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "member",
+    "line": 33,
+    "expression": "`SELECT document FROM narrative_discovery.members WHERE squad_id=$1 AND account_id=$2 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.members WHERE squad_id=$1 AND account_id=$2 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.squad.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "squad",
+    "line": 42,
+    "expression": "`SELECT document FROM narrative_discovery.squads WHERE id=$1 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.squads WHERE id=$1 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.squads"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.Squad.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.Squad",
+    "line": 54,
+    "expression": "`SELECT document FROM narrative_discovery.squads WHERE id=$1`",
+    "sql": "SELECT document FROM narrative_discovery.squads WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.squads"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.inviteTx.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "inviteTx",
+    "line": 105,
+    "expression": "`INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`",
+    "sql": "INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "excluded.document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.inviteTx.2",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "inviteTx",
+    "line": 110,
+    "expression": "`INSERT INTO narrative_discovery.invitation_deliveries(squad_id,account_id,document)VALUES($1,$2,$3) ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`",
+    "sql": "INSERT INTO narrative_discovery.invitation_deliveries(squad_id,account_id,document)VALUES($1,$2,$3) ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.invitation_deliveries"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "excluded.document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.inviteTx.3",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "inviteTx",
+    "line": 113,
+    "expression": "`INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`",
+    "sql": "INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "excluded.document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.AcceptInvitation.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.AcceptInvitation",
+    "line": 125,
+    "expression": "`SELECT document FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.AcceptInvitation.2",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.AcceptInvitation",
+    "line": 140,
+    "expression": "`UPDATE narrative_discovery.invitations SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.invitations SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.AcceptInvitation.3",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.AcceptInvitation",
+    "line": 144,
+    "expression": "`UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.UpdateSquad.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.UpdateSquad",
+    "line": 168,
+    "expression": "`UPDATE narrative_discovery.squads SET document=$1 WHERE id=$2`",
+    "sql": "UPDATE narrative_discovery.squads SET document=$1 WHERE id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.squads"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.setMemberStatusTx.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "setMemberStatusTx",
+    "line": 201,
+    "expression": "`UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.setMemberRoleTx.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "setMemberRoleTx",
+    "line": 237,
+    "expression": "`UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.requestJoinTx.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "requestJoinTx",
+    "line": 292,
+    "expression": "`DELETE FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2`",
+    "sql": "DELETE FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "DELETE"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.requestJoinTx.2",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "requestJoinTx",
+    "line": 298,
+    "expression": "`INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`",
+    "sql": "INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "excluded.document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.requestJoinTx.3",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "requestJoinTx",
+    "line": 303,
+    "expression": "`INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`",
+    "sql": "INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "excluded.document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.approveRequestTx.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "approveRequestTx",
+    "line": 359,
+    "expression": "`SELECT document FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.approveRequestTx.2",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "approveRequestTx",
+    "line": 374,
+    "expression": "`UPDATE narrative_discovery.invitations SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.invitations SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.invitations"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.approveRequestTx.3",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "approveRequestTx",
+    "line": 377,
+    "expression": "`UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.ProposeTransfer.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.ProposeTransfer",
+    "line": 406,
+    "expression": "`INSERT INTO narrative_discovery.transfers(squad_id,document)VALUES($1,$2)ON CONFLICT(squad_id)DO UPDATE SET document=EXCLUDED.document`",
+    "sql": "INSERT INTO narrative_discovery.transfers(squad_id,document)VALUES($1,$2)ON CONFLICT(squad_id)DO UPDATE SET document=EXCLUDED.document",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.transfers"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "excluded.document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.ConfirmTransfer.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.ConfirmTransfer",
+    "line": 421,
+    "expression": "`SELECT document FROM narrative_discovery.transfers WHERE squad_id=$1 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.transfers WHERE squad_id=$1 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.transfers"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.ConfirmTransfer.2",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.ConfirmTransfer",
+    "line": 448,
+    "expression": "`UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`",
+    "sql": "UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.members"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.ConfirmTransfer.3",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.ConfirmTransfer",
+    "line": 453,
+    "expression": "`UPDATE narrative_discovery.squads SET document=$1 WHERE id=$2`",
+    "sql": "UPDATE narrative_discovery.squads SET document=$1 WHERE id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.squads"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.ConfirmTransfer.4",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.ConfirmTransfer",
+    "line": 457,
+    "expression": "`DELETE FROM narrative_discovery.transfers WHERE squad_id=$1`",
+    "sql": "DELETE FROM narrative_discovery.transfers WHERE squad_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "DELETE"
+    ],
+    "tables": [
+      "narrative_discovery.transfers"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "squad_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/squads.Store.UpdateConnectedSquad.1",
+    "file": "services/launchpad/discovery/squads.go",
+    "function": "Store.UpdateConnectedSquad",
+    "line": 486,
+    "expression": "`UPDATE narrative_discovery.squads SET document=$1 WHERE id=$2`",
+    "sql": "UPDATE narrative_discovery.squads SET document=$1 WHERE id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.squads"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.lock.1",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "lock",
+    "line": 24,
+    "expression": "`SELECT pg_advisory_xact_lock(hashtextextended($1,210021))`",
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,210021))",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "hashtextextended",
+      "pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.Apply.1",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.Apply",
+    "line": 55,
+    "expression": "`SELECT document FROM narrative_discovery.sources WHERE id=$1`",
+    "sql": "SELECT document FROM narrative_discovery.sources WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.Apply.2",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.Apply",
+    "line": 68,
+    "expression": "`INSERT INTO narrative_discovery.consumer_events(consumer,event_id,observed_at)VALUES($1,$2,$3) ON CONFLICT DO NOTHING`",
+    "sql": "INSERT INTO narrative_discovery.consumer_events(consumer,event_id,observed_at)VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.consumer_events"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer",
+      "event_id",
+      "observed_at"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.Apply.3",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.Apply",
+    "line": 76,
+    "expression": "`INSERT INTO narrative_discovery.sources(id,kind,document,published_at,event_id,observed_at)VALUES($1,$2,$3,$4,$5,$6)ON CONFLICT(id) DO UPDATE SET document=EXCLUDED.document,event_id=EXCLUDED.event_id,observed_at=EXCLUDED.observed_at`",
+    "sql": "INSERT INTO narrative_discovery.sources(id,kind,document,published_at,event_id,observed_at)VALUES($1,$2,$3,$4,$5,$6)ON CONFLICT(id) DO UPDATE SET document=EXCLUDED.document,event_id=EXCLUDED.event_id,observed_at=EXCLUDED.observed_at",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "event_id",
+      "excluded.document",
+      "excluded.event_id",
+      "excluded.observed_at",
+      "id",
+      "kind",
+      "observed_at",
+      "published_at"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.Sources.1",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.Sources",
+    "line": 81,
+    "expression": "`SELECT document FROM narrative_discovery.sources WHERE observed_at>=$1 AND observed_at<=$2 ORDER BY published_at DESC,event_id LIMIT 2000`",
+    "sql": "SELECT document FROM narrative_discovery.sources WHERE observed_at>=$1 AND observed_at<=$2 ORDER BY published_at DESC,event_id LIMIT 2000",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "event_id",
+      "observed_at",
+      "published_at"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.Source.1",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.Source",
+    "line": 103,
+    "expression": "`SELECT document FROM narrative_discovery.sources WHERE id=$1`",
+    "sql": "SELECT document FROM narrative_discovery.sources WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.EraseAttribution.1",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.EraseAttribution",
+    "line": 111,
+    "expression": "`UPDATE narrative_discovery.sources SET document=jsonb_set(document,'{CreatorPublicID}','\"\"'::jsonb) WHERE document->>'CreatorPublicID'=$1`",
+    "sql": "UPDATE narrative_discovery.sources SET document=jsonb_set(document,'{CreatorPublicID}','\"\"'::jsonb) WHERE document->>'CreatorPublicID'=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_set"
+    ],
+    "columns": [
+      "document"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.EraseAttribution.2",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.EraseAttribution",
+    "line": 115,
+    "expression": "`DELETE FROM narrative_discovery.snapshots WHERE account_id=$1`",
+    "sql": "DELETE FROM narrative_discovery.snapshots WHERE account_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "DELETE"
+    ],
+    "tables": [
+      "narrative_discovery.snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.DeleteAccount.1",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 128,
+    "expression": "`SELECT document FROM narrative_discovery.callouts WHERE document->>'AuthorAccountID'=$1 FOR UPDATE`",
+    "sql": "SELECT document FROM narrative_discovery.callouts WHERE document->>'AuthorAccountID'=$1 FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.callouts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.DeleteAccount.2",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 158,
+    "expression": "`UPDATE narrative_discovery.callouts SET document=$1 WHERE id=$2`",
+    "sql": "UPDATE narrative_discovery.callouts SET document=$1 WHERE id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.callouts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.DeleteAccount.3",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 162,
+    "expression": "`UPDATE narrative_discovery.callout_revisions SET document=jsonb_set(document,'{AuthorAccountID}','\"\"'::jsonb) WHERE id=$1`",
+    "sql": "UPDATE narrative_discovery.callout_revisions SET document=jsonb_set(document,'{AuthorAccountID}','\"\"'::jsonb) WHERE id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.callout_revisions"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_set"
+    ],
+    "columns": [
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.DeleteAccount.4",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 169,
+    "expression": "`UPDATE narrative_discovery.outbox SET document=jsonb_set(document,'{Actor}','\"\"'::jsonb) WHERE kind='callout-target-ref-v2' AND document->>'Actor'=$1`",
+    "sql": "UPDATE narrative_discovery.outbox SET document=jsonb_set(document,'{Actor}','\"\"'::jsonb) WHERE kind='callout-target-ref-v2' AND document->>'Actor'=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_set"
+    ],
+    "columns": [
+      "document",
+      "kind"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.DeleteAccount.5",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 173,
+    "expression": "`DELETE FROM narrative_discovery.snapshots WHERE account_id=$1`",
+    "sql": "DELETE FROM narrative_discovery.snapshots WHERE account_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "DELETE"
+    ],
+    "tables": [
+      "narrative_discovery.snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.DeleteAccount.6",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 177,
+    "expression": "`UPDATE narrative_discovery.sources SET document=jsonb_set(document,'{CreatorPublicID}','\"\"'::jsonb) WHERE document->>'CreatorPublicID'=$1`",
+    "sql": "UPDATE narrative_discovery.sources SET document=jsonb_set(document,'{CreatorPublicID}','\"\"'::jsonb) WHERE document->>'CreatorPublicID'=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_set"
+    ],
+    "columns": [
+      "document"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "discovery/store.Store.DeleteAccount.7",
+    "file": "services/launchpad/discovery/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 181,
+    "expression": "`UPDATE narrative_discovery.rules SET document=jsonb_set(document,'{Disabled}','true'::jsonb) WHERE account_id=$1`",
+    "sql": "UPDATE narrative_discovery.rules SET document=jsonb_set(document,'{Disabled}','true'::jsonb) WHERE account_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/discovery",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "narrative_discovery.rules"
+    ],
+    "sequences": [],
+    "functions": [
+      "jsonb_set"
+    ],
+    "columns": [
+      "account_id",
+      "document"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/authorities.CanonicalPools.ResolvePublic.1",
+    "file": "services/launchpad/notifications/authorities.go",
+    "function": "CanonicalPools.ResolvePublic",
+    "line": 58,
+    "expression": "`SELECT pool,token,creator,height,block_hash,transaction_hash,log_index,block_timestamp FROM indexer.indexer_canonical_creations_v1 WHERE pool=$1`",
+    "sql": "SELECT pool,token,creator,height,block_hash,transaction_hash,log_index,block_timestamp FROM indexer.indexer_canonical_creations_v1 WHERE pool=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "block_timestamp",
+      "creator",
+      "height",
+      "log_index",
+      "pool",
+      "token",
+      "transaction_hash"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/authorities.CanonicalPools.PublicSources.1",
+    "file": "services/launchpad/notifications/authorities.go",
+    "function": "CanonicalPools.PublicSources",
+    "line": 81,
+    "expression": "`SELECT pool FROM indexer.indexer_canonical_creations_v1 ORDER BY block_timestamp DESC,transaction_hash,log_index LIMIT 2000`",
+    "sql": "SELECT pool FROM indexer.indexer_canonical_creations_v1 ORDER BY block_timestamp DESC,transaction_hash,log_index LIMIT 2000",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_timestamp",
+      "log_index",
+      "pool",
+      "transaction_hash"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/authorities.NewRuntimeAuthorities.1",
+    "file": "services/launchpad/notifications/authorities.go",
+    "function": "NewRuntimeAuthorities",
+    "line": 114,
+    "expression": "`SELECT pool,token,creator,height,block_hash,transaction_hash,log_index,block_timestamp FROM indexer.indexer_canonical_creations_v1 LIMIT 0`",
+    "sql": "SELECT pool,token,creator,height,block_hash,transaction_hash,log_index,block_timestamp FROM indexer.indexer_canonical_creations_v1 LIMIT 0",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "block_timestamp",
+      "creator",
+      "height",
+      "log_index",
+      "pool",
+      "token",
+      "transaction_hash"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/authorities.NewRuntimeAuthorities.2",
+    "file": "services/launchpad/notifications/authorities.go",
+    "function": "NewRuntimeAuthorities",
+    "line": 115,
+    "expression": "`SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 LIMIT 0`",
+    "sql": "SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 LIMIT 0",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pnl.inventory_l16_wallet_ranges_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "end_at",
+      "generation",
+      "input_digest",
+      "snapshot_id",
+      "start_at",
+      "wallet",
+      "watermark"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/authorities.NewRuntimeAuthorities.3",
+    "file": "services/launchpad/notifications/authorities.go",
+    "function": "NewRuntimeAuthorities",
+    "line": 116,
+    "expression": "`SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_v3 LIMIT 0`",
+    "sql": "SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_v3 LIMIT 0",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "pnl.inventory_l16_wallet_intervals_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "bucket",
+      "interval",
+      "payload",
+      "snapshot_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/retention.Store.Retain.1",
+    "file": "services/launchpad/notifications/retention.go",
+    "function": "Store.Retain",
+    "line": 12,
+    "expression": "`DELETE FROM discovery_notifications.inbox WHERE id IN (SELECT id FROM discovery_notifications.inbox WHERE created_at<$1 ORDER BY created_at LIMIT $2)`",
+    "sql": "DELETE FROM discovery_notifications.inbox WHERE id IN (SELECT id FROM discovery_notifications.inbox WHERE created_at<$1 ORDER BY created_at LIMIT $2)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "DELETE",
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "created_at",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/runtime.HTTPRuntime.Ready.1",
+    "file": "services/launchpad/notifications/runtime.go",
+    "function": "HTTPRuntime.Ready",
+    "line": 312,
+    "expression": "`SELECT to_regclass('narrative_discovery.sources') IS NOT NULL AND to_regclass('discovery_notifications.inbox') IS NOT NULL`",
+    "sql": "SELECT to_regclass('narrative_discovery.sources') IS NOT NULL AND to_regclass('discovery_notifications.inbox') IS NOT NULL",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "to_regclass"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "notifications/runtime.HTTPRuntime.refreshSources.1",
+    "file": "services/launchpad/notifications/runtime.go",
+    "function": "HTTPRuntime.refreshSources",
+    "line": 395,
+    "expression": "`SELECT document FROM narrative_discovery.sources ORDER BY published_at DESC,event_id LIMIT 2000`",
+    "sql": "SELECT document FROM narrative_discovery.sources ORDER BY published_at DESC,event_id LIMIT 2000",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "narrative_discovery.sources"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "event_id",
+      "published_at"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.CommitTrigger.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.CommitTrigger",
+    "line": 69,
+    "expression": "`SELECT pg_advisory_xact_lock(hashtextextended($1,210029))`",
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,210029))",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "hashtextextended",
+      "pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.CommitTrigger.2",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.CommitTrigger",
+    "line": 73,
+    "expression": "`SELECT EXISTS(SELECT 1 FROM discovery_notifications.deleted_accounts WHERE account_key=$1)`",
+    "sql": "SELECT EXISTS(SELECT 1 FROM discovery_notifications.deleted_accounts WHERE account_key=$1)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.deleted_accounts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_key"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.CommitTrigger.3",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.CommitTrigger",
+    "line": 79,
+    "expression": "`INSERT INTO discovery_notifications.inbox(id,account_id,trigger_id,template_version,document,created_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(account_id,trigger_id,template_version) DO NOTHING`",
+    "sql": "INSERT INTO discovery_notifications.inbox(id,account_id,trigger_id,template_version,document,created_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(account_id,trigger_id,template_version) DO NOTHING",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "created_at",
+      "document",
+      "id",
+      "template_version",
+      "trigger_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.CommitTrigger.4",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.CommitTrigger",
+    "line": 89,
+    "expression": "`SELECT document FROM discovery_notifications.inbox WHERE account_id=$1 AND trigger_id=$2 AND template_version=$3`",
+    "sql": "SELECT document FROM discovery_notifications.inbox WHERE account_id=$1 AND trigger_id=$2 AND template_version=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "document",
+      "template_version",
+      "trigger_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.CommitTrigger.5",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.CommitTrigger",
+    "line": 98,
+    "expression": "`INSERT INTO discovery_notifications.outbox(id,deliveries,next_at,terminal) VALUES($1,$2,$3,$4)`",
+    "sql": "INSERT INTO discovery_notifications.outbox(id,deliveries,next_at,terminal) VALUES($1,$2,$3,$4)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "deliveries",
+      "id",
+      "next_at",
+      "terminal"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.Claim.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.Claim",
+    "line": 113,
+    "expression": "`WITH due AS (SELECT id FROM discovery_notifications.outbox WHERE NOT terminal AND next_at<=$1 AND (lease_until IS NULL OR lease_until<=$1) ORDER BY next_at,id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE discovery_notifications.outbox o SET lease_owner=$3,lease_until=$1+interval '30 seconds',fence=o.fence+1 FROM due WHERE o.id=due.id RETURNING o.id,o.fence,o.deliveries,(SELECT document FROM discovery_notifications.inbox i WHERE i.id=o.id)`",
+    "sql": "WITH due AS (SELECT id FROM discovery_notifications.outbox WHERE NOT terminal AND next_at<=$1 AND (lease_until IS NULL OR lease_until<=$1) ORDER BY next_at,id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE discovery_notifications.outbox o SET lease_owner=$3,lease_until=$1+interval '30 seconds',fence=o.fence+1 FROM due WHERE o.id=due.id RETURNING o.id,o.fence,o.deliveries,(SELECT document FROM discovery_notifications.inbox i WHERE i.id=o.id)",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT",
+      "UPDATE"
+    ],
+    "tables": [
+      "discovery_notifications.inbox",
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "document",
+      "due.id",
+      "fence",
+      "i.id",
+      "id",
+      "lease_owner",
+      "lease_until",
+      "next_at",
+      "o.deliveries",
+      "o.fence",
+      "o.id",
+      "terminal"
+    ],
+    "ctes": [
+      "due"
+    ]
+  },
+  {
+    "id": "notifications/store.Store.Complete.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.Complete",
+    "line": 165,
+    "expression": "`SELECT deliveries FROM discovery_notifications.outbox WHERE id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() FOR UPDATE`",
+    "sql": "SELECT deliveries FROM discovery_notifications.outbox WHERE id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "deliveries",
+      "fence",
+      "id",
+      "lease_owner",
+      "lease_until"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.Complete.2",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.Complete",
+    "line": 201,
+    "expression": "`UPDATE discovery_notifications.outbox SET deliveries=$1,next_at=$2,terminal=$3 WHERE id=$4 AND lease_owner=$5 AND fence=$6`",
+    "sql": "UPDATE discovery_notifications.outbox SET deliveries=$1,next_at=$2,terminal=$3 WHERE id=$4 AND lease_owner=$5 AND fence=$6",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "deliveries",
+      "fence",
+      "id",
+      "lease_owner",
+      "next_at",
+      "terminal"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.Release.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.Release",
+    "line": 216,
+    "expression": "`UPDATE discovery_notifications.outbox SET lease_until=NULL,lease_owner=NULL WHERE id=$1 AND lease_owner=$2 AND fence=$3`",
+    "sql": "UPDATE discovery_notifications.outbox SET lease_until=NULL,lease_owner=NULL WHERE id=$1 AND lease_owner=$2 AND fence=$3",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "fence",
+      "id",
+      "lease_owner",
+      "lease_until"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.SetRead.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.SetRead",
+    "line": 220,
+    "expression": "`UPDATE discovery_notifications.inbox SET document=jsonb_set(document,'{Read}',to_jsonb($3::boolean)),read_at=CASE WHEN $3 THEN COALESCE(read_at,clock_timestamp()) ELSE read_at END WHERE id=$1 AND account_id=$2`",
+    "sql": "UPDATE discovery_notifications.inbox SET document=jsonb_set(document,'{Read}',to_jsonb($3::boolean)),read_at=CASE WHEN $3 THEN COALESCE(read_at,clock_timestamp()) ELSE read_at END WHERE id=$1 AND account_id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "discovery_notifications.inbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp",
+      "jsonb_set",
+      "to_jsonb"
+    ],
+    "columns": [
+      "account_id",
+      "document",
+      "id",
+      "read_at"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.setReadV2.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.setReadV2",
+    "line": 248,
+    "expression": "`UPDATE discovery_notifications.inbox\n\t\tSET document=jsonb_set(document,'{Read}',to_jsonb($3::boolean)),\n\t\tread_at=CASE WHEN $3 THEN COALESCE(read_at,clock_timestamp()) ELSE read_at END\n\t\tWHERE account_id=$1 AND `+v2_id+`=$2::uuid RETURNING read_at`",
+    "sql": "UPDATE discovery_notifications.inbox\n\t\tSET document=jsonb_set(document,'{Read}',to_jsonb($3::boolean)),\n\t\tread_at=CASE WHEN $3 THEN COALESCE(read_at,clock_timestamp()) ELSE read_at END\n\t\tWHERE account_id=$1 AND v2_id=$2::uuid RETURNING read_at",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "discovery_notifications.inbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp",
+      "jsonb_set",
+      "to_jsonb"
+    ],
+    "columns": [
+      "account_id",
+      "document",
+      "read_at",
+      "v2_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.DeleteAccount.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 270,
+    "expression": "`SELECT pg_advisory_xact_lock(hashtextextended($1,210029))`",
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,210029))",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "hashtextextended",
+      "pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.DeleteAccount.2",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 273,
+    "expression": "`INSERT INTO discovery_notifications.deleted_accounts(account_key) VALUES($1) ON CONFLICT DO NOTHING`",
+    "sql": "INSERT INTO discovery_notifications.deleted_accounts(account_key) VALUES($1) ON CONFLICT DO NOTHING",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "INSERT",
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.deleted_accounts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_key"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.DeleteAccount.3",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.DeleteAccount",
+    "line": 276,
+    "expression": "`DELETE FROM discovery_notifications.inbox WHERE account_id=$1`",
+    "sql": "DELETE FROM discovery_notifications.inbox WHERE account_id=$1",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "DELETE"
+    ],
+    "tables": [
+      "discovery_notifications.inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.DeleteItem.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.DeleteItem",
+    "line": 282,
+    "expression": "`DELETE FROM discovery_notifications.inbox WHERE account_id=$1 AND id=$2`",
+    "sql": "DELETE FROM discovery_notifications.inbox WHERE account_id=$1 AND id=$2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "DELETE"
+    ],
+    "tables": [
+      "discovery_notifications.inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.List.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.List",
+    "line": 296,
+    "expression": "`SELECT document FROM discovery_notifications.inbox WHERE account_id=$1 ORDER BY created_at DESC,id LIMIT $2`",
+    "sql": "SELECT document FROM discovery_notifications.inbox WHERE account_id=$1 ORDER BY created_at DESC,id LIMIT $2",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "created_at",
+      "document",
+      "id"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.ListPage.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.ListPage",
+    "line": 348,
+    "expression": "`SELECT i.document,i.`+v2_id+`::text,i.created_at,i.id,i.read_at,o.deliveries,o.terminal\n\t\tFROM discovery_notifications.inbox i JOIN discovery_notifications.outbox o ON o.id=i.id\n\t\tWHERE i.account_id=$1 AND ($2 = false OR NOT COALESCE((i.document->>'Read')::boolean, false))\n\t\tAND ($3::timestamptz IS NULL OR i.created_at<$3 OR (i.created_at=$3 AND i.id>$4))\n\t\tORDER BY i.created_at DESC,i.id LIMIT $5`",
+    "sql": "SELECT i.document,i.v2_id::text,i.created_at,i.id,i.read_at,o.deliveries,o.terminal\n\t\tFROM discovery_notifications.inbox i JOIN discovery_notifications.outbox o ON o.id=i.id\n\t\tWHERE i.account_id=$1 AND ($2 = false OR NOT COALESCE((i.document->>'Read')::boolean, false))\n\t\tAND ($3::timestamptz IS NULL OR i.created_at<$3 OR (i.created_at=$3 AND i.id>$4))\n\t\tORDER BY i.created_at DESC,i.id LIMIT $5",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.inbox",
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "i.account_id",
+      "i.created_at",
+      "i.document",
+      "i.id",
+      "i.read_at",
+      "i.v2_id",
+      "o.deliveries",
+      "o.id",
+      "o.terminal"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.Renew.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.Renew",
+    "line": 418,
+    "expression": "`UPDATE discovery_notifications.outbox SET lease_until=clock_timestamp()+interval '30 seconds' WHERE id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp()`",
+    "sql": "UPDATE discovery_notifications.outbox SET lease_until=clock_timestamp()+interval '30 seconds' WHERE id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp()",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "fence",
+      "id",
+      "lease_owner",
+      "lease_until"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.BeginSend.1",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.BeginSend",
+    "line": 461,
+    "expression": "`SELECT deliveries FROM discovery_notifications.outbox WHERE id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() FOR UPDATE`",
+    "sql": "SELECT deliveries FROM discovery_notifications.outbox WHERE id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() FOR UPDATE",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "clock_timestamp"
+    ],
+    "columns": [
+      "deliveries",
+      "fence",
+      "id",
+      "lease_owner",
+      "lease_until"
+    ],
+    "ctes": []
+  },
+  {
+    "id": "notifications/store.Store.BeginSend.2",
+    "file": "services/launchpad/notifications/store.go",
+    "function": "Store.BeginSend",
+    "line": 494,
+    "expression": "`UPDATE discovery_notifications.outbox SET deliveries=$1 WHERE id=$2 AND lease_owner=$3 AND fence=$4`",
+    "sql": "UPDATE discovery_notifications.outbox SET deliveries=$1 WHERE id=$2 AND lease_owner=$3 AND fence=$4",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/notifications",
+    "kinds": [
+      "UPDATE"
+    ],
+    "tables": [
+      "discovery_notifications.outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "deliveries",
+      "fence",
+      "id",
+      "lease_owner"
+    ],
+    "ctes": []
+  }
+]
