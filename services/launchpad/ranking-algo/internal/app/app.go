@@ -342,6 +342,8 @@ type nativeRankingRuntime struct {
 	client      *http.Client
 	logger      *slog.Logger
 	workers     sync.WaitGroup
+	refreshMu   sync.Mutex
+	refreshStep map[string]string
 }
 type rankingVisibilityClient struct {
 	endpoint string
@@ -372,7 +374,7 @@ func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (st
 	if err != nil || len(raw) > 64<<20 {
 		return out, ranker.ErrUnavailable
 	}
-	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() || out.ObservedAt.After(time.Now()) || time.Since(out.ObservedAt) > 60*time.Second {
+	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() {
 		return out, ranker.ErrUnavailable
 	}
 	return out, nil
@@ -403,7 +405,7 @@ func rankingBoundBytes(path, digest string) ([]byte, error) {
 }
 func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, rdb *goredis.Client, tracker *sharedprocess.Tracker, metrics *telemetry.Metrics, checks map[string]sharedhttp.Check, secretStop context.CancelFunc) (*App, error) {
 	lifecycle, stop := context.WithCancel(ctx)
-	native := &nativeRankingRuntime{ctx: lifecycle, stop: stop, pool: pool, logger: logger, secrets: map[string]string{}}
+	native := &nativeRankingRuntime{ctx: lifecycle, stop: stop, pool: pool, logger: logger, secrets: map[string]string{}, refreshStep: map[string]string{}}
 	owned := false
 	defer func() {
 		if !owned {
@@ -532,7 +534,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	router.Get("/internal/v2/rankings/inputs", func(w http.ResponseWriter, request *http.Request) {
 		bounded, cancel := context.WithTimeout(request.Context(), 30*time.Second)
 		defer cancel()
-		raw, err := native.reader.MarshalUniverse(bounded, pool, uuid.NewString(), time.Now().UTC().Truncate(time.Second))
+		raw, err := native.reader.MarshalUniverse(bounded, pool, uuid.NewString())
 		if err != nil {
 			sharedhttp.WriteJSON(w, 503, map[string]string{"code": "RANKING_INPUT_UNAVAILABLE"})
 			return
@@ -602,7 +604,7 @@ func (r *nativeRankingRuntime) run(parent context.Context) {
 		go func(newOnly bool) {
 			defer r.workers.Done()
 			_ = r.coordinator.Run(r.ctx, newOnly, func(err error) {
-				r.logger.Error("ranking source refresh failed", slog.String("categoryRun", fmt.Sprint(newOnly)), slog.String("code", "RANKING_INPUT_UNAVAILABLE"), slog.Any("error", err))
+				r.reportRefresh(newOnly, err)
 			})
 		}(newOnly)
 	}
@@ -639,6 +641,44 @@ func (r *nativeRankingRuntime) run(parent context.Context) {
 		}
 	}()
 }
+
+func (r *nativeRankingRuntime) reportRefresh(newOnly bool, err error) {
+	if r == nil || r.logger == nil {
+		return
+	}
+	kind := "all"
+	if newOnly {
+		kind = "new"
+	}
+	r.refreshMu.Lock()
+	defer r.refreshMu.Unlock()
+	if err == nil {
+		if r.refreshStep != nil {
+			if _, wasRefused := r.refreshStep[kind]; wasRefused {
+				delete(r.refreshStep, kind)
+				r.logger.Info("ranking refresh recovered", slog.String("run", kind), slog.String("step", "success"), slog.String("class", "ok"))
+			}
+		}
+		return
+	}
+	step, class, ok := ranker.RefreshRefusalDetails(err)
+	if !ok {
+		step = "unknown"
+		class = "error"
+		if errors.Is(err, ranker.ErrUnavailable) {
+			class = "unavailable"
+		}
+	}
+	if r.refreshStep == nil {
+		r.refreshStep = make(map[string]string)
+	}
+	if previous, exists := r.refreshStep[kind]; exists && previous == step {
+		return
+	}
+	r.refreshStep[kind] = step
+	r.logger.Error("ranking refresh refused", slog.String("run", kind), slog.String("step", step), slog.String("class", class))
+}
+
 func (r *nativeRankingRuntime) close() {
 	if r.stop != nil {
 		r.stop()
