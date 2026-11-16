@@ -145,9 +145,12 @@ func platformDocumentsEnvironment(t *testing.T, root, service string, documents 
 	sourcePaths := map[string]bool{}
 	names := append([]string(nil), entry.Required...)
 	for document, path := range sources {
-		_ = document
-		sourcePaths[path] = true
-		names = append(names, path)
+		if _, composed := documents[path]; composed {
+			sourcePaths[path] = true
+			names = append(names, path)
+		} else if _, composed := documents[document]; !composed {
+			t.Fatalf("composer omitted both %s and %s", document, path)
+		}
 	}
 	for _, key := range names {
 		value, composed := documents[key]

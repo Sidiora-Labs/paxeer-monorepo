@@ -77,6 +77,9 @@ def load_manifest(path):
             for document, path in sources.items()
         ):
             raise ValueError(f"{name}: invalid documentSources contract")
+        # A document source pair is selected as a unit below, even when the
+        # inline document name remains in the required list for the contract.
+        needed = [n for n in needed if n not in sources]
         alternatives = [n for pair in sources.items() for n in pair]
         # The explicit list is the authority; a name the pattern flags but the list omits is refused.
         unlisted = [n for n in [*fixed, *needed, *alternatives]
