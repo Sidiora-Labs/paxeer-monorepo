@@ -22675,3 +22675,13 @@ fix = "Decision 3652. Task 22.39.721."
 title = "The function TestPortalPages of the perps portal runs where a node is given"
 symptom = "The function TestPortalPages of services/platform/perps-data/internal/portal/pages_test.go builds a gateway through the helper gatewayServer of services/platform/perps-data/internal/portal/server_test.go, which reads a node from the environment of the test, and it runs where a node is given. The cases of services/platform/perps-data/internal/portal/explorer_links_test.go and the function TestPortalChainMarketPage build their pages without that helper and need no node."
 fix = "Decision 3653. Task 22.39.720."
+
+[gotcha.4571]
+title = "The deployment identity of the launchpad indexer is checked in two forms"
+symptom = "The rule of the deployment manifest in sdk/launchpad/shared/config/deployment/manifest.go admits a deployment version that starts with a letter or a digit and continues with letters, digits, dots, underscores and hyphens, up to 96 characters, and the approved manifest sdk/launchpad/shared/config/deployment/current.json holds a deployment version with dots. The render of the indexer documents in services/launchpad/indexer/internal/app/render.go takes the deployment identity of the delivery document from that deployment version. The durable stager of services/launchpad/indexer/internal/publisher/durable.go and the archive of sdk/launchpad/shared/delivery/archive.go check the deployment identity they are handed against a form of letters, digits, underscores and hyphens, without the dot. The stager and the archive use the identity in hash inputs and in comparisons."
+fix = "Decision 3654. Task 22.39.722."
+
+[gotcha.4572]
+title = "The web compile of the perps image reads the compile file at the root of the workspace"
+symptom = "The compile file apps/perps/apps/web/tsconfig.json of the web application extends the compile file at the root of the workspace, apps/perps/tsconfig.json. The image file apps/perps/Dockerfile copies into its install stage the package file, the lock file, the workspace file, the registry settings file and the directories apps and packages. The cases of tools/containers/test_perps_workspace_image.py read the image file and the members of the workspace."
+fix = "Decision 3655. Task 22.39.723."

@@ -15034,6 +15034,18 @@ value = "The verification of task 22.39.720 runs the cases on the configuration 
 basis = "Gotcha 4570. Decisions 3651 and 3650."
 affects = []
 
+[decision.3654]
+title = "The indexer admits its deployment identity in the form of the manifest rule"
+value = "The deployment identity the indexer hands to its durable stager and to its archive is the deployment version of the approved manifest, and both admit every value the manifest rule admits. The form of the generation of the durable event bridge and the forms of the stream and of the prefix of the archive stay as they are. A value the manifest rule refuses stays refused by the stager and by the archive. A case constructs the stager with the deployment version of the approved manifest, read from the manifest file, and a case does the same for the archive."
+basis = "Gotcha 4571. Decisions 3046 and 3052."
+affects = []
+
+[decision.3655]
+title = "The perps image holds every file its web compile reads"
+value = "The install stage of the perps image holds every file the compile of the web application reads from outside the directories apps and packages, the compile file at the root of the workspace among them. A case follows the extends chain of the compile file of the web application and of each workspace member the web application depends on, and asserts that the image file copies every file of that chain. The stages, the arguments and the runtime form of the image stay as they are."
+basis = "Gotcha 4572. Decisions 3046 and 3052."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44694,6 +44706,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.723]
+title = "Copy every compile file the web compile reads into the perps image and hold it with a case"
+reqs = ["22998.1"]
+touches = ["apps/perps/Dockerfile", "apps/perps/.dockerignore", "apps/perps/tests", "tools/containers", "tools/qualification/audit_repairs/test_perps_compose_lifecycle.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/containers/test_perps_workspace_image.py tools/qualification/audit_repairs/test_perps_compose_lifecycle.py tests/ci/test_package_manager_pins_agree.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts"
+do_1 = "do_1 Gotcha 4572, decision 3655. Read apps/perps/Dockerfile from its install stage to the compile of the web application, the ignore file beside it, apps/perps/apps/web/tsconfig.json with every file its extends chain names, the compile files of the workspace members the web application depends on, and the cases of tools/containers/test_perps_workspace_image.py and of apps/perps/tests/dockerfile-args.test.ts."
+symbols = []
+
+[capability.22.39.722]
+title = "Admit the deployment version of the manifest as the deployment identity of the indexer stager and archive"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer", "sdk/launchpad/shared/delivery"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/publisher/... ./internal/app/... && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 20m ./delivery/..."
+do_1 = "do_1 Gotcha 4571, decision 3654. Read the function NewDurableStager and the function NewDurableWebhookStager with the form they check in services/launchpad/indexer/internal/publisher/durable.go and services/launchpad/indexer/internal/publisher/webhook_bridge.go, the functions NewArchive and the manifest check of the archive in sdk/launchpad/shared/delivery/archive.go with the form of sdk/launchpad/shared/delivery/envelope.go, the version rule of sdk/launchpad/shared/config/deployment/manifest.go, the place in services/launchpad/indexer/internal/app/render.go that sets the deployment identity, and in services/launchpad/indexer/internal/app/app.go every place that hands the deployment identity of the delivery document on. List every check of a deployment identity in services/launchpad/indexer and in sdk/launchpad/shared/delivery and read which values reach it."
+symbols = []
 
 [capability.22.39.721]
 title = "Bring three cases of the node package and the parts of the product they read in line"
@@ -174223,6 +174253,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.723]
+title = "Copy every compile file the web compile reads into the perps image and hold it with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.723"]
+interfaces = []
+do_1 = "do_1 Gotcha 4572, decision 3655. Read apps/perps/Dockerfile from its install stage to the compile of the web application, the ignore file beside it, apps/perps/apps/web/tsconfig.json with every file its extends chain names, the compile files of the workspace members the web application depends on, and the cases of tools/containers/test_perps_workspace_image.py and of apps/perps/tests/dockerfile-args.test.ts."
+do_2 = "do_2 The install stage of the image copies the compile file at the root of the workspace and every other file outside the directories apps and packages that the compile of the web application or the install reads. Read the configuration files at the root of the workspace that the build script of the web application and the scripts it calls name, and copy those the build reads. The ignore file keeps none of them out of the context."
+do_3 = "do_3 Add to tools/containers/test_perps_workspace_image.py a case that follows the extends chain of the compile file of the web application and of each workspace member it depends on, resolves each file against the root of the workspace, and asserts that the image file copies it into the stage that compiles, and that the ignore file does not exclude it. The case reads files only and starts no container."
+do_4 = "do_4 Where a container engine is at hand, build the image by hand once up to the compile of the web application with the build arguments of apps/perps/deploy/build-args.production.env and a charting stage given by a local image that holds the two directories the image file copies from it, and read the output. Where no engine is at hand, state that in the final message and run the build script of the web application in the workspace by hand instead."
+do_5 = "do_5 The present cases stay and none is weakened. Run by hand the cases of tools/containers/test_perps_workspace_image.py, of tools/qualification/audit_repairs/test_perps_compose_lifecycle.py and of apps/perps/tests/dockerfile-args.test.ts and read each message."
+do_6 = "do_6 The image file, the ignore file, the cases under tools/containers and the cases under apps/perps/tests are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/Dockerfile", "apps/perps/.dockerignore", "apps/perps/tests", "tools/containers", "tools/qualification/audit_repairs/test_perps_compose_lifecycle.py"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && python3 -m py_compile tools/containers/test_perps_workspace_image.py"
+verify_cmd = "python3 -m pytest -q tools/containers/test_perps_workspace_image.py tools/qualification/audit_repairs/test_perps_compose_lifecycle.py tests/ci/test_package_manager_pins_agree.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.718]
 title = "Bring the lockfile of the trading workspace to its floors"
 status = "pending"
@@ -248466,6 +248529,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.722]
+title = "Admit the deployment version of the manifest as the deployment identity of the indexer stager and archive"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.722"]
+interfaces = []
+do_1 = "do_1 Gotcha 4571, decision 3654. Read the function NewDurableStager and the function NewDurableWebhookStager with the form they check in services/launchpad/indexer/internal/publisher/durable.go and services/launchpad/indexer/internal/publisher/webhook_bridge.go, the functions NewArchive and the manifest check of the archive in sdk/launchpad/shared/delivery/archive.go with the form of sdk/launchpad/shared/delivery/envelope.go, the version rule of sdk/launchpad/shared/config/deployment/manifest.go, the place in services/launchpad/indexer/internal/app/render.go that sets the deployment identity, and in services/launchpad/indexer/internal/app/app.go every place that hands the deployment identity of the delivery document on. List every check of a deployment identity in services/launchpad/indexer and in sdk/launchpad/shared/delivery and read which values reach it."
+do_2 = "do_2 The durable stager admits as deployment identity every value the version rule of the manifest admits, and refuses a value that rule refuses. Use one definition of the form: the stager reads the rule of the manifest package or a form that a case holds equal to it over a table of values with and without dots, at the length limits and with a first character the rule refuses. The form of the generation of the durable event bridge stays as it is."
+do_3 = "do_3 The archive admits the same values as deployment identity in its constructor and in its manifest check. The forms of the stream and of the prefix stay as they are. Read how the deployment identity enters object names and digests of the archive: where a dot would change the meaning of an object name, state the rule that keeps names distinct and add a case on it."
+do_4 = "do_4 Every other check of a deployment identity found in do_1 that a value of the manifest rule reaches admits that value. A check that takes another kind of value stays as it is."
+do_5 = "do_5 Cases: a case reads the deployment version from sdk/launchpad/shared/config/deployment/current.json and constructs the durable stager with it and a subject map, and asserts that the envelope of an event carries that identity and that the event identity is stable; a case constructs the archive with that version in the way the present archive cases construct it; a case on the refusals of both for an empty value, a value with a space and a value with a slash. The present cases stay and none is weakened. Run by hand the cases of services/launchpad/indexer/internal/publisher, of services/launchpad/indexer/internal/app and of sdk/launchpad/shared/delivery and read each message."
+do_6 = "do_6 The files of services/launchpad/indexer and of sdk/launchpad/shared/delivery are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer", "sdk/launchpad/shared/delivery"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./delivery/..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/publisher/... ./internal/app/... && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 20m ./delivery/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.721]
 title = "Bring three cases of the node package and the parts of the product they read in line"
