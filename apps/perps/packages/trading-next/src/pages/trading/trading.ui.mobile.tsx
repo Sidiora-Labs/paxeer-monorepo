@@ -123,8 +123,17 @@ export const MobileLayout: React.FC<TradingState> = (props) => {
         <Flex
           direction={"column"}
           itemAlign={"end"}
-          className="oui-cursor-pointer oui-text-[11px]"
+          role="button"
+          tabIndex={0}
+          aria-label={t("common.totalValue")}
+          className="oui-cursor-pointer oui-text-xs"
           onClick={props.onShowPortfolioSheet}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              props.onShowPortfolioSheet();
+            }
+          }}
         >
           <Flex>
             <Text intensity={54}>{t("common.totalValue")}</Text>
