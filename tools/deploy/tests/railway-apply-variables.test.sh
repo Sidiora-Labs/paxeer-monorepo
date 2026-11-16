@@ -165,6 +165,61 @@ PY
 }
 stats_inline_pem_plan
 
+metadata_inline_materials() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
+import json, secrets, subprocess, sys
+from pathlib import Path
+metadata = json.load(open(sys.argv[1]))["metadata"]
+assert metadata["fixed"]["METADATA_INGRESS"] == "mtls"
+assert not {"IDENTITY_SERVICE_URL", "IDENTITY_SERVICE_TOKEN"} & set(metadata["required"])
+assert {"METADATA_TLS_KEY_PEM", "METADATA_ASSERTION_PRIVATE_KEY_HEX"} <= set(metadata["secrets"])
+directory = Path(sys.argv[2])
+subprocess.run(["openssl", "req", "-x509", "-newkey", "ed25519", "-noenc", "-days", "1",
+                "-subj", "/CN=metadata test authority", "-keyout", str(directory / "metadata.key"),
+                "-out", str(directory / "metadata.pem")], check=True, capture_output=True)
+values = {name: f"metadata-value-{i:02d}" for i, name in enumerate(metadata["required"])}
+values.update({"METADATA_TLS_CERT_PEM": (directory / "metadata.pem").read_text(),
+               "METADATA_TLS_CLIENT_CA_PEM": (directory / "metadata.pem").read_text(),
+               "METADATA_TLS_KEY_PEM": (directory / "metadata.key").read_text(),
+               "METADATA_ASSERTION_PRIVATE_KEY_HEX": secrets.token_hex(64)})
+json.dump({"metadata": metadata}, open(directory / "metadata-manifest.json", "w"))
+json.dump({"metadata": values}, open(directory / "metadata-values.json", "w"))
+project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")
+project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-metadata", "name": "metadata"}}]
+want = dict(metadata["fixed"], **values)
+json.dump([project,
+    {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-metadata"},
+     "data": {"variables": {}}},
+    {"op": "VariablesUpsert", "variables": {"i": {"projectId": "proj-test", "environmentId": "env-prod",
+     "serviceId": "svc-metadata", "variables": want, "skipDeploys": True}},
+     "data": {"variableCollectionUpsert": True}}], open(directory / "metadata-replay.json", "w"))
+print(len(want), file=open(directory / "metadata-count", "w"))
+PY
+	local mode name
+	for mode in plan apply; do
+		python3 "$tool" proj-test production --manifest "$tmp/metadata-manifest.json" \
+			--replay "$tmp/metadata-replay.json" --values "$tmp/metadata-values.json" "--$mode" \
+			>"$tmp/metadata-$mode.out" 2>&1 || fail "metadata $mode exited $?: $(cat "$tmp/metadata-$mode.out")"
+		grep -q '^  missing METADATA_INGRESS = mtls$' "$tmp/metadata-$mode.out" || fail "metadata $mode omitted mtls"
+		for name in METADATA_TLS_KEY_PEM METADATA_ASSERTION_PRIVATE_KEY_HEX; do
+			grep -q "^  missing $name = \*\*\*\*$" "$tmp/metadata-$mode.out" || fail "metadata $mode did not mask $name"
+		done
+	done
+	grep -q "^  applied $(cat "$tmp/metadata-count") variables$" "$tmp/metadata-apply.out" || fail "metadata inline materials were not applied"
+	python3 - "$tmp/metadata-values.json" "$tmp/metadata-manifest.json" "$tmp/metadata-plan.out" "$tmp/metadata-apply.out" <<'PY' || fail "metadata printed secret material"
+import json, sys
+values = json.load(open(sys.argv[1]))["metadata"]
+names = json.load(open(sys.argv[2]))["metadata"]["secrets"]
+for path in sys.argv[3:]:
+    output = open(path).read()
+    assert all(value not in output for name in names if (value := values.get(name))), "secret value printed"
+    key_lines = values["METADATA_TLS_KEY_PEM"].splitlines()[1:-1]
+    assert all(line not in output for line in key_lines), "private key line printed"
+PY
+	echo PASS metadata-inline-materials
+}
+metadata_inline_materials
+
 # The user service from the real manifest carries a signing seed: plan and apply never print it.
 python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
 import json, sys
@@ -384,4 +439,29 @@ PY
 	echo PASS indexer-document-sources
 }
 indexer_document_sources
+
+api_readiness_documents() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" <<'PY'
+import json, sys
+
+api = json.load(open(sys.argv[1]))["api"]
+assert api["documentSources"] == {
+    "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE",
+}
+required = set(api["required"])
+declared = required | set(api["documentSources"]) | set(api["documentSources"].values())
+for name in (
+    "NETWORK_AUTHORITY_CONFIG_DOCUMENT", "NETWORK_AUTHORITY_CONFIG_SHA256",
+    "STREAM_RELAY_CONFIG_DOCUMENT", "STREAM_RELAY_CONFIG_SHA256",
+    "DISCOVERY_RUNTIME_CONFIG_DOCUMENT", "DISCOVERY_RUNTIME_CONFIG_SHA256",
+    "NETWORK_RPC_URL",
+):
+    assert name in declared, name
+assert "NETWORK_AUTHORITY_CONFIG_SHA256" in required
+assert "DISCOVERY_RUNTIME_CONFIG_DOCUMENT" in api["secrets"]
+assert set(api["secrets"]) & set(api["fixed"]) == {"SECRETS_PROVIDER"}
+PY
+	echo PASS api-readiness-documents
+}
+api_readiness_documents
 echo PASS railway-apply-variables

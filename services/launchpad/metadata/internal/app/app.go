@@ -755,15 +755,28 @@ func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *teleme
 }
 
 func metadataServerTLS(cfg config.Config) (*tls.Config, error) {
-	info, e := os.Stat(cfg.TLSKeyFile)
-	if e != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-		return nil, fmt.Errorf("metadata_tls_key_authority_unavailable")
+	if err := cfg.ValidateTLSMaterials(); err != nil {
+		return nil, err
 	}
-	pair, e := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
+	if cfg.TLSKeyFile != "" {
+		info, e := os.Stat(cfg.TLSKeyFile)
+		if e != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+			return nil, fmt.Errorf("metadata_tls_key_authority_unavailable")
+		}
+	}
+	cert, e := metadataTLSMaterial(cfg.TLSCertFile, cfg.TLSCertPEM)
 	if e != nil {
 		return nil, fmt.Errorf("metadata_tls_keypair_unavailable")
 	}
-	roots, e := os.ReadFile(cfg.TLSClientCAFile)
+	key, e := metadataTLSMaterial(cfg.TLSKeyFile, cfg.TLSKeyPEM)
+	if e != nil {
+		return nil, fmt.Errorf("metadata_tls_keypair_unavailable")
+	}
+	pair, e := tls.X509KeyPair(cert, key)
+	if e != nil {
+		return nil, fmt.Errorf("metadata_tls_keypair_unavailable")
+	}
+	roots, e := metadataTLSMaterial(cfg.TLSClientCAFile, cfg.TLSClientCAPEM)
 	if e != nil || len(roots) > 1048576 {
 		return nil, fmt.Errorf("metadata_tls_client_authority_unavailable")
 	}
@@ -773,6 +786,14 @@ func metadataServerTLS(cfg config.Config) (*tls.Config, error) {
 	}
 	return &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair}, ClientCAs: ca, ClientAuth: tls.RequireAndVerifyClientCert}, nil
 }
+
+func metadataTLSMaterial(path, inline string) ([]byte, error) {
+	if inline != "" {
+		return []byte(inline), nil
+	}
+	return os.ReadFile(path)
+}
+
 func metadataPrivateChannel(cfg config.Config, identity metadata.RequestIdentityAuthority) func(http.Handler) http.Handler {
 	key, _ := hex.DecodeString(cfg.GatewayPublicKeyHex)
 	return func(next http.Handler) http.Handler {

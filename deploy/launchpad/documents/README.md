@@ -22,6 +22,21 @@ name while retaining the platform service name in the values filename.
 Output files are named `<service>.json`, contain only document, file and digest
 variables, and are created with mode `0600`.
 
+The API values compose `STREAM_RELAY_CONFIG_DOCUMENT` and
+`DISCOVERY_RUNTIME_CONFIG_DOCUMENT`. Generate the rendered authority input
+from the repository root with:
+
+```bash
+(cd services/launchpad/api && go run ./cmd/api-runtime-docs \
+  -repo ../../.. -source-schema indexer -endpoints "$PUBLIC_ENDPOINTS_FILE" \
+  -pool-runtime "$REVIEWED_POOL_RUNTIME" -out "$AUTHORITY_OUTPUT_DIR")
+```
+
+Set `network_authority_rendered_file` and `network_authority_runtime_path` in
+the API values. The composer then emits `NETWORK_AUTHORITY_CONFIG_FILE` and
+`NETWORK_AUTHORITY_CONFIG_SHA256`; the service accepts that file source or its
+`NETWORK_AUTHORITY_CONFIG_DOCUMENT` inline sibling.
+
 The charts, stats, API, indexer, PnL and ranking examples form one deployment
 set. Their source streams equal the indexer's `canonical_stream_id`; charts,
 stats, ranking and the API use its `projection_version`, while PnL uses its
@@ -112,3 +127,10 @@ check locally, including exact authority URLs, control schemas, object role
 references, numeric bounds, epoch syntax and identity key dates and overlap.
 The gateway validates certificate contents, resolved keys, configured buckets
 and route admission at startup.
+
+For `--service metadata`, the composer writes
+`METADATA_PUBLICATION_CONFIG_DOCUMENT` and its `*_SHA256` binding from the
+example's `environment`. Listener PEM materials and assertion keys are supplied
+separately under the metadata variable contract. The contract selects `mtls`
+with `METADATA_TLS_CERT_PEM`, `METADATA_TLS_KEY_PEM` and
+`METADATA_TLS_CLIENT_CA_PEM`; these materials are not publication documents.
