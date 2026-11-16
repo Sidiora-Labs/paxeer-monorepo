@@ -30,10 +30,10 @@ const AddressCoinBalanceHistory = ({ query }: Props) => {
   const content = query.data?.items ? (
     <>
       <Box hideBelow="lg">
-        <TableRoot>
+        <TableRoot aria-label="Coin balance history" aria-busy={ query.isPlaceholderData }>
           <TableHeaderSticky top={ query.pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }>
             <TableRow>
-              { chainData && <TableColumnHeader width="38px"/> }
+              { chainData && <TableColumnHeader width="calc({spacing.9} + {spacing.0.5})" aria-label="Chain"/> }
               <TableColumnHeader width="20%">Block</TableColumnHeader>
               <TableColumnHeader width="20%">Txn</TableColumnHeader>
               <TableColumnHeader width="20%">

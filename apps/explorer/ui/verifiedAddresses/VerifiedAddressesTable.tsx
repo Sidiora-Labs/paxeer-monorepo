@@ -16,14 +16,14 @@ interface Props {
 
 const VerifiedAddressesTable = ({ data, applications, onItemEdit, onItemAdd, isLoading }: Props) => {
   return (
-    <TableRoot>
+    <TableRoot aria-label="Verified contract addresses">
       <TableHeader>
         <TableRow>
           <TableColumnHeader>Address</TableColumnHeader>
-          <TableColumnHeader w="168px" pr={ 1 }>Token info</TableColumnHeader>
-          <TableColumnHeader w="36px" pl="0"></TableColumnHeader>
-          <TableColumnHeader w="160px">Request status</TableColumnHeader>
-          <TableColumnHeader w="150px">Date</TableColumnHeader>
+          <TableColumnHeader w="calc({spacing.40} + {spacing.2})" pr={ 1 }>Token info</TableColumnHeader>
+          <TableColumnHeader w={ 9 } pl="0" aria-label="Actions"></TableColumnHeader>
+          <TableColumnHeader w={ 40 }>Request status</TableColumnHeader>
+          <TableColumnHeader w="{spacing.37.5}">Date</TableColumnHeader>
         </TableRow>
       </TableHeader>
       <TableBody>

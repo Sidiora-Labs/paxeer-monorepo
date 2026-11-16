@@ -48,18 +48,18 @@ const Address3rdPartyWidgetCard = ({ name, config, address, isLoading }: Props) 
 
   const content = isLoading ? (
     <>
-      <Skeleton loading w="88px" h="40px" mb={ 1 }/>
-      <Skeleton loading w="178px" h="20px"/>
-      <Separator mt={ 3 } mb={ 2 } borderColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.100' }}/>
+      <Skeleton loading w="calc({spacing.20} + {spacing.2})" h="{spacing.10}" mb={ 1 }/>
+      <Skeleton loading w="calc({spacing.40.5} + {spacing.4})" h="{spacing.5}"/>
+      <Separator mt={ 3 } mb={ 2 } borderColor="border.divider"/>
       <Flex alignItems="center" gap={ 2 }>
-        <Skeleton loading w="20px" h="20px"/>
-        <Skeleton loading w="80px" h="20px"/>
+        <Skeleton loading w="{spacing.5}" h="{spacing.5}"/>
+        <Skeleton loading w="{spacing.20}" h="{spacing.5}"/>
       </Flex>
     </>
   ) : (
     <>
       <LinkOverlay href={ url } external onClick={ handleClick } noIcon/>
-      <Skeleton loading={ isDataLoading } minW="88px" alignSelf="flex-start">
+      <Skeleton loading={ isDataLoading } minW="calc({spacing.20} + {spacing.2})" alignSelf="flex-start">
         { data ? (
           <Text
             textStyle="heading.xl"
@@ -91,7 +91,7 @@ const Address3rdPartyWidgetCard = ({ name, config, address, isLoading }: Props) 
           />
         ) }
       </Flex>
-      <Separator mt={ 3 } mb={ 2 } borderColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.100' }}/>
+      <Separator mt={ 3 } mb={ 2 } borderColor="border.divider"/>
       <Flex alignItems="center" gap={ 2 }>
         <Image src={ config.icon } alt={ config.name } boxSize={ 5 }/>
         <Flex
@@ -127,11 +127,12 @@ const Address3rdPartyWidgetCard = ({ name, config, address, isLoading }: Props) 
       cursor={ isLoading ? 'default' : 'pointer' }
       borderRadius="md"
       border="1px solid"
-      borderColor={ isLoading ? { _light: 'blackAlpha.50', _dark: 'whiteAlpha.100' } : 'transparent' }
-      bgColor={ isLoading ? 'transparent' : { _light: 'blackAlpha.50', _dark: 'whiteAlpha.100' } }
-      transition="border-color 0.2s ease-in-out"
+      borderColor={ isLoading ? 'border.divider' : 'transparent' }
+      bgColor={ isLoading ? 'transparent' : 'bg.surface' }
+      transitionProperty="border-color"
+      transitionDuration="normal"
       _hover={ isLoading ? {} : {
-        borderColor: { _light: 'blackAlpha.200', _dark: 'whiteAlpha.200' },
+        borderColor: 'border.strong',
       } }
     >
       { content }

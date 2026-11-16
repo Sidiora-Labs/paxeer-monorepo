@@ -29,7 +29,7 @@ const Item = (data: SmartContractExternalLibrary) => {
         address={{ hash: data.address_hash, is_contract: true }}
         query={{ tab: 'contract' }}
         fontSize="sm"
-        fontWeight="500"
+        fontWeight="medium"
         target="_blank"
       />
     </Flex>
@@ -41,7 +41,7 @@ const ContractExternalLibraries = ({ className, data, isLoading }: Props) => {
   const isMobile = useIsMobile();
 
   if (isLoading) {
-    return <Skeleton loading h={ 8 } w="150px" borderRadius="base"/>;
+    return <Skeleton loading h={ 8 } w="{spacing.37.5}" borderRadius="base"/>;
   }
 
   if (data.length === 0) {
@@ -55,13 +55,13 @@ const ContractExternalLibraries = ({ className, data, isLoading }: Props) => {
       variant="dropdown"
       onClick={ onToggle }
       expanded={ open }
-      fontWeight={ 600 }
+      fontWeight="semibold"
       px={ 2 }
       gap={ 0 }
       aria-label="View external libraries"
     >
       <span>{ data.length } { data.length > 1 ? 'Libraries' : 'Library' } </span>
-      <IconSvg name="status/warning" boxSize={ 5 } color="orange.400" ml="2px"/>
+      <IconSvg name="status/warning" boxSize={ 5 } color="text.warning" ml={ 0.5 }/>
       <IconSvg name="arrows/east-mini" transform={ open ? 'rotate(90deg)' : 'rotate(-90deg)' } transitionDuration="faster" boxSize={ 5 } ml={ 2 }/>
     </Button>
   );
@@ -106,7 +106,7 @@ const ContractExternalLibraries = ({ className, data, isLoading }: Props) => {
       <PopoverTrigger>
         { button }
       </PopoverTrigger>
-      <PopoverContent w="400px">
+      <PopoverContent w="{spacing.100}">
         <PopoverBody >
           { content }
         </PopoverBody>

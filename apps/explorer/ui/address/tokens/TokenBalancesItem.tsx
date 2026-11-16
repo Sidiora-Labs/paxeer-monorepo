@@ -15,13 +15,13 @@ type Props = {
 const TokenBalancesItem = ({ name, icon, value, valueSecondary, isLoading, contentAfter }: Props) => {
 
   return (
-    <Box px="12px" py="10px" bgColor={{ _light: 'theme.stats.bg._light', _dark: 'theme.stats.bg._dark' }} borderRadius="base">
-      <Text color="text.secondary" textStyle="xs" fontWeight={ 500 } mb={ 1 }>{ name }</Text>
-      <Flex alignItems="center">
+    <Box px={ 3 } py={ 2.5 } bgColor="bg.surface" borderRadius="base" minW={ 0 }>
+      <Text color="text.secondary" textStyle="xs" fontWeight="medium" mb={ 1 }>{ name }</Text>
+      <Flex alignItems="center" minW={ 0 }>
         { icon }
-        <Skeleton loading={ isLoading } fontWeight="500" whiteSpace="pre-wrap" wordBreak="break-word" display="flex" ml={ 2 }>
-          { value }
-          { Boolean(valueSecondary) && <Text color="text.secondary"> ({ valueSecondary })</Text> }
+        <Skeleton loading={ isLoading } fontWeight="medium" display="flex" flexWrap="wrap" columnGap={ 1 } minW={ 0 } ml={ 2 }>
+          <Text maxW="100%" overflowWrap="anywhere">{ value }</Text>
+          { Boolean(valueSecondary) && <Text maxW="100%" color="text.secondary" overflowWrap="anywhere">({ valueSecondary })</Text> }
         </Skeleton>
         { contentAfter }
       </Flex>

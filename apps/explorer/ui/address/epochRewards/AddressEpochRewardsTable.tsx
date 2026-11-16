@@ -17,7 +17,7 @@ type Props = {
 const AddressEpochRewardsTable = ({ items, isLoading, top }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot minW="1000px" style={{ tableLayout: 'auto' }}>
+      <TableRoot tableLayout="auto" aria-label="Epoch rewards" aria-busy={ isLoading }>
         <TableHeaderSticky top={ top }>
           <TableRow>
             <TableColumnHeader>

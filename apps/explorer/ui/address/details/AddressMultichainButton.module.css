@@ -5,30 +5,29 @@
 
     &::after {
         position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
+        inset: calc(-1 * var(--chakra-spacing-0\.5));
         margin: auto;
         z-index: -1;
-        border-radius: 6px;
+        border-radius: var(--chakra-radii-control);
 
         content: "";
         background: linear-gradient(120deg, var(--chakra-colors-promo-start), var(--chakra-colors-promo-stop), var(--chakra-colors-promo-start));
         background-size: 400% 400%;
         clip-path: polygon(
             0% 100%,
-            4px 100%,
-            4px 4px,
-            20px 4px,
-            20px 20px,
-            4px 20px,
-            4px 100%,
+            var(--chakra-spacing-1) 100%,
+            var(--chakra-spacing-1) var(--chakra-spacing-1),
+            var(--chakra-spacing-5) var(--chakra-spacing-1),
+            var(--chakra-spacing-5) var(--chakra-spacing-5),
+            var(--chakra-spacing-1) var(--chakra-spacing-5),
+            var(--chakra-spacing-1) 100%,
             100% 100%,
             100% 0%,
             0% 0%
         );
-        animation: gradient 3s ease-in-out 0.5s infinite, border 5s ease-in-out;
+        @media (prefers-reduced-motion: no-preference) {
+            animation: gradient calc(6 * var(--chakra-durations-ultra-slow)) var(--chakra-easings-standard) var(--chakra-durations-fast), border calc(10 * var(--chakra-durations-ultra-slow)) var(--chakra-easings-standard);
+        }
     }
 }
 
@@ -48,41 +47,41 @@
   0% {
     clip-path: polygon(
       0% 100%,
-      4px 100%,
-      4px 100%,
-      4px 100%,
-      4px 100%,
-      4px 100%,
-      4px 100%,
-      4px 100%,
-      4px 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) 100%,
       0% 100%
     );
   }
   5% {
     clip-path: polygon(
       0% 100%,
-      4px 100%,
-      4px 4px,
-      4px 4px,
-      4px 4px,
-      4px 4px,
-      4px 4px,
-      4px 4px,
-      4px 0%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-1) 0%,
       0% 0%
     );
   }
   10% {
     clip-path: polygon(
       0% 100%,
-      4px 100%,
-      4px 4px,
-      20px 4px,
-      20px 4px,
-      20px 4px,
-      20px 4px,
-      20px 4px,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-1),
       100% 0%,
       0% 0%
     );
@@ -90,12 +89,12 @@
   15% {
     clip-path: polygon(
       0% 100%,
-      4px 100%,
-      4px 4px,
-      20px 4px,
-      20px 20px,
-      20px 20px,
-      20px 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-5),
+      var(--chakra-spacing-5) var(--chakra-spacing-5),
+      var(--chakra-spacing-5) 100%,
       100% 100%,
       100% 0%,
       0% 0%
@@ -105,12 +104,12 @@
   100% {
     clip-path: polygon(
       0% 100%,
-      4px 100%,
-      4px 4px,
-      20px 4px,
-      20px 20px,
-      4px 20px,
-      4px 100%,
+      var(--chakra-spacing-1) 100%,
+      var(--chakra-spacing-1) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-1),
+      var(--chakra-spacing-5) var(--chakra-spacing-5),
+      var(--chakra-spacing-1) var(--chakra-spacing-5),
+      var(--chakra-spacing-1) 100%,
       100% 100%,
       100% 0%,
       0% 0%

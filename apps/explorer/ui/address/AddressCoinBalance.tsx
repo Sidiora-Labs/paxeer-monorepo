@@ -29,7 +29,7 @@ const AddressCoinBalanceChart = dynamic(() => import('./coinBalance/AddressCoinB
       loading
       w="100%"
       h={ CHART_HEIGHT }
-      borderRadius="lg"
+      borderRadius="card"
     />
   ),
 });
@@ -85,7 +85,7 @@ const AddressCoinBalance = ({ shouldRender = true, isQueryEnabled = true }: Prop
         borderWidth="1px"
         borderStyle="solid"
         borderColor="border.divider"
-        borderRadius="md"
+        borderRadius="card"
         boxShadow="card"
         px={ 4 }
         py={ 4 }

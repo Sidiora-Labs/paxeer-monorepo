@@ -132,6 +132,7 @@ const AddressVerificationStepSignature = ({ address, signingMessage, contractCre
     if (signMethod === 'manual') {
       return (
         <Button
+          type="button"
           onClick={ handleManualSignClick }
           loading={ formState.isSubmitting }
           loadingText="Verifying"
@@ -143,6 +144,7 @@ const AddressVerificationStepSignature = ({ address, signingMessage, contractCre
 
     return (
       <Button
+        type="button"
         onClick={ isConnected ? handleWeb3SignClick : handleOpenWeb3Modal }
         loading={ formState.isSubmitting || isSigning }
         loadingText={ isSigning ? 'Signing' : 'Verifying' }
@@ -196,8 +198,8 @@ const AddressVerificationStepSignature = ({ address, signingMessage, contractCre
   return (
     <FormProvider { ...formApi }>
       <form noValidate onSubmit={ onSubmit }>
-        { rootError && <Alert status="warning" mb={ 6 }>{ rootError }</Alert> }
-        <Box mb={ 8 }>
+        { rootError && <Alert status="warning" mb={ 6 } aria-live="assertive">{ rootError }</Alert> }
+        <Box mb={ 8 } id="verification-signature-help">
           <span>Please select the address to sign and copy the message and sign it using the Blockscout message provider of your choice. </span>
           <Link href="https://docs.blockscout.com/using-blockscout/my-account/verified-addresses/copy-and-sign-message" external noIcon>
             Additional instructions
@@ -210,13 +212,13 @@ const AddressVerificationStepSignature = ({ address, signingMessage, contractCre
           <Flex flexDir="column" rowGap={ 4 } mb={ 4 }>
             { contractCreator && (
               <Box>
-                <chakra.span fontWeight={ 600 }>Contract creator: </chakra.span>
+                <chakra.span fontWeight="semibold">Contract creator: </chakra.span>
                 <chakra.span>{ contractCreator }</chakra.span>
               </Box>
             ) }
             { contractOwner && (
               <Box>
-                <chakra.span fontWeight={ 600 }>Contract owner: </chakra.span>
+                <chakra.span fontWeight="semibold">Contract owner: </chakra.span>
                 <chakra.span>{ contractOwner }</chakra.span>
               </Box>
             ) }
@@ -234,6 +236,7 @@ const AddressVerificationStepSignature = ({ address, signingMessage, contractCre
               inputProps={{
                 h: { base: '175px', lg: '100px' },
                 minH: 'auto',
+                'aria-describedby': 'verification-signature-help',
               }}
             />
           </Flex>
@@ -255,6 +258,7 @@ const AddressVerificationStepSignature = ({ address, signingMessage, contractCre
               placeholder="Signature hash"
               required
               rules={{ pattern: SIGNATURE_REGEXP }}
+              inputProps={{ autoComplete: 'off' }}
               bgColor="dialog.bg"
             />
           ) }
