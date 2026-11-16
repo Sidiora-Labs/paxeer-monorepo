@@ -1,111 +1,87 @@
-import { FC, useCallback, useEffect, useState } from "react";
-import { Box, cn, Flex, useEmblaCarousel } from "@paxeer-network/ui";
-import { NextButton, PrevButton } from "./buttons";
+import { FC, useId, useRef } from "react";
+import surface from "../../surface.module.css";
+import { useTranslation } from "@paxeer-network/i18n";
+import { cn } from "@paxeer-network/ui";
 
 export const CarouselBackgroundImage: FC<{
-  backgroundImages: ReadonlyArray<string> | string[];
+  backgroundImages: ReadonlyArray<string>;
   selectedSnap: number;
-  setSelectedSnap: any;
-}> = (props) => {
-  const { backgroundImages, selectedSnap, setSelectedSnap } = props;
-  const [direction, setDirection] = useState<"ltr" | "rtl">("ltr");
-
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    // loop: true,
-    containScroll: "keepSnaps",
-    dragFree: true,
-    direction,
-  });
-
-  useEffect(() => {
-    const docDir = document?.documentElement?.dir?.toLowerCase();
-    setDirection(docDir === "rtl" ? "rtl" : "ltr");
-  }, []);
-
-  const onPrevButtonClick = useCallback(() => {
-    if (!emblaApi) {
-      return;
+  setSelectedSnap: (index: number) => void;
+}> = ({ backgroundImages, selectedSnap, setSelectedSnap }) => {
+  const id = useId();
+  const { t } = useTranslation();
+  const track = useRef<HTMLDivElement>(null);
+  const select = (index: number) => {
+    setSelectedSnap(index);
+    const element = track.current;
+    const child = element?.children[index];
+    if (element && child) {
+      const bounds = element.getBoundingClientRect();
+      const item = child.getBoundingClientRect();
+      if (item.left < bounds.left)
+        element.scrollBy({ left: item.left - bounds.left });
+      else if (item.right > bounds.right)
+        element.scrollBy({ left: item.right - bounds.right });
     }
-    if (emblaApi?.canScrollPrev()) {
-      emblaApi.scrollPrev();
-    } else if (selectedSnap - 1 >= 0) {
-      setSelectedSnap(selectedSnap - 1);
-    }
-  }, [emblaApi, selectedSnap]);
-
-  const onNextButtonClick = useCallback(() => {
-    if (!emblaApi) {
-      return;
-    }
-    if (emblaApi?.canScrollNext()) {
-      emblaApi.scrollNext();
-    } else if (selectedSnap + 1 < backgroundImages.length) {
-      setSelectedSnap(selectedSnap + 1);
-    }
-  }, [emblaApi, selectedSnap]);
-
-  const onSelect = useCallback((emblaApi: any) => {
-    // setPrevBtnDisabled(!emblaApi.canScrollPrev());
-    // setNextBtnDisabled(!emblaApi.canScrollNext());
-    setSelectedSnap(emblaApi.selectedScrollSnap());
-  }, []);
-
-  useEffect(() => {
-    if (!emblaApi) {
-      return;
-    }
-    onSelect(emblaApi);
-    emblaApi.on("reInit", onSelect);
-    emblaApi.on("select", onSelect);
-    emblaApi?.scrollTo(selectedSnap);
-    return () => {
-      emblaApi.off("reInit", onSelect);
-      emblaApi.off("select", onSelect);
-    };
-  }, [emblaApi, onSelect]);
-
+  };
   return (
-    <Flex mt={4} px={2}>
-      {direction === "rtl" ? (
-        <NextButton onClick={onNextButtonClick} />
-      ) : (
-        <PrevButton onClick={onPrevButtonClick} />
-      )}
-      <div
-        ref={emblaRef}
-        className="oui-w-full oui-overflow oui-overflow-x-auto oui-scrollbar-hidden oui-hide-scrollbar oui-mx-0"
+    <div
+      role="group"
+      aria-label={t("common.share")}
+      className={surface.thumbnailCarousel}
+    >
+      <button
+        type="button"
+        aria-label="Previous slide"
+        disabled={selectedSnap <= 0}
+        onClick={() => select(selectedSnap - 1)}
+        className="oui-min-h-12 oui-min-w-12 oui-rounded-md hover:oui-bg-base-5 disabled:oui-opacity-50"
       >
-        <Flex>
-          {backgroundImages.map((e, index) => (
-            <Box
-              key={e}
-              onClick={() => {
-                if (emblaApi?.canScrollPrev() || emblaApi?.canScrollNext()) {
-                  emblaApi?.scrollTo(index);
-                } else {
-                  setSelectedSnap(index);
-                }
-              }}
-              mx={2}
-              my={1}
-              r="base"
-              // Use logical-end spacing so RTL/LTR have identical visual gap.
-              className={cn(
-                "oui-shrink-0 oui-w-[162px] oui-me-6",
-                selectedSnap === index &&
-                  "oui-outline oui-outline-1 oui-outline-primary-darken",
-              )}
-            >
-              <img src={e} className="oui-rounded-sm" />
-            </Box>
-          ))}
-        </Flex>
+        ‹
+      </button>
+      <div
+        ref={track}
+        className={`${surface.thumbnailTrack} oui-flex oui-min-w-0 oui-flex-1 oui-gap-3 oui-overflow-x-auto oui-snap-x oui-snap-mandatory oui-p-1`}
+      >
+        {backgroundImages.map((src, index) => (
+          <button
+            type="button"
+            key={`${src}-${index}`}
+            aria-label={`${index + 1} / ${backgroundImages.length}`}
+            aria-pressed={selectedSnap === index}
+            aria-current={selectedSnap === index ? "true" : undefined}
+            onClick={() => setSelectedSnap(index)}
+            className={cn(
+              "oui-w-40 oui-shrink-0 oui-snap-center oui-rounded-md oui-border-2 oui-p-1",
+              selectedSnap === index
+                ? "oui-border-primary"
+                : "oui-border-transparent hover:oui-border-base-contrast-80",
+            )}
+          >
+            <img
+              src={src}
+              alt=""
+              width={552}
+              height={310}
+              loading="lazy"
+              className="oui-h-auto oui-w-full oui-rounded-sm"
+            />
+          </button>
+        ))}
       </div>
-      {direction === "rtl" ? (
-        <PrevButton onClick={onPrevButtonClick} />
-      ) : (
-        <NextButton onClick={onNextButtonClick} />
-      )}
-    </Flex>
+      <button
+        type="button"
+        aria-label="Next slide"
+        disabled={selectedSnap >= backgroundImages.length - 1}
+        onClick={() => select(selectedSnap + 1)}
+        className="oui-min-h-12 oui-min-w-12 oui-rounded-md hover:oui-bg-base-5 disabled:oui-opacity-50"
+      >
+        ›
+      </button>
+      <span id={id} role="status" className="oui-sr-only">
+        {backgroundImages.length ? selectedSnap + 1 : 0} /{" "}
+        {backgroundImages.length}
+      </span>
+    </div>
   );
 };

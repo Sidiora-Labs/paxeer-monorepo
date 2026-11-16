@@ -34,7 +34,6 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
   isJoining,
 }) => {
   const { t } = useTranslation();
-  // Use mock data for userdata if not provided
   const currentUserData = userdata;
 
   // Calculate estimated rewards
@@ -83,12 +82,12 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
     }
 
     return (
-      <div className="oui-flex oui-min-w-[240px] oui-flex-col oui-gap-1">
+      <div className="oui-flex oui-min-w-[calc(var(--oui-space-24)*2)] oui-flex-col oui-gap-1">
         {ticketRules?.tiers?.map((tier) => {
           return (
             <div
               key={tier.value}
-              className="h-[18px] oui-flex oui-items-center oui-justify-between oui-text-2xs oui-font-semibold"
+              className="oui-min-h-5 oui-flex oui-items-center oui-justify-between oui-text-2xs oui-font-semibold"
             >
               <Text.numeral
                 currency="$"
@@ -139,7 +138,7 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
   return (
     <div
       className={cn([
-        "oui-mx-auto oui-mb-10 oui-flex oui-max-w-[992px] oui-flex-col oui-pb-10",
+        "oui-mx-auto oui-mb-10 oui-flex oui-max-w-screen-xl oui-flex-col oui-pb-10",
         isMobile ? "oui-gap-3" : "oui-gap-6",
       ])}
     >
@@ -169,8 +168,8 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
             size={isMobile ? "md" : "lg"}
             variant="outlined"
             className={cn([
-              "oui-border-[rgb(var(--oui-gradient-brand-start))] oui-text-[rgb(var(--oui-gradient-brand-start))] hover:oui-bg-[rgb(var(--oui-gradient-brand-start))]/[0.08] active:oui-bg-[rgb(var(--oui-gradient-brand-start))]/[0.08]",
-              isMobile ? "oui-flex-1" : "oui-w-[140px]",
+              "oui-border-primary oui-text-primary hover:oui-bg-primary/[0.08] active:oui-bg-primary/[0.08]",
+              isMobile ? "oui-flex-1" : "oui-w-[calc(var(--oui-space-24)*1)]",
             ])}
             onClick={onLearnMore}
           >
@@ -184,7 +183,9 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
             color="primary"
             loading={isJoining}
             disabled={isJoining}
-            className={cn([isMobile ? "oui-flex-1" : "oui-w-[140px]"])}
+            className={cn([
+              isMobile ? "oui-flex-1" : "oui-w-[calc(var(--oui-space-24)*1)]",
+            ])}
             onClick={() =>
               joinCampaign?.({ campaign_id: Number(campaign?.campaign_id) })
             }
@@ -197,7 +198,9 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
             size={isMobile ? "md" : "lg"}
             variant="contained"
             color="primary"
-            className={cn([isMobile ? "oui-flex-1" : "oui-w-[140px]"])}
+            className={cn([
+              isMobile ? "oui-flex-1" : "oui-w-[calc(var(--oui-space-24)*1)]",
+            ])}
             onClick={onTradeNow}
           >
             {t("tradingLeaderboard.tradeNow")}
@@ -238,7 +241,7 @@ const RewardItem: FC<{
         className={cn([
           "oui-text-base-contrast-54",
           props.isMobile
-            ? "oui-h-[15px] oui-text-2xs oui-leading-[15px]"
+            ? "oui-h-4 oui-text-2xs oui-leading-normal"
             : "oui-text-sm oui-font-semibold",
         ])}
       >
@@ -251,20 +254,22 @@ const RewardItem: FC<{
           className={cn([
             "oui-trading-leaderboard-title",
             props.isMobile
-              ? "oui-h-[16px] oui-text-base oui-leading-[16px]"
-              : "oui-h-10 oui-text-[32px] oui-leading-10",
+              ? "oui-h-4 oui-text-base oui-leading-normal"
+              : "oui-h-10 oui-text-4xl oui-leading-normal",
           ])}
         >
           {props.value}
         </Text.gradient>
         {props.showTooltip && (
           <Tooltip content={props.tooltip} {...tooltipProps}>
-            <div
+            <button
+              type="button"
+              aria-label="Prize pool details"
               className="oui-flex oui-size-4 oui-items-center oui-justify-center"
               onClick={() => setTooltipOpen(true)}
             >
               <InfoCircleIcon className="oui-cursor-pointer" />
-            </div>
+            </button>
           </Tooltip>
         )}
       </div>
@@ -278,14 +283,16 @@ const RewardItem: FC<{
           <div className="oui-flex oui-flex-col oui-items-center oui-gap-1 oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
             <div
               className={cn([
-                "oui-flex oui-h-[18px] oui-w-[225px] oui-items-center oui-rounded-[100px] oui-bg-base-5 oui-p-[2px]",
-                props.isMobile ? "oui-w-full" : "oui-w-[225px]",
+                "oui-flex oui-h-4 oui-w-[calc(var(--oui-space-24)*2)] oui-items-center oui-rounded-full oui-bg-base-5 oui-p-0",
+                props.isMobile
+                  ? "oui-w-full"
+                  : "oui-w-[calc(var(--oui-space-24)*2)]",
               ])}
             >
               <div
                 className={cn([
-                  "oui-h-[14px] oui-rounded-[100px]",
-                  "oui-bg-[linear-gradient(270deg,rgb(var(--oui-gradient-brand-start))_0%,rgb(var(--oui-gradient-brand-end))_100%)]",
+                  "oui-h-3 oui-rounded-full",
+                  "oui-gradient-brand",
                 ])}
                 style={{ width: `${props?.extraInfo?.percent}%` }}
               />
@@ -293,7 +300,7 @@ const RewardItem: FC<{
             <div
               className={cn([
                 "oui-text-center oui-font-semibold",
-                props.isMobile ? "oui-text-2xs oui-leading-[15px]" : "",
+                props.isMobile ? "oui-text-2xs oui-leading-normal" : "",
               ])}
             >
               {/* @ts-ignore */}

@@ -10,13 +10,15 @@ export const DefaultCampaign: FC<{
 }> = ({ currentCampaignId, onCampaignChange, style, className }) => {
   const { t } = useTranslation();
   return (
-    <div
+    <button
+      type="button"
+      aria-pressed={currentCampaignId === "general"}
       className={cn([
         "oui-trading-leaderboard-title",
         "oui-flex oui-items-center oui-justify-center oui-cursor-pointer",
-        "oui-bg-base-9 oui-h-[78px] oui-rounded-lg oui-border oui-border-solid",
+        "oui-bg-base-9 oui-min-h-20 oui-p-3 oui-rounded-lg oui-border oui-border-solid",
         currentCampaignId === "general"
-          ? "oui-border-[rgba(var(--oui-gradient-brand-start))]"
+          ? "oui-border-primary"
           : "oui-border-transparent",
         className,
       ])}
@@ -24,6 +26,6 @@ export const DefaultCampaign: FC<{
       onClick={() => onCampaignChange("general")}
     >
       {t("tradingLeaderboard.generalLeaderboard")}
-    </div>
+    </button>
   );
 };

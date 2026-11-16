@@ -1,3 +1,4 @@
+import surface from "../../surface.module.css";
 import React, { useMemo } from "react";
 import { useTradingRewardsStatus, EpochStatus } from "@paxeer-network/hooks";
 import { Flex, Box, cn } from "@paxeer-network/ui";
@@ -58,20 +59,24 @@ export const HomePage: React.FC<{
     >
       <Flex
         id="oui-tradingRewards-home-page"
-        className={cn("oui-h-lvw oui-w-full", props.className)}
+        className={cn(
+          surface.surface,
+          "oui-min-w-0 oui-w-full",
+          props.className,
+        )}
         direction={"column"}
         gap={4}
       >
         <React.Suspense fallback={null}>
           <LazyTitleWidget />
         </React.Suspense>
-        <Flex className="oui-flex oui-size-full oui-flex-col oui-gap-4 2xl:oui-flex-row 2xl:oui-items-stretch">
-          <Box className="oui-w-full 2xl:oui-size-auto 2xl:oui-flex-1">
+        <Flex className={surface.columns}>
+          <Box className="oui-w-full">
             <React.Suspense fallback={null}>
               <LazyCurEpochWidget />
             </React.Suspense>
           </Box>
-          <Flex className="oui-flex oui-w-full oui-flex-col oui-gap-4 xl:oui-flex-row 2xl:oui-flex-1 2xl:oui-flex-col">
+          <Flex className={surface.cards}>
             <React.Suspense fallback={null}>
               <LazyAvailableToClaimWidget />
             </React.Suspense>
