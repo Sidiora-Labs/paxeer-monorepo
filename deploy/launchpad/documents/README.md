@@ -53,3 +53,7 @@ file alternative. The composer and variable apply tool require exactly one
 source per document, alongside the required digest. When changing an existing
 deployment's form, clear its previous source before applying the new variables.
 
+The broker stream and durable example is `values/broker.example.json`. Apply it
+with the shared module's `brokerprovision` command before starting consumers.
+Its `check` action compares the broker with the reviewed document without writes.
+Consumer durations are nanoseconds, matching the composed delivery documents.
