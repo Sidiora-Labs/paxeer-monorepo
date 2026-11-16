@@ -81,7 +81,11 @@ def rust_functions(source):
     functions = {}
     for match in re.finditer(r"\bfn\s+(\w+)\b[^{}]*\{", masked):
         end = block_end(masked, match.end() - 1)
-        functions[match[1]] = source[match.start():end]
+        name = match[1]
+        # Distinct impls can declare the same method name; retain every reader.
+        if name in functions:
+            name = f"{name}@{match.start()}"
+        functions[name] = source[match.start():end]
     return functions
 
 
@@ -545,8 +549,9 @@ def test_gateway_port_listener_and_health_are_served():
 def test_gateway_file_inputs_are_materialized_and_staged():
     variables = definition()["vars"]["gateway"]
     rows = selected_file_rows(variables)
-    assert len(rows) == 9
+    assert len(rows) == 10
     assert {row[0]: row[1] for row in rows if row[3] == "identity"} == {
+        "ENDPOINT_ROUTE_BINDINGS": "/run/secrets/route-bindings.json",
         "ENDPOINT_IDENTITY_TOKEN": "/run/secrets/identity-token",
         "ENDPOINT_IDENTITY_PROVISIONING_TOKEN": "/run/secrets/identity-provisioning-token",
         "ENDPOINT_KEY_PROVISIONING_KEY": "/run/secrets/key-provisioning-key",
@@ -556,10 +561,18 @@ def test_gateway_file_inputs_are_materialized_and_staged():
     entry = (CONTAINER / "entrypoint.sh").read_text().split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
     tree = ast.parse(entry)
     staged = set()
+    bindings_variable = None
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "FILE_VARIABLES" for target in node.targets):
             staged.update(ast.literal_eval(node.value))
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "BINDINGS_VARIABLE" for target in node.targets):
+            bindings_variable = ast.literal_eval(node.value)
     assert staged
+    assert bindings_variable == "LAYERX_GATEWAY_ROUTE_BINDINGS_FILE"
+    assert "protected_bytes(environment[BINDINGS_VARIABLE])" in entry
+    assert "environment[BINDINGS_VARIABLE] = private_copy(" in entry
+    assert 'bindings["services"].values()' in entry
+    assert 'binding["health_authorization_file"] = copy_file(authorization)' in entry
     destinations = set()
     for row in rows:
         assert len(row) == 4
@@ -572,12 +585,16 @@ def test_gateway_file_inputs_are_materialized_and_staged():
                 "ENDPOINT_IDENTITY_TOKEN", "ENDPOINT_IDENTITY_PROVISIONING_TOKEN",
                 "ENDPOINT_KEY_PROVISIONING_KEY",
                 "ENDPOINT_CLIENT_P12", "ENDPOINT_CLIENT_PASSWORD",
+                "ENDPOINT_ROUTE_BINDINGS",
             } else "*"
         )
         assert destination not in destinations
         destinations.add(destination)
         consumers = {name for name, value in variables.items() if value == destination}
-        assert consumers and consumers <= staged, consumers - staged
+        if name == "ENDPOINT_ROUTE_BINDINGS":
+            assert consumers == {bindings_variable}
+        else:
+            assert consumers and consumers <= staged, consumers - staged
     for name, value in variables.items():
         if value.startswith("/run/secrets/"):
             assert value in destinations, name
@@ -591,6 +608,48 @@ def test_gateway_file_inputs_are_materialized_and_staged():
     assert '"4020:4020"' in entry
     assert 'stat.S_IMODE(before.st_mode) == 0o600' in entry
     assert 'os.fchown(output.fileno(), UID, UID)' in entry
+
+
+def test_gateway_selected_table_covers_every_file_path_and_input():
+    variables = definition()["vars"]["gateway"]
+    rows = selected_file_rows(variables)
+    paths = {row[1] for row in rows}
+    inputs = {row[0] for row in rows}
+    for name, value in variables.items():
+        if value.startswith("/run/secrets/"):
+            assert value in paths, f"{name} has no selected file row for {value}"
+        if name.startswith("ENDPOINT_"):
+            assert name in inputs, f"{name} has no selected file row"
+
+
+def test_gateway_route_bindings_use_the_protected_operator_document():
+    data = definition()
+    variables = data["vars"]["gateway"]
+    general_rows = [
+        line.split("\t")
+        for line in (CONTAINER / "files.tsv").read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    general = [row for row in general_rows if row[0] == "ENDPOINT_ROUTE_BINDINGS"]
+    assert general == [[
+        "ENDPOINT_ROUTE_BINDINGS", "/run/secrets/route-bindings.json", "0600", "*",
+    ]]
+    native = [
+        row for row in selected_file_rows(variables)
+        if row[0] == "ENDPOINT_ROUTE_BINDINGS"
+    ]
+    assert native == [[*general[0][:3], variables["LAYERX_ROLE"]]]
+    assert variables["LAYERX_GATEWAY_ROUTE_BINDINGS_FILE"] == general[0][1]
+    name = "PLATFORM_GATEWAY_ENDPOINT_ROUTE_BINDINGS"
+    assert variables["ENDPOINT_ROUTE_BINDINGS"] == f"env:{name}"
+    assert data["inputs"]["gateway"][name] == "operator"
+    lines = DEFINITION.read_text().splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith(name + " ="))
+    comment = lines[index - 1]
+    assert comment.startswith("# ")
+    assert "bindings document" in comment
+    assert "JSON" in comment
+    assert "padded base64" in comment
 
 
 def test_gateway_without_role_selects_only_chain_files():
