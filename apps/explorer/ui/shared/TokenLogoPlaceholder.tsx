@@ -6,7 +6,7 @@ import IconSvg from 'ui/shared/IconSvg';
 const TokenLogoPlaceholder = (props: BoxProps) => {
   return (
     <IconSvg
-      fontWeight={ 600 }
+      fontWeight="semibold"
       bgColor={{ _light: 'gray.200', _dark: 'gray.600' }}
       color={{ _light: 'gray.400', _dark: 'gray.200' }}
       borderRadius="base"

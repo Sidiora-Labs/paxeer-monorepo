@@ -211,9 +211,6 @@ func (c *Config) Validate() error {
 			return err
 		}
 	}
-	if c.Service == Portal && c.ExplorerTxBase == "" {
-		return errors.New(envExplorerTx + " is required for portal")
-	}
 	if u.explorerTx && c.ExplorerTxBase != "" && !validURL(c.ExplorerTxBase, "http", "https") {
 		return errors.New(envExplorerTx + " needs http or https")
 	}

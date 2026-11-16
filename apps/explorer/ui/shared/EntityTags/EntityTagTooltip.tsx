@@ -55,8 +55,8 @@ const EntityTagTooltip = ({ data, children }: Props) => {
       <Flex textStyle="sm" flexDir="column" rowGap={ 2 } textAlign="left" _empty={{ display: 'none' }}>
         { (data.meta?.tooltipIcon || data.meta?.tooltipTitle) && (
           <Flex columnGap={ 3 } alignItems="center">
-            { data.meta?.tooltipIcon && <Image src={ data.meta.tooltipIcon } boxSize="30px" alt={ `${ data.name } tag logo` }/> }
-            { data.meta?.tooltipTitle && <chakra.span fontWeight="600">{ data.meta.tooltipTitle }</chakra.span> }
+            { data.meta?.tooltipIcon && <Image src={ data.meta.tooltipIcon } boxSize={ 7.5 } alt={ `${ data.name } tag logo` }/> }
+            { data.meta?.tooltipTitle && <chakra.span fontWeight="semibold">{ data.meta.tooltipTitle }</chakra.span> }
           </Flex>
         ) }
         { data.meta?.tooltipDescription && <chakra.span>{ data.meta.tooltipDescription }</chakra.span> }
@@ -69,7 +69,7 @@ const EntityTagTooltip = ({ data, children }: Props) => {
             <chakra.span mr={ 2 }>Source:</chakra.span>
             { data.meta?.tooltipAttributionIcon && <Image src={ data.meta.tooltipAttributionIcon } boxSize={ 4 } mr={ 1 } zIndex={ 1 }/> }
             { typeof attribution === 'string' ?
-              <chakra.span fontWeight="500">{ attribution }</chakra.span> :
+              <chakra.span fontWeight="medium">{ attribution }</chakra.span> :
               <Link external href={ attribution.href }>{ attribution.domain }</Link> }
           </Flex>
         </>
