@@ -6,6 +6,13 @@ defmodule BlockScoutWeb.Account.CustomABIControllerTest do
 
   @custom_abi "[{\"type\":\"function\",\"outputs\":[{\"type\":\"string\",\"name\":\"\"}],\"name\":\"name\",\"inputs\":[],\"constant\":true}]"
 
+  setup do
+    previous = Application.get_env(:explorer, Explorer.Account)
+    Application.put_env(:explorer, Explorer.Account, Keyword.put(previous, :enabled, true))
+    on_exit(fn -> Application.put_env(:explorer, Explorer.Account, previous) end)
+    :ok
+  end
+
   setup %{conn: conn} do
     auth = build(:auth)
 

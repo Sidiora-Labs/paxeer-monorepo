@@ -8,7 +8,7 @@ health = "/livez"
 restart = "ALWAYS"
 replicas = 2
 order = 15
-needs = ["identity", "faucet", "router"]
+needs = ["identity", "faucet", "gateway"]
 
 [vars.testnet-control]
 CARGO_BUILD_JOBS = "4"

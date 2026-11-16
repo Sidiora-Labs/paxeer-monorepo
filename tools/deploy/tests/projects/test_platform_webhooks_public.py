@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ast
+import os
 import re
+import subprocess
 from pathlib import Path
 
 
@@ -65,7 +67,7 @@ def _required_environment_names(names: set[str]) -> set[str]:
                 re.DOTALL,
             ):
                 required.add(name)
-    required.update({"LAYERX_ROLE", "PORT", "LAYERX_HEALTH_ADDR"})
+    required.update({"LAYERX_ROLE", "PORT"})
     return required
 
 
@@ -82,6 +84,10 @@ def _public_names(names: set[str]) -> set[str]:
         "LAYERX_WEBHOOKS_OPERATOR_TOKEN_FILE",
         "LAYERX_WEBHOOKS_MARKET_POLICY_FILE",
         "LAYERX_WEBHOOKS_MARKET_OUTBOX_DIR",
+        "LAYERX_HEALTH_ADDR",
+        "LAYERX_WEBHOOKS_HEALTH_LISTEN",
+        "LAYERX_WEBHOOKS_TLS_CERT_DER",
+        "LAYERX_WEBHOOKS_TLS_KEY_DER",
     }
     excluded |= {
         name
@@ -125,7 +131,7 @@ def test_webhooks_public_definition_tracks_real_service_inputs() -> None:
     inputs = sections["inputs.webhooks-public"]
 
     assert service["kind"] == "repo"
-    assert service["container"] == "docker/platform-webhooks/Dockerfile"
+    assert service["dockerfile"] == "docker/platform-webhooks/Dockerfile"
     assert service["root"] == "."
     assert service["health"] == "/healthz"
     assert service["restart"] == "ALWAYS"
@@ -133,6 +139,13 @@ def test_webhooks_public_definition_tracks_real_service_inputs() -> None:
     assert service["public"] == 1
     assert service["order"] == 8
     assert set(service["needs"]) == {"redis-internal", "internal-kms", "identity"}
+    assert vars_["LAYERX_WEBHOOKS_LISTENER"] == "plain"
+    assert vars_["PORT"] == "9444"
+    assert vars_["LAYERX_WEBHOOKS_LISTEN"] == "[::]:9444"
+    assert "LAYERX_HEALTH_ADDR" not in vars_
+    assert "LAYERX_WEBHOOKS_HEALTH_LISTEN" not in vars_
+    assert "LAYERX_WEBHOOKS_TLS_CERT_DER" not in vars_
+    assert "LAYERX_WEBHOOKS_TLS_KEY_DER" not in vars_
 
     watch = set(service["watch"])
     assert {"docker/platform-webhooks/**", "docker/common/**", "services/platform/**"} <= watch
@@ -143,7 +156,7 @@ def test_webhooks_public_definition_tracks_real_service_inputs() -> None:
     assert expected <= set(vars_), sorted(expected - set(vars_))
     assert set(vars_) <= (_source_environment_names() | _file_inputs() | _build_args())
 
-    generated_prefix = "PAXEER_X_PLATFORM_WEBHOOKS_PUBLIC_"
+    generated_prefix = "PLATFORM_WEBHOOKS_PUBLIC_"
     env_refs = {
         value.removeprefix("env:"): key
         for key, value in vars_.items()
@@ -158,7 +171,111 @@ def test_webhooks_public_definition_tracks_real_service_inputs() -> None:
 
     raw_lines = DEFINITION.read_text().splitlines()
     for index, line in enumerate(raw_lines):
-        if not line.startswith("PAXEER_X_PLATFORM_WEBHOOKS_PUBLIC_"):
+        if not line.startswith("PLATFORM_WEBHOOKS_PUBLIC_"):
             continue
         previous = raw_lines[index - 1].strip()
         assert previous.startswith("#"), line
+
+
+def _run_init(tmp_path: Path, **overrides: str) -> subprocess.CompletedProcess[str]:
+    capture = tmp_path / "webhooks-environment"
+    arguments = tmp_path / "setpriv-arguments"
+    binary = tmp_path / "layerx-webhooks"
+    binary.write_text(
+        "#!/bin/sh\n"
+        "env | sort > \"$LAYERX_TEST_CAPTURE\"\n"
+        "exit 0\n"
+    )
+    binary.chmod(0o755)
+    setpriv = tmp_path / "setpriv"
+    setpriv.write_text(
+        "#!/bin/sh\n"
+        "printf '%s\\n' \"$@\" > \"$LAYERX_TEST_ARGUMENTS\"\n"
+        "exec \"$LAYERX_TEST_BINARY\"\n"
+    )
+    setpriv.chmod(0o755)
+    environment = {
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "LAYERX_ROLE": "public",
+        "RAILWAY_REPLICA_ID": "webhooks-public-test",
+        "LAYERX_TEST_CAPTURE": str(capture),
+        "LAYERX_TEST_ARGUMENTS": str(arguments),
+        "LAYERX_TEST_BINARY": str(binary),
+    }
+    environment.update(overrides)
+    return subprocess.run(
+        ["sh", str(ENV_INIT)],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+
+
+def _captured_environment(tmp_path: Path) -> dict[str, str]:
+    return {
+        name: value
+        for line in (tmp_path / "webhooks-environment").read_text().splitlines()
+        for name, _, value in [line.partition("=")]
+    }
+
+
+def test_public_init_defaults_to_tls_when_listener_is_absent(tmp_path: Path) -> None:
+    result = _run_init(tmp_path)
+    assert result.returncode == 0, result.stderr
+    captured = _captured_environment(tmp_path)
+    assert captured["LAYERX_WEBHOOKS_LISTENER"] == "tls"
+    assert captured["LAYERX_WEBHOOKS_LISTEN"] == "[::]:9444"
+    assert captured["LAYERX_WEBHOOKS_HEALTH_LISTEN"] == "[::]:9442"
+    assert captured["LAYERX_WEBHOOKS_TLS_CERT_DER"] == "/run/layerx/tls/server.der"
+    assert captured["LAYERX_WEBHOOKS_TLS_KEY_DER"] == "/run/layerx/tls/server-key.der"
+    assert captured["LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE"] == "/run/layerx/tokens/identity"
+    assert (
+        (tmp_path / "setpriv-arguments").read_text().splitlines()[-1]
+        == "/usr/local/bin/layerx-webhooks"
+    )
+
+
+def test_public_init_plain_listener_uses_port(tmp_path: Path) -> None:
+    result = _run_init(tmp_path, LAYERX_WEBHOOKS_LISTENER="plain", PORT="9444")
+    assert result.returncode == 0, result.stderr
+    captured = _captured_environment(tmp_path)
+    assert captured["LAYERX_WEBHOOKS_LISTENER"] == "plain"
+    assert captured["LAYERX_WEBHOOKS_LISTEN"] == "[::]:9444"
+    assert captured["LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE"] == "/run/layerx/tokens/identity"
+
+
+def test_public_init_plain_listener_prefers_explicit_listen(tmp_path: Path) -> None:
+    result = _run_init(
+        tmp_path,
+        LAYERX_WEBHOOKS_LISTENER="plain",
+        PORT="9555",
+        LAYERX_WEBHOOKS_LISTEN="[::]:9666",
+    )
+    assert result.returncode == 0, result.stderr
+    assert _captured_environment(tmp_path)["LAYERX_WEBHOOKS_LISTEN"] == "[::]:9666"
+
+
+def test_public_init_plain_listener_has_no_tls_or_health_listener(tmp_path: Path) -> None:
+    result = _run_init(
+        tmp_path,
+        LAYERX_WEBHOOKS_LISTENER="plain",
+        PORT="9444",
+        LAYERX_HEALTH_ADDR="[::]:9442",
+        LAYERX_WEBHOOKS_HEALTH_LISTEN="[::]:9442",
+        LAYERX_WEBHOOKS_TLS_CERT_DER="old-certificate",
+        LAYERX_WEBHOOKS_TLS_KEY_DER="old-key",
+    )
+    assert result.returncode == 0, result.stderr
+    captured = _captured_environment(tmp_path)
+    assert "LAYERX_HEALTH_ADDR" not in captured
+    assert "LAYERX_WEBHOOKS_HEALTH_LISTEN" not in captured
+    assert "LAYERX_WEBHOOKS_TLS_CERT_DER" not in captured
+    assert "LAYERX_WEBHOOKS_TLS_KEY_DER" not in captured
+
+
+def test_public_init_refuses_another_listener_value(tmp_path: Path) -> None:
+    result = _run_init(tmp_path, LAYERX_WEBHOOKS_LISTENER="other")
+    assert result.returncode == 2
+    assert "tls" in result.stderr and "plain" in result.stderr
+    assert not (tmp_path / "webhooks-environment").exists()

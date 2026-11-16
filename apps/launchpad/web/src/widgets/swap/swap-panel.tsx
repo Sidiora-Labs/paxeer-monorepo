@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useOptimisticReceipt } from '@/hooks/tx/use-optimistic-receipt';
 import {
@@ -26,6 +25,7 @@ import { fetchTokenMetadataBatch } from '@/core/clients/metadata';
 import { Coins, SearchX } from 'lucide-react';
 import TokenImage from '@/ui/shared/token-image';
 import { Button, EmptyState, ErrorState } from '@/ui/primitives';
+import { ModalDialog } from '@/core/app-foundation/modal-dialog';
 import type { TokenMetadata } from '@/widgets/home/types';
 import { SlippageSelector, HighImpactWarning, computeMinOut, DEFAULT_SLIPPAGE_BPS } from '@/widgets/trade/slippage-selector';
 import { useDebouncedValue } from '@/hooks/ui/use-debounced-value';
@@ -117,21 +117,9 @@ function TokenSelectorModal({
   excludeAddress?: string;
 }) {
   const [search, setSearch] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
-    if (open) {
-      setSearch('');
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
+    if (open) setSearch('');
   }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -147,78 +135,77 @@ function TokenSelectorModal({
   });
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="absolute inset-0 bg-scrim/70" onClick={onClose} />
-      <div className="relative w-full max-w-[420px] mx-4 bg-surface-1 rounded-2xl overflow-hidden flex flex-col max-h-[70vh]">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-base font-bold text-text">Select a coin</span>
-            <button onClick={onClose} className="text-text-faint hover:text-text transition p-1">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-          <input
-            ref={inputRef}
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, symbol, or address"
-            className="w-full bg-surface-2 rounded-xl px-3 py-2.5 text-xs text-text transition placeholder:text-text-faint"
-          />
+    <ModalDialog open={open} onClose={onClose} aria-labelledby="swap-selector-title" className="max-h-[var(--sl-dialog-max-height)] max-w-modal-width-sm flex-col rounded-xl bg-surface-1">
+      <div className="shrink-0 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 id="swap-selector-title" className="text-base font-bold text-text">Select a coin</h2>
+          <button type="button" onClick={onClose} aria-label="Close coin selector" className="min-h-touch-target-min min-w-touch-target-min p-1 text-text-faint transition hover:text-text">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
-
-        <div className="overflow-y-auto flex-1 py-1">
-          {filtered.length === 0 && (
-            loading ? (
-              <div role="status" className="px-4 py-8 text-center text-text-faint text-xs animate-pulse">Loading coins…</div>
-            ) : error && tokens.length === 0 ? (
-              <ErrorState title="Coins can't load right now" message="Something went wrong, try again" onRetry={onRetry} />
-            ) : search.trim() ? (
-              <EmptyState icon={SearchX} title={`No coins match "${search.trim()}"`} body="Try a different name, symbol or address." announce />
-            ) : (
-              <EmptyState icon={Coins} title="No coins to swap yet" body="Coins appear here as soon as they start trading." action={<Button variant="secondary" size="sm" href="/create">Create coin</Button>} announce />
-            )
-          )}
-          {filtered.map((token) => {
-            const bal = balances[token.tokenAddress.toLowerCase()];
-            const balFmt = bal !== undefined ? parseFloat(formatUnits(bal, LAUNCHPAD_DEFAULT_DECIMALS)) : 0;
-            return (
-              <button
-                key={token.tokenAddress}
-                onClick={() => { onSelect(token); onClose(); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition text-left"
-              >
-                <div className="relative w-9 h-9 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
-                  <TokenImage
-                    fill
-                    src={token.logo}
-                    alt={token.symbol}
-                    sizes="36px"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-text truncate">{token.name}</span>
-                    <span className="text-2xs text-text-faint uppercase">{token.symbol}</span>
-                  </div>
-                  {token.marketCap > 0 && (
-                    <span className="text-2xs text-text-faint">MC: {formatCurrency(token.marketCap)}</span>
-                  )}
-                </div>
-                {balFmt > 0 && (
-                  <span className="text-2xs text-text font-bold flex-shrink-0">
-                    {formatNumber(balFmt, 2)}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <label htmlFor="swap-coin-search" className="sr-only">Search coins</label><input
+          id="swap-coin-search"
+          data-autofocus
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name, symbol, or address"
+          className="w-full bg-surface-2 rounded-xl px-3 py-2.5 text-xs text-text transition placeholder:text-text-faint"
+        />
       </div>
-    </div>
+
+      <div className="shrink-0 py-1">
+        {filtered.length === 0 && (
+          loading ? (
+            <div role="status" className="px-4 py-8 text-center text-text-faint text-xs animate-pulse">Loading coins…</div>
+          ) : error && tokens.length === 0 ? (
+            <ErrorState title="Coins can't load right now" message="Something went wrong, try again" onRetry={onRetry} />
+          ) : search.trim() ? (
+            <EmptyState icon={SearchX} title={`No coins match "${search.trim()}"`} body="Try a different name, symbol or address." announce />
+          ) : (
+            <EmptyState icon={Coins} title="No coins to swap yet" body="Coins appear here as soon as they start trading." action={<Button variant="secondary" size="sm" href="/create">Create coin</Button>} announce />
+          )
+        )}
+        {filtered.map((token) => {
+          const bal = balances[token.tokenAddress.toLowerCase()];
+          const balFmt = bal !== undefined ? parseFloat(formatUnits(bal, LAUNCHPAD_DEFAULT_DECIMALS)) : 0;
+          return (
+            <button
+              key={token.tokenAddress}
+              type="button"
+              onClick={() => { onSelect(token); onClose(); }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition text-left"
+            >
+              <div className="relative w-9 h-9 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
+                <TokenImage
+                  fill
+                  src={token.logo}
+                  alt={token.symbol}
+                  sizes="36px"
+                  className="object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-text truncate">{token.name}</span>
+                  <span className="text-2xs text-text-faint uppercase">{token.symbol}</span>
+                </div>
+                {token.marketCap > 0 && (
+                  <span className="text-2xs text-text-faint">MC: {formatCurrency(token.marketCap)}</span>
+                )}
+              </div>
+              {balFmt > 0 && (
+                <span className="text-2xs text-text font-bold flex-shrink-0">
+                  {formatNumber(balFmt, 2)}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </ModalDialog>
   );
 }
 
@@ -247,70 +234,50 @@ function TokenInputBox({
   const usdValue = token && amount && parseFloat(amount) > 0
     ? parseFloat(amount) * token.price
     : 0;
-  const displayDigits = (amount || '0.00').split('');
 
   return (
-    <div className="bg-surface-2 rounded-xl p-3.5 transition-all duration-200">
-      <div className="flex items-center justify-between mb-1.5">
+    <div className="bg-surface-2 rounded-xl p-3.5 transition-all duration-base">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
         <span className="text-2xs text-text-faint uppercase tracking-wide">{label}</span>
         {balance !== null && (
           <div className="flex items-center gap-1.5">
             <span className="text-2xs text-text-faint">Balance: {formatNumber(balFmt, 4)}</span>
             {onMaxClick && !readOnly && (
-              <motion.button
+              <button
+                type="button"
                 onClick={onMaxClick}
-                whileTap={{ scale: 0.92 }}
                 className="text-2xs text-info hover:text-text font-bold transition"
               >
-                <AnimatePresence mode="popLayout">
-                  {amount && parseFloat(amount) > 0 && balFmt > 0 && parseFloat(amount) >= balFmt ? (
-                    <motion.span key="using" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>Using Max</motion.span>
-                  ) : (
-                    <motion.span key="use" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>Use Max</motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.button>
+                {amount && parseFloat(amount) > 0 && balFmt > 0 && parseFloat(amount) >= balFmt ? (
+                  <span key="using">Using Max</span>
+                ) : (
+                  <span key="use">Use Max</span>
+                )}
+              </button>
             )}
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0 relative">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-24 flex-1">
           <input
             type="number"
+            aria-label={`${label} amount`}
             value={amount}
             onChange={onAmountChange ? (e) => onAmountChange(e.target.value) : undefined}
             readOnly={readOnly}
             placeholder="0.00"
-            className={`w-full bg-transparent text-md font-bold text-transparent caret-text outline-none min-w-0 ${
+            className={`w-full bg-transparent text-md font-bold text-text caret-text min-w-0 ${
               readOnly ? 'cursor-default opacity-70' : ''
             }`}
             min="0"
             step="any"
           />
-          <div className="pointer-events-none absolute inset-0 flex items-center">
-            <AnimatePresence initial={false} mode="popLayout">
-              {displayDigits.map((digit, index) => (
-                <motion.span
-                  key={`${digit}-${index}`}
-                  className={`text-md font-bold ${
-                    amount ? 'text-text' : 'text-text-faint'
-                  }`}
-                  initial={{ y: '100%', opacity: 0 }}
-                  animate={{ y: '0%', opacity: 1 }}
-                  exit={{ y: '-50%', opacity: 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                >
-                  {digit}
-                </motion.span>
-              ))}
-            </AnimatePresence>
-          </div>
         </div>
-        <motion.button
+        <button
+          type="button"
           onClick={onSelectClick}
-          whileTap={{ scale: 0.95 }}
-          className="flex items-center gap-2 bg-surface-3 hover:bg-surface-hover rounded-xl px-3 py-2 transition flex-shrink-0"
+          className="flex items-center gap-2 bg-surface-3 hover:bg-surface-hover rounded-xl px-3 py-2 transition max-w-full flex-shrink-0"
         >
           {token ? (
             <>
@@ -332,22 +299,13 @@ function TokenInputBox({
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-text-faint">
             <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </motion.button>
+        </button>
       </div>
-      <AnimatePresence mode="popLayout">
-        {usdValue > 0 ? (
-          <motion.div
-            key="usd-value"
-            className="mt-1"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-          >
-            <span className="text-2xs text-text-faint">{formatCurrency(usdValue)}</span>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {usdValue > 0 ? (
+        <div key="usd-value" className="mt-1">
+          <span className="text-2xs text-text-faint">{formatCurrency(usdValue)}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -668,13 +626,13 @@ export default function SwapPanel() {
       : null;
 
   return (
-    <div className="w-full max-w-[460px] mx-auto">
+    <div className="mx-auto w-full max-w-md">
       <div className="rounded-2xl bg-surface-1 overflow-hidden">
         {/* Header */}
-        <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-          <h2 className="text-md font-bold text-text">Swap</h2>
-          <div className="flex items-center gap-2">
-          <SlippageSelector bps={slippageBps} onChange={setSlippageBps} />
+        <div className="px-5 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="shrink-0 text-md font-bold text-text">Swap</h2>
+          <div className="flex max-w-full flex-wrap items-center gap-2">
+            <SlippageSelector bps={slippageBps} onChange={setSlippageBps} />
           <div className="flex items-center gap-1.5 text-2xs text-text-faint">
             <img src="/icons/ArrowsLeftRight.svg" alt="" width={14} height={14} className="opacity-60" />
             Token to Token
@@ -706,7 +664,7 @@ export default function SwapPanel() {
                 height="18"
                 viewBox="0 0 18 18"
                 fill="none"
-                className="text-text-muted group-hover:text-text transition group-hover:rotate-180 duration-300"
+                className="text-text-muted group-hover:text-text transition group-hover:rotate-180 duration-slow"
               >
                 <path d="M9 3V15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 <path d="M5 11L9 15L13 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -792,34 +750,18 @@ export default function SwapPanel() {
           )}
 
           {/* Insufficient balance warning */}
-          <AnimatePresence>
-            {insufficientBalance && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{
-                  opacity: 1,
-                  scale: 1,
-                  x: [0, -4, 4, -3, 3, 0],
-                }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{
-                  x: { delay: 0.1, times: [0, 0.2, 0.4, 0.6, 0.8, 1] },
-                  type: 'spring', stiffness: 500, damping: 35,
-                }}
-                className="text-danger text-2xs text-center py-1.5"
-              >
-                Not enough {tokenIn?.symbol}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {insufficientBalance && (
+            <div className="text-danger text-2xs text-center py-1.5">
+              Not enough {tokenIn?.symbol}
+            </div>
+          )}
 
           {homeError ? <p role="alert" className="text-xs text-danger">{homeError}</p> : null}
           {/* Swap / Approve button */}
-          <motion.button
+          <button
+            type="button"
             onClick={() => void handleSwap()}
             disabled={buttonDisabled}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             className={`w-full py-3.5 rounded-xl text-base font-bold transition mt-2 disabled:opacity-40 disabled:cursor-not-allowed ${
               insufficientBalance
                 ? 'bg-danger-soft text-danger'
@@ -828,36 +770,18 @@ export default function SwapPanel() {
                   : 'bg-accent text-on-accent hover:bg-accent-hover'
             }`}
           >
-            <AnimatePresence mode="popLayout">
-              <motion.span
-                key={buttonLabel}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.15 }}
-              >
-                {buttonLabel}
-              </motion.span>
-            </AnimatePresence>
-          </motion.button>
+            {buttonLabel}
+          </button>
 
           {/* Swap success */}
-          <AnimatePresence>
-            {(approveReceipt?.status === 'reverted' || swapReceipt?.status === 'reverted') && (
-              <p role="alert" className="text-danger text-2xs text-center">{approveReceipt?.status === 'reverted' ? "Approval didn't go through. Try again" : "Swap didn't go through. Try again"}</p>
-            )}
-            {swapReceipt?.status === 'success' && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                className="text-accent text-2xs text-center py-1"
-              >
-                Swapped!
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {(approveReceipt?.status === 'reverted' || swapReceipt?.status === 'reverted') && (
+            <p role="alert" className="text-danger text-2xs text-center">{approveReceipt?.status === 'reverted' ? "Approval didn't go through. Try again" : "Swap didn't go through. Try again"}</p>
+          )}
+          {swapReceipt?.status === 'success' && (
+            <div className="text-accent text-2xs text-center py-1">
+              Swapped!
+            </div>
+          )}
         </div>
       </div>
 

@@ -5,7 +5,6 @@ root = "."
 watch = ["docker/bridge-relayer/**", "docker/common/**", "services/**", "programs/**", "include/**", "spec/layerx-merge/contracts/**", "rust-toolchain.toml"]
 # Cosign peers exchange binary frames over mutual TLS on a public TCP listener.
 target = "other"
-health = ""
 restart = "ALWAYS"
 replicas = 1
 volume = "/data"

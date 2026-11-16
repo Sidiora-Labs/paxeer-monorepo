@@ -27,7 +27,7 @@ export function DocFigure({ kind = 'exploded', label, caption, compact = false }
       visible = entries[0]?.isIntersecting || false
       if (visible) void mount()
       // Engines also share an offscreen-aware frame loop; retain their pose.
-    }, { rootMargin: '120px' })
+    }, { rootMargin: `${element.getBoundingClientRect().height}px` })
     observer.observe(element)
     return () => {
       disposed = true
@@ -40,7 +40,7 @@ export function DocFigure({ kind = 'exploded', label, caption, compact = false }
   }, [kind, label, paused])
   return <figure className={`doc-figure${compact ? ' doc-figure--compact' : ''}`}>
     <div className="doc-figure-stage" ref={host} data-hairline={kind} role={kind === 'riffle' && !paused ? 'group' : 'img'} aria-label={label} />
-    <figcaption><span>{caption || label}</span><button type="button" onClick={() => setPaused(value => !value)} aria-pressed={paused} aria-label={`${paused ? 'Resume' : 'Pause'} illustration motion`}>{paused ? 'Resume motion' : 'Pause motion'}</button></figcaption>
+    <figcaption><span>{caption || label}</span><button type="button" onClick={() => setPaused(value => !value)} aria-label={`${paused ? 'Resume' : 'Pause'} illustration motion`}>{paused ? 'Resume motion' : 'Pause motion'}</button></figcaption>
   </figure>
 }
 

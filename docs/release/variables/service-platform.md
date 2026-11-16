@@ -462,6 +462,7 @@ The root `.env.example` inventories the components together; select the settings
 | `PRICE_SIDECAR_FEED_KEY_FILE` | Feed key file; path to protected secret material. | None | No; secret file path | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
 | `PRICE_SIDECAR_STATE_DIR` | State directory. | None | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |
 | `RAILWAY_SERVICE_NAME` | Railway service name. | None | No | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
+| `RAILWAY_RUN_UID` | Railway volume runtime user ID; the perps NATS services run as user 0 so they can write `/data`. | 0 | No | [deploy/railway-perps-project.kvx](../../../deploy/railway-perps-project.kvx) |
 | `RAMP_ACTOR_DID` | Actor did. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |
 | `RAMP_CLIENT_TIMEOUT_SECONDS` | Client timeout seconds. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |
 | `RAMP_COMPLIANCE_ENDPOINT` | Compliance endpoint. | None | No | [ramps/env-init.sh](../../../services/platform/ramps/env-init.sh) |
@@ -1210,6 +1211,8 @@ The root `.env.example` inventories the components together; select the settings
 | `LAYERX_INDEXER_AI_CONFIG / root / allow_remote_plaintext` | Root allow remote plaintext. | `false` | No | [hosted/indexer/src/ai_runtime.rs](../../../services/platform/hosted/indexer/src/ai_runtime.rs) |
 | `LAYERX_INDEXER_AI_CONFIG / root / ca_der` | Root CA DER. | Unset | No | [hosted/indexer/src/ai_runtime.rs](../../../services/platform/hosted/indexer/src/ai_runtime.rs) |
 | `LAYERX_INDEXER_ALLOW_REMOTE_PLAINTEXT` | Indexer allow remote plaintext. | `0` | No | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
+| `LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS` | Indexer backfill batch blocks. | `50` (1 to 200) | No | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
+| `LAYERX_INDEXER_BACKFILL_READERS` | Indexer backfill readers. | `8` (1 to 32) | No | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
 | `LAYERX_INDEXER_BACKFILL_RANGE_BLOCKS` | Indexer backfill range blocks. | `1000` | No | [hosted/indexer/src/config.rs](../../../services/platform/hosted/indexer/src/config.rs) |
 | `LAYERX_INDEXER_CHAINS_PRECOMPILE` | Indexer chains precompile. | Built-in chains registry precompile | No | [hosted/indexer/src/chains.rs](../../../services/platform/hosted/indexer/src/chains.rs) |
 | `LAYERX_INDEXER_CLIENT_CA_DER` | Indexer client CA DER. | Unset | No | [hosted/internal/src/tls.rs](../../../services/platform/hosted/internal/src/tls.rs) |

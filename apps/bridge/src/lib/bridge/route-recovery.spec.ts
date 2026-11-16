@@ -9,8 +9,9 @@ import {
   encodeFunctionResult, getAddress, hexToBytes, http, keccak256, multicall3Abi, numberToHex,
   toFunctionSelector, zeroAddress, type Abi, type Address, type Hex,
 } from 'viem';
-import { afterAll, afterEach, expect, test, vi } from 'vitest';
 import { WagmiProvider } from 'wagmi';
+
+import { afterAll, afterEach, expect, test, vi } from 'vitest';
 
 import { readConfig } from './config';
 import { bankAbi, BANK_ADDRESS, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from './contracts';
@@ -18,11 +19,11 @@ import { contentSecurityPolicy } from './csp';
 import { paxeerRecipient } from './digests';
 import depositBundle from './fixtures/deposit-ready.json';
 import releaseBundle from './fixtures/release-ready.json';
+import { historyStatusOf, phaseOf } from './phase';
+import { settlementBroadcastPatch, settlementPatch } from './settlement';
 import {
   base58Decode, base58Encode, recipientRecordAddress, solanaRecipientHandle,
 } from './solana';
-import { settlementBroadcastPatch, settlementPatch } from './settlement';
-import { historyStatusOf, phaseOf } from './phase';
 import { depositRecord, withdrawalRecord } from './submitted';
 import { listTransfers, saveTransfer, transferIdOf, updateTransfer, type BridgeTransfer } from './transfers';
 import './phase.spec';
@@ -70,9 +71,9 @@ function recipientAccount() {
 }
 
 const receipts = new Map<Hex, ReturnType<typeof wireReceipt>>();
-const urls: string[] = [];
-const calls: Array<{ method: string; params: unknown[] }> = [];
-const serverErrors: unknown[] = [];
+const urls: Array<string> = [];
+const calls: Array<{ method: string; params: Array<unknown> }> = [];
+const serverErrors: Array<unknown> = [];
 let custodyAccount: unknown = recipientAccount();
 let paxeerPaused = false;
 let pairEnabled = true;
@@ -106,7 +107,7 @@ async function contractRead(call: { to: Address; data: Hex }): Promise<Hex> {
   return encodeFunctionResult({ abi, functionName, result: results[functionName] });
 }
 
-async function dispatch(input: { id: number; method: string; params: unknown[] }) {
+async function dispatch(input: { id: number; method: string; params: Array<unknown> }) {
   const { id, method, params } = input;
   calls.push({ method, params });
   let result: unknown;
@@ -179,7 +180,7 @@ const publicClient = createPublicClient({ transport: http(rpcUrl, { retryCount: 
 const foreign = bridgeChainByKey('base')!;
 const asset = foreign.assets[0];
 const originalWalletState = wagmiConfig.state;
-const clients: QueryClient[] = [];
+const clients: Array<QueryClient> = [];
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -283,7 +284,7 @@ async function registryDepositShapeFeedsTheRealEnrichmentConsumer() {
   expect(parsed).not.toHaveProperty('nonce');
   expect(typeof parsed!.logIndex).toBe('number');
   const enriched = enrichRecord(submitted, receipt);
-  expect(enriched).toEqual({ ...submitted, logIndex: '7', nonce: '9' });
+  expect(enriched).toEqual({ ...submitted, id: transferIdOf('in', sourceHash, submitted.foreignChainId, '7'), logIndex: '7', nonce: '9' });
   saveTransfer(enriched);
   expect(listTransfers(account)[0]).toMatchObject({ logIndex: '7', nonce: '9' });
 }
@@ -405,7 +406,7 @@ async function unloadedRoutesNeverBecomeReadyBeforePausedOrDisabledReads() {
     paxeerPaused = !disabled;
     vaultPaused = !disabled;
     pairEnabled = !disabled;
-    const readyStates: boolean[] = [];
+    const readyStates: Array<boolean> = [];
     const mounted = renderHook(() => {
       const state = useRouteCard();
       readyStates.push(state.card.ready);

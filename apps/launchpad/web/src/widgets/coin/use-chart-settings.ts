@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 import { useCallback, useSyncExternalStore } from 'react';
 import type { ChartMode } from '@/widgets/trading/udf-datafeed';
 
@@ -17,9 +18,9 @@ export const CHART_INTERVALS: readonly ChartIntervalOption[] = [
   { value: '1W', label: '1W', description: '1 week', primary: false },
 ];
 
-export const CHART_MIN_HEIGHT = 320;
-export const CHART_DEFAULT_HEIGHT = 380;
-export const CHART_MAX_HEIGHT = 960;
+export const CHART_MIN_HEIGHT = launchpadGeometry.chart.minHeight;
+export const CHART_DEFAULT_HEIGHT = launchpadGeometry.chart.defaultHeight;
+export const CHART_MAX_HEIGHT = launchpadGeometry.chart.maxHeight;
 
 export interface ChartSettings {
   height: number;

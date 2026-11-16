@@ -92,6 +92,17 @@ def test_explorer_test_step_runs_both_umbrella_apps():
     assert not job.get("continue-on-error", False)
     assert "if" not in step
 
+    runtime_steps = [
+        item for item in job["steps"]
+        if item.get("name") == "Ensure the container runtime is available"
+    ]
+    assert len(runtime_steps) == 1
+    runtime = runtime_steps[0]
+    assert job["steps"].index(runtime) < job["steps"].index(step)
+    assert "docker version" in runtime["run"]
+    assert not runtime.get("continue-on-error", False)
+    assert "if" not in runtime
+
     umbrella = (BACKEND / "mix.exs").read_text(encoding="utf-8")
     assert 'apps_path: "apps"' in umbrella
     for app in ["explorer", "ethereum_jsonrpc"]:

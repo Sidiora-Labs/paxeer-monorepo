@@ -152,9 +152,9 @@ defmodule Explorer.MicroserviceInterfaces.BENS do
 
   defp batch_resolve_name_url do
     if multiprotocol?() do
-      "#{addresses_url()}:batch-resolve"
+      "#{addresses_url()}%3Abatch-resolve"
     else
-      "#{addresses_url()}:batch-resolve-names"
+      "#{addresses_url()}%3Abatch-resolve-names"
     end
   end
 

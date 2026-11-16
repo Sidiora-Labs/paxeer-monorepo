@@ -1,10 +1,12 @@
 package tx
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
 
+	sequencertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/grpc/tmservice"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 
@@ -200,7 +202,12 @@ func (s txServer) GetBlockWithTxs(ctx context.Context, req *txtypes.GetBlockWith
 		limit = pagination.DefaultLimit
 	}
 
-	blockTxs := block.Data.Txs
+	blockTxs := make([][]byte, 0, len(block.Data.Txs))
+	for _, entry := range block.Data.Txs {
+		if !bytes.HasPrefix(entry, []byte(sequencertypes.SequenceBatchDomain)) {
+			blockTxs = append(blockTxs, entry)
+		}
+	}
 	blockTxsLn := uint64(len(blockTxs))
 	txs := make([]*txtypes.Tx, 0, limit)
 	if blockTxsLn == 0 && offset == 0 {

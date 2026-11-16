@@ -3,29 +3,28 @@ defmodule BlockScoutWeb.AddressContractVerificationTest do
 
   alias BlockScoutWeb.{AddressContractPage, ContractVerifyPage}
   alias Explorer.Factory
-  alias Plug.Conn
 
   setup do
-    bypass = Bypass.open()
+    previous_adapter = Application.get_env(:tesla, :adapter)
+    previous_solc_url = Application.get_env(:explorer, :solc_bin_api_url)
 
     configuration = Application.get_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour)
     Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, enabled: false)
 
-    Application.put_env(:explorer, :solc_bin_api_url, "http://localhost:#{bypass.port}")
+    Application.put_env(:explorer, :solc_bin_api_url, "https://binaries.soliditylang.org")
 
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
     on_exit(fn ->
       Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, configuration)
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
+      Application.put_env(:tesla, :adapter, previous_adapter)
+      Application.put_env(:explorer, :solc_bin_api_url, previous_solc_url)
     end)
 
-    {:ok, bypass: bypass}
+    :ok
   end
 
-  test "users validates smart contract", %{session: session, bypass: bypass} do
-    Bypass.expect(bypass, fn conn -> Conn.resp(conn, 200, solc_bin_versions()) end)
-
+  test "users validates smart contract", %{session: session} do
     %{name: name, source_code: source_code, bytecode: bytecode, version: version} = Factory.contract_code_info()
 
     transaction = :transaction |> insert() |> with_block()
@@ -56,9 +55,7 @@ defmodule BlockScoutWeb.AddressContractVerificationTest do
     assert AddressContractPage.on_page?(session, address)
   end
 
-  test "with invalid data shows error messages", %{session: session, bypass: bypass} do
-    Bypass.expect(bypass, fn conn -> Conn.resp(conn, 200, solc_bin_versions()) end)
-
+  test "with invalid data shows error messages", %{session: session} do
     address = insert(:address, contract_code: Factory.contract_code_info().bytecode)
 
     has_message =
@@ -75,9 +72,5 @@ defmodule BlockScoutWeb.AddressContractVerificationTest do
       |> ContractVerifyPage.has_message?("Empty contract source code.")
 
     assert has_message
-  end
-
-  defp solc_bin_versions do
-    File.read!("./test/support/fixture/smart_contract/solc_bin.json")
   end
 end

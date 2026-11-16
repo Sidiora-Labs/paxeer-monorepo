@@ -187,7 +187,7 @@ export function DesktopApprovalSplit({
   children?: ReactNode;
 }>) {
   return (
-    <div data-application="approvals" className="grid gap-4 p-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+    <div data-application="approvals" className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
       <ScreenCard
         landmark="section"
         title={copyEntry("approval.inbox.title").message}

@@ -399,7 +399,17 @@ defmodule EthereumJSONRPC.RPCErrorHandlingTest do
 
   defp ipc_pool(node) do
     {:ok, pool} = :poolboy.start_link([worker_module: IPC, size: 1, max_overflow: 0], path: node.path)
-    on_exit(fn -> if Process.alive?(pool), do: GenServer.stop(pool) end)
+
+    on_exit(fn ->
+      if Process.alive?(pool) do
+        try do
+          GenServer.stop(pool)
+        catch
+          :exit, _ -> :ok
+        end
+      end
+    end)
+
     pool
   end
 

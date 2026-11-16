@@ -78,16 +78,16 @@ function PositionRow({ position, identity, poolAddress, mode, owner }: { positio
       {mode === 'open' ? (
         <>
           <div className="min-w-0 text-right sm:text-left">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Quantity</span>
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Quantity</span>
             <MaskedAmount className="block truncate text-xs text-text-faint tabular-nums">{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount>
           </div>
           <div className="min-w-0">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Value</span>
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Value</span>
             <Amount raw={valueRaw} className={cn(dust && 'text-text-faint')} />
             {valueRaw === null ? <span className="block text-2xs text-text-faint">no price yet</span> : null}
           </div>
           <div className="min-w-0 text-right sm:text-left">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Unrealized</span>
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Unrealized</span>
             <Amount raw={unrealized} signed />
           </div>
           {owner ? <Button variant="secondary" size="sm" href={href} className="col-span-2 sm:col-span-1">Sell</Button> : <span aria-hidden="true" className="hidden sm:block sm:w-14" />}
@@ -95,15 +95,15 @@ function PositionRow({ position, identity, poolAddress, mode, owner }: { positio
       ) : (
         <>
           <div className="min-w-0 text-right sm:text-left">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Realized</span>
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Realized</span>
             <Amount raw={realized} signed />
           </div>
           <div className="min-w-0">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Known realized</span>
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Known realized</span>
             <Amount raw={knownRealized} signed />
           </div>
           <div className="min-w-0 text-right sm:text-left">
-            <span className="block text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:hidden">Basis</span>
+            <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Basis</span>
             <span className="text-xs text-text-muted">{position.realizedBasisQuality}</span>
           </div>
         </>
@@ -169,7 +169,7 @@ export function PositionsOpenClosed({ wallet, mode, isOwner, className }: Positi
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <div className={cn('hidden px-3 text-2xs font-bold uppercase tracking-[.04em] text-text-faint sm:grid sm:gap-x-4', mode === 'open' ? 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]')} aria-hidden="true">
+      <div className={cn('hidden px-3 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:grid sm:gap-x-4', mode === 'open' ? 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]')} aria-hidden="true">
         <span>Coin</span>
         {mode === 'open' ? <><span>Quantity</span><span>Value</span><span>Unrealized</span><span className="w-14" /></> : <><span>Realized</span><span>Known realized</span><span>Basis</span></>}
       </div>

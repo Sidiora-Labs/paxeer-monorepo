@@ -9,8 +9,9 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "next build",
-    "test:static": "node tests/ui-contract.mjs && node tests/evidence-decoding.mjs && tsc --noEmit",
+    "dev": "next dev",
+    "build": "node scripts/clean-dev-output.mjs && next build && node tests/built-style.mjs",
+    "test:static": "node tests/ui-contract.mjs && node tests/evidence-decoding.mjs && node --test tests/session-routes.mjs tests/session-digests.mjs tests/key-routes.mjs && tsc --noEmit",
     "start": "next start"
   },
   "dependencies": {

@@ -9,11 +9,13 @@ import './globals.css';
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: [ 'latin' ],
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: [ 'latin' ],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -26,22 +28,22 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#121317' },
-  ],
+
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>): JSX.Element {
   return (
     <html lang="en" className={ `${ geistSans.variable } ${ geistMono.variable } h-full antialiased` } suppressHydrationWarning>
       <head>
+        <meta name="color-scheme" content="light dark"/>
+        <meta name="theme-color"/>
+        <meta name="text-scale" content="scale"/>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }}/>
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <a
           href="#bridge"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
+          className="skip-link sr-only focus:not-sr-only focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
         >
           Skip to the bridge
         </a>

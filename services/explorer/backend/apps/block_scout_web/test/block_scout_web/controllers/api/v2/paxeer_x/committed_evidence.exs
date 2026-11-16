@@ -2,6 +2,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CommittedEvidence do
   @moduledoc false
 
   import ExUnit.Assertions
+  import ExUnit.Callbacks, only: [on_exit: 1]
 
   alias Explorer.Chain.PaxeerX.SequencerReceipt
   alias Plug.Conn
@@ -153,7 +154,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CommittedEvidence do
       chain_id: @chain_id,
       commit: %{"header" => settlement["execution_header"], "commit" => settlement["execution_commit"]},
       validators: validators(settlement, settlement["execution_header"]["height"]),
-      settlement: settlement,
+      receipt_inclusion: settlement,
       authority: authority()
     ]
   end
@@ -201,6 +202,12 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CommittedEvidence do
   end
 
   def restart_endpoint do
+    on_exit(fn ->
+      if is_nil(Process.whereis(BlockScoutWeb.Endpoint)) do
+        assert {:ok, _pid} = Supervisor.restart_child(BlockScoutWeb.Supervisor, BlockScoutWeb.Endpoint)
+      end
+    end)
+
     previous = Process.whereis(BlockScoutWeb.Endpoint)
     assert is_pid(previous)
     assert :ok = Supervisor.terminate_child(BlockScoutWeb.Supervisor, BlockScoutWeb.Endpoint)

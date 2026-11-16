@@ -1,8 +1,8 @@
 import React from 'react';
-import { Text } from 'react-native';
 import type { V2ContractTypes } from '../../../../../sdk/launchpad/packages/sdk/src/index.ts';
 import {
   Button,
+  Text,
   Card,
   Copyable,
   Field,
@@ -10,7 +10,7 @@ import {
   ResourceStatus,
   useResource,
   useRetainedInput,
-  ui,
+  useSurface,
   type Runtime,
 } from '../navigation.tsx';
 type Row =
@@ -23,6 +23,7 @@ type Row =
       value: V2ContractTypes['SearchResponse']['data']['items'][number];
     };
 export function Discovery({ runtime }: { runtime: Runtime }) {
+  const { ui } = useSurface();
   const [query, setQuery] = useRetainedInput(runtime, 'discovery', 'query'),
     [search, setSearch] = useRetainedInput(runtime, 'discovery', 'search');
   const pools = useResource(runtime, 'pools', (s) => runtime.services.pools(s));

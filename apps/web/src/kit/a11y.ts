@@ -52,7 +52,12 @@ export interface SemanticContrastResult {
   readonly background: string;
   readonly foreground: string;
   readonly ratio: number;
+  readonly scheme: ColorScheme;
 }
+
+export type ColorScheme = "dark" | "light";
+
+const COLOR_SCHEMES: readonly ColorScheme[] = ["light", "dark"];
 
 function channelToLinear(value: number): number {
   const channel = value / 255;
@@ -92,31 +97,131 @@ export function contrastRatio(foreground: string, background: string): number {
   );
 }
 
-export function semanticTokenValues(stylesheet: string): ReadonlyMap<string, string> {
-  const values = new Map<string, string>();
-  for (const match of stylesheet.matchAll(/(--[a-z-]+)\s*:\s*(#[0-9a-f]{3,8})\s*;/giu)) {
-    const name = match[1];
-    const value = match[2];
-    if (name !== undefined && value !== undefined) {
-      values.set(name, value);
+interface SchemeTokenValues {
+  light?: string;
+  dark?: string;
+}
+
+function schemeForBlocks(blocks: readonly string[]): ColorScheme | undefined {
+  const blockText = blocks.join(" ").toLowerCase();
+  if (
+    blockText.includes("prefers-color-scheme: dark") ||
+    blockText.includes('[data-theme="dark"]') ||
+    blockText.includes("[data-theme='dark']") ||
+    blockText.includes(":root:not([data-theme=\"light\"])") ||
+    blockText.includes(":root:not([data-theme='light'])")
+  ) {
+    return "dark";
+  }
+  if (
+    blockText.includes('[data-theme="light"]') ||
+    blockText.includes("[data-theme='light']")
+  ) {
+    return "light";
+  }
+  return undefined;
+}
+
+function setSchemeValue(values: SchemeTokenValues, scheme: ColorScheme | undefined, value: string) {
+  if (scheme === undefined) {
+    values.light = value;
+    values.dark = value;
+  } else {
+    values[scheme] = value;
+  }
+}
+
+function readSchemeTokenValues(stylesheet: string): ReadonlyMap<string, SchemeTokenValues> {
+  const values = new Map<string, SchemeTokenValues>();
+  const blocks: string[] = [];
+  let buffer = "";
+
+  const recordDeclaration = (declaration: string) => {
+    const match = declaration.match(/(--[a-z-]+)\s*:\s*(.*?)\s*$/iu);
+    const name = match?.[1];
+    const rawValue = match?.[2];
+    if (name === undefined || rawValue === undefined) {
+      return;
     }
+
+    const token = values.get(name) ?? {};
+    const lightDark = rawValue.match(
+      /^light-dark\(\s*(#[0-9a-f]{3,6})\s*,\s*(#[0-9a-f]{3,6})\s*\)$/iu,
+    );
+    if (lightDark?.[1] !== undefined && lightDark[2] !== undefined) {
+      token.light = lightDark[1];
+      token.dark = lightDark[2];
+      values.set(name, token);
+      return;
+    }
+
+    const value = rawValue.match(/^#[0-9a-f]{3,6}$/iu)?.[0];
+    if (value !== undefined) {
+      setSchemeValue(token, schemeForBlocks(blocks), value);
+      values.set(name, token);
+    }
+  };
+
+  for (const character of stylesheet.replaceAll(/\/\*[\s\S]*?\*\//gu, "")) {
+    if (character === "{") {
+      blocks.push(buffer.trim());
+      buffer = "";
+    } else if (character === "}") {
+      buffer = "";
+      blocks.pop();
+    } else if (character === ";") {
+      recordDeclaration(buffer);
+      buffer = "";
+    } else {
+      buffer += character;
+    }
+  }
+  recordDeclaration(buffer);
+  return values;
+}
+
+export function semanticTokenValuesByScheme(
+  stylesheet: string,
+): ReadonlyMap<ColorScheme, ReadonlyMap<string, string>> {
+  const values = new Map<ColorScheme, ReadonlyMap<string, string>>();
+  const tokens = readSchemeTokenValues(stylesheet);
+  for (const scheme of COLOR_SCHEMES) {
+    const schemeValues = new Map<string, string>();
+    for (const [name, token] of tokens) {
+      const value = token[scheme] ?? token.light ?? token.dark;
+      if (value !== undefined) {
+        schemeValues.set(name, value);
+      }
+    }
+    values.set(scheme, schemeValues);
   }
   return values;
 }
 
+export function semanticTokenValues(stylesheet: string): ReadonlyMap<string, string> {
+  return semanticTokenValuesByScheme(stylesheet).get("light") ?? new Map();
+}
+
 export function semanticContrastResults(stylesheet: string): readonly SemanticContrastResult[] {
-  const tokens = semanticTokenValues(stylesheet);
-  return SEMANTIC_CONTRAST_PAIRS.map(([foreground, background]) => {
-    const foregroundValue = tokens.get(foreground);
-    const backgroundValue = tokens.get(background);
-    if (foregroundValue === undefined || backgroundValue === undefined) {
-      throw new Error(`Missing semantic color token pair ${foreground} on ${background}`);
+  const valuesByScheme = semanticTokenValuesByScheme(stylesheet);
+  return COLOR_SCHEMES.flatMap((scheme) => {
+    const tokens = valuesByScheme.get(scheme);
+    if (tokens === undefined) {
+      throw new Error(`Missing semantic token values for ${scheme} scheme`);
     }
-    return {
-      foreground,
-      background,
-      ratio: contrastRatio(foregroundValue, backgroundValue),
-    };
+    return SEMANTIC_CONTRAST_PAIRS.map(([foreground, background]) => {
+      const foregroundValue = tokens.get(foreground);
+      const backgroundValue = tokens.get(background);
+      if (foregroundValue === undefined || backgroundValue === undefined) {
+        throw new Error(`Missing semantic color token pair ${foreground} on ${background} in ${scheme} scheme`);
+      }
+      return {
+        foreground,
+        background,
+        ratio: contrastRatio(foregroundValue, backgroundValue),
+        scheme,
+      };
+    });
   });
 }
 
@@ -126,7 +231,7 @@ export function assertSemanticTokenContrast(stylesheet: string): void {
   );
   if (failure !== undefined) {
     throw new Error(
-      `${failure.foreground} on ${failure.background} has ${failure.ratio.toFixed(2)}:1 contrast`,
+      `${failure.foreground} on ${failure.background} in ${failure.scheme} scheme has ${failure.ratio.toFixed(2)}:1 contrast`,
     );
   }
 }

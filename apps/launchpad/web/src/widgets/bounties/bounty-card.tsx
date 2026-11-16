@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useId } from 'react';
 import Link from 'next/link';
 import { Heart, Trophy, Users } from 'lucide-react';
@@ -78,11 +79,11 @@ export function BountyCard({ bounty, creator, stats, valuationContext, href, now
 export function BountyCardSkeleton({ className }: { className?: string }) {
   return (
     <div aria-hidden="true" className={cn('flex flex-col gap-3 rounded-lg bg-surface-1 p-3', className)}>
-      <div className="flex items-center justify-between"><Skeleton variant="pill" width={56} height={20} /><Skeleton variant="pill" width={112} height={22} /></div>
-      <Skeleton width="80%" height={20} />
-      <Skeleton width="55%" height={20} />
-      <div className="flex items-center gap-2"><Skeleton variant="circle" width={24} height={24} /><Skeleton width={96} height={14} /></div>
-      <div className="flex items-center gap-2"><Skeleton width={72} height={24} /><Skeleton variant="pill" width={96} height={22} /></div>
+      <div className="flex items-center justify-between"><Skeleton variant="pill" width={surfaceSpacing(14)} height={surfaceSpacing(5)} /><Skeleton variant="pill" width={surfaceSpacing(28)} height={surfaceSpacing(5.5)} /></div>
+      <Skeleton width="80%" height={surfaceSpacing(5)} />
+      <Skeleton width="55%" height={surfaceSpacing(5)} />
+      <div className="flex items-center gap-2"><Skeleton variant="circle" width={surfaceSpacing(6)} height={surfaceSpacing(6)} /><Skeleton width={surfaceSpacing(24)} height={surfaceSpacing(3.5)} /></div>
+      <div className="flex items-center gap-2"><Skeleton width={surfaceSpacing(18)} height={surfaceSpacing(6)} /><Skeleton variant="pill" width={surfaceSpacing(24)} height={surfaceSpacing(5.5)} /></div>
     </div>
   );
 }

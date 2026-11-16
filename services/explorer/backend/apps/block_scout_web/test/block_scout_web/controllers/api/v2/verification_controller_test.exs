@@ -16,13 +16,16 @@ defmodule BlockScoutWeb.API.V2.VerificationControllerTest do
   @moduletag timeout: :infinity
 
   setup do
+    previous_adapter = Application.get_env(:tesla, :adapter)
+    previous_solc_url = Application.get_env(:explorer, :solc_bin_api_url)
     configuration = Application.get_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour)
     Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, enabled: false)
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
     on_exit(fn ->
       Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, configuration)
-      Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
+      Application.put_env(:tesla, :adapter, previous_adapter)
+      Application.put_env(:explorer, :solc_bin_api_url, previous_solc_url)
     end)
   end
 
@@ -174,11 +177,13 @@ defmodule BlockScoutWeb.API.V2.VerificationControllerTest do
         assert %{"message" => "Smart-contract verification started"} = json_response(request, 200)
 
         assert_receive %Phoenix.Socket.Message{
-                         payload: %{status: "success"},
+                         payload: %{status: status},
                          event: "verification_result",
                          topic: ^topic
                        },
                        :timer.seconds(300)
+
+        assert status == "success"
 
         Application.put_env(:explorer, :solc_bin_api_url, before)
       end
@@ -228,6 +233,26 @@ defmodule BlockScoutWeb.API.V2.VerificationControllerTest do
     end
 
     describe "/api/v2/smart-contracts/{address_hash}/verification/via/sourcify" do
+      setup do
+        previous = Application.get_env(:explorer, Explorer.ThirdPartyIntegrations.Sourcify)
+        previous_adapter = Application.get_env(:tesla, :adapter)
+
+        Application.put_env(
+          :explorer,
+          Explorer.ThirdPartyIntegrations.Sourcify,
+          Keyword.merge(previous, enabled: true, chain_id: "1")
+        )
+
+        Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
+
+        on_exit(fn ->
+          Application.put_env(:explorer, Explorer.ThirdPartyIntegrations.Sourcify, previous)
+          Application.put_env(:tesla, :adapter, previous_adapter)
+        end)
+
+        :ok
+      end
+
       test "get 200 for verified contract", %{conn: conn} do
         contract = insert(:smart_contract)
 
@@ -278,11 +303,13 @@ defmodule BlockScoutWeb.API.V2.VerificationControllerTest do
         assert %{"message" => "Smart-contract verification started"} = json_response(request, 200)
 
         assert_receive %Phoenix.Socket.Message{
-                         payload: %{status: "success"},
+                         payload: %{status: status},
                          event: "verification_result",
                          topic: ^topic
                        },
                        :timer.seconds(120)
+
+        assert status == "success"
       end
     end
 
@@ -348,11 +375,13 @@ defmodule BlockScoutWeb.API.V2.VerificationControllerTest do
         assert %{"message" => "Smart-contract verification started"} = json_response(request, 200)
 
         assert_receive %Phoenix.Socket.Message{
-                         payload: %{status: "success"},
+                         payload: %{status: status},
                          event: "verification_result",
                          topic: ^topic
                        },
                        :timer.seconds(300)
+
+        assert status == "success"
 
         Application.put_env(:explorer, :solc_bin_api_url, before)
       end
@@ -414,11 +443,13 @@ defmodule BlockScoutWeb.API.V2.VerificationControllerTest do
         assert %{"message" => "Smart-contract verification started"} = json_response(request, 200)
 
         assert_receive %Phoenix.Socket.Message{
-                         payload: %{status: "success"},
+                         payload: %{status: status},
                          event: "verification_result",
                          topic: ^topic
                        },
                        :timer.seconds(300)
+
+        assert status == "success"
 
         # Assert that the `is_blueprint=true` is stored in the database after verification
         EthereumJSONRPC.Mox
@@ -519,11 +550,13 @@ defmodule BlockScoutWeb.API.V2.VerificationControllerTest do
       assert %{"message" => "Smart-contract verification started"} = json_response(request, 200)
 
       assert_receive %Phoenix.Socket.Message{
-                       payload: %{status: "success"},
+                       payload: %{status: status},
                        event: "verification_result",
                        topic: ^topic
                      },
                      :timer.seconds(300)
+
+      assert status == "success"
 
       Application.put_env(:explorer, :solc_bin_api_url, before)
     end

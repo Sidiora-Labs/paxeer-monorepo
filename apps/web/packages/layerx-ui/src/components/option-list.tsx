@@ -45,14 +45,14 @@ export function OptionList({
             className="group flex w-full cursor-pointer items-center justify-between gap-3 py-4 text-left outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-[15px] font-medium text-foreground">{item.label}</span>
+              <span className="text-body-sm font-medium text-foreground">{item.label}</span>
               {item.description && (
-                <span className="text-[13px] text-muted-foreground">{item.description}</span>
+                <span className="text-label text-muted-foreground">{item.description}</span>
               )}
             </span>
             <span
               className={cn(
-                "inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                "inline-flex size-icon-md shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                 checked ? "border-accent" : "border-border-strong group-hover:border-faint-foreground",
               )}
               aria-hidden

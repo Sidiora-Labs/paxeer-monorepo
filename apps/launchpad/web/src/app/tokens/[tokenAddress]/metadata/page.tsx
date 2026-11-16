@@ -61,7 +61,7 @@ export default function TokenMetadataPage() {
   const error = !validToken ? 'This is not a valid coin address' : query.isError ? "Can't load coin details right now" : !query.isPending && !metadata ? 'No details found for this coin' : '';
   const identity = `${token}:${address}:${metadata?.revision}:${session?.epoch}`;
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 text-white">
+    <div className="mx-auto min-w-0 max-w-2xl px-4 py-8 text-text">
       <h1 className="text-2xl font-semibold">Coin details</h1>
       {validToken && query.isPending && <p role="status">Loading...</p>}
       {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => void query.refetch()}>Try again</button></div>}

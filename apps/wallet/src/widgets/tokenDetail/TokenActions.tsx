@@ -25,24 +25,27 @@ export function TokenActions({
   return (
     <div className="grid grid-cols-3 gap-2.5 px-3 mt-5">
       <button
+        type="button"
         onClick={handleSend}
         disabled={!precisionKnown}
-        className="bg-pax-surface rounded-[20px] py-4 flex flex-col items-center justify-center gap-2 press-scale"
+        className="min-h-[var(--touch-target)] bg-pax-surface rounded-xl py-4 flex flex-col items-center justify-center gap-2 press-scale"
       >
         <Send className="w-5 h-5 text-pax-accent" />
         <span className="text-xs font-bold text-pax-subtle">Send</span>
       </button>
       <button
+        type="button"
         onClick={() => onNavigate('receive')}
-        className="bg-pax-surface rounded-[20px] py-4 flex flex-col items-center justify-center gap-2 press-scale"
+        className="bg-pax-surface rounded-xl py-4 flex flex-col items-center justify-center gap-2 press-scale"
       >
         <ArrowDownLeft className="w-5 h-5 text-pax-accent" />
         <span className="text-xs font-bold text-pax-subtle">Receive</span>
       </button>
       <button
+        type="button"
         onClick={() => onNavigate('swap')}
         disabled={!precisionKnown}
-        className="bg-pax-surface rounded-[20px] py-4 flex flex-col items-center justify-center gap-2 press-scale"
+        className="bg-pax-surface rounded-xl py-4 flex flex-col items-center justify-center gap-2 press-scale"
       >
         <Repeat2 className="w-5 h-5 text-pax-accent" />
         <span className="text-xs font-bold text-pax-subtle">Swap</span>

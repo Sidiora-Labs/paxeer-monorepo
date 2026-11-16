@@ -310,6 +310,7 @@ defmodule BlockScoutWeb.Account.API.V2.AuthenticateController do
     description: "Authenticates a user using a Dynamic JWT token from the Authorization header.",
     security: [%{"dynamic_jwt" => []}],
     responses: %{
+      not_found: NotFoundResponse.response(),
       ok: {"User info.", "application/json", AccountSchemas.User},
       unauthorized: UnauthorizedResponse.response(),
       internal_server_error: {"Error message", "application/json", message_response_schema()}

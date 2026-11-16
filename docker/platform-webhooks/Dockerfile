@@ -2,6 +2,10 @@ FROM rust:1.91.1-bookworm AS build
 WORKDIR /src
 COPY services/ services/
 COPY programs/ programs/
+COPY include/layerx/ include/layerx/
+COPY spec/layerx-merge/contracts/address-table.md spec/layerx-merge/contracts/address-table.md
+COPY tools/platform/cli/src/wallet_gateway.rs tools/platform/cli/src/wallet_gateway.rs
+COPY tools/paxeer-x/route-catalogue.json tools/paxeer-x/route-catalogue.json
 RUN cargo build --manifest-path services/platform/Cargo.toml --locked --release -p layerx-platform-webhooks --bin layerx-webhooks
 
 FROM debian:bookworm-slim AS base

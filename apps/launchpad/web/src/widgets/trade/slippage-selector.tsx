@@ -67,13 +67,13 @@ export function TradeRiskReview({ slippageBps, impactBps, onConfirm, onCancel }:
       <div className="space-y-2">
         {needsSlippage ? (
           <label className="flex cursor-pointer items-start gap-3 rounded-sm bg-warning-soft p-3 text-sm text-text">
-            <input type="checkbox" checked={slippage} onChange={event => setSlippage(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[var(--sl-color-warning)]" />
+            <input type="checkbox" checked={slippage} onChange={event => setSlippage(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-warning" />
             <span>I&apos;m okay with <span className="font-bold tabular-nums">{safeFixed(slippageBps / 100, 2)}%</span> slippage</span>
           </label>
         ) : null}
         {needsImpact ? (
           <label className="flex cursor-pointer items-start gap-3 rounded-sm bg-danger-soft p-3 text-sm text-text">
-            <input type="checkbox" checked={impact} onChange={event => setImpact(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[var(--sl-color-danger)]" />
+            <input type="checkbox" checked={impact} onChange={event => setImpact(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-danger" />
             <span>I&apos;m okay with a <span className="font-bold tabular-nums">{safeFixed(impactBps / 100, 2)}%</span> price impact</span>
           </label>
         ) : null}

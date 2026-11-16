@@ -64,11 +64,7 @@ func (k *Keeper) GetCurrBaseFeePerGas(ctx sdk.Context) sdk.Dec {
 	store := k.GetKVStore(ctx)
 	bz := store.Get(types.BaseFeePerGasPrefix)
 	if bz == nil {
-		minFeePerGas := k.GetMinimumFeePerGas(ctx)
-		if minFeePerGas.IsNil() {
-			minFeePerGas = types.DefaultParams().MinimumFeePerGas
-		}
-		return minFeePerGas
+		return k.GetMinimumFeePerGasOrDefault(ctx)
 	}
 	d := sdk.Dec{}
 	err := d.UnmarshalJSON(bz)
@@ -101,11 +97,7 @@ func (k *Keeper) GetNextBaseFeePerGas(ctx sdk.Context) sdk.Dec {
 	store := k.GetKVStore(ctx)
 	bz := store.Get(types.NextBaseFeePerGasPrefix)
 	if bz == nil {
-		minFeePerGas := k.GetMinimumFeePerGas(ctx)
-		if minFeePerGas.IsNil() {
-			minFeePerGas = types.DefaultParams().MinimumFeePerGas
-		}
-		return minFeePerGas
+		return k.GetMinimumFeePerGasOrDefault(ctx)
 	}
 	d := sdk.Dec{}
 	err := d.UnmarshalJSON(bz)

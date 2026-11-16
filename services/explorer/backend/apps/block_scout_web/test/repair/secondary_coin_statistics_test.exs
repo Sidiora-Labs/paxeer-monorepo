@@ -29,6 +29,8 @@ defmodule BlockScoutWeb.API.V2.SecondaryCoinStatisticsTest do
     Application.put_env(:explorer, Chainflow,
       base_url: "http://localhost:#{bypass.port}",
       coin_symbol: "PAX",
+      coin_id: "paxeer",
+      secondary_coin_id: "sidiora",
       secondary_coin_symbol: "SID",
       tokens: [[@sid, "SID"]]
     )
@@ -115,11 +117,16 @@ defmodule BlockScoutWeb.API.V2.SecondaryCoinStatisticsTest do
     Bypass.expect(bypass, fn conn ->
       response =
         case conn.request_path do
-          "/api/sid/price" ->
-            %{"symbol" => "SID", "price" => "4", "timestamp" => "2026-01-02T00:00:00Z"}
-
-          "/api/sid/stats" ->
-            %{"symbol" => "SID", "volume_24h" => "120"}
+          "/api/v3/coins/sidiora" ->
+            %{
+              "name" => "Sidiora",
+              "symbol" => "sid",
+              "market_data" => %{
+                "current_price" => %{"usd" => "4"},
+                "total_volume" => %{"usd" => "120"},
+                "last_updated" => "2026-01-02T00:00:00Z"
+              }
+            }
 
           "/api/sid/history" ->
             today = Date.utc_today() |> DateTime.new!(~T[00:00:00]) |> DateTime.to_unix()

@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useState, type ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -6,11 +13,17 @@ import {
   FlatList,
   Pressable,
   ScrollView,
-  StyleSheet,
-  Text,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  Text as NativeText,
+  type TextProps,
   TextInput,
   View,
 } from 'react-native';
+import { surface, useSurface } from './surface.ts';
+export { useSurface } from './surface.ts';
 import {
   useResource as useResourceState,
   offlineSnapshotLabel,
@@ -61,60 +74,135 @@ export type Route =
         | 'live';
     }
   | { name: 'token' | 'profile'; address: string };
-export const ui = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#101418' },
-  content: { padding: 16, paddingBottom: 32, gap: 16 },
-  heading: { fontSize: 26, fontWeight: '700', color: '#f4f6f8' },
-  text: { fontSize: 16, color: '#f4f6f8' },
-  subtle: { fontSize: 14, color: '#c1c8cf' },
-  card: { backgroundColor: '#202830', padding: 16, gap: 12, borderRadius: 12 },
-  button: {
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#c3eacf',
-    borderRadius: 8,
+export const Text = React.forwardRef<NativeText, TextProps>(
+  function SurfaceText(props, ref) {
+    return (
+      <NativeText
+        allowFontScaling
+        textBreakStrategy="balanced"
+        lineBreakStrategyIOS="push-out"
+        {...props}
+        ref={ref}
+      />
+    );
   },
-  buttonText: { fontSize: 16, fontWeight: '600', color: '#10251a' },
-  input: {
-    minHeight: 48,
-    padding: 12,
-    color: '#f4f6f8',
-    backgroundColor: '#303b45',
-    borderRadius: 8,
-    fontSize: 16,
-  },
-  row: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  disabled: { opacity: 0.45 },
-});
+);
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(true);
+  useEffect(() => {
+    let active = true;
+    const listener = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      (value) => {
+        if (active) setReduced(value);
+      },
+    );
+    void AccessibilityInfo.isReduceMotionEnabled().then((value) => {
+      if (active) setReduced(value);
+    });
+    return () => {
+      active = false;
+      listener.remove();
+    };
+  }, []);
+  return reduced;
+}
+const Chrome = createContext<{ header?: ReactNode; footer?: ReactNode }>({});
+export function ScreenChrome({
+  header,
+  footer,
+  children,
+}: {
+  header?: ReactNode;
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Chrome.Provider value={{ header, footer }}>{children}</Chrome.Provider>
+  );
+}
+export function SurfaceFrame({ children }: { children: ReactNode }) {
+  const { ui, color, scheme } = useSurface();
+  return (
+    <SafeAreaView style={ui.safeArea}>
+      <StatusBar
+        barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={color.background}
+      />
+      <KeyboardAvoidingView
+        style={ui.page}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {children}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
 export function Button({
   label,
   onPress,
   disabled = false,
+  selected,
 }: {
   label: string;
   onPress(): void;
   disabled?: boolean;
+  selected?: boolean;
 }) {
+  const { ui, color } = useSurface();
   const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const reducedMotion = useReducedMotion();
+  const running = useRef(false);
+  const unavailable = disabled || busy;
+  const press = async () => {
+    if (unavailable || running.current) return;
+    running.current = true;
+    setBusy(true);
+    try {
+      await onPress();
+    } finally {
+      running.current = false;
+      setBusy(false);
+    }
+  };
   return (
     <Pressable
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[
+      aria-busy={busy}
+      aria-selected={selected}
+      accessibilityState={{
+        disabled: unavailable,
+        busy,
+        ...(selected === undefined ? {} : { selected }),
+      }}
+      disabled={unavailable}
+      onPress={() => void press()}
+      style={({ pressed }) => [
         ui.button,
-        focused && { backgroundColor: '#93c9a4' },
-        disabled && ui.disabled,
+        hovered && ui.buttonHover,
+        (pressed || selected) && ui.buttonPressed,
+        unavailable && ui.buttonDisabled,
+        focused && ui.buttonFocus,
       ]}
     >
-      <Text style={ui.buttonText}>{label}</Text>
+      <Text style={[ui.buttonText, unavailable && ui.buttonDisabledText]}>
+        {label}
+      </Text>
+      {busy && (
+        <ActivityIndicator
+          color={color.onDisabled}
+          style={ui.buttonProgress}
+          animating={!reducedMotion}
+          hidesWhenStopped={false}
+        />
+      )}
     </Pressable>
   );
 }
@@ -125,7 +213,8 @@ export function Heading({
   children: ReactNode;
   focusOnMount?: boolean;
 }) {
-  const ref = useRef<Text>(null);
+  const { ui } = useSurface();
+  const ref = useRef<NativeText>(null);
   useEffect(() => {
     if (!focusOnMount) return;
     const frame = requestAnimationFrame(() => {
@@ -141,16 +230,18 @@ export function Heading({
   );
 }
 export function Card({ children }: { children: ReactNode }) {
+  const { ui } = useSurface();
   return <View style={ui.card}>{children}</View>;
 }
 export function Copyable({ label, value }: { label: string; value: string }) {
+  const { ui } = useSurface();
   return (
-    <View>
+    <View style={ui.field}>
       <Text style={ui.subtle}>{label}</Text>
       <Text
         selectable
         accessibilityLabel={`${label}: ${value}`}
-        style={ui.text}
+        style={/^-?\d+$/.test(value) ? ui.number : ui.text}
       >
         {value}
       </Text>
@@ -162,14 +253,18 @@ export function Field({
   value,
   onChange,
   keyboardType = 'default',
+  multiline = false,
 }: {
   label: string;
   value: string;
   onChange(value: string): void;
   keyboardType?: 'default' | 'decimal-pad';
+  multiline?: boolean;
 }) {
+  const { ui, color } = useSurface();
+  const [focused, setFocused] = useState(false);
   return (
-    <View>
+    <View style={ui.field}>
       <Text style={ui.subtle}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
@@ -179,7 +274,13 @@ export function Field({
         autoCorrect={false}
         importantForAutofill="noExcludeDescendants"
         autoCapitalize="none"
-        style={ui.input}
+        allowFontScaling
+        multiline={multiline}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        selectionColor={color.focus}
+        placeholderTextColor={color.muted}
+        style={[ui.input, multiline && ui.multiline, focused && ui.inputFocus]}
       />
     </View>
   );
@@ -226,30 +327,42 @@ export function Page({
   runtime?: Runtime;
   stateKey?: string;
 }) {
+  const { ui } = useSurface();
+  const chrome = useContext(Chrome);
   const ref = useRef<ScrollView>(null);
+  const restored = useRef<string | undefined>(undefined);
   const retained = runtime ? memory(runtime, stateKey ?? title) : undefined;
   return (
     <ScrollView
       ref={ref}
       accessibilityLabel={title}
-      contentOffset={{ x: 0, y: retained?.scrollOffset ?? 0 }}
+      contentOffset={{
+        x: surface.space.none,
+        y: retained?.scrollOffset ?? surface.space.none,
+      }}
       onScroll={(event) => {
         if (retained) retained.scrollOffset = event.nativeEvent.contentOffset.y;
       }}
-      scrollEventThrottle={100}
+      scrollEventThrottle={surface.timing.scroll}
       onLayout={() => {
-        if (retained)
+        const key = stateKey ?? title;
+        if (retained && restored.current !== key) {
+          restored.current = key;
           ref.current?.scrollTo({ y: retained.scrollOffset, animated: false });
+        }
       }}
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
       keyboardShouldPersistTaps="handled"
       contentInsetAdjustmentBehavior="automatic"
       style={ui.page}
       contentContainerStyle={ui.content}
     >
+      {chrome.header}
       <Heading key={stateKey ?? title} focusOnMount>
         {title}
       </Heading>
       {children}
+      {chrome.footer}
     </ScrollView>
   );
 }
@@ -272,6 +385,9 @@ export function ListPage<T>({
   header?: ReactNode;
   empty?: string;
 }) {
+  const { ui } = useSurface();
+  const chrome = useContext(Chrome);
+  const restored = useRef<string | undefined>(undefined);
   const ref = useRef<FlatList<T>>(null),
     retained = memory(runtime, stateKey);
   return (
@@ -280,41 +396,46 @@ export function ListPage<T>({
       accessibilityLabel={title}
       data={data}
       keyExtractor={keyOf}
-      renderItem={({ item }) => (
-        <View style={{ marginBottom: 16 }}>{row(item)}</View>
-      )}
+      renderItem={({ item }) => <View style={ui.listRow}>{row(item)}</View>}
       ListHeaderComponent={
-        <View style={{ gap: 16, paddingBottom: 16 }}>
+        <View style={ui.listHeader}>
+          {chrome.header}
           <Heading key={stateKey ?? title} focusOnMount>
             {title}
           </Heading>
           {header}
         </View>
       }
+      ListFooterComponent={<>{chrome.footer}</>}
       ListEmptyComponent={<Text style={ui.text}>{empty}</Text>}
       initialNumToRender={8}
       maxToRenderPerBatch={10}
       windowSize={7}
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
       keyboardShouldPersistTaps="handled"
       contentInsetAdjustmentBehavior="automatic"
       style={ui.page}
       contentContainerStyle={ui.content}
-      contentOffset={{ x: 0, y: retained.scrollOffset }}
+      contentOffset={{ x: surface.space.none, y: retained.scrollOffset }}
       onScroll={(event) => {
         retained.scrollOffset = event.nativeEvent.contentOffset.y;
       }}
-      scrollEventThrottle={100}
-      onLayout={() =>
-        ref.current?.scrollToOffset({
-          offset: retained.scrollOffset,
-          animated: false,
-        })
-      }
+      scrollEventThrottle={surface.timing.scroll}
+      onLayout={() => {
+        if (restored.current !== stateKey) {
+          restored.current = stateKey;
+          ref.current?.scrollToOffset({
+            offset: retained.scrollOffset,
+            animated: false,
+          });
+        }
+      }}
       maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
     />
   );
 }
 export function ErrorNotice({ message }: { message: string }) {
+  const { ui } = useSurface();
   useEffect(() => {
     void AccessibilityInfo.announceForAccessibility(message);
   }, [message]);
@@ -322,7 +443,7 @@ export function ErrorNotice({ message }: { message: string }) {
     <Text
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
-      style={ui.text}
+      style={ui.error}
     >
       {message}
     </Text>
@@ -351,10 +472,19 @@ export function ResourceStatus({
   storedAt?: number;
   reload(): void;
 }) {
+  const { ui, color } = useSurface();
+  const reducedMotion = useReducedMotion();
   return (
-    <View style={{ gap: 12 }}>
+    <View style={ui.status}>
       {loading && (
-        <ActivityIndicator accessibilityLabel="Loading current data" />
+        <ActivityIndicator
+          color={color.accent}
+          accessibilityLabel="Loading current data"
+          accessibilityState={{ busy: loading }}
+          aria-busy={loading}
+          animating={loading && !reducedMotion}
+          hidesWhenStopped={false}
+        />
       )}
       {offline && <Text style={ui.text}>{offlineSnapshotLabel(storedAt)}</Text>}
       {error && (

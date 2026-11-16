@@ -10,6 +10,17 @@ defmodule Explorer.Repo.TunePaxeerXPriceFeedTablesTest do
 
   @version 20_261_022_000_002
 
+  setup do
+    Explorer.TestHelper.start_migration_owner!()
+
+    on_exit(fn ->
+      Ecto.Migrator.up(Repo, @version, TunePaxeerXPriceFeedTables, log: false)
+      Ecto.Adapters.SQL.Sandbox.mode(Repo, :auto)
+    end)
+
+    :ok
+  end
+
   test "tune_price_feed_migration_reruns_after_partial_failure" do
     tune_price_feed_migration_reruns_after_partial_failure()
   end

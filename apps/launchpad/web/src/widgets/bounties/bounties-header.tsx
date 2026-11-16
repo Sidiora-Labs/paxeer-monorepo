@@ -80,7 +80,7 @@ export function CreateBountyNotice({ gate, className }: { gate: CreateBountyGate
       announce
       onDismiss={gate.dismiss}
       className={cn(
-        'fixed inset-x-4 bottom-[calc(8.5rem+env(safe-area-inset-bottom,0px))] z-[var(--sl-z-toast)] md:static md:inset-auto md:z-auto',
+        'fixed inset-x-4 bottom-[calc(var(--sl-bounty-notice-bottom)+env(safe-area-inset-bottom,0px))] z-[var(--sl-z-toast)] md:static md:inset-auto md:z-auto',
         className,
       )}
     >
@@ -92,7 +92,7 @@ export function CreateBountyNotice({ gate, className }: { gate: CreateBountyGate
 /** Phone-only floating "Post bounty" pill, bottom-right above the bottom navigation. */
 export function CreateBountyFab({ gate }: { gate: CreateBountyGate }) {
   return (
-    <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-4 z-[var(--sl-z-sticky)] md:hidden" data-testid="post-bounty-fab">
+    <div className="fixed bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-space-4)+env(safe-area-inset-bottom,0px))] right-4 z-[var(--sl-z-sticky)] md:hidden" data-testid="post-bounty-fab">
       <CreateBountyButton gate={gate} label="Post bounty" pill className="h-12 px-5" />
     </div>
   );
@@ -120,8 +120,8 @@ export function BountiesHeader({ tab, gate, stats, inlineStats, className }: Bou
     <header className={cn('flex flex-col gap-3', className)}>
       <div className="flex items-end justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-2xs font-bold uppercase tracking-[.08em] text-text-faint">Bounties</p>
-          <h1 className="text-xl font-bold text-text md:text-[28px] md:leading-9">{copy.title}</h1>
+          <p className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Bounties</p>
+          <h1 className="text-xl font-bold text-text md:text-2xl">{copy.title}</h1>
           <p className="text-sm text-text-muted">{copy.subtitle}</p>
           {inlineStats ? <div className="pt-1 lg:hidden">{inlineStats}</div> : null}
         </div>

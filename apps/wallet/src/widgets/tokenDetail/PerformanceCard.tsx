@@ -25,7 +25,7 @@ export function PerformanceCard({ stats }: PerformanceCardProps) {
       <div className="col-span-2 px-1 pt-1">
         <SectionLabel text="24h Performance" />
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-[20px]  divide-white/[0.04] overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         <InfoRow
           label="Volume"
           value={
@@ -48,9 +48,7 @@ export function PerformanceCard({ stats }: PerformanceCardProps) {
           <InfoRow
             label="24h High"
             value={
-              <span className="font-semibold">
-                {formatPrice(parseFloat(stats.high24h) / 1e18)}
-              </span>
+              <span className="font-semibold">{formatPrice(parseFloat(stats.high24h) / 1e18)}</span>
             }
           />
         )}
@@ -58,9 +56,7 @@ export function PerformanceCard({ stats }: PerformanceCardProps) {
           <InfoRow
             label="24h Low"
             value={
-              <span className="font-semibold">
-                {formatPrice(parseFloat(stats.low24h) / 1e18)}
-              </span>
+              <span className="font-semibold">{formatPrice(parseFloat(stats.low24h) / 1e18)}</span>
             }
           />
         )}

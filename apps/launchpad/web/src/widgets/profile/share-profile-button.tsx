@@ -1,4 +1,5 @@
 'use client';
+import { launchpadMotion } from '@/app/presentation-tokens';
 
 import { useState } from 'react';
 import { Check, Share2 } from 'lucide-react';
@@ -34,7 +35,7 @@ export default function ShareProfileButton({ wallet, displayName, size = 'md', c
       await navigator.clipboard.writeText(url);
       setCopied(true);
       toast.success('Profile link copied');
-      window.setTimeout(() => setCopied(false), 1500);
+      window.setTimeout(() => setCopied(false), launchpadMotion.copyConfirmation);
     } catch {
       toast.error("Couldn't copy link");
     }

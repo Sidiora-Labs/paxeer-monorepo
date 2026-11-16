@@ -43,10 +43,10 @@ defmodule Explorer.Repair.CapabilitySnapshotAndFeedHealthTest do
     def call(conn, {_recording, _state, observer}) do
       send(observer, {:chain_request, conn.request_path, conn.query_string})
 
-      case conn.request_path do
-        "/cosmos/tx/v1beta1/txs/block/37715713" -> reply(conn, 200, fixture("block_txs.json"))
-        "/cosmos/tx/v1beta1/txs/block/37715714" -> reply(conn, 400, fixture("block_txs_empty.json"))
-        "/block_results" -> reply(conn, 200, fixture("block_results.json"))
+      case {conn.request_path, conn.query_string} do
+        {"/block", "height=37715713"} -> reply(conn, 200, fixture("block_txs.json"))
+        {"/block", "height=37715714"} -> reply(conn, 200, fixture("block_txs_empty.json"))
+        {"/block_results", "height=37715713"} -> reply(conn, 200, fixture("block_results.json"))
       end
     end
 
@@ -74,6 +74,8 @@ defmodule Explorer.Repair.CapabilitySnapshotAndFeedHealthTest do
   end
 
   setup do
+    LastFetchedCounter.delete(@success_counter)
+
     keys = [
       {:explorer, :json_rpc_named_arguments},
       {:explorer, Capabilities},
@@ -222,7 +224,7 @@ defmodule Explorer.Repair.CapabilitySnapshotAndFeedHealthTest do
     refute Map.has_key?(capabilities(api), "price_feed")
     refute PriceFeed.scanned_recently?(1000)
 
-    assert_received {:chain_request, "/cosmos/tx/v1beta1/txs/block/37715713", _query}
+    assert_received {:chain_request, "/block", _query}
     assert_received {:chain_request, "/block_results", "height=37715713"}
   end
 

@@ -1,0 +1,8 @@
+* { box-sizing: border-box; }
+html { margin: 0; background: white; color: black; font: 16px/1.5 sans-serif; }
+body { margin: 0; padding: 16px; }
+h1 { font-size: 24px; line-height: 1.5; }
+p { font-size: 16px; }
+button, input { font: inherit; color: black; background: white; border: 2px solid black; min-width: 64px; min-height: 48px; padding: 8px; }
+:focus-visible { outline: 3px solid blue; outline-offset: 2px; }
+input { max-width: 100%; }

@@ -11,9 +11,9 @@ defmodule BlockScoutWeb.ViewingAppTest do
   import Phoenix.ChannelTest
 
   alias BlockScoutWeb.Counters.{BlocksIndexedCounter, InternalTransactionsIndexedCounter}
-  alias Explorer.Chain.{Block, PendingBlockOperation}
+  alias Explorer.Chain.{Block, PendingBlockOperation, PendingOperationsHelper, PendingTransactionOperation}
   alias Explorer.Chain.Cache.BlockNumber
-  alias Explorer.Chain.Cache.Counters.{BlocksCount, PendingBlockOperationCount}
+  alias Explorer.Chain.Cache.Counters.{BlocksCount, PendingBlockOperationCount, PendingTransactionOperationCount}
   alias Explorer.Repo
 
   setup do
@@ -41,7 +41,8 @@ defmodule BlockScoutWeb.ViewingAppTest do
           {BlockNumber, :min},
           {BlockNumber, :max},
           {BlocksCount, :count},
-          {PendingBlockOperationCount, :count}
+          {PendingBlockOperationCount, :count},
+          {PendingTransactionOperationCount, :count}
         ] do
       previous = ConCache.get(cache.cache_name(), key)
       on_exit(fn -> cache.set(key, previous) end)
@@ -111,7 +112,7 @@ defmodule BlockScoutWeb.ViewingAppTest do
     InternalTransactionsIndexedCounter.calculate_internal_transactions_indexed()
     assert_push("index_status", %{ratio: "0.90", finished: false})
 
-    Repo.delete_all(PendingBlockOperation)
+    Repo.delete_all(PendingOperationsHelper.actual_entity())
     refresh_counters()
     InternalTransactionsIndexedCounter.calculate_internal_transactions_indexed()
     assert_push("index_status", %{ratio: "1.00", finished: true})
@@ -124,8 +125,13 @@ defmodule BlockScoutWeb.ViewingAppTest do
 
   defp pending_chain(range) do
     [block | _] = Enum.map(range, &insert(:block, number: &1))
-    :transaction |> insert(input: Explorer.Factory.contract_code_info().tx_input) |> with_block(block)
-    insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
+    transaction = :transaction |> insert(input: Explorer.Factory.contract_code_info().tx_input) |> with_block(block)
+
+    case PendingOperationsHelper.pending_operations_type() do
+      "blocks" -> insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
+      "transactions" -> insert(:pending_transaction_operation, transaction_hash: transaction.hash)
+    end
+
     refresh_counters()
   end
 
@@ -134,6 +140,7 @@ defmodule BlockScoutWeb.ViewingAppTest do
     BlockNumber.set_max(Repo.aggregate(Block, :max, :number))
     BlocksCount.set_count(Repo.aggregate(Block, :count, :hash))
     PendingBlockOperationCount.set_count(Repo.aggregate(PendingBlockOperation, :count, :block_hash))
+    PendingTransactionOperationCount.set_count(Repo.aggregate(PendingTransactionOperation, :count, :transaction_hash))
   end
 
   defp indexing_status(conn) do

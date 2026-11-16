@@ -2,3 +2,8 @@ ENDPOINT_OUTBOUND_CA	/run/secrets/ca.crt.der	0600	*
 ENDPOINT_REDIS_USERNAME	/run/secrets/redis-username	0600	*
 ENDPOINT_REDIS_PASSWORD	/run/secrets/redis-password	0600	*
 ENDPOINT_RECEIPT_KEYS	/run/secrets/receipt-keys.json	0600	*
+ENDPOINT_IDENTITY_TOKEN	/run/secrets/identity-token	0600	identity
+ENDPOINT_IDENTITY_PROVISIONING_TOKEN	/run/secrets/identity-provisioning-token	0600	identity
+ENDPOINT_KEY_PROVISIONING_KEY	/run/secrets/key-provisioning-key	0600	identity
+ENDPOINT_CLIENT_P12	/run/secrets/client.p12	0600	identity
+ENDPOINT_CLIENT_PASSWORD	/run/secrets/client-password	0600	identity

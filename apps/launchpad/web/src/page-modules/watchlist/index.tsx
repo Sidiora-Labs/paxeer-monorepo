@@ -17,7 +17,7 @@ export default function WatchlistModule() {
   const loading = watchlist.loading && watchlist.pools.length === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
+    <div aria-busy={watchlist.loading || undefined} className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-xl font-extrabold text-text">Watchlist</h1>
         <p className="text-sm text-text-muted" role="status">{watchlist.pools.length === 1 ? '1 starred coin' : `${watchlist.pools.length} starred coins`}</p>

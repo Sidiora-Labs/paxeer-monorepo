@@ -1,6 +1,7 @@
 package testsupport
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -52,6 +53,7 @@ type ceremonyNode struct {
 	fingerprint                                                 func(string) ([32]byte, error)
 	epoch                                                       func(string) (uint64, error)
 	interrupt                                                   func()
+	received                                                    *atomic.Uint64
 }
 
 func StartCeremonyNodes(t *testing.T) *CeremonyNodes { return startCeremonyNodes(t, "") }
@@ -174,7 +176,10 @@ func (n *CeremonyNodes) open(t *testing.T, i int, peer, api net.Listener) {
 			}
 		}
 	}
-	real, err := cfg.Open(peer, api)
+	if node.received == nil {
+		node.received = &atomic.Uint64{}
+	}
+	real, err := cfg.Open(peer, &ceremonyCountingListener{Listener: api, received: node.received})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,6 +226,53 @@ func (n *CeremonyNodes) open(t *testing.T, i int, peer, api net.Listener) {
 			return nil
 		})
 		return fingerprint, err
+	}
+}
+
+type ceremonyCountingListener struct {
+	net.Listener
+	received *atomic.Uint64
+}
+
+func (l *ceremonyCountingListener) Accept() (net.Conn, error) {
+	connection, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return &ceremonyCountingConn{Conn: connection, received: l.received}, nil
+}
+
+type ceremonyCountingConn struct {
+	net.Conn
+	received *atomic.Uint64
+}
+
+func (c *ceremonyCountingConn) Read(raw []byte) (int, error) {
+	n, err := c.Conn.Read(raw)
+	c.received.Add(uint64(n))
+	return n, err
+}
+
+func (n *CeremonyNodes) ReceivedBytes() []uint64 {
+	out := make([]uint64, len(n.nodes))
+	for i := range n.nodes {
+		out[i] = n.nodes[i].received.Load()
+	}
+	return out
+}
+
+func (n *CeremonyNodes) AssertNoKeyRequests(t *testing.T, keyIDs ...string) {
+	t.Helper()
+	for _, node := range n.nodes {
+		raw, err := os.ReadFile(filepath.Join(node.dataDir, "audit", "audit.log"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, keyID := range keyIDs {
+			if bytes.Contains(raw, []byte(keyID)) {
+				t.Fatalf("node %s received a request for a retained wallet key", node.id)
+			}
+		}
 	}
 }
 
@@ -336,6 +388,28 @@ func (n *CeremonyNodes) Approve(t *testing.T, keys []CeremonyInventoryKey) {
 	n.PublishInventory(t, all)
 }
 
+func (n *CeremonyNodes) ApproveAdditional(t *testing.T, keys []CeremonyInventoryKey) {
+	t.Helper()
+	n.inventoryMu.Lock()
+	defer n.inventoryMu.Unlock()
+	for node := range n.nodes {
+		for _, key := range keys {
+			found := false
+			for i := range n.approved[node] {
+				if n.approved[node][i].KeyID == key.KeyID {
+					n.approved[node][i] = key
+					found = true
+					break
+				}
+			}
+			if !found {
+				n.approved[node] = append(n.approved[node], key)
+			}
+		}
+	}
+	n.publishInventory(t)
+}
+
 func (n *CeremonyNodes) startIssuer(t *testing.T) {
 	t.Helper()
 	var err error
@@ -396,29 +470,30 @@ func (n *CeremonyNodes) OwnerToken(t *testing.T, owner string) string {
 func (n *CeremonyNodes) Clone(t *testing.T) *CeremonyNodes {
 	t.Helper()
 	clone := &CeremonyNodes{TLS: n.TLS, gateway: n.gateway, authority: n.authority, publicFile: n.publicFile, producerFile: n.producerFile, dir: t.TempDir(), rpcURL: n.rpcURL, issuerURL: n.issuerURL, issuerKey: n.issuerKey, tokensFile: n.tokensFile, ownerTokens: n.ownerTokens, sequence: n.sequence}
+	peers, apis := make([]net.Listener, len(n.nodes)), make([]net.Listener, len(n.nodes))
+	for i := range n.nodes {
+		peers[i], apis[i] = ceremonyListener(t, ""), ceremonyListener(t, "")
+	}
 	for i, original := range n.nodes {
 		if err := n.nodes[i].close(); err != nil {
 			t.Fatal(err)
 		}
+		peer, api := ceremonyListener(t, original.peerAddr), ceremonyListener(t, original.apiAddr)
 		copied := original
 		copied.dataDir = filepath.Join(clone.dir, original.id)
 		if err := os.CopyFS(copied.dataDir, os.DirFS(original.dataDir)); err != nil {
 			t.Fatal(err)
 		}
 		copied.inventoryFile = filepath.Join(clone.dir, original.id+"-inventory.jwt")
-		peer, api := ceremonyListener(t, ""), ceremonyListener(t, "")
-		copied.peerAddr, copied.apiAddr = peer.Addr().String(), api.Addr().String()
+		copied.peerAddr, copied.apiAddr = peers[i].Addr().String(), apis[i].Addr().String()
 		copied.close = nil
+		copied.received = &atomic.Uint64{}
 		clone.nodes = append(clone.nodes, copied)
-		peer.Close()
-		api.Close()
+		n.open(t, i, peer, api)
 	}
 	clone.PublishInventory(t, n.approved)
-	for i := range n.nodes {
-		n.open(t, i, ceremonyListener(t, n.nodes[i].peerAddr), ceremonyListener(t, n.nodes[i].apiAddr))
-	}
 	for i := range clone.nodes {
-		clone.open(t, i, ceremonyListener(t, clone.nodes[i].peerAddr), ceremonyListener(t, clone.nodes[i].apiAddr))
+		clone.open(t, i, peers[i], apis[i])
 	}
 	t.Cleanup(func() {
 		for i := range clone.nodes {

@@ -41,7 +41,11 @@ export function KitButton({
         {...props}
         disabled={disabled}
         aria-describedby={description}
-        className={cn(REDUCED_MOTION_CLASS, className)}
+        className={cn(
+          REDUCED_MOTION_CLASS,
+          props.variant === "primary" ? "!text-primary-foreground" : undefined,
+          className,
+        )}
       />
       <DisabledReason id={generatedReasonId}>{disabled ? disabledReason : undefined}</DisabledReason>
     </span>

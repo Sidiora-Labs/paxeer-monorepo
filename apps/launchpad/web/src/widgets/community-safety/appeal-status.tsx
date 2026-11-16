@@ -11,7 +11,7 @@ interface Props {
     onAppeal?: (actionId: string, reason: string) => void;
 }
 const appealStateLabel: Record<PrivateAppealOutcome['state'], string> = { submitted: 'Sent', reviewing: 'In review', upheld: 'Decision stands', reversed: 'Overturned' };
-const fieldClass = 'w-full min-h-24 resize-y rounded-sm bg-surface-2 px-3 py-2 text-base leading-5 text-text outline-none transition-colors duration-fast placeholder:text-text-faint focus-visible:outline-2 focus-visible:outline-focus disabled:text-text-disabled';
+const fieldClass = 'w-full min-h-24 resize-y rounded-sm bg-surface-2 px-3 py-2 text-base leading-[var(--sl-leading-base)] text-text outline-none transition-colors duration-fast placeholder:text-text-faint focus-visible:outline-2 focus-visible:outline-focus disabled:text-text-disabled';
 export function AppealStatus({ outcome, actionId, canAppeal, action, onAppeal }: Props) {
     const id = useId();
     function submit(event: FormEvent<HTMLFormElement>) {
