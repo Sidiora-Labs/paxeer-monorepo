@@ -43,40 +43,89 @@ type S3AssetObjects struct {
 	Readiness func(context.Context) error
 }
 
+const (
+	MediaPartRaster  = "raster"
+	MediaPartScanner = "scanner"
+	MediaPartObjects = "objects"
+
+	MediaObjectsStepConfiguration       = "configuration"
+	MediaObjectsStepQuarantineACL       = "quarantine_acl"
+	MediaObjectsStepQuarantinePolicy    = "quarantine_policy_status"
+	MediaObjectsStepQuarantineAnonymous = "quarantine_anonymous_access"
+	MediaObjectsStepApprovedBucket      = "approved_bucket"
+)
+
+// MediaReadinessError identifies the media dependency and, for object
+// storage, the bounded probe step that failed. Err remains available to
+// callers through errors.Is and errors.As.
+type MediaReadinessError struct {
+	Part string
+	Step string
+	Err  error
+}
+
+func (e *MediaReadinessError) Error() string {
+	if e == nil {
+		return "metadata media unavailable"
+	}
+	if e.Step == "" {
+		return fmt.Sprintf("metadata media %s unavailable", e.Part)
+	}
+	return fmt.Sprintf("metadata media %s unavailable at %s", e.Part, e.Step)
+}
+
+func (e *MediaReadinessError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func mediaReadinessError(part, step string, err error) error {
+	if err == nil {
+		return nil
+	}
+	var existing *MediaReadinessError
+	if errors.As(err, &existing) {
+		return err
+	}
+	return &MediaReadinessError{Part: part, Step: step, Err: err}
+}
+
 func (o S3AssetObjects) Ready(ctx context.Context) error {
 	if o.Readiness != nil {
-		return o.Readiness(ctx)
+		return mediaReadinessError(MediaPartObjects, MediaObjectsStepConfiguration, o.Readiness(ctx))
 	}
 	u, e := url.Parse(o.PublicOrigin)
 	if o.Client == nil || o.QuarantineBucket == "" || o.PublicBucket == "" || o.PublicBucket == o.QuarantineBucket || e != nil || u.Scheme != metadataHTTPSScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
-		return raster.ErrUnavailable
+		return mediaReadinessError(MediaPartObjects, MediaObjectsStepConfiguration, raster.ErrUnavailable)
 	}
 	acl, e := o.Client.GetBucketAcl(ctx, &s3.GetBucketAclInput{Bucket: aws.String(o.QuarantineBucket)})
 	if e != nil {
-		return raster.ErrUnavailable
+		return mediaReadinessError(MediaPartObjects, MediaObjectsStepQuarantineACL, raster.ErrUnavailable)
 	}
 	for _, grant := range acl.Grants {
 		if grant.Grantee != nil && grant.Grantee.URI != nil {
-			return raster.ErrUnavailable
+			return mediaReadinessError(MediaPartObjects, MediaObjectsStepQuarantineACL, raster.ErrUnavailable)
 		}
 	}
 	policy, e := o.Client.GetBucketPolicyStatus(ctx, &s3.GetBucketPolicyStatusInput{Bucket: aws.String(o.QuarantineBucket)})
 	if e != nil {
 		var api smithy.APIError
 		if o.Endpoint == "" || !errors.As(e, &api) || api.ErrorCode() != "NotImplemented" {
-			return raster.ErrUnavailable
+			return mediaReadinessError(MediaPartObjects, MediaObjectsStepQuarantinePolicy, raster.ErrUnavailable)
 		}
 	} else if policy.PolicyStatus == nil || policy.PolicyStatus.IsPublic == nil || *policy.PolicyStatus.IsPublic {
-		return raster.ErrUnavailable
+		return mediaReadinessError(MediaPartObjects, MediaObjectsStepQuarantinePolicy, raster.ErrUnavailable)
 	}
 	if o.Endpoint != "" {
 		if e = anonymousAccessDenied(ctx, o.Endpoint, o.QuarantineBucket); e != nil {
-			return e
+			return mediaReadinessError(MediaPartObjects, MediaObjectsStepQuarantineAnonymous, raster.ErrUnavailable)
 		}
 	}
 	_, e = o.Client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(o.PublicBucket)})
 	if e != nil {
-		return raster.ErrUnavailable
+		return mediaReadinessError(MediaPartObjects, MediaObjectsStepApprovedBucket, raster.ErrUnavailable)
 	}
 	return nil
 }
@@ -187,10 +236,10 @@ func (c ConnectedMedia) Ready(ctx context.Context) error {
 		return raster.ErrUnavailable
 	}
 	if e := c.Worker.Ready(); e != nil {
-		return e
+		return mediaReadinessError(MediaPartRaster, "", e)
 	}
 	if _, e := sharedhttp.ScannerVersion(ctx, c.Scanner); e != nil {
-		return raster.ErrUnavailable
+		return mediaReadinessError(MediaPartScanner, "", e)
 	}
 	return c.Objects.Ready(ctx)
 }

@@ -29,7 +29,7 @@ const Item = ({ label, children, isLoading, ...rest }: ItemProps) => {
       alignItems={{ base: 'flex-start', lg: 'center' }}
       { ...rest }
     >
-      <Skeleton fontWeight={ 600 } w={{ base: 'auto', lg: '80px' }} flexShrink={ 0 } loading={ isLoading }>
+      <Skeleton fontWeight="semibold" w={{ base: 'auto', lg: 'var(--chakra-spacing-20)' }} flexShrink={ 0 } loading={ isLoading }>
         { label }
       </Skeleton >
       { children }

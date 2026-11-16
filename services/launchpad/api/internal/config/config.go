@@ -19,8 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -79,6 +81,7 @@ type Config struct {
 	RuntimeMetricsEnvironment string `env:"METRICS_ENVIRONMENT" envDefault:"production"`
 	RuntimeProfile            string `env:"RUNTIME_PROFILE"`
 	BindAddress               string `env:"BIND_ADDRESS"`
+	PrivateListenAddress      string `env:"API_PRIVATE_LISTEN_ADDRESS"`
 	RuntimeBudgetFile         string `env:"DB_BUDGET_FILE"`
 	RuntimeBudgetDocument     string `env:"DB_BUDGET_DOCUMENT"`
 	RuntimeBudgetSHA256       string `env:"DB_BUDGET_SHA256"`
@@ -188,6 +191,9 @@ func (c *Config) Validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		errs = append(errs, fmt.Errorf("PORT %d out of range 1-65535", c.Port))
 	}
+	if c.NodeEnv == literalProduction && c.APIRole == "rest" && (c.DiscoveryRuntimeFile != "" || c.DiscoveryRuntimeDocument != "") {
+		errs = append(errs, c.validatePrivateListenAddress())
+	}
 	for _, p := range []struct {
 		name string
 		val  int
@@ -208,6 +214,18 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (c *Config) validatePrivateListenAddress() error {
+	host, port, err := net.SplitHostPort(c.PrivateListenAddress)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("API_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	privatePort, err := strconv.Atoi(port)
+	if err != nil || privatePort < 1 || privatePort > 65535 || privatePort == c.Port {
+		return fmt.Errorf("API_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	return nil
 }
 
 // RateLimitWindow returns the rate-limit window as a time.Duration.
@@ -274,21 +292,39 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	var mu sync.Mutex
 	var failure error
 	check := func(checkCtx context.Context) error {
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		mu.Lock()
 		defer mu.Unlock()
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		if failure != nil {
 			return failure
 		}
 		for key, old := range consumed {
+			if err := checkCtx.Err(); err != nil {
+				return err
+			}
 			value, err := provider.GetRequired(checkCtx, key)
 			if err != nil {
+				if contextErr := checkCtx.Err(); contextErr != nil {
+					return contextErr
+				}
 				failure = fmt.Errorf("required_secret_unavailable: %s", key)
 				return failure
+			}
+			if contextErr := checkCtx.Err(); contextErr != nil {
+				return contextErr
 			}
 			if value != old {
 				failure = fmt.Errorf("required_secret_rotated_restart_required: %s", key)
 				return failure
 			}
+		}
+		if err := checkCtx.Err(); err != nil {
+			return err
 		}
 		return nil
 	}

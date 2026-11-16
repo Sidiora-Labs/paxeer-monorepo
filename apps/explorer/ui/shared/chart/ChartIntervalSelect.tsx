@@ -1,12 +1,12 @@
-import { chakra, createListCollection } from '@chakra-ui/react';
+import { chakra, createListCollection, HStack } from '@chakra-ui/react';
 import React from 'react';
 
 import type { StatsInterval, StatsIntervalIds } from 'types/client/stats';
 
+import { Button } from 'toolkit/chakra/button';
 import { Select } from 'toolkit/chakra/select';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import type { TagProps } from 'toolkit/chakra/tag';
-import TagGroupSelect from 'ui/shared/tagGroupSelect/TagGroupSelect';
 import { STATS_INTERVALS } from 'ui/stats/constants';
 
 const intervalCollection = createListCollection({
@@ -35,28 +35,54 @@ const ChartIntervalSelect = ({ interval, onIntervalChange, isLoading, selectTagS
     onIntervalChange(value[0] as StatsIntervalIds);
   }, [ onIntervalChange ]);
 
+  const handleButtonClick = React.useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    onIntervalChange(event.currentTarget.value as StatsIntervalIds);
+  }, [ onIntervalChange ]);
+
   return (
     <chakra.div className={ className } data-chart-interval-select={ interval } w={{ base: '100%', lg: 'auto' }}>
       <Skeleton hideBelow="lg" borderRadius="base" loading={ isLoading }>
-        <TagGroupSelect<StatsIntervalIds>
-          items={ intervalListShort }
-          onChange={ onIntervalChange }
-          value={ interval }
-          tagSize={ selectTagSize }
+        <HStack
+          role="group"
+          aria-label="Chart interval"
           gap={ 1 }
+          flexWrap="wrap"
           bg="bg.surface"
-          borderWidth="1px"
+          borderWidth="var(--chakra-border-widths-1)"
           borderStyle="solid"
           borderColor="border.divider"
           borderRadius="md"
           px={ 1 }
           py={ 1 }
-        />
+        >
+          { intervalListShort.map((item) => (
+            <Button
+              key={ item.id }
+              type="button"
+              value={ item.id }
+              data-id={ item.id }
+              aria-pressed={ interval === item.id }
+              onClick={ handleButtonClick }
+              variant="plain"
+              size={ selectTagSize === 'lg' ? 'sm' : 'xs' }
+              h="auto"
+              minH="touchTarget"
+              minW="touchTarget"
+              bg={ interval === item.id ? 'selected.option.bg' : 'transparent' }
+              color="text.primary"
+              _hover={{ bg: 'bg.raised', color: 'text.primary' }}
+              disabled={ isLoading }
+            >
+              { item.title }
+            </Button>
+          )) }
+        </HStack>
       </Skeleton>
       <Select
+        triggerProps={{ 'aria-label': 'Chart interval' }}
         collection={ intervalCollection }
         placeholder="Select interval"
-        defaultValue={ [ interval ] }
+        value={ [ interval ] }
         onValueChange={ handleItemSelect }
         hideFrom="lg"
         w="100%"

@@ -141,8 +141,8 @@ func TestProductionWiringChecksRealMediaDependencies(t *testing.T) {
 		change func(*config.Config)
 		want   string
 	}{
-		{name: "missing scanner", change: func(c *config.Config) { c.ClamAVPort = 1 }, want: "metadata_media_dependencies_unavailable"},
-		{name: "missing public bucket", change: func(c *config.Config) { c.ApprovedBucket = "missing-public-bucket" }, want: "metadata_media_dependencies_unavailable"},
+		{name: "missing scanner", change: func(c *config.Config) { c.ClamAVPort = 1 }, want: "metadata_media_scanner_unavailable"},
+		{name: "missing public bucket", change: func(c *config.Config) { c.ApprovedBucket = "missing-public-bucket" }, want: "metadata_media_objects_unavailable"},
 		{name: "invalid metadata schema", change: func(c *config.Config) { c.MetadataSchema = "Invalid" }, want: "invalid metadata"},
 		{name: "invalid secret provider", change: func(c *config.Config) { c.SecretsProvider = "invalid" }, want: "secret"},
 		{name: "unbound publication", change: func(*config.Config) {}, want: "runtime_document_read"},

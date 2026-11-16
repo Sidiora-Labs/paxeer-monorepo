@@ -30,6 +30,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
 
@@ -325,23 +326,28 @@ func runtimeHandler(tracker *sharedprocess.Tracker, next http.Handler, metrics *
 }
 
 type nativeRankingRuntime struct {
-	binding     config.RankingRuntimeBinding
-	serverTLS   *tls.Config
-	visibility  *rankingVisibilityClient
-	reader      *store.CanonicalInputReader
-	coordinator *ranker.Coordinator
-	publication *store.PublicationStore
-	cache       *store.SnapshotCache
-	pool        *pgxpool.Pool
-	stream      delivery.StreamWriter
-	guard       *queue.EpochGuard
-	provider    sharedsecrets.Provider
-	secrets     map[string]string
-	ctx         context.Context
-	stop        context.CancelFunc
-	client      *http.Client
-	logger      *slog.Logger
-	workers     sync.WaitGroup
+	binding                     config.RankingRuntimeBinding
+	serverTLS                   *tls.Config
+	visibility                  *rankingVisibilityClient
+	reader                      *store.CanonicalInputReader
+	coordinator                 *ranker.Coordinator
+	publication                 *store.PublicationStore
+	cache                       *store.SnapshotCache
+	pool                        *pgxpool.Pool
+	stream                      delivery.StreamWriter
+	guard                       *queue.EpochGuard
+	provider                    sharedsecrets.Provider
+	secrets                     map[string]string
+	ctx                         context.Context
+	stop                        context.CancelFunc
+	client                      *http.Client
+	logger                      *slog.Logger
+	workers                     sync.WaitGroup
+	refreshMu                   sync.Mutex
+	refreshStep                 map[string]string
+	publicationRecoveryCategory string
+	publicationRecoveryClass    string
+	publicationRecoveryPending  bool
 }
 type rankingVisibilityClient struct {
 	endpoint string
@@ -372,7 +378,7 @@ func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (st
 	if err != nil || len(raw) > 64<<20 {
 		return out, ranker.ErrUnavailable
 	}
-	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() || out.ObservedAt.After(time.Now()) || time.Since(out.ObservedAt) > 60*time.Second {
+	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() {
 		return out, ranker.ErrUnavailable
 	}
 	return out, nil
@@ -403,7 +409,7 @@ func rankingBoundBytes(path, digest string) ([]byte, error) {
 }
 func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, rdb *goredis.Client, tracker *sharedprocess.Tracker, metrics *telemetry.Metrics, checks map[string]sharedhttp.Check, secretStop context.CancelFunc) (*App, error) {
 	lifecycle, stop := context.WithCancel(ctx)
-	native := &nativeRankingRuntime{ctx: lifecycle, stop: stop, pool: pool, logger: logger, secrets: map[string]string{}}
+	native := &nativeRankingRuntime{ctx: lifecycle, stop: stop, pool: pool, logger: logger, secrets: map[string]string{}, refreshStep: map[string]string{}}
 	owned := false
 	defer func() {
 		if !owned {
@@ -532,7 +538,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	router.Get("/internal/v2/rankings/inputs", func(w http.ResponseWriter, request *http.Request) {
 		bounded, cancel := context.WithTimeout(request.Context(), 30*time.Second)
 		defer cancel()
-		raw, err := native.reader.MarshalUniverse(bounded, pool, uuid.NewString(), time.Now().UTC().Truncate(time.Second))
+		raw, err := native.reader.MarshalUniverse(bounded, pool, uuid.NewString())
 		if err != nil {
 			sharedhttp.WriteJSON(w, 503, map[string]string{"code": "RANKING_INPUT_UNAVAILABLE"})
 			return
@@ -602,43 +608,127 @@ func (r *nativeRankingRuntime) run(parent context.Context) {
 		go func(newOnly bool) {
 			defer r.workers.Done()
 			_ = r.coordinator.Run(r.ctx, newOnly, func(err error) {
-				r.logger.Error("ranking source refresh failed", slog.String("categoryRun", fmt.Sprint(newOnly)), slog.String("code", "RANKING_INPUT_UNAVAILABLE"), slog.Any("error", err))
+				r.reportRefresh(newOnly, err)
 			})
 		}(newOnly)
 	}
 	go func() {
 		defer r.workers.Done()
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for tick := 1; ; tick++ {
-			select {
-			case <-r.ctx.Done():
-				return
-			case <-ticker.C:
-				// Superseded, published snapshots past the 900 s cursor horizon
-				// are deleted once a minute so ranking storage stays bounded.
-				if tick%60 == 0 {
-					if _, err := r.publication.Prune(r.ctx, time.Now().UTC(), 100); err != nil {
-						r.logger.Error("ranking prune failed", slog.String("code", "RANKING_PRUNE_UNAVAILABLE"))
-					}
-				}
-				for i := 0; i < 6; i++ {
-					worked, err := r.publication.CommitStreamOnce(r.ctx, r.stream, r.binding.MaxAttempts)
-					if err != nil {
-						r.logger.Error("ranking publication failed", slog.String("code", "RANKING_PUBLICATION_UNAVAILABLE"), slog.Any("error", err))
-						break
-					}
-					if !worked {
-						break
-					}
-				}
-				for _, category := range append(ranker.HeavyCategoryNames(), "new") {
-					_ = r.cache.Rebuild(r.ctx, r.publication.SnapshotStore, category)
-				}
-			}
-		}
+		r.runPublication()
 	}()
 }
+
+func publicationErrorClass(err error) string {
+	var databaseError *pgconn.PgError
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "deadline"
+	case errors.Is(err, context.Canceled):
+		return "canceled"
+	case errors.As(err, &databaseError):
+		return "database"
+	default:
+		return "unavailable"
+	}
+}
+
+func (r *nativeRankingRuntime) publishRound() {
+	for i := 0; i < 6; i++ {
+		result, err := r.publication.CommitStreamOnceWithStatus(r.ctx, r.stream, r.binding.MaxAttempts)
+		if err != nil {
+			class := publicationErrorClass(err)
+			if result.ReachedBound || result.AtBound {
+				r.publicationRecoveryCategory = result.Category
+				r.publicationRecoveryClass = class
+				if result.ReachedBound {
+					r.logger.Error("ranking publication attempt bound reached", slog.String("category", result.Category), slog.String("errorClass", class))
+				}
+			} else {
+				r.logger.Error("ranking publication failed", slog.String("code", "RANKING_PUBLICATION_UNAVAILABLE"), slog.String("category", result.Category), slog.String("errorClass", class))
+			}
+			break
+		}
+		if result.Published && result.AtBound {
+			r.publicationRecoveryCategory = result.Category
+			r.publicationRecoveryPending = true
+		}
+		if !result.Published {
+			break
+		}
+	}
+	if r.publicationRecoveryPending {
+		health, err := r.publication.PublicationHealth(r.ctx, time.Now().UTC(), r.binding.MaxAttempts)
+		if err == nil && health.Exhausted == 0 {
+			class := r.publicationRecoveryClass
+			if class == "" {
+				class = "none"
+			}
+			r.logger.Info("ranking publication recovered", slog.String("category", r.publicationRecoveryCategory), slog.String("errorClass", class))
+			r.publicationRecoveryPending = false
+			r.publicationRecoveryClass = ""
+		}
+	}
+}
+
+func (r *nativeRankingRuntime) runPublication() {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	r.publishRound()
+	for tick := 1; ; tick++ {
+		select {
+		case <-r.ctx.Done():
+			return
+		case <-ticker.C:
+			if tick%60 == 0 {
+				if _, err := r.publication.Prune(r.ctx, time.Now().UTC(), 100); err != nil {
+					r.logger.Error("ranking prune failed", slog.String("code", "RANKING_PRUNE_UNAVAILABLE"))
+				}
+			}
+			r.publishRound()
+			for _, category := range append(ranker.HeavyCategoryNames(), "new") {
+				_ = r.cache.Rebuild(r.ctx, r.publication.SnapshotStore, category)
+			}
+		}
+	}
+}
+
+func (r *nativeRankingRuntime) reportRefresh(newOnly bool, err error) {
+	if r == nil || r.logger == nil {
+		return
+	}
+	kind := "all"
+	if newOnly {
+		kind = "new"
+	}
+	r.refreshMu.Lock()
+	defer r.refreshMu.Unlock()
+	if err == nil {
+		if r.refreshStep != nil {
+			if _, wasRefused := r.refreshStep[kind]; wasRefused {
+				delete(r.refreshStep, kind)
+				r.logger.Info("ranking refresh recovered", slog.String("run", kind), slog.String("step", "success"), slog.String("class", "ok"))
+			}
+		}
+		return
+	}
+	step, class, ok := ranker.RefreshRefusalDetails(err)
+	if !ok {
+		step = "unknown"
+		class = "error"
+		if errors.Is(err, ranker.ErrUnavailable) {
+			class = "unavailable"
+		}
+	}
+	if r.refreshStep == nil {
+		r.refreshStep = make(map[string]string)
+	}
+	if previous, exists := r.refreshStep[kind]; exists && previous == step {
+		return
+	}
+	r.refreshStep[kind] = step
+	r.logger.Error("ranking refresh refused", slog.String("run", kind), slog.String("step", step), slog.String("class", class))
+}
+
 func (r *nativeRankingRuntime) close() {
 	if r.stop != nil {
 		r.stop()

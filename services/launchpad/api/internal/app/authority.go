@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/broker"
@@ -62,6 +63,27 @@ func runtimeIdentity(c *config.Config) (sharedauth.MTLSIdentityAuthority, error)
 	return sharedauth.NewMTLSIdentityAuthority(c.IdentityURL, c.IdentityPeerCertSHA256, &http.Client{Transport: transport, Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, issuer)
 }
 
+func privateNotificationTLS(c config.Config) (*tls.Config, error) {
+	caPEM, certPEM, keyPEM, err := c.IdentityTLSMaterial()
+	if err != nil {
+		return nil, err
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(caPEM) {
+		return nil, errors.New("private notification trust roots unavailable")
+	}
+	pair, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS13,
+		Certificates: []tls.Certificate{pair},
+		ClientCAs:    roots,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+	}, nil
+}
+
 // NetworkAuthorityConfig is the digest-bound network authority document.
 type NetworkAuthorityConfig struct {
 	SchemaVersion          int                        `json:"schemaVersion"`
@@ -77,15 +99,29 @@ type NetworkAuthorityConfig struct {
 
 type networkAuthorityConfig = NetworkAuthorityConfig
 
+const (
+	authorityRefreshInterval    = 10 * time.Second
+	authorityMaxAge             = time.Minute
+	authorityAttestationTimeout = 10 * time.Second
+)
+
 type networkAuthority struct {
-	pool        *pgxpool.Pool
-	config      networkAuthorityConfig
-	reader      *capabilities.PinnedRPCReader
-	rpc         *rpc.Client
-	engine      *capabilities.PreflightEngine
-	unavailable error
-	origins     map[string]bool
-	proxies     []string
+	pool          *pgxpool.Pool
+	config        networkAuthorityConfig
+	reader        deployment.Reader
+	rpc           *rpc.Client
+	engine        *capabilities.PreflightEngine
+	unavailable   error
+	origins       map[string]bool
+	proxies       []string
+	readHead      func(context.Context) (committedHead, error)
+	refreshMu     sync.Mutex
+	mu            sync.RWMutex
+	lastEnvelope  authorityEnvelope
+	builtAt       time.Time
+	refreshCancel context.CancelFunc
+	refreshDone   chan struct{}
+	closeOnce     sync.Once
 }
 type committedHead struct {
 	Number string `json:"number"`
@@ -205,16 +241,32 @@ func newNetworkAuthority(ctx context.Context, pool *pgxpool.Pool, c *config.Conf
 		a.Close()
 		return nil, err
 	}
+	a.startRefresh(ctx)
 	return a, nil
 }
 func (a *networkAuthority) Close() {
-	if a != nil && a.rpc != nil {
-		a.rpc.Close()
+	if a == nil {
+		return
 	}
+	a.closeOnce.Do(func() {
+		if a.refreshCancel != nil {
+			a.refreshCancel()
+			<-a.refreshDone
+		}
+		if a.rpc != nil {
+			a.rpc.Close()
+		}
+	})
 }
 func (a *networkAuthority) head(ctx context.Context) (committedHead, error) {
 	if a == nil || a.unavailable != nil || a.engine == nil {
 		return committedHead{}, errors.New("network authority unavailable")
+	}
+	if a.readHead != nil {
+		return a.readHead(ctx)
+	}
+	if a.pool == nil {
+		return committedHead{}, errors.New("healthy committed network head unavailable")
 	}
 	var h committedHead
 	var integrity string
@@ -233,7 +285,7 @@ func (a *networkAuthority) envelope(ctx context.Context) (authorityEnvelope, err
 	if err != nil {
 		return authorityEnvelope{}, err
 	}
-	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: time.Minute, Timeout: 10 * time.Second}
+	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: authorityMaxAge, Timeout: authorityAttestationTimeout}
 	attestation, err := deployment.Attest(ctx, a.reader, a.config.Manifest, common.HexToHash(head.Hash), policy)
 	if err != nil {
 		return authorityEnvelope{}, err
@@ -247,7 +299,57 @@ func (a *networkAuthority) envelope(ctx context.Context) (authorityEnvelope, err
 	}
 	return authorityEnvelope{2, export, projectAttestation(attestation), head}, nil
 }
-func (a *networkAuthority) Ready(ctx context.Context) error { _, err := a.envelope(ctx); return err }
+func (a *networkAuthority) refresh(ctx context.Context) error {
+	a.refreshMu.Lock()
+	defer a.refreshMu.Unlock()
+	bounded, cancel := context.WithTimeout(ctx, authorityAttestationTimeout)
+	defer cancel()
+	body, err := a.envelope(bounded)
+	if err != nil {
+		return err
+	}
+	if err := bounded.Err(); err != nil {
+		return err
+	}
+	a.mu.Lock()
+	a.lastEnvelope, a.builtAt = body, time.Now()
+	a.mu.Unlock()
+	return nil
+}
+
+func (a *networkAuthority) startRefresh(parent context.Context) {
+	ctx, cancel := context.WithCancel(parent)
+	a.refreshCancel, a.refreshDone = cancel, make(chan struct{})
+	go func() {
+		defer close(a.refreshDone)
+		ticker := time.NewTicker(authorityRefreshInterval)
+		defer ticker.Stop()
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			_ = a.refresh(ctx)
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+}
+
+func (a *networkAuthority) Ready(context.Context) error {
+	if a == nil {
+		return errors.New("network authority unavailable")
+	}
+	a.mu.RLock()
+	builtAt := a.builtAt
+	a.mu.RUnlock()
+	if builtAt.IsZero() || time.Since(builtAt) > authorityMaxAge {
+		return errors.New("fresh network authority envelope unavailable")
+	}
+	return nil
+}
 func authorityMetadata(w http.ResponseWriter) {
 	w.Header().Set("X-Request-ID", uuid.NewString())
 	w.Header().Set("X-Schema-Version", "2")

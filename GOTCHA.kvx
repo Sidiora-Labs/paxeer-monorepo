@@ -22855,3 +22855,108 @@ fix = "Decision 3687. Task 22.39.757."
 title = "The render check counts every failed request of a page as a load finding"
 symptom = "The render check under tools/ui-check listens to the failed requests of a page and adds one load finding with the source requestfailed for each, whatever reason the browser gives. A page cancels requests of its own in normal use: a read that a newer one replaces, a preload that a navigation ends, a read of a view the visitor has left. The browser reports such a request as failed with the reason aborted. The check also ends requests itself, in tools/ui-check/check.mjs: an address outside the surface without a fixed answer is blocked and reported with the source unanswered-request, and a request to the surface that cannot be fetched is reported and ended. The browser reports each of these as a failed request as well, so one cause yields two findings."
 fix = "Decision 3688. Task 22.44.70."
+
+[gotcha.4607]
+title = "No registered migration and no path of the stats service writes the first search generation"
+symptom = "The migration 200001 makes the tables stats_search.generations_v2 and stats_search.active_v2 and writes no row. In the directory of the stats service under services/launchpad, whose binary is statsd, the functions BeginGeneration and ActivateGeneration of internal/search/generation.go read the one row of stats_search.active_v2 for update before anything else and end where it is not present, and the consume functions of internal/search/projection.go lock and update the same row. The readiness check search of internal/app/app.go answers ready only where that row names a generation with the state active that was validated. The grants document gives the runtime roles SELECT and UPDATE on stats_search.active_v2 and no INSERT. The cases of the search package write their first generation and the one row themselves after they apply the file 200001.sql. A database made by the registered migrations alone therefore holds no generation the functions and the check can start from."
+fix = "Decision 3689. Task 22.39.758."
+
+[gotcha.4608]
+title = "The start of the metadata service gives one reason for every media part that is not available"
+symptom = "In services/launchpad/metadata/internal/app/app.go the start calls the function Ready of the connected media once and answers the reason metadata_media_dependencies_unavailable for any error. That function, in services/launchpad/metadata/internal/metadata/connected.go, checks the raster process, the version answer of the scanner and the objects, and the function Ready of the objects checks in turn its configuration, the access list of the quarantine bucket, the policy status of that bucket, that the bucket refuses a list and a read without credentials, and the head of the approved bucket. Every one of these ends in the same error value, so the start line and the readiness check do not tell which part answered. An object store can answer the read of the access list of a bucket under the right to read the policy of the bucket, so an account needs both rights for that check."
+fix = "Task 22.39.759. Task 22.39.761."
+
+[gotcha.4609]
+title = "The source check of the indexer reads the node inside the readiness request"
+symptom = "In services/launchpad/indexer/internal/app/app.go the readiness check canonical_source reads the head of the node, reads the watermark of the stream from the store and calls verifyCanonicalRuntimeCheckpoint, which reads the block at the watermark from the committed source and compares its hash with the persisted one. The readiness handler of sdk/launchpad/shared/http gives all checks of one request two seconds together. Two reads of a node inside that bound make the answer of the check depend on the answer time of the node at that moment, and every readiness request adds two reads to the node. Decision 3687 took the same kind of read out of the readiness request of the api."
+fix = "Decision 3690. Task 22.39.760."
+
+[gotcha.4610]
+title = "No file states the object rights the service accounts of the launchpad need"
+symptom = "The contract in the platform directory under deploy/launchpad gives three services the keys of an object account: gateway, user and metadata, with the names of their buckets. Their sources call the object store through sdk/launchpad/shared/storage, services/launchpad/gateway/internal/storage, services/launchpad/security/policy and services/launchpad/metadata/internal/metadata: reads, writes, deletes, heads and lists of objects, and for metadata the access list, the policy status and the head of a bucket. services/launchpad/gateway/internal/storage/policies.go gives policies for the object roles of the gateway and says they are deployment input. No file under deploy/launchpad states which actions the account of each service needs on which bucket, and no case holds such a statement against the calls of the sources, so the rights of an account are known only from the store they were made in."
+fix = "Decision 3691. Task 22.39.761."
+
+[gotcha.4611]
+title = "The mobile navigation of the explorer gives its groups as details with a summary"
+symptom = "The mobile navigation in apps/explorer/ui/snippets/navigation/mobile renders each group of the header as a details element whose summary carries the name of the group, and the case of the header navigation in apps/explorer/ui/snippets/header reads a group by its summary and by the open state of the details element. The case of the search results layout in apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx opens the mobile navigation below the width 1024 and asks it for a button with the name Explore and the attribute aria-expanded. A case that mounts a layout reads the parts of the header in the form the header gives them."
+fix = "Task 22.44.71."
+
+[gotcha.4612]
+title = "The contract fixes the private listen address to a wildcard of one address family"
+symptom = "The variables file that is the contract in the platform directory under deploy/launchpad fixes RANKING_PRIVATE_LISTEN_ADDRESS, USER_PRIVATE_LISTEN_ADDRESS, SOCIAL_PRIVATE_LISTEN_ADDRESS and METADATA_PRIVATE_LISTEN_ADDRESS to 0.0.0.0:8443, and decision 3685 gives API_PRIVATE_LISTEN_ADDRESS the same value. A listener on that address accepts connections of the IPv4 family only. The configuration of the same services names [::]:8443 in the message of its check of the address: the wildcard that accepts both families on a host that has both. On a private network that gives a service a name with an IPv6 address only, a peer that resolves the name cannot reach a listener in the form the contract fixes."
+fix = "Decision 3692. Task 22.39.762."
+
+[gotcha.4613]
+title = "The social service answers one authority route on the private listener of the container profile"
+symptom = "The notification library under services/launchpad/notifications reads five routes of the social service below /internal/v2/social: graph, visibility, public, callouts:review and callout-authority. The private listener of the container profile of the social service admits a peer of the authority list and then answers one route only, ranking-visibility; every other path below /internal/v2/social is answered with not found. The other runtime of the service answers graph, visibility, callouts:review and callout-authority and has no route public. The library reads not found as a refusal, so a reader of the library gets no graph, no visibility decision and no public resource from a social service in the container profile."
+fix = "Decision 3693. Task 22.39.763."
+
+[gotcha.4614]
+title = "A runtime document of the social service without a voice binding never becomes ready"
+symptom = "The runtime document of the social service holds an optional member voice. Without it the service starts, keeps a voice control without a provider and holds a voice failure that its readiness check social_runtime returns on every call. The composer under deploy/launchpad/documents refuses a values member voice, so a composed runtime document never holds the binding. The check answers failed for six different causes and names none: a failure of the runtime, voice, the notification credentials, the broker, durable work and a changed secret."
+fix = "Decision 3694. Task 22.39.764."
+
+[gotcha.4615]
+title = "The identity check of the metadata service reads a readiness path the private identity listener of the gateway does not serve"
+symptom = "In the form with mutual TLS the readiness check media_identity of the metadata service sends GET to the identity endpoint with the path /health/ready appended, with its client certificate, and takes every status other than 200 as a failure. The identity endpoint is the private identity listener of the gateway, and its handler answers only paths below /internal/v2/identity/ and gives 404 to every other path. The check therefore fails against a gateway in every state."
+fix = "Decision 3695. Task 22.39.765."
+
+[gotcha.4616]
+title = "An empty set of markets makes the ranking visibility of the social service unavailable"
+symptom = "The route ranking-visibility of the social service answers 503 when the set of known markets is empty, in the container profile and in the bound runtime alike. The ranking service reads that route in every refresh and in its readiness check ranking, so on a chain where the factory has created no market yet the ranking service publishes nothing, its check fails and it logs a refresh failure in every cycle. An empty set is the regular state of a launchpad before its first market."
+fix = "Decision 3696. Tasks 22.39.764 and 22.39.766."
+
+[gotcha.4617]
+title = "A composed indexer cannot take the history below its anchor"
+symptom = "The composer of the indexer documents under deploy/launchpad/documents writes a lifecycle document with an empty list of replay requests and without a backfill request, and the contract in the platform directory under deploy/launchpad names neither the mode of the indexer nor the batch settings of its backfill. The service reads heights below its anchor only through such a request, admits a request only with a matching row in its table of replay authorizations, bounds one request to 1000000 heights, and no command of the repository writes a request or that row. An indexer composed with an anchor above the creation height of a market that already exists on the chain therefore never holds that market."
+fix = "Decision 3697. Task 22.39.767."
+
+[gotcha.4618]
+title = "The verification form of the explorer backend subscribes with the address as its field holds it"
+symptom = "The page script pages/verification_form.js under services/explorer/backend/apps/block_scout_web/assets/js reads the address from the field of the form and builds the topic of the address channel from that value as it stands. The notifier under services/explorer/backend/apps/block_scout_web/lib publishes the result of a contract verification on the topic of the address in its lower case form. A form opened with an address written with capitals therefore listens on a topic on which no result is published, and the form shows neither the result nor the messages of the compiler."
+fix = "Decision 3698. Task 22.39.688."
+
+[gotcha.4619]
+title = "The function that appends a ranking head to the public stream reads its head without the category"
+symptom = "The function api_stream.append_ranking of the registered migration 190003 under migrations reads the committed head by the run, by the sequence of its category and by the output digest, and admits one row. The heads of several categories of one run can share that sequence and that digest; every category of a run over an empty set of markets does. The read then finds several rows, the function ends with an error, and the publication of that run does not complete."
+fix = "Decision 3699. Task 22.39.766."
+
+[gotcha.4620]
+title = "The readiness refresh of the canonical source writes through the head reader of the ingestion and keeps no cause"
+symptom = "The refresh behind the readiness of the canonical source in services/launchpad/indexer/internal/app takes the height of the source through the same head reader the ingestion uses. That reader does more than read: it retains the committed head it observed, reports the durable height to the source, and where the observation returns an error it quarantines the committed head of the stream. The refresh keeps an error only where it is a mismatch or an incomplete checkpoint; any other error of the head reader, of the watermark read or of the block read at the watermark is neither kept nor written to the log, so the readiness answer then states only that no refresh succeeded or that the last success is older than one minute, and nothing names the step that did not answer."
+fix = "Decision 3700. Task 22.39.768."
+
+[gotcha.4621]
+title = "Cases of the explorer that render a whole page or the whole layout run under the default time bounds"
+symptom = "The configuration of the test runner of apps/explorer sets no time bound of its own, so a case ends after five seconds and a wait for content after one second. The case of the block details in apps/explorer/ui/shared/Page/entityPageComposition.spec.tsx renders the whole block page and waits for the hash of the block with that wait; the first case of apps/explorer/ui/shared/layout/Layout.spec.tsx renders the whole layout with the header, the navigation and the footer. The time of such a first render grows with the count of files a run holds, since the files share the processor, so a run of the whole directory apps/explorer/ui/shared gives these cases less time than a run of one file. The verification of task 22.44.4 runs the whole directory, while its paths hold twenty of the directories below it and neither apps/explorer/ui/shared/Page nor apps/explorer/ui/shared/layout."
+fix = "Decision 3701. Tasks 22.44.4 and 22.44.72."
+
+[gotcha.4622]
+title = "The render check renders four views at once by default and the documentation site holds many views"
+symptom = "The render check under tools/ui-check renders up to four views at once unless its option jobs names another count, and each render has a bound for the time its page takes to settle. The surface file of the documentation site names more than a hundred views and states, and its pages mount figures and diagrams while they settle. With four renders at once on one machine the time one page needs to settle depends on what the other three renders do at that moment, so a page can settle inside its bound when it is rendered alone and outside it in a run of the whole surface. The verification of task 22.44.48 runs the whole surface with the default count."
+fix = "Decision 3702. Task 22.44.48."
+
+[gotcha.4623]
+title = "A row of the ranking publication that reaches its attempt bound is not tried again"
+symptom = "The ranking service under services/launchpad/ranking-algo commits each pending head of a category to the stream from a row of its publication table. The loop in services/launchpad/ranking-algo/internal/app/app.go tries once a second and ends the round at the first error; services/launchpad/ranking-algo/internal/store/publication.go counts one attempt for each append that returns an error, up to the bound of the runtime document. The selection of the next row takes only a row below that bound, and only a row that has no earlier unpublished row of its category. A row at the bound is therefore not selected again, every later row of its category waits behind it, and the readiness of the service refuses while a row at the bound exists. The service holds no path that tries such a row again after the append answers again."
+fix = "Decision 3703. Task 22.39.769."
+
+[gotcha.4624]
+title = "A ranking run takes its cutoff from the clock of its own process before the reads it bounds"
+symptom = "The loop in services/launchpad/ranking-algo/internal/ranker/coordinator.go gives each run the time of its own process, cut to the second, as cutoff, and only then reads its inputs. The read in services/launchpad/ranking-algo/internal/store/frozen_inputs.go refuses the run where the observation of the visibility, stamped by the clock of the database, or the completion of the block at the watermark, stamped by the writer of that row, lies in a later second than the cutoff; the check of the provenance compares the same seconds once more. The answer of a run therefore depends on the place of its tick inside the second and on the difference between the clocks of the process and of the database: a tick close to the turn of a second, or a process clock a fraction of a second behind, gives refusals of runs whose inputs are complete. The log line of a refused run holds one fixed text for every refusal of the read, so the step that refused cannot be read from it."
+fix = "Decision 3704. Task 22.39.770."
+
+[gotcha.4625]
+title = "The trading workspace is laid out around the fixed sizes of its reference source"
+symptom = "The shell, the grids and the panels of the trading workspace under apps/perps take their tracks, heights and breakpoints from the fixed size scale of the reference source of the workspace: a header of one fixed height, rows of fixed height in the order book and the tables, and tracks that divide the width of the window among the chart, the book and the order entry. Tasks 22.44.12 to 22.44.18 gave the workspace a type scale that grows with the width of the window, other heights of controls and other tracks of the shell and the grids. A change of one of these sizes moves every part that is laid out around it. The render check of decision 3591 measures a view against the rules of decision 3588 and not against the reference source, so it does not read such a move."
+fix = "Decision 3705. Tasks 22.44.73, 22.44.74 and 22.44.39."
+
+[gotcha.4626]
+title = "The render check reads the readiness of a surface with the certificate rules of its own runtime"
+symptom = "The render check starts a surface and asks its ready path from its own runtime before the first render, in tools/ui-check/server.mjs. The launchpad web application holds its identity code to a secure origin, so its surface is served over a secure connection with a certificate made for the run on the local machine. The runtime of the check knows no issuer for such a certificate and the question for readiness has no answer, so the command ends before the first render. The verification commands of tasks 22.44.40 and 22.44.64 to 22.44.69 start the check without a statement on that certificate."
+fix = "Decision 3706. Tasks 22.44.40 and 22.44.64 to 22.44.69."
+
+[gotcha.4627]
+title = "The size tokens of four surfaces grow with the width of the window since the tasks of series 22.44"
+symptom = "The tasks of series 22.44 gave the launchpad web application, the wallet application, the interface package of the human web application and the bridge application size tokens for text whose value grows with the width of the window between a least and a greatest value, in apps/launchpad/web/src/app/tokens.css, apps/wallet/src/theme/tokens.ts, apps/web/packages/layerx-ui/src/styles/tokens.css and apps/bridge/src/app/dx-theme.css; the tokens of the launchpad held fixed values before. Controls of several surfaces took a least height as well. The record of a proof task states the findings of the render check against the rules of decision 3588; it holds no measure of a view against the state of the surface before the series, so a size or a place that moved is not written anywhere."
+fix = "Decision 3707. Tasks 22.44.75 to 22.44.78."

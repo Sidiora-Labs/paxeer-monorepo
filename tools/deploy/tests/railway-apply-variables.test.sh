@@ -447,6 +447,9 @@ api_readiness_documents() {
 import json, sys
 
 api = json.load(open(sys.argv[1]))["api"]
+api_sockets = json.load(open(sys.argv[1]))["api-sockets"]
+assert api["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "[::]:8443"
+assert "API_PRIVATE_LISTEN_ADDRESS" not in api_sockets["fixed"]
 assert api["documentSources"] == {
     "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE",
     "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE",
@@ -467,4 +470,74 @@ PY
 	echo PASS api-readiness-documents
 }
 api_readiness_documents
+
+private_listen_address_contract() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" "$tool" <<'PY'
+import ipaddress, json, os, subprocess, sys
+from pathlib import Path
+
+contract = json.load(open(sys.argv[1]))
+directory = Path(sys.argv[2])
+services = ("api", "ranking", "user", "social", "metadata")
+manifest = {service: contract[service] for service in services}
+values = {}
+project = next(entry for entry in json.load(open(sys.argv[3])) if entry["op"] == "Project")
+project["data"]["project"]["services"]["edges"] = [
+    {"node": {"id": f"svc-{service}", "name": service}} for service in services
+]
+replay = [project]
+expected = {}
+for service, entry in manifest.items():
+    key = f"{service.upper()}_PRIVATE_LISTEN_ADDRESS"
+    address = entry["fixed"][key]
+    assert address == "[::]:8443", service
+    host, port = address.rsplit(":", 1)
+    assert ipaddress.IPv6Address(host.strip("[]")).is_unspecified, service
+    assert port == "8443", service
+    values[service] = {name: f"{service}-value-{index:02d}"
+                       for index, name in enumerate(entry["required"])
+                       if name not in entry["fixed"]}
+    for document in entry.get("documentSources", {}):
+        values[service][document] = "e30="
+    expected[service] = dict(values[service], **entry["fixed"])
+    replay.extend([
+        {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": f"svc-{service}"},
+         "data": {"variables": {}}},
+        {"op": "VariablesUpsert", "variables": {"i": {
+            "projectId": "proj-test", "environmentId": "env-prod", "serviceId": f"svc-{service}",
+            "variables": expected[service], "skipDeploys": True}},
+         "data": {"variableCollectionUpsert": True}},
+    ])
+for name, data in (("manifest", manifest), ("values", values), ("replay", replay)):
+    (directory / f"private-listeners-{name}.json").write_text(json.dumps(data))
+result = subprocess.run([
+    sys.executable, sys.argv[4], "proj-test", "production", "--apply",
+    "--manifest", str(directory / "private-listeners-manifest.json"),
+    "--values", str(directory / "private-listeners-values.json"),
+    "--replay", str(directory / "private-listeners-replay.json"),
+], capture_output=True, text=True, env=os.environ)
+assert result.returncode == 0, result.stdout + result.stderr
+applied = set()
+planned = {}
+service = None
+for line in result.stdout.splitlines():
+    if line.startswith("service "):
+        service = line.split()[1]
+    elif line.startswith("  missing ") and "_PRIVATE_LISTEN_ADDRESS = " in line:
+        key, address = line.removeprefix("  missing ").split(" = ", 1)
+        assert key == f"{service.upper()}_PRIVATE_LISTEN_ADDRESS", service
+        assert address == contract[service]["fixed"][key], service
+        host, port = address.rsplit(":", 1)
+        assert ipaddress.IPv6Address(host.strip("[]")).is_unspecified, service
+        assert port == "8443", service
+        planned[service] = address
+    elif line.startswith("  applied "):
+        assert line == f"  applied {len(expected[service])} variables", service
+        applied.add(service)
+assert set(planned) == set(services), planned
+assert applied == set(services), applied
+PY
+	echo PASS private-listen-address-contract
+}
+private_listen_address_contract
 echo PASS railway-apply-variables

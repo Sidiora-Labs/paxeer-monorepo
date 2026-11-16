@@ -51,7 +51,7 @@ const LogTopic = ({ hex, index, isLoading }: Props) => {
       case 'text': {
         return (
           <>
-            <Skeleton loading={ isLoading } overflow="hidden" whiteSpace="nowrap">
+            <Skeleton loading={ isLoading } overflow="hidden" whiteSpace="normal" overflowWrap="anywhere" minW={ 0 }>
               <HashStringShortenDynamic hash={ value }/>
             </Skeleton>
             <CopyToClipboard text={ value } isLoading={ isLoading }/>
@@ -71,7 +71,7 @@ const LogTopic = ({ hex, index, isLoading }: Props) => {
   })();
 
   return (
-    <Flex alignItems="center" px={{ base: 0, lg: 3 }} _notFirst={{ mt: 3 }} overflow="hidden" maxW="100%">
+    <Flex alignItems="center" flexWrap="wrap" rowGap={ 2 } px={{ base: 0, lg: 3 }} _notFirst={{ mt: 3 }} overflow="hidden" maxW="100%">
       <LogIndex
         isLoading={ isLoading }
         textStyle="xs"
@@ -91,7 +91,7 @@ const LogTopic = ({ hex, index, isLoading }: Props) => {
           flexShrink={ 0 }
           width="fit-content"
         >
-          <SelectControl w="105px" loading={ isLoading }>
+          <SelectControl w="var(--chakra-spacing-30)" loading={ isLoading } triggerProps={{ 'aria-label': `Topic ${ index } format` }}>
             <SelectValueText placeholder="Data type"/>
           </SelectControl>
           <SelectContent>

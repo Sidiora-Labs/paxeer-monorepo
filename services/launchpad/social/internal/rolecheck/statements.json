@@ -2121,25 +2121,6 @@
     "sql": "-- name: GetDmConversation :one\nSELECT id, wallet_a, wallet_b, last_message_at FROM chat.dm_conversations\nWHERE id = $1\nLIMIT 1\n"
   },
   {
-    "id": "db/sqlcdb/query.sql.go:Queries.GetPoolCreator:1",
-    "file": "services/launchpad/social/internal/db/sqlcdb/query.sql.go",
-    "function": "Queries.GetPoolCreator",
-    "ordinal": 1,
-    "role": "chat_runtime",
-    "kind": "SELECT",
-    "tables": [
-      "indexer.pools"
-    ],
-    "sequences": [],
-    "functions": [],
-    "columns": [
-      "creator",
-      "pool_address"
-    ],
-    "bindings": {},
-    "sql": "-- name: GetPoolCreator :one\n\nSELECT creator FROM indexer.pools WHERE pool_address = $1 LIMIT 1\n"
-  },
-  {
     "id": "db/sqlcdb/query.sql.go:Queries.GetPoolMessage:1",
     "file": "services/launchpad/social/internal/db/sqlcdb/query.sql.go",
     "function": "Queries.GetPoolMessage",
@@ -5028,7 +5009,7 @@
     "role": "chat_runtime",
     "kind": "SELECT",
     "tables": [
-      "users.account_state"
+      "users.account_profiles_v1"
     ],
     "sequences": [],
     "functions": [],
@@ -5039,7 +5020,7 @@
       "wallet"
     ],
     "bindings": {},
-    "sql": "SELECT wallet,profile,deleted,revision::text FROM \"users\".\"account_state\" WHERE wallet=ANY($1)"
+    "sql": "SELECT wallet,profile,deleted,revision::text FROM \"users\".\"account_profiles_v1\" WHERE wallet=ANY($1)"
   },
   {
     "id": "interactions/erasure.go:Store.BeginErasureTx:1",

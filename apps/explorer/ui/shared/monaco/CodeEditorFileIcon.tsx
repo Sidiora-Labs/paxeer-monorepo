@@ -34,7 +34,7 @@ const CodeEditorFileIcon = ({ className, fileName }: Props) => {
     return 'monaco/file';
   })();
 
-  return <IconSvg className={ className } name={ name } boxSize="16px"/>;
+  return <IconSvg className={ className } name={ name } boxSize={ 4 }/>;
 };
 
 export default React.memo(chakra(CodeEditorFileIcon));
