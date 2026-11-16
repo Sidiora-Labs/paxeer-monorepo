@@ -202313,7 +202313,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.570]
 title = "Run the consumer proofs of the perps data gateway against the client in the workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.675"]
@@ -383807,7 +383807,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.708]
 title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.705"]
