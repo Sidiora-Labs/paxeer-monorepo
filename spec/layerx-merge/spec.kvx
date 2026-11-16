@@ -175119,7 +175119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.74]
 title = "Let the render check hold a view to a stored geometry and report chosen kinds without failing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.59"]
