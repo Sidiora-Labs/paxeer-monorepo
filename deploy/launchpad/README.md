@@ -103,6 +103,56 @@ variable names. `railway-values.json` supplies the shared `RPC_URL`,
 `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_PAXEER_RPC_URL` and
 `NEXT_PUBLIC_RPC_URL_FALLBACK` select node root URLs.
 
+### API network authority document
+
+Generate `network-authority.json` from the repository root with:
+
+```bash
+(cd services/launchpad/api && go run ./cmd/api-runtime-docs \
+  -repo ../../.. \
+  -source-schema "$INDEXER_SOURCE_SCHEMA" \
+  -endpoints "$PUBLIC_ENDPOINTS_FILE" \
+  -pool-runtime "$REVIEWED_POOL_RUNTIME" \
+  -out "$AUTHORITY_OUTPUT_DIR")
+```
+
+Use absolute paths for `PUBLIC_ENDPOINTS_FILE` and `AUTHORITY_OUTPUT_DIR`.
+`-repo` selects the repository root. `-source-schema` names the indexer's
+committed-head schema: a lowercase letter followed by up to 62 lowercase
+letters, digits or underscores. `-pool-runtime` is the reviewed, nonzero
+`0x`-prefixed 32-byte keccak256 hash of the deployed pool runtime.
+`-endpoints` reads one JSON object containing the reviewed public endpoints
+and their exact allowlists, for example:
+
+```json
+{
+  "RPC": "https://api1.mainnet-beta.paxeer.network",
+  "Explorer": "https://paxscan.paxeer.app",
+  "AllowedRPCs": ["https://api1.mainnet-beta.paxeer.network"],
+  "AllowedExplorers": ["https://paxscan.paxeer.app"]
+}
+```
+
+Endpoints must use HTTPS without credentials, queries or fragments and must
+match their respective allowlists. Each allowlist contains 1 to 16 entries.
+The command uses `deployment.Current()` for the manifest and both address maps,
+reads the serial interface digest from task `1.99`'s `interface_bundle.expected_sha256`
+in `tools/launchpad/production/bootstrap/check-registry.json`, and derives the
+expected revision through the preflight engine's revision calculation. Generation
+needs no network connection or database. Identical inputs produce identical bytes.
+The output directory is created with mode `0750` and the document with mode `0600`.
+The command prints `<sha256> network-authority.json <byte-count>`.
+
+Set `NETWORK_AUTHORITY_CONFIG_FILE` to the mounted document path, or set
+`NETWORK_AUTHORITY_CONFIG_DOCUMENT` to standard base64 encoding of its exact
+bytes. Set only one source. In either case, set
+`NETWORK_AUTHORITY_CONFIG_SHA256` to the printed lowercase SHA-256 digest.
+`NETWORK_RPC_URL` supplies the API's HTTPS chain reader independently of the
+public endpoints in the document. The API validates the document's schema,
+manifest, reviewed runtime, revision digest and both address maps before use.
+
+### Web build arguments
+
 The web build arguments are:
 
 - Backend origins: `NEXT_PUBLIC_DATA_API_URL`, `NEXT_PUBLIC_GATEWAY_URL`, `NEXT_PUBLIC_METADATA_API_URL`, `NEXT_PUBLIC_PNL_API_URL`, `NEXT_PUBLIC_STATS_API_URL`, `NEXT_PUBLIC_LIVESTREAM_API_URL`, `NEXT_PUBLIC_SOCIAL_API_URL`, `NEXT_PUBLIC_USER_API_URL`.

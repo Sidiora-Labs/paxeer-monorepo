@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
 import { checkSurface } from "../check.mjs";
 import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
-import { serveFiles } from "../server.mjs";
+import { serveFiles, startSurface } from "../server.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 const cli = resolve(dirname(fileURLToPath(import.meta.url)), "../check.mjs");
@@ -494,6 +494,216 @@ async function commandBuildsAndServesFiles() {
   assert.match(result.stdout, /34 renders, 0 showed nothing, 0 findings, pass/);
 }
 test(commandBuildsAndServesFiles);
+
+function nodeCommand(source) {
+  return `${JSON.stringify(process.execPath)} -e '${source.replaceAll("'", "'\\''")}'`;
+}
+
+async function temporaryBuildSurface(options = {}) {
+  const directory = await mkdtemp(join(root, "build-surface-"));
+  await writeFile(join(directory, "index.html"), "Ready");
+  const filename = await surfaceFor("built", {
+    directory, build: nodeCommand("process.stdout.write('Built')"),
+    start: undefined, address: "http://localhost:0", readyPath: "/index.html",
+    views: [{ name: "built", path: "/index.html", modes: ["default"] }],
+    ...options,
+  });
+  return { filename, directory };
+}
+
+async function buildBoundsRequireWholeMilliseconds(context) {
+  for (const buildMs of [null, false, "1000", {}, [], -1, 0, 999, 1000.5, 1800001]) {
+    const { filename } = await temporaryBuildSurface({ buildMs });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface buildMs.*whole number from 1000 to 1800000/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  for (const buildMs of [1000, 1800000]) {
+    const { filename } = await temporaryBuildSurface({ buildMs });
+    assert.equal((await readSurface(filename)).buildMs, buildMs);
+  }
+}
+test(buildBoundsRequireWholeMilliseconds);
+
+async function outputsRequireBuildAndOneToSixteenPaths(context) {
+  for (const outputs of [null, false, "dist", {}, [], Array.from({ length: 17 }, (_, index) => `dist-${index}`), [null], [1], [""], [" "]]) {
+    const { filename } = await temporaryBuildSurface({ outputs });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(one to sixteen paths|nonempty string)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  const { filename } = await temporaryBuildSurface({ build: undefined, outputs: ["dist"] });
+  await assert.rejects(readSurface(filename), (error) => {
+    assert.match(error.message, /Surface Test surface outputs requires a build command/);
+    context.diagnostic(error.message);
+    return true;
+  });
+  const outputs = Array.from({ length: 16 }, (_, index) => `dist-${index}/nested`);
+  const valid = await temporaryBuildSurface({ outputs });
+  assert.deepEqual((await readSurface(valid.filename)).outputs, outputs);
+}
+test(outputsRequireBuildAndOneToSixteenPaths);
+
+async function outputsStayInsideTheSurfaceAndOutsideDependencies(context) {
+  for (const output of [root, "C:\\output", "../outside", "nested/../../outside", ".", "nested/..", "node_modules", "dist/node_modules", "node_modules/pkg/dist", "dist/node_modules/../cache"]) {
+    const { filename } = await temporaryBuildSurface({ outputs: [output] });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(relative paths inside|node_modules)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  for (const target of [root, join(root, "absent-outside")]) {
+    for (const output of ["linked", "linked/nested/output"]) {
+      const { filename, directory } = await temporaryBuildSurface({ outputs: [output] });
+      await symlink(target, join(directory, "linked"));
+      await assert.rejects(readSurface(filename), (error) => {
+        assert.match(error.message, /Surface Test surface outputs.*inside the surface directory after resolving links/);
+        context.diagnostic(error.message);
+        return true;
+      });
+    }
+  }
+  for (const target of [".", "node_modules/pkg"]) {
+    const { filename, directory } = await temporaryBuildSurface({ outputs: ["linked"] });
+    await mkdir(join(directory, "node_modules/pkg"), { recursive: true });
+    await symlink(target, join(directory, "linked"));
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(directory itself|node_modules)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+}
+test(outputsStayInsideTheSurfaceAndOutsideDependencies);
+
+async function surfaceBuildCanExceedTheCommonBound(context) {
+  const duration = LIMITS.buildMs + 1000;
+  const { filename } = await temporaryBuildSurface({
+    build: nodeCommand(`setTimeout(() => process.stdout.write('Built'), ${duration})`),
+    buildMs: duration + 10000,
+  });
+  const surface = await readSurface(filename);
+  const started = Date.now();
+  const service = await startSurface(surface);
+  try {
+    assert.ok(Date.now() - started >= duration);
+    assert.equal(await (await fetch(new URL("/index.html", service.address))).text(), "Ready");
+  } finally { await service.close(); }
+  context.diagnostic(`Build completed within ${surface.buildMs} ms after exceeding ${LIMITS.buildMs} ms`);
+}
+test(surfaceBuildCanExceedTheCommonBound);
+
+async function smallerBuildBoundIsReportedWithRemovedOutputs(context) {
+  const { filename, directory } = await temporaryBuildSurface({
+    build: nodeCommand(`setTimeout(() => process.stdout.write('Built'), ${LIMITS.buildMs + 1000})`), buildMs: 1000,
+    outputs: ["old.txt", "absent"],
+  });
+  await writeFile(join(directory, "old.txt"), "Old output");
+  const out = join(root, `build-timeout-${sequence}`);
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 1, command.stderr + command.stdout);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 0);
+  assert.equal(result.buildMs, 1000);
+  assert.deepEqual(result.outputs, ["old.txt"]);
+  assert.equal(result.findings.length, 1);
+  assert.match(result.findings[0].values.message, /Surface Test surface build did not succeed: timed out after 1000 ms/);
+  await assert.rejects(readFile(join(directory, "old.txt")), { code: "ENOENT" });
+  context.diagnostic(result.findings[0].values.message);
+}
+test(smallerBuildBoundIsReportedWithRemovedOutputs);
+
+async function removedOutputsAreRebuiltBeforeTheStartServesThem() {
+  const outputs = ["dist", "old.txt", "linked.txt", "absent"];
+  const html = (await readFile(join(fixtures, "clean.html"), "utf8"))
+    .replace('<link rel="stylesheet" href="/base.css">', `<style>${await readFile(join(fixtures, "base.css"), "utf8")}</style>`)
+    .replace("<h1>Surface</h1>", "<h1>Fresh build</h1>");
+  const reservation = createServer();
+  await new Promise((resolve) => reservation.listen(0, "localhost", resolve));
+  const origin = `http://localhost:${reservation.address().port}`;
+  await new Promise((resolve) => reservation.close(resolve));
+  const { filename, directory } = await temporaryBuildSurface({
+    buildMs: 3000, outputs,
+    build: nodeCommand(`
+      const fs = require('node:fs');
+      const assert = require('node:assert/strict');
+      for (const path of ${JSON.stringify(outputs)}) assert.equal(fs.existsSync(path), false, path);
+      assert.equal(fs.readFileSync('keep.txt', 'utf8'), 'Keep beside outputs');
+      fs.mkdirSync('dist');
+      fs.writeFileSync('dist/index.html', ${JSON.stringify(html)});
+    `),
+    start: nodeCommand(`
+      const fs = require('node:fs');
+      const http = require('node:http');
+      const body = fs.readFileSync('dist/index.html');
+      http.createServer((request, response) => {
+        response.writeHead(200, { 'content-type': 'text/html' });
+        response.end(body);
+      }).listen(${new URL(origin).port}, 'localhost');
+    `),
+    address: origin,
+    views: [{ name: "built", path: "/index.html", modes: ["default"], states: [{
+      name: "fresh", steps: [{ action: "wait", text: "Fresh build" }],
+    }] }],
+  });
+  await mkdir(join(directory, "dist/nested"), { recursive: true });
+  await writeFile(join(directory, "dist/index.html"), "Stale output");
+  await writeFile(join(directory, "dist/nested/stale.txt"), "Stale nested output");
+  await writeFile(join(directory, "old.txt"), "Old output");
+  await writeFile(join(directory, "keep.txt"), "Keep beside outputs");
+  await symlink("keep.txt", join(directory, "linked.txt"));
+  const out = join(root, `rebuilt-${sequence}`);
+  const result = await checkSurface({ surface: filename, out }, () => {});
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 44);
+  assert.ok(result.renders.every((render) => render.rendered && render.hasContent));
+  assert.equal(result.buildMs, 3000);
+  assert.deepEqual(result.outputs, ["dist", "old.txt", "linked.txt"]);
+  assert.deepEqual(JSON.parse(await readFile(join(out, "result.json"), "utf8")), result);
+  assert.equal(await readFile(join(directory, "dist/index.html"), "utf8"), html);
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep beside outputs");
+  for (const path of ["dist/nested", "old.txt", "linked.txt", "absent"]) {
+    await assert.rejects(readFile(join(directory, path)), { code: "ENOENT" });
+  }
+}
+test(removedOutputsAreRebuiltBeforeTheStartServesThem);
+
+async function outputLinksAreCheckedAgainBeforeCleanup() {
+  const { filename, directory } = await temporaryBuildSurface({ outputs: ["keep.txt", "dist"] });
+  await writeFile(join(directory, "keep.txt"), "Keep output");
+  const surface = await readSurface(filename);
+  await symlink(root, join(directory, "dist"));
+  await assert.rejects(startSurface(surface), /Surface Test surface outputs.*inside the surface directory after resolving links/);
+  assert.equal(await readFile(join(directory, "index.html"), "utf8"), "Ready");
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep output");
+}
+test(outputLinksAreCheckedAgainBeforeCleanup);
+
+async function surfacesWithoutBuildKeysKeepTheCommonBoundAndFiles() {
+  const { filename, directory } = await temporaryBuildSurface();
+  const out = join(root, `unchanged-build-${sequence}`);
+  const html = '<!doctype html><html lang="en"><title>Ready</title><link rel="icon" href="data:,"><body style="font:16px sans-serif;color:black;background:white"><p>Ready</p></body></html>';
+  await writeFile(join(directory, "index.html"), html);
+  await writeFile(join(directory, "keep.txt"), "Keep output");
+  const surface = await readSurface(filename);
+  assert.equal(surface.buildMs, undefined);
+  assert.equal(surface.outputs, undefined);
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 0, command.stderr + command.stdout);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.buildMs, LIMITS.buildMs);
+  assert.deepEqual(result.outputs, []);
+  assert.equal(await readFile(join(directory, "index.html"), "utf8"), html);
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep output");
+}
+test(surfacesWithoutBuildKeysKeepTheCommonBoundAndFiles);
 
 async function textClippedToNothingPasses() {
   const { result } = await execute("hidden-text");

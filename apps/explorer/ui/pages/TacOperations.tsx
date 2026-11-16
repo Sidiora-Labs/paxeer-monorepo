@@ -7,14 +7,15 @@ import useIsMobile from 'lib/hooks/useIsMobile';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { TAC_OPERATION } from 'stubs/operations';
 import { generateListStub } from 'stubs/utils';
-import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import TacOperationsListItem from 'ui/operations/tac/TacOperationsListItem';
 import TacOperationsTable from 'ui/operations/tac/TacOperationsTable';
 import ActionBar from 'ui/shared/ActionBar';
-import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
+
+import PageDataListDisplay from './PageDataListDisplay';
+import { PageFilterInput } from './PageFilterInput';
 
 const TacOperations = () => {
   const router = useRouter();
@@ -42,8 +43,8 @@ const TacOperations = () => {
   }, [ onFilterChange ]);
 
   const filterInput = (
-    <FilterInput
-      w={{ base: '100%', lg: '460px' }}
+    <PageFilterInput
+      w={{ base: '100%', lg: 'var(--chakra-spacing-100)' }}
       size="sm"
       onChange={ handleSearchTermChange }
       placeholder="Search by operation, tx hash, sender"
@@ -57,7 +58,7 @@ const TacOperations = () => {
         { filterInput }
       </Box>
       { (!isMobile || pagination.isVisible) && (
-        <ActionBar mt={ -6 }>
+        <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
           <Box gap={ 3 } display={{ base: 'none', lg: 'flex' }}>
             { filterInput }
           </Box>
@@ -90,7 +91,7 @@ const TacOperations = () => {
   return (
     <>
       <PageTitle title="Operations" withTextAd/>
-      <DataListDisplay
+      <PageDataListDisplay
         isError={ isError }
         itemsNum={ data?.items?.length }
         emptyText="There are no operations."
@@ -101,7 +102,7 @@ const TacOperations = () => {
         actionBar={ actionBar }
       >
         { content }
-      </DataListDisplay>
+      </PageDataListDisplay>
     </>
   );
 };

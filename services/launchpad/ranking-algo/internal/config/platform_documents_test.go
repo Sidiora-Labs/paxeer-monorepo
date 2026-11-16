@@ -91,7 +91,7 @@ func platformValues(t *testing.T) platformDocumentValues {
 	platformReadJSON(t, filepath.Join(documents, "values", "ranking.example.json"), &f.ranking)
 	digest := strings.Repeat("0", 64)
 	expected := production.ExpectedSchema{
-		Service: "ranking", RuntimeRole: "rankingd", RegistryDigest: digest, InterfaceDigest: digest,
+		Service: "core/ranking-algo", RuntimeRole: "rankingd", RegistryDigest: digest, InterfaceDigest: digest,
 		ReaderVersion: 1, Migrations: map[int64]string{1: digest}, Schemas: map[string]string{"ranking": digest},
 		Epoch: 1, Region: "mainnet-beta",
 		Privileges: []production.Grant{{Schema: "ranking", Object: "snapshots", Privileges: []string{"SELECT"}}},

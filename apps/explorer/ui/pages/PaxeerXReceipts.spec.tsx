@@ -51,7 +51,7 @@ async function receipts_page_shows_archive_rows_without_rung() {
   expect(Array.from(container.querySelectorAll('[data-label="paxeer-x-receipts"] th')).map((header) => header.textContent))
     .toEqual([ 'Receipt ID', 'Account', 'Block' ]);
   expect(container.querySelectorAll('[data-receipt] td')).toHaveLength(3);
-  expect(container.querySelectorAll(`a[href="/paxeer-x/receipts/${ second.id }"]`)).toHaveLength(2);
+  expect(container.querySelectorAll(`a[href="/tx/${ second.transaction_hash }"]`)).toHaveLength(2);
   expect(container.querySelector('[data-rung]')).toBeNull();
   expect(screen.queryByText('Settlement')).toBeNull();
 }

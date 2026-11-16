@@ -1139,6 +1139,19 @@
         },
         {
           "schema": "candles",
+          "object": "chart_outbox",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "published_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "candles",
           "object": "chart_outbox_id_seq",
           "object_kind": "sequence",
           "privileges": [
@@ -1196,7 +1209,11 @@
           "columns": [
             "source_fill_id",
             "source_fact_digest",
-            "payload"
+            "payload",
+            "chain_id",
+            "transaction_hash",
+            "log_index",
+            "pool_address"
           ],
           "argument_types": [],
           "grant_option": false,
@@ -1566,6 +1583,90 @@
           "object_kind": "sequence",
           "privileges": [
             "USAGE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "candles",
+          "object": "chart_exact",
+          "object_kind": "table",
+          "privileges": [
+            "DELETE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "candles",
+          "object": "chart_traders",
+          "object_kind": "table",
+          "privileges": [
+            "DELETE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "candles",
+          "object": "chart_rollup_pending",
+          "object_kind": "table",
+          "privileges": [
+            "DELETE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "candles",
+          "object": "chart_rollup_lineage",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "candles",
+          "object": "chart_rollup_lineage",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "child_digest",
+            "source_watermark",
+            "algorithm"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "candles",
+          "object": "chart_archive_checkpoints",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "manifest_digest",
+            "verified_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "candles",
+          "object": "chart_rebuild_stream_sources",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
           ],
           "columns": [],
           "argument_types": [],

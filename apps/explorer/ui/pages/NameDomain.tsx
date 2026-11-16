@@ -62,7 +62,7 @@ const NameDomain = () => {
         protocol={ infoQuery.data?.protocol }
         isLoading={ isLoading }
         noLink
-        maxW={{ lg: infoQuery.data?.resolved_address ? '300px' : 'max-content' }}
+        maxW={{ lg: infoQuery.data?.resolved_address ? 'var(--chakra-spacing-75)' : 'max-content' }}
         variant="subheading"
       />
       { infoQuery.data?.resolved_address && (

@@ -358,6 +358,15 @@ func validateEpochs(es []AddressEpoch, d string) error {
 	return nil
 }
 func (s *CommittedSource) Name() string { return "committed-rpc" }
+
+// HistoricalConcurrency reports the configured bound for archive reads.
+func (s *CommittedSource) HistoricalConcurrency() int {
+	if s == nil || s.opts.HistoricalConcurrency <= 0 {
+		return 48
+	}
+	return s.opts.HistoricalConcurrency
+}
+
 func (s *CommittedSource) Close() error {
 	var err error
 	if s.lifecycle != nil {

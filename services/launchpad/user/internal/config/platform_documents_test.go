@@ -52,7 +52,7 @@ func platformValues(t *testing.T) (string, string) {
 	}
 	digest := strings.Repeat("0", 64)
 	schema := dbproduction.ExpectedSchema{
-		Service: "user", RuntimeRole: "userd", RegistryDigest: digest, InterfaceDigest: digest,
+		Service: "media/user", RuntimeRole: "userd", RegistryDigest: digest, InterfaceDigest: digest,
 		ReaderVersion: 1, Migrations: map[int64]string{1: digest}, Schemas: map[string]string{"users": digest},
 		Epoch: 1, Region: "mainnet-beta",
 		Privileges: []dbproduction.Grant{{Schema: "users", Object: "user_profiles", Privileges: []string{"SELECT"}}},
@@ -256,7 +256,7 @@ func TestPlatformDocuments(t *testing.T) {
 			}
 		case "EXPECTED_SCHEMA":
 			schema, err := dbproduction.LoadExpectedSchema(raw, cfg.ExpectedSchemaSHA256)
-			if err != nil || schema.Service != "user" || schema.RuntimeRole != "userd" {
+			if err != nil || schema.Service != "media/user" || schema.RuntimeRole != "userd" {
 				t.Fatalf("expected schema: service=%s role=%s error=%v", schema.Service, schema.RuntimeRole, err)
 			}
 		case "ACCOUNT_SUBJECTS":

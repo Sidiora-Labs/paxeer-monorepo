@@ -68,12 +68,21 @@ def load_manifest(path):
         marked = svc.get("secret", svc.get("secrets", []))
         if not isinstance(marked, list) or not all(isinstance(n, str) for n in marked):
             raise ValueError(f"{name}: secrets must list names")
+        sources = svc.get("documentSources", {})
+        if not isinstance(sources, dict) or any(
+            not isinstance(document, str) or not document.endswith("_DOCUMENT")
+            or path != document[:-len("_DOCUMENT")] + "_FILE"
+            or document[:-len("_DOCUMENT")] + "_SHA256" not in [*fixed, *needed]
+            for document, path in sources.items()
+        ):
+            raise ValueError(f"{name}: invalid documentSources contract")
+        alternatives = [n for pair in sources.items() for n in pair]
         # The explicit list is the authority; a name the pattern flags but the list omits is refused.
-        unlisted = [n for n in [*fixed, *needed] if SECRET.search(n) and n not in marked]
+        unlisted = [n for n in [*fixed, *needed, *alternatives] if SECRET.search(n) and n not in marked]
         if unlisted:
             raise ValueError(f"{name}: {', '.join(unlisted)} match the secret name pattern "
                              "but are not in the service's secrets list")
-        out[name] = {"fixed": fixed, "needed": needed, "secrets": set(marked)}
+        out[name] = {"fixed": fixed, "needed": needed, "secrets": set(marked), "sources": sources}
     return out
 
 
@@ -92,14 +101,35 @@ def show(svc, name, value):
 def desired(name, svc, values, from_env):
     scoped = values.get(name) if isinstance(values.get(name), dict) else {}
     want, problems = dict(svc["fixed"]), []
-    for key in svc["needed"]:
+    def resolve(key):
+        if key in svc["fixed"]:
+            return svc["fixed"][key]
         value = scoped.get(key, values.get(key) if isinstance(values.get(key), str) else None)
         if value is None and from_env:
             value = os.environ.get(key)
+        return value
+
+    for key in svc["needed"]:
+        value = resolve(key)
         if value is None:
             problems.append(f"{key} has no value (manifest, --values{' or environment' if from_env else '; --from-env not given'})")
             continue
         want[key] = value
+    for document, path in svc["sources"].items():
+        selected = []
+        for key in (document, path):
+            value = resolve(key)
+            if value is None or value == "":
+                continue
+            if not isinstance(value, str) or not value.strip():
+                problems.append(f"{key} must be a non-empty string")
+                continue
+            want[key] = value
+            selected.append(key)
+        if len(selected) == 2:
+            problems.append(f"{document} and {path} are both set; exactly one is required")
+        elif not selected:
+            problems.append(f"{document} has no value (exactly one of {document} or {path} is required)")
     for key, value in want.items():
         if "\n" in value and not key.endswith(("_DOCUMENT", "_PEM")):
             problems.append(f"{key} contains a newline")
@@ -184,6 +214,15 @@ def main(argv, transport=None):
             have = gql("query Variables($p: String!, $e: String!, $s: String!) { "
                        "variables(projectId: $p, environmentId: $e, serviceId: $s, unrendered: true) }",
                        pv)["variables"] or {}
+            bound = dict(have, **want)
+            for document, path in svc["sources"].items():
+                if bound.get(document) and bound.get(path):
+                    problem = f"{document} and {path} are both set; exactly one is required"
+                    if apply:
+                        say(f"refused {name}: {problem}; nothing written", file=sys.stderr)
+                        return 2
+                    if problem not in problems[name]:
+                        problems[name].append(problem)
             mask(*(v for k, v in have.items()
                    if isinstance(v, str) and is_secret(svc, k, v) and svc["fixed"].get(k) != v))
             upsert = {}

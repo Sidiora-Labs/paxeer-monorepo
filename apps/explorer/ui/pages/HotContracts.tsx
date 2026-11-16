@@ -85,7 +85,7 @@ const HotContracts = () => {
   );
 
   const actionBar = (
-    <ActionBar mt={ -6 }>
+    <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
       <Flex alignItems="center">
         <HotContractsIntervalSelect
           interval={ interval }
