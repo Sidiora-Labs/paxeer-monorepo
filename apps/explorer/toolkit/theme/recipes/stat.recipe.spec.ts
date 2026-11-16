@@ -10,7 +10,7 @@ describe('stat recipe, scan variant', () => {
       flexDirection: 'column',
       alignItems: 'flex-start',
       bg: 'bg.surface',
-      borderWidth: '1px',
+      borderWidth: 'var(--chakra-border-widths-1)',
       borderColor: 'card.border',
       borderRadius: 'md',
       boxShadow: 'card',
@@ -22,7 +22,7 @@ describe('stat recipe, scan variant', () => {
     expect(scan?.valueText).toMatchObject({ color: 'text.primary' });
     expect(scan?.valueText).not.toHaveProperty('textStyle');
     const scanCompound = recipe.compoundVariants?.find((entry) => entry.variant === 'scan');
-    expect(scanCompound?.css?.valueText).toMatchObject({ textStyle: 'statValue', fontWeight: '600' });
+    expect(scanCompound?.css?.valueText).toMatchObject({ textStyle: 'statValue', fontWeight: 'semibold' });
   });
 
   it('colours a rising delta apart from a falling one', () => {

@@ -44,17 +44,17 @@ export const FileSnippet = chakra(({ file, className, index, onRemove, isDisable
 
   return (
     <Flex
-      maxW="300px"
+      maxW="var(--chakra-spacing-75)"
       overflow="hidden"
       className={ className }
       alignItems="center"
       textAlign="left"
       columnGap={ 2 }
     >
-      <Icon boxSize="48px" color={ error ? 'text.error' : 'initial' }>
+      <Icon boxSize="var(--chakra-spacing-12)" color={ error ? 'text.error' : 'initial' }>
         { fileIcon }
       </Icon>
-      <Box maxW="calc(100% - 58px - 24px)">
+      <Box maxW={ 'calc(100% - var(--chakra-spacing-14\\.5) - var(--chakra-spacing-6))' }>
         <Flex alignItems="center">
           <Text
             fontWeight={ 600 }

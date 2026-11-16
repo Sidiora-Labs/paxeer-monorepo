@@ -80,7 +80,7 @@ export const TruncatedTextTooltip = React.memo(({ children, label, placement, in
     return (
       <Tooltip
         content={ label }
-        contentProps={{ maxW: { base: 'calc(100vw - 8px)', lg: '400px' } }}
+        contentProps={{ maxW: { base: 'calc(100vw - var(--chakra-spacing-2))', lg: 'var(--chakra-spacing-100)' } }}
         positioning={{ placement }}
         open={ open }
         interactive={ interactive }

@@ -13,7 +13,7 @@ export const recipe = defineSlotRecipe({
       color: 'alert.fg',
     },
     title: {
-      fontWeight: '600',
+      fontWeight: 'semibold',
     },
     description: {
       display: 'inline',
@@ -95,7 +95,7 @@ export const recipe = defineSlotRecipe({
         },
         indicator: {
           boxSize: '5',
-          my: '2px',
+          my: 'var(--chakra-spacing-0\\.5)',
         },
       },
     },
