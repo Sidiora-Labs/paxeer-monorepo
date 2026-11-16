@@ -14902,6 +14902,12 @@ value = "The top keys of tools/paxeer-x/route-catalogue.json are schema, canonic
 basis = "Gotcha 4548. Decision 3046."
 affects = []
 
+[decision.3632]
+title = "With the address of the perps data gateway set, every stream of the trading workspace connects to the socket of that gateway"
+value = "One function of apps/perps/packages/paxeer-backend/src/core/feeds.ts gives the socket origin of the workspace: with NEXT_PUBLIC_PERPS_GATEWAY_URL set it is the origin of that address with the scheme ws for http and wss for https; without it the origin is the one the streams use now. The stream of the markets, the stream of the explorer, the stream of a spot market and the stream of the SID and PAX market take their origin from that function, and their paths are the paths the gateway serves. Task 22.39.675 makes the change, since its mounted view reads the stream of the markets from the gateway."
+basis = "Gotcha 4549. Decisions 3046 and 3590."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -201483,7 +201489,7 @@ do_4 = "do_4 The first test, with PROOF_NULLABLE_MARKETS set: the snapshots carr
 do_5 = "do_5 Without NEXT_PUBLIC_PERPS_GATEWAY_URL the two tests report themselves as skipped, so that the test command of the root stays usable. A package the file needs for a document tree in the runtime is declared at the root as decision 3590 says, one the workspace already holds where it holds one. In services/platform/perps-data/internal/feeds/proof_websocket_test.go change only what the case of do_1 needs to start the file of the workspace, and nothing in the other cases."
 do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/perps-data/internal/feeds/proof_websocket_test.go", "apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
+touches = ["services/platform/perps-data/internal/feeds/proof_websocket_test.go", "apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/packages/paxeer-backend/src"]
 tests = []
 planned_paths = ["apps/perps/tests/proof_widgets.test.ts"]
 build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && go vet ./services/platform/perps-data/internal/feeds/"
@@ -201499,6 +201505,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3632, gotcha 4549. Under apps/perps/packages/paxeer-backend/src are now inside the paths of this task: add to core/feeds.ts one function that gives the socket origin as decision 3632 states, and let the stream of the markets, the stream of the explorer, the stream of a spot market and the stream of the SID and PAX market take their origin from it. Without NEXT_PUBLIC_PERPS_GATEWAY_URL every address stays as it is now. Change nothing else under that directory. Add to apps/perps/tests/proof_widgets.test.ts or to a case file beside it cases that need no gateway: with the address set to an https address with a path the four socket addresses hold the host of that address, the scheme wss and the paths the gateway serves; with an http address the scheme is ws; without the address they equal the present values. The work of the earlier candidate stays as it is. Run the case of the verification by hand first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.667]
 title = "Approve the launchpad migration release through a mode of the schema command"
