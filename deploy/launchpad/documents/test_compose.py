@@ -260,3 +260,125 @@ def test_compose_platform_variable_values() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PASS railway-values" in result.stdout
 
+
+def test_compose_gateway_binding_forms(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    result = _run(values, out, "gateway")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "gateway.json").read_bytes())
+    runtime = json.loads(base64.b64decode(record["GATEWAY_RUNTIME_DOCUMENT"]))
+    assert runtime["approvedBucket"] == "token"
+    assert runtime["recoverySchema"] == "recovery"
+    for service in ("ranking", "social"):
+        assert runtime["recoverySchema"] == json.loads((values / f"{service}.example.json").read_bytes())["recoverySchema"]
+    assert {worker["kind"]: (worker["bucket"], worker["prefix"]) for worker in runtime["objectWorkers"]} == {
+        "variant": ("media-approved", "approved/"),
+        "original": ("media-approved", "quarantine/"),
+        "temporary": ("media-approved", "temporary/"),
+    }
+    routes = {upstream["name"]: upstream["routes"] for upstream in runtime["upstreams"]}
+    assert routes["user"] == [{"Method": "GET", "Template": "/v2/me/watchlist", "Authenticate": True, "Optional": False, "Upload": False}]
+    assert routes["social"] == [{"Method": "GET", "Template": "/v2/profiles/{wallet}/followers", "Authenticate": False, "Optional": True, "Upload": False}]
+    assert routes["metadata"][1] == {"Method": "PUT", "Template": "/v2/tokens/{tokenAddress}/assets/{assetId}", "Authenticate": True, "Optional": False, "Upload": True}
+    assert routes["livestream"] == [{"Method": "GET", "Template": "/v2/streams", "Authenticate": False, "Optional": False, "Upload": False}]
+    budget = json.loads(base64.b64decode(record["DB_BUDGET_DOCUMENT"]))
+    gateway = next(client for client in budget["clients"] if client["role"] == "mediagatewayd")
+    assert gateway["transport"] == "direct"
+    assert gateway["user"] == "identity_runtime"
+    assert "pooler" not in gateway
+    assert gateway["maxConnections"] >= runtime["pools"]["identityMaxConnections"] + runtime["pools"]["controlMaxConnections"]
+
+
+@pytest.mark.parametrize(("path", "value", "key"), [
+    (("runtime", "identityEndpoint"), "https://identity.kindlelaunch.example/", "identityEndpoint"),
+    (("runtime", "identityEndpoint"), "https://@identity.kindlelaunch.example", "identityEndpoint"),
+    (("runtime", "natsUrl"), "tls://nats.kindlelaunch.example:4222/", "natsUrl"),
+    (("runtime", "purgeEndpoint"), "https://cdn.kindlelaunch.example/", "purgeEndpoint"),
+    (("runtime", "upstreams", 0, "url"), "https://user.kindlelaunch.example/", "url"),
+    (("runtime", "upstreams", 0, "routes", 0, "optional"), True, "upstreams[0].routes[0].optional"),
+    (("runtime", "upstreams", 1, "routes", 1, "optional"), True, "upstreams[1].routes[1].optional"),
+    (("runtime", "upstreams", 2, "routes", 0, "upload"), True, "upstreams[2].routes[0].upload"),
+    (("runtime", "upstreams", 1, "routes", 0, "upload"), True, "upstreams[1].routes[0].upload"),
+    (("runtime", "upstreams", 0, "routes"), [{"method": "GET", "template": "/v2/me/watchlist", "authenticate": True}] * 2, "upstreams[0].routes[1]"),
+    (("runtime", "upstreams", 0, "routes"), [{"method": "GET", "template": "/v2/me/watchlist", "authenticate": True}] * 257, "upstreams[0].routes"),
+    (("runtime", "pools", "identityMaxConnections"), 33, "identityMaxConnections"),
+    (("runtime", "pools", "controlMaxConnections"), 2147483648, "controlMaxConnections"),
+    (("runtime", "control", "schema"), "control", "control.schema"),
+    (("runtime", "control", "authoritySchema"), "control", "control.authoritySchema"),
+    (("credentials", "deleteOriginalAccess", "reference"), "GATEWAY_DELETE_VARIANT_ACCESS", "objectWorkers[1].deleteAccessKeyCredential"),
+    (("credentials", "deleteVariantAccess", "reference"), "S3_ACCESS_KEY_ID", "objectWorkers[0].deleteAccessKeyCredential"),
+    (("credentials", "inventoryTemporarySecret", "reference"), "S3_SECRET_ACCESS_KEY", "objectWorkers[2].inventorySecretKeyCredential"),
+    (("runtime", "identityPeers", 0, "publicKey"), "A" * 42 + "B", "identityPeers[0].publicKey"),
+    (("runtime", "identityPeers", 0, "publicKey"), "A" * 42 + "!", "identityPeers[0].publicKey"),
+    (("runtime", "identityListenAddress"), "gateway:9443", "identityListenAddress"),
+    (("runtime", "identityListenAddress"), "127.0.0.1:", "identityListenAddress"),
+    (("runtime", "identityListenAddress"), "::1:9443", "identityListenAddress"),
+    (("runtime", "stream"), "bad stream", "stream"),
+    (("runtime", "durable"), "a" * 129, "durable"),
+    (("runtime", "audit", "stream"), "bad stream", "audit.stream"),
+    (("runtime", "audit", "durable"), "a" * 129, "audit.durable"),
+    (("runtime", "audit", "subject"), "audit.*", "audit.subject"),
+    (("runtime", "audit", "subject"), "a" * 257, "audit.subject"),
+    (("runtime", "consumerGeneration"), "a" * 129, "consumerGeneration"),
+    (("runtime", "consumerGeneration"), "é" * 65, "consumerGeneration"),
+    (("identity", "keys", 0, "id"), "é" * 33, "keys[0].id"),
+    (("runtime", "recoverySchema"), "bad-schema", "recoverySchema"),
+    (("runtime", "recoverySchema"), "r", "recoverySchema"),
+    (("runtime", "recoveryRegion"), "mainnet_eu", "recoveryRegion"),
+    (("runtime", "recoveryEpoch"), 9223372036854775808, "recoveryEpoch"),
+    (("runtime", "mediaSchema"), "bad schema", "mediaSchema"),
+    (("runtime", "metadataSchema"), "bad-schema", "metadataSchema"),
+    (("runtime", "safetySchema"), "A", "safetySchema"),
+    (("runtime", "uploadNamespace"), "gateway upload", "uploadNamespace"),
+    (("runtime", "uploadConcurrent"), 201, "uploadConcurrent"),
+    (("runtime", "uploadBytesPerSecond"), 32767, "uploadBytesPerSecond"),
+    (("runtime", "uploadBytesPerSecond"), (1 << 30) + 1, "uploadBytesPerSecond"),
+    (("runtime", "audit", "deliverySchema"), "users", "audit.deliverySchema"),
+    (("runtime", "audit", "sinkSchema"), "users", "audit.sinkSchema"),
+    (("runtime", "audit", "sinkDeliverySchema"), "gateway_audit_source", "audit.sinkDeliverySchema"),
+    (("runtime", "audit", "subject"), "identity.account.v1", "audit.subject"),
+    (("runtime", "audit", "eventType"), "identity.account.revision", "audit.eventType"),
+    (("runtime", "audit", "durable"), "gateway-identity-consumer", "audit.durable"),
+    (("runtime", "audit", "deliverySchema"), "bad schema", "audit.deliverySchema"),
+    (("runtime", "audit", "sinkDeliverySchema"), "bad schema", "audit.sinkDeliverySchema"),
+    (("identity", "allowedOrigins"), ["https://app.kindlelaunch.example/"], "allowedOrigins[0]"),
+    (("identity", "allowedOrigins"), ["https://app.kindlelaunch.example"] * 2, "allowedOrigins[1]"),
+    (("identity", "keys", 0, "activeAt"), "2026-01-01", "keys[0].activeAt"),
+    (("identity", "keys", 0, "retireAt"), "2027-02-30T00:00:00Z", "keys[0].retireAt"),
+    (("identity", "keys", 0, "retireAt"), "2027-01-01T00:00:00", "keys[0].retireAt"),
+    (("identity", "keys", 0, "activeAt"), "2026-12-31T23:00:00-02:00", "keys[0].retireAt"),
+    (("identity", "keys"), [
+        {"id": "gateway-2026-01", "credential": "identityKey", "activeAt": "2026-01-01T00:00:00Z", "retireAt": "2027-01-01T00:00:00Z"},
+        {"id": "gateway-previous", "credential": "identityKey", "activeAt": "2025-01-01T00:00:00Z", "retireAt": "2026-01-01T00:15:01Z"},
+    ], "keys[1].retireAt"),
+    (("identity", "domain"), "bad_domain", "domain"),
+    (("identity", "domain"), "a" * 64 + ".example", "domain"),
+    (("identity", "uri"), "https://other.kindlelaunch.example/auth", "uri"),
+    (("identity", "uri"), "https://app.kindlelaunch.example/" + "a" * 2048, "uri"),
+])
+def test_compose_gateway_refuses_startup_values(tmp_path: Path, path: tuple, value: object, key: str) -> None:
+    values = _values(tmp_path)
+    source = values / "gateway.example.json"
+    document = json.loads(source.read_bytes())
+    obj = document
+    for part in path[:-1]:
+        obj = obj[part]
+    obj[path[-1]] = value
+    source.write_text(json.dumps(document))
+    result = _run(values, tmp_path / "out", "gateway")
+    assert result.returncode != 0
+    assert f"gateway: invalid value {key}" in result.stderr
+    assert not (tmp_path / "out" / "gateway.json").exists()
+
+
+def test_compose_gateway_preserves_route_list_authority(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    source = values / "gateway.example.json"
+    document = json.loads(source.read_bytes())
+    document["runtime"]["upstreams"][0]["routes"] = [{"method": "GET", "template": "/v2/product-route"}]
+    source.write_text(json.dumps(document))
+    result = _run(values, out, "gateway")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "gateway.json").read_bytes())
+    runtime = json.loads(base64.b64decode(record["GATEWAY_RUNTIME_DOCUMENT"]))
+    assert runtime["upstreams"][0]["routes"][0]["Template"] == "/v2/product-route"

@@ -520,31 +520,40 @@ type RuntimePoolSplit struct {
 	ControlCredentialReference string `json:"controlCredentialReference"`
 }
 
-func (c *Config) OpenSplitRuntimePools(ctx context.Context, split RuntimePoolSplit) (*pgxpool.Pool, *pgxpool.Pool, error) {
+// RuntimePoolOptions validates the split against its bound connection budget.
+func (c *Config) RuntimePoolOptions(split RuntimePoolSplit) (runtimedb.PoolOptions, error) {
 	if c.NodeEnv != nodeEnvironmentProduction || split.IdentityPoolID != c.RuntimePoolID || split.ControlPoolID == "" || split.ControlPoolID == split.IdentityPoolID || split.IdentityMaxConnections < 1 || split.ControlMaxConnections < 1 || split.ControlCredentialReference == "" {
-		return nil, nil, fmt.Errorf("explicit_runtime_pool_split_required")
+		return runtimedb.PoolOptions{}, fmt.Errorf("explicit_runtime_pool_split_required")
 	}
 	if c.RuntimeProfile == "container" {
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
-			return nil, nil, fmt.Errorf("container_bind_mismatch")
+			return runtimedb.PoolOptions{}, fmt.Errorf("container_bind_mismatch")
 		}
 	} else if c.RuntimeProfile != "owned_local" || c.BindAddress != "127.0.0.1" {
-		return nil, nil, fmt.Errorf("runtime_profile_required")
+		return runtimedb.PoolOptions{}, fmt.Errorf("runtime_profile_required")
 	}
 	data, err := boundBytes(c.RuntimeBudgetFile, c.RuntimeBudgetDocument, c.RuntimeBudgetSHA256)
 	if err != nil {
-		return nil, nil, fmt.Errorf("runtime_budget_binding_mismatch")
+		return runtimedb.PoolOptions{}, fmt.Errorf("runtime_budget_binding_mismatch")
 	}
 	budget, err := dbproduction.ParseConnectionBudget(data)
 	if err != nil {
-		return nil, nil, err
+		return runtimedb.PoolOptions{}, err
 	}
 	options, err := budget.BudgetPoolOptions("mediagatewayd", c.RuntimePoolID, c.RuntimeInstanceID)
 	if err != nil {
-		return nil, nil, err
+		return runtimedb.PoolOptions{}, err
 	}
 	if options.Transport != runtimedb.TransportDirect || options.DatabaseUser != "identity_runtime" || int64(split.IdentityMaxConnections)+int64(split.ControlMaxConnections) > int64(options.MaxConns) {
-		return nil, nil, fmt.Errorf("runtime_pool_split_exceeds_reviewed_allocation")
+		return runtimedb.PoolOptions{}, fmt.Errorf("runtime_pool_split_exceeds_reviewed_allocation")
+	}
+	return options, nil
+}
+
+func (c *Config) OpenSplitRuntimePools(ctx context.Context, split RuntimePoolSplit) (*pgxpool.Pool, *pgxpool.Pool, error) {
+	options, err := c.RuntimePoolOptions(split)
+	if err != nil {
+		return nil, nil, err
 	}
 	provider, err := sharedsecrets.NewChecked(sharedsecrets.Options{Provider: sharedsecrets.ProviderType(c.SecretsProvider), CacheTTL: 0})
 	if err != nil {

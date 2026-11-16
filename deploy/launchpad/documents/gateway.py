@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import re
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -60,7 +62,7 @@ def _integer(obj: dict[str, Any], key: str, *, minimum: int = 1, maximum: int | 
 def _url(obj: dict[str, Any], key: str, schemes: set[str], *, allow_path: bool = False) -> str:
     value = _string(obj, key)
     parsed = urlparse(value)
-    if parsed.scheme not in schemes or not parsed.netloc or parsed.username or (not allow_path and parsed.path not in ("", "/")) or parsed.query or parsed.fragment:
+    if parsed.scheme not in schemes or not parsed.netloc or parsed.username is not None or (not allow_path and parsed.path != "") or parsed.query or parsed.fragment:
         raise DocumentError(f"gateway: invalid value {key}")
     return value
 
@@ -105,6 +107,8 @@ def _route(route: Any, key: str) -> dict[str, Any]:
     result["Authenticate"] = result.pop("Authenticate")
     result["Optional"] = result.pop("Optional")
     result["Upload"] = result.pop("Upload")
+    if result["Optional"] and (result["Authenticate"] or method != "GET"):
+        raise DocumentError(f"gateway: invalid value {key}.optional")
     return result
 
 
@@ -116,9 +120,9 @@ def _runtime(values: dict[str, Any]) -> dict[str, Any]:
         raise DocumentError("gateway: invalid value pools")
     pool_doc = {
         "identityPoolId": _string(pools, "identityPoolId"),
-        "identityMaxConnections": _integer(pools, "identityMaxConnections"),
+        "identityMaxConnections": _integer(pools, "identityMaxConnections", maximum=32),
         "controlPoolId": _string(pools, "controlPoolId"),
-        "controlMaxConnections": _integer(pools, "controlMaxConnections"),
+        "controlMaxConnections": _integer(pools, "controlMaxConnections", maximum=2147483647),
         "controlCredentialReference": _credential(credentials, _string(pools, "controlCredential")),
     }
     if pool_doc["identityPoolId"] == pool_doc["controlPoolId"]:
@@ -134,12 +138,16 @@ def _runtime(values: dict[str, Any]) -> dict[str, Any]:
         "revocationEndpoint": _url(control, "revocationEndpoint", {"https"}, allow_path=True),
         "revocationTokenReference": _credential(credentials, _string(control, "revocationCredential")),
     }
+    for key in ("schema", "authoritySchema"):
+        if control_doc[key] != "pnl":
+            raise DocumentError(f"gateway: invalid value control.{key}")
 
     workers = _field(runtime, "objectWorkers")
     if not isinstance(workers, list) or not 1 <= len(workers) <= 4:
         raise DocumentError("gateway: invalid value objectWorkers")
     worker_docs = []
     kinds: set[str] = set()
+    references = {"S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"}
     prefixes = {"variant": "approved/", "original": "quarantine/", "temporary": "temporary/", "recording": "private/"}
     for index, worker in enumerate(workers):
         key = f"objectWorkers[{index}]"
@@ -161,6 +169,11 @@ def _runtime(values: dict[str, Any]) -> dict[str, Any]:
                 "inventoryLimit": _integer(worker, "inventoryLimit", maximum=100000),
             }
         )
+        for role in ("deleteAccessKey", "deleteSecretKey", "inventoryAccessKey", "inventorySecretKey"):
+            reference = worker_docs[-1][role + "Reference"]
+            if reference in references:
+                raise DocumentError(f"gateway: invalid value {key}.{role}Credential")
+            references.add(reference)
     if not {"variant", "original", "temporary"}.issubset(kinds):
         raise DocumentError("gateway: objectWorkers must include variant, original and temporary")
 
@@ -170,8 +183,6 @@ def _runtime(values: dict[str, Any]) -> dict[str, Any]:
     for item in trusted:
         address, bits = item.rsplit("/", 1)
         try:
-            import ipaddress
-
             network = ipaddress.ip_network(item, strict=True)
             if network.prefixlen == 0 or str(network) != item:
                 raise ValueError
@@ -197,7 +208,7 @@ def _runtime(values: dict[str, Any]) -> dict[str, Any]:
             decoded = base64.urlsafe_b64decode(public_key + "=" * (-len(public_key) % 4))
         except ValueError:
             decoded = b""
-        if len(decoded) != 32 or "+" in public_key or "/" in public_key or "=" in public_key:
+        if len(decoded) != 32 or base64.urlsafe_b64encode(decoded).decode().rstrip("=") != public_key:
             raise DocumentError(f"gateway: invalid value {key}.publicKey")
         peer_docs.append({"issuer": issuer, "peerCertSHA256": pin, "publicKey": public_key})
 
@@ -215,9 +226,18 @@ def _runtime(values: dict[str, Any]) -> dict[str, Any]:
             raise DocumentError(f"gateway: invalid value {key}.name")
         seen_upstreams.add(name)
         routes = _field(upstream, "routes")
-        if not isinstance(routes, list) or not routes:
+        if not isinstance(routes, list) or not 1 <= len(routes) <= 256:
             raise DocumentError(f"gateway: invalid value {key}.routes")
-        upstream_docs.append({"name": name, "url": _url(upstream, "url", {"https"}), "routes": [_route(route, f"{key}.routes[{i}]") for i, route in enumerate(routes)]})
+        route_docs = [_route(route, f"{key}.routes[{i}]") for i, route in enumerate(routes)]
+        seen_routes: set[tuple[str, str]] = set()
+        for i, route in enumerate(route_docs):
+            identity = (route["Method"], route["Template"])
+            if identity in seen_routes:
+                raise DocumentError(f"gateway: invalid value {key}.routes[{i}]")
+            seen_routes.add(identity)
+            if route["Upload"] and (name != "metadata" or route["Method"] not in {"POST", "PUT"} or "/assets/" not in route["Template"]):
+                raise DocumentError(f"gateway: invalid value {key}.routes[{i}].upload")
+        upstream_docs.append({"name": name, "url": _url(upstream, "url", {"https"}), "routes": route_docs})
 
     audit = _field(runtime, "audit")
     if not isinstance(audit, dict):
@@ -232,6 +252,48 @@ def _runtime(values: dict[str, Any]) -> dict[str, Any]:
         "stream": _string(audit, "stream"),
         "durable": _string(audit, "durable"),
     }
+    for key in ("deliverySchema", "sinkSchema"):
+        if audit_doc[key] == "users":
+            raise DocumentError(f"gateway: invalid value audit.{key}")
+    for key, other in (("sinkDeliverySchema", audit_doc["deliverySchema"]), ("subject", "identity.account.v1"), ("eventType", "identity.account.revision"), ("durable", _string(runtime, "durable"))):
+        if audit_doc[key] == other:
+            raise DocumentError(f"gateway: invalid value audit.{key}")
+    for key in ("deliverySchema", "sinkDeliverySchema"):
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", audit_doc[key]):
+            raise DocumentError(f"gateway: invalid value audit.{key}")
+
+    for key in ("mediaSchema", "metadataSchema", "safetySchema"):
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,62}", _string(runtime, key)):
+            raise DocumentError(f"gateway: invalid value {key}")
+    has_upload = any(route["Upload"] and route["Method"] == "PUT" for upstream in upstream_docs for route in upstream["routes"])
+    patterns = [("recoverySchema", r"[a-z][a-z0-9_]{1,62}"), ("recoveryRegion", r"[a-z][a-z0-9-]{1,62}")]
+    if has_upload:
+        patterns.append(("uploadNamespace", r"[a-zA-Z0-9_-]{1,128}"))
+    for key, pattern in patterns:
+        if not re.fullmatch(pattern, _string(runtime, key)):
+            raise DocumentError(f"gateway: invalid value {key}")
+    if len(_string(runtime, "consumerGeneration").encode("utf-8")) > 128:
+        raise DocumentError("gateway: invalid value consumerGeneration")
+    listen = _string(runtime, "identityListenAddress")
+    try:
+        host, port = listen.rsplit(":", 1)
+        if host.startswith("[") and host.endswith("]"):
+            host = host[1:-1]
+        elif ":" in host:
+            raise ValueError
+        ipaddress.ip_address(host)
+        if not port:
+            raise ValueError
+    except ValueError:
+        raise DocumentError("gateway: invalid value identityListenAddress") from None
+
+    for key in ("stream", "durable"):
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", _string(runtime, key)):
+            raise DocumentError(f"gateway: invalid value {key}")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", audit_doc[key]):
+            raise DocumentError(f"gateway: invalid value audit.{key}")
+    if len(audit_doc["subject"]) > 256 or not re.fullmatch(r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*", audit_doc["subject"]):
+        raise DocumentError("gateway: invalid value audit.subject")
 
     purge_mode = _string(runtime, "purgeMode")
     if purge_mode not in {"http", "origin_cache"}:
@@ -263,15 +325,15 @@ def _runtime(values: dict[str, Any]) -> dict[str, Any]:
         "durable": _string(runtime, "durable"),
         "consumerGeneration": _string(runtime, "consumerGeneration"),
         "recoverySchema": _string(runtime, "recoverySchema"),
-        "recoveryEpoch": _integer(runtime, "recoveryEpoch"),
+        "recoveryEpoch": _integer(runtime, "recoveryEpoch", maximum=9223372036854775807),
         "recoveryRegion": _string(runtime, "recoveryRegion"),
         "mediaSchema": _string(runtime, "mediaSchema"),
         "metadataSchema": _string(runtime, "metadataSchema"),
         "safetySchema": _string(runtime, "safetySchema"),
         "approvedBucket": _string(runtime, "approvedBucket"),
         "uploadNamespace": _string(runtime, "uploadNamespace"),
-        "uploadConcurrent": _integer(runtime, "uploadConcurrent"),
-        "uploadBytesPerSecond": _integer(runtime, "uploadBytesPerSecond"),
+        "uploadConcurrent": _integer(runtime, "uploadConcurrent", maximum=200 if has_upload else None),
+        "uploadBytesPerSecond": _integer(runtime, "uploadBytesPerSecond", minimum=32768 if has_upload else 1, maximum=1 << 30 if has_upload else None),
         "purgeMode": purge_mode,
         "purgeEndpoint": purge_endpoint,
         "purgeTokenReference": purge_reference,
@@ -290,29 +352,49 @@ def _identity(values: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(origin, str):
             raise DocumentError(f"gateway: invalid value allowedOrigins[{index}]")
         parsed = urlparse(origin)
-        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.path not in ("", "/") or parsed.query or parsed.fragment or "*" in origin:
+        if parsed.scheme != "https" or not parsed.netloc or parsed.username is not None or parsed.path != "" or parsed.query or parsed.fragment or "*" in origin or origin in origins[:index]:
             raise DocumentError(f"gateway: invalid value allowedOrigins[{index}]")
     keys = _field(identity, "keys")
     if not isinstance(keys, list) or not 1 <= len(keys) <= 8:
         raise DocumentError("gateway: invalid value keys")
     key_docs = []
     ids: set[str] = set()
+    times: dict[str, tuple[datetime, datetime]] = {}
     for index, key in enumerate(keys):
         name = f"keys[{index}]"
         if not isinstance(key, dict):
             raise DocumentError(f"gateway: invalid value {name}")
         key_id = _string(key, "id")
-        if key_id in ids or len(key_id) > 64:
+        if key_id in ids or len(key_id.encode("utf-8")) > 64:
             raise DocumentError(f"gateway: invalid value {name}.id")
         ids.add(key_id)
         active = _string(key, "activeAt")
         retire = _string(key, "retireAt")
         if retire <= active:
             raise DocumentError(f"gateway: invalid value {name}.retireAt")
+        for field, value in (("activeAt", active), ("retireAt", retire)):
+            try:
+                if not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)", value):
+                    raise ValueError
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                raise DocumentError(f"gateway: invalid value {name}.{field}") from None
+        times[key_id] = (datetime.fromisoformat(active.replace("Z", "+00:00")), datetime.fromisoformat(retire.replace("Z", "+00:00")))
+        if times[key_id][1] <= times[key_id][0]:
+            raise DocumentError(f"gateway: invalid value {name}.retireAt")
         key_docs.append({"id": key_id, "secretReference": _credential(credentials, _string(key, "credential")), "activeAt": active, "retireAt": retire})
     active_key = _string(identity, "activeKey")
     if active_key not in ids:
         raise DocumentError("gateway: invalid value activeKey")
+    for index, key in enumerate(key_docs):
+        if key["id"] != active_key and times[key["id"]][1] > times[active_key][0] + timedelta(minutes=15):
+            raise DocumentError(f"gateway: invalid value keys[{index}].retireAt")
+    domain = _string(identity, "domain")
+    if len(domain) > 253 or any(not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", label) for label in domain.split(".")):
+        raise DocumentError("gateway: invalid value domain")
+    uri = _url(identity, "uri", {"https"}, allow_path=True)
+    if len(uri) > 2048 or urlparse(uri).netloc != domain:
+        raise DocumentError("gateway: invalid value uri")
     return {
         "issuer": _string(identity, "issuer"),
         "audience": _string(identity, "audience"),

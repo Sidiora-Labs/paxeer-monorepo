@@ -426,41 +426,50 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	return result, nil
 }
 
-func newProductionIdentity(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, connected *gatewayConnectedRuntime, identityMetrics *identityRuntimeMetrics) (*auth.Identity, *ethclient.Client, sharedhttp.Check, error) {
-	var identityConfig struct {
-		Issuer         string            `json:"issuer"`
-		Audience       string            `json:"audience"`
-		ActiveKey      string            `json:"activeKey"`
-		Keys           []auth.SigningKey `json:"keys"`
-		Domain         string            `json:"domain"`
-		URI            string            `json:"uri"`
-		AllowedOrigins []string          `json:"allowedOrigins"`
-	}
+type gatewayIdentityBinding struct {
+	Issuer         string            `json:"issuer"`
+	Audience       string            `json:"audience"`
+	ActiveKey      string            `json:"activeKey"`
+	Keys           []auth.SigningKey `json:"keys"`
+	Domain         string            `json:"domain"`
+	URI            string            `json:"uri"`
+	AllowedOrigins []string          `json:"allowedOrigins"`
+}
+
+type gatewayIdentityPreparation struct {
+	binding gatewayIdentityBinding
+	tokens  *auth.IdentityTokens
+	check   sharedhttp.Check
+}
+
+func prepareProductionIdentity(ctx context.Context, cfg config.Config, identityMetrics *identityRuntimeMetrics) (*gatewayIdentityPreparation, error) {
+	var identityConfig gatewayIdentityBinding
+
 	if err := config.ReadBoundDocument(cfg.IdentityConfigFile, cfg.IdentityConfigSHA256, &identityConfig); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	originSet := map[string]bool{}
 	for _, origin := range strings.Split(cfg.CORSAllowedOrigins, ",") {
 		originSet[origin] = true
 	}
 	if len(identityConfig.AllowedOrigins) != len(originSet) {
-		return nil, nil, nil, errors.New("identity and CORS origin bindings disagree")
+		return nil, errors.New("identity and CORS origin bindings disagree")
 	}
 	for _, origin := range identityConfig.AllowedOrigins {
 		if !originSet[origin] {
-			return nil, nil, nil, errors.New("identity and CORS origin bindings disagree")
+			return nil, errors.New("identity and CORS origin bindings disagree")
 		}
 		delete(originSet, origin)
 	}
 	provider, err := sharedsecrets.NewChecked(sharedsecrets.Options{Provider: sharedsecrets.ProviderType(cfg.SecretsProvider), CacheTTL: 0})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	identityKeyValues := map[string]string{}
 	for _, key := range identityConfig.Keys {
 		value, e := provider.GetRequired(ctx, key.SecretReference)
 		if e != nil {
-			return nil, nil, nil, fmt.Errorf("identity_signing_secret_unavailable")
+			return nil, fmt.Errorf("identity_signing_secret_unavailable")
 		}
 		identityKeyValues[key.SecretReference] = value
 	}
@@ -478,9 +487,18 @@ func newProductionIdentity(ctx context.Context, cfg config.Config, pool *pgxpool
 	}
 	tokens, err := auth.NewIdentityTokens(identityConfig.Issuer, identityConfig.Audience, identityConfig.ActiveKey, identityConfig.Keys, identityKeyResolver{provider}, time.Now)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	tokens.SetObserver(identityMetrics.observe)
+	return &gatewayIdentityPreparation{binding: identityConfig, tokens: tokens, check: check}, nil
+}
+
+func newProductionIdentity(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, connected *gatewayConnectedRuntime, identityMetrics *identityRuntimeMetrics) (*auth.Identity, *ethclient.Client, sharedhttp.Check, error) {
+	prepared, err := prepareProductionIdentity(ctx, cfg, identityMetrics)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	identityConfig, tokens, check := prepared.binding, prepared.tokens, prepared.check
 	identityRPC, err := ethclient.DialContext(ctx, cfg.RPCURL)
 	if err != nil {
 		return nil, nil, nil, err
@@ -824,7 +842,15 @@ func gatewayBoundBytes(path, digest string) ([]byte, error) {
 	}
 	return raw, nil
 }
-func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, controlPool *pgxpool.Pool, binding gatewayRuntimeBinding, rdb *goredis.Client, objectCache *cache.Cache, readers map[string]serve.Reader, logger *slog.Logger) (*gatewayConnectedRuntime, error) {
+
+type gatewayRuntimePreparation struct {
+	runtime   *gatewayConnectedRuntime
+	authority sharedauth.MTLSIdentityAuthority
+	clientTLS *tls.Config
+	secret    func(string) (string, error)
+}
+
+func prepareGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, controlPool *pgxpool.Pool, binding gatewayRuntimeBinding, rdb *goredis.Client, objectCache *cache.Cache, readers map[string]serve.Reader, logger *slog.Logger) (*gatewayRuntimePreparation, error) {
 	lifecycle, stop := context.WithCancel(ctx)
 	runtime := &gatewayConnectedRuntime{ctx: lifecycle, stop: stop, secrets: map[string]string{}, logger: logger}
 	owned := false
@@ -1014,6 +1040,25 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	runtime.purge = mediastore.PurgeWorker{Authority: mediaAuthority, Provider: purgeProvider}
 	runtime.mediaAuthority = mediaAuthority
 	runtime.objectCache = objectCache
+	owned = true
+	return &gatewayRuntimePreparation{runtime: runtime, authority: authority, clientTLS: clientTLS, secret: secret}, nil
+}
+
+func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, controlPool *pgxpool.Pool, binding gatewayRuntimeBinding, rdb *goredis.Client, objectCache *cache.Cache, readers map[string]serve.Reader, logger *slog.Logger) (*gatewayConnectedRuntime, error) {
+	prepared, e := prepareGatewayConnectedRuntime(ctx, cfg, pool, controlPool, binding, rdb, objectCache, readers, logger)
+	if e != nil {
+		return nil, e
+	}
+	runtime := prepared.runtime
+	owned := false
+	defer func() {
+		if !owned {
+			runtime.close()
+		}
+	}()
+	b := runtime.binding
+	mediaAuthority := runtime.mediaAuthority
+	clientTLS, authority, secret := prepared.clientTLS, prepared.authority, prepared.secret
 	if e = mediaAuthority.ReplayTombstones(ctx); e != nil {
 		return nil, e
 	}
@@ -1031,9 +1076,8 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	if e != nil {
 		return nil, e
 	}
-	natsURL, e := url.Parse(b.NATSURL)
-	if e != nil || natsURL.Scheme != "tls" || natsURL.Host == "" || natsURL.User != nil || natsURL.Path != "" || natsURL.RawQuery != "" || natsURL.Fragment != "" {
-		return nil, errors.New("gateway private TLS broker required")
+	if e = validateGatewayBrokerURL(b.NATSURL); e != nil {
+		return nil, e
 	}
 	credentials, e := secret(b.NATSCredentialsReference)
 	if e != nil {
@@ -1051,32 +1095,10 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	if e != nil {
 		return nil, e
 	}
+	if e = runtime.configureAuditStores(pool, guard, secret); e != nil {
+		return nil, e
+	}
 	audit := b.Audit
-	if audit.DeliverySchema == "users" || audit.DeliverySchema == audit.SinkDeliverySchema || audit.SinkSchema == "users" || audit.Subject == auth.IdentityRevisionSubject || audit.EventType == auth.IdentityRevisionEventType || audit.Durable == b.Durable {
-		return nil, errors.New("distinct security audit authority required")
-	}
-	auditSecret, e := secret(audit.KeyReference)
-	if e != nil {
-		return nil, e
-	}
-	runtime.auditKey = []byte(auditSecret)
-	if len(runtime.auditKey) < 32 {
-		return nil, errors.New("audit privacy key invalid")
-	}
-	auditPolicy := delivery.Policy{Subjects: map[string]bool{audit.Subject: true}, EventTypes: map[string]bool{audit.EventType: true}}
-	sourceStore, e := delivery.NewStoreWithEpochGuard(pool, audit.DeliverySchema, auditPolicy, guard.Assert)
-	if e != nil {
-		return nil, e
-	}
-	sinkStore, e := delivery.NewStoreWithEpochGuard(pool, audit.SinkDeliverySchema, auditPolicy, guard.Assert)
-	if e != nil {
-		return nil, e
-	}
-	if audit.SinkSchema == "" || audit.Subject == "" || audit.EventType == "" {
-		return nil, errors.New("audit sink authority required")
-	}
-	runtime.auditBridge = sharedauth.AuditBridge{Pool: pool, Delivery: sourceStore, Subject: audit.Subject, EventType: audit.EventType}
-	runtime.auditSink = sharedauth.AuditSink{Delivery: sinkStore, Consumer: audit.Durable, Generation: b.ConsumerGeneration, Subject: audit.Subject, EventType: audit.EventType, SinkSchema: audit.SinkSchema}
 	runtime.auditPublisher, e = natsdriver.NewPublisher(runtime.nc, audit.Stream)
 	if e != nil {
 		return nil, e
@@ -1088,6 +1110,45 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	owned = true
 	return runtime, nil
 }
+func validateGatewayBrokerURL(raw string) error {
+	natsURL, e := url.Parse(raw)
+	if e != nil || natsURL.Scheme != "tls" || natsURL.Host == "" || natsURL.User != nil || natsURL.Path != "" || natsURL.RawQuery != "" || natsURL.Fragment != "" {
+		return errors.New("gateway private TLS broker required")
+	}
+	return nil
+}
+
+func (r *gatewayConnectedRuntime) configureAuditStores(pool *pgxpool.Pool, guard *queue.EpochGuard, secret func(string) (string, error)) error {
+	b := r.binding
+	audit := b.Audit
+	if audit.DeliverySchema == "users" || audit.DeliverySchema == audit.SinkDeliverySchema || audit.SinkSchema == "users" || audit.Subject == auth.IdentityRevisionSubject || audit.EventType == auth.IdentityRevisionEventType || audit.Durable == b.Durable {
+		return errors.New("distinct security audit authority required")
+	}
+	auditSecret, e := secret(audit.KeyReference)
+	if e != nil {
+		return e
+	}
+	r.auditKey = []byte(auditSecret)
+	if len(r.auditKey) < 32 {
+		return errors.New("audit privacy key invalid")
+	}
+	auditPolicy := delivery.Policy{Subjects: map[string]bool{audit.Subject: true}, EventTypes: map[string]bool{audit.EventType: true}}
+	sourceStore, e := delivery.NewStoreWithEpochGuard(pool, audit.DeliverySchema, auditPolicy, guard.Assert)
+	if e != nil {
+		return e
+	}
+	sinkStore, e := delivery.NewStoreWithEpochGuard(pool, audit.SinkDeliverySchema, auditPolicy, guard.Assert)
+	if e != nil {
+		return e
+	}
+	if audit.SinkSchema == "" || audit.Subject == "" || audit.EventType == "" {
+		return errors.New("audit sink authority required")
+	}
+	r.auditBridge = sharedauth.AuditBridge{Pool: pool, Delivery: sourceStore, Subject: audit.Subject, EventType: audit.EventType}
+	r.auditSink = sharedauth.AuditSink{Delivery: sinkStore, Consumer: audit.Durable, Generation: b.ConsumerGeneration, Subject: audit.Subject, EventType: audit.EventType, SinkSchema: audit.SinkSchema}
+	return nil
+}
+
 func (r *gatewayConnectedRuntime) fail(e error) {
 	if e != nil {
 		r.failure.CompareAndSwap(nil, &e)
@@ -1299,14 +1360,14 @@ type gatewayObjectWorker struct {
 	inventory   *s3.Client
 }
 
-func (r *gatewayConnectedRuntime) configureControl(ctx context.Context, cfg config.Config, identityPool, controlPool *pgxpool.Pool, authority proxy.RequestIdentityAuthority, clientTLS *tls.Config, secret func(string) (string, error)) error {
+func (r *gatewayConnectedRuntime) newControlRuntime(ctx context.Context, cfg config.Config, identityPool, controlPool *pgxpool.Pool, authority proxy.RequestIdentityAuthority, clientTLS *tls.Config, secret func(string) (string, error)) (*control.Runtime, error) {
 	binding := r.binding.Control
 	if binding.Schema != "pnl" || binding.AuthoritySchema != "pnl" {
-		return errors.New("exact control authority schemas required")
+		return nil, errors.New("exact control authority schemas required")
 	}
 	consumed, e := secret(r.binding.Pools.ControlCredentialReference)
 	if e != nil {
-		return e
+		return nil, e
 	}
 	_ = consumed
 	configuration := control.RuntimeConfig{ControlPool: controlPool, IdentityPool: identityPool, ControlSchema: binding.Schema, AuthoritySchema: binding.AuthoritySchema, Observe: func(_ string, e error) {
@@ -1317,20 +1378,29 @@ func (r *gatewayConnectedRuntime) configureControl(ctx context.Context, cfg conf
 	if binding.IncidentCredentialReference != "" {
 		configuration.IncidentCredential, e = secret(binding.IncidentCredentialReference)
 		if e != nil {
-			return e
+			return nil, e
 		}
 	}
 	if binding.RevocationEndpoint != "" || binding.RevocationTokenReference != "" {
 		token, e := secret(binding.RevocationTokenReference)
 		if e != nil {
-			return e
+			return nil, e
 		}
 		configuration.Revocation, e = control.NewRevocationProvider(binding.RevocationEndpoint, token, &http.Transport{TLSClientConfig: clientTLS.Clone(), Proxy: nil})
 		if e != nil {
-			return e
+			return nil, e
 		}
 	}
-	r.control, e = control.NewRuntime(configuration)
+	runtime, e := control.NewRuntime(configuration)
+	if e != nil {
+		return nil, e
+	}
+	return runtime, nil
+}
+
+func (r *gatewayConnectedRuntime) configureControl(ctx context.Context, cfg config.Config, identityPool, controlPool *pgxpool.Pool, authority proxy.RequestIdentityAuthority, clientTLS *tls.Config, secret func(string) (string, error)) error {
+	var e error
+	r.control, e = r.newControlRuntime(ctx, cfg, identityPool, controlPool, authority, clientTLS, secret)
 	if e != nil {
 		return e
 	}
