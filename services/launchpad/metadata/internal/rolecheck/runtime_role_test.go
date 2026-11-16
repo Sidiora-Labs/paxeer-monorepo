@@ -75,6 +75,9 @@ func planRuntimeStatement(ctx context.Context, conn *pgx.Conn, statement Stateme
 }
 
 func TestRuntimeRoleStatements(t *testing.T) {
+	if len(WaitingStatements) != 0 {
+		t.Fatal("every connected runtime statement requires an asserted plan")
+	}
 	source := sourceReader{root: coordinatortest.RepositoryRoot(t), files: map[string]*ast.File{}}
 	source.assertCoverage(t)
 	schemas := registeredSchemas(t)

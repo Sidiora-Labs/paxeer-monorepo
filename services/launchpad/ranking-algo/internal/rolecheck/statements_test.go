@@ -17,6 +17,9 @@ import (
 )
 
 func TestRuntimeRoleStatements(t *testing.T) {
+	if len(Waiting) != 0 {
+		t.Fatal("every connected runtime statement requires an asserted plan")
+	}
 	root := coordinatortest.RepositoryRoot(t)
 	source := sourceReader{root: root, files: map[string]*ast.File{}}
 	source.assertCoverage(t)

@@ -253,6 +253,9 @@ func TestRuntimeRoleStatements(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(waiting) != 0 {
+		t.Fatal("every connected runtime statement requires an asserted plan")
+	}
 	index := &sourceIndex{root: coordinatortest.RepositoryRoot(t), positions: token.NewFileSet(), files: map[string]*sourceFile{}, schema: "pnl"}
 	queries := validateInventory(t, index, statements, waiting)
 	admin := os.Getenv("COORDINATOR_TEST_POSTGRES_DSN")

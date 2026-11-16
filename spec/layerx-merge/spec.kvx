@@ -249589,7 +249589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.754]
 title = "Resolve the schema chat first on the pool of the social service in the container profile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.747"]
@@ -249620,7 +249620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.753]
 title = "Give the expected schema document of the launchpad services its file form in the contract and the composer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.730", "22.39.751", "22.39.752"]
@@ -250232,7 +250232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.734]
 title = "Make the analytics tables of the stats service by a registered migration with the rights its runtime role uses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.733"]
