@@ -22880,3 +22880,8 @@ fix = "Decision 3691. Task 22.39.761."
 title = "The mobile navigation of the explorer gives its groups as details with a summary"
 symptom = "The mobile navigation in apps/explorer/ui/snippets/navigation/mobile renders each group of the header as a details element whose summary carries the name of the group, and the case of the header navigation in apps/explorer/ui/snippets/header reads a group by its summary and by the open state of the details element. The case of the search results layout in apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx opens the mobile navigation below the width 1024 and asks it for a button with the name Explore and the attribute aria-expanded. A case that mounts a layout reads the parts of the header in the form the header gives them."
 fix = "Task 22.44.71."
+
+[gotcha.4612]
+title = "The contract fixes the private listen address to a wildcard of one address family"
+symptom = "The variables file that is the contract in the platform directory under deploy/launchpad fixes RANKING_PRIVATE_LISTEN_ADDRESS, USER_PRIVATE_LISTEN_ADDRESS, SOCIAL_PRIVATE_LISTEN_ADDRESS and METADATA_PRIVATE_LISTEN_ADDRESS to 0.0.0.0:8443, and decision 3685 gives API_PRIVATE_LISTEN_ADDRESS the same value. A listener on that address accepts connections of the IPv4 family only. The configuration of the same services names [::]:8443 in the message of its check of the address: the wildcard that accepts both families on a host that has both. On a private network that gives a service a name with an IPv6 address only, a peer that resolves the name cannot reach a listener in the form the contract fixes."
+fix = "Decision 3692. Task 22.39.762."

@@ -15262,6 +15262,12 @@ value = "The document deploy/launchpad/object-store/accounts.json states, for ea
 basis = "Gotcha 4610. Gotcha 4608."
 affects = []
 
+[decision.3692]
+title = "The contract fixes the private listen address to the wildcard that accepts both address families"
+value = "The contract fixes the private listen address of the ranking service, the user service, the social service, the metadata service and the api to [::]:8443, the form the checks of the services name. The checks keep their rules: an IP and a port, the port distinct from PORT. The compose file under deploy/launchpad keeps the value 0.0.0.0:8443, since its network gives the services IPv4 addresses, and the README states both values and the reason for each. A case in the configuration package of each of the five services reads the contract and holds that the check of the service admits the fixed value, so that contract and check cannot part."
+basis = "Gotcha 4612. Decision 3685."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44922,6 +44928,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.762]
+title = "Fix the private listen address of the launchpad contract to the wildcard of both address families"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+do_1 = "do_1 Gotcha 4612, decision 3692. Read the entries of the ranking service, the user service, the social service, the metadata service and the api in the contract in the platform directory under deploy/launchpad; the check of the private listen address in the configuration package of each of the five, under services/launchpad/ranking-algo, services/launchpad/user, services/launchpad/social, services/launchpad/metadata and services/launchpad/api; every file under deploy/launchpad, services/launchpad and tools/deploy that names the present value; and the three cases that compare the fixed names: deploy/launchpad/documents/test_compose.py, the values case under deploy/launchpad/tests and the case under tools/deploy/tests that applies the variables of the launchpad. State in the final message every file that names the value and what reads it."
+symbols = []
 
 [capability.22.44.71]
 title = "Read the groups of the mobile navigation in the layout case of the search results as the header gives them"
@@ -174952,7 +174967,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.70]
 title = "Count a request the page cancelled without a finding in the render check and report an ended request once"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.62"]
@@ -249585,6 +249600,38 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.762]
+title = "Fix the private listen address of the launchpad contract to the wildcard of both address families"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.755"]
+reqs = ["22998.1"]
+capabilities = ["22.39.762"]
+interfaces = []
+do_1 = "do_1 Gotcha 4612, decision 3692. Read the entries of the ranking service, the user service, the social service, the metadata service and the api in the contract in the platform directory under deploy/launchpad; the check of the private listen address in the configuration package of each of the five, under services/launchpad/ranking-algo, services/launchpad/user, services/launchpad/social, services/launchpad/metadata and services/launchpad/api; every file under deploy/launchpad, services/launchpad and tools/deploy that names the present value; and the three cases that compare the fixed names: deploy/launchpad/documents/test_compose.py, the values case under deploy/launchpad/tests and the case under tools/deploy/tests that applies the variables of the launchpad. State in the final message every file that names the value and what reads it."
+do_2 = "do_2 The contract fixes the five names to [::]:8443. Every file that compares a fixed value follows the contract: the values file of the launchpad where it holds one, fixtures and recordings, and the cases of the services that name the value. The compose file keeps 0.0.0.0:8443. Where the configuration of a service holds a default or an example of the address for production, it names the contract value."
+do_3 = "do_3 The case under tools/deploy/tests that applies the variables of the launchpad asserts, for each of the five services, that the value applied for its private listen address is the value of the contract and that its host is the unspecified IPv6 address. The case deploy/launchpad/documents/test_compose.py or the values case under deploy/launchpad/tests asserts that the five names of the contract hold one value."
+do_4 = "do_4 In the configuration package of each of the five services a case whose name starts with TestPrivateListenAddressContract: it finds the contract the way the cases named PlatformDocuments of the package find the files of the repository, reads the fixed value of the service and asserts that the check of the service admits it with a production configuration of the package, and that the check still refuses a value without an IP, a value without a port and the port of PORT. The cases need no database, no broker and no node."
+do_5 = "do_5 The README of deploy/launchpad states the value of the contract, that it accepts both address families, and that the compose file keeps 0.0.0.0:8443 for its network. Run by hand the new cases, the cases named PlatformDocuments of the five packages, the cases of deploy/launchpad/documents/test_compose.py and the two shell cases, one after another, and read each message. The files of deploy/launchpad, services/launchpad and tools/deploy with its tests and fixtures are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/api && go vet ./internal/config/) && (cd services/launchpad/user && go vet ./internal/config/) && (cd services/launchpad/social && go vet ./internal/config/) && (cd services/launchpad/metadata && go vet ./internal/config/) && (cd services/launchpad/ranking-algo && go vet ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.761]
 title = "State the object rights of the launchpad service accounts in one document with a command and a case"
 status = "pending"
@@ -249696,7 +249743,7 @@ do_3 = "do_3 The statement of the readiness check search moves into one function
 do_4 = "do_4 Cases in internal/search whose names start with TestFirstSearchGeneration. With a database the helper Bootstrap made for the role stats_runtime: the function of the readiness check answers ready; BeginGeneration with a new name followed by ActivateGeneration with its proof passes without a row the case wrote, and the generation initial then has the state retained. In the form of the present cases that apply migration files to a database of their own: 200001.sql and the new file give exactly one generation and one row of the active table; the new file applied again changes nothing; 200001.sql, then a generation and a row the case writes, then the new file leaves the rows of the case as the only ones. The present cases stay and none is weakened."
 do_5 = "do_5 Run by hand the new cases, the present cases of internal/search and internal/httpapi, and each part of the verification command, one after another, and read each message. The files under migrations, sdk/launchpad/shared/db/production and services/launchpad are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+touches = ["migrations", "services/launchpad"]
 tests = []
 planned_paths = []
 build_cmd = "cd services/launchpad/stats-*ers && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
@@ -250068,7 +250115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.746]
 title = "Add to the grants document and the registered migrations what the waiting lists of the statement cases name and empty the lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.734", "22.39.736", "22.39.737", "22.39.738", "22.39.739", "22.39.740", "22.39.741", "22.39.742", "22.39.743", "22.39.744", "22.39.745"]
