@@ -65,8 +65,25 @@ func TestPlatformDocuments(t *testing.T) {
 		env[key] = value
 	}
 	setEnvironment(t, env)
-	if _, err := Load(); err != nil {
+	cfg, err := Load()
+	if err != nil {
 		t.Fatalf("Load composed documents: %v", err)
+	}
+	var delivery map[string]json.RawMessage
+	if err := ReadBoundDocument(cfg.DeliveryConfigFile, cfg.DeliveryConfigSHA256, &delivery); err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{
+		"schema": "candles", "sourceStream": "chain125-canonical", "consumerId": "charts",
+		"generation": "g1", "projectionVersion": "accounting-market-v1",
+	} {
+		var got string
+		if err := json.Unmarshal(delivery[key], &got); err != nil {
+			t.Fatalf("delivery %s: %v", key, err)
+		}
+		if got != want {
+			t.Fatalf("delivery %s = %q, want %q", key, got, want)
+		}
 	}
 
 	for name, encoded := range documents {

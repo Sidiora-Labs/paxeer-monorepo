@@ -1,13 +1,13 @@
 {
   "ChartsSchema": "candles",
   "StatsSchema": "stats",
-  "ChartsDeliverySchema": "charts_delivery",
-  "StatsDeliverySchema": "stats_delivery",
+  "ChartsDeliverySchema": "candles",
+  "StatsDeliverySchema": "stats",
   "StreamSchema": "api_stream",
   "SourcePartitionSchema": "indexer",
-  "ProjectionGeneration": "mainnet_beta_125_g1",
+  "ProjectionGeneration": "g1",
   "ChartsConsumerID": "charts",
   "StatsConsumerID": "stats",
-  "ProjectionVersion": "v1",
+  "ProjectionVersion": "accounting-market-v1",
   "SourceStream": "chain125-canonical"
 }

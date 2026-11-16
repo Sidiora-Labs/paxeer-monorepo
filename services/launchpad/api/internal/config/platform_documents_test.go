@@ -235,6 +235,9 @@ func TestPlatformDocuments(t *testing.T) {
 				if readConfig != want {
 					t.Fatal("accounting document differs from deployment values")
 				}
+				if readConfig.ChartsDeliverySchema != "candles" || readConfig.StatsDeliverySchema != "stats" || readConfig.ProjectionGeneration != "g1" || readConfig.ProjectionVersion != "accounting-market-v1" || readConfig.SourceStream != "chain125-canonical" {
+					t.Fatalf("accounting document must name the charts, stats and indexer example identities: %+v", readConfig)
+				}
 				poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 				if err != nil {
 					t.Fatal(err)
