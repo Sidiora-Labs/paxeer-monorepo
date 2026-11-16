@@ -46,6 +46,7 @@
     160002,
     190002,
     200001,
+    200002,
     210000,
     210001,
     210002,
@@ -120,7 +121,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/indexer/internal/store/canonical.go",
@@ -163,7 +164,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -202,7 +203,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -241,7 +242,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -280,7 +281,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -319,7 +320,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -366,7 +367,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -405,7 +406,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -435,7 +436,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -474,7 +475,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 340001,
@@ -503,7 +504,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/auth/ledger.go",
@@ -546,7 +547,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/auth/ledger.go",
@@ -581,7 +582,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/auth/ledger.go",
@@ -605,7 +606,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "deploy/launchpad/production/recovery/epoch.sql",
@@ -642,7 +643,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -691,7 +692,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/trading-charts/internal/store/transactional.go",
@@ -728,7 +729,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/projectionstats/postgres.go",
@@ -765,7 +766,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
@@ -789,7 +790,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 340000,
@@ -820,7 +821,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/auth/ledger.go",
@@ -858,7 +859,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 390000,
@@ -898,7 +899,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/metadata/internal/metadata/production.go",
@@ -940,7 +941,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/livestream/internal/streams/lifecycle.go",
@@ -977,7 +978,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/analytics/reactions.go",
@@ -1014,7 +1015,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l18/schema.sql",
@@ -1051,7 +1052,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/search/schema.sql",
@@ -1091,7 +1092,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 370000,
@@ -1122,7 +1123,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 150001,
@@ -1153,7 +1154,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/analytics/snapshot.go",
@@ -1191,7 +1192,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 470000,
@@ -1222,7 +1223,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/security/control/store.go",
@@ -1248,7 +1249,7 @@
       "rollback_strategy": "Expand-only rollback by old reader/mutation fence; do not drop new durable histories/receipts/audit; compensating migration requires independent approval.",
       "backfill_strategy": "No automatic rewrite of legacy rows; exact deterministic rebuild/cutover where domain requires it.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/gateway/internal/auth/identity_models.go",
@@ -1275,7 +1276,7 @@
       "rollback_strategy": "Retain additive durable source facts and interfaces; rollback readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred legacy facts or automatic synthetic backfill. Populate only corroborated canonical source facts or verified runtime capture.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/190001.sql",
@@ -1303,7 +1304,7 @@
       "rollback_strategy": "Retain additive durable source facts and interfaces; rollback readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred legacy facts or automatic synthetic backfill. Populate only corroborated canonical source facts or verified runtime capture.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
@@ -1329,7 +1330,7 @@
       "rollback_strategy": "Retain additive durable source facts and interfaces; rollback readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred legacy facts or automatic synthetic backfill. Populate only corroborated canonical source facts or verified runtime capture.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/440001.sql",
@@ -1356,7 +1357,7 @@
       "rollback_strategy": "Retain immutable delivery and snapshot histories; rollback readers and fence append authority. Compensating DDL requires independent approval.",
       "backfill_strategy": "Capture real committed source trade projection only; no fabricated snapshots or source publications.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/150002.sql",
@@ -1384,7 +1385,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/indexer/internal/store/quarantine.go",
@@ -1411,7 +1412,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/webhook.sql",
@@ -1439,7 +1440,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/api/internal/cache/adapter.go",
@@ -1466,7 +1467,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/trading-charts/internal/store/series.go",
@@ -1496,7 +1497,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/trading-charts/internal/store/rebuild.go",
@@ -1522,7 +1523,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/projectionstats/service.go",
@@ -1549,7 +1550,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/queries.go",
@@ -1577,7 +1578,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/ranking-algo/internal/store/publication.go",
@@ -1603,7 +1604,33 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
+      "source_inputs": [
+        {
+          "path": "services/launchpad/stats-workers/internal/search/schema.sql",
+          "sha256": "38393022a4ccdd4da4efe5d25c9baa24f6bca62f2ec2b6dbf123779443e3c0a1"
+        }
+      ]
+    },
+    {
+      "migration_id": 200002,
+      "service": "core/stats-workers/search",
+      "schema": "stats_search",
+      "owner_lane": "L20",
+      "path": "migrations/200002.sql",
+      "sha256": "45eb8c5df45d30e01a93348df7e9eaf6975f8aa716e8780b2366dee77c7ce71c",
+      "predecessor_ids": [
+        200001
+      ],
+      "legacy_predecessors": [],
+      "interface_digest": "069dc2a557971cb97bad13170e2c70b361dab629d7d600c633a6cb2cf9619db8",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
+      "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
+      "destructive": false,
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/search/schema.sql",
@@ -1627,7 +1654,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/discovery/schema.sql",
@@ -1651,7 +1678,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/notifications/schema.sql",
@@ -1677,7 +1704,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No backfill of erased account identity is inferred. Persist hashed deletion fences only through the authenticated account-deletion path.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/notifications/schema.sql",
@@ -1708,7 +1735,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/gateway/internal/auth/identity_lifecycle.go",
@@ -1735,7 +1762,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/330000.sql",
@@ -1766,7 +1793,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/social/internal/fanout/notification.go",
@@ -1797,7 +1824,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 380001,
@@ -1817,7 +1844,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 390001,
@@ -1838,7 +1865,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/metadata/internal/metadata/connected.go",
@@ -1884,7 +1911,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/livestream/internal/streams/usage.go",
@@ -1916,7 +1943,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/security/control/providers.go",
@@ -1942,7 +1969,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
@@ -1992,7 +2019,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 340004,
@@ -2013,7 +2040,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 340005,
@@ -2033,7 +2060,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 340006,
@@ -2053,7 +2080,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 340007,
@@ -2073,7 +2100,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69"
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65"
     },
     {
       "migration_id": 410000,
@@ -2091,7 +2118,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/gateway/internal/storage/connected.go",
@@ -2119,7 +2146,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/security/policy/operator.go",
@@ -2145,7 +2172,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/holdings/postgres.go",
@@ -2173,7 +2200,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/stream.go",
@@ -2199,7 +2226,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -2225,7 +2252,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "sdk/launchpad/shared/delivery/schema.sql",
@@ -2253,7 +2280,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
@@ -2282,7 +2309,7 @@
       "rollback_strategy": "Retain immutable delivery history; fence the stats producer and roll back readers. Compensating DDL requires independent approval.",
       "backfill_strategy": "No backfill: core/stats-workers appends market.stats/market.price frames only from committed canonical fills and creations.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/150004.sql",
@@ -2310,7 +2337,7 @@
       "rollback_strategy": "Additive function only; roll back callers (ranking publication) first. Dropping the function requires independent approval.",
       "backfill_strategy": "None: the function only commits frames for ranking heads published after it exists.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/190003.sql",
@@ -2336,7 +2363,7 @@
       "rollback_strategy": "Views only; drop requires independent approval after api_stream.append_ranking stops reading them.",
       "backfill_strategy": "None: views over existing ranking tables.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/190003.sql",
@@ -2362,7 +2389,7 @@
       "rollback_strategy": "View only; drop requires independent approval after api_stream.append_market_stats stops reading it.",
       "backfill_strategy": "None: view over the existing stats.trade_facts table.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/150005.sql",
@@ -2388,7 +2415,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "None: new empty tables; only the platform runtime writes authenticated v2 callouts, bounties and reports.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/social/migrations/00002_dev_v2_social.sql",
@@ -2414,7 +2441,7 @@
       "rollback_strategy": "View only; drop requires independent approval after media/livestream stops reading it.",
       "backfill_strategy": "None: view over the existing chat.safety_bans table.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/380002.sql",
@@ -2440,7 +2467,7 @@
       "rollback_strategy": "View only; drop requires independent approval after media/livestream stops reading it.",
       "backfill_strategy": "None: view over the existing stats.pool_stats projection.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "migrations/150006.sql",
@@ -2466,7 +2493,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/queries.go",
@@ -2492,7 +2519,7 @@
       "rollback_strategy": "Retain all eight category histories; roll back readers only. A compensating constraint requires independent approval.",
       "backfill_strategy": "None: existing rows remain valid; gainers and losers are admitted from ranker.Categories.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/ranking-algo/internal/ranker/snapshot.go",
@@ -2518,7 +2545,7 @@
       "rollback_strategy": "Retain the numeric holder index when rolling back readers; dropping it requires independent approval.",
       "backfill_strategy": "Build the numeric balance index concurrently over existing holder rows.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/migrations/00002_holder_balance_index.sql",
@@ -2562,7 +2589,7 @@
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/gateway/internal/storage/connected.go",
@@ -2592,7 +2619,7 @@
       "rollback_strategy": "Retain the additive source read interface when rolling back readers.",
       "backfill_strategy": "None: view over existing source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/consumer/canonical_multihop.go",
@@ -2618,7 +2645,7 @@
       "rollback_strategy": "Retain the additive source read interface when rolling back readers.",
       "backfill_strategy": "None: view over existing source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -2644,7 +2671,7 @@
       "rollback_strategy": "Retain the additive source read interface when rolling back readers.",
       "backfill_strategy": "None: view over existing source records.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/store/platform.go",
@@ -2675,7 +2702,7 @@
       "rollback_strategy": "Retain additive analytics projection tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill; populate analytics tables from canonical projections and risk inputs.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/stats-workers/internal/analytics/projector.go",
@@ -2717,7 +2744,7 @@
       "rollback_strategy": "Retain additive schema objects and roll back readers; compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts; read interfaces project existing records and service producers populate new tables.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/indexer/internal/migrate/chainlaunch.sql",
@@ -2759,7 +2786,7 @@
       "rollback_strategy": "Retain additive schema objects and roll back readers; compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts; read interfaces project existing records and service producers populate new tables.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/social/internal/interactions/contract.go",
@@ -2789,7 +2816,7 @@
       "rollback_strategy": "Retain additive schema objects and roll back readers; compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts; read interfaces project existing records and service producers populate new tables.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/pnl-tracker/internal/store/portfolio.go",
@@ -2815,7 +2842,7 @@
       "rollback_strategy": "Retain additive schema objects and roll back readers; compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts; read interfaces project existing records and service producers populate new tables.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/discovery/schema.sql",
@@ -2841,7 +2868,7 @@
       "rollback_strategy": "Retain additive schema objects and roll back readers; compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts; read interfaces project existing records and service producers populate new tables.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/notifications/schema.sql",
@@ -2867,7 +2894,7 @@
       "rollback_strategy": "Retain additive schema objects and roll back readers; compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts; read interfaces project existing records and service producers populate new tables.",
       "destructive": false,
-      "approval_manifest_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+      "approval_manifest_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
       "source_inputs": [
         {
           "path": "services/launchpad/indexer/internal/httpapi/deadletter.go",
@@ -2876,7 +2903,7 @@
       ]
     }
   ],
-  "approval_digest": "b915c67cea310269d57a5ca20483de995fcf401c85a93c3055c4532882081f69",
+  "approval_digest": "3b8b9ec3b7ac74ea4b6826895e37706e29fb4591c2c57cfd3a15e7ccc29c8e65",
   "server_major_version": 18,
   "state": "approved",
   "qualification_required": [],
