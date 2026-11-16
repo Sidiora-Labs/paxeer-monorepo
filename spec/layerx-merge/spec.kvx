@@ -250300,7 +250300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.771]
 title = "Let the outbox of the perps data service be claimed in bounded time and drop its delivered rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
