@@ -106,6 +106,13 @@ func AccountQualified(ctx context.Context, q *receipt.QualifiedReceipt) ([]accou
 }
 
 func (p *Processor) ProcessQualifiedCanonicalBatch(ctx context.Context, b store.CanonicalBatch, receipts []*receipt.QualifiedReceipt) error {
+	if p == nil || p.deps.Store == nil {
+		return errors.New("qualified canonical producer dependencies required")
+	}
+	return p.processQualifiedCanonicalBatch(ctx, b, receipts, p.deps.Store.CommitProjectedCanonicalTx)
+}
+
+func (p *Processor) processQualifiedCanonicalBatch(ctx context.Context, b store.CanonicalBatch, receipts []*receipt.QualifiedReceipt, commit func(context.Context, store.CanonicalBatch, func(context.Context, store.CanonicalTx) ([]store.OutboxIntent, error)) error) error {
 	if p == nil || p.deps.Store == nil || !p.deps.Store.CanonicalEpochGuarded() || p.deps.AccountingPartitions == nil || p.deps.Durable == nil || p.deps.AccountingProjectionVersion == "" || p.deps.ChainID != 125 || b.ChainID != 125 {
 		return errors.New("qualified canonical producer dependencies required")
 	}
@@ -178,7 +185,7 @@ func (p *Processor) ProcessQualifiedCanonicalBatch(ctx context.Context, b store.
 			return err
 		}
 	}
-	return p.deps.Store.CommitProjectedCanonicalTx(ctx, b, func(ctx context.Context, canonical store.CanonicalTx) ([]store.OutboxIntent, error) {
+	return commit(ctx, b, func(ctx context.Context, canonical store.CanonicalTx) ([]store.OutboxIntent, error) {
 		if err := receipt.ValidateBindings(ctx, b, receipts); err != nil {
 			return nil, err
 		}

@@ -15292,6 +15292,12 @@ value = "With no known market the route ranking-visibility answers 200 with comp
 basis = "Gotcha 4616."
 affects = []
 
+[decision.3697]
+title = "The composer writes the route that brings the history below the anchor into the indexer"
+value = "The values of the indexer take an optional member for the first height of the history, not below the activation height of the deployment manifest and not above the anchor. With it the composer writes what the service needs to hold every market and event from that height to the anchor: the requests in the lifecycle document, split where the bound of one request needs it, the values of the mode and of the batch settings, and a statement file with the rows of authorization the requests need, each with its scope and an expiry, which the operator applies with the migration role. After the history the service goes on in the live mode from the anchor without a second set of documents where the service allows that, and the README states the sequence of starts where it does not. Without the member the documents stay as they are. The route to the history is a route of the operator: no request and no authorization arises without the values member."
+basis = "Gotcha 4617."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44952,6 +44958,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.767]
+title = "Compose the route that brings the history below the anchor into the indexer"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad/indexer"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/indexer && go test -count=1 -timeout 40m -run TestHistoryBelowAnchor ./internal/... ./cmd/...)"
+do_1 = "do_1 Gotcha 4617, decision 3697. Read the composer of the indexer documents under deploy/launchpad/documents with its values example, the command under services/launchpad/indexer/cmd that writes the runtime documents, and in services/launchpad/indexer/internal the lifecycle document and its validation, the backfill and the replay runner with the source they read, the store of replay requests with the authorization it reads, the migration that creates the table of authorizations, and the place where the service passes from the backfill to the live mode. State in the final message: what a request of each mode does to the tables of the canonical stream, whether the live mode can follow a backfill in one start, what bounds the heights a backfill completes in a second, and which settings change that bound."
+symbols = []
 
 [capability.22.39.766]
 title = "Publish empty ranking heads for an empty set of markets"
@@ -249660,6 +249675,39 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.767]
+title = "Compose the route that brings the history below the anchor into the indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.749"]
+reqs = ["22998.1"]
+capabilities = ["22.39.767"]
+interfaces = []
+do_1 = "do_1 Gotcha 4617, decision 3697. Read the composer of the indexer documents under deploy/launchpad/documents with its values example, the command under services/launchpad/indexer/cmd that writes the runtime documents, and in services/launchpad/indexer/internal the lifecycle document and its validation, the backfill and the replay runner with the source they read, the store of replay requests with the authorization it reads, the migration that creates the table of authorizations, and the place where the service passes from the backfill to the live mode. State in the final message: what a request of each mode does to the tables of the canonical stream, whether the live mode can follow a backfill in one start, what bounds the heights a backfill completes in a second, and which settings change that bound."
+do_2 = "do_2 The values of the indexer take the optional member of decision 3697; the composer refuses a value below the activation height of the manifest or above the anchor. With the member the composer writes the requests into the lifecycle document, split at the bound of one request, each with the anchor as its checkpoint, with identities that are stable for equal values, and it gives the values of the mode and of the batch settings for the variables of the service. The contract in the platform directory under deploy/launchpad names those variables as optional names of the indexer. Without the member every document is byte for byte as before."
+do_3 = "do_3 The composer writes the statement file of the authorizations beside the documents: one row for each request with the scope the service reads, the operator identity taken from the values and an expiry taken from the values, written so that a second application changes nothing. The file is applied by the migration role; the service role gains no right on the table through this task."
+do_4 = "do_4 Where the service cannot pass a range longer than one request or cannot go on in the live mode after the history in one start, make that possible inside services/launchpad/indexer where the change is small and holds the present refusals, and otherwise state the sequence of starts in the README. Every present refusal stays: a request without a matching authorization, a request above the bound, a request of another stream."
+do_5 = "do_5 Cases: in deploy/launchpad/documents/test_compose.py the member absent, at its bounds, below the activation height, above the anchor, and a range that needs several requests, with the statement file compared row for row; in services/launchpad/indexer cases whose names start with TestHistoryBelowAnchor that read documents the composer wrote for a recorded range holding the creation of a market below the anchor, apply the statement file to the database of the case, run the history with the doubles the packages have for the node, and hold that the canonical creations hold the market, that the live mode goes on from the anchor, and that the same documents without the applied statement file are refused."
+do_6 = "do_6 The README of deploy/launchpad states the member, the statement file, who applies it, the sequence of starts and what do_1 found on the heights a backfill completes in a second. Task 22.39.760 changes the readiness of the canonical source in the same service: take main before the counted verification and keep both changes. Run the new cases by hand, one after another, and read each message. The files of deploy/launchpad and services/launchpad/indexer are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./internal/app/ ./internal/processor/ ./internal/store/ ./cmd/..."
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/indexer && go test -count=1 -timeout 40m -run TestHistoryBelowAnchor ./internal/... ./cmd/...)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.766]
 title = "Publish empty ranking heads for an empty set of markets"
 status = "pending"
@@ -249790,7 +249838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.762]
 title = "Fix the private listen address of the launchpad contract to the wildcard of both address families"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.755"]
@@ -249854,7 +249902,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.760]
 title = "Run the source check of the indexer outside the readiness request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249950,7 +249998,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.757]
 title = "Attest the network authority of the api outside the readiness request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.755"]

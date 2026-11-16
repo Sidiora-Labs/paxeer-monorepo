@@ -22905,3 +22905,8 @@ fix = "Decision 3695. Task 22.39.765."
 title = "An empty set of markets makes the ranking visibility of the social service unavailable"
 symptom = "The route ranking-visibility of the social service answers 503 when the set of known markets is empty, in the container profile and in the bound runtime alike. The ranking service reads that route in every refresh and in its readiness check ranking, so on a chain where the factory has created no market yet the ranking service publishes nothing, its check fails and it logs a refresh failure in every cycle. An empty set is the regular state of a launchpad before its first market."
 fix = "Decision 3696. Tasks 22.39.764 and 22.39.766."
+
+[gotcha.4617]
+title = "A composed indexer cannot take the history below its anchor"
+symptom = "The composer of the indexer documents under deploy/launchpad/documents writes a lifecycle document with an empty list of replay requests and without a backfill request, and the contract in the platform directory under deploy/launchpad names neither the mode of the indexer nor the batch settings of its backfill. The service reads heights below its anchor only through such a request, admits a request only with a matching row in its table of replay authorizations, bounds one request to 1000000 heights, and no command of the repository writes a request or that row. An indexer composed with an anchor above the creation height of a market that already exists on the chain therefore never holds that market."
+fix = "Decision 3697. Task 22.39.767."

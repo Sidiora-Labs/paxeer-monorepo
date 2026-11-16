@@ -601,16 +601,19 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		if cfg.IndexerMode == config.ModeBackfill {
 			request := lifecycle.BackfillRequest
-			if request == nil {
+			if request == nil && len(lifecycle.BackfillRequests) == 0 {
 				return nil, errors.New("indexer: authorized backfill request unavailable")
 			}
 			deps.HistoricalReplay = replay
 			deps.HistoricalRequest = request
+			deps.HistoricalRequests = lifecycle.BackfillRequests
 		}
 		secretChecks["workers"] = workers.Ready
 		canonicalSource = newCanonicalSourceReadiness(deps.Head, st, pool, history.RPC, d.CanonicalStreamID, lifecycle, time.Now)
 		secretChecks["canonical_source"] = canonicalSource.Ready
-		canonicalSource.Start(ctx)
+		if cfg.IndexerMode != config.ModeBackfill {
+			canonicalSource.Start(ctx)
+		}
 		deps.QualifiedBatchSource = liveQualified
 		deps.CanonicalOwner = d.Owner
 		deps.CanonicalStreamID = d.CanonicalStreamID
@@ -787,6 +790,9 @@ func Run(parent context.Context) error {
 			return firstNonShutdownErr(serveErr)
 		}
 		logger.Info("backfill complete — transitioning to live mode")
+		if app.canonicalSource != nil {
+			app.canonicalSource.Start(ctx)
+		}
 	}
 
 	procErr := make(chan error, 1)
@@ -1073,6 +1079,7 @@ type lifecycleRuntimeDocument struct {
 	EventsPerSecond            float64
 	ReplayRequests             []store.ReplayRequest           `json:"replayRequests"`
 	BackfillRequest            *store.ReplayRequest            `json:"backfillRequest,omitempty"`
+	BackfillRequests           []store.ReplayRequest           `json:"backfillRequests,omitempty"`
 	Rebuilds                   []lifecycleRebuildDocument      `json:"rebuilds"`
 	Operations                 map[string]store.OperationScope `json:"operations"`
 	InitialCheckpointHeight    int64
@@ -1101,8 +1108,25 @@ func (d *lifecycleRuntimeDocument) validate(deliveryDoc deliveryRuntimeDocument,
 	if err := deliveryDoc.validateInventory(); err != nil {
 		return err
 	}
-	if cfg.IndexerMode == config.ModeBackfill && (d.BackfillRequest == nil || cfg.BackfillBatchSize < 1 || cfg.BackfillBatchSize > 64) {
+	if cfg.IndexerMode == config.ModeBackfill && (d.BackfillRequest == nil && len(d.BackfillRequests) == 0 || cfg.BackfillBatchSize < 1 || cfg.BackfillBatchSize > 64) {
 		return errors.New("indexer: explicit bounded authorized backfill configuration required")
+	}
+	if len(d.BackfillRequests) > 16 || d.BackfillRequest != nil && len(d.BackfillRequests) > 0 {
+		return errors.New("indexer: bounded exclusive backfill request sources required")
+	}
+	for i, request := range d.BackfillRequests {
+		if err := store.ValidateReplayRequest(request); err != nil {
+			return err
+		}
+		if request.SourceStream != deliveryDoc.CanonicalStreamID || request.Mode != "backfill" || request.Target != "indexer" || request.Generation != deliveryDoc.Generation || request.ProjectionRevision != deliveryDoc.ProjectionVersion || request.CheckpointHeight != d.InitialCheckpointHeight || request.CheckpointHash != d.InitialCheckpointHash {
+			return errors.New("indexer: historical backfill source or checkpoint mismatch")
+		}
+		if i > 0 && request.FromHeight != d.BackfillRequests[i-1].ToHeight+1 {
+			return errors.New("indexer: contiguous ordered backfill requests required")
+		}
+	}
+	if len(d.BackfillRequests) > 0 && d.BackfillRequests[len(d.BackfillRequests)-1].ToHeight != d.InitialCheckpointHeight {
+		return errors.New("indexer: backfill must finish at the initial checkpoint")
 	}
 	for _, request := range d.ReplayRequests {
 		if err := store.ValidateReplayRequest(request); err != nil {
