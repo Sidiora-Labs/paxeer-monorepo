@@ -73,15 +73,16 @@ type App struct {
 	private  *platformPrivate
 	// PrivateRouter is the handler of the platform runtime's private mTLS
 	// listener (nil for the other runtimes).
-	PrivateRouter http.Handler
-	connected     *socialConnectedRuntime
-	dev           *devsocial.Runtime
-	visibility    *socialConnectedRuntime
-	serverTLS     *tls.Config
-	secretStop    context.CancelFunc
-	tracker       *process.Tracker
-	Router        http.Handler
-	Hub           *fanout.Hub
+	PrivateRouter    http.Handler
+	connected        *socialConnectedRuntime
+	dev              *devsocial.Runtime
+	visibility       *socialConnectedRuntime
+	serverTLS        *tls.Config
+	connectedAddress string
+	secretStop       context.CancelFunc
+	tracker          *process.Tracker
+	Router           http.Handler
+	Hub              *fanout.Hub
 
 	pool   *pgxpool.Pool
 	redis  *goredis.Client
@@ -395,7 +396,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if connected != nil {
 		serverTLS = connected.serverTLS
 	}
-	result := &App{platform: identity, connected: connected, dev: dev, visibility: visibility, serverTLS: serverTLS, secretStop: secretStop, tracker: tracker, Router: runtimeHandler(tracker, domainRouter, metrics), Hub: hub, pool: pool, redis: rdb, sub: sub, logger: logger}
+	result := &App{platform: identity, connected: connected, dev: dev, visibility: visibility, serverTLS: serverTLS, connectedAddress: cfg.PrivateListenAddress, secretStop: secretStop, tracker: tracker, Router: runtimeHandler(tracker, domainRouter, metrics), Hub: hub, pool: pool, redis: rdb, sub: sub, logger: logger}
 	if identity != nil {
 		// Production platform runtime: the social API and the ranking
 		// visibility authority are served on the private mTLS listener; the
@@ -465,14 +466,8 @@ func Run(parent context.Context) error {
 		}
 	}
 
-	srv := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port),
-		Handler:           app.Router,
-		ConnState:         app.tracker.ConnState,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-
 	serveErr := make(chan error, 2)
+	var srv, connectedTLS *http.Server
 	var privateSrv *http.Server
 	if app.private != nil {
 		privateSrv = &http.Server{
@@ -494,24 +489,37 @@ func Run(parent context.Context) error {
 			}
 		}()
 	}
-	go func() {
-		logger.Info("http server listening", slog.Int("port", cfg.Port))
-		var err error
-		if app.serverTLS != nil {
-			listener, e := net.Listen("tcp", srv.Addr)
-			if e != nil {
-				err = e
-			} else {
-				err = srv.Serve(tls.NewListener(listener, app.serverTLS))
+	if app.connected != nil {
+		srv = &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: healthOnlyHandler(app.Router), ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		connectedTLS = &http.Server{Addr: app.connectedAddress, Handler: app.Router, ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second, TLSConfig: app.serverTLS.Clone()}
+		go func() {
+			logger.Info("http health listener", slog.Int("port", cfg.Port))
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- err
+				cancel()
 			}
-		} else {
-			err = srv.ListenAndServe()
-		}
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serveErr <- err
-			cancel()
-		}
-	}()
+		}()
+		go func() {
+			logger.Info("http TLS listener", slog.String("address", app.connectedAddress))
+			listener, err := net.Listen("tcp", connectedTLS.Addr)
+			if err == nil {
+				err = connectedTLS.Serve(tls.NewListener(listener, connectedTLS.TLSConfig))
+			}
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- err
+				cancel()
+			}
+		}()
+	} else {
+		srv = &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: app.Router, ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		go func() {
+			logger.Info("http server listening", slog.Int("port", cfg.Port))
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- err
+				cancel()
+			}
+		}()
+	}
 
 	shutErr := process.Run(ctx, process.Options{Tracker: app.tracker,
 		Logger: logger,
@@ -520,6 +528,9 @@ func Run(parent context.Context) error {
 				if err := privateSrv.Shutdown(sctx); err != nil {
 					return err
 				}
+			}
+			if connectedTLS != nil {
+				return errors.Join(connectedTLS.Shutdown(sctx), srv.Shutdown(sctx))
 			}
 			return srv.Shutdown(sctx)
 		},
@@ -531,6 +542,16 @@ func Run(parent context.Context) error {
 	default:
 		return shutErr
 	}
+}
+
+func healthOnlyHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {

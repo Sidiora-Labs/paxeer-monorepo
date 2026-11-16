@@ -16,11 +16,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -98,6 +100,7 @@ type Config struct {
 	RuntimeMetricsEnvironment string `env:"METRICS_ENVIRONMENT" envDefault:"production"`
 	RuntimeProfile            string `env:"RUNTIME_PROFILE"`
 	BindAddress               string `env:"BIND_ADDRESS"`
+	PrivateListenAddress      string `env:"METADATA_PRIVATE_LISTEN_ADDRESS"`
 	RuntimeBudgetFile         string `env:"DB_BUDGET_FILE"`
 	RuntimeBudgetSHA256       string `env:"DB_BUDGET_SHA256"`
 	RuntimePoolID             string `env:"DB_POOL_ID"`
@@ -190,6 +193,9 @@ func (c Config) validateStartupDocuments() error {
 // Validate enforces field-level rules beyond presence.
 func (c *Config) Validate() error {
 	var errs []error
+	if c.NodeEnv == productionEnv && c.RuntimeProfile != "" && c.Ingress == IngressMTLS {
+		errs = append(errs, c.validatePrivateListenAddress())
+	}
 
 	if err := requireURL("DATABASE_URL", c.DatabaseURL); err != nil {
 		errs = append(errs, err)
@@ -223,6 +229,18 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (c *Config) validatePrivateListenAddress() error {
+	host, port, err := net.SplitHostPort(c.PrivateListenAddress)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("METADATA_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	privatePort, err := strconv.Atoi(port)
+	if err != nil || privatePort < 1 || privatePort > 65535 || privatePort == c.Port {
+		return fmt.Errorf("METADATA_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	return nil
 }
 
 func requireURL(name, raw string) error {
