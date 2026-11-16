@@ -1,0 +1,1311 @@
+{
+  "name": "Wallet demonstration",
+  "directory": "../../../services/wallet/demo",
+  "build": "pnpm --dir ../../../sdk/wallet exec tsc -p tsconfig.json && NEXT_PUBLIC_PAXEER_WALLET_API=http://localhost:3001 NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=demo-panel-test-anon-key pnpm build --webpack",
+  "start": "node ../../../tools/ui-check/surfaces/wallet-demo/serve.mjs",
+  "address": "http://127.0.0.1:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "home",
+      "path": "/",
+      "states": [
+        {
+          "name": "wallet-chooser-empty",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            }
+          ]
+        },
+        {
+          "name": "email-sign-in",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Send magic link"
+            }
+          ]
+        },
+        {
+          "name": "email-filled",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Send magic link"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=email]",
+              "value": "wallet@example.com"
+            }
+          ]
+        },
+        {
+          "name": "email-validation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Send magic link"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=email]",
+              "value": "invalid"
+            },
+            {
+              "action": "press",
+              "selector": "[open] input[name=email]",
+              "key": "Tab"
+            },
+            {
+              "action": "wait",
+              "text": "Enter an email address in the format you@example.com."
+            }
+          ]
+        },
+        {
+          "name": "email-required",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Send magic link"
+            },
+            {
+              "action": "click",
+              "selector": "[open] form[aria-label=\"Email sign-in\"] button[type=submit]"
+            },
+            {
+              "action": "wait",
+              "text": "Enter an email address in the format you@example.com."
+            }
+          ]
+        },
+        {
+          "name": "magic-link-sent",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Send magic link"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=email]",
+              "value": "wallet@example.com"
+            },
+            {
+              "action": "click",
+              "selector": "[open] form[aria-label=\"Email sign-in\"] button[type=submit]"
+            },
+            {
+              "action": "wait",
+              "text": "Check your email"
+            }
+          ]
+        },
+        {
+          "name": "dialog-dismissed",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] button[aria-label=\"Close wallet\"]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "email-sending",
+      "path": "/?fixture=email-sending",
+      "states": [
+        {
+          "name": "sending",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Send magic link"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=email]",
+              "value": "wallet@example.com"
+            },
+            {
+              "action": "click",
+              "selector": "[open] form[aria-label=\"Email sign-in\"] button[type=submit]"
+            },
+            {
+              "action": "wait",
+              "text": "Sending\u2026"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "email-error",
+      "path": "/?fixture=email-error",
+      "states": [
+        {
+          "name": "service-error",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Send magic link"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=email]",
+              "value": "wallet@example.com"
+            },
+            {
+              "action": "click",
+              "selector": "[open] form[aria-label=\"Email sign-in\"] button[type=submit]"
+            },
+            {
+              "action": "wait",
+              "text": "contract is not whitelisted"
+            }
+          ],
+          "expects": [
+            {
+              "method": "POST",
+              "pattern": "http://localhost:54321/auth/v1/otp?*fixture=refused",
+              "status": 403
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "injected-wallet",
+      "path": "/?fixture=injected",
+      "states": [
+        {
+          "name": "chooser-announced",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "wait",
+              "text": "Injected Wallet"
+            }
+          ]
+        },
+        {
+          "name": "disconnected",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            }
+          ]
+        },
+        {
+          "name": "connected",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            }
+          ]
+        },
+        {
+          "name": "transaction-filled",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=recipient]",
+              "value": "0x3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=value]",
+              "value": "1000000000000000"
+            }
+          ]
+        },
+        {
+          "name": "transaction-validation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-send]"
+            },
+            {
+              "action": "wait",
+              "text": "Enter a 0x address with 40 hexadecimal characters."
+            }
+          ]
+        },
+        {
+          "name": "calldata-validation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=recipient]",
+              "value": "0x3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=value]",
+              "value": "1000000000000000"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] textarea[name=data]",
+              "value": "0x1"
+            },
+            {
+              "action": "press",
+              "selector": "[open] textarea[name=data]",
+              "key": "Tab"
+            },
+            {
+              "action": "wait",
+              "text": "Enter 0x followed by complete hexadecimal byte pairs."
+            }
+          ]
+        },
+        {
+          "name": "typed-data-validation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] textarea[name=typed-data]",
+              "value": "invalid"
+            },
+            {
+              "action": "press",
+              "selector": "[open] textarea[name=typed-data]",
+              "key": "Tab"
+            },
+            {
+              "action": "wait",
+              "text": "Enter valid typed data JSON."
+            }
+          ]
+        },
+        {
+          "name": "intent-validation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] textarea[name=kernel-intent]",
+              "value": "invalid"
+            },
+            {
+              "action": "press",
+              "selector": "[open] textarea[name=kernel-intent]",
+              "key": "Tab"
+            },
+            {
+              "action": "wait",
+              "text": "Enter valid kernel intent JSON."
+            }
+          ]
+        },
+        {
+          "name": "transaction-result",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=recipient]",
+              "value": "0x3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=value]",
+              "value": "1000000000000000"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-send]"
+            },
+            {
+              "action": "wait",
+              "text": "0xb225632d311e952443a90894a97bdb4c24740591777343ed8b3e9dd175a6de15"
+            }
+          ]
+        },
+        {
+          "name": "typed-data-result",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] textarea[name=typed-data]",
+              "value": "{\"domain\": {\"name\": \"Paxeer X Exchange\", \"version\": \"1\", \"chainId\": 125, \"verifyingContract\": \"0x9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b\"}, \"types\": {\"EIP712Domain\": [{\"name\": \"name\", \"type\": \"string\"}, {\"name\": \"version\", \"type\": \"string\"}, {\"name\": \"chainId\", \"type\": \"uint256\"}, {\"name\": \"verifyingContract\", \"type\": \"address\"}], \"Order\": [{\"name\": \"maker\", \"type\": \"address\"}, {\"name\": \"market\", \"type\": \"uint32\"}, {\"name\": \"size\", \"type\": \"uint256\"}, {\"name\": \"price\", \"type\": \"uint256\"}, {\"name\": \"nonce\", \"type\": \"uint64\"}]}, \"primaryType\": \"Order\", \"message\": {\"maker\": \"0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04\", \"market\": 1, \"size\": \"1500000\", \"price\": \"2750000000\", \"nonce\": \"9\"}}"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-typed]"
+            },
+            {
+              "action": "wait",
+              "text": "0xc8e35c33b16460dd7f53a5f722b23624810bf2842eb20e619c428ece89a55a9f1e36e85805e83202813875a6a642b493a72869d2103bfbc8a372e60edd82e1431c"
+            }
+          ]
+        },
+        {
+          "name": "wallet-action-error",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] textarea[name=typed-data]",
+              "value": "{\"domain\": {\"chainId\": 1}}"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-typed]"
+            },
+            {
+              "action": "wait",
+              "text": "the provider is connected to chain"
+            }
+          ]
+        },
+        {
+          "name": "kernel-unavailable",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] textarea[name=kernel-intent]",
+              "value": "{}"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-kernel-plan]"
+            },
+            {
+              "action": "wait",
+              "text": "consensus_unavailable"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "injected-pending",
+      "path": "/?fixture=injected-pending",
+      "states": [
+        {
+          "name": "transaction-sending",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-injected]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect injected wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=recipient]",
+              "value": "0x3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] input[name=value]",
+              "value": "1000000000000000"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-send]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "embedded-wallet",
+      "path": "/?fixture=embedded-wallet",
+      "states": [
+        {
+          "name": "panel",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect embedded wallet"
+            }
+          ]
+        },
+        {
+          "name": "connected",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect embedded wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            }
+          ]
+        },
+        {
+          "name": "kernel-unavailable",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect embedded wallet"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-accounts]"
+            },
+            {
+              "action": "wait",
+              "text": "0xE1952Ec7230F058cd7fd9BCCb15964100e38ea04"
+            },
+            {
+              "action": "fill",
+              "selector": "[open] textarea[name=kernel-intent]",
+              "value": "{}"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-kernel-plan]"
+            },
+            {
+              "action": "wait",
+              "text": "consensus_unavailable"
+            }
+          ]
+        },
+        {
+          "name": "signed-out",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Sign out"
+            },
+            {
+              "action": "click",
+              "selector": "[open] button:text-is(\"Sign out\")"
+            },
+            {
+              "action": "wait",
+              "text": "No injected wallet announced."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "embedded-unprovisioned",
+      "path": "/?fixture=embedded-unprovisioned",
+      "states": [
+        {
+          "name": "provision",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Create embedded threshold-custody wallet"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:3001/v1/wallet/me?fixture=unprovisioned",
+              "status": 404
+            }
+          ]
+        },
+        {
+          "name": "provisioned",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-provision]"
+            },
+            {
+              "action": "wait",
+              "text": "Connect embedded wallet"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:3001/v1/wallet/me?fixture=unprovisioned",
+              "status": 404
+            }
+          ]
+        }
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:3001/v1/wallet/me?fixture=unprovisioned",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "embedded-loading",
+      "path": "/?fixture=embedded-loading",
+      "states": [
+        {
+          "name": "loading",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "Loading embedded wallet\u2026"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "embedded-creating",
+      "path": "/?fixture=embedded-creating",
+      "states": [
+        {
+          "name": "creating",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-provision]"
+            },
+            {
+              "action": "wait",
+              "text": "Creating\u2026"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:3001/v1/wallet/me?fixture=unprovisioned",
+              "status": 404
+            }
+          ]
+        }
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:3001/v1/wallet/me?fixture=unprovisioned",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "embedded-error",
+      "path": "/?fixture=embedded-error",
+      "states": [
+        {
+          "name": "service-error",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".page-header [data-wallet-connect]"
+            },
+            {
+              "action": "wait",
+              "text": "Supported wallets"
+            },
+            {
+              "action": "click",
+              "selector": "[open] [data-wallet-embedded]"
+            },
+            {
+              "action": "wait",
+              "text": "request failed: 401"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:3001/v1/wallet/me?fixture=expired",
+              "status": 401
+            }
+          ]
+        }
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:3001/v1/wallet/me?fixture=expired",
+          "status": 401
+        }
+      ]
+    },
+    {
+      "name": "auth-callback",
+      "path": "/auth/callback",
+      "states": [
+        {
+          "name": "sign-in-error",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Sign-in failed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "auth-callback-signed-in",
+      "path": "/auth/callback?fixture=callback-signed-in",
+      "states": [
+        {
+          "name": "returned-home",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "One sign-in."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "http://localhost:3001/v1/wallet/me?fixture=unprovisioned",
+      "file": "wallet-demo/wallet-me-missing.json",
+      "status": 404,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "http://localhost:3001/v1/wallet/me?fixture=expired",
+      "file": "wallet-demo/refusal-unauthorized.json",
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "http://localhost:3001/v1/wallet/me?fixture=default",
+      "file": "wallet-demo/wallet-me.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "http://localhost:3001/v1/wallet/provision?fixture=default",
+      "file": "wallet-demo/wallet-provision.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "http://localhost:3001/?fixture=default&method=px_getNetwork",
+      "file": "wallet-demo/network.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "http://localhost:54321/auth/v1/otp?*fixture=refused",
+      "file": "wallet-demo/email-error.json",
+      "status": 403,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "http://localhost:54321/auth/v1/otp?*fixture=default",
+      "file": "wallet-demo/email-sent.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "http://localhost:54321/auth/v1/logout?*fixture=default",
+      "file": "wallet-demo/signed-out.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "http://localhost:54321/auth/v1/user?fixture=default",
+      "file": "wallet-demo/identity.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "http://localhost:3001/replay/chain-id",
+      "file": "wallet-demo/rpc-chain-id.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "http://localhost:3001/replay/accounts",
+      "file": "wallet-demo/rpc-accounts.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "http://localhost:3001/replay/transaction",
+      "file": "wallet-demo/rpc-transaction.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "http://localhost:3001/replay/typed-data",
+      "file": "wallet-demo/rpc-typed-data.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      }
+    },
+    {
+      "method": "OPTIONS",
+      "pattern": "http://localhost:3001/*",
+      "file": "wallet-demo/signed-out.json",
+      "status": 200,
+      "headers": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET,POST,OPTIONS",
+        "access-control-allow-headers": "*"
+      }
+    },
+    {
+      "method": "OPTIONS",
+      "pattern": "http://localhost:54321/*",
+      "file": "wallet-demo/signed-out.json",
+      "status": 200,
+      "headers": {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET,POST,OPTIONS",
+        "access-control-allow-headers": "*"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 12,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 18,
+      "max": 20
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 32,
+      "max": 72
+    }
+  ]
+}

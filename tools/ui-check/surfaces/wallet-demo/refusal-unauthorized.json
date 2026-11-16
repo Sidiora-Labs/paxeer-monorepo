@@ -1,0 +1,4 @@
+{
+  "error": "unauthorized",
+  "detail": "\"exp\" claim timestamp check failed"
+}

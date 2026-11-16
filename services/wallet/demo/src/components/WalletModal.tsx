@@ -39,7 +39,10 @@ export function WalletModal({ open, onOpenChange, paxeer, origin }: WalletModalP
   }, [open]);
 
   useEffect(() => {
-    if (open) heading.current?.focus();
+    if (open) {
+      dialog.current?.scrollTo({ top: 0 });
+      heading.current?.focus();
+    }
   }, [open, view]);
 
   useEffect(() => {
@@ -143,7 +146,8 @@ export function WalletModal({ open, onOpenChange, paxeer, origin }: WalletModalP
             onClick={() => setView(user ? 'embedded' : 'auth')}
             className="button choice"
           >
-            Embedded wallet<span>Sign in and explicitly provision threshold custody.</span>
+            Embedded wallet
+            <span>Sign in and explicitly provision threshold custody.</span>
           </button>
           {providers.map((detail) => (
             <button
@@ -225,9 +229,11 @@ function AuthView({ paxeer }: { paxeer: PaxeerWallet }) {
   >({ kind: 'idle' });
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const resultHeading = useRef<HTMLHeadingElement>(null);
+  const errorMessage = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (emailStatus.kind === 'sent') resultHeading.current?.focus();
+    if (emailStatus.kind === 'error') errorMessage.current?.scrollIntoView({ block: 'nearest' });
   }, [emailStatus.kind]);
 
   async function clickProvider(provider: 'google' | 'github' | 'twitter') {
@@ -343,7 +349,7 @@ function AuthView({ paxeer }: { paxeer: PaxeerWallet }) {
           {emailStatus.kind === 'sending' ? 'Sending…' : 'Send magic link'}
         </button>
         {emailStatus.kind === 'error' && (
-          <p role="alert" className="error notice">
+          <p ref={errorMessage} role="alert" className="error notice">
             {emailStatus.message}
           </p>
         )}
