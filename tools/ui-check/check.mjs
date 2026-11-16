@@ -323,13 +323,13 @@ export async function checkSurface({ surface: filename, out: destination, view: 
   await mkdir(out, { recursive: true });
   const summaries = views.map((view) => ({ name: view.name, modes: view.modes, states: (view.states ?? []).map((state) => ({ name: state.name, modes: state.modes })) }));
   const reducedModeCount = summaries.reduce((total, view) => total + Number(view.modes.length < MODES.length) + view.states.filter((state) => state.modes.length < MODES.length).length, 0);
-  const result = { surface: surface.name, devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, renders: [], findings: [], passed: false };
+  const result = { surface: surface.name, buildMs: surface.buildMs ?? LIMITS.buildMs, outputs: [], devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, renders: [], findings: [], passed: false };
   const tasks = views.flatMap((view) => [{ name: "default", steps: [], expects: view.expects, modes: view.modes }, ...(view.states ?? [])].flatMap((state) => renderMatrix(state.modes).map((configuration) => ({ view, state, configuration }))));
   const workers = Array.from({ length: Math.min(count, tasks.length) }, () => ({}));
   let next = 0;
   let service;
   try {
-    service = await startSurface(surface);
+    service = await startSurface(surface, result.outputs);
     surface.address = service.address;
     const outcomes = await Promise.allSettled(workers.map(async (worker) => {
       try {
