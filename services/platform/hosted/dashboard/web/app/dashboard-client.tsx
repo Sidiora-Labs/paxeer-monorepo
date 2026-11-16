@@ -253,6 +253,14 @@ export default function DashboardClient({
   const previousNeedsSession = useRef(false);
   const [heldBrowserKey, setHeldBrowserKey] = useState<BrowserKeyState>();
 
+  const readHeldBrowserKey = useCallback(async () => {
+    try {
+      setHeldBrowserKey(await browserKeyState());
+    } catch {
+      setHeldBrowserKey({ ed25519: false, hasKey: false });
+    }
+  }, []);
+
   const clearPanels = useCallback(() => {
     setOverview(undefined);
     setRequests([]);
@@ -302,16 +310,8 @@ export default function DashboardClient({
   }, [refresh]);
 
   useEffect(() => {
-    let mounted = true;
-    void browserKeyState().then((state) => {
-      if (mounted) setHeldBrowserKey(state);
-    }).catch(() => {
-      if (mounted) setHeldBrowserKey({ ed25519: false, hasKey: false });
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    void readHeldBrowserKey();
+  }, [readHeldBrowserKey]);
 
   useEffect(() => {
     if (receipt) receiptHeading.current?.focus();
@@ -319,10 +319,16 @@ export default function DashboardClient({
 
   useEffect(() => {
     if (previousNeedsSession.current && !needsSession) {
+      void readHeldBrowserKey();
       document.getElementById(`tab-${active}`)?.focus();
     }
     previousNeedsSession.current = needsSession;
-  }, [needsSession, active]);
+  }, [needsSession, active, readHeldBrowserKey]);
+
+  const onSignedIn = useCallback(async () => {
+    await readHeldBrowserKey();
+    await refresh();
+  }, [readHeldBrowserKey, refresh]);
 
   const signOut = async () => {
     readController.current?.abort();
@@ -366,7 +372,7 @@ export default function DashboardClient({
           <SignInView
             gatewayTenant={gatewayTenant}
             gatewayOriginConfigured={gatewayOriginConfigured}
-            onSignedIn={refresh}
+            onSignedIn={onSignedIn}
           />
         ) : null}
         {error && !needsSession ? (

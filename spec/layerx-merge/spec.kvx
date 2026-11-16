@@ -14812,6 +14812,30 @@ value = "For the kind sideways an element clipped to nothing, the form of text k
 basis = "Gotcha 4533. Decisions 3587 and 3591."
 affects = []
 
+[decision.3617]
+title = "A row that scrolls sideways shows where it continues, and the parts of a list row sit on one line"
+value = "A row that scrolls sideways shows at each end where content continues: the edge fades or the next item is cut in view, and the selected item is scrolled into view when the view opens. The parts of a list row sit on one line where the width holds them: the actions side by side with one distance of the spacing scale, ending at the edge of the card, and the caption on a line of the row. At a narrow width the actions move below the text as a whole and keep their order. A caption states only what holds: a revoked key shows no remaining count. The pass over the screenshots of a render proof task looks at these forms at 360, 768 and 1440 in both schemes. Tasks 22.44.38, 22.44.39, 22.44.40 and 22.44.44 require task 22.44.52, whose measurements close them."
+basis = "Gotcha 4534. Decisions 3587, 3591 and 3616."
+affects = []
+
+[decision.3618]
+title = "A page leaves on the pagehide event alone, and an error state a page shows is not written to the console as an error"
+value = "A page that has to act when a person leaves registers the pagehide event and no listener for unload or beforeunload, by the web platform guidance on the back and forward cache. A page that returns from that cache through the pageshow event takes up its work again where it ended it on pagehide. An error a page shows to the person as a state of the page with its message is not written to the console as an error; an error the page does not show stays a console error. The paths of task 22.44.47 hold apps/inference-peer/src/page.mjs with apps/inference-peer/test/page.test.mjs and tools/codebase-map/app.js."
+basis = "Gotcha 4535. Decisions 3587 and 3591."
+affects = []
+
+[decision.3619]
+title = "A call to an origin that holds a path goes to that path exactly"
+value = "A node call and a consensus call of the webhooks ingress go to the path of the origin as the setting gives it: the root path for an origin without a path, and the path without a slash added for an origin with a path. The readiness of the ingress uses the same paths as its calls. A case that stands in for the node front answers only at the paths the node front serves, the root path for node calls and /comet for consensus calls, and refuses every other path as not found, by decision 3046. The other requests of the ingress keep their paths."
+basis = "Gotcha 4536. Decisions 3046 and 3614."
+affects = []
+
+[decision.3620]
+title = "The kind focus measures the elements a person can reach by keyboard while a modal dialog is open"
+value = "While the document holds an open modal dialog, the kind focus expects the elements inside the topmost modal dialog and no element outside it. The appearance before focus is recorded with no element focused: where the body does not take the focus, the element that holds it is blurred first. The traversal then reaches every control of the dialog. A control of the dialog that shows no visible change on focus stays a finding, a control of the dialog the traversal does not reach stays a finding, and a dialog that is open without being modal leaves the elements outside it expected."
+basis = "Gotcha 4537. Decisions 3591 and 3616."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44472,6 +44496,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.53]
+title = "Let the keyboard measurement of the render check follow an open modal dialog"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4537, decision 3620. Read tools/ui-check/README.md, the functions of the kind focus in tools/ui-check/browser.mjs, the traversal in tools/ui-check/check.mjs and the cases of the kind focus in tools/ui-check/test/check.test.mjs with their pages."
+symbols = []
+
+[capability.22.39.701]
+title = "Send the node and consensus calls of the webhooks ingress to the exact path of their origin"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/webhooks/src/trusted.rs", "services/platform/hosted/webhooks/src/boundary.rs", "services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs", "docs/wiki/HostedWebhooks.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test verifier_consensus_calls"
+do_1 = "do_1 Gotcha 4536, decision 3619. Read in services/platform/hosted/webhooks/src/boundary.rs the type of an origin with its parse and its path join and the cases of that file, in services/platform/hosted/webhooks/src/trusted.rs the readiness of the receipt verifier and its call function, the case of services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs with its stand-in, and in services/platform/hosted/paxeer/src/main.rs the paths the node front serves."
+symbols = []
 
 [capability.22.44.52]
 title = "Let the render check measure what a person can see and take the declared answers of a state"
@@ -173749,9 +173791,42 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.53]
+title = "Let the keyboard measurement of the render check follow an open modal dialog"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.53"]
+interfaces = []
+do_1 = "do_1 Gotcha 4537, decision 3620. Read tools/ui-check/README.md, the functions of the kind focus in tools/ui-check/browser.mjs, the traversal in tools/ui-check/check.mjs and the cases of the kind focus in tools/ui-check/test/check.test.mjs with their pages."
+do_2 = "do_2 In tools/ui-check/browser.mjs the list of expected elements holds, while an element matching the selector :modal is open, only the elements inside the topmost one, through shadow roots as the other measurements go. Without an open modal dialog the list stays as it is."
+do_3 = "do_3 In tools/ui-check/browser.mjs the appearance before focus is recorded with no element focused: after the focus is moved to the body, an element that still holds the focus is blurred before the appearances are read. The traversal in tools/ui-check/check.mjs then reaches every control of the dialog, also the control that held the focus when the state was reached."
+do_4 = "do_4 Add the page tools/ui-check/test/fixtures/modal-focus.html and cases in tools/ui-check/test/check.test.mjs: a page with controls behind a modal dialog whose first control takes the focus on opening passes; the same dialog with one control that shows no change on focus reports that control and no other; a dialog opened without being modal reports a control behind it that the traversal cannot reach by its tab index; a modal dialog inside a shadow root passes. Every present case stays and passes."
+do_5 = "do_5 In tools/ui-check/README.md state the reading of an open modal dialog at the row of the kind focus in the table of measurements. The sentence that a surface file cannot alter a limit or omit a kind stays true and stays in the text."
+do_6 = "do_6 Run the tests by hand before the counted verification and repair what they show. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = ["tools/ui-check/test/fixtures/modal-focus.html"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.52]
 title = "Let the render check measure what a person can see and take the declared answers of a state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173786,7 +173861,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.700]
 title = "Let the keys view of the dashboard web sign with the browser key right after a sign-in"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174126,7 +174201,7 @@ do_4 = "do_4 Then look at the screenshots of the last run: every view at 360, 76
 do_5 = "do_5 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The pages keep working when opened as files."
 do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.47.kvx: the count of routes and of views, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/inference-peer/index.html", "tools/wasm-tools/playground/pages", "tools/codebase-map/index.html", "tools/codebase-map/styles.css", "tools/wasm-tools/playground/src/parse.ts"]
+touches = ["apps/inference-peer/index.html", "tools/wasm-tools/playground/pages", "tools/codebase-map/index.html", "tools/codebase-map/styles.css", "tools/wasm-tools/playground/src/parse.ts", "apps/inference-peer/src/page.mjs", "apps/inference-peer/test/page.test.mjs", "tools/codebase-map/app.js"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/pages.json", "tools/ui-check/surfaces/pages", "spec/layerx-merge/programme/records/ui/22.44.47.kvx"]
 build_cmd = "test -s apps/inference-peer/index.html && test -s tools/codebase-map/index.html"
@@ -174142,6 +174217,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3618, gotcha 4535. The paths now hold apps/inference-peer/src/page.mjs, apps/inference-peer/test/page.test.mjs and tools/codebase-map/app.js. In apps/inference-peer/src/page.mjs the page registers its leave for the pagehide event alone, and a page shown again from the back and forward cache through the pageshow event with its persisted mark joins again as a fresh load does. Bring the case of apps/inference-peer/test/page.test.mjs that names the three events in line: the leave closes the socket once on pagehide, and the page registers no listener for unload or beforeunload. Add a case for the return through pageshow. No other case is removed or weakened. In tools/codebase-map/app.js the error state of a map that cannot be read stays on the page with its message and is not written to the console as an error. Run node --test test/page.test.mjs in apps/inference-peer by hand, then the render check command by hand until it reports nothing, then the build once and the counted verification once. The work of the earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.46]
 title = "Close the names application on the device list with the render check"
@@ -174178,7 +174254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.45]
 title = "Close the bridge application on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.33", "22.44.37"]
@@ -174214,7 +174290,7 @@ title = "Close the developer dashboard on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.32", "22.44.37", "22.39.683", "22.44.49"]
+requires = ["22.44.32", "22.44.37", "22.39.683", "22.44.49", "22.44.52"]
 reqs = ["22998.1"]
 capabilities = ["22.44.44"]
 interfaces = []
@@ -174241,6 +174317,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3617, gotcha 4534. The tab row shows at each end where it continues at a width that does not hold the five tabs, and the selected tab is in view when a view opens. A row of the key list holds its two actions side by side, ending at the edge of the card, with the remaining count on a line of the row; at a narrow width the actions move below the text as a whole. A revoked key shows its mark and no remaining count. Add to the surface file the states of the keys view with an active and a revoked key, with the dialog of a new key secret and with the dialog that confirms a revocation, each taken after its opening motion has ended, and look at them at 360, 768 and 1440 in both schemes. The measurements of task 22.44.52 are in the tool: run the command again by hand and correct what it still reports before any counted run. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.43]
 title = "Close the human web application on the device list with the render check"
@@ -174346,7 +174423,7 @@ title = "Close the launchpad on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.22", "22.44.37", "22.44.50"]
+requires = ["22.44.22", "22.44.37", "22.44.50", "22.44.52"]
 reqs = ["22998.1"]
 capabilities = ["22.44.40"]
 interfaces = []
@@ -174379,7 +174456,7 @@ title = "Close the trading workspace on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.18", "22.44.37"]
+requires = ["22.44.18", "22.44.37", "22.44.52"]
 reqs = ["22998.1"]
 capabilities = ["22.44.39"]
 interfaces = []
@@ -174412,7 +174489,7 @@ title = "Close the explorer on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.11", "22.44.37"]
+requires = ["22.44.11", "22.44.37", "22.44.52"]
 reqs = ["22998.1"]
 capabilities = ["22.44.38"]
 interfaces = []
@@ -212208,9 +212285,42 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.701]
+title = "Send the node and consensus calls of the webhooks ingress to the exact path of their origin"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.701"]
+interfaces = []
+do_1 = "do_1 Gotcha 4536, decision 3619. Read in services/platform/hosted/webhooks/src/boundary.rs the type of an origin with its parse and its path join and the cases of that file, in services/platform/hosted/webhooks/src/trusted.rs the readiness of the receipt verifier and its call function, the case of services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs with its stand-in, and in services/platform/hosted/paxeer/src/main.rs the paths the node front serves."
+do_2 = "do_2 In services/platform/hosted/webhooks/src/trusted.rs the readiness of the receipt verifier and its call function post to the path of the origin exactly: the root path for an origin without a path, the path of the origin with no slash added for an origin with a path. Use the form of the path join in services/platform/hosted/webhooks/src/boundary.rs that gives the path of the origin for an empty request path, and change that join only where it is wrong. Every other request of the ingress keeps its path."
+do_3 = "do_3 In services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs the stand-in for the consensus origin answers only at /comet and the stand-in for the node origin only at the root path; every other path is answered as not found with status 404. The case states /comet for each consensus call. Add cases: an origin given with a slash after /comet is addressed at /comet; the readiness is false where the consensus origin answers only at /comet followed by a slash. No present case is removed or weakened."
+do_4 = "do_4 In the cases of services/platform/hosted/webhooks/src/boundary.rs state the join for an empty request path with and without a path of the origin."
+do_5 = "do_5 In docs/wiki/HostedWebhooks.md state at the rows of the two origins that calls go to the path of the origin exactly and that the consensus origin of the node front ends in /comet."
+do_6 = "do_6 Run the tests of the package by hand before the counted verification. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/webhooks/src/trusted.rs", "services/platform/hosted/webhooks/src/boundary.rs", "services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs", "docs/wiki/HostedWebhooks.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test verifier_consensus_calls"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.698]
 title = "Let the consensus route of the node front admit the calls of the receipt verifier of the webhooks ingress"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -212244,7 +212354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.697]
 title = "Let the build stages of the webhooks image and of the core image hold the files the types crate reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -383027,7 +383137,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.699]
 title = "Let the definition of the gateway hold the key provisioning key of the key routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

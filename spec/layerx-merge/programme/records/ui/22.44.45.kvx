@@ -1,0 +1,11 @@
+[manifest]
+task = "22.44.45"
+surface = "apps/bridge/src"
+routes = 1
+views = 5
+states = 14
+sizes = ["360x900", "390x900", "430x900", "768x900", "834x900", "1024x900", "1280x900", "1440x900", "1920x900", "2560x900", "844x390"]
+modes = ["light", "dark", "reduced-motion", "double-text", "keyboard"]
+renders = 476
+result = "The bridge transfer, import and history views render across the declared device matrix."
+screenshot_review = "The bridge form, transfer history and import controls keep their spacing, alignment and wrapping across portrait and landscape sizes; focus rings, touch targets, dialog isolation and light and dark token contrast are consistent."

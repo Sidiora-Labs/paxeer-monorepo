@@ -22490,3 +22490,23 @@ fix = "Decision 3615. Tasks 22.39.699 and 22.39.700."
 title = "The render check measures boxes, and a state of a surface holds text for assistive technology, rows that scroll, panels and answers of refusal"
 symptom = "The command of tools/ui-check counts for the kind sideways every element with a box that passes a side of the viewport, for the kind focus every focused element with a part of its box outside the viewport, and for the kind load every response with a status from 400 on with the console line the browser writes for it. A surface holds text kept for assistive technology in a box clipped to nothing, rows that scroll sideways inside their own box, focusable panels taller than a phone, views whose state is an answer of refusal such as a sign-in view, and controls that write to the clipboard. The measurement of a kind states what a person meets, and a state that is an answer of refusal is declared with that answer."
 fix = "Decision 3616. Task 22.44.52."
+
+[gotcha.4534]
+title = "A row that scrolls sideways and a row of a list have a form the render check does not measure"
+symptom = "The tab row of the developer dashboard under services/platform/hosted/dashboard/web holds five tabs and scrolls sideways at a width that does not hold them. A row of the key list holds the id of the key, its quota line, the two actions or the mark of a revoked key, and the remaining count. The render check measures boxes, contrast, touch sizes and shifts. It does not tell whether a person sees that a row continues past the edge, whether the parts of a row sit on one line and end at the edge of their card, or whether a caption states something that still holds."
+fix = "Decision 3617. Task 22.44.44; tasks 22.44.38, 22.44.39, 22.44.40 and 22.44.44 require task 22.44.52."
+
+[gotcha.4535]
+title = "A page that listens for the unload event and a page that logs its error state report the kind load"
+symptom = "The page of apps/inference-peer registers its leave for three events in apps/inference-peer/src/page.mjs: pagehide, beforeunload and unload. A browser refuses the unload listener of a document by its permissions policy and writes a console line, and a page with an unload listener is kept out of the back and forward cache. The codebase map in tools/codebase-map/app.js shows a map it cannot read as an error state on the page and also writes the error to the console. The render check reports a console error as the kind load, and the paths of task 22.44.47 held the two documents and not these two scripts."
+fix = "Decision 3618. Task 22.44.47."
+
+[gotcha.4536]
+title = "The webhooks ingress joins the path of an origin with a slash, and the node front serves its consensus route at one exact path"
+symptom = "The node front in services/platform/hosted/paxeer/src/main.rs answers consensus calls at the path /comet and no other. The webhooks ingress in services/platform/hosted/webhooks/src/trusted.rs posts each node call and each consensus call with the request path of a single slash, and services/platform/hosted/webhooks/src/boundary.rs joins the path of the origin with that request path, so an origin that ends in /comet is addressed at /comet followed by a slash. The case of services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs states the joined path with the slash, and its stand-in answers at any path."
+fix = "Decision 3619. Task 22.39.701."
+
+[gotcha.4537]
+title = "The keyboard measurement of the render check does not follow an open modal dialog"
+symptom = "A dialog opened as a modal makes every element outside it inert without the inert attribute and moves the focus to a control inside it. The list of elements the kind focus expects in tools/ui-check/browser.mjs leaves out only the elements under the inert attribute, so the controls behind the dialog are expected and the traversal cannot reach them. The appearance before focus is recorded after the focus is moved to the body, and the body of a document with an open modal dialog does not take the focus, so the control that holds the focus is recorded in its focused appearance and shows no change when the traversal comes to it."
+fix = "Decision 3620. Task 22.44.53."

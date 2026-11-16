@@ -99,6 +99,26 @@ assert.match(source, /operationKey\(\)/, "key writes use fresh idempotency keys"
 assert.match(source, /onRefresh\(\)/, "key writes refresh the dashboard");
 assert.match(
   source,
+  /const readHeldBrowserKey = useCallback\(async \(\) =>[\s\S]*browserKeyState\(\)[\s\S]*setHeldBrowserKey\(\{ ed25519: false, hasKey: false \}\)/,
+  "the shell rereads browser-key state and treats reader failures as no key",
+);
+assert.match(
+  source,
+  /onSignedIn=\{onSignedIn\}[\s\S]*KeysPanel keys=\{overview\.keys\} browserKey=\{heldBrowserKey\}/,
+  "the post-sign-in browser key state reaches the Keys view",
+);
+assert.match(
+  source,
+  /createDeveloperKey\(\)[\s\S]*setKeyState\(\{ ed25519: true, hasKey: true, publicKey \}\)[\s\S]*onSignedIn\(\)/,
+  "a key created during sign-in is used by the dashboard without a reload",
+);
+assert.match(
+  source,
+  /disabled=\{busy !== undefined \|\| !browserKey\?\.publicKey\}/,
+  "issuance stays disabled until a browser public key is held",
+);
+assert.match(
+  source,
   /needsSession\s*\?\s*(?:\(\s*)?<SignInView/,
   "a refused read presents the sign-in view",
 );

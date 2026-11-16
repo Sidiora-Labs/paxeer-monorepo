@@ -73,7 +73,7 @@ export function ChainList({ chains, value, onSelect, recent = [], tab, defaultTa
             className={ cn(
               'focus-ring flex min-h-11 items-center gap-2 rounded-lg surface-inset-x text-left text-body-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40',
               'py-2',
-              isSelected ? 'bg-container-high' : 'hover:bg-container-high/70',
+              isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-container-high/70',
             ) }
           >
             <ChainIcon name={ c.name } src={ c.iconSrc } size={ compact ? 'sm' : 'xs' }/>
