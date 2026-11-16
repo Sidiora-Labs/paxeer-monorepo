@@ -14,18 +14,16 @@ import (
 // role may CREATE DATABASE and CREATE ROLE.
 const PostgresDSNEnv = "COORDINATOR_TEST_POSTGRES_DSN"
 
-// The registered migrations and reviewed grants of the two platform runtimes
-// that read the coordinator-owned chat schema, applied together the way the
-// coordinator applies them, pass the production readiness check as each
-// least-privilege runtime role.
+// The registered migrations and reviewed grants of the platform and charts
+// runtimes pass production readiness as each least-privilege runtime role.
 func TestPlatformRuntimeRolesPassReadiness(t *testing.T) {
 	admin := os.Getenv(PostgresDSNEnv)
 	if admin == "" {
 		t.Skipf("%s is not set: point it at a running PostgreSQL whose role may CREATE DATABASE and CREATE ROLE; tests never start containers", PostgresDSNEnv)
 	}
-	db := Bootstrap(t, admin, "chat_runtime", "livestream_runtime")
+	db := Bootstrap(t, admin, "chat_runtime", "livestream_runtime", "candles_runtime")
 	ctx := context.Background()
-	for _, role := range []string{"chat_runtime", "livestream_runtime"} {
+	for _, role := range []string{"chat_runtime", "livestream_runtime", "candles_runtime"} {
 		rt := db.Runtimes[role]
 		want, err := production.LoadExpectedSchema(rt.ExpectedSchema, rt.ExpectedSchemaSHA256)
 		if err != nil {
