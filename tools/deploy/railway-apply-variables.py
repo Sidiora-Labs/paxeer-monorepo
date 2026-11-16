@@ -12,6 +12,7 @@ from rollout import SECRET, URL_WITH_PASSWORD, graphql_error, mask, redact  # no
 from rollout import gql as http_transport  # noqa: E402
 
 MANIFEST = ROOT / "deploy/launchpad/railway/variables.json"
+PUBLIC_LISTEN_ADDRESS = re.compile(r"_PRIVATE_LISTEN_ADDRESS$")
 USAGE = ("usage: railway-apply-variables.py <project-id> <environment> --plan|--apply "
          "[--values <values.json>] [--from-env] [--registry-credentials] [--replay <responses.json>] [--manifest <json>]")
 
@@ -78,7 +79,8 @@ def load_manifest(path):
             raise ValueError(f"{name}: invalid documentSources contract")
         alternatives = [n for pair in sources.items() for n in pair]
         # The explicit list is the authority; a name the pattern flags but the list omits is refused.
-        unlisted = [n for n in [*fixed, *needed, *alternatives] if SECRET.search(n) and n not in marked]
+        unlisted = [n for n in [*fixed, *needed, *alternatives]
+                    if SECRET.search(n) and not PUBLIC_LISTEN_ADDRESS.search(n) and n not in marked]
         if unlisted:
             raise ValueError(f"{name}: {', '.join(unlisted)} match the secret name pattern "
                              "but are not in the service's secrets list")
@@ -87,7 +89,7 @@ def load_manifest(path):
 
 
 def is_secret(svc, name, value):
-    return name in svc["secrets"] or bool(SECRET.search(name) or URL_WITH_PASSWORD.search(value or ""))
+    return name in svc["secrets"] or bool((SECRET.search(name) and not PUBLIC_LISTEN_ADDRESS.search(name)) or URL_WITH_PASSWORD.search(value or ""))
 
 
 def show(svc, name, value):

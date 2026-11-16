@@ -21,6 +21,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -657,33 +658,49 @@ func Run(parent context.Context) error {
 	}
 	defer app.Close()
 
-	srv := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port),
-		Handler:           app.Router,
-		TLSConfig:         app.tlsConfig,
-		ConnState:         app.tracker.ConnState,
-		ReadHeaderTimeout: 10 * time.Second,
+	serveErr := make(chan error, 2)
+	var healthSrv, tlsSrv *http.Server
+	if app.tlsConfig != nil {
+		healthSrv = &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: healthOnlyHandler(app.Router), ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		tlsSrv = &http.Server{Addr: cfg.PrivateListenAddress, Handler: app.Router, TLSConfig: app.tlsConfig.Clone(), ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		go func() {
+			logger.Info("http health listener", slog.Int("port", cfg.Port))
+			if err := healthSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- startupStage("http_health_listen", err)
+				cancel()
+			}
+		}()
+		go func() {
+			logger.Info("http TLS listener", slog.String("address", cfg.PrivateListenAddress))
+			listener, err := net.Listen("tcp", tlsSrv.Addr)
+			if err == nil {
+				err = tlsSrv.Serve(tls.NewListener(listener, tlsSrv.TLSConfig))
+			}
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- startupStage("http_tls_listen", err)
+				cancel()
+			}
+		}()
+	} else {
+		srv := &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: app.Router, ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		go func() {
+			logger.Info("http server listening", slog.Int("port", cfg.Port))
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- startupStage("http_listen", err)
+				cancel()
+			}
+		}()
+		healthSrv = srv
 	}
-
-	serveErr := make(chan error, 1)
-	go func() {
-		logger.Info("http server listening", slog.Int("port", cfg.Port))
-		var err error
-		if app.tlsConfig != nil {
-			err = srv.ListenAndServeTLS(app.tlsCertFile, app.tlsKeyFile)
-		} else {
-			err = srv.ListenAndServe()
-		}
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serveErr <- startupStage("http_listen", err)
-			cancel()
-		}
-	}()
 
 	shutErr := process.Run(ctx, process.Options{Tracker: app.tracker,
 		Logger: logger,
 		OnShutdown: func(sctx context.Context) error {
-			return errors.Join(app.stopMediaWorkers(sctx), srv.Shutdown(sctx))
+			cancel()
+			if tlsSrv != nil {
+				return errors.Join(app.stopMediaWorkers(sctx), tlsSrv.Shutdown(sctx), healthSrv.Shutdown(sctx))
+			}
+			return errors.Join(app.stopMediaWorkers(sctx), healthSrv.Shutdown(sctx))
 		},
 	})
 
@@ -693,6 +710,16 @@ func Run(parent context.Context) error {
 	default:
 		return shutErr
 	}
+}
+
+func healthOnlyHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {
