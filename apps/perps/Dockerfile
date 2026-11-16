@@ -14,6 +14,7 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat && corepack enable
 COPY package.json pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml .npmrc ./
+COPY tsconfig.json ./
 COPY apps ./apps
 COPY packages ./packages
 RUN corepack prepare "$(node -p 'require("./package.json").packageManager')" --activate
