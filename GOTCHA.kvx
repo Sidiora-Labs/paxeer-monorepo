@@ -22920,3 +22920,8 @@ fix = "Decision 3698. Task 22.39.688."
 title = "The function that appends a ranking head to the public stream reads its head without the category"
 symptom = "The function api_stream.append_ranking of the registered migration 190003 under migrations reads the committed head by the run, by the sequence of its category and by the output digest, and admits one row. The heads of several categories of one run can share that sequence and that digest; every category of a run over an empty set of markets does. The read then finds several rows, the function ends with an error, and the publication of that run does not complete."
 fix = "Decision 3699. Task 22.39.766."
+
+[gotcha.4620]
+title = "The readiness refresh of the canonical source writes through the head reader of the ingestion and keeps no cause"
+symptom = "The refresh behind the readiness of the canonical source in services/launchpad/indexer/internal/app takes the height of the source through the same head reader the ingestion uses. That reader does more than read: it retains the committed head it observed, reports the durable height to the source, and where the observation returns an error it quarantines the committed head of the stream. The refresh keeps an error only where it is a mismatch or an incomplete checkpoint; any other error of the head reader, of the watermark read or of the block read at the watermark is neither kept nor written to the log, so the readiness answer then states only that no refresh succeeded or that the last success is older than one minute, and nothing names the step that did not answer."
+fix = "Decision 3700. Task 22.39.768."
