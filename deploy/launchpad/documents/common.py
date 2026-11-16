@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 
 DB_BUDGET = "DB_BUDGET_DOCUMENT"
@@ -28,6 +28,13 @@ SERVICE_REGISTRY_NAMES = {
 
 class DocumentError(ValueError):
     """A values directory cannot provide a trusted startup document."""
+
+
+class FileDocument(NamedTuple):
+    """Rendered bytes and the path where the service reads them."""
+
+    data: bytes
+    path: str
 
 
 def _read_json(path: Path) -> Any:

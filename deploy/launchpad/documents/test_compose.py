@@ -147,3 +147,116 @@ def test_compose_refuses_contract_document_from_module(tmp_path: Path) -> None:
         else:
             module.write_bytes(original)
 
+
+def _indexer_rendered_values(values: Path, out: Path) -> tuple[dict, dict[str, bytes]]:
+    result = _run(values, out, "indexer")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "indexer.json").read_bytes())
+    data = json.loads((values / "indexer.example.json").read_bytes())
+    rendered = {}
+    for name in ("receipt", "lifecycle"):
+        document = json.loads(base64.b64decode(record[f"INDEXER_{name.upper()}_CONFIG_DOCUMENT"]))
+        raw = (json.dumps(document, indent=2) + "\n").encode()
+        (values / f"{name}.json").write_bytes(raw)
+        data[f"{name}_rendered_file"] = f"{name}.json"
+        data[f"{name}_runtime_path"] = f"/run/launchpad/indexer/{name}.json"
+        rendered[name] = raw
+    return data, rendered
+
+
+@pytest.mark.parametrize("file_names", [("receipt", "lifecycle"), ("receipt",), ("lifecycle",)])
+def test_compose_indexer_file_form(tmp_path: Path, file_names: tuple[str, ...]) -> None:
+    values = _values(tmp_path)
+    data, rendered = _indexer_rendered_values(values, tmp_path / "inline")
+    for name in ("receipt", "lifecycle"):
+        if name not in file_names:
+            del data[f"{name}_rendered_file"], data[f"{name}_runtime_path"]
+    # Rendered inputs may also be absolute paths outside the values directory.
+    if "receipt" in file_names:
+        data["receipt_rendered_file"] = str(values / "receipt.json")
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    result = _run(values, tmp_path / "files", "indexer")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((tmp_path / "files" / "indexer.json").read_bytes())
+    for name in ("receipt", "lifecycle"):
+        prefix = f"INDEXER_{name.upper()}_CONFIG"
+        if name in file_names:
+            assert record[f"{prefix}_FILE"] == data[f"{name}_runtime_path"]
+            assert record[f"{prefix}_SHA256"] == hashlib.sha256(rendered[name]).hexdigest()
+            assert f"{prefix}_DOCUMENT" not in record
+        else:
+            assert f"{prefix}_FILE" not in record
+            assert hashlib.sha256(base64.b64decode(record[f"{prefix}_DOCUMENT"])).hexdigest() == record[f"{prefix}_SHA256"]
+
+
+@pytest.mark.parametrize("name", ["receipt", "lifecycle"])
+@pytest.mark.parametrize("invalid", ["missing", "empty", "array", "null", "string", "number", "invalid", "encoding", "trailing"])
+def test_compose_indexer_refuses_invalid_rendered_file(tmp_path: Path, name: str, invalid: str) -> None:
+    values = _values(tmp_path)
+    data = json.loads((values / "indexer.example.json").read_bytes())
+    data[f"{name}_rendered_file"] = "rendered.json"
+    data[f"{name}_runtime_path"] = f"/run/launchpad/indexer/{name}.json"
+    payloads = {"empty": b"", "array": b"[]", "null": b"null", "string": b'"document"',
+                "number": b"1", "invalid": b"{", "encoding": b"\xff", "trailing": b"{} {}"}
+    if invalid != "missing":
+        (values / "rendered.json").write_bytes(payloads[invalid])
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    result = _run(values, tmp_path / "out", "indexer")
+    assert result.returncode == 2
+    assert f"indexer: {name}_rendered_file" in result.stderr
+    assert not (tmp_path / "out" / "indexer.json").exists()
+
+
+@pytest.mark.parametrize("name", ["receipt", "lifecycle"])
+@pytest.mark.parametrize("key, value", [("rendered_file", "rendered.json"), ("runtime_path", "/run/indexer.json")])
+def test_compose_indexer_refuses_unpaired_file_values(tmp_path: Path, name: str, key: str, value: str) -> None:
+    values = _values(tmp_path)
+    data = json.loads((values / "indexer.example.json").read_bytes())
+    data[f"{name}_{key}"] = value
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    result = _run(values, tmp_path / "out", "indexer")
+    missing = "runtime_path" if key == "rendered_file" else "rendered_file"
+    assert result.returncode == 2
+    assert f"indexer: {name}_{missing}" in result.stderr
+
+
+@pytest.mark.parametrize("name", ["receipt", "lifecycle"])
+@pytest.mark.parametrize("key", ["rendered_file", "runtime_path"])
+@pytest.mark.parametrize("value", [None, "", " ", 1])
+def test_compose_indexer_refuses_invalid_file_values(tmp_path: Path, name: str, key: str, value: object) -> None:
+    values = _values(tmp_path)
+    data = json.loads((values / "indexer.example.json").read_bytes())
+    data[f"{name}_rendered_file"] = "rendered.json"
+    data[f"{name}_runtime_path"] = "/run/indexer.json"
+    data[f"{name}_{key}"] = value
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    result = _run(values, tmp_path / "out", "indexer")
+    assert result.returncode == 2
+    assert f"indexer: {name}_{key}" in result.stderr
+
+
+@pytest.mark.parametrize("name", ["receipt", "lifecycle"])
+def test_compose_indexer_document_source_exclusivity(tmp_path: Path, name: str) -> None:
+    import compose
+    import indexer
+
+    values = _values(tmp_path)
+    inline = indexer.documents("indexer", values)
+    data, _ = _indexer_rendered_values(values, tmp_path / "inline")
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    supplied = indexer.documents("indexer", values)
+    sources = compose._contract()["indexer"]["documentSources"]
+    document, path = f"INDEXER_{name.upper()}_CONFIG_DOCUMENT", f"INDEXER_{name.upper()}_CONFIG_FILE"
+    supplied[document] = inline[document]
+    with pytest.raises(compose.ComposeError, match=f"{document} and {path} are both provided"):
+        compose._validate_document_sources("indexer", supplied, sources)
+    del supplied[document], supplied[path]
+    with pytest.raises(compose.ComposeError, match=f"{document} or {path} is not provided"):
+        compose._validate_document_sources("indexer", supplied, sources)
+
+
+def test_compose_platform_variable_values() -> None:
+    result = subprocess.run(["bash", str(ROOT.parent / "tests" / "railway-values.test.sh")], text=True, capture_output=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS railway-values" in result.stdout
+
