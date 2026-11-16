@@ -1171,43 +1171,11 @@ func (a *RPCQualification) pinnedReceipts(ctx context.Context, block pinnedBlock
 			}
 		}
 	}
-	if len(receipts) != len(block.Transactions) {
-		return pinnedBlock{}, nil, ErrQualification
+	regular, _, err := SeparateShellReceipts(block.Transactions, types.Receipts(receipts), hash, header.Number, header.Bloom, header.ReceiptHash, a.reportedIdentity())
+	if err != nil {
+		return pinnedBlock{}, nil, err
 	}
-	number := header.Number.Uint64()
-	logIndex := uint(0)
-	totalBytes := 0
-	for i, r := range receipts {
-		t := block.Transactions[i]
-		iUint, conversionErr := checked.Convert[uint](i)
-		if conversionErr != nil {
-			return pinnedBlock{}, nil, conversionErr
-		}
-		if r == nil || r.Bloom != types.CreateBloom(r) || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != hash || r.TxHash != t.Hash() || r.TransactionIndex != iUint || r.Type != t.Type() || (r.Status != 0 && r.Status != 1) || len(r.Logs) > 4096 {
-			return pinnedBlock{}, nil, ErrQualification
-		}
-		for _, l := range r.Logs {
-			iUint2, conversionErr := checked.Convert[uint](i)
-			if conversionErr != nil {
-				return pinnedBlock{}, nil, conversionErr
-			}
-			if l == nil || l.Removed || l.BlockHash != hash || l.BlockNumber != number || l.TxHash != t.Hash() || l.TxIndex != iUint2 || l.Index != logIndex || logIndex > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
-				return pinnedBlock{}, nil, ErrQualification
-			}
-			totalBytes += 256 + len(l.Data) + 32*len(l.Topics)
-			if totalBytes > maxBundleBytes {
-				return pinnedBlock{}, nil, ErrQualification
-			}
-			logIndex++
-		}
-	}
-	if !a.reportedIdentity() && types.DeriveSha(types.Receipts(receipts), trie.NewStackTrie(nil)) != header.ReceiptHash {
-		return pinnedBlock{}, nil, ErrQualification
-	}
-	if types.MergeBloom(types.Receipts(receipts)) != header.Bloom {
-		return pinnedBlock{}, nil, ErrQualification
-	}
-	return block, types.Receipts(receipts), nil
+	return block, regular, nil
 }
 func receiptEqual(a, b *types.Receipt) bool {
 	if a == nil || b == nil {
