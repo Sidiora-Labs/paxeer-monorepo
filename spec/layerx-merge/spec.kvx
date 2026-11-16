@@ -248514,7 +248514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.714]
 title = "Let the perps data gateway admit the browser origins its setting lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
