@@ -30,7 +30,7 @@ type Props = Log & {
 
 const RowHeader = ({ children, isLoading }: { children: React.ReactNode; isLoading?: boolean }) => (
   <GridItem _notFirst={{ my: { base: 4, lg: 0 } }}>
-    <Skeleton fontWeight={ 500 } loading={ isLoading } display="inline-block">{ children }</Skeleton>
+    <Skeleton fontWeight="medium" loading={ isLoading } display="inline-block">{ children }</Skeleton>
   </GridItem>
 );
 
@@ -52,11 +52,11 @@ const LogItem = ({
 
   return (
     <Grid
-      gridTemplateColumns={{ base: 'minmax(0, 1fr)', lg: '200px minmax(0, 1fr)' }}
+      gridTemplateColumns={{ base: 'minmax(0, 1fr)', lg: 'calc(var(--chakra-spacing-100) / 2) minmax(0, 1fr)' }}
       gap={{ base: 2, lg: 8 }}
       py={ 8 }
       _notFirst={{
-        borderTopWidth: '1px',
+        borderTopWidth: 'var(--chakra-border-widths-1)',
         borderTopColor: { _light: 'blackAlpha.200', _dark: 'whiteAlpha.200' },
       }}
       _first={{
@@ -134,7 +134,7 @@ const LogItem = ({
       </GridItem>
       <RowHeader isLoading={ isLoading }>Data</RowHeader>
       { defaultDataType ? (
-        <RawInputData hex={ data } isLoading={ isLoading } defaultDataType={ defaultDataType } minHeight="53px"/>
+        <RawInputData hex={ data } isLoading={ isLoading } defaultDataType={ defaultDataType } minHeight="var(--chakra-sizes-14)"/>
       ) : (
         <Skeleton
           loading={ isLoading }

@@ -61,7 +61,7 @@ const ScanPagination = (props: ScanPaginationProps) => {
         aria-label="Previous page"
         variant="scan_control"
         borderRadius="sm"
-        boxSize={ 8 }
+        boxSize="touchTarget"
         onClick={ onPrevPageClick }
         disabled={ !canGoBackwards || isLoading || isFirstPage }
         data-control="prev"
@@ -71,7 +71,7 @@ const ScanPagination = (props: ScanPaginationProps) => {
       <chakra.span
         textStyle="sm"
         color="text.secondary"
-        borderWidth="1px"
+        borderWidth="var(--chakra-border-widths-1)"
         borderStyle="solid"
         borderColor="border.divider"
         borderRadius="sm"
@@ -86,7 +86,7 @@ const ScanPagination = (props: ScanPaginationProps) => {
         aria-label="Next page"
         variant="scan_control"
         borderRadius="sm"
-        boxSize={ 8 }
+        boxSize="touchTarget"
         onClick={ onNextPageClick }
         disabled={ !hasNextPage || isLoading }
         data-control="next"

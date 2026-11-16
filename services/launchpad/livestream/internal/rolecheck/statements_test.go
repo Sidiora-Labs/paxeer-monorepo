@@ -18,6 +18,9 @@ import (
 var parameter = regexp.MustCompile(`\$[1-9][0-9]*`)
 
 func TestRuntimeRoleStatements(t *testing.T) {
+	if len(Waiting) != 0 {
+		t.Fatal("every connected runtime statement requires an asserted plan")
+	}
 	root := coordinatortest.RepositoryRoot(t)
 	schemas, err := registeredSchemas(root)
 	if err != nil {

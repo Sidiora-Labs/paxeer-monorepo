@@ -181,6 +181,49 @@ def test_compose_documents_have_digests_and_private_files(tmp_path: Path) -> Non
     assert len(budgets) == 1
 
 
+def test_compose_expected_schema_file_form_preserves_other_documents(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    baseline_out = tmp_path / "baseline"
+    baseline = _run(values, baseline_out, "social", "livestream")
+    assert baseline.returncode == 0, baseline.stderr
+    baseline_records = {
+        service: json.loads((baseline_out / f"{service}.json").read_bytes())
+        for service in ("social", "livestream")
+    }
+    expected = values / "expected-schema"
+    schema_bytes = (expected / "social.json").read_bytes()
+    (expected / "runtime-paths.json").write_text(json.dumps({"social": "/run/launchpad/social/expected-schema.json"}))
+
+    out = tmp_path / "file-form"
+    result = _run(values, out, "social", "livestream")
+    assert result.returncode == 0, result.stderr
+    social = json.loads((out / "social.json").read_bytes())
+    livestream = json.loads((out / "livestream.json").read_bytes())
+    assert social["EXPECTED_SCHEMA_FILE"] == "/run/launchpad/social/expected-schema.json"
+    assert social["EXPECTED_SCHEMA_SHA256"] == hashlib.sha256(schema_bytes).hexdigest()
+    assert "EXPECTED_SCHEMA_DOCUMENT" not in social
+    assert livestream["EXPECTED_SCHEMA_DOCUMENT"] == baseline_records["livestream"]["EXPECTED_SCHEMA_DOCUMENT"]
+    assert livestream["EXPECTED_SCHEMA_SHA256"] == baseline_records["livestream"]["EXPECTED_SCHEMA_SHA256"]
+    for service in ("social", "livestream"):
+        assert json.loads((out / f"{service}.json").read_bytes())["DB_BUDGET_DOCUMENT"] == baseline_records[service]["DB_BUDGET_DOCUMENT"]
+        assert json.loads((out / f"{service}.json").read_bytes())["DB_BUDGET_SHA256"] == baseline_records[service]["DB_BUDGET_SHA256"]
+
+
+@pytest.mark.parametrize(
+    ("paths", "member"),
+    [([], None), ({"unknown": "/run/unknown.json"}, "unknown"), ({"social": "relative.json"}, "social")],
+)
+def test_compose_refuses_invalid_expected_schema_runtime_paths(tmp_path: Path, paths: object, member: str | None) -> None:
+    values = _values(tmp_path)
+    path = values / "expected-schema" / "runtime-paths.json"
+    path.write_text(json.dumps(paths))
+    result = _run(values, tmp_path / "out", "social")
+    assert result.returncode == 2
+    assert "expected-schema/runtime-paths.json" in result.stderr
+    if member is not None:
+        assert member in result.stderr
+
+
 def test_compose_refuses_unknown_service(tmp_path: Path) -> None:
     result = _run(_values(tmp_path), tmp_path / "out", "unknown")
     assert result.returncode != 0
@@ -255,6 +298,17 @@ def test_compose_api_readiness_documents_are_bound(tmp_path: Path) -> None:
     discovery = json.loads(base64.b64decode(record["DISCOVERY_RUNTIME_CONFIG_DOCUMENT"]))
     assert discovery["d11TokenRef"] == "ACCOUNT_SERVICE_TOKEN"
     assert discovery["push"]["EnableAPNS"] is False
+
+
+def test_private_listener_fixed_names() -> None:
+    contracts = json.loads((ROOT.parent / "railway" / "variables.json").read_bytes())
+    assert contracts["api"]["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "[::]:8443"
+    assert "API_PRIVATE_LISTEN_ADDRESS" not in contracts["api-sockets"]["fixed"]
+    addresses = {
+        contracts[service]["fixed"][f"{service.upper()}_PRIVATE_LISTEN_ADDRESS"]
+        for service in ("api", "ranking", "user", "social", "metadata")
+    }
+    assert addresses == {"[::]:8443"}
 
 
 @pytest.mark.parametrize(("section", "member", "message"), [
@@ -542,3 +596,160 @@ def test_compose_gateway_preserves_route_list_authority(tmp_path: Path) -> None:
     record = json.loads((out / "gateway.json").read_bytes())
     runtime = json.loads(base64.b64decode(record["GATEWAY_RUNTIME_DOCUMENT"]))
     assert runtime["upstreams"][0]["routes"][0]["Template"] == "/v2/product-route"
+
+
+def _history_values(values: Path, *, first: int | None = None, last: int | None = None) -> dict:
+    data = json.loads((values / "indexer.example.json").read_bytes())
+    manifest = json.loads((ROOT.parents[2] / "sdk/launchpad/shared/config/deployment/current.json").read_bytes())
+    activation = manifest["activationHeight"]
+    data.update(anchor_height=last if last is not None else activation + 20,
+                history_from_height=first if first is not None else activation,
+                history_operator="launchpad_operator", history_expires_at="2099-01-01T00:00:00Z")
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    return data
+
+
+def _history_requests(out: Path) -> tuple[dict, list[dict]]:
+    env = json.loads((out / "indexer.json").read_bytes())
+    if "INDEXER_LIFECYCLE_CONFIG_DOCUMENT" in env:
+        raw = base64.b64decode(env["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"])
+    else:
+        raw = (out / "indexer-lifecycle.json").read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == env["INDEXER_LIFECYCLE_CONFIG_SHA256"]
+    lifecycle = json.loads(raw)
+    return env, lifecycle.get("BackfillRequests", lifecycle.get("backfillRequests", []))
+
+
+def _expected_history_sql(requests: list[dict], data: dict) -> list[str]:
+    rows = ["BEGIN;"]
+    for request in requests:
+        evidence = hashlib.sha256(json.dumps(request, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        rows.append(
+            "INSERT INTO indexer.indexer_replay_authorizations "
+            "(authorization_id,operator_identity,authorization_evidence,action,target,generation,projection_revision,from_height,to_height,max_concurrent,expires_at,revoked_at) "
+            f"VALUES ('{request['AuthorizationID']}','{data['history_operator']}','{evidence}','backfill','indexer','{data['inventory_generation']}','{data['projection_version']}',{request['FromHeight']},{request['ToHeight']},1,'2099-01-01T00:00:00+00:00'::timestamptz,NULL) ON CONFLICT (authorization_id) DO NOTHING;"
+        )
+    return rows + ["COMMIT;"]
+
+
+def test_history_below_anchor_absent_preserves_documents(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    data = json.loads((values / "indexer.example.json").read_bytes())
+    first, second = tmp_path / "first", tmp_path / "second"
+    assert _run(values, first, "indexer").returncode == 0
+    data.update(history_operator="launchpad_operator", history_expires_at="2099-01-01T00:00:00Z", backfill_batch_size=16)
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    result = _run(values, second, "indexer")
+    assert result.returncode == 0, result.stderr
+    assert (first / "indexer.json").read_bytes() == (second / "indexer.json").read_bytes()
+    env = json.loads((first / "indexer.json").read_bytes())
+    assert not any(name in env for name in ("INDEXER_MODE", "BACKFILL_BATCH_SIZE", "BACKFILL_ONLY", "BACKFILL_FROM_BLOCK"))
+    assert not (second / "indexer-history-authorizations.sql").exists()
+    life = json.loads(base64.b64decode(env["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"]))
+    assert life["ReplayRequests"] == [] and "BackfillRequests" not in life
+    receipt = json.loads(base64.b64decode(env["INDEXER_RECEIPT_CONFIG_DOCUMENT"]))
+    assert receipt["Production"]["Manifest"]["activationHeight"] == data["anchor_height"] + 1
+
+
+@pytest.mark.parametrize("bound", ["activation", "anchor"])
+def test_history_below_anchor_bounds(tmp_path: Path, bound: str) -> None:
+    values = _values(tmp_path)
+    data = _history_values(values)
+    if bound == "anchor":
+        data["history_from_height"] = data["anchor_height"]
+        (values / "indexer.example.json").write_text(json.dumps(data))
+    out = tmp_path / "out"
+    result = _run(values, out, "indexer")
+    assert result.returncode == 0, result.stderr
+    env, requests = _history_requests(out)
+    assert len(requests) == 1
+    request = requests[0]
+    assert request["FromHeight"] == data["history_from_height"]
+    assert request["ToHeight"] == request["CheckpointHeight"] == data["anchor_height"]
+    assert request["CheckpointHash"] == data["anchor_hash"]
+    assert request["Mode"] == "backfill" and request["Target"] == "indexer"
+    assert env["INDEXER_MODE"] == "backfill" and env["BACKFILL_ONLY"] == "false"
+    assert env["BACKFILL_FROM_BLOCK"] == str(data["history_from_height"])
+    assert env["BACKFILL_BATCH_SIZE"] == str(data["replay_batch_size"])
+    contract = json.loads((ROOT.parent / "railway/variables.json").read_bytes())["indexer"]
+    for name in ("INDEXER_MODE", "BACKFILL_ONLY", "BACKFILL_FROM_BLOCK", "BACKFILL_BATCH_SIZE"):
+        assert contract["optional"][name] is True and name not in contract["required"]
+    sql = out / "indexer-history-authorizations.sql"
+    assert sql.read_text().splitlines() == _expected_history_sql(requests, data)
+    assert stat.S_IMODE(sql.stat().st_mode) == 0o600
+    again = tmp_path / "again"
+    repeated = _run(values, again, "indexer")
+    assert repeated.returncode == 0, repeated.stderr
+    assert (out / "indexer.json").read_bytes() == (again / "indexer.json").read_bytes()
+    assert sql.read_bytes() == (again / sql.name).read_bytes()
+
+
+@pytest.mark.parametrize("invalid", ["below", "above", "bool", "negative", "null", "string"])
+def test_history_below_anchor_refuses_invalid_height(tmp_path: Path, invalid: str) -> None:
+    values = _values(tmp_path)
+    data = _history_values(values)
+    data["history_from_height"] = {"below": data["history_from_height"] - 1, "above": data["anchor_height"] + 1, "bool": True, "negative": -1, "null": None, "string": "42"}[invalid]
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    result = _run(values, tmp_path / "out", "indexer")
+    assert result.returncode == 2
+    assert "history_from_height" in result.stderr
+    assert not (tmp_path / "out/indexer.json").exists()
+    assert not (tmp_path / "out/indexer-history-authorizations.sql").exists()
+
+
+@pytest.mark.parametrize("length", [1_000_000, 1_000_001, 2_000_001])
+def test_history_below_anchor_splits_requests_and_authorizations(tmp_path: Path, length: int) -> None:
+    values = _values(tmp_path)
+    data = _history_values(values)
+    data["anchor_height"] = data["history_from_height"] + length - 1
+    data["backfill_batch_size"] = 64
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    out = tmp_path / "out"
+    result = _run(values, out, "indexer")
+    assert result.returncode == 0, result.stderr
+    env, requests = _history_requests(out)
+    assert len(requests) == (length + 999_999) // 1_000_000
+    assert requests[0]["FromHeight"] == data["history_from_height"]
+    assert requests[-1]["ToHeight"] == data["anchor_height"]
+    for i, request in enumerate(requests):
+        assert 1 <= request["ToHeight"] - request["FromHeight"] + 1 <= 1_000_000
+        assert request["CheckpointHeight"] == data["anchor_height"]
+        assert request["CheckpointHash"] == data["anchor_hash"]
+        if i:
+            assert request["FromHeight"] == requests[i - 1]["ToHeight"] + 1
+    assert len({r["JobID"] for r in requests}) == len(requests)
+    assert len({r["AuthorizationID"] for r in requests}) == len(requests)
+    assert env["BACKFILL_BATCH_SIZE"] == "64"
+    assert (out / "indexer-history-authorizations.sql").read_text().splitlines() == _expected_history_sql(requests, data)
+
+
+@pytest.mark.parametrize("member,value", [("history_operator", "operator'"), ("history_operator", ""), ("history_expires_at", "2099-01-01"), ("history_expires_at", "tomorrow"), ("backfill_batch_size", 65), ("backfill_batch_size", 0)])
+def test_history_below_anchor_refuses_invalid_operation_values(tmp_path: Path, member: str, value: object) -> None:
+    values = _values(tmp_path)
+    data = _history_values(values)
+    data[member] = value
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    result = _run(values, tmp_path / "out", "indexer")
+    assert result.returncode == 2
+    assert member in result.stderr
+
+
+def test_history_below_anchor_rendered_lifecycle_is_bound(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    data = _history_values(values)
+    # Render the initial source document with the same anchor before selecting history.
+    first = data.pop("history_from_height")
+    (values / "indexer.example.json").write_text(json.dumps(data))
+    rendered, _ = _indexer_rendered_values(values, tmp_path / "initial")
+    rendered["history_from_height"] = first
+    # The receipt is composed from the reviewed deployment manifest for history.
+    del rendered["receipt_rendered_file"], rendered["receipt_runtime_path"]
+    (values / "indexer.example.json").write_text(json.dumps(rendered))
+    out = tmp_path / "out"
+    result = _run(values, out, "indexer")
+    assert result.returncode == 0, result.stderr
+    env, requests = _history_requests(out)
+    assert env["INDEXER_LIFECYCLE_CONFIG_FILE"] == rendered["lifecycle_runtime_path"]
+    assert "INDEXER_LIFECYCLE_CONFIG_DOCUMENT" not in env
+    assert requests[0]["FromHeight"] == first
+    assert (out / "indexer-history-authorizations.sql").read_text().splitlines() == _expected_history_sql(requests, rendered)

@@ -56,7 +56,7 @@ export default async function ReceiptPage({
           caption="Native transaction position"
           columns={[copyEntry("explorer.column.fact").message, copyEntry("explorer.column.value").message]}
           rows={[
-            { id: "transaction", cells: ["Native transaction", <a key="transaction" href={explorerLink({ kind: "transaction", transactionHash: transaction.hash })}>{transaction.hash}</a>] },
+            { id: "transaction", cells: ["Native transaction", <a className="inline-flex min-h-11 items-center break-all" key="transaction" href={explorerLink({ kind: "transaction", transactionHash: transaction.hash })}>{transaction.hash}</a>] },
             { id: "commitment", cells: ["Commitment", committed ? "Committed" : "Pending"] },
             { id: "block", cells: ["Committed block", transaction.block_number ?? "Not committed"] },
             { id: "position", cells: ["Transaction position in block", transaction.position ?? "Not committed"] },

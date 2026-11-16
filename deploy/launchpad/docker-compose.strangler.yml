@@ -11,6 +11,7 @@ services:
       RUNTIME_PROFILE: container
       BIND_ADDRESS: 0.0.0.0
       PORT: "8080"
+      API_PRIVATE_LISTEN_ADDRESS: "0.0.0.0:8443"
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
       API_ROLE: rest

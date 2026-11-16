@@ -11,7 +11,7 @@ import useProfileQuery from 'ui/snippets/auth/useProfileQuery';
 
 import AdbutlerBanner from './AdbutlerBanner';
 import CoinzillaBanner from './CoinzillaBanner';
-import { DESKTOP_BANNER_WIDTH, MOBILE_BANNER_WIDTH } from './consts';
+import { DESKTOP_BANNER_HEIGHT, DESKTOP_BANNER_WIDTH, MOBILE_BANNER_HEIGHT, MOBILE_BANNER_WIDTH } from './consts';
 import SliseBanner from './SliseBanner';
 import SpecifyBanner from './SpecifyBanner';
 
@@ -58,6 +58,7 @@ const AdBannerContent = ({ className, isLoading, provider, format }: Props) => {
       borderRadius="none"
       maxW={{ base: `${ MOBILE_BANNER_WIDTH }px`, lg: `${ DESKTOP_BANNER_WIDTH }px` }}
       w="100%"
+      aspectRatio={{ base: `${ MOBILE_BANNER_WIDTH } / ${ MOBILE_BANNER_HEIGHT }`, lg: `${ DESKTOP_BANNER_WIDTH } / ${ DESKTOP_BANNER_HEIGHT }` }}
     >
       { content }
     </Skeleton>

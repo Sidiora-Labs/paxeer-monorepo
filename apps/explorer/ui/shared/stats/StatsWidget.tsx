@@ -7,7 +7,6 @@ import { route } from 'nextjs-routes';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Hint } from 'toolkit/components/Hint/Hint';
-import { TruncatedText } from 'toolkit/components/truncation/TruncatedText';
 import IconSvg, { type IconName } from 'ui/shared/IconSvg';
 
 export type Props = {
@@ -30,7 +29,7 @@ export type Props = {
 const Container = ({ href, children, className }: { href?: Route; children: React.JSX.Element; className?: string }) => {
   if (href) {
     return (
-      <Link href={ route(href) } variant="plain" className={ className }>
+      <Link href={ route(href) } variant="plain" className={ className } display="block" w="100%" h="100%" minW={ 0 } maxW="100%">
         { children }
       </Link>
     );
@@ -65,10 +64,10 @@ const StatsWidget = ({
         className={ href ? undefined : className }
         alignItems="center"
         bgColor="bg.surface"
-        borderWidth="1px"
+        borderWidth="var(--chakra-border-widths-1)"
         borderColor="border.divider"
         p={ 4 }
-        borderRadius="8px"
+        borderRadius="card"
         justifyContent="space-between"
         columnGap={ 2 }
         w="100%"
@@ -78,7 +77,7 @@ const StatsWidget = ({
           <IconSvg
             name={ icon }
             p={ 2 }
-            boxSize="40px"
+            boxSize={ 10 }
             isLoading={ isLoading }
             borderRadius="base"
             display={{ base: 'none', lg: 'block' }}
@@ -86,23 +85,23 @@ const StatsWidget = ({
             opacity={ isFallback && !isLoading ? 'control.disabled' : 1 }
           />
         ) }
-        <Box
-          w={{
-            base: `calc(100% - ${ hint ? '24px' : '0px' })`,
-            lg: `calc(100% - ${ icon ? '48px' : '0px' } - ${ hint ? '24px' : '0px' })`,
-          }}
-        >
+        <Box flex={ 1 } minW={ 0 }>
           <Skeleton
             loading={ isLoading }
             color="text.muted"
             textStyle="label"
             w="fit-content"
+            maxW="100%"
+            overflowWrap="anywhere"
           >
             <h2>{ label }</h2>
           </Skeleton>
           <Skeleton
             loading={ isLoading }
             display="flex"
+            flexWrap="wrap"
+            minW={ 0 }
+            maxW="100%"
             alignItems="baseline"
             data-value
             mt={ 2 }
@@ -110,8 +109,8 @@ const StatsWidget = ({
             color={ isFallback || value == null ? 'text.muted' : 'text.primary' }
           >
             { valuePrefix && <chakra.span whiteSpace="pre">{ valuePrefix }</chakra.span> }
-            { typeof value === 'string' ? (
-              <TruncatedText text={ value } loading={ isLoading }/>
+            { typeof value === 'string' || typeof value === 'number' ? (
+              <chakra.span minW={ 0 } maxW="100%" overflowWrap="anywhere">{ value }</chakra.span>
             ) : (
               value ?? '—'
             ) }
@@ -124,7 +123,7 @@ const StatsWidget = ({
                 <Text color="text.secondary" textStyle="sm">({ diffPeriod })</Text>
               </>
             ) }
-            { period && <Text color="text.secondary" textStyle="xs" fontWeight={ 400 } ml={ 1 }>({ period })</Text> }
+            { period && <Text color="text.secondary" textStyle="xs" fontWeight="normal" ml={ 1 }>({ period })</Text> }
           </Skeleton>
         </Box>
         { typeof hint === 'string' ? (

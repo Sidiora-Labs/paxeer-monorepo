@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -145,9 +147,12 @@ func platformDocumentsEnvironment(t *testing.T, root, service string, documents 
 	sourcePaths := map[string]bool{}
 	names := append([]string(nil), entry.Required...)
 	for document, path := range sources {
-		_ = document
-		sourcePaths[path] = true
-		names = append(names, path)
+		if _, composed := documents[path]; composed {
+			sourcePaths[path] = true
+			names = append(names, path)
+		} else if _, composed := documents[document]; !composed {
+			t.Fatalf("composer omitted both %s and %s", document, path)
+		}
 	}
 	for _, key := range names {
 		value, composed := documents[key]
@@ -491,6 +496,60 @@ func TestPlatformDocumentsDeploymentValues(t *testing.T) {
 				if _, err := consumers[0].BrokerConsumerConfig(); err != nil {
 					t.Fatal(err)
 				}
+			}
+		})
+	}
+}
+
+func TestPrivateListenAddressContract(t *testing.T) {
+	root, values := platformDocumentsValues(t, "api")
+	out := t.TempDir()
+	if output, err := platformDocumentsCompose(root, values, out, "api", "--examples"); err != nil {
+		t.Fatalf("compose api: %v: %s", err, output)
+	}
+	var documents map[string]string
+	if err := json.Unmarshal(platformDocumentsRead(t, filepath.Join(out, "api.json")), &documents); err != nil {
+		t.Fatal(err)
+	}
+	documents["NETWORK_AUTHORITY_CONFIG_FILE"] = filepath.Join(values, "network-authority.json")
+	platformDocumentsEnvironment(t, root, "api", documents)
+	contractRaw, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "railway", "variables.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]struct {
+		Fixed map[string]string `json:"fixed"`
+	}
+	if err := json.Unmarshal(contractRaw, &contract); err != nil {
+		t.Fatal(err)
+	}
+	address := contract["api"].Fixed["API_PRIVATE_LISTEN_ADDRESS"]
+	if address != "[::]:8443" {
+		t.Fatalf("private listener contract = %q, want [::]:8443", address)
+	}
+	t.Setenv("API_PRIVATE_LISTEN_ADDRESS", address)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load production contract: %v", err)
+	}
+	if cfg.NodeEnv != "production" || cfg.RuntimeProfile != "container" || cfg.Port != 8080 || cfg.PrivateListenAddress != address {
+		t.Fatal("private listener must use the production contract")
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate production contract: %v", err)
+	}
+	for name, invalid := range map[string]string{
+		"missing_ip":   ":8443",
+		"hostname":     "localhost:8443",
+		"missing_port": "[::]",
+		"empty_port":   "[::]:",
+		"health_port":  net.JoinHostPort("::", strconv.Itoa(cfg.Port)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := cfg
+			candidate.PrivateListenAddress = invalid
+			if err := candidate.Validate(); err == nil || !strings.Contains(err.Error(), "API_PRIVATE_LISTEN_ADDRESS") {
+				t.Fatalf("Validate accepted private listener %q: %v", invalid, err)
 			}
 		})
 	}

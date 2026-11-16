@@ -22,6 +22,14 @@ name while retaining the platform service name in the values filename.
 Output files are named `<service>.json`, contain only document, file and digest
 variables, and are created with mode `0600`.
 
+The optional `expected-schema/runtime-paths.json` values file selects the file
+form for named services. It is a JSON object whose service members map to
+absolute runtime paths. A selected service emits `EXPECTED_SCHEMA_FILE` and
+`EXPECTED_SCHEMA_SHA256`; without a selection it emits the inline
+`EXPECTED_SCHEMA_DOCUMENT` and digest. The deployment mounts the exact
+expected-schema bytes at the selected path, so both forms bind the same
+document.
+
 The API values compose `STREAM_RELAY_CONFIG_DOCUMENT` and
 `DISCOVERY_RUNTIME_CONFIG_DOCUMENT`. Generate the rendered authority input
 from the repository root with:

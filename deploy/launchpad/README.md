@@ -103,6 +103,23 @@ variable names. `railway-values.json` supplies the shared `RPC_URL`,
 `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_PAXEER_RPC_URL` and
 `NEXT_PUBLIC_RPC_URL_FALLBACK` select node root URLs.
 
+### Object-store account rights
+
+[object-store/accounts.json](object-store/accounts.json) records the object
+actions and key prefixes used by the gateway, user and metadata service
+accounts. Its source-call table is checked against the production service
+trees, so a newly added object call requires a corresponding right.
+
+Render a provider policy with the contract bucket names supplied in order:
+
+```bash
+python3 deploy/launchpad/object-store/policy.py gateway media-approved media-user media-og
+```
+
+The command reads only the reviewed account document, prints an allow-only JSON
+policy, and rejects unknown services, missing or surplus bucket arguments, and
+bucket names outside lowercase letters, digits and hyphens.
+
 ### API network authority document
 
 The API composer emits `ACCOUNTING_READ_CONFIG_DOCUMENT`,
@@ -195,12 +212,15 @@ The Go service definitions set `NODE_ENV`, `RUNTIME_PROFILE`, `BIND_ADDRESS`,
 `API_ROLE`. The Railway definitions select readiness checks: the API uses
 `/health/ready` and the web uses `/api/health`.
 
-The connected ranking, user, metadata and social services keep their health
+The connected API, ranking, user, metadata and social services keep their health
 listener on `PORT=8080` and serve their private mTLS routes on
-`RANKING_PRIVATE_LISTEN_ADDRESS`, `USER_PRIVATE_LISTEN_ADDRESS`,
-`METADATA_PRIVATE_LISTEN_ADDRESS` and `SOCIAL_PRIVATE_LISTEN_ADDRESS`, each set
-to `0.0.0.0:8443` in the Railway contract. Gateway upstreams for user, metadata
-and social use their corresponding HTTPS `:8443` origins; the ranking runtime's
+`API_PRIVATE_LISTEN_ADDRESS`, `RANKING_PRIVATE_LISTEN_ADDRESS`,
+`USER_PRIVATE_LISTEN_ADDRESS`, `METADATA_PRIVATE_LISTEN_ADDRESS` and
+`SOCIAL_PRIVATE_LISTEN_ADDRESS`, each set to `[::]:8443` in the Railway
+contract to accept both IPv4 and IPv6 connections. The Compose file keeps
+`0.0.0.0:8443` for its IPv4 network. The user and social services reach the
+API's internal notification routes at that private API address. Gateway upstreams for user, metadata and
+social use their corresponding HTTPS `:8443` origins; the ranking runtime's
 social visibility endpoint does the same.
 
 Metadata uses `METADATA_INGRESS=mtls`. Its private listener requires TLS 1.3
@@ -234,3 +254,99 @@ bootstrap uses `compose.yml`, `fixture.env.example`, `images.json` and
 - [Launch a market and chain](../../docs/launchpad/chain-launch.md).
 - [Launchpad documentation site page](../../docs/site/paxeer-docs/public/markdown/launchpad.md).
 - [Public node endpoint reference](../../docs/site/paxeer-docs/public/markdown/public-rpc.md).
+
+### History below the indexer anchor
+
+Set `history_from_height` in the indexer values to ingest historical markets
+and events through the anchor before live ingestion. The height is inclusive
+and must be between the receipt deployment manifest's activation height and
+`anchor_height`, inclusive. Supply `history_operator` (the operator's issued
+identity, using letters, digits, underscores or hyphens) and
+`history_expires_at` (an RFC3339 timestamp with a timezone). For example:
+
+```json
+{
+  "history_from_height": 37220320,
+  "history_operator": "launchpad_operator",
+  "history_expires_at": "2027-01-01T00:00:00Z",
+  "backfill_batch_size": 32
+}
+```
+
+Use the actual anchor height and hash of the deployment. For an approved
+historical deployment, supply its rendered receipt document with
+`receipt_rendered_file` and `receipt_runtime_path`; its manifest determines
+the activation bound. For current values without a rendered receipt, history
+uses the repository's current deployment manifest. The optional member is the
+operator's explicit selection: without it the composer emits the existing
+documents without historical requests, authorizations or mode variables.
+
+The composer writes ordered `backfillRequests` in the lifecycle document,
+splitting the inclusive range into requests of at most 1,000,000 heights
+(up to 16 requests per document). Each request pins the same anchor checkpoint.
+Equal values produce equal job and authorization identities. The composer
+sets `INDEXER_MODE=backfill`, `BACKFILL_ONLY=false`, `BACKFILL_FROM_BLOCK` and
+`BACKFILL_BATCH_SIZE`. The optional `backfill_batch_size` is 1–64; when omitted
+it uses `replay_batch_size`. These variables are optional indexer names in
+`railway/variables.json`.
+
+Before starting the indexer, the migration role applies the adjacent
+`indexer-history-authorizations.sql` file:
+
+```bash
+psql "$MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f "$DOCUMENTS_DIR/indexer-history-authorizations.sql"
+```
+
+It contains one scoped authorization per request, binding the operator,
+backfill action, indexer target, generation, projection revision, height range,
+evidence digest and expiry. Reapplying the same file changes no rows. Use an
+expiry that covers the full history run and any restart. The runtime reads
+authorizations; only the migration role applies the statement file. An absent,
+expired, revoked or mismatched authorization refuses the request. Requests of
+another canonical stream and requests exceeding the height bound are refused.
+
+For rendered lifecycle inputs, mount the composer's adjacent
+`indexer-lifecycle.json` at `lifecycle_runtime_path`: it contains the historical
+requests and its digest is the composed `INDEXER_LIFECYCLE_CONFIG_SHA256`.
+The rendered receipt bytes retain their original digest.
+
+Set the four optional service variables from the composed `indexer.json`
+alongside its document variables. Start the service once with those variables
+and documents after the
+statement file is applied. It processes the historical requests in order,
+persisting progress per request, then starts live ingestion at anchor + 1 in
+the same process. Live source readiness polling starts with live ingestion, so
+bootstrap history can finish before live-lag admission applies. A restart
+with the same documents resumes unfinished
+requests and preserves the live watermark. `BACKFILL_ONLY=true` instead exits
+after history; a later start with `INDEXER_MODE=live` uses the same documents
+and continues from the persisted live watermark.
+
+An indexer backfill writes canonical creations, token transfers, accounting
+fills, typed market/event read projections, block completeness and durable
+canonical delivery intents in the same transaction as replay progress and
+replay effects. Historical completion does not move the live stream watermark.
+A regular `replay` request records immutable raw source and isolated replay
+effects and deliveries; `reconstruct` uses the raw archive for an isolated
+generation. Those modes do not populate the canonical creation or market
+projections and do not move the live watermark.
+
+There is no configured number of completed backfill heights per second.
+One historical request runs batches sequentially: completed heights per second
+are the batch size divided by qualified source-read plus transaction time.
+Source reads independently verify committed blocks and receipt evidence;
+RPC latency, receipts and pinned contract reads, response bounds, retries,
+database work and historical admission pauses determine that time.
+`BACKFILL_BATCH_SIZE` bounds a backfill batch to 64 heights; the lifecycle's
+`ReplayBatchSize` bounds regular replay batches. `INDEXER_HISTORICAL_RPC_URL`
+selects an archive for pruned history. `INDEXER_HISTORICAL_CONCURRENCY` (1–96,
+default 48 per archive client), `INDEXER_HISTORICAL_READAHEAD` (0–1024, default
+256) and `INDEXER_HISTORICAL_ATTEMPT_TIMEOUT_MS` (500–15000, default 8000)
+control archive reads. Primary historical reads share 16 process permits and
+four bulk permits per endpoint; archive endpoints have their own permits.
+`INDEXER_CANONICAL_READ_TIMEOUT_MS` bounds a replay batch read; lifecycle
+`BulkDeadline` and receipt `Timeout` also bound reads. Live lag can pause
+historical admission. `BACKFILL_CONCURRENCY`, `WorkConcurrency`, `WorkBurst`,
+`EventsPerSecond` and the live poll interval do not set a backfill heights-per-
+second rate.

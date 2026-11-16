@@ -32,6 +32,7 @@ const BlockGasUsed = ({ className, gasUsed, gasLimit, gasTarget, isLoading }: Pr
     <>
       <Tooltip content="Gas Used %" disabled={ isLoading }>
         <Utilization
+          aria-label="Gas used"
           colorScheme="gray"
           value={ BigNumber(gasUsed).dividedBy(BigNumber(gasLimit)).toNumber() }
           isLoading={ isLoading }

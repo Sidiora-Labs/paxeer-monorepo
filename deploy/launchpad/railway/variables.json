@@ -12,6 +12,7 @@
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
       "API_ROLE": "rest",
+      "API_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "PORT": "8080",
       "IDENTITY_ASSERTION_AUDIENCE": "identity"
     },
@@ -46,7 +47,8 @@
       "ZONE"
     ],
   "documentSources": {
-    "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE"
+    "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE",
+    "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
   },
     "secrets": [
       "DATABASE_URL",
@@ -98,6 +100,9 @@
       "STREAM_SIGNING_KEY",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "IDENTITY_CLIENT_KEY_FILE",
@@ -110,6 +115,12 @@
     ]
   },
   "indexer": {
+    "optional": {
+      "INDEXER_MODE": true,
+      "BACKFILL_FROM_BLOCK": true,
+      "BACKFILL_BATCH_SIZE": true,
+      "BACKFILL_ONLY": true
+    },
     "buildArgs": {
       "SERVICE": "indexer",
       "BIN": "indexerd"
@@ -153,7 +164,8 @@
     ],
     "documentSources": {
       "INDEXER_LIFECYCLE_CONFIG_DOCUMENT": "INDEXER_LIFECYCLE_CONFIG_FILE",
-      "INDEXER_RECEIPT_CONFIG_DOCUMENT": "INDEXER_RECEIPT_CONFIG_FILE"
+      "INDEXER_RECEIPT_CONFIG_DOCUMENT": "INDEXER_RECEIPT_CONFIG_FILE",
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
     },
     "secrets": [
       "DATABASE_URL",
@@ -207,6 +219,9 @@
       "WEBHOOK_HMAC_SECRET",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "NATS_CREDENTIALS",
@@ -266,6 +281,9 @@
       "WEBHOOK_HMAC_SECRET",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "IDENTITY_ASSERTION_SIGNING_KEY",
@@ -322,6 +340,9 @@
       "WEBHOOK_HMAC_SECRET",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "NATS_CREDENTIALS",
@@ -342,7 +363,7 @@
       "RUNTIME_PROFILE": "container",
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
-      "RANKING_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
+      "RANKING_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "CHAIN_ID": "125",
       "EVENT_EMITTER_ADDRESS": "0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6",
       "POOL_REGISTRY_ADDRESS": "0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7",
@@ -371,6 +392,9 @@
       "RPC_URL",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "REDIS_BULL_URL",
@@ -418,6 +442,9 @@
       "SOCIAL_WS_URL",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "GATEWAY_JWT_SECRET",
@@ -440,7 +467,7 @@
       "RUNTIME_PROFILE": "container",
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
-      "USER_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
+      "USER_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "PORT": "8080"
     },
     "required": [
@@ -489,6 +516,9 @@
       "S3_SECRET_ACCESS_KEY",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "ACCOUNT_AUDIT_KEY",
       "ACCOUNT_CURSOR_KEY",
@@ -521,7 +551,7 @@
       "RUNTIME_PROFILE": "container",
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
-      "SOCIAL_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
+      "SOCIAL_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "PORT": "8080"
     },
     "required": [
@@ -537,6 +567,9 @@
       "SOCIAL_RUNTIME_SHA256",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "REDIS_URL",
@@ -554,7 +587,7 @@
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
       "METADATA_INGRESS": "mtls",
-      "METADATA_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
+      "METADATA_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "RASTER_ISOLATION": "rlimit",
       "RASTER_EXECUTABLE": "/app/app",
       "PORT": "8080",
@@ -600,6 +633,9 @@
       "USER_PEER_CERT_SHA256",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "GATEWAY_ASSERTION_PUBLIC_KEY_HEX",
@@ -640,6 +676,9 @@
       "REDIS_URL",
       "ZONE"
     ],
+    "documentSources": {
+      "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE"
+    },
     "secrets": [
       "DATABASE_URL",
       "IDENTITY_SERVICE_TOKEN",

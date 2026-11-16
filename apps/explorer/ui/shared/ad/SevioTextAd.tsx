@@ -86,7 +86,7 @@ const SevioTextAd = ({ className }: { className?: string }) => {
           h={{ base: 12, lg: 6 }}
           w="100%"
           flexGrow={ 1 }
-          maxW="800px"
+          maxW="var(--chakra-spacing-200)"
           display="block"
         />
       ) }

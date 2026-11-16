@@ -20,8 +20,30 @@ export interface SheetProps {
  */
 export function Sheet({ open, onOpenChange, children, portalContainer }: SheetProps) {
   const dragStartY = React.useRef<number | null>(null);
+  const contentRef = React.useRef<HTMLDialogElement>(null);
 
-  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+  React.useEffect(() => {
+    const content = contentRef.current;
+    if (content === null) return;
+    if (open) {
+      if (content.matches(":modal")) return;
+      if (content.open) content.close();
+      content.showModal();
+    } else if (content.open) {
+      content.close();
+    }
+  }, [open]);
+  const setContentRef = React.useCallback(
+    (content: HTMLDialogElement | null) => {
+      contentRef.current = content;
+      if (content !== null && open && !content.matches(":modal")) {
+        content.showModal();
+      }
+    },
+    [open],
+  );
+
+  const startDrag = (event: React.PointerEvent<HTMLDialogElement>) => {
     if (!(event.target instanceof Element) || event.target.closest("[data-sheet-drag-handle]") === null) {
       return;
     }
@@ -29,7 +51,7 @@ export function Sheet({ open, onOpenChange, children, portalContainer }: SheetPr
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const finishDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+  const finishDrag = (event: React.PointerEvent<HTMLDialogElement>) => {
     const startY = dragStartY.current;
     dragStartY.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -44,7 +66,13 @@ export function Sheet({ open, onOpenChange, children, portalContainer }: SheetPr
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={portalContainer ?? undefined}>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
-        <Dialog.Content
+        <Dialog.Content asChild>
+          <dialog
+            ref={setContentRef}
+            onCancel={(event) => {
+              event.preventDefault();
+              onOpenChange(false);
+            }}
           onPointerDown={startDrag}
           onPointerUp={finishDrag}
           onPointerCancel={() => {
@@ -55,8 +83,9 @@ export function Sheet({ open, onOpenChange, children, portalContainer }: SheetPr
             "rounded-t-sheet bg-surface shadow-overlay outline-none",
             "data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down",
           )}
-        >
-          {children}
+          >
+            {children}
+          </dialog>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

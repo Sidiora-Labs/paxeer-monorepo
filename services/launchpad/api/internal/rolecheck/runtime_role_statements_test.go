@@ -50,6 +50,9 @@ func TestRuntimeRoleStatements(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(waiting) != 0 {
+		t.Fatal("every connected runtime statement requires an asserted plan")
+	}
 	var coverage Coverage
 	if err = readDocument("coverage.json", &coverage); err != nil {
 		t.Fatal(err)

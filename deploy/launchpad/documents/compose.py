@@ -151,12 +151,25 @@ def _compose_service(service: str, values: Path, entry: dict[str, Any]) -> tuple
         digest = hashlib.sha256(data).hexdigest()
         values_out[digest_name] = digest
         digests[digest_name] = digest
+    if module is not None and hasattr(module, "environment"):
+        try:
+            environment = module.environment(service, values)
+        except ValueError as exc:
+            raise ComposeError(str(exc)) from exc
+        if not isinstance(environment, dict) or any(name not in entry.get("optional", []) or not isinstance(value, str) for name, value in environment.items()):
+            raise ComposeError(f"{service}: environment must use optional contract variables")
+        values_out.update(environment)
     return values_out, digests
 
 
 def _write(path: Path, value: dict[str, str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    _write_bytes(path, payload)
+
+
+def _write_bytes(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         os.fchmod(descriptor, 0o600)
@@ -193,6 +206,16 @@ def main(argv: list[str] | None = None) -> int:
         if service not in contract:
             raise ComposeError(f"unknown service {service}")
         files, digests = _compose_service(service, values, contract[service])
+        module = _load_module(service)
+        if module is not None and hasattr(module, "output_files"):
+            try:
+                output_files = module.output_files(service, values)
+            except ValueError as exc:
+                raise ComposeError(str(exc)) from exc
+            for name, payload in output_files.items():
+                if Path(name).name != name or not isinstance(payload, bytes):
+                    raise ComposeError(f"{service}: invalid output file")
+                _write_bytes(args.out / name, payload)
         _write(args.out / f"{service}.json", files)
         for name, digest in sorted(digests.items()):
             print(f"{service} {name} {digest}")

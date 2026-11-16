@@ -253,7 +253,7 @@ func (r *sourceReader) evaluate(expr ast.Expr, path string, fn *ast.FuncDecl, be
 		case "p.AccountGuard.Sanitize":
 			return pgx.Identifier{"chat", "interaction_account_active"}.Sanitize(), nil
 		case "p.Accounts.Sanitize":
-			return pgx.Identifier{"users", "account_state"}.Sanitize(), nil
+			return pgx.Identifier{"users", "account_profiles_v1"}.Sanitize(), nil
 		}
 	}
 	return "", fmt.Errorf("unsupported SQL expression %s", expressionName(expr))
