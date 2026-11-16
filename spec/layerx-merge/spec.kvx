@@ -248565,7 +248565,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.721]
 title = "Bring three cases of the node package and the parts of the product they read in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
