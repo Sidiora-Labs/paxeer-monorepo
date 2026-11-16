@@ -1,3 +1,4 @@
+import styles from "../../../presentation.module.css";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -18,7 +19,7 @@ import { AccountType } from "./assets.ui.desktop";
 
 const AccountTag: React.FC<{ name: string }> = ({ name }) => {
   return (
-    <div className="oui-mt-2 oui-flex oui-h-[18px] oui-w-fit oui-items-center oui-rounded oui-bg-base-contrast-6 oui-px-2 oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
+    <div className="oui-mt-2 oui-flex oui-h-4 oui-w-fit oui-items-center oui-rounded oui-bg-base-contrast-6 oui-px-2 oui-text-2xs oui-font-semibold oui-text-base-contrast-80">
       {name}
     </div>
   );
@@ -37,14 +38,10 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
         width={"100%"}
         justify={"between"}
         itemAlign={"center"}
-        className="oui-gap-x-0.5"
+        className={styles.listMetrics}
       >
-        <Flex
-          className="oui-w-1/3 oui-truncate"
-          itemAlign={"start"}
-          direction={"column"}
-        >
-          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
+        <Flex className="oui-min-w-0" itemAlign={"start"} direction={"column"}>
+          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-80">
             {t("common.token")}
           </div>
           <Flex
@@ -57,16 +54,12 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
             {item.token}
           </Flex>
         </Flex>
-        <Flex
-          className="oui-w-1/3 oui-truncate"
-          itemAlign={"start"}
-          direction={"column"}
-        >
-          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
+        <Flex className="oui-min-w-0" itemAlign={"start"} direction={"column"}>
+          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-80">
             {t("common.qty")}
           </div>
           <Text.numeral
-            className="oui-truncate"
+            className="oui-break-words"
             size="xs"
             dp={6}
             padding={false}
@@ -74,12 +67,8 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
             {item.holding}
           </Text.numeral>
         </Flex>
-        <Flex
-          className="oui-w-1/3 oui-truncate"
-          itemAlign={"start"}
-          direction={"column"}
-        >
-          <div className="oui-w-full oui-text-end oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
+        <Flex className="oui-min-w-0" itemAlign={"start"} direction={"column"}>
+          <div className="oui-w-full oui-text-end oui-text-2xs oui-font-semibold oui-text-base-contrast-80">
             {t("common.indexPrice")}
           </div>
           <Flex
@@ -98,7 +87,7 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
             >
               {item.indexPrice}
             </Text.numeral>
-            <div className="oui-text-end oui-text-2xs oui-text-base-contrast-36">
+            <div className="oui-text-end oui-text-2xs oui-text-base-contrast-80">
               USDC
             </div>
           </Flex>
@@ -108,20 +97,16 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
         width={"100%"}
         justify={"between"}
         itemAlign={"center"}
-        className="oui-gap-x-0.5"
+        className={styles.listMetrics}
       >
-        <Flex
-          className="oui-w-1/3 oui-truncate"
-          itemAlign={"start"}
-          direction={"column"}
-        >
-          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
+        <Flex className="oui-min-w-0" itemAlign={"start"} direction={"column"}>
+          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-80">
             {t("portfolio.overview.column.assetValue")}
           </div>
           <Text.assetValue
             size="xs"
             intensity={80}
-            className="oui-truncate oui-font-semibold"
+            className="oui-font-semibold"
             rule="price"
             dp={6}
             currency="$"
@@ -130,24 +115,16 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
             {item.assetValue}
           </Text.assetValue>
         </Flex>
-        <Flex
-          className="oui-w-1/3 oui-truncate"
-          itemAlign={"start"}
-          direction={"column"}
-        >
-          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
+        <Flex className="oui-min-w-0" itemAlign={"start"} direction={"column"}>
+          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-80">
             {t("portfolio.overview.column.collateralRatio")}
           </div>
           <Text.numeral size="xs" dp={2} suffix="%">
             {item.collateralRatio * 100}
           </Text.numeral>
         </Flex>
-        <Flex
-          className="oui-w-1/3 oui-truncate"
-          itemAlign={"start"}
-          direction={"column"}
-        >
-          <div className="oui-w-full oui-text-end oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
+        <Flex className="oui-min-w-0" itemAlign={"start"} direction={"column"}>
+          <div className="oui-w-full oui-text-end oui-text-2xs oui-font-semibold oui-text-base-contrast-80">
             {t("transfer.deposit.collateralContribution")}
           </div>
           <Flex
@@ -166,7 +143,7 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
             >
               {item.collateralContribution}
             </Text.collateral>
-            <div className="oui-text-end oui-text-2xs oui-text-base-contrast-36">
+            <div className="oui-text-end oui-text-2xs oui-text-base-contrast-80">
               USDC
             </div>
           </Flex>
@@ -186,7 +163,7 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
               });
             }}
             className={cn(
-              "oui-flex-1 oui-border-base-contrast-36 oui-text-base-contrast-54",
+              "oui-flex-1 oui-border-base-contrast-36 oui-text-base-contrast-80",
             )}
           >
             {t("transfer.convert")}
@@ -204,7 +181,7 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
             });
           }}
           className={cn(
-            "oui-flex-1 oui-border-base-contrast-36 oui-text-base-contrast-54",
+            "oui-flex-1 oui-border-base-contrast-36 oui-text-base-contrast-80",
           )}
         >
           {t("common.transfer")}
@@ -286,14 +263,14 @@ export const AssetsTableMobile: React.FC<useAssetsScriptReturn> = (props) => {
           items={[
             {
               size: "sm",
-              type: "picker",
+              type: "select",
               name: "account",
               value: selectedAccount,
               options: memoizedOptions,
             },
             {
               size: "sm",
-              type: "picker",
+              type: "select",
               name: "asset",
               value: selectedAsset,
               options: memoizedAssets,

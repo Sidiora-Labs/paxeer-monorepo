@@ -35,7 +35,7 @@ export const CrossWithdrawConfirm = ({
         className="oui-gap-3 lg:oui-gap-4"
       >
         <Flex direction="column" justify="start" itemAlign="start">
-          <Text size="2xs" intensity={36}>
+          <Text size="2xs" intensity={80}>
             {t("transfer.withdraw.crossChain.recipientAddress")}
           </Text>
           <Text size="sm" intensity={98} className="oui-break-all">
@@ -43,12 +43,12 @@ export const CrossWithdrawConfirm = ({
           </Text>
         </Flex>
         <Flex direction="column" justify="start" itemAlign="start">
-          <Text size="2xs" intensity={36}>
+          <Text size="2xs" intensity={80}>
             {t("transfer.withdraw.crossChain.recipientNetwork")}
           </Text>
           <Flex gap={1}>
             <ChainIcon
-              className="oui-h-[18px] oui-w-[18px]"
+              className="oui-h-4 oui-w-4"
               size={"sm"}
               chainId={currentChain.id}
             />
@@ -59,7 +59,7 @@ export const CrossWithdrawConfirm = ({
           </Flex>
         </Flex>
         <Flex direction="column" justify="start" itemAlign="start">
-          <Text size="2xs" intensity={36}>
+          <Text size="2xs" intensity={80}>
             {`${t("transfer.withdraw.crossChain.withdrawAmount")} (USDC)`}
           </Text>
           <Text.numeral size="sm" intensity={98} dp={2}>

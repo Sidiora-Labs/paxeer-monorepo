@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -5,7 +6,6 @@ import {
   cn,
   Button,
   ArrowRightUpSquareFillIcon,
-  useScreen,
   Tooltip,
   InfoCircleIcon,
 } from "@paxeer-network/ui";
@@ -45,13 +45,11 @@ export const VaultCard: FC<VaultCardScript> = (props) => {
     openDepositAndWithdraw,
     availableBalance,
     openVaultWebsite,
-    icon,
     isDepositDisabled,
     isWithdrawDisabled,
   } = props;
 
   const { t } = useTranslation();
-  const { isMobile } = useScreen();
 
   const formattedAllTimeReturn = useMemo(
     () =>
@@ -63,129 +61,39 @@ export const VaultCard: FC<VaultCardScript> = (props) => {
     [vaultInfo.status, vaultInfo.vault_age, vaultInfo.lifetime_apy],
   );
 
-  // Get status tag config
-  const getStatusTag = () => {
-    const { status } = vaultInfo;
-
-    if (status === "live") {
-      return {
-        text: t("vaults.card.status.active"),
-        color: "rgb(var(--oui-color-success))",
-        bgColor: "rgba(var(--oui-color-success) / 0.15)",
-      };
-    } else if (status === "pre_launch") {
-      return {
-        text: t("vaults.card.launchingSoon"),
-        color: "rgb(var(--oui-color-warning))",
-        bgColor: "rgba(var(--oui-color-warning) / 0.15)",
-      };
-    } else if (status === "closing") {
-      return {
-        text: t("vaults.card.status.closing"),
-        color: "rgb(var(--oui-color-danger))",
-        bgColor: "rgba(var(--oui-color-danger) / 0.15)",
-      };
-    } else if (status === "closed") {
-      return {
-        text: t("vaults.card.status.closed"),
-        color: "rgb(var(--oui-color-base-foreground) / 0.54)",
-        bgColor: "rgba(var(--oui-color-base-foreground) / 0.15)",
-      };
-    }
-    return null;
-  };
-
-  const statusTag = getStatusTag();
-
-  const supportVaultsList = useMemo(() => {
-    const chains = Array.isArray(vaultInfo?.supported_chains)
-      ? vaultInfo.supported_chains
-      : [];
-    return (
-      <div className="oui-flex oui-items-center">
-        {chains.map((chain, index) => (
-          <img
-            key={chain.chain_id}
-            src={`/assets/static/network_logo/${chain.chain_id}.png`}
-            alt={chain.chain_id}
-            className={cn(
-              "oui-relative",
-              isMobile ? "oui-size-[18px]" : "oui-size-5",
-            )}
-            style={{
-              marginLeft: index > 0 ? "-4px" : "0",
-              zIndex: chains.length - index,
-            }}
-          />
-        ))}
-      </div>
-    );
-  }, [vaultInfo.supported_chains, isMobile]);
+  const statusText = {
+    live: t("vaults.card.status.active"),
+    pre_launch: t("vaults.card.launchingSoon"),
+    closing: t("vaults.card.status.closing"),
+    closed: t("vaults.card.status.closed"),
+  }[vaultInfo.status];
 
   return (
-    <div className="oui-relative oui-h-[435px] oui-overflow-hidden oui-rounded-2xl oui-bg-base-9">
-      {/* Background image
-      <img
-        src="/vaults/vaults-card-bg.png"
-        alt=""
-        style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          width: "100%",
-          height: "180px",
-          objectFit: "cover",
-          objectPosition: "top",
-          zIndex: 0,
-        }}
-        onError={(e) => {
-          e.currentTarget.style.display = "none";
-        }}
-      />
-      */}
-
-      <div
-        className={cn(
-          "oui-absolute oui-start-0 oui-top-0 oui-z-20 oui-size-full oui-p-6",
-          "oui-overflow-y-auto oui-custom-scrollbar",
-        )}
-      >
+    <article className={styles.card}>
+      <div>
         <div className="oui-flex oui-flex-col oui-gap-2">
           {/* Title + Status tag group, 4px spacing */}
           <div className="oui-flex oui-flex-col oui-gap-1">
             {/* Vault name */}
-            <div className="oui-text-[18px] oui-font-semibold oui-text-base-contrast oui-break-words">
+            <h3 className="oui-text-lg oui-font-semibold oui-text-base-contrast oui-break-words">
               {title}
-            </div>
+            </h3>
             {/* Status tag */}
-            {statusTag && (
-              <div
-                className="oui-flex oui-w-fit oui-items-center oui-gap-[10px] oui-px-2"
-                style={{
-                  height: "18px",
-                  borderRadius: "4px",
-                  background: statusTag.bgColor,
-                  color: statusTag.color,
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  lineHeight: "18px",
-                  letterSpacing: "0.36px",
-                }}
-              >
-                {statusTag.text}
-              </div>
-            )}
+            <span className={styles.status} data-status={vaultInfo.status}>
+              {statusText}
+            </span>
           </div>
 
           {/* Description + View more block (gap-1 = 4px) */}
           <div className="oui-flex oui-flex-col oui-gap-1">
-            <div className="oui-h-[54px]">
-              <div className="oui-text-2xs oui-font-normal oui-leading-[18px] oui-text-base-contrast-54 oui-line-clamp-3">
+            <div className="oui-min-h-13">
+              <div className="oui-text-2xs oui-font-normal oui-leading-normal oui-text-base-contrast-80">
                 {parseMarkdownLinks(description)}
               </div>
             </div>
             {/* View more link */}
             <button
+              type="button"
               onClick={openVaultWebsite}
               className="oui-flex oui-w-fit oui-items-center oui-gap-1 oui-text-xs oui-font-medium oui-text-primary"
             >
@@ -201,7 +109,7 @@ export const VaultCard: FC<VaultCardScript> = (props) => {
 
           {/* KPI + LP block (gap-6 = 24px) */}
           <div className="oui-flex oui-flex-col oui-gap-6">
-            <div className="oui-flex oui-items-center oui-gap-2">
+            <div className={styles.kpis}>
               <VaultInfoItem
                 label={t("vaults.card.tvl")}
                 value={vaultInfo.tvl}
@@ -255,7 +163,7 @@ export const VaultCard: FC<VaultCardScript> = (props) => {
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
@@ -275,17 +183,17 @@ const VaultInfoItem: FC<{
         "oui-rounded-lg oui-border oui-border-solid oui-border-line-12",
       )}
     >
-      <div className="oui-flex oui-items-center oui-gap-1 oui-text-2xs oui-font-normal oui-leading-[18px] oui-text-base-contrast-54">
+      <div className="oui-flex oui-items-center oui-gap-1 oui-text-2xs oui-font-normal oui-leading-normal oui-text-base-contrast-80">
         {label}
         {showTooltip && tooltipContent && (
-          <Tooltip content={tooltipContent} delayDuration={100}>
-            <div>
+          <Tooltip content={tooltipContent}>
+            <button type="button" aria-label={label}>
               <InfoCircleIcon
                 size={12}
-                opacity={0.54}
+                opacity={1}
                 className="oui-text-base-contrast"
               />
-            </div>
+            </button>
           </Tooltip>
         )}
       </div>
@@ -317,13 +225,13 @@ const LpInfoItem: FC<{
 
   return (
     <div className="oui-flex oui-w-full oui-items-center oui-justify-between oui-text-2xs oui-font-normal">
-      <div className="oui-text-base-contrast-54">{label}</div>
+      <div className="oui-text-base-contrast-80">{label}</div>
       <Text.numeral
         className="oui-text-base-contrast-80"
         {...textProps}
         dp={2}
         suffix={
-          <span className="oui-ms-1 oui-text-base-contrast-36">USDC</span>
+          <span className="oui-ms-1 oui-text-base-contrast-80">USDC</span>
         }
       >
         {value}

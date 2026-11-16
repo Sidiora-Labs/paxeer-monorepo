@@ -94,7 +94,7 @@ const AccountInfo: React.FC<ApiManagerScriptReturns> = (props) => {
         angle={27}
         className="oui-w-1/2"
       >
-        <Text size="xs" intensity={36}>
+        <Text size="xs" intensity={80}>
           {t("common.accountId")}
         </Text>
         <Text.formatted
@@ -119,7 +119,7 @@ const AccountInfo: React.FC<ApiManagerScriptReturns> = (props) => {
         angle={27}
         className="oui-w-1/2"
       >
-        <Text size="xs" intensity={36}>
+        <Text size="xs" intensity={80}>
           {t("portfolio.apiKey.uid")}
         </Text>
         <Text size="base" inlist={80}>
@@ -139,22 +139,28 @@ const Subtitle: React.FC<ApiManagerScriptReturns> = (props) => {
       className="oui-text-sm oui-border-b-2 oui-border-line-6 oui-pb-4"
     >
       <Flex direction={"column"} itemAlign={"start"} width={"100%"} gap={1}>
-        <Text intensity={54}>{t("portfolio.apiKey.description")}</Text>
+        <Text intensity={80}>{t("portfolio.apiKey.description")}</Text>
         <Flex
+          asChild
           itemAlign={"center"}
           className="oui-text-primary-light oui-fill-primary-light hover:oui-text-primary-darken oui-cursor-pointer oui-text-2xs md:oui-text-xs xl:oui-text-sm"
-          onClick={props.onReadApiGuide}
         >
-          <Text>{t("portfolio.apiKey.readApiGuide")}</Text>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            xmlns="http://www.w3.org/2000/svg"
+          <button
+            type="button"
+            onClick={props.onReadApiGuide}
+            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
           >
-            <path d="M4.008 7.995c0-.368.298-.666.666-.666H9.71L7.733 5.331l.937-.936 3.143 3.122c.13.13.195.304.195.479a.67.67 0 0 1-.195.478L8.67 11.596l-.937-.937 1.978-1.998H4.674a.666.666 0 0 1-.666-.666" />
-          </svg>
+            <Text>{t("portfolio.apiKey.readApiGuide")}</Text>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M4.008 7.995c0-.368.298-.666.666-.666H9.71L7.733 5.331l.937-.936 3.143 3.122c.13.13.195.304.195.479a.67.67 0 0 1-.195.478L8.67 11.596l-.937-.937 1.978-1.998H4.674a.666.666 0 0 1-.666-.666" />
+            </svg>
+          </button>
         </Flex>
       </Flex>
       <AuthGuardTooltip
@@ -199,17 +205,23 @@ const KeyList: React.FC<ApiManagerScriptReturns> = (props) => {
               <Text.formatted rule={""}>{displayKey}</Text.formatted>
             </div>
             {!!fullKey && (
-              <Box width={16} height={16} className="oui-cursor-pointer">
-                <CopyIcon
-                  color="white"
-                  opacity={0.54}
-                  size={16}
+              <Box
+                width="var(--oui-space-4)"
+                height="var(--oui-space-4)"
+                className="oui-cursor-pointer"
+              >
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigator.clipboard.writeText(fullKey);
                     props.onCopyApiKey?.(fullKey);
                   }}
-                />
+                  aria-label="Copy"
+                  className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+                >
+                  <CopyIcon color="inherit" opacity={0.54} size={16} />
+                </button>
               </Box>
             )}
           </Flex>
@@ -234,22 +246,28 @@ const KeyList: React.FC<ApiManagerScriptReturns> = (props) => {
           ip = "--";
         }
         return (
-          <Tooltip content={ip} className="oui-max-w-[200px] oui-break-all">
+          <Tooltip content={ip} className="oui-max-w-48 oui-break-all">
             <Flex gap={1}>
               <div className=" oui-overflow-ellipsis oui-overflow-hidden">
                 {ip}
               </div>
               {ip !== "--" && (
-                <Box width={16} height={16} className="oui-cursor-pointer">
-                  <CopyIcon
-                    color="white"
-                    opacity={0.54}
-                    size={16}
+                <Box
+                  width="var(--oui-space-4)"
+                  height="var(--oui-space-4)"
+                  className="oui-cursor-pointer"
+                >
+                  <button
+                    type="button"
                     onClick={(e) => {
                       navigator.clipboard.writeText(ip);
                       props?.onCopyIP();
                     }}
-                  />
+                    aria-label="Copy"
+                    className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+                  >
+                    <CopyIcon color="inherit" opacity={0.54} size={16} />
+                  </button>
                 </Box>
               )}
             </Flex>

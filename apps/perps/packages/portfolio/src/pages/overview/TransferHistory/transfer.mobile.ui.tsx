@@ -99,7 +99,7 @@ export const TransferHistoryMobileUI: React.FC<
         <Flex direction="row" justify="between" width="100%">
           <Text.formatted
             rule="date"
-            className="oui-text-base-contrast-36 oui-text-2xs"
+            className="oui-text-base-contrast-80 oui-text-2xs"
           >
             {item.updated_time}
           </Text.formatted>
@@ -109,12 +109,12 @@ export const TransferHistoryMobileUI: React.FC<
         </Flex>
 
         {/* Divider */}
-        <div className="oui-w-full oui-h-[1px] oui-bg-base-6" />
+        <div className="oui-w-full oui-h-px oui-bg-base-6" />
 
         {/* Token and Amount */}
         <Flex direction="row" justify="between" width="100%">
           <Flex direction="column" itemAlign={"start"}>
-            <Text className="oui-text-base-contrast-36 oui-text-2xs">
+            <Text className="oui-text-base-contrast-80 oui-text-2xs">
               {t("common.token")}
             </Text>
             <Flex direction="row" itemAlign="center" gap={1}>
@@ -125,7 +125,7 @@ export const TransferHistoryMobileUI: React.FC<
             </Flex>
           </Flex>
           <Flex direction="column" itemAlign="end">
-            <Text className="oui-text-base-contrast-36 oui-text-2xs">
+            <Text className="oui-text-base-contrast-80 oui-text-2xs">
               {t("common.amount")}
             </Text>
             <Text.numeral
@@ -140,7 +140,7 @@ export const TransferHistoryMobileUI: React.FC<
         {/* From and To Account IDs */}
         <Flex direction="row" justify="between" width="100%">
           <Flex direction="column" gap={1}>
-            <Text className="oui-text-base-contrast-36 oui-text-2xs">
+            <Text className="oui-text-base-contrast-80 oui-text-2xs">
               {t("transfer.internalTransfer.from")} ({t("common.accountId")})
             </Text>
             <Flex direction="column" gap={1} itemAlign={"start"}>
@@ -162,7 +162,7 @@ export const TransferHistoryMobileUI: React.FC<
             </Flex>
           </Flex>
           <Flex direction="column" itemAlign="end" gap={1}>
-            <Text className="oui-text-base-contrast-36 oui-text-2xs">
+            <Text className="oui-text-base-contrast-80 oui-text-2xs">
               {t("transfer.internalTransfer.to")} ({t("common.accountId")})
             </Text>
             <Flex direction="column" itemAlign="end" gap={1}>
