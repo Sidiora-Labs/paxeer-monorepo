@@ -175540,7 +175540,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.12]
 title = "Bring the interface package and the global style of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.674"]
