@@ -15346,6 +15346,12 @@ value = "The presentation of the trading workspace under apps/perps is the one o
 basis = "Gotcha 4625. Decisions 3588, 3589 and 3591."
 affects = []
 
+[decision.3706]
+title = "The check command of the launchpad parts states that the certificate of the local surface is made for the run"
+value = "The verification of each part of the launchpad surface starts the render check with the variable NODE_TLS_REJECT_UNAUTHORIZED set to 0 for that one command, written in front of it. The variable reaches the check and the local surface it starts and nothing else of the verification; the surface listens on the local machine only and every address outside it is answered by the fixed answers of the surface files. A run by hand uses the same form. No file of the application and no file of the check reads or sets the variable, and the surface keeps its secure origin."
+basis = "Gotcha 4626. Decisions 3591 and 3681."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175289,7 +175295,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.69.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175321,7 +175327,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.68.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175353,7 +175359,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.67.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175385,7 +175391,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.66.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175417,7 +175423,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.65.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175449,7 +175455,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.64.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176708,7 +176714,7 @@ touches = ["apps/launchpad/web/src"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/launchpad.json", "tools/ui-check/surfaces/launchpad", "spec/layerx-merge/programme/records/ui/22.44.40.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
