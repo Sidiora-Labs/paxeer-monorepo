@@ -175887,7 +175887,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.13]
 title = "Bring the shell, layout and connection parts of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12", "22.39.567"]
@@ -212821,7 +212821,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.707]
 title = "Let the receipt authority serve from the node alone, with the batch evidence origin as an optional group of settings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
