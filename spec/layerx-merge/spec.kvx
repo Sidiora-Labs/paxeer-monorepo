@@ -15268,6 +15268,12 @@ value = "The contract fixes the private listen address of the ranking service, t
 basis = "Gotcha 4612. Decision 3685."
 affects = []
 
+[decision.3693]
+title = "The social service answers every authority route the notification library reads, in each runtime"
+value = "The private listener of the container profile answers, for an admitted peer of the authority list, the routes graph, visibility, public, callouts:review and callout-authority besides ranking-visibility, with the results the other runtime gives for the same input. Both runtimes take the routes from one function, so that a route cannot be present in one and absent in the other. The route public answers for a kind and an id the public resource the library decodes, and not found for a resource that is not public. A peer outside the authority list keeps its refusal on every route. A case holds the list of routes of the library and the routes of the service together."
+basis = "Gotcha 4613."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44928,6 +44934,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.763]
+title = "Answer every authority route the notification library reads on the private listener of the social service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "cd services/launchpad/social && go test -count=1 -timeout 30m -run TestAuthorityRoutes ./internal/app/ && go test -count=1 -timeout 30m -run ContainerProfile ./internal/app/"
+do_1 = "do_1 Gotcha 4613, decision 3693. Read services/launchpad/notifications/wire.go and name each route the library calls below /internal/v2/social, with method, input and the members of the answer it decodes and checks. Read in services/launchpad/social/internal/app the function that answers the authority routes of the private listener of the container profile and the function that answers them in the other runtime, and what each needs: the pool, the chat store, the functions for graph, visibility, review and the callout authority. State in the final message, per route, which runtime answers it at the start of the task."
+symbols = []
 
 [capability.22.39.762]
 title = "Fix the private listen address of the launchpad contract to the wildcard of both address families"
@@ -249599,6 +249614,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.763]
+title = "Answer every authority route the notification library reads on the private listener of the social service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.754"]
+reqs = ["22998.1"]
+capabilities = ["22.39.763"]
+interfaces = []
+do_1 = "do_1 Gotcha 4613, decision 3693. Read services/launchpad/notifications/wire.go and name each route the library calls below /internal/v2/social, with method, input and the members of the answer it decodes and checks. Read in services/launchpad/social/internal/app the function that answers the authority routes of the private listener of the container profile and the function that answers them in the other runtime, and what each needs: the pool, the chat store, the functions for graph, visibility, review and the callout authority. State in the final message, per route, which runtime answers it at the start of the task."
+do_2 = "do_2 One function of the package answers the authority routes for an admitted peer: ranking-visibility, content-visibility, graph, visibility, callouts:review and callout-authority, with the present results of the other runtime. Both the private listener of the container profile and the other runtime call it after their own admission of the peer. The admission of each runtime stays as it is: a peer outside the authority list is refused before any route is read."
+do_3 = "do_3 The route public: GET below /internal/v2/social/public with a kind and an id answers the public resource in the form the library decodes, for the kinds the library asks for, from the tables of the service; a resource that is absent, removed or not public is answered with not found. It is part of the one function of do_2. Read the type of the answer in the discovery package of the library and the present queries of the service for a post, a comment and a callout before writing the query."
+do_4 = "do_4 Cases in services/launchpad/social/internal/app whose names start with TestAuthorityRoutes. One reads the text of services/launchpad/notifications/wire.go, takes every route below /internal/v2/social from it and asserts for each that the private listener of the container profile and the other runtime answer an admitted peer with something other than not found for a valid input. One asserts per route that a peer outside the authority list is refused. One asserts that graph, visibility and public answer the members the library checks: the account, a revision above zero and an observation time for graph and visibility, and the reference with kind, id and its public state for public. The cases use the database fixture the present cases of the package use and need no broker and no node."
+do_5 = "do_5 Run by hand the new cases and every present case of services/launchpad/social/internal/app, and read each message. The files of services/launchpad/social are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/social && go vet ./internal/app/"
+verify_cmd = "cd services/launchpad/social && go test -count=1 -timeout 30m -run TestAuthorityRoutes ./internal/app/ && go test -count=1 -timeout 30m -run ContainerProfile ./internal/app/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.762]
 title = "Fix the private listen address of the launchpad contract to the wildcard of both address families"
