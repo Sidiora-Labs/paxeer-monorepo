@@ -12,6 +12,7 @@ export const LIMITS = Object.freeze({
   motionMs: 100,
   readyMs: 15000,
   navigationMs: 10000,
+  renderMs: 300000,
   buildMs: 120000,
   settleMs: 600,
 });
@@ -23,7 +24,9 @@ export const DEVICES = Object.freeze([
 ]);
 export const REPOSITORY = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
-export function renderMatrix() {
+export const MODES = Object.freeze(["default", "reduced-motion", "double-text", "keyboard"]);
+
+export function renderMatrix(modes = MODES) {
   return DEVICES.flatMap((size) =>
     ["light", "dark"].flatMap((scheme) =>
       ["default", ...([390, 1440].includes(size.width)
@@ -31,7 +34,7 @@ export function renderMatrix() {
         (mode) => ({ ...size, scheme, mode }),
       ),
     ),
-  );
+  ).filter((configuration) => modes.includes(configuration.mode));
 }
 
 function object(value, keys, label) {
@@ -101,6 +104,15 @@ function expectations(value, label) {
   });
 }
 
+function readModes(value, inherited, label) {
+  if (value === undefined) return [...inherited];
+  array(value, label, true);
+  if (!value.includes("default") || new Set(value).size !== value.length || value.some((mode) => !MODES.includes(mode))) {
+    throw new Error(`${label} must contain default and unique names from ${MODES.join(", ")}`);
+  }
+  return MODES.filter((mode) => value.includes(mode));
+}
+
 export async function readSurface(filename) {
   const file = await realpath(resolve(filename));
   const base = dirname(file);
@@ -124,15 +136,17 @@ export async function readSurface(filename) {
   localPath(value.readyPath, "surface.readyPath");
   array(value.views, "surface.views", true);
   for (const view of value.views) {
-    object(view, ["name", "path", "states", "expects"], "view");
+    object(view, ["name", "path", "states", "expects", "modes"], "view");
     text(view.name, "view.name");
     localPath(view.path, "view.path");
+    view.modes = readModes(view.modes, MODES, `View ${view.name} modes`);
     view.expects = expectations(view.expects, "view.expects");
     if (view.states !== undefined) {
       array(view.states, "view.states");
       for (const state of view.states) {
-        object(state, ["name", "steps", "expects"], "state");
+        object(state, ["name", "steps", "expects", "modes"], "state");
         text(state.name, "state.name");
+        state.modes = readModes(state.modes, view.modes, `View ${view.name} state ${state.name} modes`);
         if (state.name === "default") throw new Error("State name default is reserved");
         state.expects = expectations(state.expects, "state.expects");
         array(state.steps, "state.steps", true);

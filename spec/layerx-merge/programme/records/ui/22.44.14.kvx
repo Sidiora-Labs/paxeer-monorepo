@@ -1,0 +1,44 @@
+[manifest]
+task = "22.44.14"
+surface = "The trading views and chart frame of the perps trading workspace"
+
+[guide.accessible-controls]
+id = "web-platform/accessible-controls"
+directories = ["apps/perps/packages/trading", "apps/perps/packages/trading-next", "apps/perps/packages/ui-tradingview"]
+
+[guide.responsive-layout]
+id = "web-platform/responsive-layout"
+directories = ["apps/perps/packages/trading", "apps/perps/packages/trading-next", "apps/perps/packages/chart"]
+
+[guide.chart-frame]
+id = "web-platform/chart-frame"
+directories = ["apps/perps/packages/chart", "apps/perps/packages/ui-tradingview"]
+
+[guide.design-tokens]
+id = "web-platform/design-tokens"
+directories = ["apps/perps/packages/chart", "apps/perps/packages/trading", "apps/perps/packages/trading-next", "apps/perps/packages/ui-tradingview"]
+
+[view.trade]
+route = "/trade"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.trade-grid]
+route = "/trade/grid"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.markets]
+route = "/markets"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.portfolio]
+route = "/portfolio"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.portfolio-history]
+route = "/portfolio/history"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
