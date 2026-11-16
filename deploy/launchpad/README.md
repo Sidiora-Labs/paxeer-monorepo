@@ -105,6 +105,13 @@ variable names. `railway-values.json` supplies the shared `RPC_URL`,
 
 ### API network authority document
 
+The API composer emits `ACCOUNTING_READ_CONFIG_DOCUMENT`,
+`STREAM_RELAY_CONFIG_DOCUMENT` and `DISCOVERY_RUNTIME_CONFIG_DOCUMENT` from
+the API values. The authority command below writes
+`network-authority.json`; set `network_authority_rendered_file` and
+`network_authority_runtime_path` in the API values so the composer emits
+`NETWORK_AUTHORITY_CONFIG_FILE` and its `NETWORK_AUTHORITY_CONFIG_SHA256`.
+
 Generate `network-authority.json` from the repository root with:
 
 ```bash
@@ -187,6 +194,32 @@ The Go service definitions set `NODE_ENV`, `RUNTIME_PROFILE`, `BIND_ADDRESS`,
 `PORT`, `SECRETS_PROVIDER` and `SECRETS_REFRESH_SECONDS`; API definitions also set
 `API_ROLE`. The Railway definitions select readiness checks: the API uses
 `/health/ready` and the web uses `/api/health`.
+
+The connected ranking, user, metadata and social services keep their health
+listener on `PORT=8080` and serve their private mTLS routes on
+`RANKING_PRIVATE_LISTEN_ADDRESS`, `USER_PRIVATE_LISTEN_ADDRESS`,
+`METADATA_PRIVATE_LISTEN_ADDRESS` and `SOCIAL_PRIVATE_LISTEN_ADDRESS`, each set
+to `0.0.0.0:8443` in the Railway contract. Gateway upstreams for user, metadata
+and social use their corresponding HTTPS `:8443` origins; the ranking runtime's
+social visibility endpoint does the same.
+
+Metadata uses `METADATA_INGRESS=mtls`. Its private listener requires TLS 1.3
+and a certificate verified by `METADATA_TLS_CLIENT_CA_PEM`. Set
+`METADATA_TLS_CERT_PEM`, `METADATA_TLS_KEY_PEM` and
+`METADATA_TLS_CLIENT_CA_PEM` to the listener's PEM materials. Each also admits
+its `*_FILE` alternative outside the inline platform contract; select exactly
+one source for each material. Key files must be regular and accessible only
+to their owner. The inline key and `METADATA_ASSERTION_PRIVATE_KEY_HEX` are
+secrets resolved through the configured secrets provider.
+
+The gateway channel uses `GATEWAY_ASSERTION_PUBLIC_KEY_HEX` and
+`GATEWAY_PEER_CERT_SHA256`; the user account channel uses
+`USER_ASSERTION_PUBLIC_KEY_HEX` and `USER_PEER_CERT_SHA256`. Metadata calls
+`IDENTITY_ENDPOINT` over mTLS using its listener certificate and assertion key,
+with `IDENTITY_PEER_CERT_SHA256` pinning the identity server. The separate
+`edge` form uses `IDENTITY_SERVICE_URL` and `IDENTITY_SERVICE_TOKEN` for session
+introspection and requires database moderation. The platform contract selects
+the mTLS form and database moderation.
 
 Production tooling has separate configuration described in the linked pages:
 bootstrap uses `compose.yml`, `fixture.env.example`, `images.json` and

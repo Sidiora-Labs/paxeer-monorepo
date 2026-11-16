@@ -247,9 +247,11 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
           if (width < 1024) {
             fireEvent.click(within(mobile).getByRole('button', { name: 'Menu button' }));
             const navigation = await screen.findByRole('navigation', { name: 'Mobile navigation' });
-            const explore = within(navigation).getByRole('button', { name: 'Explore' });
+            const explore = within(navigation).getByText('Explore', { selector: 'summary' });
+            const explorePanel = explore.parentElement as HTMLDetailsElement;
+            expect(explorePanel.open).toBe(false);
             fireEvent.click(explore);
-            expect(explore.getAttribute('aria-expanded')).toBe('true');
+            expect(explorePanel.open).toBe(true);
             expect(within(navigation).getByRole('link', { name: /Browse the latest blocks/ }).getAttribute('href')).toBe('/blocks');
           }
           expect(mounted.container.querySelectorAll('[data-label="desktop-header"]')).toHaveLength(1);

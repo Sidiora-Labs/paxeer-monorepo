@@ -87,7 +87,10 @@ func SeparateShellReceipts(transactions types.Transactions, receipts types.Recei
 		}
 		regular[i] = r
 	}
-	if types.MergeBloom(receipts) != expectedBloom || !reportedIdentity && types.DeriveSha(receipts, trie.NewStackTrie(nil)) != expectedReceiptRoot {
+	// The eth header bloom covers listed receipts only; shell logs are absent.
+	// Ethereum identity commits the trie of those same listed receipts. Reported
+	// identity carries the Comet block-results root, not an Ethereum receipt trie.
+	if types.MergeBloom(regular) != expectedBloom || !reportedIdentity && types.DeriveSha(regular, trie.NewStackTrie(nil)) != expectedReceiptRoot {
 		return nil, nil, ErrQualification
 	}
 	return regular, shells, nil

@@ -94,9 +94,9 @@
     "uploadConcurrent": 8,
     "uploadNamespace": "gateway-upload",
     "upstreams": [
-      {"name": "user", "routes": [{"method": "GET", "template": "/v2/me/watchlist", "authenticate": true, "optional": false, "upload": false}], "url": "https://user.kindlelaunch.example"},
-      {"name": "metadata", "routes": [{"method": "GET", "template": "/v2/tokens/{tokenAddress}/metadata", "authenticate": false, "optional": false, "upload": false}, {"method": "PUT", "template": "/v2/tokens/{tokenAddress}/assets/{assetId}", "authenticate": true, "optional": false, "upload": true}], "url": "https://metadata.kindlelaunch.example"},
-      {"name": "social", "routes": [{"method": "GET", "template": "/v2/profiles/{wallet}/followers", "authenticate": false, "optional": true, "upload": false}], "url": "https://social.kindlelaunch.example"},
+      {"name": "user", "routes": [{"method": "GET", "template": "/v2/me/watchlist", "authenticate": true, "optional": false, "upload": false}], "url": "https://user.kindlelaunch.example:8443"},
+      {"name": "metadata", "routes": [{"method": "GET", "template": "/v2/tokens/{tokenAddress}/metadata", "authenticate": false, "optional": false, "upload": false}, {"method": "PUT", "template": "/v2/tokens/{tokenAddress}/assets/{assetId}", "authenticate": true, "optional": false, "upload": true}], "url": "https://metadata.kindlelaunch.example:8443"},
+      {"name": "social", "routes": [{"method": "GET", "template": "/v2/profiles/{wallet}/followers", "authenticate": false, "optional": true, "upload": false}], "url": "https://social.kindlelaunch.example:8443"},
       {"name": "livestream", "routes": [{"method": "GET", "template": "/v2/streams", "authenticate": false, "optional": false, "upload": false}], "url": "https://livestream.kindlelaunch.example"}
     ]
   }

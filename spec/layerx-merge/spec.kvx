@@ -15196,6 +15196,72 @@ value = "A service whose definition names its readiness path as health check sta
 basis = "Gotcha 4598. Decisions 3679 and 3677."
 affects = []
 
+[decision.3681]
+title = "The launchpad surface is closed in parts, each part at the whole device list"
+value = "A surface with many views is closed in parts. The file tools/ui-check/surfaces/launchpad.json stays the list of the whole surface. Each part is a surface file of its own under tools/ui-check/surfaces/launchpad/parts that names the build, the start, the address, the answers and the type scale of the whole file and a share of its views with their states. The script tools/ui-check/surfaces/launchpad/parts.mjs holds the rule: every view of the whole file lies in exactly one part with the same path, the same states and the same modes, every part names the same build, start, address and type scale as the whole file, and the script ends with another code than zero and names the view or the part where the rule does not hold. The parts follow the routes: home with the first visit, the return from the sign-in, the new view and the view for a route that does not exist; community with bounties, chat and the documents; coin with the coin, the token, the token metadata and the creation of a coin and of a chain; explore with explore, search and the watchlist; rewards with the leaderboard, the holder rewards, the rewards and the short link; live with the live views, the profit cards and the profile; terminal with the terminal, the swap and the order views. Each part is closed by a task of its own, at the whole device list and in every mode, with the pass over its screenshots. The division drops no view, no state and no mode. Task 22.44.40 writes the parts and the script and closes the part home; tasks 22.44.64 to 22.44.69 close the other parts."
+basis = "Gotcha 4599. Decisions 3587 and 3591."
+affects = []
+
+[decision.3682]
+title = "The metadata service of the launchpad runs in the mutual TLS form and admits its listener materials inline"
+value = "The services of the launchpad reach one another on their private listeners with pinned certificates and signed assertions, and the gateway of production admits a peer by its certificate and its assertion key alone. So the contract fixes the metadata service to the form mtls. The entry of metadata in the variables file in the platform directory under deploy/launchpad fixes METADATA_INGRESS to mtls and requires every name the configuration demands in that form: the certificate, the key and the client authority of the private listener, the public key and the certificate pin of the gateway, the identity endpoint with its pin, the assertion key of metadata, and the pin and the public key of the user service. The names IDENTITY_SERVICE_URL and IDENTITY_SERVICE_TOKEN leave the entry of metadata. The assertion key and the key of the listener are secrets of the entry. A hosting platform hands a service variables and no secret files. So the metadata service admits for each of its three listener materials exactly one of the file form and an inline form in PEM, under METADATA_TLS_CERT_PEM, METADATA_TLS_KEY_PEM and METADATA_TLS_CLIENT_CA_PEM, in the manner of the user service. Both forms for one material, or none, is refused with the name of the material, and the inline key is read through the secrets provider like the other secrets of the service. The checks of the form stay: TLS 1.3, the verified client certificate, the pins and the assertions. The health listener stays plain on the port of the contract, as decision 3676 rules. The form edge stays in the code with its cases; the contract of the launchpad does not use it. The entries of the gateway and of the user service stay as they are."
+basis = "Gotcha 4600. Decisions 3676 and 3680."
+affects = []
+
+[decision.3683]
+title = "The expected schema document of every launchpad service has a file form in the contract and in the composer"
+value = "The contract treats the expected schema document as it treats the two rendered documents of the indexer. The entry of every service in the variables file in the platform directory under deploy/launchpad that requires EXPECTED_SCHEMA_SHA256 names in its member documentSources the pair of EXPECTED_SCHEMA_DOCUMENT and EXPECTED_SCHEMA_FILE, and the document variable leaves the list of required names, in the manner of the indexer documents. The digest stays required. The entry of the indexer keeps its two present pairs and gains this one. The values directory may hold the file expected-schema/runtime-paths.json: one JSON object whose member names are services of the contract and whose values are the absolute paths at which each named service reads its expected schema document. For a service named there the composer writes EXPECTED_SCHEMA_FILE with the path and EXPECTED_SCHEMA_SHA256 with the digest of the exact bytes of expected-schema/NAME.json, and no EXPECTED_SCHEMA_DOCUMENT. A service not named there, and every service where the file is absent, is composed as now. The paths file is no member of the budget document and changes no other document. A paths file that is no JSON object, a member name that is no service of the contract, and a value that is no absolute path is refused with the name of the file and the member. The tool that applies the variables refuses both sources together and refuses neither, as it does for the indexer documents. The deployment mounts the same bytes at the path. No service changes: each reads both forms already."
+basis = "Gotcha 4601. Decision 3663."
+affects = []
+
+[decision.3684]
+title = "The social service resolves the schema chat first in every profile"
+value = "The service sets the search path of its pool itself, in every profile, by the one function it already has for it. The start of the service applies RuntimeDSN to the database URL before it opens the pool, in production with the profile container as outside production and in the profile platform. A search path the URL carries stays after the schema chat, as the function does now. Nothing else of the URL changes, and the checks of the runtime pool, of the budget document and of the expected schema document stay as they are. A deployment need not add a parameter to DATABASE_URL, and one that carries the parameter keeps working. No statement of the service changes."
+basis = "Gotcha 4602."
+affects = []
+
+[decision.3685]
+title = "The api serves the internal notification routes on a private listener with mutual TLS"
+value = "The api in the role rest gains a second listener, named by API_PRIVATE_LISTEN_ADDRESS, in the form decision 3676 gave ranking, user, metadata and social: an IP and port distinct from PORT, fixed in the contract as 0.0.0.0:8443. The listener serves only the handler for internal callers of the notification runtime and nothing of the public router; the plain listener on PORT keeps the public routes and the health routes and never serves an internal route. The listener requires and verifies a client certificate. It presents the certificate and key the api already holds for its calls to the identity authority, and verifies clients against the same authority certificate: the inputs IDENTITY_CLIENT_CERT, IDENTITY_CLIENT_KEY and IDENTITY_CA in their file or inline form. No new secret and no new certificate input is added; TLS 1.3 is the minimum. The listener exists exactly where the discovery runtime document is bound. With the document bound and no private listen address the api refuses to start in production with a message that names the variable; an address equal to the plain listener is refused the same way; with no document bound the address is ignored and no second listener is opened. The policy of the library stays the single authorization of the two routes: peer name by route and bearer token. The role sockets has no such listener. The entry of the api in the contract gains the fixed name, and the README and the compose file of deploy/launchpad name it beside the four others."
+basis = "Gotcha 4603. Decision 3676."
+affects = []
+
+[decision.3686]
+title = "A kept result of the secrets check stands for an answer of the provider"
+value = "The check keeps a result only for an answer about a secret: a required secret the provider reports as missing, or a value that differs from the consumed one. Where the context of a call has ended, the check returns the error of that context for that call and keeps nothing, and the next call reads again. The rule holds alike in the eleven services. The kept results, their texts, the restart rule after a rotation, the refresh and its interval stay as they are."
+basis = "Gotcha 4604."
+affects = []
+
+[decision.3687]
+title = "The network authority of the api attests outside the readiness request"
+value = "The authority keeps the last envelope it built and the time it built it. A refresh that the api owns, started with the authority and stopped with the server, builds an envelope every ten seconds under the bound of the attestation policy; one refresh runs at a time. The readiness check reads no node and no store: it answers ready where the kept envelope was built within the last minute, the age the attestation policy allows, and not ready otherwise. Before the first refresh has ended it answers not ready. The route GET /v2/network/authority and the preflight routes build their answer for each request as now. The interval and the age are constants of the package beside the present bounds. The readiness handler and its deadline stay as they are."
+basis = "Gotcha 4605."
+affects = []
+
+[decision.3688]
+title = "A request the page cancelled is counted, not found; a request the check ended is found once"
+value = "A failed request whose reason is the cancellation by the page is no load finding. The check counts such requests for each render and writes the count into the result under the key cancelled, beside the findings of the render, and the summary names the total. A request the check ended itself yields the one finding it reports at that place, with its source, and no second finding from the failed request the browser reports for it. Every other failed request stays a load finding with the source requestfailed: a refused connection, a reset, a name that does not resolve, a failed fetch of the surface. A cancelled document request of the navigation of the render itself stays a finding. The other findings, the expects and the fixed answers are not changed."
+basis = "Gotcha 4606. Decision 3670."
+affects = []
+
+[decision.3689]
+title = "A registered migration gives a database its first search generation"
+value = "A registered migration of the search schema of the stats service, after 200001, writes the first generation: where stats_search.generations_v2 and stats_search.active_v2 both hold no row, it writes one generation with the name initial, the state active, the source watermark 1, the row count zero, the digest the function GenerationDigest gives for a generation without documents, and the times of observation, validation and activation at the time of the migration, and the one row of stats_search.active_v2 that names it, with the next value of the sequence stats_search.revision_v2 and the privacy revision 1. Where either table holds a row it writes nothing. The rights of the runtime roles are not changed: the first generation is written by the owner of the schema, and the service replaces it through ActivateGeneration, which retains it. The file 200001.sql is not changed."
+basis = "Gotcha 4607. Decision 3675."
+affects = []
+
+[decision.3690]
+title = "The source check of the indexer answers from a kept result"
+value = "The indexer runs the present reads of the check outside the readiness request: a refresh every ten seconds reads the head, the watermark and the block at the watermark under a bound of ten seconds and keeps its result with its time. One refresh runs at a time. The readiness check reads no node and no store: it answers ready where the last refresh that passed ended within the last minute and no later refresh found a difference, and not ready otherwise, also before the first refresh has ended. A refresh that finds that the persisted checkpoint differs from the source, or that no complete source block stands at the watermark, makes the check not ready at once and until a refresh passes again. A refresh that ends on a read error or on its bound keeps the earlier result, which then ages. The comparison itself, the readiness handler and its deadline stay as they are."
+basis = "Gotcha 4609. Decision 3687."
+affects = []
+
+[decision.3691]
+title = "One document under deploy/launchpad states the object rights of each service account"
+value = "The document deploy/launchpad/object-store/accounts.json states, for each service whose contract entry names the keys of an object account, the contract names of its buckets and, for each bucket, the actions the account needs, with the object prefixes where the source fixes them. A table of the document names for each call of the object client the action or actions it needs and whether they apply to the bucket or to its objects; the read of the access list of a bucket needs the action of that read and the action to read the policy of the bucket. A command beside the document prints, for one service and the bucket names given to it, the policy of the account in the form object stores take: only allow statements, no action and no resource with a wildcard for all, and only the named buckets. The policies of services/launchpad/gateway/internal/storage/policies.go stay; the document does not replace them and states the rights of the one account the contract gives the gateway. The document holds no bucket name, no address and no key."
+basis = "Gotcha 4610. Gotcha 4608."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44856,6 +44922,168 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.71]
+title = "Read the groups of the mobile navigation in the layout case of the search results as the header gives them"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/shared/layout"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/shared/layout/"
+do_1 = "do_1 Gotcha 4611. Read apps/explorer/ui/snippets/navigation/mobile/NavigationMobile.tsx and the parts it renders for a group, the case of the mobile groups in apps/explorer/ui/snippets/header/HeaderNavigation.spec.tsx, and in apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx the case of the two search results routes with its steps below the width 1024. Read the other cases under apps/explorer/ui/shared/layout for the same kind of read."
+symbols = []
+
+[capability.22.39.761]
+title = "State the object rights of the launchpad service accounts in one document with a command and a case"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/tests/test_object_rights.py deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh"
+do_1 = "do_1 Gotcha 4610, decision 3691. Read the contract in the platform directory under deploy/launchpad for the services that name the keys of an object account and for their bucket names; every call of the object client in the sources that are not cases of services/launchpad/gateway, services/launchpad/user, services/launchpad/metadata, services/launchpad/security/policy and sdk/launchpad/shared/storage; which service builds each of these packages; and services/launchpad/gateway/internal/storage/policies.go. State in the final message, for each of the three services, the calls it makes and the bucket each call goes to."
+symbols = []
+
+[capability.22.39.760]
+title = "Run the source check of the indexer outside the readiness request"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "(cd services/launchpad/indexer && go test -count=1 -timeout 20m -run CanonicalSourceReadiness ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 4609, decision 3690. Read in services/launchpad/indexer/internal/app/app.go the readiness check canonical_source, the function verifyCanonicalRuntimeCheckpoint, the place where the service starts its periodic work and the place where it stops what it started; the head source and the committed source the check reads; in sdk/launchpad/shared/http the readiness handler; and the cases of services/launchpad/indexer/internal/app that reach the check or the function. State in the final message how the present cases give the check a head and a committed source."
+symbols = []
+
+[capability.22.39.759]
+title = "Name the media part that is not available at the start of the metadata service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata"]
+tests = []
+verification_contract = "(cd services/launchpad/metadata && go test -count=1 -timeout 20m -run MediaReadiness ./internal/metadata/ ./internal/app/)"
+do_1 = "do_1 Gotcha 4608. Read in services/launchpad/metadata/internal/app/app.go the place where the connected media are built and checked at the start and where the readiness checks are registered; in services/launchpad/metadata/internal/metadata/connected.go the two functions Ready and the function anonymousAccessDenied; and the cases of both packages that give the objects a readiness of their own. State in the final message every place that calls one of the two functions."
+symbols = []
+
+[capability.22.39.758]
+title = "Write the first search generation of the stats service by a registered migration"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+verification_contract = "(cd services/launchpad/stats-*ers && go test -count=1 -timeout 30m -run FirstSearchGeneration ./internal/search/) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m -run TestMigrationRegistryHonorsPredecessorOrder ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run TestRepositoryRegistryRequiresApproval ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run TestExpectedSchemaPrivilegeMatrix ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run TestPlatformRuntimeRolesPassReadiness ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/)"
+do_1 = "do_1 Gotcha 4607, decision 3689. Read migrations/200001.sql, its entry in migrations/registry.json and the entries of the migrations task 22.39.734 added; in the directory of the stats service under services/launchpad, whose binary is statsd, internal/search/generation.go, internal/search/projection.go and the readiness check search in internal/app/app.go; the cases of internal/search and internal/httpapi that apply the file 200001.sql and write a generation of their own; and internal/analytics/runtime_analytics_tables_test.go for the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest. State in the final message which roles hold which rights on the two tables."
+symbols = []
+
+[capability.22.44.70]
+title = "Count a request the page cancelled without a finding in the render check and report an ended request once"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4606, decision 3688. Read tools/ui-check/check.mjs where it routes the requests of a page, where it ends a request itself, where it listens to failed requests and where it writes the result and the summary; the part of tools/ui-check/README.md on load findings and on requests that are pending when a render ends; and the cases of tools/ui-check/test/check.test.mjs on failed, blocked and unanswered requests. State in the final message the reasons the browser gives for a request the page cancelled and for the two ways the check ends a request."
+symbols = []
+
+[capability.22.39.757]
+title = "Attest the network authority of the api outside the readiness request"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "(cd services/launchpad/api && go test -count=1 -timeout 20m -run AuthorityReadiness ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 4605, decision 3687. Read services/launchpad/api/internal/app/authority.go: the type of the authority, the functions that read the committed head and build the envelope, the readiness check, the routes and the close; in services/launchpad/api/internal/app/app.go the place where the authority is built, where its readiness check is registered and where the server stops what it started; in sdk/launchpad/shared/config/deployment the attestation and its policy; in sdk/launchpad/shared/http the readiness handler; and the cases of the authority in services/launchpad/api/internal/app with the readers they make. State in the final message how the present cases give the authority a reader and a committed head."
+symbols = []
+
+[capability.22.39.756]
+title = "Keep a result of the secrets check of the launchpad services only for an answer of the provider"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "(cd services/launchpad/api && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/livestream && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/stats-*ers && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/)"
+do_1 = "do_1 Gotcha 4604, decision 3686. Read in the configuration package of each of the eleven services the function ResolveProductionSecrets with the check it returns and the refresh that calls it, in sdk/launchpad/shared/secrets the provider and what it answers where the context of a call has ended, in sdk/launchpad/shared/http the readiness handler and the context it gives a check, and the present cases on production secrets of each configuration package. The eleven services: api, gateway, indexer, livestream, metadata, pnl-tracker, ranking-algo, social, trading-charts, user and the directory of the stats service under services/launchpad, whose binary is statsd. State the eleven files in the final message."
+symbols = []
+
+[capability.22.39.755]
+title = "Serve the internal notification routes of the api on a private listener with mutual TLS"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad/api", "services/launchpad/notifications", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PrivateNotification ./internal/app/ ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 4603, decision 3685. Read in services/launchpad/notifications the handler for internal callers, its policy and the runtime that builds both; in services/launchpad/api/internal/app/app.go the registration of the discovery runtime, the place where the server is built and started and the shutdown; in services/launchpad/api/internal/config the identity inputs in their file and inline form and how the api builds its client TLS configuration from them; and in the user service and the ranking service under services/launchpad how the second listener is configured, checked, started and shut down since task 22.39.747. Read the entry of the api in the variables file in the platform directory under deploy/launchpad, the README and the compose file of deploy/launchpad where they name the private listen addresses, and the cases that compare the fixed names of an entry. State in the final message which files compare the fixed names of the api entry with another list."
+symbols = []
+
+[capability.22.39.754]
+title = "Resolve the schema chat first on the pool of the social service in the container profile"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "(cd services/launchpad/social && go test -count=1 -timeout 20m -run ContainerProfilePool ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 4602, decision 3684. Read in services/launchpad/social/internal/app/app.go the start of the service from the place where it reads the profile to the place where it opens the runtime pool, in services/launchpad/social/internal/devsocial/runtime.go the function RuntimeDSN, in services/launchpad/social/internal/config how the runtime pool is opened and what it compares with the budget document, and the cases of services/launchpad/social/internal/app and services/launchpad/social/internal/rolecheck that set a search path on their own connections. State in the final message whether the runtime pool compares the database URL with any bound value."
+symbols = []
+
+[capability.22.39.753]
+title = "Give the expected schema document of the launchpad services its file form in the contract and the composer"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/livestream && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/stats-*ers && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+do_1 = "do_1 Gotcha 4601, decision 3683. Read in deploy/launchpad/documents/common.py the function that reads the expected schema document of a service and the type FileDocument, in deploy/launchpad/documents/compose.py the place that reads the member documentSources of an entry, the check of the sources and the place that turns a document or a file document into variables, and in deploy/launchpad/documents/indexer.py how the rendered files of the indexer become file documents. Read the entries of the variables file in the platform directory under deploy/launchpad, the tool under tools/deploy that applies the variables of the launchpad with its case and its fixture under tools/deploy/tests, the cases under deploy/launchpad/tests that read the variables file, the README of deploy/launchpad/documents, and in services/launchpad/social/internal/config the fields of the expected schema document, the function that reads the bound bytes and the cases named PlatformDocuments. State in the final message which files compare the required names of an entry with another list."
+symbols = []
+
+[capability.22.39.752]
+title = "Fix the metadata service of the launchpad to the mutual TLS form and admit its listener materials inline"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad/metadata", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/metadata && go test -count=1 -timeout 20m ./internal/config/ && go test -count=1 -timeout 20m -run 'InlineMaterial' ./internal/app/)"
+do_1 = "do_1 Gotcha 4600, decision 3682. Read in services/launchpad/metadata/internal/config/config.go the selector of the ingress, the function ValidateMediaRuntime with what each form demands and the function ResolveProductionSecrets with the bindings of each form. Read in services/launchpad/metadata/internal/app/app.go the function metadataServerTLS, the private listener and the plain health listener, the private channel of the gateway, the account channel of the user service and the identity authority over mutual TLS. Read in services/launchpad/user/internal/config/config.go the function accountMaterial and how the file form and the inline form of a material exclude one another. Read the entries of metadata, user and gateway in the variables file in the platform directory under deploy/launchpad, the composer module deploy/launchpad/documents/metadata.py with its example values, the example values of the gateway, the README files under deploy/launchpad where they describe metadata, and the cases of services/launchpad/metadata/internal/config. State in the final message, per form, the names the configuration demands."
+symbols = []
+
+[capability.22.44.69]
+title = "Close the terminal, swap and order views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/terminal.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.68]
+title = "Close the live, profit card and profile views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/live.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.67]
+title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/rewards.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.66]
+title = "Close the explore, search and watchlist views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/explore.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.65]
+title = "Close the coin, token and creation views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/coin.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.64]
+title = "Close the bounty, chat and document views of the launchpad on the device list with the render check"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/community.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+symbols = []
 
 [capability.22.39.751]
 title = "Name in the contract and the composer of the launchpad api every document its readiness reads"
@@ -174691,6 +174919,262 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.71]
+title = "Read the groups of the mobile navigation in the layout case of the search results as the header gives them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.3"]
+reqs = ["22998.1"]
+capabilities = ["22.44.71"]
+interfaces = []
+do_1 = "do_1 Gotcha 4611. Read apps/explorer/ui/snippets/navigation/mobile/NavigationMobile.tsx and the parts it renders for a group, the case of the mobile groups in apps/explorer/ui/snippets/header/HeaderNavigation.spec.tsx, and in apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx the case of the two search results routes with its steps below the width 1024. Read the other cases under apps/explorer/ui/shared/layout for the same kind of read."
+do_2 = "do_2 The layout case finds the group Explore inside the navigation with the name Mobile navigation by its summary, opens it, asserts the open state of its details element and then the link to the blocks as now. Everything else of the case stays: the routes, the widths, the search steps and the counts of the headers. No assertion is removed without one of the same strength in the present form. The components are not changed."
+do_3 = "do_3 Where another case under apps/explorer/ui/shared/layout reads a part of the header or of the navigation in a form the header no longer gives, bring it to the present form in the same way and name it in the final message."
+do_4 = "do_4 Run by hand the cases under apps/explorer/ui/shared/layout and read each message. The files of apps/explorer/ui/shared/layout are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/shared/layout"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/shared/layout/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.70]
+title = "Count a request the page cancelled without a finding in the render check and report an ended request once"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.62"]
+reqs = ["22998.1"]
+capabilities = ["22.44.70"]
+interfaces = []
+do_1 = "do_1 Gotcha 4606, decision 3688. Read tools/ui-check/check.mjs where it routes the requests of a page, where it ends a request itself, where it listens to failed requests and where it writes the result and the summary; the part of tools/ui-check/README.md on load findings and on requests that are pending when a render ends; and the cases of tools/ui-check/test/check.test.mjs on failed, blocked and unanswered requests. State in the final message the reasons the browser gives for a request the page cancelled and for the two ways the check ends a request."
+do_2 = "do_2 A failed request whose reason is the cancellation by the page adds no finding and is counted for its render. The check tells such a request from one it ended itself by remembering the requests it ended, not by the text of the reason alone. The document request of the navigation of the render stays a finding where it is cancelled."
+do_3 = "do_3 A request the check ended itself yields the one finding of that place and no second one from the failed request the browser reports for it. Every other failed request stays a load finding with the source requestfailed."
+do_4 = "do_4 The result names for each render the count under the key cancelled, zero included, and the summary line names the total of the run. The README states the rule in the table of the load findings and in the part on pending requests, with the key. The surface files that are present stay as they are."
+do_5 = "do_5 Cases in tools/ui-check/test/check.test.mjs with surfaces made in a temporary directory: a page that starts a read and cancels it shows no finding and the count one; a page that cancels three reads shows the count three; an address outside the surface without a fixed answer shows exactly one finding, with the source unanswered-request; a request to the surface that cannot be fetched shows exactly one finding; a refused connection stays a finding with the source requestfailed; a render without a cancelled request shows the count zero. The present cases stay; where one counted the second finding of an ended request, it follows decision 3688 and nothing else of it changes. Run the cases by hand and read each message."
+do_6 = "do_6 The files of tools/ui-check are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.69]
+title = "Close the terminal, swap and order views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.69"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/terminal.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the terminal, swap and order views: the routes under apps/launchpad/web/src/app in the directories terminal, swap and meta-ag, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.69.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.69.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.68]
+title = "Close the live, profit card and profile views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.68"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/live.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the live, profit card and profile views: the routes under apps/launchpad/web/src/app in the directories live, pnl and profile, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.68.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.68.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.67]
+title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.67"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/rewards.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the leaderboard and reward views: the routes under apps/launchpad/web/src/app in the directories leaderboard, holder-rewards, rewards and r, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.67.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.67.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.66]
+title = "Close the explore, search and watchlist views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.66"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/explore.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the explore, search and watchlist views: the routes under apps/launchpad/web/src/app in the directories explore, search and watchlist, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.66.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.66.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.65]
+title = "Close the coin, token and creation views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.65"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/coin.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the coin, token and creation views: the routes under apps/launchpad/web/src/app in the directories coin, token, tokens and create, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.65.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.65.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.64]
+title = "Close the bounty, chat and document views of the launchpad on the device list with the render check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.40"]
+reqs = ["22998.1"]
+capabilities = ["22.44.64"]
+interfaces = []
+do_1 = "do_1 Gotchas 4599 and 4509, decisions 3681, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, the whole surface file tools/ui-check/surfaces/launchpad.json with its files under tools/ui-check/surfaces/launchpad, the part file tools/ui-check/surfaces/launchpad/parts/community.json, the script tools/ui-check/surfaces/launchpad/parts.mjs and the records of the earlier tasks of this surface under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The part holds the bounty, chat and document views: the routes under apps/launchpad/web/src/app in the directories bounties, chat and docs, in every form the whole file names for them. Run the build file of the surface once, then the command for the part file by hand at the whole device list, and read the summary per view. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing for the part. A finding is never removed by taking a view, a state or a mode out of a file, and the script tools/ui-check/surfaces/launchpad/parts.mjs passes at every revision. A request that leaves the surface is answered from a file under tools/ui-check/surfaces/launchpad, taken from the stand-ins and fixtures the package has for its tests; it holds no key, no account of a person and no value of a live service. Where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_3 = "do_3 Then look at the screenshots of the last run: every view of the part at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file of another part is not changed. A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. The mobile application is outside this task."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.64.kvx: the count of views and states of the part, the sizes and modes rendered, the count of renders of the last run with its result, and what the pass over the screenshots corrected. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.64.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.63]
 title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
 status = "pending"
@@ -174759,7 +175243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.61]
 title = "Build the production form of the wallet application in its surface file and close the render check on it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.60"]
@@ -175936,7 +176420,7 @@ touches = ["apps/launchpad/web/src"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/launchpad.json", "tools/ui-check/surfaces/launchpad", "spec/layerx-merge/programme/records/ui/22.44.40.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad.json --out /tmp/ui-check/launchpad && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175948,6 +176432,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3681, gotcha 4599. The work of the earlier candidate stays as it is: the whole surface file with its files, the fixed answers, the changes of the presentation and the record. Write the seven part files under tools/ui-check/surfaces/launchpad/parts, home.json, community.json, coin.json, explore.json, rewards.json, live.json and terminal.json, in the division decision 3681 names, and the script tools/ui-check/surfaces/launchpad/parts.mjs in the form it states. This task closes the part home: do_3 and do_4 hold for the views of that part, with the command run on tools/ui-check/surfaces/launchpad/parts/home.json. The views of the other parts keep every change made so far and are closed by tasks 22.44.64 to 22.44.69; no change made for them is taken back. The record states the counts of the part home, the count of views of each part and the task that closes it. The verification now runs the script and the part home. Work by hand first: run the script, then the build file of the surface once, then the command for the part by hand, and read the summary per view; where the bound of a navigation is met while several renders run, run by hand with a lower count of the option jobs to tell a slow answer from a finding. Start the build and the counted verification early and keep time for them. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.39]
 title = "Close the trading workspace on the device list with the render check"
@@ -177071,7 +177556,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.8]
 title = "Bring the transaction, batch, withdrawal and transfer views of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -177143,7 +177628,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.6]
 title = "Bring the home, statistics, blocks, validators, epochs, gas and feed views of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -177179,7 +177664,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.5]
 title = "Bring the page frames of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -249100,9 +249585,328 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.761]
+title = "State the object rights of the launchpad service accounts in one document with a command and a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.761"]
+interfaces = []
+do_1 = "do_1 Gotcha 4610, decision 3691. Read the contract in the platform directory under deploy/launchpad for the services that name the keys of an object account and for their bucket names; every call of the object client in the sources that are not cases of services/launchpad/gateway, services/launchpad/user, services/launchpad/metadata, services/launchpad/security/policy and sdk/launchpad/shared/storage; which service builds each of these packages; and services/launchpad/gateway/internal/storage/policies.go. State in the final message, for each of the three services, the calls it makes and the bucket each call goes to."
+do_2 = "do_2 The document deploy/launchpad/object-store/accounts.json with a schema version, the table of the calls and one entry for each of gateway, user and metadata: the contract names of its key and of its buckets, the source directories whose calls the account makes, and for each bucket the actions and the prefixes. An account holds an action only where a call of its sources needs it."
+do_3 = "do_3 The command deploy/launchpad/object-store/policy.py in the form of the tools under deploy/launchpad/documents: it takes the service and one bucket name for each bucket of the entry and prints the policy as JSON; it refuses an unknown service, a missing or a surplus bucket and a bucket name outside lower case letters, digits and hyphens. It reads no environment and no store."
+do_4 = "do_4 The case file deploy/launchpad/tests/test_object_rights.py, in the form of deploy/launchpad/documents/test_compose.py and without a network: every service whose contract entry names the keys of an object account has an entry and no other service has one; every bucket of an entry is a name of the contract entry of its service; every call of the object client found in the source directories of an entry, files of cases and of development forms left out, stands in the table, and the entry holds its actions for a bucket; a call the table does not name fails the case with file and call; an entry holds no action no call needs; the entry of metadata holds both actions for the read of the access list on its quarantine bucket; the printed policy of each service for example names has only allow statements, no wildcard for all and only the given buckets; the refusals of the command. The case states how it finds the calls, so that a new call in a source is found."
+do_5 = "do_5 The README of deploy/launchpad gets a short part on the document and the command. Run the case by hand and the cases of deploy/launchpad/tests and of deploy/launchpad/documents that are present, and read each message. The files under deploy/launchpad are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. The sources of the services are read and not changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad"]
+tests = []
+planned_paths = ["deploy/launchpad/object-store/accounts.json", "deploy/launchpad/object-store/policy.py", "deploy/launchpad/tests/test_object_rights.py"]
+build_cmd = "python3 --version && python3 -m pytest --version"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/tests/test_object_rights.py deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.760]
+title = "Run the source check of the indexer outside the readiness request"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.760"]
+interfaces = []
+do_1 = "do_1 Gotcha 4609, decision 3690. Read in services/launchpad/indexer/internal/app/app.go the readiness check canonical_source, the function verifyCanonicalRuntimeCheckpoint, the place where the service starts its periodic work and the place where it stops what it started; the head source and the committed source the check reads; in sdk/launchpad/shared/http the readiness handler; and the cases of services/launchpad/indexer/internal/app that reach the check or the function. State in the final message how the present cases give the check a head and a committed source."
+do_2 = "do_2 The refresh of decision 3690: every ten seconds, under a bound of ten seconds, one at a time, with the present reads and the present comparison. It starts where the check is registered today and stops with the service, before the sources and the pool close. It keeps the time of the last refresh that passed and whether a later refresh found a difference or a missing complete block."
+do_3 = "do_3 The readiness check reads no node and no store and answers as decision 3690 says. The errors it answers keep the present texts for a difference and for a missing complete block, and a kept result older than a minute answers a text of its own. The interval, the bound and the age are constants of the package."
+do_4 = "do_4 Cases in services/launchpad/indexer/internal/app whose names start with TestCanonicalSourceReadiness, with a head and a committed source made in the case and a clock the case moves: not ready before the first refresh; ready after a refresh that passed; ready while a later refresh ends on a read error and the kept result is younger than a minute; not ready once it is older; not ready at once after a refresh that found a difference, and ready again after the next one that passes; the check itself makes no read of the head and of the committed source; the stop ends the refresh. Where the check reads through concrete types only, give it the smallest seam a case needs. A case that needs a store uses the helper the package already has. The present cases stay and none is weakened."
+do_5 = "do_5 Run by hand the new cases, the present cases of services/launchpad/indexer/internal/app that reach the check and the case TestRuntimeRoleStatements of services/launchpad/indexer/internal/rolecheck, one after another, and read each message. The files of services/launchpad/indexer are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Where the inventory of the statement case names a position in a changed file, bring the inventory in line; its list of waiting statements stays as it is. No case is removed or weakened. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/indexer && go build ./... && go vet ./internal/app/)"
+verify_cmd = "(cd services/launchpad/indexer && go test -count=1 -timeout 20m -run CanonicalSourceReadiness ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.759]
+title = "Name the media part that is not available at the start of the metadata service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.759"]
+interfaces = []
+do_1 = "do_1 Gotcha 4608. Read in services/launchpad/metadata/internal/app/app.go the place where the connected media are built and checked at the start and where the readiness checks are registered; in services/launchpad/metadata/internal/metadata/connected.go the two functions Ready and the function anonymousAccessDenied; and the cases of both packages that give the objects a readiness of their own. State in the final message every place that calls one of the two functions."
+do_2 = "do_2 The check of the connected media tells its parts apart: an error that wraps the present error value and carries the part, one of raster, scanner and objects, and for the objects the step, one of configuration, quarantine_acl, quarantine_policy_status, quarantine_anonymous_access and approved_bucket. The text of the error holds the part and the step and nothing else: no bucket name, no address, no key and no text of the object store. Callers that compare with the present error value keep working through the wrap."
+do_3 = "do_3 The start answers the reason metadata_media_raster_unavailable, metadata_media_scanner_unavailable or metadata_media_objects_unavailable for the part, and for the objects the start line carries the step as its own attribute. The reason metadata_media_dependencies_unavailable stays for an error without a part. The readiness check of the media keeps its name and its answer; where the service logs a failed readiness check, the line carries part and step in the same way."
+do_4 = "do_4 Cases whose names start with TestMediaReadiness in services/launchpad/metadata/internal/metadata, with a server made in the case that answers the object calls and with the seams the package has: one case for each step of the objects, one for the scanner and one for the raster process, each reading part and step from the error; a case that the error still matches the present error value; a case that the text holds no bucket name and no address. A case in services/launchpad/metadata/internal/app with the same name start that reads the three reasons from the start path, where the package gives a seam for it; where it gives none, add the smallest one. The cases need no object store and no scanner."
+do_5 = "do_5 Run by hand the new cases and the present cases of both packages that touch the media readiness, one after another, and read each message. The files of services/launchpad/metadata are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Where the inventory of the statement case names a position in a changed file, bring the inventory in line; its list of waiting statements stays as it is. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/metadata && go build ./... && go vet ./internal/app/ ./internal/metadata/)"
+verify_cmd = "(cd services/launchpad/metadata && go test -count=1 -timeout 20m -run MediaReadiness ./internal/metadata/ ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.758]
+title = "Write the first search generation of the stats service by a registered migration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.746"]
+reqs = ["22998.1"]
+capabilities = ["22.39.758"]
+interfaces = []
+do_1 = "do_1 Gotcha 4607, decision 3689. Read migrations/200001.sql, its entry in migrations/registry.json and the entries of the migrations task 22.39.734 added; in the directory of the stats service under services/launchpad, whose binary is statsd, internal/search/generation.go, internal/search/projection.go and the readiness check search in internal/app/app.go; the cases of internal/search and internal/httpapi that apply the file 200001.sql and write a generation of their own; and internal/analytics/runtime_analytics_tables_test.go for the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest. State in the final message which roles hold which rights on the two tables."
+do_2 = "do_2 A new migration file with the next number after 200001 in its group, with 200001 as its predecessor, registered and approved in the way the migrations of task 22.39.734 are. It writes the two rows of decision 3689 where both tables hold no row and nothing otherwise, in one transaction. The grants document changes only where the registry rules ask an entry for the new file. The file 200001.sql stays as it is."
+do_3 = "do_3 The statement of the readiness check search moves into one function of internal/search that the check calls, so that a case reads through the same statement. The check keeps its name and its answers."
+do_4 = "do_4 Cases in internal/search whose names start with TestFirstSearchGeneration. With a database the helper Bootstrap made for the role stats_runtime: the function of the readiness check answers ready; BeginGeneration with a new name followed by ActivateGeneration with its proof passes without a row the case wrote, and the generation initial then has the state retained. In the form of the present cases that apply migration files to a database of their own: 200001.sql and the new file give exactly one generation and one row of the active table; the new file applied again changes nothing; 200001.sql, then a generation and a row the case writes, then the new file leaves the rows of the case as the only ones. The present cases stay and none is weakened."
+do_5 = "do_5 Run by hand the new cases, the present cases of internal/search and internal/httpapi, and each part of the verification command, one after another, and read each message. The files under migrations, sdk/launchpad/shared/db/production and services/launchpad are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/stats-*ers && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "(cd services/launchpad/stats-*ers && go test -count=1 -timeout 30m -run FirstSearchGeneration ./internal/search/) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m -run TestMigrationRegistryHonorsPredecessorOrder ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run TestRepositoryRegistryRequiresApproval ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run TestExpectedSchemaPrivilegeMatrix ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run TestPlatformRuntimeRolesPassReadiness ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.757]
+title = "Attest the network authority of the api outside the readiness request"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.755"]
+reqs = ["22998.1"]
+capabilities = ["22.39.757"]
+interfaces = []
+do_1 = "do_1 Gotcha 4605, decision 3687. Read services/launchpad/api/internal/app/authority.go: the type of the authority, the functions that read the committed head and build the envelope, the readiness check, the routes and the close; in services/launchpad/api/internal/app/app.go the place where the authority is built, where its readiness check is registered and where the server stops what it started; in sdk/launchpad/shared/config/deployment the attestation and its policy; in sdk/launchpad/shared/http the readiness handler; and the cases of the authority in services/launchpad/api/internal/app with the readers they make. State in the final message how the present cases give the authority a reader and a committed head."
+do_2 = "do_2 The authority keeps the last envelope it built with the time it built it, and a refresh builds one every ten seconds under the bound of the attestation policy. One refresh runs at a time. The refresh starts where the authority is built and stops with the server, before the reader and the pool close; a failed refresh keeps the earlier envelope and the next one runs at the interval."
+do_3 = "do_3 The readiness check reads no node and no store. It answers ready where the kept envelope was built within the last minute and an error otherwise, also before the first refresh has ended. The route GET /v2/network/authority and the preflight routes are not changed. The interval and the age are constants of the package."
+do_4 = "do_4 Cases in services/launchpad/api/internal/app whose names start with TestAuthorityReadiness, with a reader and a committed head made in the case and a clock the case moves: the check answers not ready before the first refresh; ready after a refresh; ready while a later refresh fails and the kept envelope is younger than a minute; not ready once it is older; ready again after the next refresh that succeeds; the check makes no read of the reader and of the head source; the stop ends the refresh. Where the authority reads its head through the pool only, give it the smallest seam a case needs. The cases need no node; a case that needs a store uses the helper the package already has. The present cases stay and none is weakened."
+do_5 = "do_5 Run by hand the new cases, the present cases of the authority in services/launchpad/api/internal/app and the case TestRuntimeRoleStatements of services/launchpad/api/internal/rolecheck, one after another, and read each message. The files of services/launchpad/api are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Where the inventory of the statement case names a position in a changed file, bring the inventory in line; its list of waiting statements stays as it is. No case is removed or weakened. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/api && go build ./... && go vet ./internal/app/)"
+verify_cmd = "(cd services/launchpad/api && go test -count=1 -timeout 20m -run AuthorityReadiness ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.756]
+title = "Keep a result of the secrets check of the launchpad services only for an answer of the provider"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.751", "22.39.752"]
+reqs = ["22998.1"]
+capabilities = ["22.39.756"]
+interfaces = []
+do_1 = "do_1 Gotcha 4604, decision 3686. Read in the configuration package of each of the eleven services the function ResolveProductionSecrets with the check it returns and the refresh that calls it, in sdk/launchpad/shared/secrets the provider and what it answers where the context of a call has ended, in sdk/launchpad/shared/http the readiness handler and the context it gives a check, and the present cases on production secrets of each configuration package. The eleven services: api, gateway, indexer, livestream, metadata, pnl-tracker, ranking-algo, social, trading-charts, user and the directory of the stats service under services/launchpad, whose binary is statsd. State the eleven files in the final message."
+do_2 = "do_2 The check of each of the eleven services follows decision 3686: where the context of the call has ended, it returns the error of the context for that call and keeps nothing; a missing secret and a changed value are kept as now, with the texts they have now. The form is the same in the eleven files. Nothing else of the function changes, and no file under sdk/launchpad/shared changes."
+do_3 = "do_3 One case in the configuration package of each of the eleven services, each with a name that starts with TestSecretsCheckContext: a call with a cancelled context returns an error that matches the cancellation and the next call with a live context returns no error; a call with a deadline that has passed behaves the same; a changed value is kept and answered by every later call, also by one with a live context after a call with an ended one; a missing value is kept the same way. The cases need no database, no broker and no node. The present cases stay and none is weakened."
+do_4 = "do_4 Run by hand in each of the eleven services the new case and the present cases on production secrets of the configuration package, one service after another, and read each message. The files of the eleven services are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. Start the build and the counted verification early: they compile eleven modules. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/api && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/gateway && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/indexer && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/livestream && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/metadata && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/pnl-tracker && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/ranking-algo && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/social && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/trading-charts && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/user && go build ./internal/config/ && go vet ./internal/config/) && (cd services/launchpad/stats-*ers && go build ./internal/config/ && go vet ./internal/config/)"
+verify_cmd = "(cd services/launchpad/api && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/livestream && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/) && (cd services/launchpad/stats-*ers && go test -count=1 -timeout 20m -run SecretsCheckContext ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.755]
+title = "Serve the internal notification routes of the api on a private listener with mutual TLS"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.747", "22.39.751", "22.39.753"]
+reqs = ["22998.1"]
+capabilities = ["22.39.755"]
+interfaces = []
+do_1 = "do_1 Gotcha 4603, decision 3685. Read in services/launchpad/notifications the handler for internal callers, its policy and the runtime that builds both; in services/launchpad/api/internal/app/app.go the registration of the discovery runtime, the place where the server is built and started and the shutdown; in services/launchpad/api/internal/config the identity inputs in their file and inline form and how the api builds its client TLS configuration from them; and in the user service and the ranking service under services/launchpad how the second listener is configured, checked, started and shut down since task 22.39.747. Read the entry of the api in the variables file in the platform directory under deploy/launchpad, the README and the compose file of deploy/launchpad where they name the private listen addresses, and the cases that compare the fixed names of an entry. State in the final message which files compare the fixed names of the api entry with another list."
+do_2 = "do_2 The configuration of the api reads API_PRIVATE_LISTEN_ADDRESS. In production in the role rest with a discovery runtime document bound it demands an IP and port distinct from PORT and refuses to start otherwise, with a message that names the variable. With no document bound, and in the role sockets, the value is ignored. The checks follow the form of the four services that hold such an address."
+do_3 = "do_3 Where the discovery runtime is built, the api opens the second listener on the address. It serves only the handler for internal callers of the runtime. Its TLS configuration requires and verifies a client certificate against the authority certificate of the identity inputs, presents the certificate and key of the same inputs, and sets TLS 1.3 as the minimum. The public router does not serve a path under /internal, and the second listener answers no public route and no health route. The listener starts and shuts down with the server, and a failure to bind ends the start with an error. The policy of the library is the authorization of both routes and does not change."
+do_4 = "do_4 The entry of the api in the variables file in the platform directory under deploy/launchpad gains the fixed name API_PRIVATE_LISTEN_ADDRESS with the value 0.0.0.0:8443; the entry of the role sockets does not. Every file do_1 found that compares the fixed names follows the contract: the values file of the launchpad under deploy/launchpad, the fixtures and recordings of the cases under deploy/launchpad/tests and tools/deploy/tests, and the cases of the api. The README and the compose file of deploy/launchpad name the address beside the four others, and the README states that the user service and the social service reach the internal notification routes of the api there."
+do_5 = "do_5 Cases in services/launchpad/api/internal/app whose names start with TestPrivateNotification, with certificates made in the case and listeners on loopback: a connection without a client certificate is refused; a client whose certificate names the delete peer and that sends the token is admitted to the removal route and refused on the chat route; a client whose certificate names the chat peer is admitted to the chat route and refused on the removal route; a right peer with a wrong token is refused; a certificate of another authority is refused; the plain listener answers no path under /internal and the second listener answers no public route. Cases in services/launchpad/api/internal/config: the three refusals and the ignored forms of do_2. Where a case can show the authorization without a store it needs no database; a case that needs one uses the helper the package already has. The present cases stay and none is weakened."
+do_6 = "do_6 Run by hand the new cases, the cases named PlatformDocuments of services/launchpad/api/internal/config, the case TestRuntimeRoleStatements of services/launchpad/api/internal/rolecheck, the cases of deploy/launchpad/documents/test_compose.py and the two shell cases of the verification, one after another, and read each message. The files of deploy/launchpad, services/launchpad/api, services/launchpad/notifications and tools/deploy with its tests and fixtures are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Where the inventory of the statement case names a position in a changed file, bring the inventory in line; its list of waiting statements stays as it is. No case is removed or weakened. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad/api", "services/launchpad/notifications", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/api.py && (cd services/launchpad/api && go build ./... && go vet ./internal/app/ ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PrivateNotification ./internal/app/ ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.754]
+title = "Resolve the schema chat first on the pool of the social service in the container profile"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.747"]
+reqs = ["22998.1"]
+capabilities = ["22.39.754"]
+interfaces = []
+do_1 = "do_1 Gotcha 4602, decision 3684. Read in services/launchpad/social/internal/app/app.go the start of the service from the place where it reads the profile to the place where it opens the runtime pool, in services/launchpad/social/internal/devsocial/runtime.go the function RuntimeDSN, in services/launchpad/social/internal/config how the runtime pool is opened and what it compares with the budget document, and the cases of services/launchpad/social/internal/app and services/launchpad/social/internal/rolecheck that set a search path on their own connections. State in the final message whether the runtime pool compares the database URL with any bound value."
+do_2 = "do_2 The start of the service applies RuntimeDSN to the database URL in every profile before the runtime pool is opened. The step that decides the URL of the pool is one function of the package that a case can call without a database. The comment at the place states the rule in one sentence. No statement, no migration and no other service changes."
+do_3 = "do_3 Cases in services/launchpad/social/internal/app whose names start with TestContainerProfilePool: for production with the profile container the URL of the pool carries the schema chat first where the given URL carries no search path, keeps a given search path after the schema chat, and leaves host, database, user and every other parameter as given; the same holds for the profile platform and outside production. The cases need no database, no broker and no node. The present cases stay and none is weakened."
+do_4 = "do_4 Run by hand the new cases, the cases of services/launchpad/social/internal/app and the case TestRuntimeRoleStatements of services/launchpad/social/internal/rolecheck, one after another, and read each message. The files of services/launchpad/social are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Where the inventory of the statement case names a position in a changed file, bring the inventory in line; its list of waiting statements stays as it is. No case is removed or weakened. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/social && go build ./... && go vet ./internal/app/)"
+verify_cmd = "(cd services/launchpad/social && go test -count=1 -timeout 20m -run ContainerProfilePool ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.753]
+title = "Give the expected schema document of the launchpad services its file form in the contract and the composer"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.730", "22.39.751", "22.39.752"]
+reqs = ["22998.1"]
+capabilities = ["22.39.753"]
+interfaces = []
+do_1 = "do_1 Gotcha 4601, decision 3683. Read in deploy/launchpad/documents/common.py the function that reads the expected schema document of a service and the type FileDocument, in deploy/launchpad/documents/compose.py the place that reads the member documentSources of an entry, the check of the sources and the place that turns a document or a file document into variables, and in deploy/launchpad/documents/indexer.py how the rendered files of the indexer become file documents. Read the entries of the variables file in the platform directory under deploy/launchpad, the tool under tools/deploy that applies the variables of the launchpad with its case and its fixture under tools/deploy/tests, the cases under deploy/launchpad/tests that read the variables file, the README of deploy/launchpad/documents, and in services/launchpad/social/internal/config the fields of the expected schema document, the function that reads the bound bytes and the cases named PlatformDocuments. State in the final message which files compare the required names of an entry with another list."
+do_2 = "do_2 The composer reads the file expected-schema/runtime-paths.json of the values directory where it is present. For a service named there it hands on the bytes of expected-schema/NAME.json with the path as a file document, and the composed output of that service holds EXPECTED_SCHEMA_FILE with the path, EXPECTED_SCHEMA_SHA256 with the digest of the exact bytes, and no EXPECTED_SCHEMA_DOCUMENT. A service not named there, and every service where the paths file is absent, is composed as now. The budget document and every other document stay byte for byte as they are. The composer refuses, with the name of the file and of the member, a paths file that is no JSON object, a member name that is no service of the contract and a value that is no absolute path."
+do_3 = "do_3 The entry of every service in the variables file in the platform directory under deploy/launchpad that requires EXPECTED_SCHEMA_SHA256 gains in its member documentSources the pair of EXPECTED_SCHEMA_DOCUMENT and EXPECTED_SCHEMA_FILE, and EXPECTED_SCHEMA_DOCUMENT leaves its list of required names. The indexer keeps its two present pairs. Nothing else of an entry changes. The tool that applies the variables refuses for this document both sources together and neither, by the rule it holds for the indexer documents; where the rule already covers every pair of documentSources, the tool stays as it is and its case shows it. Every file do_1 found that compares the required names follows the contract: the values file of the launchpad under deploy/launchpad, the fixtures and recordings of the cases under deploy/launchpad/tests and tools/deploy/tests, and the cases of the services. The README of deploy/launchpad/documents states the paths file, the two forms and that the deployment mounts the same bytes at the path."
+do_4 = "do_4 Cases. A case of deploy/launchpad/documents/test_compose.py composes two services from one values directory whose paths file names one of them, and asserts for the named one the file variable, the digest of the exact bytes and the absence of the document variable, for the other the document form as now, and that the budget document of both equals the one composed without the paths file. It asserts the three refusals of do_2. A case of services/launchpad/social/internal/config whose name starts with TestPlatformDocumentsExpectedSchemaFileForm composes social in the file form with a path inside a temporary directory, places the bytes at the path, loads the configuration from the composed variables and asserts that the bound bytes read through the file form equal the bytes of the values directory and that a changed byte in the file is refused by the digest. The case of the tool under tools/deploy/tests covers for the expected schema document the document form, the file form and the two refusals. The cases need no database, no broker and no node. The present cases stay and none is weakened."
+do_5 = "do_5 Run by hand the cases of deploy/launchpad/documents/test_compose.py, the two shell cases of the verification and the cases named PlatformDocuments in the configuration package of every service under services/launchpad, one after another, and read each message. The files of deploy/launchpad, services/launchpad and tools/deploy with its tests and fixtures are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that lists the required names of an entry takes the new form of the contract; no case is removed or weakened. No file of a service outside its configuration cases changes. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/common.py && (cd services/launchpad/social && go vet ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/livestream && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/stats-*ers && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.752]
+title = "Fix the metadata service of the launchpad to the mutual TLS form and admit its listener materials inline"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.747"]
+reqs = ["22998.1"]
+capabilities = ["22.39.752"]
+interfaces = []
+do_1 = "do_1 Gotcha 4600, decision 3682. Read in services/launchpad/metadata/internal/config/config.go the selector of the ingress, the function ValidateMediaRuntime with what each form demands and the function ResolveProductionSecrets with the bindings of each form. Read in services/launchpad/metadata/internal/app/app.go the function metadataServerTLS, the private listener and the plain health listener, the private channel of the gateway, the account channel of the user service and the identity authority over mutual TLS. Read in services/launchpad/user/internal/config/config.go the function accountMaterial and how the file form and the inline form of a material exclude one another. Read the entries of metadata, user and gateway in the variables file in the platform directory under deploy/launchpad, the composer module deploy/launchpad/documents/metadata.py with its example values, the example values of the gateway, the README files under deploy/launchpad where they describe metadata, and the cases of services/launchpad/metadata/internal/config. State in the final message, per form, the names the configuration demands."
+do_2 = "do_2 The configuration of metadata gains the three inline names METADATA_TLS_CERT_PEM, METADATA_TLS_KEY_PEM and METADATA_TLS_CLIENT_CA_PEM. In production in the form mtls each of the three materials is given in exactly one form, and both forms or none is refused with an error that names the material. The inline key is a required secret of the form where it is the chosen form and is read through the secrets provider with the other bindings of the form. The function metadataServerTLS builds the listener configuration from the chosen forms: the file form keeps its checks of the kind and the permission of the key file and behaves as before, the inline form reads no file. No value of a key enters a log line or an error text. The checks of the listener stay: TLS 1.3 and a verified client certificate of the client authority."
+do_3 = "do_3 The entry of metadata in the variables file in the platform directory under deploy/launchpad fixes METADATA_INGRESS to mtls and requires every name do_1 found for that form, with the three listener materials in their inline names. The names IDENTITY_SERVICE_URL and IDENTITY_SERVICE_TOKEN leave the entry, the assertion key and the key of the listener enter its list of secrets, and the other fixed values of the entry stay. Every file the cases compare with the contract follows: the values file of the launchpad under deploy/launchpad, the example of the environment of metadata where it lists names, the recordings and fixtures of the cases under deploy/launchpad/tests and tools/deploy/tests, and the README. The entries of the gateway and of the user service stay as they are. The composer keeps writing the publication document; where a case of the composer lists the names of metadata, it takes the new names."
+do_4 = "do_4 A case in services/launchpad/metadata/internal/config with a name that holds MutualIngress builds a production configuration from the fixed values of the entry of metadata in the contract and from its required names, each with a value of the right form and the listener materials made inside the case with the standard library, and asserts that the validation of the media runtime admits it. It asserts that both forms for one material and no form are refused with the name of the material, and that every name the validation reads in the form mtls is a fixed or a required name of the entry. A case in services/launchpad/metadata/internal/app with a name that holds InlineMaterial builds the listener configuration from inline materials, starts a listener on loopback, and asserts that a client with a certificate of the client authority completes the handshake at TLS 1.3 and that a client without a certificate is refused. The cases need no database, no broker and no node. The cases of the form edge and the cases named PlatformDocuments stay and pass."
+do_5 = "do_5 Run by hand the package services/launchpad/metadata/internal/config, the new case of services/launchpad/metadata/internal/app, the cases of deploy/launchpad/documents/test_compose.py and the two shell cases of the verification, one after another, and read each message. The files of deploy/launchpad, services/launchpad/metadata and tools/deploy with its tests and fixtures are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that lists names takes the new names; no case is removed or weakened. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad/metadata", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/metadata.py && (cd services/launchpad/metadata && go build ./... && go vet ./internal/config/ ./internal/app/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/metadata && go test -count=1 -timeout 20m ./internal/config/ && go test -count=1 -timeout 20m -run 'InlineMaterial' ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.751]
 title = "Name in the contract and the composer of the launchpad api every document its readiness reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.750"]
@@ -249134,7 +249938,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.750]
 title = "Make the example values of the launchpad composer one set across the services"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.735"]
@@ -249166,7 +249970,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.749]
 title = "Compare the bloom and the root of a header in the launchpad indexer with the receipts the header of the node covers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249231,7 +250035,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.747]
 title = "Answer the health paths of the ranking, user, metadata and social services without TLS on the port the health check reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249296,7 +250100,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.745]
 title = "List the statements of the livestream service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249328,7 +250132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.744]
 title = "List the statements of the user service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249360,7 +250164,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.743]
 title = "List the statements of the metadata service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249392,7 +250196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.742]
 title = "List the statements of the social service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249424,7 +250228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.741]
 title = "List the statements of the api service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249488,7 +250292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.739]
 title = "List the statements of the pnl service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249552,7 +250356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.737]
 title = "List the statements of the gateway service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.736"]
@@ -249584,7 +250388,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.736]
 title = "Add the restriction column and the inventory cursor table of the gateway by a registered migration and give the ranking role the lock right of its prune"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.733"]
@@ -249617,7 +250421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.735]
 title = "Give the composer example values of the gateway the forms the gateway admits and hold them with a case of the app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.729"]
@@ -249650,7 +250454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.734]
 title = "Make the analytics tables of the stats service by a registered migration with the rights its runtime role uses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.733"]

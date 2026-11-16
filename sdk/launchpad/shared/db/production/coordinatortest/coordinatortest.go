@@ -456,24 +456,28 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	// of a planned schema (registered SQL may grant to any of their runtime
 	// roles). Schema capabilities outside the plan are not provisioned.
 	for _, m := range roleDoc.Roles {
-		if !schemas[m.Schema] {
-			continue
-		}
-		scoped := production.RoleManifest{Service: m.Service, Schema: m.Schema, OwnerRole: rename(m.OwnerRole), RuntimeRole: rename(m.RuntimeRole)}
-		statements, err := scoped.ProvisionSQL()
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, statement := range statements {
-			if strings.HasPrefix(statement, "CREATE ROLE ") {
-				role := strings.Trim(strings.SplitN(strings.TrimPrefix(statement, "CREATE ROLE "), " ", 2)[0], `"`)
-				if roleCreated[role] {
-					continue
-				}
-				roleCreated[role] = true
-				created = append(created, role)
+		scopes := []production.SchemaCapability{{Service: m.Service, Schema: m.Schema, OwnerRole: m.OwnerRole}}
+		scopes = append(scopes, m.SchemaCapabilities...)
+		for _, scope := range scopes {
+			if !schemas[scope.Schema] {
+				continue
 			}
-			exec("provision", statement)
+			scoped := production.RoleManifest{Service: scope.Service, Schema: scope.Schema, OwnerRole: rename(scope.OwnerRole), RuntimeRole: rename(m.RuntimeRole)}
+			statements, err := scoped.ProvisionSQL()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, statement := range statements {
+				if strings.HasPrefix(statement, "CREATE ROLE ") {
+					role := strings.Trim(strings.SplitN(strings.TrimPrefix(statement, "CREATE ROLE "), " ", 2)[0], `"`)
+					if roleCreated[role] {
+						continue
+					}
+					roleCreated[role] = true
+					created = append(created, role)
+				}
+				exec("provision", statement)
+			}
 		}
 	}
 
