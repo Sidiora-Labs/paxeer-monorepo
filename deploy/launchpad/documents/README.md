@@ -22,6 +22,18 @@ name while retaining the platform service name in the values filename.
 Output files are named `<service>.json`, contain only document, file and digest
 variables, and are created with mode `0600`.
 
+The charts, stats, API, indexer, PnL and ranking examples form one deployment
+set. Their source streams equal the indexer's `canonical_stream_id`; charts,
+stats, ranking and the API use its `projection_version`, while PnL uses its
+`inventory_projection_version` and `inventory_generation`. Charts, stats and
+the API share one projection generation. The API's charts and stats delivery
+schemas and consumer IDs equal those services' `schema` and `consumerId`:
+partition delivery tables live in `candles` and `stats`, respectively. Its
+`ChartsSchema` and `StatsSchema` name those same schemas, and its
+`SourcePartitionSchema` is `indexer`, which charts and stats use for bootstrap
+evidence. Each input consumer's broker stream equals the indexer's `stream`,
+separate from the canonical source stream ID.
+
 For the indexer, receipt and lifecycle documents each have two forms. The default
 form composes the document from the indexer values and writes its standard base64
 to `INDEXER_RECEIPT_CONFIG_DOCUMENT` or `INDEXER_LIFECYCLE_CONFIG_DOCUMENT`, with
