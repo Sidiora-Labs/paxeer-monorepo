@@ -15106,6 +15106,30 @@ value = "A package sdk/launchpad/shared/brokerprovision with a command beside it
 basis = "Gotcha 4582. Decisions 3663 and 3046."
 affects = []
 
+[decision.3666]
+title = "The stats service changes no schema on the pool of its runtime role"
+value = "A registered migration of the stats service makes the index idx_ph_balance_numeric with the definition the statement of the service holds now, in the form the coordinator admits for an index on a table that holds rows. The registry follows with its order, its digests and its approval. The stats service runs no statement that changes the schema: at start it reads from the catalog that the index is present and valid, and it ends the start with a message that names the index where it is not. The reads that use the index stay as they are. A case holds the index and the start check with a connection of the runtime role on a database made by the helper Bootstrap from the registered migrations and the grants document."
+basis = "Gotcha 4583. Decisions 3661, 3046 and 3052."
+affects = []
+
+[decision.3667]
+title = "A surface file may name the bound of its build and the outputs its build makes"
+value = "A surface file may hold the key buildMs, a whole number of milliseconds from 1000 to 1800000 that bounds the build of that surface in place of the common bound, and the key outputs, a list of paths inside the directory of the surface that the build makes. The render check removes each named output before it runs the build, so the start command serves what the build of that run made. A path of the list that is absolute, that leaves the directory of the surface, that names the directory itself or that names a directory of installed packages is refused with the name of the surface. A surface file without the two keys runs as before. The result names the bound that applied and the outputs that were removed."
+basis = "Gotcha 4584. Decisions 3591 and 3588."
+affects = []
+
+[decision.3668]
+title = "The surface file of the wallet application builds the production form its start serves"
+value = "The build of the surface file of the wallet application runs the script build of the package with the public values the start command names, so the compile and the start hold the same addresses. The surface file names the outputs of that build and a bound that fits it, in the keys of decision 3667. The render check of the wallet surface passes on the whole device list, in both schemes and in every mode, in a tree that held no output of an earlier build. A finding that shows there is corrected in the application, and no view, state, mode or expectation is taken out of the surface file."
+basis = "Gotcha 4585. Decisions 3667, 3591 and 3588."
+affects = []
+
+[decision.3669]
+title = "The builder tool of the explorer backend takes an option that runs a second time the cases that did not pass"
+value = "The tool takes the option --retry-failed before the mix command, and the option holds for the test command alone. With it, a run that ends with cases that did not pass is followed once, in the same container and against the same database, by a run of those cases alone through the option --failed of mix with the arguments of the first run, and the tool ends with the exit code of that second run. A first run that passes is followed by no second run. A first run that ends with another code than zero while the record names no case, such as a run that does not compile, ends the tool with the code of the first run. The tool states on its error stream that the second run took place. Without the option the tool behaves as before. The verification of task 22.39.695 runs the suite of the web app with the option."
+basis = "Gotcha 4586. Decisions 3046 and 3052."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44766,6 +44790,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.61]
+title = "Build the production form of the wallet application in its surface file and close the render check on it"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "apps/wallet"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.61.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+do_1 = "do_1 Gotcha 4585, decision 3668. Read tools/ui-check/surfaces/wallet.json with the files under tools/ui-check/surfaces/wallet, the scripts of apps/wallet/package.json, apps/wallet/scripts/build-pwa.mjs, the next configuration of the application, the part of tools/ui-check/README.md on the keys buildMs and outputs, and the record of task 22.44.41 under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.60]
+title = "Let a surface file of the render check name the bound of its build and the outputs its build makes"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4584, decision 3667. Read tools/ui-check/config.mjs with the function readSurface and the limits, tools/ui-check/server.mjs with the function startSurface and the process helper, tools/ui-check/check.mjs where it writes the result, the part of tools/ui-check/README.md on commands and limits, the cases of tools/ui-check/test/check.test.mjs on surface files and on the build, and every surface file under tools/ui-check/surfaces with its build and start commands."
+symbols = []
+
+[capability.22.39.733]
+title = "Make the holder balance index of the stats service by a registered migration and read it at start"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+verification_contract = "cd services/launchpad/stats-*ers && go test -count=1 -timeout 30m -run '^TestRuntimeRoleHolderIndex' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+do_1 = "do_1 Gotcha 4583, decision 3666. Read the function EnsureHolderBalanceIndex of internal/store/holders.go in the directory of the stats service under services/launchpad, whose binary is statsd, with the reads beside it that order by the numeric balance, its call in internal/app/app.go and the cases that call it, the file migrations/00001_init.sql of that directory with the table pool_holders and its indexes, the registrations of the stats service in migrations/registry.json with their files under migrations, the file sdk/launchpad/shared/db/production/online_indexes.go and every place that calls its apply function, the query of the schema digest in sdk/launchpad/shared/db/production/migrations.go, the command of the schema under sdk/launchpad/shared/db/production/cmd with its cases, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, and the history of the registration that was added last with every file that changed with it."
+symbols = []
 
 [capability.22.39.732]
 title = "Add the command that provisions and checks the streams and durables of the launchpad on a broker"
@@ -174394,6 +174445,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.61]
+title = "Build the production form of the wallet application in its surface file and close the render check on it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.60"]
+reqs = ["22998.1"]
+capabilities = ["22.44.61"]
+interfaces = []
+do_1 = "do_1 Gotcha 4585, decision 3668. Read tools/ui-check/surfaces/wallet.json with the files under tools/ui-check/surfaces/wallet, the scripts of apps/wallet/package.json, apps/wallet/scripts/build-pwa.mjs, the next configuration of the application, the part of tools/ui-check/README.md on the keys buildMs and outputs, and the record of task 22.44.41 under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The build of the surface file runs the script build of the package, the production form of the product, with every public value the start command names set to the same value. The surface file names in outputs the directory of the production build and each file the script of the offline files writes, and in buildMs a bound that fits the build with room. Measure the build once by hand and state the time in the final message."
+do_3 = "do_3 Remove the directory of the production build and the files of the offline form by hand, then run the render check of the surface by hand for one view and read the result: zero renders or a view that shows nothing is a finding. Look at four of the written images, one narrow and one wide in each scheme, and state in the final message what they show."
+do_4 = "do_4 Run the render check of the whole surface by hand in that tree. Correct every finding in the application under apps/wallet: spacing, type, colour, contrast, focus, touch size, overflow and layout shift as the check names them. Take no view, state, mode or expectation out of the surface file and loosen no limit. Run again until the whole surface passes with zero findings."
+do_5 = "do_5 The record of task 22.44.41 stays as it is. Write the record of this task at spec/layerx-merge/programme/records/ui/22.44.61.kvx with the count of renders, the device list, the time of the build and the revision, in the form of the record of task 22.44.41. The present cases of the application stay and none is weakened. Run by hand the type check of the application and the cases of the directories src/components, src/widgets and src/surfaces and read each message."
+do_6 = "do_6 The surface file, the files under tools/ui-check/surfaces/wallet and the files of apps/wallet are inside the paths of this task: a case there that does not pass is corrected here whether or not it passed before, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "apps/wallet"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.61.kvx"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.61.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.60]
+title = "Let a surface file of the render check name the bound of its build and the outputs its build makes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.60"]
+interfaces = []
+do_1 = "do_1 Gotcha 4584, decision 3667. Read tools/ui-check/config.mjs with the function readSurface and the limits, tools/ui-check/server.mjs with the function startSurface and the process helper, tools/ui-check/check.mjs where it writes the result, the part of tools/ui-check/README.md on commands and limits, the cases of tools/ui-check/test/check.test.mjs on surface files and on the build, and every surface file under tools/ui-check/surfaces with its build and start commands."
+do_2 = "do_2 The function readSurface admits the key buildMs: a whole number from 1000 to 1800000. Another value is refused with the name of the surface. The function startSurface bounds the build with that number where the surface names it and with the common bound where it does not. The message of a build that ran out of time names the bound that applied."
+do_3 = "do_3 The function readSurface admits the key outputs: a list of one to sixteen paths, each relative and inside the directory of the surface after resolving links. It refuses, with the name of the surface, an absolute path, a path that leaves the directory, a path that is the directory itself, a path whose last part or any part is node_modules, and a list on a surface without a build command. The function startSurface removes each named output with everything under it before the build runs, and removes nothing else. A named output that is absent is no error."
+do_4 = "do_4 The result the check writes names for the surface the bound that applied to its build and the outputs that were removed. The README states both keys, their limits, the refusals and the order: remove the outputs, build, start. The surface files that are present stay as they are."
+do_5 = "do_5 Cases in tools/ui-check/test/check.test.mjs with surfaces made in a temporary directory: a build that takes longer than the common bound passes with a larger buildMs and ends with the bound in its message under a smaller one; each refusal of do_2 and do_3; a surface whose start serves a file that only its build writes passes when a stale copy of that file with other content is present and named in outputs, and the render shows the content of the new build; a file beside the outputs is still present after the run; a surface without the keys behaves as before. Use short bounds through the keys so the cases stay fast. The present cases stay and none is weakened. Run the cases by hand and read each message."
+do_6 = "do_6 The files of tools/ui-check are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.723]
 title = "Copy every compile file the web compile reads into the perps image and hold it with a case"
 status = "done"
@@ -248670,6 +248787,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.733]
+title = "Make the holder balance index of the stats service by a registered migration and read it at start"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.728"]
+reqs = ["22998.1"]
+capabilities = ["22.39.733"]
+interfaces = []
+do_1 = "do_1 Gotcha 4583, decision 3666. Read the function EnsureHolderBalanceIndex of internal/store/holders.go in the directory of the stats service under services/launchpad, whose binary is statsd, with the reads beside it that order by the numeric balance, its call in internal/app/app.go and the cases that call it, the file migrations/00001_init.sql of that directory with the table pool_holders and its indexes, the registrations of the stats service in migrations/registry.json with their files under migrations, the file sdk/launchpad/shared/db/production/online_indexes.go and every place that calls its apply function, the query of the schema digest in sdk/launchpad/shared/db/production/migrations.go, the command of the schema under sdk/launchpad/shared/db/production/cmd with its cases, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, and the history of the registration that was added last with every file that changed with it."
+do_2 = "do_2 Add a registered migration of the stats service that makes the index idx_ph_balance_numeric on the table pool_holders with the columns, the expression and the order of the statement the service holds now. Use the form the coordinator admits for an index on a table that holds rows, and state in the final message which form that is and why. The registry follows: the registration with its predecessor, the application order, the digests, the approval, and every file the code of sdk/launchpad/shared/db/production and the command of the schema hold equal to the registry. A file that records an approval of an earlier release stays as it is where the code reads it as history."
+do_3 = "do_3 The stats service runs no statement that changes the schema on the pool of its runtime role. At start it reads from the catalog, with a statement the runtime role may run, that the index is present, valid and of the expected definition, and it ends the start with a message that names the index where it is not. Remove the statement that makes the index from the service, or keep the function only for the cases where they make their own tables and name it so. The reads that use the index stay as they are."
+do_4 = "do_4 Read the start path of both commands of the stats service, of its search part and of every other service under services/launchpad for a statement that changes the schema or that PostgreSQL admits only from the owner of an object, run on a pool of a runtime role. Change the stats service and its search part in the way of do_2 and do_3. For every other service name file, function and statement in the final message and change nothing there."
+do_5 = "do_5 Cases: a case in internal/store of the stats service whose name starts with TestRuntimeRoleHolderIndex makes a database with the helper Bootstrap for the runtime role of the stats service, where the database of the coordinator is given, asserts that the index is present with the expected definition after the registered migrations, runs the start check and one read that orders by the numeric balance with the connection of the runtime role, and asserts that a statement that makes an index is refused for that role. A case asserts that the start check ends with a message that names the index on a database where the index was removed by the owner. The present cases stay and none is weakened. Run by hand the cases of internal/store and internal/app of the stats service, the cases of sdk/launchpad/shared/db/production, of sdk/launchpad/shared/db/production/coordinatortest and of the command of the schema, and read each message."
+do_6 = "do_6 The files under migrations, the files of sdk/launchpad/shared/db/production and the files of the stats service under services/launchpad are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/stats-*ers && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "cd services/launchpad/stats-*ers && go test -count=1 -timeout 30m -run '^TestRuntimeRoleHolderIndex' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.732]
 title = "Add the command that provisions and checks the streams and durables of the launchpad on a broker"
@@ -464792,7 +464942,7 @@ touches = ["services/explorer/deploy/tools/mix-in-builder.sh", "services/explore
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh --retry-failed test apps/block_scout_web/test"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -464804,6 +464954,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3669, gotcha 4586. The work of the earlier candidate stays as it is. Give the tool services/explorer/deploy/tools/mix-in-builder.sh the option --retry-failed in the form decision 3669 states, read with the other options of the tool, named in its usage text and in the part of services/explorer/backend/README.md that describes the tool. The two runs take place inside the one container of the call, so that the record of the first run and its database are those the second run reads. Cases under services/explorer/deploy/tools/tests hold the option: a case runs the part of the tool that holds the two runs with a stand-in for mix and asserts the four courses, a first run that passes, a first run with cases that did not pass followed by a second run that passes, a second run that does not pass, and a first run that ends with another code than zero while the record names no case; a case asserts that the option is refused with a message for a mix command other than test. Run these cases by hand. The verification now runs with the option. The tool, its cases and the document are inside the paths of this task and no approval is needed to change them. Run the command of the verification by hand once and read its last lines, then run the build once and the counted verification once at the final revision. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.688]
 title = "Let the suite of the explorer backend pass whole with no path in the builder"

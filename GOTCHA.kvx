@@ -22735,3 +22735,23 @@ fix = "Decision 3664. Task 22.39.731."
 title = "The launchpad services compare their durables with the broker and the repository makes none outside tests"
 symptom = "The function NewConsumer of sdk/launchpad/shared/delivery/natsdriver/driver.go requires a stream kept in files and compares the durable the broker holds with the form the function BrokerConsumerConfig derives from the configuration of the service, and refuses a difference. The delivery documents the composer writes name for each service the stream, the durable, the subject and the numbers. Streams and durables are made in the repository by helpers of the tests. The file tools/launchpad/delivery/stream-manifest.json describes one stream."
 fix = "Decision 3665. Task 22.39.732."
+
+[gotcha.4583]
+title = "The stats service makes one index of its holders table at start"
+symptom = "The function EnsureHolderBalanceIndex of internal/store/holders.go in the directory of the stats service under services/launchpad, whose binary is statsd, runs a statement that makes the index idx_ph_balance_numeric on the table pool_holders of the schema stats where the index is absent, and internal/app/app.go calls it at start on the pool of the runtime role. PostgreSQL admits a statement that makes an index from the owner of the table. The grants document migrations/grants.json gives the runtime role of the stats service on that table the rights to read, to insert, to update three columns and to delete. The registered migrations of the stats service in migrations/registry.json hold no statement for that index. The schema digest of the expected schema document covers the definition of every index of a schema, as the query in sdk/launchpad/shared/db/production/migrations.go reads it. The file sdk/launchpad/shared/db/production/online_indexes.go holds the plan and the apply function of a migration that makes an index on a table that holds rows."
+fix = "Decision 3666. Task 22.39.733."
+
+[gotcha.4584]
+title = "The render check runs the build of a surface within one fixed time and in the directory as it stands"
+symptom = "The function startSurface of tools/ui-check/server.mjs runs the build command of a surface in the directory of the surface and ends it after the time buildMs of tools/ui-check/config.mjs, which is 120 seconds for every surface. It changes nothing in the directory before the build, so the outputs of an earlier build stay in place. The function readSurface of tools/ui-check/config.mjs admits in a surface file the keys name, directory, build, start, address, readyPath, views, answers and typeScale."
+fix = "Decision 3667. Task 22.44.60."
+
+[gotcha.4585]
+title = "The surface file of the wallet application names the script of the offline files as its build"
+symptom = "The surface file tools/ui-check/surfaces/wallet.json names as its build the script build:pwa of apps/wallet/package.json, which writes the files of the offline form into the directory public, and as its start the command next start, which serves the production build in the directory .next of the application. The script build of the package runs the script of the offline files and then the production compile with the option webpack. The start command of the surface file names the public addresses of the answers the check serves, in variables whose names start with NEXT_PUBLIC, and the production compile reads variables of that kind when it runs."
+fix = "Decision 3668. Task 22.44.61."
+
+[gotcha.4586]
+title = "The builder tool of the explorer backend runs one mix command for each call"
+symptom = "The tool services/explorer/deploy/tools/mix-in-builder.sh reads its own options, such as --reuse-db and --check, before the mix command, starts the builder container beside a database made for the call and ends with the exit code of the one mix command it ran. The test command of mix writes under the build path a record of the cases that did not pass, and its option --failed runs the cases that record names and no other case. The build path and the database of a call belong to the container of that call."
+fix = "Decision 3669. Task 22.39.695."
