@@ -32,10 +32,10 @@ const MyProfileWallet = ({ profileQuery, onAddWallet }: Props) => {
         ) }
       </Text>
       { profileQuery.data?.address_hash ? (
-        <Box px={ 3 } py="18px" bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }} borderRadius="base">
+        <Box px={ 3 } py={ 4 } bgColor="bg.surface" borderRadius="base" borderWidth="1" borderColor="border.divider">
           <AddressEntity
             address={{ hash: profileQuery.data.address_hash }}
-            fontWeight="500"
+            fontWeight="medium"
             noAltHash
           />
         </Box>
