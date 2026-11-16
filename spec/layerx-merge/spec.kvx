@@ -15358,6 +15358,12 @@ value = "Each surface that had a build before the tasks of series 22.44 is measu
 basis = "Gotcha 4627. Decisions 3588, 3591 and 3705."
 affects = []
 
+[decision.3708]
+title = "The tasks of series 22.44 change how a surface is built and not how large it is"
+value = "A surface keeps the sizes it had before the tasks of series 22.44: the sizes and line heights of text, the distances, the heights of controls and rows, the radii, the tracks and the breakpoints are those of the earlier state at every width, and no size of text grows with the width of the window. A control that takes touch measures at least 44 pixels at the widths up to 834, where the render check measures it, and keeps its earlier size above; it grows no further than the rule asks and the parts around it keep their place as far as the rule allows. A colour changes only where the contrast rule asks for it. What the series adds stays: marks of focus, labels, roles and landmarks, the states of controls, the rule for reduced motion, values from tokens and a layout that does not shift. Each surface measured under decision 3707 is brought to this rule by a task that follows its measuring task, and the surface file then names a geometry file written from the corrected state. A proof task that is still open corrects its findings under the same rule. Decision 3588 stays as it is in every other point; the trading workspace follows decision 3705."
+basis = "Gotcha 4628. Decisions 3588, 3589, 3705 and 3707."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45018,6 +45024,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.79]
+title = "Bring the bridge application back to the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/bridge/src", "tools/ui-check/surfaces/bridge.json", "tools/ui-check/surfaces/bridge"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.79.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/bridge.json --out /tmp/ui-check/bridge && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+do_1 = "do_1 Gotcha 4628, decision 3708. Read the record spec/layerx-merge/programme/records/ui/22.44.78.kvx, tools/ui-check/surfaces/bridge/earlier-geometry.json, tools/ui-check/surfaces/bridge.json, apps/bridge/src/app/dx-theme.css and the components of apps/bridge/src. List in the final message the size tokens and the parts of the record that differ between the two states."
+symbols = []
 
 [capability.22.44.78]
 title = "Measure the bridge application against its state before the tasks of series 22.44"
@@ -175155,6 +175170,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.79]
+title = "Bring the bridge application back to the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.78"]
+reqs = ["22998.1"]
+capabilities = ["22.44.79"]
+interfaces = []
+do_1 = "do_1 Gotcha 4628, decision 3708. Read the record spec/layerx-merge/programme/records/ui/22.44.78.kvx, tools/ui-check/surfaces/bridge/earlier-geometry.json, tools/ui-check/surfaces/bridge.json, apps/bridge/src/app/dx-theme.css and the components of apps/bridge/src. List in the final message the size tokens and the parts of the record that differ between the two states."
+do_2 = "do_2 Every token of a text size, a line height, a distance, a radius and a height of a control takes the value of the earlier state at every width; a token the earlier state does not have takes a value of the earlier scale. No size of text grows with the width of the window. The declared steps of the type scale in the surface file follow the earlier values."
+do_3 = "do_3 At the widths above 834 every part that both states hold has the box and the measures of text of the earlier state: the header, the navigation, the first heading, the cards, the inputs, the controls, the rows and the footer. A part below content that the earlier state does not hold, the import form and the skip link, may differ in its top edge by the height of that content and in nothing else; the new content takes the sizes of the like parts of the earlier state. At the widths up to 834 a control that takes touch measures at least 44 pixels and no more than the rule asks, the header holds one row where the earlier state held one row, and the sizes of text are the earlier ones."
+do_4 = "do_4 What stays as it is: the marks of focus, the labels, roles and landmarks, the skip link, the states of controls, the rule for reduced motion, values from tokens, and a colour that was changed for the contrast rule. No behaviour changes. A case that pins a size the series gave is brought to the earlier value; no assertion on behaviour is weakened and no case is removed or skipped."
+do_5 = "do_5 The surface file names tools/ui-check/surfaces/bridge/geometry.json as its geometry file with the widths 390, 1280, 1440, 1920 and 2560; write that file once from the corrected state with the option --write-geometry. tools/ui-check/surfaces/bridge/earlier-geometry.json stays as it is. Run the check by hand with a copy of the surface file outside the checkout that names tools/ui-check/surfaces/bridge/earlier-geometry.json and write the record spec/layerx-merge/programme/records/ui/22.44.79.kvx in present tense: for each width the count of parts that still differ from the earlier state, and for each such part its cause, content the earlier state does not hold or the touch rule at the widths up to 834. A difference with another cause is corrected."
+do_6 = "do_6 Run the render check of the surface by hand over the whole device list and read the summary per view, then the type check and the tests of the package. The files of apps/bridge/src and of the surface are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/bridge/src", "tools/ui-check/surfaces/bridge.json", "tools/ui-check/surfaces/bridge"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/bridge/geometry.json", "spec/layerx-merge/programme/records/ui/22.44.79.kvx"]
+build_cmd = "pnpm --dir apps/bridge install --frozen-lockfile && pnpm --dir apps/bridge run typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.79.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/bridge.json --out /tmp/ui-check/bridge && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
