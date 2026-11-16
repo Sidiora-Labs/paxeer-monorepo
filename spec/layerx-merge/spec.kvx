@@ -14848,6 +14848,12 @@ value = "A render is a finding of the kind load where the document holds no visi
 basis = "Gotcha 4539. Decisions 3591 and 3616."
 affects = []
 
+[decision.3623]
+title = "A task that builds with the type check of the trading workspace follows task 22.39.674"
+value = "A task whose build or verification runs the type check script of apps/perps/package.json names task 22.39.674 among its requirements, directly or through a task that names it. The script itself builds what the check reads, and no task adds that build to its own command."
+basis = "Gotcha 4540. Decision 3562."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -176293,7 +176299,7 @@ title = "Carry the legal pages and the consent notice into the trading workspace
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563"]
+requires = ["22.39.563", "22.39.674"]
 reqs = ["22998.1"]
 capabilities = ["22.39.567"]
 interfaces = []
@@ -176319,6 +176325,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3623, gotcha 4540. The type check script of apps/perps/package.json now builds the packages the web application imports before it checks. The work of the earlier candidate stays as it is. Run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.565]
 title = "Take the trading workspace out of the wallet workspace"

@@ -22520,3 +22520,8 @@ fix = "Decision 3621. Task 22.44.42."
 title = "A view that draws nothing passes every measurement of the render check"
 symptom = "The measurements of tools/ui-check/browser.mjs go over the visible elements of a page. A page that answers with status 200 and draws nothing has no visible element, so no measurement reports it, and a run over such views ends with no finding while every screenshot holds a single colour. A page whose tree is drawn below a layer that covers the viewport gives the same screenshots."
 fix = "Decision 3622. Task 22.44.54."
+
+[gotcha.4540]
+title = "The type check of the trading workspace reads the built output of a package of the workspace"
+symptom = "The web application under apps/perps/apps/web imports the market data client under apps/perps/packages/chainflow through its built output. The type check script of apps/perps/package.json checks the web application, and task 22.39.674 gives that script the build of the packages the web application imports. A task whose build command runs the type check after an install takes the script in the form task 22.39.674 gives it."
+fix = "Decision 3623. Tasks 22.39.567 and 22.39.674."
