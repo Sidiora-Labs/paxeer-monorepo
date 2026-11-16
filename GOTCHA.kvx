@@ -22675,3 +22675,33 @@ fix = "Decision 3652. Task 22.39.721."
 title = "The function TestPortalPages of the perps portal runs where a node is given"
 symptom = "The function TestPortalPages of services/platform/perps-data/internal/portal/pages_test.go builds a gateway through the helper gatewayServer of services/platform/perps-data/internal/portal/server_test.go, which reads a node from the environment of the test, and it runs where a node is given. The cases of services/platform/perps-data/internal/portal/explorer_links_test.go and the function TestPortalChainMarketPage build their pages without that helper and need no node."
 fix = "Decision 3653. Task 22.39.720."
+
+[gotcha.4571]
+title = "The deployment identity of the launchpad indexer is checked in two forms"
+symptom = "The rule of the deployment manifest in sdk/launchpad/shared/config/deployment/manifest.go admits a deployment version that starts with a letter or a digit and continues with letters, digits, dots, underscores and hyphens, up to 96 characters, and the approved manifest sdk/launchpad/shared/config/deployment/current.json holds a deployment version with dots. The render of the indexer documents in services/launchpad/indexer/internal/app/render.go takes the deployment identity of the delivery document from that deployment version. The durable stager of services/launchpad/indexer/internal/publisher/durable.go and the archive of sdk/launchpad/shared/delivery/archive.go check the deployment identity they are handed against a form of letters, digits, underscores and hyphens, without the dot. The stager and the archive use the identity in hash inputs and in comparisons."
+fix = "Decision 3654. Task 22.39.722."
+
+[gotcha.4572]
+title = "The web compile of the perps image reads the compile file at the root of the workspace"
+symptom = "The compile file apps/perps/apps/web/tsconfig.json of the web application extends the compile file at the root of the workspace, apps/perps/tsconfig.json. The image file apps/perps/Dockerfile copies into its install stage the package file, the lock file, the workspace file, the registry settings file and the directories apps and packages. The cases of tools/containers/test_perps_workspace_image.py read the image file and the members of the workspace."
+fix = "Decision 3655. Task 22.39.723."
+
+[gotcha.4573]
+title = "The launchpad indexer binds every receipt of a block to a listed transaction"
+symptom = "The node gives the receipt of an entry the chain generates outside the EVM the type ShellEVMTxType of modules/evm/types/constants.go, the largest value of the type field, and such an entry is no transaction of the block of the eth namespace. The walk of the function marketAddresses in services/launchpad/indexer/internal/app/markets.go reads the block with its transactions and the receipts of the block, and it holds a block whose count of receipts differs from its count of listed transactions for a binding mismatch. The receipt authority of services/launchpad/indexer/internal/receipt/rpc.go reads the receipts of a block as well. The bloom of the header of the eth view holds the logs of the listed transactions."
+fix = "Decision 3656. Task 22.39.724."
+
+[gotcha.4574]
+title = "The eth namespace of the node reads the transactions and the receipts of a block along two routes"
+symptom = "The block API of rpc/block.go encodes the block of a namespace with the flag includeShellReceipts of the API, which is off for the eth namespace, so the block of the eth namespace lists no entry the chain generates outside the EVM. The function GetBlockReceipts of the same file takes the hashes of the block from the function getTxHashesFromBlock of rpc/utils.go under the flag the function shouldIncludeSynthetic gives for the namespace, which is off for the eth namespace as well, and encodes one receipt for each hash. The case TestBlockTransactionCountMatchesGetBlockByNumber of rpc/block_txcount_parity_test.go holds the count of transactions equal to the list of the block. No case holds the receipts of a block equal to that list."
+fix = "Decision 3657. Task 22.39.725."
+
+[gotcha.4575]
+title = "The read of a batch in the launchpad indexer walks its heights one after the other"
+symptom = "Before the qualified source reads a batch, the function marketAddresses of services/launchpad/indexer/internal/app/markets.go reads for every height of the batch the block with its transactions and then the receipts of that block, one height after the other, and checks the parent link, the identity of the block, the roots, the blooms and the limits on transactions, logs and bytes. The processor of services/launchpad/indexer/internal/processor/processor.go gives the read of a batch 20 seconds and the replay runner of services/launchpad/indexer/internal/processor/replay.go gives it 15 seconds, and both hold a lease with a term of 30 seconds that they renew before and after the read. The settings INDEXER_HISTORICAL_CONCURRENCY, INDEXER_HISTORICAL_READAHEAD and INDEXER_HISTORICAL_ATTEMPT_TIMEOUT_MS of services/launchpad/indexer/internal/config/config.go set the pace of the historical source."
+fix = "Decision 3658. Task 22.39.726."
+
+[gotcha.4576]
+title = "A second instance of the launchpad indexer meets the lease of the first"
+symptom = "The processor of services/launchpad/indexer/internal/processor/processor.go takes the ingestion lease of the stream with the function AcquireLease of services/launchpad/indexer/internal/store/canonical.go under the owner of the delivery document, which services/launchpad/indexer/internal/app/app.go hands on as the canonical owner. While a lease is held and has not expired, the function answers a second instance with the refusal of a fenced or expired lease, and the processor returns that refusal. The readiness answer of the indexer under the path /health/ready reads the state of the processor."
+fix = "Decision 3659. Task 22.39.727."

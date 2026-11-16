@@ -15034,6 +15034,42 @@ value = "The verification of task 22.39.720 runs the cases on the configuration 
 basis = "Gotcha 4570. Decisions 3651 and 3650."
 affects = []
 
+[decision.3654]
+title = "The indexer admits its deployment identity in the form of the manifest rule"
+value = "The deployment identity the indexer hands to its durable stager and to its archive is the deployment version of the approved manifest, and both admit every value the manifest rule admits. The form of the generation of the durable event bridge and the forms of the stream and of the prefix of the archive stay as they are. A value the manifest rule refuses stays refused by the stager and by the archive. A case constructs the stager with the deployment version of the approved manifest, read from the manifest file, and a case does the same for the archive."
+basis = "Gotcha 4571. Decisions 3046 and 3052."
+affects = []
+
+[decision.3655]
+title = "The perps image holds every file its web compile reads"
+value = "The install stage of the perps image holds every file the compile of the web application reads from outside the directories apps and packages, the compile file at the root of the workspace among them. A case follows the extends chain of the compile file of the web application and of each workspace member the web application depends on, and asserts that the image file copies every file of that chain. The stages, the arguments and the runtime form of the image stay as they are."
+basis = "Gotcha 4572. Decisions 3046 and 3052."
+affects = []
+
+[decision.3656]
+title = "The indexer sets a receipt of the shell type aside before it binds receipts to transactions"
+value = "A receipt with the shell type that the receipts of a block hold beside the receipts of the listed transactions is no receipt of an EVM transaction. The indexer checks it against the block it reads: the hash and the height of the block, a transaction hash that no listed transaction carries and that occurs once, and the bounds on its logs. Then it sets the receipt aside, and binds the remaining receipts to the listed transactions one to one with every present check. A receipt of another type without a listed transaction, a listed transaction without a receipt and a receipt of the shell type that claims a listed transaction stay refused. Where a role of the approved manifest can emit a log inside a receipt of the shell type, the task states how the indexer reads that log; where none can, the logs of such a receipt take no part in the projection. The limits on receipts, logs and bytes of a batch count the receipts set aside."
+basis = "Gotcha 4573. Decisions 3046 and 3052."
+affects = []
+
+[decision.3657]
+title = "The receipts of a block in the eth namespace are the receipts of the transactions the block lists"
+value = "In the eth namespace the receipts of a block hold one receipt for each transaction the block of that namespace lists, in the order of the list, and no other receipt: a receipt of the shell type and the receipt of any entry the block does not list are left out, whatever kind of entry produced it. The transaction index and the log index of the receipts follow the list of the block. The count of transactions, the block, the receipts of the block and the receipt of one transaction agree for every block. The pax namespace keeps its form: it lists the entries the chain generates and their receipts."
+basis = "Gotcha 4574. Decisions 3046 and 3052."
+affects = []
+
+[decision.3658]
+title = "The reads of the heights of a batch run side by side under the configured pace, and a long read keeps the lease"
+value = "The walk over the heights of a batch issues its reads of blocks and of receipts side by side, bounded by the configured concurrency of the historical source, and applies its checks in the order of the heights as now: no check is removed and none is weakened. Where the node admits several calls in one request the walk may use that form under the same bound. The time the processor and the replay runner give the read of a batch is a setting with stated limits or follows from the size of the batch and the attempt timeout, and the lease is renewed while a read runs, so that the term of the lease does not end under a read that is still inside its time. An instance that loses the lease stops writing as now. The form of the batch, of the receipts and of every refusal stays as it is."
+basis = "Gotcha 4575. Decisions 3046 and 3052."
+affects = []
+
+[decision.3659]
+title = "An instance that finds the lease held waits for it as a standby"
+value = "An instance of the indexer that finds the ingestion lease held by another instance does not end: it waits and tries again at an interval below the term of the lease, writes nothing, and takes the lease within one term after the holder has ended or has let it expire. Its readiness answer names the state standby for the ingestion component, and the path the platform definition reads for health answers success for a standby whose other components are ready, so that a new instance can be started beside a running one. An instance that held the lease and lost it stops writing as now and becomes a standby. Two instances never write under one fence: the rules of the fence in the store stay as they are."
+basis = "Gotcha 4576. Decisions 3658 and 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44694,6 +44730,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.727]
+title = "Let an instance of the launchpad indexer that finds the lease held wait as a standby"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... && go test -count=1 -timeout 30m -run '^(TestLeaseStandby|TestBatchReadPace)' ./internal/processor/ ./internal/store/"
+do_1 = "do_1 Gotcha 4576, decision 3659. Read the lease functions of services/launchpad/indexer/internal/store/canonical.go with the rules of the fence, the loop of the processor in services/launchpad/indexer/internal/processor/processor.go with every place that returns the refusal of the lease, in services/launchpad/indexer/internal/app/app.go the start of the processor, what the process does when the processor returns, and the answers of the paths /health, /health/live and /health/ready with the components they read, and in the platform directory under deploy/launchpad the health path the definition of the indexer names. Read the present cases on the fence in services/launchpad/indexer/internal/processor/canonical_test.go."
+symbols = []
+
+[capability.22.39.726]
+title = "Issue the reads of the heights of a batch side by side in the launchpad indexer and keep the lease under a long read"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/config/... && go test -count=1 -timeout 30m -run '^TestBatchReadPace' ./internal/processor/ ./internal/source/"
+do_1 = "do_1 Gotcha 4575, decision 3658. Read the functions FetchQualifiedBatch and marketAddresses of services/launchpad/indexer/internal/app/markets.go, the historical and the live qualified source and the committed source under services/launchpad/indexer/internal/source with their readahead, their permits and their attempt timeout, the loop of the processor in services/launchpad/indexer/internal/processor/processor.go from the lease to the commit of a batch, the loop of the replay runner in services/launchpad/indexer/internal/processor/replay.go, the lease functions of services/launchpad/indexer/internal/store/canonical.go and the settings of the historical pace in services/launchpad/indexer/internal/config/config.go. Count the reads one batch of 64 heights issues one after the other, from the first read of the walk to the last read of the qualified source, and write the count into the final message."
+symbols = []
+
+[capability.22.39.725]
+title = "Hold the receipts of a block in the eth namespace equal to the transactions the block lists"
+reqs = ["22998.1"]
+touches = ["rpc"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./rpc/ -run '^(TestEthBlockReceiptsFollowBlock|TestBlockTransactionCountMatchesGetBlockByNumber|TestBlockAPILatestTagResolves)'"
+do_1 = "do_1 Gotcha 4574, decision 3657. Read in rpc/block.go the functions that answer the block by number and by hash, the count of transactions and the receipts of a block, and in rpc/utils.go the functions filterTransactions and getTxHashesFromBlock with every kind of entry they admit under each value of their flags. Read node/receipt.go and the places under modules that write a receipt of the shell type, and the kinds of entry whose receipt carries that type. Find every kind of entry for which the list of the block and the hashes of the receipts differ in the eth namespace, and write the kinds into the final message."
+symbols = []
+
+[capability.22.39.724]
+title = "Set receipts of the shell type aside in the launchpad indexer before receipts are bound to transactions"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/receipt/... && go test -count=1 -timeout 30m -run '^TestShellReceipt' ./internal/source/ ./internal/processor/"
+do_1 = "do_1 Gotcha 4573, decision 3656. Read the walk of marketAddresses in services/launchpad/indexer/internal/app/markets.go, every place of services/launchpad/indexer that reads the receipts of a block or of a transaction, the receipt authority and the qualification under services/launchpad/indexer/internal/receipt, and the qualified sources under services/launchpad/indexer/internal/source. Read in the node how a receipt of the shell type comes about and what it holds: node/receipt.go, modules/evm/types/constants.go, the encoding of a receipt and the listing of the receipts of a block under rpc. List every place of the indexer that would refuse a block or a batch that holds such a receipt, and write the list into the final message."
+symbols = []
+
+[capability.22.39.723]
+title = "Copy every compile file the web compile reads into the perps image and hold it with a case"
+reqs = ["22998.1"]
+touches = ["apps/perps/Dockerfile", "apps/perps/.dockerignore", "apps/perps/tests", "tools/containers", "tools/qualification/audit_repairs/test_perps_compose_lifecycle.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/containers/test_perps_workspace_image.py tools/qualification/audit_repairs/test_perps_compose_lifecycle.py tests/ci/test_package_manager_pins_agree.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts"
+do_1 = "do_1 Gotcha 4572, decision 3655. Read apps/perps/Dockerfile from its install stage to the compile of the web application, the ignore file beside it, apps/perps/apps/web/tsconfig.json with every file its extends chain names, the compile files of the workspace members the web application depends on, and the cases of tools/containers/test_perps_workspace_image.py and of apps/perps/tests/dockerfile-args.test.ts."
+symbols = []
+
+[capability.22.39.722]
+title = "Admit the deployment version of the manifest as the deployment identity of the indexer stager and archive"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer", "sdk/launchpad/shared/delivery"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/publisher/... ./internal/app/... && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 20m ./delivery/..."
+do_1 = "do_1 Gotcha 4571, decision 3654. Read the function NewDurableStager and the function NewDurableWebhookStager with the form they check in services/launchpad/indexer/internal/publisher/durable.go and services/launchpad/indexer/internal/publisher/webhook_bridge.go, the functions NewArchive and the manifest check of the archive in sdk/launchpad/shared/delivery/archive.go with the form of sdk/launchpad/shared/delivery/envelope.go, the version rule of sdk/launchpad/shared/config/deployment/manifest.go, the place in services/launchpad/indexer/internal/app/render.go that sets the deployment identity, and in services/launchpad/indexer/internal/app/app.go every place that hands the deployment identity of the delivery document on. List every check of a deployment identity in services/launchpad/indexer and in sdk/launchpad/shared/delivery and read which values reach it."
+symbols = []
 
 [capability.22.39.721]
 title = "Bring three cases of the node package and the parts of the product they read in line"
@@ -174223,6 +174313,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.723]
+title = "Copy every compile file the web compile reads into the perps image and hold it with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.723"]
+interfaces = []
+do_1 = "do_1 Gotcha 4572, decision 3655. Read apps/perps/Dockerfile from its install stage to the compile of the web application, the ignore file beside it, apps/perps/apps/web/tsconfig.json with every file its extends chain names, the compile files of the workspace members the web application depends on, and the cases of tools/containers/test_perps_workspace_image.py and of apps/perps/tests/dockerfile-args.test.ts."
+do_2 = "do_2 The install stage of the image copies the compile file at the root of the workspace and every other file outside the directories apps and packages that the compile of the web application or the install reads. Read the configuration files at the root of the workspace that the build script of the web application and the scripts it calls name, and copy those the build reads. The ignore file keeps none of them out of the context."
+do_3 = "do_3 Add to tools/containers/test_perps_workspace_image.py a case that follows the extends chain of the compile file of the web application and of each workspace member it depends on, resolves each file against the root of the workspace, and asserts that the image file copies it into the stage that compiles, and that the ignore file does not exclude it. The case reads files only and starts no container."
+do_4 = "do_4 Where a container engine is at hand, build the image by hand once up to the compile of the web application with the build arguments of apps/perps/deploy/build-args.production.env and a charting stage given by a local image that holds the two directories the image file copies from it, and read the output. Where no engine is at hand, state that in the final message and run the build script of the web application in the workspace by hand instead."
+do_5 = "do_5 The present cases stay and none is weakened. Run by hand the cases of tools/containers/test_perps_workspace_image.py, of tools/qualification/audit_repairs/test_perps_compose_lifecycle.py and of apps/perps/tests/dockerfile-args.test.ts and read each message."
+do_6 = "do_6 The image file, the ignore file, the cases under tools/containers and the cases under apps/perps/tests are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/Dockerfile", "apps/perps/.dockerignore", "apps/perps/tests", "tools/containers", "tools/qualification/audit_repairs/test_perps_compose_lifecycle.py"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && python3 -m py_compile tools/containers/test_perps_workspace_image.py"
+verify_cmd = "python3 -m pytest -q tools/containers/test_perps_workspace_image.py tools/qualification/audit_repairs/test_perps_compose_lifecycle.py tests/ci/test_package_manager_pins_agree.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.718]
 title = "Bring the lockfile of the trading workspace to its floors"
 status = "pending"
@@ -248467,9 +248590,173 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.727]
+title = "Let an instance of the launchpad indexer that finds the lease held wait as a standby"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.726"]
+reqs = ["22998.1"]
+capabilities = ["22.39.727"]
+interfaces = []
+do_1 = "do_1 Gotcha 4576, decision 3659. Read the lease functions of services/launchpad/indexer/internal/store/canonical.go with the rules of the fence, the loop of the processor in services/launchpad/indexer/internal/processor/processor.go with every place that returns the refusal of the lease, in services/launchpad/indexer/internal/app/app.go the start of the processor, what the process does when the processor returns, and the answers of the paths /health, /health/live and /health/ready with the components they read, and in the platform directory under deploy/launchpad the health path the definition of the indexer names. Read the present cases on the fence in services/launchpad/indexer/internal/processor/canonical_test.go."
+do_2 = "do_2 An instance that is refused the lease because another instance holds it waits and tries again at an interval below the term of the lease, with a bounded pause between tries, and ends only when its context ends. It writes nothing while it waits. When the holder ends or lets the lease expire, the standby takes the lease within one term and continues from the durable watermark."
+do_3 = "do_3 The readiness answer names for the ingestion component the state standby while the instance waits, and the state it names now once the instance holds the lease. The path the platform definition reads answers success for a standby whose other components are ready. A standby does not report the lag of the durable height as a failure of its own. Write the states into the document of the indexer that describes its health answers."
+do_4 = "do_4 An instance that held the lease and lost it stops writing as now and then waits as a standby; it does not end the process. The rules of the fence in the store stay as they are: read the cases on the fence and add none that lets two instances write."
+do_5 = "do_5 Cases, with a store double where no database is given and with the database cases beside the present ones: a second processor started beside a holder waits, writes nothing and reports standby; after the holder stops it takes the lease within one term and commits the next batch from the watermark; the health path answers success for the standby and the readiness answer names the state; a holder that loses the lease commits nothing more and becomes a standby. Name the cases of this task so that their names start with TestLeaseStandby. The present cases stay and none is weakened. Run by hand the cases of services/launchpad/indexer/internal/app and the cases of services/launchpad/indexer/internal/processor that run without a database, and read each message."
+do_6 = "do_6 The files of services/launchpad/indexer are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... && go test -count=1 -timeout 30m -run '^(TestLeaseStandby|TestBatchReadPace)' ./internal/processor/ ./internal/store/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.726]
+title = "Issue the reads of the heights of a batch side by side in the launchpad indexer and keep the lease under a long read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.724"]
+reqs = ["22998.1"]
+capabilities = ["22.39.726"]
+interfaces = []
+do_1 = "do_1 Gotcha 4575, decision 3658. Read the functions FetchQualifiedBatch and marketAddresses of services/launchpad/indexer/internal/app/markets.go, the historical and the live qualified source and the committed source under services/launchpad/indexer/internal/source with their readahead, their permits and their attempt timeout, the loop of the processor in services/launchpad/indexer/internal/processor/processor.go from the lease to the commit of a batch, the loop of the replay runner in services/launchpad/indexer/internal/processor/replay.go, the lease functions of services/launchpad/indexer/internal/store/canonical.go and the settings of the historical pace in services/launchpad/indexer/internal/config/config.go. Count the reads one batch of 64 heights issues one after the other, from the first read of the walk to the last read of the qualified source, and write the count into the final message."
+do_2 = "do_2 The walk of marketAddresses issues the reads of the blocks and of the receipts of its heights side by side under a bound taken from the configured concurrency of the historical source, and it ends every read when one read fails or the context ends. It applies the checks in the order of the heights exactly as now: the parent link, the identity of the block, the transaction root, the receipts root, the blooms, the index of each transaction and of each log, the limits on transactions, logs and bytes and the limit of hints. The result for a batch is equal to the result of the present walk for every input, a refusal included. Read whether the qualified source reads the same blocks and receipts again after the walk: where it does, hand the results of the walk on or share one cache, so that a batch reads each block and each receipt list once."
+do_3 = "do_3 Read for each mode of the block identity which checks the read of the receipts of a block without transactions serves. Where every check holds without that read, leave the read out and state the rule in a comment and in a case; where a check needs it, keep the read."
+do_4 = "do_4 The time the processor and the replay runner give the read of a batch is no fixed number: it is a setting with a default and stated limits or it follows from the size of the batch and the attempt timeout, and the document of the variables of the indexer names it. The lease is renewed while a read runs, at an interval below its term, and the renewal ends with the read. A renewal that is refused ends the read and the instance stops writing as now."
+do_5 = "do_5 Cases with a source that answers each read after a fixed delay and counts the reads in flight: a batch of 64 heights issues more than one read at a time and never more than the bound; with the bound 1 the reads follow one another; a batch whose reads take longer in sum than the term of the lease completes and commits with the lease held; a tampered parent link, a wrong receipts root and a block over a limit are refused with the refusal of the present walk at the same height; a read that fails ends the batch with its error and leaves no read running; a cancelled context ends the walk. Name the cases of this task so that their names start with TestBatchReadPace. The present cases stay and none is weakened. Run by hand the cases of services/launchpad/indexer/internal/app and the cases of services/launchpad/indexer/internal/processor and of services/launchpad/indexer/internal/source that run without a database and without a node, and read each message."
+do_6 = "do_6 The files of services/launchpad/indexer are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/config/... && go test -count=1 -timeout 30m -run '^TestBatchReadPace' ./internal/processor/ ./internal/source/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.725]
+title = "Hold the receipts of a block in the eth namespace equal to the transactions the block lists"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.725"]
+interfaces = []
+do_1 = "do_1 Gotcha 4574, decision 3657. Read in rpc/block.go the functions that answer the block by number and by hash, the count of transactions and the receipts of a block, and in rpc/utils.go the functions filterTransactions and getTxHashesFromBlock with every kind of entry they admit under each value of their flags. Read node/receipt.go and the places under modules that write a receipt of the shell type, and the kinds of entry whose receipt carries that type. Find every kind of entry for which the list of the block and the hashes of the receipts differ in the eth namespace, and write the kinds into the final message."
+do_2 = "do_2 The receipts of a block in the eth namespace come from the same list as the transactions of the block of that namespace: one receipt for each listed transaction, in the order of the list, and no receipt of the shell type. Use one function for the list so that the two answers cannot part. The scope of a domain, where one is given, applies as now."
+do_3 = "do_3 The transaction index and the log index the receipts of the eth namespace carry follow the list of the block, and the answer for the receipt of one transaction agrees with the entry of the same transaction in the receipts of its block. The answers of the pax namespace keep the entries the chain generates and stay as they are; read the cases on that namespace and change none."
+do_4 = "do_4 Cases beside the present parity case, with a block that holds an EVM transaction, an entry the chain generates whose receipt has the shell type, and each further kind found in do_1: the receipts of the block in the eth namespace hold exactly the hashes the block lists, in order, and none of the shell type; the count of transactions equals both; the receipts of the pax namespace hold the entry the chain generates; a block that holds only such entries answers an empty list of receipts in the eth namespace. Name the cases of this task so that their names start with TestEthBlockReceiptsFollowBlock. The present cases stay and none is weakened. Run by hand the cases of rpc on blocks, on receipts and on the parity of counts, and read each message."
+do_5 = "do_5 The files of rpc are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["rpc"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./rpc/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 30m ./rpc/ -run '^(TestEthBlockReceiptsFollowBlock|TestBlockTransactionCountMatchesGetBlockByNumber|TestBlockAPILatestTagResolves)'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.724]
+title = "Set receipts of the shell type aside in the launchpad indexer before receipts are bound to transactions"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.724"]
+interfaces = []
+do_1 = "do_1 Gotcha 4573, decision 3656. Read the walk of marketAddresses in services/launchpad/indexer/internal/app/markets.go, every place of services/launchpad/indexer that reads the receipts of a block or of a transaction, the receipt authority and the qualification under services/launchpad/indexer/internal/receipt, and the qualified sources under services/launchpad/indexer/internal/source. Read in the node how a receipt of the shell type comes about and what it holds: node/receipt.go, modules/evm/types/constants.go, the encoding of a receipt and the listing of the receipts of a block under rpc. List every place of the indexer that would refuse a block or a batch that holds such a receipt, and write the list into the final message."
+do_2 = "do_2 The walk sets a receipt of the shell type aside before it compares the counts and binds receipts to transactions. It checks the receipt first: the hash and the height of the block, a transaction hash that differs from the hash of every listed transaction and occurs once among the receipts, and the bounds on the count and the size of its logs. The remaining receipts are bound to the listed transactions one to one with every check the walk applies now, the index of each transaction, the index of each log and the blooms included. Read how the node numbers the transaction index and the log index of the receipts of a block that holds receipts of both kinds, and bind the index checks to that form; state the form in a comment."
+do_3 = "do_3 Every other place of the list of do_1 follows the same rule: the receipt authority, the qualification and the qualified sources admit a block and a batch that hold receipts of the shell type and qualify the receipts of the listed transactions as now."
+do_4 = "do_4 Read whether a role of the approved manifest, the launchpad precompile among them, can emit a log inside a receipt of the shell type. Where one can, the indexer reads that log under a stated rule of its own and a case holds the rule; where none can, the logs of a receipt set aside take no part in the hints and in the projection. State which of the two holds in the final message."
+do_5 = "do_5 Cases with recorded answers of a node: a block without listed transactions and with one receipt of the shell type that holds logs is admitted and commits; a block with listed transactions and receipts of both kinds is admitted and the receipts of the listed transactions qualify as now; a receipt of another type without a listed transaction is refused; a receipt of the shell type whose transaction hash equals the hash of a listed transaction is refused; a receipt of the shell type with a foreign block hash is refused; two receipts set aside with one transaction hash are refused; a batch over a limit is refused with the receipts set aside counted. Name the cases of this task so that their names start with TestShellReceipt. The present cases stay and none is weakened. Run by hand the cases of services/launchpad/indexer/internal/app, of services/launchpad/indexer/internal/receipt and the cases of services/launchpad/indexer/internal/source and of services/launchpad/indexer/internal/processor that run without a database and without a node, and read each message."
+do_6 = "do_6 The files of services/launchpad/indexer are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/receipt/... && go test -count=1 -timeout 30m -run '^TestShellReceipt' ./internal/source/ ./internal/processor/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.722]
+title = "Admit the deployment version of the manifest as the deployment identity of the indexer stager and archive"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.722"]
+interfaces = []
+do_1 = "do_1 Gotcha 4571, decision 3654. Read the function NewDurableStager and the function NewDurableWebhookStager with the form they check in services/launchpad/indexer/internal/publisher/durable.go and services/launchpad/indexer/internal/publisher/webhook_bridge.go, the functions NewArchive and the manifest check of the archive in sdk/launchpad/shared/delivery/archive.go with the form of sdk/launchpad/shared/delivery/envelope.go, the version rule of sdk/launchpad/shared/config/deployment/manifest.go, the place in services/launchpad/indexer/internal/app/render.go that sets the deployment identity, and in services/launchpad/indexer/internal/app/app.go every place that hands the deployment identity of the delivery document on. List every check of a deployment identity in services/launchpad/indexer and in sdk/launchpad/shared/delivery and read which values reach it."
+do_2 = "do_2 The durable stager admits as deployment identity every value the version rule of the manifest admits, and refuses a value that rule refuses. Use one definition of the form: the stager reads the rule of the manifest package or a form that a case holds equal to it over a table of values with and without dots, at the length limits and with a first character the rule refuses. The form of the generation of the durable event bridge stays as it is."
+do_3 = "do_3 The archive admits the same values as deployment identity in its constructor and in its manifest check. The forms of the stream and of the prefix stay as they are. Read how the deployment identity enters object names and digests of the archive: where a dot would change the meaning of an object name, state the rule that keeps names distinct and add a case on it."
+do_4 = "do_4 Every other check of a deployment identity found in do_1 that a value of the manifest rule reaches admits that value. A check that takes another kind of value stays as it is."
+do_5 = "do_5 Cases: a case reads the deployment version from sdk/launchpad/shared/config/deployment/current.json and constructs the durable stager with it and a subject map, and asserts that the envelope of an event carries that identity and that the event identity is stable; a case constructs the archive with that version in the way the present archive cases construct it; a case on the refusals of both for an empty value, a value with a space and a value with a slash. The present cases stay and none is weakened. Run by hand the cases of services/launchpad/indexer/internal/publisher, of services/launchpad/indexer/internal/app and of sdk/launchpad/shared/delivery and read each message."
+do_6 = "do_6 The files of services/launchpad/indexer and of sdk/launchpad/shared/delivery are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer", "sdk/launchpad/shared/delivery"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./delivery/..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/publisher/... ./internal/app/... && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 20m ./delivery/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.721]
 title = "Bring three cases of the node package and the parts of the product they read in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -248502,7 +248789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.720]
 title = "Let the portal configuration of the perps data services admit an absent explorer base"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

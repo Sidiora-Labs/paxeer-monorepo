@@ -25,3 +25,5 @@ docs
 tests
 apps/web/public/static/charting_library
 apps/web/public/static/datafeeds
+
+!tsconfig.json
