@@ -249484,7 +249484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.747]
 title = "Answer the health paths of the ranking, user, metadata and social services without TLS on the port the health check reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
