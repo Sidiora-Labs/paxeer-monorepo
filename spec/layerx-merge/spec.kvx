@@ -15400,6 +15400,12 @@ value = "The render check renders a view again once when the render ends at its 
 basis = "Gotcha 4634. Decisions 3591 and 3702."
 affects = []
 
+[decision.3715]
+title = "A qualification test module that takes helpers from a module of a service loads the file that holds them on the main line"
+value = "A module under tools/qualification that loads a module of a service by its path names the file the main line holds, and it takes each helper in its present form. The two modules of gotcha 4635 load services/platform/hosted/human/test_merged_owner.py. No helper is copied into tools/qualification and no file of the service changes for it. The collection of the directory tools/qualification holds with the native selection and without it. Task 22.39.774 changes the two modules."
+basis = "Gotcha 4635. Decision 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45060,6 +45066,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.774]
+title = "Let two qualification test modules load the present module of the owner helpers"
+reqs = ["22998.1"]
+touches = ["tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py", "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"]
+tests = []
+verification_contract = "python3 -m pytest -q --collect-only -m native tools/qualification && python3 -m pytest -q --collect-only tools/qualification/paxeer-x/tests"
+do_1 = "do_1 Gotcha 4635, decision 3715. Read tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py, tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py, services/platform/hosted/human/test_merged_owner.py and, read only, the step of .github/workflows/node-build.yml that runs the cases of tools/qualification with the native selection. List in the final message every name the two modules take from the module they load by path, and where each name is defined on the main line."
+symbols = []
 
 [capability.22.44.83]
 title = "Let the render check render a view again once when a render ends at its deadline"
@@ -387937,6 +387952,38 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.774]
+title = "Let two qualification test modules load the present module of the owner helpers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.774"]
+interfaces = []
+do_1 = "do_1 Gotcha 4635, decision 3715. Read tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py, tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py, services/platform/hosted/human/test_merged_owner.py and, read only, the step of .github/workflows/node-build.yml that runs the cases of tools/qualification with the native selection. List in the final message every name the two modules take from the module they load by path, and where each name is defined on the main line."
+do_2 = "do_2 Both modules load services/platform/hosted/human/test_merged_owner.py in place of the file the main line does not hold. Every name they take from it is one that module holds; where a helper has another form today, the module follows the present form. No file under services changes, and no helper is copied into tools/qualification."
+do_3 = "do_3 Read the two modules for every other file they load or read by a path and check that the main line holds each one; a path it does not hold is brought to the file that holds the content today. Name in the final message each such path and what it became."
+do_4 = "do_4 Run the cases of the two modules by hand and read the summaries. A case that does not hold for a cause inside the two modules, such as a name or a path of an earlier state, is repaired there; no case is removed, skipped or weakened. A case that does not hold for a cause outside the two modules is named in the final message with its first message and is left as it is."
+do_5 = "do_5 Run by hand the collection of the directory tools/qualification with the native selection and without it and read that neither names an error. The two modules are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py", "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q --collect-only -m native tools/qualification && python3 -m pytest -q --collect-only tools/qualification/paxeer-x/tests"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.708]
 title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"

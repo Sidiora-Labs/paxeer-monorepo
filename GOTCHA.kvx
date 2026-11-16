@@ -22995,3 +22995,8 @@ fix = "Decision 3713. Task 22.39.773."
 title = "A render of the render check can end at its deadline while the page is idle"
 symptom = "The render check gives each render a bound and reports a render that ends at it as a load finding with the source deadline. A browser can stop answering a render while the page itself is idle, for example in the step that reads the height of the document and scrolls through it; the render then ends at its bound whatever the page does, and the same view in the same size, scheme and mode renders when it is started again. The check renders each view once, so a single render of that kind decides the outcome of a run over a whole surface."
 fix = "Decision 3714. Task 22.44.83."
+
+[gotcha.4635]
+title = "Two qualification test modules load a module of the human service by a file name the main line does not hold"
+symptom = "The modules tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py and tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py load a module of services/platform/hosted/human by its path and take helpers from it: the loopback RPC server, the binding of an account, the owner client, the writer of a document and the merged environment. Both name the file test_owner_custody.py, which the main line does not hold. The helpers are held by services/platform/hosted/human/test_merged_owner.py. The first module loads the file when it is imported, so the collection of the directory tools/qualification ends there, with the native selection as without it."
+fix = "Decision 3715. Task 22.39.774."
