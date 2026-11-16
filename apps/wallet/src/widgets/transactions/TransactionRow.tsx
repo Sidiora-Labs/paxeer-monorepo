@@ -39,7 +39,7 @@ export function TransactionRow({
     <button
       type="button"
       onClick={() => onClick?.(row.hash)}
-      className="w-full flex items-center gap-3 px-4 py-3 press-scale text-left hover:bg-pax-control"
+      className="w-full grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-3 press-scale text-left hover:bg-pax-control"
     >
       <div
         className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
@@ -54,7 +54,7 @@ export function TransactionRow({
           {isSent ? `To ${shortenAddress(counterparty)}` : `From ${shortenAddress(counterparty)}`}
         </p>
       </div>
-      <div className="text-right shrink-0">
+      <div className="col-start-2 text-right break-words">
         <p className={`text-sm font-medium ${isSent ? 'text-pax-error' : 'text-pax-success'}`}>
           {isSent ? '-' : '+'}
           {formattedAmount} {row.symbol}

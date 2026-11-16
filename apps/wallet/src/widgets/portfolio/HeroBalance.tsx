@@ -34,17 +34,19 @@ export function HeroBalance({
 
   return (
     <div className="col-span-2 bg-pax-surface rounded-xl px-5 pt-6 pb-5 relative">
-      <button
-        type="button"
-        aria-label={hidden ? 'Show total balance' : 'Hide total balance'}
-        onClick={() => setHidden(!hidden)}
-        className="absolute right-4 top-5 min-h-[var(--touch-target)] min-w-[var(--touch-target)] flex items-center justify-center rounded-md bg-pax-control press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
-      >
-        <SvgIcon name="lock" className="w-4 h-4" />
-      </button>
-      <p className="text-xs font-semibold text-pax-muted tracking-[0.08em] uppercase mb-2">
-        Total Balance
-      </p>
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <p className="text-xs font-semibold text-pax-muted tracking-[0.08em] uppercase">
+          Total Balance
+        </p>
+        <button
+          type="button"
+          aria-label={hidden ? 'Show total balance' : 'Hide total balance'}
+          onClick={() => setHidden(!hidden)}
+          className="min-h-[var(--touch-target)] min-w-[var(--touch-target)] shrink-0 flex items-center justify-center rounded-md bg-pax-control press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
+        >
+          <SvgIcon name="lock" className="w-4 h-4" />
+        </button>
+      </div>
       {loading ? (
         <div className="h-12 w-48 shimmer rounded-lg mb-2" />
       ) : (

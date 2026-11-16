@@ -323,7 +323,7 @@ export function SendWidget({ onBack, preSelectTokenAddress, onPaxscan }: SendWid
   const resolvedContact = form.to ? findByAddress(form.to) : undefined;
 
   return (
-    <div className="min-h-screen flex flex-col px-4 pt-4 safe-area-pt">
+    <div className="min-h-screen w-full max-w-2xl mx-auto flex flex-col px-4 pt-4 safe-area-pt">
       <div className="flex items-center gap-3 mb-6">
         <button
           type="button"

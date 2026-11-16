@@ -73,11 +73,11 @@ export function SendForm({
 
       {/* Recipient */}
       <div>
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex flex-wrap gap-2 items-center justify-between mb-1.5">
           <label htmlFor="send-recipient" className="text-xs text-pax-muted">
             Recipient Address
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onOpenScanner}
@@ -119,7 +119,7 @@ export function SendForm({
         <label htmlFor="send-amount" className="text-xs text-pax-muted mb-1.5 block">
           Amount
         </label>
-        <div className="relative">
+        <div className="pax-filled-field relative rounded-xl">
           <input
             id="send-amount"
             type="text"
@@ -136,7 +136,7 @@ export function SendForm({
             {selectedToken?.symbol || 'PAX'}
           </span>
         </div>
-        <div className="flex gap-2 mt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
           {PERCENTAGES.map((pct) => (
             <button
               type="button"
