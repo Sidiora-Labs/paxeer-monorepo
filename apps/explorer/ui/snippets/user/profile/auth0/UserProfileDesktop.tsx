@@ -76,7 +76,11 @@ const UserProfileDesktop = ({ buttonSize, buttonVariant = 'header' }: Props) => 
 
   return (
     <>
-      <PopoverRoot positioning={{ placement: 'bottom-end' }} open={ profileMenu.open } onOpenChange={ handleProfileMenuOpenChange }>
+      <PopoverRoot
+        positioning={{ placement: 'bottom-end' }}
+        open={ profileMenu.open }
+        onOpenChange={ handleProfileMenuOpenChange }
+      >
         <PopoverTrigger>
           <UserProfileButton
             profileQuery={ profileQuery }
@@ -86,7 +90,7 @@ const UserProfileDesktop = ({ buttonSize, buttonVariant = 'header' }: Props) => 
           />
         </PopoverTrigger>
         { (profileQuery.data || web3Address) && profileMenu.open && (
-          <PopoverContent w="280px">
+          <PopoverContent w="calc(var(--chakra-spacing-65) + var(--chakra-spacing-5))">
             <PopoverBody>
               <UserProfileContent
                 data={ profileQuery.data }

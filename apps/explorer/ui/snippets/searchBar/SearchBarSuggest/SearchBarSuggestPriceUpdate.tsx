@@ -1,4 +1,4 @@
-import { chakra, Text, Flex } from '@chakra-ui/react';
+import { Grid, chakra, Text, Flex } from '@chakra-ui/react';
 import React from 'react';
 
 import type { ItemsProps } from './types';
@@ -9,38 +9,27 @@ import * as TxEntity from 'ui/shared/entities/tx/TxEntity';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 import Time from 'ui/shared/time/Time';
 
-const SearchBarSuggestPriceUpdate = ({ data, isMobile }: ItemsProps<SearchResultPriceUpdate>) => {
+import { resultLayout } from './resultLayout';
+
+const SearchBarSuggestPriceUpdate = ({ data }: ItemsProps<SearchResultPriceUpdate>) => {
   const icon = <TxEntity.Icon/>;
   const hash = (
-    <chakra.mark overflow="hidden" whiteSpace="nowrap" fontWeight={ 700 }>
+    <chakra.mark overflow="hidden" whiteSpace="nowrap" fontWeight="bold">
       <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.hash } noTooltip/>
     </chakra.mark>
   );
   const badge = <Badge colorPalette="green" flexShrink={ 0 } ml={ 2 }>Price update</Badge>;
   const date = <Time timestamp={ data.timestamp } format="lll_s"/>;
 
-  if (isMobile) {
-    return (
-      <>
-        <Flex alignItems="center">
-          { icon }
-          { hash }
-          { badge }
-        </Flex>
-        <Text color="text.secondary">{ date }</Text>
-      </>
-    );
-  }
-
   return (
-    <Flex columnGap={ 2 }>
+    <Grid css={ resultLayout } gap={ 2 }>
       <Flex alignItems="center" minW={ 0 }>
         { icon }
         { hash }
         { badge }
       </Flex>
       <Text color="text.secondary" textAlign="end" flexShrink={ 0 } ml="auto">{ date }</Text>
-    </Flex>
+    </Grid>
   );
 };
 

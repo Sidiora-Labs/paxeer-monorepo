@@ -49,7 +49,7 @@ const AuthModalScreenConnectWallet = ({ onSuccess, onError, isAuth, source, logi
   }, [ start ]);
 
   return (
-    <Center minH="100px" flexDir="column">
+    <Center minH="calc(var(--chakra-spacing-24) + var(--chakra-spacing-1))" flexDir="column">
       { !recaptcha.isInitError && <Spinner size="xl"/> }
       <ReCaptcha { ...recaptcha }/>
     </Center>

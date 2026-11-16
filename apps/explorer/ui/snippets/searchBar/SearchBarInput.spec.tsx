@@ -45,7 +45,9 @@ describe('SearchBarInput', () => {
       const input = container.querySelector('input') as HTMLInputElement;
 
       expect(input.placeholder).toBe(container === hero ? 'Search or ask: a transaction, address, block or token' : 'Search or ask…');
-      expect(window.getComputedStyle(input).borderWidth).not.toBe('2px');
+      expect(window.getComputedStyle(input).borderWidth).toBe('var(--chakra-border-widths-1)');
+      expect(input.name).toBe('q');
+      expect(input.type).toBe('search');
       expect(window.getComputedStyle(input).borderWidth).not.toBe('0px');
     });
   });

@@ -218,12 +218,12 @@ async function searchCategoryRefCrashTabsAndKeyboard() {
   await act(async() => tab(view.container, 'transaction').focus());
   fireEvent.keyDown(view.getByRole('tablist'), { key: 'ArrowRight', code: 'ArrowRight' });
   await waitFor(() => expect(document.activeElement).toBe(tab(view.container, 'block')));
-  expect(await view.findByRole('tab', { name: 'Blocks', selected: true })).toBe(tab(view.container, 'block'));
+  expect(await view.findByRole('tab', { name: 'BLOCKS', selected: true })).toBe(tab(view.container, 'block'));
   expect(requests[requests.length - 1]).toEqual({ top: 600, behavior: 'smooth' });
 
   fireEvent.keyDown(view.getByRole('tablist'), { key: 'ArrowLeft', code: 'ArrowLeft' });
   await waitFor(() => expect(document.activeElement).toBe(tab(view.container, 'transaction')));
-  expect(await view.findByRole('tab', { name: 'Transactions', selected: true })).toBe(tab(view.container, 'transaction'));
+  expect(await view.findByRole('tab', { name: 'TRANSACTIONS', selected: true })).toBe(tab(view.container, 'transaction'));
   expect(requests[requests.length - 1]).toEqual({ top: 400, behavior: 'smooth' });
 
   await scroll(viewport, 0);
