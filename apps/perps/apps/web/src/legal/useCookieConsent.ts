@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import * as Sentry from "../../../../packages/paxeer-backend/node_modules/@sentry/nextjs";
+import * as Sentry from "@sentry/nextjs";
 
 type BeforeSend = NonNullable<Parameters<typeof Sentry.init>[0]["beforeSend"]>;
 type ErrorEvent = Parameters<BeforeSend>[0];

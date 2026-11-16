@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { cookieConsentStore } from "../apps/web/src/legal/useCookieConsent";
+import { cookieConsentStore } from "../apps/web/src/legal/useCookieConsent.ts";
 
 function aChoiceFromOneConsumerIsSeenByEveryConsumer() {
   let calls = 0;
