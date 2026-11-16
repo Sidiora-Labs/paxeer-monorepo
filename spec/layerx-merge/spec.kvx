@@ -15298,6 +15298,12 @@ value = "The values of the indexer take an optional member for the first height 
 basis = "Gotcha 4617."
 affects = []
 
+[decision.3698]
+title = "The verification form subscribes to the topic of the address in lower case"
+value = "The page script of the verification form brings the address to lower case before it builds the topic of the address channel, so the topic equals the one on which the notifier publishes for every spelling of the address. Nothing else of the page changes, and the other page scripts under services/explorer/backend/apps/block_scout_web/assets/js stay as they are. Task 22.39.688 makes the change, since the feature cases of that form lie in its paths."
+basis = "Gotcha 4618."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -466950,7 +466956,7 @@ do_2 = "do_2 A case that passes when its app runs alone and fails in the whole r
 do_3 = "do_3 Run the whole suite once more by hand and repair what it shows."
 do_4 = "do_4 Give in the final message the count of cases of each app in the last whole run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test", "services/explorer/backend/apps/block_scout_web/assets/js"]
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -466966,6 +466972,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3698, gotcha 4618. The directory services/explorer/backend/apps/block_scout_web/assets/js is now inside the paths of this task: in pages/verification_form.js bring the address to lower case before the topic of the address channel is built, and change nothing else under that directory. The work of the earlier candidate stays as it is. Run the feature cases of the contract verification form by hand and read each message, then the whole suite with no path once by hand, then the build once and the counted verification once. It makes no difference whether a case passed before the change, and no approval is needed to repair a case inside the paths. No case is removed, skipped or weakened. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.687]
 title = "Let the suite of the media app of the explorer backend pass in the builder"

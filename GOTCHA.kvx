@@ -22910,3 +22910,8 @@ fix = "Decision 3696. Tasks 22.39.764 and 22.39.766."
 title = "A composed indexer cannot take the history below its anchor"
 symptom = "The composer of the indexer documents under deploy/launchpad/documents writes a lifecycle document with an empty list of replay requests and without a backfill request, and the contract in the platform directory under deploy/launchpad names neither the mode of the indexer nor the batch settings of its backfill. The service reads heights below its anchor only through such a request, admits a request only with a matching row in its table of replay authorizations, bounds one request to 1000000 heights, and no command of the repository writes a request or that row. An indexer composed with an anchor above the creation height of a market that already exists on the chain therefore never holds that market."
 fix = "Decision 3697. Task 22.39.767."
+
+[gotcha.4618]
+title = "The verification form of the explorer backend subscribes with the address as its field holds it"
+symptom = "The page script pages/verification_form.js under services/explorer/backend/apps/block_scout_web/assets/js reads the address from the field of the form and builds the topic of the address channel from that value as it stands. The notifier under services/explorer/backend/apps/block_scout_web/lib publishes the result of a contract verification on the topic of the address in its lower case form. A form opened with an address written with capitals therefore listens on a topic on which no result is published, and the form shows neither the result nor the messages of the compiler."
+fix = "Decision 3698. Task 22.39.688."
