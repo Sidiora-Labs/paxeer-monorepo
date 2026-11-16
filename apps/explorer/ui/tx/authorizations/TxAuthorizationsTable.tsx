@@ -3,7 +3,8 @@ import React from 'react';
 import type { TxAuthorization } from 'types/api/transaction';
 
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import TxAuthorizationsTableItem from './TxAuthorizationsTableItem';
 
@@ -15,14 +16,14 @@ interface Props {
 const TxAuthorizationsTable = ({ data, isLoading }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot>
+      <ActivityTable label="Authorizations">
         <TableHeaderSticky>
           <TableRow>
             <TableColumnHeader width="50%">Authority</TableColumnHeader>
             <TableColumnHeader width="50%">Delegated address</TableColumnHeader>
-            <TableColumnHeader width="120px">Chain</TableColumnHeader>
-            <TableColumnHeader width="120px">Nonce</TableColumnHeader>
-            <TableColumnHeader width="200px">Status</TableColumnHeader>
+            <TableColumnHeader width="var(--chakra-spacing-30)">Chain</TableColumnHeader>
+            <TableColumnHeader width="var(--chakra-spacing-30)" isNumeric>Nonce</TableColumnHeader>
+            <TableColumnHeader width="var(--chakra-spacing-48)">Status</TableColumnHeader>
           </TableRow>
         </TableHeaderSticky>
         <TableBody>
@@ -30,7 +31,7 @@ const TxAuthorizationsTable = ({ data, isLoading }: Props) => {
             <TxAuthorizationsTableItem key={ item.nonce.toString() + (isLoading ? index : '') } { ...item } isLoading={ isLoading }/>
           )) }
         </TableBody>
-      </TableRoot>
+      </ActivityTable>
     </AddressHighlightProvider>
   );
 };

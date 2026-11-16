@@ -29,7 +29,7 @@ const TxFHEOperationsListItem = (props: Props) => {
         </Badge>
       </Flex>
 
-      <Grid templateColumns="110px 1fr" rowGap={ 2 } columnGap={ 2 }>
+      <Grid templateColumns="var(--chakra-spacing-28) minmax(0, 1fr)" rowGap={ 2 } columnGap={ 2 }>
         <Text fontWeight="medium">Index</Text>
         <Skeleton loading={ isLoading } color="text.secondary">
           { logIndex }

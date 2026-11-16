@@ -23,7 +23,7 @@ const OptimisticL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BatchEntityL2 number={ item.number } isLoading={ isLoading }/>
       </TableCell>
       <TableCell verticalAlign="middle">
@@ -39,7 +39,7 @@ const OptimisticL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
         />
       </TableCell>
       <TableCell verticalAlign="middle" isNumeric>
-        <Skeleton loading={ isLoading } minW="40px" display="inline-block">
+        <Skeleton loading={ isLoading } minW="var(--chakra-spacing-10)" display="inline-block">
           { item.l1_transaction_hashes.length }
         </Skeleton>
       </TableCell>
@@ -48,7 +48,7 @@ const OptimisticL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
           href={ route({ pathname: '/batches/[number]', query: { number: item.number.toString(), tab: 'blocks' } }) }
           loading={ isLoading }
           justifyContent="flex-end"
-          minW="40px"
+          minW="var(--chakra-spacing-10)"
         >
           { item.l2_end_block_number - item.l2_start_block_number + 1 }
         </Link>
@@ -58,7 +58,7 @@ const OptimisticL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
           href={ route({ pathname: '/batches/[number]', query: { number: item.number.toString(), tab: 'txs' } }) }
           loading={ isLoading }
           justifyContent="flex-end"
-          minW="40px"
+          minW="var(--chakra-spacing-10)"
         >
           { item.transactions_count }
         </Link>

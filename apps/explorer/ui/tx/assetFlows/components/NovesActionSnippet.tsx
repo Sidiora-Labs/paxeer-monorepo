@@ -4,6 +4,7 @@ import React from 'react';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tooltip } from 'toolkit/chakra/tooltip';
+import { motionDuration } from 'toolkit/theme/motion';
 import { HEX_REGEXP } from 'toolkit/utils/regexp';
 import TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import IconSvg from 'ui/shared/IconSvg';
@@ -47,10 +48,10 @@ const NovesActionSnippet: FC<Props> = ({ item, isLoaded }) => {
   return (
     <Skeleton borderRadius="sm" loading={ !isLoaded }>
       <Box hideFrom="lg" display="flex" gap={ 2 } cursor="pointer" flexWrap="wrap">
-        <Text fontWeight="700" >
+        <Text fontWeight="bold" >
           { item.action.label }
         </Text>
-        <Text fontWeight="500">
+        <Text fontWeight="medium">
           { item.action.amount }
         </Text>
         <TokenEntity
@@ -58,7 +59,7 @@ const NovesActionSnippet: FC<Props> = ({ item, isLoaded }) => {
           noCopy
           noSymbol
           noLink={ !validTokenAddress }
-          fontWeight="500"
+          fontWeight="medium"
           color="link.primary"
           w="fit-content"
         />
@@ -66,8 +67,8 @@ const NovesActionSnippet: FC<Props> = ({ item, isLoaded }) => {
 
       <Tooltip
         content={ tooltipContent }
-        openDelay={ 50 }
-        closeDelay={ 50 }
+        openDelay={ motionDuration('ultra-fast') }
+        closeDelay={ motionDuration('ultra-fast') }
         positioning={{ placement: 'bottom' }}
         interactive
       >
@@ -78,10 +79,10 @@ const NovesActionSnippet: FC<Props> = ({ item, isLoaded }) => {
             width="5"
             color="icon.primary"
           />
-          <Text fontWeight="700" >
+          <Text fontWeight="bold" >
             { item.action.label }
           </Text>
-          <Text fontWeight="500">
+          <Text fontWeight="medium">
             { item.action.amount }
           </Text>
           <TokenEntity
@@ -89,7 +90,7 @@ const NovesActionSnippet: FC<Props> = ({ item, isLoaded }) => {
             noCopy
             jointSymbol
             noLink={ !validTokenAddress }
-            fontWeight="500"
+            fontWeight="medium"
             color="link.primary"
             w="fit-content"
           />

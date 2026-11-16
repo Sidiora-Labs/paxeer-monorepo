@@ -10,14 +10,17 @@ interface Props {
 const BlobDataImage = ({ src }: Props) => {
   return (
     <Center
-      bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+      bgColor="bg.surface"
       p={ 4 }
-      minH="200px"
+      h="var(--chakra-spacing-80)"
       w="100%"
       borderRadius="md"
     >
       <Image
         src={ src }
+        width="full"
+        height="full"
+        decoding="async"
         objectFit="contain"
         maxW="100%"
         maxH="100%"

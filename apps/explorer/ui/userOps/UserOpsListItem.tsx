@@ -9,10 +9,10 @@ import AddressStringOrParam from 'ui/shared/entities/address/AddressStringOrPara
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
 import UserOpEntity from 'ui/shared/entities/userOp/UserOpEntity';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 import UserOpStatus from 'ui/shared/userOps/UserOpStatus';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 type Props = {
   item: UserOpsItem;
@@ -27,11 +27,11 @@ const UserOpsListItem = ({ item, isLoading, showTx, showSender, chainData }: Pro
   const chainConfig = (multichainContext?.chain.app_config || config);
 
   return (
-    <ListItemMobileGrid.Container gridTemplateColumns="100px auto">
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr) minmax(0, 2fr)">
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>User op hash</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
-        <UserOpEntity hash={ item.hash } isLoading={ isLoading } fontWeight="700" noIcon={ !chainData } truncation="constant_long" chain={ chainData } noCopy/>
+        <UserOpEntity hash={ item.hash } isLoading={ isLoading } fontWeight="bold" noIcon={ !chainData } truncation="constant_long" chain={ chainData } noCopy/>
       </ListItemMobileGrid.Value>
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Age</ListItemMobileGrid.Label>

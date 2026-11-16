@@ -158,9 +158,9 @@ const OptimisticL2ClaimModal = ({ data, onOpenChange, proofSubmitterAddress, onS
       open
       onOpenChange={ onOpenChange }
       size={{ lgDown: 'full', lg: 'md' }}
-      trapFocus={ false }
-      preventScroll={ false }
-      modal={ false }
+      trapFocus={ !isWeb3WalletOpen }
+      preventScroll={ !isWeb3WalletOpen }
+      modal={ !isWeb3WalletOpen }
       closeOnInteractOutside={ false }
     >
       <DialogContent>
@@ -177,6 +177,7 @@ const OptimisticL2ClaimModal = ({ data, onOpenChange, proofSubmitterAddress, onS
               <FormFieldAddress<FormFields>
                 name="address"
                 required
+                inputProps={{ autoCapitalize: 'none', spellCheck: false, name: 'address' }}
                 placeholder="Address (0x...)"
                 bgColor="dialog.bg"
                 mt={ 6 }
@@ -194,6 +195,7 @@ const OptimisticL2ClaimModal = ({ data, onOpenChange, proofSubmitterAddress, onS
               ) : (
                 <Button
                   mt={ 6 }
+                  type="button"
                   onClick={ connectWeb3Wallet }
                   disabled={ isWeb3WalletOpen }
                   loading={ isWeb3WalletOpen }

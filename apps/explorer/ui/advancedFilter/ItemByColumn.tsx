@@ -31,7 +31,7 @@ const ItemByColumn = ({ item, column, isLoading, chainConfig }: Props) => {
   const currency = (chainConfig ?? config).chain.currency;
   switch (column) {
     case 'tx_hash':
-      return <TxEntity truncation="constant" hash={ item.hash } isLoading={ isLoading } noIcon fontWeight={ 700 }/>;
+      return <TxEntity truncation="constant" hash={ item.hash } isLoading={ isLoading } noIcon fontWeight="bold"/>;
     case 'type': {
       const type = getAdvancedFilterTypes(chainConfig).find(t => t.id === item.type);
       if (!type) {
@@ -42,7 +42,7 @@ const ItemByColumn = ({ item, column, isLoading, chainConfig }: Props) => {
     case 'method':
       return item.method ? <Badge loading={ isLoading } truncated>{ item.method }</Badge> : null;
     case 'age':
-      return <TimeWithTooltip timestamp={ item.timestamp } isLoading={ isLoading } color="text.secondary" fontWeight={ 400 }/>;
+      return <TimeWithTooltip timestamp={ item.timestamp } isLoading={ isLoading } color="text.secondary" fontWeight="normal"/>;
     case 'from':
       return (
         <Flex w="100%">
@@ -98,8 +98,8 @@ const ItemByColumn = ({ item, column, isLoading, chainConfig }: Props) => {
     }
     case 'asset':
       return item.token ?
-        <TokenEntity token={ item.token } isLoading={ isLoading } fontWeight={ 700 } onlySymbol noCopy/> :
-        <Skeleton loading={ isLoading } fontWeight={ 700 }>{ currency.symbol }</Skeleton>;
+        <TokenEntity token={ item.token } isLoading={ isLoading } fontWeight="bold" onlySymbol noCopy/> :
+        <Skeleton loading={ isLoading } fontWeight="bold">{ currency.symbol }</Skeleton>;
     case 'fee':
       return (
         <NativeCoinValue
