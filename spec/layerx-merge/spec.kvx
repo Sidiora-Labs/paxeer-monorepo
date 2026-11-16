@@ -14896,6 +14896,12 @@ value = "Task 22.39.569 names task 22.39.704 among its requirements. The tasks o
 basis = "Gotcha 4547. Decisions 3628 and 3629."
 affects = []
 
+[decision.3631]
+title = "The route catalogue holds what the product publishes, and the gateway admits the routes of the advanced filters and the pages of the feed"
+value = "The top keys of tools/paxeer-x/route-catalogue.json are schema, canonical_origin, chain_id, rpc_records, preserve_api1_original_host, wallet_authentication, wallet_placement, services, routes, denied_surfaces, node_signing_methods and rpc_paths. The answer of GET /v1/routes holds these keys and the keys of the location map and no other key. A note on work belongs to the spec and not to the catalogue. The gateway admits under /explorer/backend the GET routes /api/v2/advanced-filters, /api/v2/advanced-filters/csv and /api/v2/advanced-filters/methods beside the four routes of the feed it admits, within the bounds of header, query, origin, time and input that hold for the present routes. The gateway admits the pages /explorer/feed, /explorer/feed/market/ID and /explorer/feed/update/HASH for GET and HEAD within the bounds of the present pages."
+basis = "Gotcha 4548. Decision 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44556,6 +44562,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.705]
+title = "Let the route catalogue hold the keys of the product, and admit the routes of the advanced filters and the pages of the feed in the gateway"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/src", "services/platform/hosted/gateway/tests", "tools/paxeer-x/route-catalogue.json", "tools/paxeer-x/tests", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test catalogue_top_keys --test browser_profiles && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway -- explorer_proxy ui_proxy && python3 -m pytest -q tools/paxeer-x/tests/test_catalogue_top_keys.py tools/paxeer-x/tests/test_catalogue_rpc_served.py"
+do_1 = "do_1 Gotcha 4548, decision 3631. Read the function unified_service_catalogue in services/platform/hosted/gateway/src/lib.rs, the answer of GET /v1/routes, the table of routes with the functions matches_path and selected and the cases in services/platform/hosted/gateway/src/explorer_proxy.rs, the tables of pages and the function admitted with their cases in services/platform/hosted/gateway/src/ui_proxy.rs, the top keys of tools/paxeer-x/route-catalogue.json, how services/platform/hosted/gateway/tests/browser_profiles.rs reads the file, and tools/paxeer-x/tests/test_catalogue_rpc_served.py as the form of a case over the file."
+symbols = []
 
 [capability.22.44.58]
 title = "Let the render check bound each render, render several at once and read the modes of a view"
@@ -212658,6 +212673,41 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.705]
+title = "Let the route catalogue hold the keys of the product, and admit the routes of the advanced filters and the pages of the feed in the gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.705"]
+interfaces = []
+do_1 = "do_1 Gotcha 4548, decision 3631. Read the function unified_service_catalogue in services/platform/hosted/gateway/src/lib.rs, the answer of GET /v1/routes, the table of routes with the functions matches_path and selected and the cases in services/platform/hosted/gateway/src/explorer_proxy.rs, the tables of pages and the function admitted with their cases in services/platform/hosted/gateway/src/ui_proxy.rs, the top keys of tools/paxeer-x/route-catalogue.json, how services/platform/hosted/gateway/tests/browser_profiles.rs reads the file, and tools/paxeer-x/tests/test_catalogue_rpc_served.py as the form of a case over the file."
+do_2 = "do_2 In tools/paxeer-x/route-catalogue.json remove the key pending_wiring with its value. Every other key and value stays as it is, and the form of the file with its indentation and its order of keys stays. The top keys are then schema, canonical_origin, chain_id, rpc_records, preserve_api1_original_host, wallet_authentication, wallet_placement, services, routes, denied_surfaces, node_signing_methods and rpc_paths."
+do_3 = "do_3 In services/platform/hosted/gateway/src/explorer_proxy.rs the table of routes holds GET /api/v2/advanced-filters, GET /api/v2/advanced-filters/csv and GET /api/v2/advanced-filters/methods in the form of the present GET routes without a session. The four routes of the feed stay. No bound of header, query, origin, time or input changes. Add cases in the module: each of the seven paths is selected for GET and refused for POST; a path with a further segment, with an encoded dot segment or with an empty segment is refused; a query with encoded brackets and a comma list passes as it does for the present routes."
+do_4 = "do_4 In services/platform/hosted/gateway/src/ui_proxy.rs the table of pages holds /explorer/feed, /explorer/feed/market/[id] and /explorer/feed/update/[hash] in the form of the present patterns. Add cases in the module: each page is admitted for GET and HEAD and refused for POST; the data page of each under /explorer/_next/data is admitted as for the present pages; a value that is empty, a dot segment or longer than the bound is refused."
+do_5 = "do_5 Add services/platform/hosted/gateway/tests/catalogue_top_keys.rs: the document of unified_service_catalogue holds exactly the keys of do_2 and the keys of services/platform/hosted/gateway/route-locations.json, and no route of the path /rpc. Add tools/paxeer-x/tests/test_catalogue_top_keys.py in the form of tools/paxeer-x/tests/test_catalogue_rpc_served.py: the set of the top keys of the file equals the set of do_2."
+do_6 = "do_6 Where a case under services/platform/hosted/gateway/tests or tools/paxeer-x/tests reads the removed key, bring it in line. No present case is removed or weakened."
+do_7 = "do_7 In docs/wiki/HostedGateway.md state the top keys of the answer of GET /v1/routes at the row of that route, and name the routes of the advanced filters and the pages of the feed where the page lists the explorer routes the gateway admits."
+do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway/src", "services/platform/hosted/gateway/tests", "tools/paxeer-x/route-catalogue.json", "tools/paxeer-x/tests", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/tests/catalogue_top_keys.rs", "tools/paxeer-x/tests/test_catalogue_top_keys.py"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test catalogue_top_keys --test browser_profiles && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway -- explorer_proxy ui_proxy && python3 -m pytest -q tools/paxeer-x/tests/test_catalogue_top_keys.py tools/paxeer-x/tests/test_catalogue_rpc_served.py"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

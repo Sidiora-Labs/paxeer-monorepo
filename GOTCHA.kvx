@@ -22560,3 +22560,8 @@ fix = "Decision 3629. Task 22.44.58; task 22.44.48."
 title = "A case or a proof that reads a shared part follows the task that gives the part"
 symptom = "The parity case of the perps precompile starts a case of the trading workspace, and that case loads the error widgets of the workspace. The measurement of a render that shows nothing and the proofs of the surfaces with many views run inside the loop of the render check that task 22.44.58 changes. A task names the task that gives such a part among its requirements."
 fix = "Decision 3630. Tasks 22.39.569, 22.44.54, 22.44.38, 22.44.39 and 22.44.48."
+
+[gotcha.4548]
+title = "The route catalogue is compiled into the gateway, and each top key of the file is part of the answer of the route listing"
+symptom = "The gateway compiles tools/paxeer-x/route-catalogue.json and the location map services/platform/hosted/gateway/route-locations.json into one document in the function unified_service_catalogue of services/platform/hosted/gateway/src/lib.rs and gives that document to a caller of GET /v1/routes. Each top key of the file is therefore part of the answer. The file holds the key pending_wiring beside the keys of the product: schema, canonical_origin, chain_id, rpc_records, preserve_api1_original_host, wallet_authentication, wallet_placement, services, routes, denied_surfaces, node_signing_methods and rpc_paths. The gateway admits a route of the explorer backend through the table of services/platform/hosted/gateway/src/explorer_proxy.rs and a page through the table of services/platform/hosted/gateway/src/ui_proxy.rs."
+fix = "Decision 3631. Task 22.39.705."
