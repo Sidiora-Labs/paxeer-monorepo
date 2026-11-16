@@ -174759,7 +174759,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.61]
 title = "Build the production form of the wallet application in its surface file and close the render check on it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.60"]
@@ -249360,7 +249360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.743]
 title = "List the statements of the metadata service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249392,7 +249392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.742]
 title = "List the statements of the social service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
