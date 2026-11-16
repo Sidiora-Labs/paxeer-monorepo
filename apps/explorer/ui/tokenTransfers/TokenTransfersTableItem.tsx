@@ -62,7 +62,7 @@ const TokenTransferTableItem = ({ item, isLoading, chainData }: Props) => {
           <TxEntity
             hash={ item.transaction_hash }
             isLoading={ isLoading }
-            fontWeight={ 600 }
+            fontWeight="semibold"
             noIcon
             truncation="constant_long"
           />
@@ -74,19 +74,19 @@ const TokenTransferTableItem = ({ item, isLoading, chainData }: Props) => {
           enableIncrement
           isLoading={ isLoading }
           color="text.secondary"
-          fontWeight="400"
+          fontWeight="normal"
           display="inline-block"
         />
       </TableCell>
-      <TableCell maxW="120px">
+      <TableCell maxW="var(--chakra-spacing-30)">
         { item.method && <Badge loading={ isLoading }>{ item.method }</Badge> }
       </TableCell>
-      <TableCell>
+      <TableCell isNumeric>
         <BlockEntity number={ item.block_number } isLoading={ isLoading } noIcon/>
       </TableCell>
       <TableCell>
         <AddressFromTo
-          maxW={{ lg: '220px', xl: '320px' }}
+          maxW={{ lg: 'var(--chakra-spacing-56)', xl: 'var(--chakra-spacing-80)' }}
           from={ item.from }
           to={ item.to }
           isLoading={ isLoading }
@@ -100,7 +100,7 @@ const TokenTransferTableItem = ({ item, isLoading, chainData }: Props) => {
             id={ item.total.token_id }
             instance={ item.total.token_instance }
             isLoading={ isLoading }
-            maxW="140px"
+            maxW="var(--chakra-spacing-36)"
           />
         ) : <Skeleton loading={ isLoading }>-</Skeleton> }
       </TableCell>

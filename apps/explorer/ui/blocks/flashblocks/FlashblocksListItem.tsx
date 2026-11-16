@@ -16,24 +16,36 @@ interface Props {
 
 const FlashblocksListItem = ({ data }: Props) => {
   return (
-    <ListItemMobile rowGap={ 3 }>
+    <ListItemMobile fontSize="small" lineHeight="small" rowGap={ 3 }
+      css={{
+        '& a': { display: 'inline-flex', alignItems: 'center', minWidth: 'touchTarget', minHeight: 'touchTarget' },
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
+      }}
+    >
       <Flex justifyContent="space-between" w="100%">
         { data.block_number ? (
           <FlashblockEntity
             number={ data.block_number }
             index={ data.index }
-            fontWeight={ 600 }
+            fontWeight="semibold"
           />
         ) : <Text color="text.secondary">N/A</Text> }
       </Flex>
       { data.timestamp && (
-        <Flex columnGap={ 2 }>
-          <Text fontWeight={ 500 }>Timestamp</Text>
-          <Time color="text.secondary" timestamp={ data.timestamp } format="DD MMM, HH:mm:ss.SSS"/>
+        <Flex columnGap={ 2 } flexWrap="wrap" rowGap={ 1 } minW={ 0 }>
+          <Text fontWeight="medium">Timestamp</Text>
+          <Time
+            color="text.secondary"
+            whiteSpace="normal"
+            overflowWrap="anywhere"
+            maxW="full"
+            timestamp={ data.timestamp }
+            format="DD MMM, HH:mm:ss.SSS"
+          />
         </Flex>
       ) }
-      <Flex columnGap={ 2 }>
-        <Text fontWeight={ 500 }>Txn</Text>
+      <Flex columnGap={ 2 } flexWrap="wrap" rowGap={ 1 } minW={ 0 }>
+        <Text fontWeight="medium">Txn</Text>
         { data.transactions_count > 0 ? (
           <Link href={ route({
             pathname: '/block/[height_or_hash]',
@@ -45,8 +57,8 @@ const FlashblocksListItem = ({ data }: Props) => {
           <Text color="text.secondary">{ data.transactions_count }</Text>
         }
       </Flex>
-      <Flex columnGap={ 2 }>
-        <Text fontWeight={ 500 }>Gas used</Text>
+      <Flex columnGap={ 2 } flexWrap="wrap" rowGap={ 1 } minW={ 0 }>
+        <Text fontWeight="medium">Gas used</Text>
         <Text color="text.secondary">{ data.gas_used.toLocaleString() }</Text>
       </Flex>
     </ListItemMobile>

@@ -26,6 +26,7 @@ const ContractVerificationFieldEvmVersion = ({ isVyper, config }: Props) => {
       <FormFieldSelect<FormFields, 'evm_version'>
         name="evm_version"
         placeholder="EVM Version"
+        triggerProps={{ 'aria-label': 'EVM Version' }}
         collection={ collection }
         required
       />

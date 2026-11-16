@@ -21,7 +21,7 @@ const TacOperationDetails = ({ isLoading, data }: Props) => {
 
   return (
     <DetailedInfo.Container
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: '210px minmax(728px, auto)' }}
+      templateColumns={{ base: 'minmax(0, 1fr)', lg: 'max-content minmax(0, 1fr)' }}
     >
       { data?.sender && (
         <>

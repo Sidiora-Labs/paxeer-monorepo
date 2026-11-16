@@ -24,7 +24,7 @@ const SearchResultItemTx = ({ data, chain }: Props) => {
         chain={ chain }
         noLink
         noCopy
-        fontWeight="700"
+        fontWeight="bold"
         w="100%"
       />
     </SearchResultListItem>

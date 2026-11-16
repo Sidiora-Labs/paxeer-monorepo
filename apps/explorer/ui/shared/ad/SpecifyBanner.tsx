@@ -57,10 +57,6 @@ const SpecifyBanner = ({ className, format = 'responsive', address, onEmpty, isL
     }
   }, [ address, isMobile, onEmpty, isLoading ]);
 
-  const handleClick = React.useCallback(() => {
-    window.open(ad?.ctaUrl, '_blank', 'noopener,noreferrer');
-  }, [ ad?.ctaUrl ]);
-
   const { width, height } = (() => {
     if (isMobile) {
       return { width: MOBILE_BANNER_WIDTH, height: MOBILE_BANNER_HEIGHT };
@@ -80,15 +76,17 @@ const SpecifyBanner = ({ className, format = 'responsive', address, onEmpty, isL
   if (!ad) return null;
 
   return (
-    <Image
-      src={ ad.imageUrl }
-      alt={ ad.headline }
-      cursor="pointer"
-      onClick={ handleClick }
-      className={ className }
-      w={ width ? `${ width }px` : { base: `${ MOBILE_BANNER_WIDTH }px`, lg: `${ DESKTOP_BANNER_WIDTH }px` } }
-      h={ height ? `${ height }px` : { base: `${ MOBILE_BANNER_HEIGHT }px`, lg: `${ DESKTOP_BANNER_HEIGHT }px` } }
-    />
+    <chakra.a href={ ad.ctaUrl } target="_blank" rel="noopener noreferrer" className={ className } display="block" maxW="100%">
+      <Image
+        src={ ad.imageUrl }
+        alt={ ad.headline }
+        w="100%"
+        h="auto"
+        aspectRatio={ `${ width } / ${ height }` }
+        htmlWidth={ width }
+        htmlHeight={ height }
+      />
+    </chakra.a>
   );
 };
 

@@ -30,8 +30,6 @@ vi.mock('next/router', async() => {
 
 import PaxeerXAccount from './PaxeerXAccount';
 
-// The host runs the whole suite at once, and these trees mount real entities, so the first render of
-// each of them reaches well past the default per-test budget.
 vi.setConfig({ testTimeout: 60_000 });
 
 const HASH = paxeerXMock.evmAddress;
@@ -118,9 +116,9 @@ describe('PaxeerXAccountPageContent', () => {
     expect(cards.map((card) => card.querySelector('[data-card-title]')?.textContent))
       .toEqual([ 'Overview', 'More info', 'Node capabilities' ]);
 
-    expect(details.querySelector('[data-field="assets-count"]')?.textContent).toBe('3');
-    expect(details.querySelector('[data-field="activity-count"]')?.textContent).toBe('3');
-    expect(details.querySelector('[data-field="identities-count"]')?.textContent).toBe('4');
+    expect(details.querySelector('[data-field="assets-count"]')?.textContent).toBe('2');
+    expect(details.querySelector('[data-field="activity-count"]')?.textContent).toBe('2');
+    expect(details.querySelector('[data-field="identities-count"]')?.textContent).toBe('3');
   });
 
   it('answers the capability card from the node probe', async() => {
@@ -179,7 +177,7 @@ describe('PaxeerXAccountPageContent', () => {
     const tabs = container.querySelector('[data-scan-section-tabs]') as HTMLElement;
 
     expect(Array.from(tabs.querySelectorAll('[data-tab]')).map((tab) => tab.textContent))
-      .toEqual([ 'Identities(4)', 'Assets(3)', 'Activity(3)' ]);
+      .toEqual([ 'Identities(3)', 'Assets(2)', 'Activity' ]);
     expect(tabs.querySelector('[data-right-slot] [data-api-entry]')?.textContent).toBe('API');
   });
 
@@ -187,7 +185,7 @@ describe('PaxeerXAccountPageContent', () => {
     const { container } = await renderPage();
 
     expect(container.querySelector('[data-scan-table-card] [data-label="paxeer-x-identities"]')).toBeTruthy();
-    expect(container.querySelectorAll('[data-identity]')).toHaveLength(4);
+    expect(container.querySelectorAll('[data-identity]')).toHaveLength(3);
   });
 
   it('routes to the section a pill names, keeping the account out of the query string', async() => {
@@ -211,9 +209,9 @@ describe('PaxeerXAccountPageContent', () => {
 
     await waitFor(() => {
       expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
-        .toBe('A total of 3 assets found');
+        .toBe('A total of 2 assets found');
     });
-    expect(container.querySelectorAll('[data-asset]')).toHaveLength(3);
+    expect(container.querySelectorAll('[data-asset]')).toHaveLength(2);
   });
 
   it('shows the activity of the account when the route names that section', async() => {
@@ -222,10 +220,10 @@ describe('PaxeerXAccountPageContent', () => {
     const { container } = render(<PaxeerXAccount/>);
 
     await waitFor(() => {
-      expect(container.querySelectorAll('[data-activity]')).toHaveLength(3);
+      expect(container.querySelectorAll('[data-activity]')).toHaveLength(2);
     });
     expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
-      .toBe('A total of 3 activity entries found');
+      .toBe('A total of 2 activity entries found');
   });
 
   it('says so when the node does not answer the account binding surface', async() => {

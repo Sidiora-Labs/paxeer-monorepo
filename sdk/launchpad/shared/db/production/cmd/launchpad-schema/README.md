@@ -25,7 +25,9 @@ repository root. Original service paths in manifests resolve to their monorepo
 locations. The release must supply an approval digest, the exact grants digest
 as each migration's interface digest, reader requirements, lock estimates and
 reviewed legacy structural fingerprints. This command supports reader version 1
-and transactional migrations.
+and transactional migrations, plus registered concurrent indexes whose exact key
+plans and SQL are bound to the release. Concurrent indexes run on the dedicated
+coordinator session outside a transaction and record their application attempts.
 
 The command installs declared extension prerequisites, creates control objects
 and owner roles, imports exact legacy histories, provisions runtime schemas and

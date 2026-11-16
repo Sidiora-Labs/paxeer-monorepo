@@ -27,7 +27,7 @@ const NetworkStatsHero = () => {
   return (
     <>
       { ((hasStatsService && counters.isError) || stats.isError) && <DataFetchAlert/> }
-      <Grid data-network-stats-hero templateColumns={{ base: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }} gap={ 4 } mb={ 8 }>
+      <Grid data-network-stats-hero templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-40)), 1fr))" gap={ 4 } mb={ 8 }>
         { NETWORK_HERO_LABELS.map((label) => {
           const epoch = label === 'Current epoch' ? stats.data?.celo?.epoch_number : undefined;
           const value = epoch !== undefined && Number.isFinite(epoch) ? epoch.toLocaleString() : getNetworkCounter(counters.data?.counters, label);

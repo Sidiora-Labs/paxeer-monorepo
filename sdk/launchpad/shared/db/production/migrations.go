@@ -74,8 +74,9 @@ type MigrationManifest struct {
 	Destructive            bool                   `json:"destructive"`
 	ApprovalManifestDigest string                 `json:"approval_manifest_digest"`
 	// All deployed readers must have positive compatibility evidence before contraction.
-	ReaderCompatibilityProof string        `json:"reader_compatibility_proof,omitempty"`
-	SourceInputs             []SourceInput `json:"source_inputs,omitempty"`
+	ReaderCompatibilityProof string           `json:"reader_compatibility_proof,omitempty"`
+	SourceInputs             []SourceInput    `json:"source_inputs,omitempty"`
+	OnlineIndex              *OnlineIndexPlan `json:"online_index,omitempty"`
 }
 
 // SourceInput binds a reviewed source consumed by a migration.  Approval
@@ -127,6 +128,12 @@ func (m MigrationManifest) Validate(sql []byte, registry map[int64]MigrationMani
 	}
 	if m.TransactionMode != valueTransactional && m.TransactionMode != "nontransactional" {
 		return fmt.Errorf("unknown transaction mode")
+	}
+	if m.OnlineIndex != nil {
+		statement, err := m.OnlineIndex.CreateSQL()
+		if err != nil || m.TransactionMode != "nontransactional" || m.OnlineIndex.Schema != m.Schema || string(sql) != statement {
+			return fmt.Errorf("online index differs from registered SQL")
+		}
 	}
 	if m.Destructive && !validDigest(m.ReaderCompatibilityProof) {
 		return fmt.Errorf("destructive migration requires reader compatibility evidence")

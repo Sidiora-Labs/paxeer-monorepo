@@ -29,7 +29,7 @@ const DetailedInfoActionsWrapper = ({ children, isLoading, type }: Props) => {
         alignItems="stretch"
         rowGap={ 5 }
         w="100%"
-        maxH="200px"
+        maxH="calc(var(--chakra-spacing-100) / 2)"
       >
         { children }
       </DetailedInfo.ItemValueWithScroll>

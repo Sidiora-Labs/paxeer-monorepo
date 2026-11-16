@@ -165,6 +165,61 @@ PY
 }
 stats_inline_pem_plan
 
+metadata_inline_materials() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
+import json, secrets, subprocess, sys
+from pathlib import Path
+metadata = json.load(open(sys.argv[1]))["metadata"]
+assert metadata["fixed"]["METADATA_INGRESS"] == "mtls"
+assert not {"IDENTITY_SERVICE_URL", "IDENTITY_SERVICE_TOKEN"} & set(metadata["required"])
+assert {"METADATA_TLS_KEY_PEM", "METADATA_ASSERTION_PRIVATE_KEY_HEX"} <= set(metadata["secrets"])
+directory = Path(sys.argv[2])
+subprocess.run(["openssl", "req", "-x509", "-newkey", "ed25519", "-noenc", "-days", "1",
+                "-subj", "/CN=metadata test authority", "-keyout", str(directory / "metadata.key"),
+                "-out", str(directory / "metadata.pem")], check=True, capture_output=True)
+values = {name: f"metadata-value-{i:02d}" for i, name in enumerate(metadata["required"])}
+values.update({"METADATA_TLS_CERT_PEM": (directory / "metadata.pem").read_text(),
+               "METADATA_TLS_CLIENT_CA_PEM": (directory / "metadata.pem").read_text(),
+               "METADATA_TLS_KEY_PEM": (directory / "metadata.key").read_text(),
+               "METADATA_ASSERTION_PRIVATE_KEY_HEX": secrets.token_hex(64)})
+json.dump({"metadata": metadata}, open(directory / "metadata-manifest.json", "w"))
+json.dump({"metadata": values}, open(directory / "metadata-values.json", "w"))
+project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")
+project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-metadata", "name": "metadata"}}]
+want = dict(metadata["fixed"], **values)
+json.dump([project,
+    {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-metadata"},
+     "data": {"variables": {}}},
+    {"op": "VariablesUpsert", "variables": {"i": {"projectId": "proj-test", "environmentId": "env-prod",
+     "serviceId": "svc-metadata", "variables": want, "skipDeploys": True}},
+     "data": {"variableCollectionUpsert": True}}], open(directory / "metadata-replay.json", "w"))
+print(len(want), file=open(directory / "metadata-count", "w"))
+PY
+	local mode name
+	for mode in plan apply; do
+		python3 "$tool" proj-test production --manifest "$tmp/metadata-manifest.json" \
+			--replay "$tmp/metadata-replay.json" --values "$tmp/metadata-values.json" "--$mode" \
+			>"$tmp/metadata-$mode.out" 2>&1 || fail "metadata $mode exited $?: $(cat "$tmp/metadata-$mode.out")"
+		grep -q '^  missing METADATA_INGRESS = mtls$' "$tmp/metadata-$mode.out" || fail "metadata $mode omitted mtls"
+		for name in METADATA_TLS_KEY_PEM METADATA_ASSERTION_PRIVATE_KEY_HEX; do
+			grep -q "^  missing $name = \*\*\*\*$" "$tmp/metadata-$mode.out" || fail "metadata $mode did not mask $name"
+		done
+	done
+	grep -q "^  applied $(cat "$tmp/metadata-count") variables$" "$tmp/metadata-apply.out" || fail "metadata inline materials were not applied"
+	python3 - "$tmp/metadata-values.json" "$tmp/metadata-manifest.json" "$tmp/metadata-plan.out" "$tmp/metadata-apply.out" <<'PY' || fail "metadata printed secret material"
+import json, sys
+values = json.load(open(sys.argv[1]))["metadata"]
+names = json.load(open(sys.argv[2]))["metadata"]["secrets"]
+for path in sys.argv[3:]:
+    output = open(path).read()
+    assert all(value not in output for name in names if (value := values.get(name))), "secret value printed"
+    key_lines = values["METADATA_TLS_KEY_PEM"].splitlines()[1:-1]
+    assert all(line not in output for line in key_lines), "private key line printed"
+PY
+	echo PASS metadata-inline-materials
+}
+metadata_inline_materials
+
 # The user service from the real manifest carries a signing seed: plan and apply never print it.
 python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
 import json, sys
@@ -269,4 +324,220 @@ for f in echo.out echo.err miss.out miss.err short.out short.err; do
 		fail "$f printed a secret value: $(cat "$tmp/$f")"
 	fi
 done
+indexer_document_sources() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
+import json, sys
+indexer = json.load(open(sys.argv[1]))["indexer"]
+sources = indexer["documentSources"]
+assert sources == {
+    "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE",
+    "INDEXER_RECEIPT_CONFIG_DOCUMENT": "INDEXER_RECEIPT_CONFIG_FILE",
+    "INDEXER_LIFECYCLE_CONFIG_DOCUMENT": "INDEXER_LIFECYCLE_CONFIG_FILE",
+}
+json.dump({"indexer": indexer}, open(f"{sys.argv[2]}/indexer.json", "w"))
+values = {n: f"sentinel-indexer-{i:02d}" for i, n in enumerate(indexer["required"])}
+project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")
+project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-indexer", "name": "indexer"}}]
+for form in ("document", "file"):
+    selected = dict(values)
+    for document, path in sources.items():
+        selected.pop(path if form == "document" else document, None)
+        selected[document if form == "document" else path] = (
+            f"sentinel-{document}" if form == "document" else f"/run/launchpad/indexer/{path}.json")
+    json.dump({"indexer": selected}, open(f"{sys.argv[2]}/indexer-{form}-values.json", "w"))
+    want = dict(indexer["fixed"], **selected)
+    json.dump([project,
+        {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-indexer"},
+         "data": {"variables": {}}},
+        {"op": "VariablesUpsert", "variables": {"i": {"projectId": "proj-test", "environmentId": "env-prod",
+         "serviceId": "svc-indexer", "variables": want, "skipDeploys": True}},
+         "data": {"variableCollectionUpsert": True}}], open(f"{sys.argv[2]}/indexer-{form}-replay.json", "w"))
+    print(len(want), file=open(f"{sys.argv[2]}/indexer-{form}-count", "w"))
+    for document, path in sources.items():
+        without_digest = dict(selected)
+        del without_digest[document.removesuffix("_DOCUMENT") + "_SHA256"]
+        json.dump({"indexer": without_digest}, open(f"{sys.argv[2]}/indexer-{form}-{document}-no-digest.json", "w"))
+for document, path in sources.items():
+    selected = dict(values, **{d: f"sentinel-{d}" for d in sources})
+    for invalid in ("both", "neither"):
+        bad = dict(selected)
+        if invalid == "both":
+            bad[path] = "/run/launchpad/indexer/document.json"
+        else:
+            del bad[document]
+        json.dump({"indexer": bad}, open(f"{sys.argv[2]}/indexer-{document}-{invalid}.json", "w"))
+    stale = json.load(open(f"{sys.argv[2]}/indexer-file-replay.json"))
+    next(e for e in stale if e["op"] == "Variables")["data"]["variables"] = {document: "sentinel-current-document"}
+    json.dump(stale, open(f"{sys.argv[2]}/indexer-{document}-stale.json", "w"))
+PY
+	local form mode name alternate code invalid
+	for form in document file; do
+		for mode in plan apply; do
+			python3 "$tool" proj-test production --manifest "$tmp/indexer.json" \
+				--replay "$tmp/indexer-$form-replay.json" --values "$tmp/indexer-$form-values.json" \
+				"--$mode" >"$tmp/indexer-$form-$mode.out" 2>&1 ||
+				fail "indexer $form $mode exited $?: $(cat "$tmp/indexer-$form-$mode.out")"
+			for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+				if [ "$form" = document ]; then alternate=FILE; else alternate=DOCUMENT; fi
+				grep -q "^  missing ${name}_${form^^} = " "$tmp/indexer-$form-$mode.out" ||
+					fail "indexer $form $mode omitted $name"
+				grep -q "${name}_${alternate}" "$tmp/indexer-$form-$mode.out" &&
+					fail "indexer $form $mode includes the alternate source"
+				grep -q "^  missing ${name}_SHA256 = " "$tmp/indexer-$form-$mode.out" ||
+					fail "indexer $form $mode omitted the digest"
+			done
+		done
+		grep -q "^  applied $(cat "$tmp/indexer-$form-count") variables$" "$tmp/indexer-$form-apply.out" ||
+			fail "indexer $form apply did not upsert the selected variables"
+		for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+			set +e
+			python3 "$tool" proj-test production --manifest "$tmp/indexer.json" \
+				--replay "$tmp/indexer-$form-replay.json" \
+				--values "$tmp/indexer-$form-${name}_DOCUMENT-no-digest.json" --apply \
+				>"$tmp/indexer-no-digest.out" 2>&1
+			code=$?
+			set -e
+			[ "$code" -eq 2 ] || fail "indexer $form without digest exited $code"
+			grep -q "${name}_SHA256 has no value" "$tmp/indexer-no-digest.out" || fail "indexer missing digest not named"
+		done
+	done
+	for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+		for invalid in both neither; do
+			for mode in plan apply; do
+				set +e
+				python3 "$tool" proj-test production --manifest "$tmp/indexer.json" \
+					--replay "$tmp/indexer-document-replay.json" \
+					--values "$tmp/indexer-${name}_DOCUMENT-$invalid.json" "--$mode" \
+					>"$tmp/indexer-refused.out" 2>&1
+				code=$?
+				set -e
+				if [ "$mode" = plan ]; then
+					[ "$code" -eq 3 ] || fail "indexer $invalid $mode exited $code: $(cat "$tmp/indexer-refused.out")"
+				else
+					[ "$code" -eq 2 ] || fail "indexer $invalid $mode exited $code: $(cat "$tmp/indexer-refused.out")"
+				fi
+				grep -q "${name}_DOCUMENT.*${name}_FILE.*exactly one\|${name}_DOCUMENT.*exactly one.*${name}_FILE" \
+					"$tmp/indexer-refused.out" || fail "indexer $invalid $mode did not name both sources"
+				grep -q 'applied' "$tmp/indexer-refused.out" && fail "indexer invalid sources were applied"
+			done
+		done
+		for mode in plan apply; do
+			set +e
+			python3 "$tool" proj-test production --manifest "$tmp/indexer.json" \
+				--replay "$tmp/indexer-${name}_DOCUMENT-stale.json" \
+				--values "$tmp/indexer-file-values.json" "--$mode" >"$tmp/indexer-stale.out" 2>&1
+			code=$?
+			set -e
+			if [ "$mode" = plan ]; then
+				[ "$code" -eq 3 ] || fail "indexer existing alternate source $mode exited $code"
+			else
+				[ "$code" -eq 2 ] || fail "indexer existing alternate source $mode exited $code"
+			fi
+			grep -q "${name}_DOCUMENT and ${name}_FILE are both set" "$tmp/indexer-stale.out" ||
+				fail "indexer existing alternate source not named"
+			grep -q 'applied' "$tmp/indexer-stale.out" && fail "indexer applied both sources"
+		done
+	done
+	echo PASS indexer-document-sources
+}
+indexer_document_sources
+
+api_readiness_documents() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" <<'PY'
+import json, sys
+
+api = json.load(open(sys.argv[1]))["api"]
+api_sockets = json.load(open(sys.argv[1]))["api-sockets"]
+assert api["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "[::]:8443"
+assert "API_PRIVATE_LISTEN_ADDRESS" not in api_sockets["fixed"]
+assert api["documentSources"] == {
+    "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE",
+    "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE",
+}
+required = set(api["required"])
+declared = required | set(api["documentSources"]) | set(api["documentSources"].values())
+for name in (
+    "NETWORK_AUTHORITY_CONFIG_DOCUMENT", "NETWORK_AUTHORITY_CONFIG_SHA256",
+    "STREAM_RELAY_CONFIG_DOCUMENT", "STREAM_RELAY_CONFIG_SHA256",
+    "DISCOVERY_RUNTIME_CONFIG_DOCUMENT", "DISCOVERY_RUNTIME_CONFIG_SHA256",
+    "NETWORK_RPC_URL",
+):
+    assert name in declared, name
+assert "NETWORK_AUTHORITY_CONFIG_SHA256" in required
+assert "DISCOVERY_RUNTIME_CONFIG_DOCUMENT" in api["secrets"]
+assert set(api["secrets"]) & set(api["fixed"]) == {"SECRETS_PROVIDER"}
+PY
+	echo PASS api-readiness-documents
+}
+api_readiness_documents
+
+private_listen_address_contract() {
+	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" "$tool" <<'PY'
+import ipaddress, json, os, subprocess, sys
+from pathlib import Path
+
+contract = json.load(open(sys.argv[1]))
+directory = Path(sys.argv[2])
+services = ("api", "ranking", "user", "social", "metadata")
+manifest = {service: contract[service] for service in services}
+values = {}
+project = next(entry for entry in json.load(open(sys.argv[3])) if entry["op"] == "Project")
+project["data"]["project"]["services"]["edges"] = [
+    {"node": {"id": f"svc-{service}", "name": service}} for service in services
+]
+replay = [project]
+expected = {}
+for service, entry in manifest.items():
+    key = f"{service.upper()}_PRIVATE_LISTEN_ADDRESS"
+    address = entry["fixed"][key]
+    assert address == "[::]:8443", service
+    host, port = address.rsplit(":", 1)
+    assert ipaddress.IPv6Address(host.strip("[]")).is_unspecified, service
+    assert port == "8443", service
+    values[service] = {name: f"{service}-value-{index:02d}"
+                       for index, name in enumerate(entry["required"])
+                       if name not in entry["fixed"]}
+    for document in entry.get("documentSources", {}):
+        values[service][document] = "e30="
+    expected[service] = dict(values[service], **entry["fixed"])
+    replay.extend([
+        {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": f"svc-{service}"},
+         "data": {"variables": {}}},
+        {"op": "VariablesUpsert", "variables": {"i": {
+            "projectId": "proj-test", "environmentId": "env-prod", "serviceId": f"svc-{service}",
+            "variables": expected[service], "skipDeploys": True}},
+         "data": {"variableCollectionUpsert": True}},
+    ])
+for name, data in (("manifest", manifest), ("values", values), ("replay", replay)):
+    (directory / f"private-listeners-{name}.json").write_text(json.dumps(data))
+result = subprocess.run([
+    sys.executable, sys.argv[4], "proj-test", "production", "--apply",
+    "--manifest", str(directory / "private-listeners-manifest.json"),
+    "--values", str(directory / "private-listeners-values.json"),
+    "--replay", str(directory / "private-listeners-replay.json"),
+], capture_output=True, text=True, env=os.environ)
+assert result.returncode == 0, result.stdout + result.stderr
+applied = set()
+planned = {}
+service = None
+for line in result.stdout.splitlines():
+    if line.startswith("service "):
+        service = line.split()[1]
+    elif line.startswith("  missing ") and "_PRIVATE_LISTEN_ADDRESS = " in line:
+        key, address = line.removeprefix("  missing ").split(" = ", 1)
+        assert key == f"{service.upper()}_PRIVATE_LISTEN_ADDRESS", service
+        assert address == contract[service]["fixed"][key], service
+        host, port = address.rsplit(":", 1)
+        assert ipaddress.IPv6Address(host.strip("[]")).is_unspecified, service
+        assert port == "8443", service
+        planned[service] = address
+    elif line.startswith("  applied "):
+        assert line == f"  applied {len(expected[service])} variables", service
+        applied.add(service)
+assert set(planned) == set(services), planned
+assert applied == set(services), applied
+PY
+	echo PASS private-listen-address-contract
+}
+private_listen_address_contract
 echo PASS railway-apply-variables

@@ -23,7 +23,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/trie"
 )
 
 type ErrorKind string
@@ -359,6 +358,15 @@ func validateEpochs(es []AddressEpoch, d string) error {
 	return nil
 }
 func (s *CommittedSource) Name() string { return "committed-rpc" }
+
+// HistoricalConcurrency reports the configured bound for archive reads.
+func (s *CommittedSource) HistoricalConcurrency() int {
+	if s == nil || s.opts.HistoricalConcurrency <= 0 {
+		return 48
+	}
+	return s.opts.HistoricalConcurrency
+}
+
 func (s *CommittedSource) Close() error {
 	var err error
 	if s.lifecycle != nil {
@@ -1314,48 +1322,25 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 				return nil, sourceError(IncompleteError, e.id, nil)
 			}
 			receipts := make(ethtypes.Receipts, 0, len(b.Transactions))
-			nextIndex := uint(0)
-			used := 0
-			var result []ethtypes.Log
+			txHashes := make([]common.Hash, len(b.Transactions))
 			for i, tx := range b.Transactions {
 				if !validHash(tx.Hash) {
 					return nil, sourceError(IncompleteError, e.id, nil)
 				}
-				var receipt ethtypes.Receipt
-				if err := s.rpc(ctx, e, bulk, "eth_getTransactionReceipt", []any{tx.Hash}, &receipt); err != nil {
+				txHashes[i] = common.HexToHash(tx.Hash)
+				var r ethtypes.Receipt
+				if err := s.rpc(ctx, e, bulk, "eth_getTransactionReceipt", []any{tx.Hash}, &r); err != nil {
 					return nil, err
 				}
-				fromUint642, conversionErr := checked.Convert[uint64](from)
-				if conversionErr != nil {
-					return nil, conversionErr
-				}
-				iUint, conversionErr := checked.Convert[uint](i)
-				if conversionErr != nil {
-					return nil, conversionErr
-				}
-				if receipt.BlockHash != record.Hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != fromUint642 || receipt.TransactionIndex != iUint || receipt.TxHash != common.HexToHash(tx.Hash) {
-					return nil, sourceError(IntegrityError, e.id, nil)
-				}
-				receipts = append(receipts, &receipt)
-				for _, l := range receipt.Logs {
-					fromUint643, conversionErr := checked.Convert[uint64](from)
-					if conversionErr != nil {
-						return nil, conversionErr
-					}
-					iUint2, conversionErr := checked.Convert[uint](i)
-					if conversionErr != nil {
-						return nil, conversionErr
-					}
-					if l != nil && (l.BlockHash != record.Hash || l.BlockNumber != fromUint643 || l.TxHash != receipt.TxHash || l.TxIndex != iUint2 || l.Index != nextIndex || l.Removed || len(l.Topics) > 4 || len(l.Data) > 64<<10) {
-						return nil, sourceError(IntegrityError, e.id, nil)
-					}
-					if l != nil {
-						nextIndex++
-						used += 256 + len(l.Data) + 32*len(l.Topics)
-						if used > 32<<20 {
-							return nil, sourceError(OversizeError, e.id, nil)
-						}
-					}
+				receipts = append(receipts, &r)
+			}
+			regular, validationErr := separateShellReceipts(receipts, txHashes, record.Hash, fromUint64, b.LogsBloom, b.ReceiptsRoot, s.opts.BlockIdentity == valueReported)
+			if validationErr != nil {
+				return nil, validationErr
+			}
+			var result []ethtypes.Log
+			for _, r := range regular {
+				for _, l := range r.Logs {
 					if l == nil {
 						return nil, sourceError(IncompleteError, e.id, nil)
 					}
@@ -1363,20 +1348,6 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 						result = append(result, *l)
 					}
 				}
-			}
-			if s.opts.BlockIdentity == valueReported {
-				// The receiptsRoot of a CometBFT-backed EVM is not an Ethereum
-				// receipt trie; every receipt is bound above to this block's
-				// reported hash and transaction, and the merged log bloom must
-				// equal the block's.
-				bloom, err := hex.DecodeString(strings.TrimPrefix(b.LogsBloom, "0x"))
-				if err != nil || len(bloom) != ethtypes.BloomByteLength || ethtypes.MergeBloom(receipts) != ethtypes.BytesToBloom(bloom) {
-					return nil, sourceError(IntegrityError, e.id, nil)
-				}
-				return result, nil
-			}
-			if ethtypes.DeriveSha(receipts, trie.NewStackTrie(nil)) != common.HexToHash(b.ReceiptsRoot) {
-				return nil, sourceError(IntegrityError, e.id, nil)
 			}
 			return result, nil
 		}

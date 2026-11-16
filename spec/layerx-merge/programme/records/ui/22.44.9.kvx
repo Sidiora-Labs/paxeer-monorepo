@@ -1,0 +1,447 @@
+[manifest]
+task = "22.44.9"
+surface = "Paxscan explorer token, contract and account views"
+paths = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/watchlist"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/ui/apiKey", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/privateTags", "apps/explorer/ui/token", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/ui/apiKey", "apps/explorer/ui/customAbi", "apps/explorer/ui/privateTags", "apps/explorer/ui/watchlist"]
+
+[guide.popover]
+id = "popover"
+directories = ["apps/explorer/ui/searchResults", "apps/explorer/ui/verifiedContracts"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/tokenInstance"]
+
+[guide.tooltip]
+id = "tooltip"
+directories = ["apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/verifiedContracts"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/apiDocs", "apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/hotContracts", "apps/explorer/ui/myProfile", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/searchResults", "apps/explorer/ui/sol2uml", "apps/explorer/ui/token", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/tokenInstance", "apps/explorer/ui/tokens", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/watchlist"]
+
+[guide.optimize_image_priority]
+id = "optimize-image-priority"
+directories = ["apps/explorer/ui/sol2uml", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/publicTags"]
+
+[guide.size_aware_styling]
+id = "size-aware-styling"
+directories = ["apps/explorer/ui/token", "apps/explorer/ui/tokens", "apps/explorer/ui/watchlist", "apps/explorer/ui/privateTags", "apps/explorer/ui/apiKey", "apps/explorer/ui/customAbi", "apps/explorer/ui/verifiedContracts", "apps/explorer/ui/hotContracts"]
+
+[guide.validate_input_after_interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/explorer/ui/apiKey", "apps/explorer/ui/contractVerification", "apps/explorer/ui/customAbi", "apps/explorer/ui/privateTags", "apps/explorer/ui/publicTags", "apps/explorer/ui/tokenInfo", "apps/explorer/ui/watchlist"]
+
+[view.tokens]
+route = "/tokens"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 532px wide.", "At 360px in the light and dark schemes, some icon or select triggers have no accessible name.", "At 360px these controls have a dimension below 44px: All (49 by 32px), Fungible (85 by 32px), NFT (57 by 32px), Bridged (80 by 32px), Filter (32 by 32px), icon or input (313 by 32px), Clear (20 by 20px), copy (20 by 20px), 50 (80 by 32px)."]
+
+[view.token]
+route = "/token/[hash]?tab=markets"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px these controls have a dimension below 44px: copy (20 by 20px), Markets (74 by 32px), History (66 by 32px), Holders (71 by 32px), Metadata (82 by 32px)."]
+
+[view.token_history]
+route = "/token/[hash]?tab=token_transfers"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light and dark schemes, some icon or select triggers have no accessible name.", "At 360px these controls have a dimension below 44px: copy (20 by 20px), Markets (74 by 32px), History (66 by 32px), Holders (71 by 32px), Metadata (82 by 32px), 50 (80 by 32px)."]
+
+[view.token_holders]
+route = "/token/[hash]?tab=holders"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light and dark schemes, some icon or select triggers have no accessible name.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: copy (20 by 20px), Markets (74 by 32px), History (66 by 32px), Holders (71 by 32px), Metadata (82 by 32px), 50 (80 by 32px)."]
+
+[view.token_metadata]
+route = "/token/[hash]?tab=metadata"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px these controls have a dimension below 44px: copy (20 by 20px), Markets (74 by 32px), History (66 by 32px), Holders (71 by 32px), Metadata (82 by 32px), Token info (87 by 32px), Contract (75 by 32px), hint (20 by 20px)."]
+
+[view.token_inventory]
+route = "/token/[hash]?tab=inventory"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light and dark schemes, some icon or select triggers have no accessible name.", "At 360px these controls have a dimension below 44px: copy (20 by 20px), Markets (74 by 32px), History (66 by 32px), Holders (71 by 32px), Metadata (82 by 32px), Inventory (79 by 32px), 50 (80 by 32px)."]
+
+[view.instance]
+route = "/token/[hash]/instance/[id]?tab=metadata"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 385px wide.", "At 360px these controls have a dimension below 44px: copy (20 by 20px), hint (20 by 20px), Token transfers (120 by 32px), Holders (71 by 32px), Metadata (82 by 32px)."]
+
+[view.verification]
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px)."]
+
+[view.verified_contracts]
+route = "/verified-contracts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in light and dark schemes the document measures 366px wide.", "At 360px with doubled text in the light scheme the document measures 732px wide.", "At 360px in the light and dark schemes, some icon or select triggers have no accessible name.", "At 360px these controls have a dimension below 44px: Filter (32 by 32px), icon or input (250 by 32px), Clear (20 by 20px), copy (20 by 20px)."]
+
+[view.hot_contracts]
+route = "/hot-contracts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in light and dark schemes the document measures 364px wide.", "At 768px in light and dark schemes the document measures 772px wide.", "At 360px with doubled text in the light scheme the document measures 408px wide.", "At 360px with reduced motion in the light scheme 1 animation remains active.", "At 360px these controls have a dimension below 44px: copy (20 by 20px)."]
+
+[view.watchlist]
+route = "/account/watchlist"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 574px wide.", "At 360px these controls have a dimension below 44px: copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add address (137 by 40px)."]
+
+[view.api_keys]
+route = "/account/api-key"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px these controls have a dimension below 44px: copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add API key (131 by 40px)."]
+
+[view.custom_abi]
+route = "/account/custom-abi"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px these controls have a dimension below 44px: copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add custom ABI (160 by 40px)."]
+
+[view.address_tags]
+route = "/account/tag-address?tab=address"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px these controls have a dimension below 44px: Address (82 by 40px), Transaction (103 by 40px), copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add address tag (164 by 40px)."]
+
+[view.transaction_tags]
+route = "/account/tag-address?tab=tx"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 402px wide.", "At 360px these controls have a dimension below 44px: Address (82 by 40px), Transaction (103 by 40px), copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add transaction tag (186 by 40px)."]
+
+[view.watchlist_add]
+route = "/account/watchlist"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 574px wide.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add address (137 by 40px), Close (20 by 20px)."]
+
+[view.api_keys_add]
+route = "/account/api-key"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add API key (131 by 40px), Close (20 by 20px), Generate API key (169 by 40px)."]
+
+[view.custom_abi_add]
+route = "/account/custom-abi"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add custom ABI (160 by 40px), Close (20 by 20px), Create custom ABI (180 by 40px)."]
+
+[view.address_tags_add]
+route = "/account/tag-address?tab=address"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: Address (82 by 40px), Transaction (103 by 40px), copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add address tag (164 by 40px), Close (20 by 20px), Add tag (103 by 40px)."]
+
+[view.transaction_tags_add]
+route = "/account/tag-address?tab=tx"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 402px wide.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: Address (82 by 40px), Transaction (103 by 40px), copy (20 by 20px), edit (20 by 20px), delete (20 by 20px), Add transaction tag (186 by 40px), Close (20 by 20px), Add tag (103 by 40px)."]
+
+[view.public_tags]
+route = "/public-tags/submit"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px), Send request (144 by 40px)."]
+
+[view.profile]
+route = "/auth/profile"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1."]
+
+[view.api_docs]
+route = "/api-docs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light and dark schemes, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: REST API (88 by 40px), ETH RPC API (109 by 40px), RPC API endpoints (145 by 40px), GraphQL API (108 by 40px), icon or input (20 by 20px), GET/api/v2/tokensTokens (281 by 40px), get ​/api​/v2​/tokens (20 by 20px)."]
+
+[view.eth_rpc_docs]
+route = "/api-docs?tab=eth_rpc_api"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px these controls have a dimension below 44px: REST API (88 by 40px), ETH RPC API (109 by 40px), RPC API endpoints (145 by 40px), GraphQL API (108 by 40px)."]
+
+[view.rpc_docs]
+route = "/api-docs?tab=rpc_api"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px these controls have a dimension below 44px: REST API (88 by 40px), ETH RPC API (109 by 40px), RPC API endpoints (145 by 40px), GraphQL API (108 by 40px)."]
+
+[view.graphql_docs]
+route = "/api-docs?tab=graphql_api"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light and dark schemes, embedded editor text areas have no associated label.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: REST API (88 by 40px), ETH RPC API (109 by 40px), RPC API endpoints (145 by 40px), GraphQL API (108 by 40px), <untitled> (97 by 30px), New tab (24 by 24px), Execute query (Ctrl-Enter) (40 by 40px), Prettify query (Shift-Ctrl-P) (40 by 40px), Merge fragments into query (Shift-Ctrl-M) (40 by 40px), Copy query (Shift-Ctrl-C) (40 by 40px), Variables (82 by 38px), Headers (76 by 38px), Show editor tools (36 by 38px), Close Tab (20 by 20px)."]
+
+[view.search]
+route = "/search-results?q=token"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the dark scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: copy (20 by 20px)."]
+
+[view.uml]
+route = "/visualize/sol2uml?address=[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+
+[view.verification_flattened_code]
+state = "Solidity (Single file)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 382px wide.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px), icon or input (192 by 32px), Verify & publish (159 by 40px)."]
+
+[view.verification_standard_input]
+state = "Solidity (Standard JSON input)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 411px wide.", "At 360px in the light and dark schemes, file-upload inputs have no associated label.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px), icon or input (40 by 40px), Drop file or click here (164 by 32px), Verify & publish (159 by 40px)."]
+
+[view.verification_sourcify]
+state = "Sourcify (Solidity or Vyper)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px)."]
+
+[view.verification_multi_part]
+state = "Solidity (Multi-part files)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 425px wide.", "At 360px in the light and dark schemes, file-upload inputs have no associated label.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px), icon or input (192 by 32px), icon or input (40 by 40px), Drop files or click here (172 by 32px), Verify & publish (159 by 40px)."]
+
+[view.verification_solidity_hardhat]
+state = "Solidity (Hardhat)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px)."]
+
+[view.verification_solidity_foundry]
+state = "Solidity (Foundry)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px)."]
+
+[view.verification_vyper_code]
+state = "Vyper (Contract)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px), Verify & publish (159 by 40px)."]
+
+[view.verification_vyper_multi_part]
+state = "Vyper (Multi-part files)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 425px wide.", "At 360px in the light and dark schemes, file-upload inputs have no associated label.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px), icon or input (40 by 40px), Drop file or click here (164 by 32px), Drop files or click here (172 by 32px), Verify & publish (159 by 40px)."]
+
+[view.verification_vyper_standard_input]
+state = "Vyper (Standard JSON input)"
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px with doubled text in the light scheme the document measures 411px wide.", "At 360px in the light and dark schemes, file-upload inputs have no associated label.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px these controls have a dimension below 44px: hint (20 by 20px), icon or input (40 by 40px), Drop file or click here (164 by 32px), Verify & publish (159 by 40px)."]
+
+[view.token_info]
+route = "/account/verified-addresses?address=[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+modes = ["standard", "reduced motion", "doubled text", "keyboard"]
+mode_widths = [360]
+mode_schemes = ["light"]
+observations = ["At 360px in the light and dark schemes, some icon or select triggers have no accessible name.", "At 360px in the light scheme, some text has contrast below 4.5:1.", "At 360px the verified-address Add details control is not keyboard-focusable.", "At 360px these controls have a dimension below 44px: icon or input (24 by 24px), Send request (144 by 40px)."]
+

@@ -37,7 +37,7 @@ const LatestWatchlistTxs = () => {
     const txsUrl = route({ pathname: '/txs', query: { tab: 'watchlist' } });
     return (
       <>
-        <Box mb={ 3 } display={{ base: 'block', lg: 'none' }} textStyle="sm">
+        <Box mb={ 3 } display={{ base: 'block', lg: 'none' }} textStyle="body">
           { data.slice(0, txsCount).map(((tx, index) => (
             <LatestTxsItemMobile
               key={ tx.hash + (isPlaceholderData ? index : '') }
@@ -46,7 +46,7 @@ const LatestWatchlistTxs = () => {
             />
           ))) }
         </Box>
-        <Box mb={ 4 } display={{ base: 'none', lg: 'block' }} textStyle="sm">
+        <Box mb={ 4 } display={{ base: 'none', lg: 'block' }} textStyle="body">
           <HomeTable
             label="Latest transactions"
             columns={ [ { label: 'Transaction', width: '36%' }, { label: 'From / To' }, { label: 'Value / Fee', numeric: true, width: '28%' } ] }
@@ -63,7 +63,7 @@ const LatestWatchlistTxs = () => {
           </HomeTable>
         </Box>
         <Flex justifyContent="center">
-          <Link textStyle="sm" href={ txsUrl }>View all watch list transactions</Link>
+          <Link textStyle="body" href={ txsUrl }>View all watch list transactions</Link>
         </Flex>
       </>
     );

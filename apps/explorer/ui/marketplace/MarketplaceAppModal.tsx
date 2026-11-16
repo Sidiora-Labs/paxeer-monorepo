@@ -9,7 +9,6 @@ import config from 'configs/app';
 import { Badge } from 'toolkit/chakra/badge';
 import { Button } from 'toolkit/chakra/button';
 import { useColorModeValue } from 'toolkit/chakra/color-mode';
-import { DialogBody, DialogCloseTrigger, DialogContent, DialogFooter, DialogRoot } from 'toolkit/chakra/dialog';
 import { Heading } from 'toolkit/chakra/heading';
 import { IconButton } from 'toolkit/chakra/icon-button';
 import { Image } from 'toolkit/chakra/image';
@@ -17,6 +16,7 @@ import { Link } from 'toolkit/chakra/link';
 import { nbsp } from 'toolkit/utils/htmlEntities';
 import { isBrowser } from 'toolkit/utils/isBrowser';
 import { makePrettyLink } from 'toolkit/utils/url';
+import { DialogBody, DialogCloseTrigger, DialogContent, DialogFooter, DialogRoot, DialogTitle } from 'ui/marketplace/NativeDialog';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import type { IconName } from 'ui/shared/IconSvg';
 import IconSvg from 'ui/shared/IconSvg';
@@ -110,14 +110,14 @@ const MarketplaceAppModal = ({
       <DialogContent>
         <Box
           display="grid"
-          gridTemplateColumns={{ base: 'auto 1fr' }}
+          gridTemplateColumns="auto minmax(0, 1fr)"
           marginBottom={{ base: 6, md: 8 }}
         >
           <Flex
             alignItems="center"
             justifyContent="center"
-            w={{ base: '72px', md: '144px' }}
-            h={{ base: '72px', md: '144px' }}
+            w={{ base: 'var(--chakra-spacing-18)', md: 'calc(var(--chakra-spacing-1) * 36)' }}
+            h={{ base: 'var(--chakra-spacing-18)', md: 'calc(var(--chakra-spacing-1) * 36)' }}
             marginRight={{ base: 6, md: 8 }}
             gridRow={{ base: '1 / 3', md: '1 / 5' }}
           >
@@ -125,17 +125,23 @@ const MarketplaceAppModal = ({
               src={ logoUrl }
               alt={ `${ title } app icon` }
               borderRadius="md"
+              boxSize="full"
+              objectFit="contain"
             />
           </Flex>
 
-          <Flex alignItems="center" mb={{ md: 2 }} gridColumn={ 2 }>
-            <Heading
-              level="2"
-              fontWeight="medium"
-              mr={ 2 }
-            >
-              { title }
-            </Heading>
+          <Flex alignItems="center" flexWrap="wrap" gap={ 1 } minW={ 0 } mb={{ md: 2 }} gridColumn={ 2 }>
+            <DialogTitle asChild>
+              <Heading
+                level="2"
+                fontWeight="medium"
+                whiteSpace="normal"
+                overflowWrap="anywhere"
+                mr={ 2 }
+              >
+                { title }
+              </Heading>
+            </DialogTitle>
             <MarketplaceAppIntegrationIcon external={ external } internalWallet={ internalWallet }/>
             <MarketplaceAppGraphLinks links={ graphLinks } ml={ 2 }/>
             <DialogCloseTrigger ml="auto"/>
@@ -146,6 +152,7 @@ const MarketplaceAppModal = ({
             gridColumn={ 2 }
             textStyle={{ base: 'sm', md: 'md' }}
             fontWeight="normal"
+            overflowWrap="anywhere"
           >
             By{ nbsp }{ author }
           </Text>
@@ -164,7 +171,7 @@ const MarketplaceAppModal = ({
                 userRating={ userRating }
                 fullView
                 source="App modal"
-                popoverContentProps={{ zIndex: 'modal' }}
+                popoverContentProps={{ portalled: false, zIndex: 'modal' }}
               />
             </Box>
           ) }
@@ -175,14 +182,15 @@ const MarketplaceAppModal = ({
           >
             <Flex flexWrap="wrap" gap={ 6 }>
               <Flex width={{ base: '100%', md: 'auto' }} gap={ 2 }>
-                <Link href={ external ? url : route({ pathname: '/apps/[id]', query: { id: data.id } }) } external={ external } noIcon>
-                  <Button size="sm">
+                <Button size="sm" asChild>
+                  <Link href={ external ? url : route({ pathname: '/apps/[id]', query: { id: data.id } }) } external={ external } noIcon>
                     Launch app
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
 
                 <IconButton
-                  aria-label="Mark as favorite"
+                  aria-label={ `${ isFavorite ? 'Remove' : 'Mark' } ${ title } ${ isFavorite ? 'from' : 'as' } favorite` }
+                  aria-pressed={ isFavorite }
                   title="Mark as favorite"
                   variant="icon_background"
                   size="md"
@@ -228,7 +236,7 @@ const MarketplaceAppModal = ({
             )) }
           </Flex>
 
-          <Flex alignItems="center" gap={ 3 } my="2px">
+          <Flex alignItems="center" flexWrap="wrap" minW={ 0 } gap={ 3 } my="calc(var(--chakra-spacing-1) * 0.5)">
             { site && (
               <Link
                 external
@@ -241,7 +249,7 @@ const MarketplaceAppModal = ({
                   name="link"
                   display="inline"
                   verticalAlign="baseline"
-                  boxSize="18px"
+                  boxSize="calc(var(--chakra-spacing-1) * 4.5)"
                   marginRight={ 2 }
                 />
 

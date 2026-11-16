@@ -59,7 +59,7 @@ const AccountActionsMenu = ({ isLoading, className, showUpdateMetadataItem }: Pr
   }
 
   if (isLoading) {
-    return <Skeleton loading w="36px" h="32px" borderRadius="base" className={ className }/>;
+    return <Skeleton loading boxSize="touchTarget" borderRadius="base" className={ className }/>;
   }
 
   if (items.length === 1) {

@@ -4,10 +4,11 @@ import React from 'react';
 import type { PaxeerXActivityItem } from 'types/api/paxeerX';
 
 import { TableBody, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import Pagination from 'ui/shared/pagination/Pagination';
-import { ScanTableCard } from 'ui/shared/scan';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 
+import AccountTableCard from './AccountTableCard';
 import ActivityListItem from './ActivityListItem';
 
 export interface Props {
@@ -49,7 +50,7 @@ const ActivityList = ({ items, isLoading, page, total, hasNextPage, canGoBackwar
   }
 
   return (
-    <ScanTableCard
+    <AccountTableCard
       title={ title }
       note="Native network activity, newest first"
       pagination={ paginationNode }
@@ -59,27 +60,29 @@ const ActivityList = ({ items, isLoading, page, total, hasNextPage, canGoBackwar
           { page === 1 && total === 0 ? 'There is no Paxeer X activity for this account yet.' : 'There are no activity entries on this page.' }
         </Text>
       ) : (
-        <TableRoot variant="scan" minW="900px" data-label="paxeer-x-activity">
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader width="20%">Action</TableColumnHeader>
-              <TableColumnHeader width="30%">Transaction</TableColumnHeader>
-              <TableColumnHeader width="20%">
-                Block
-                <TimeFormatToggle/>
-              </TableColumnHeader>
-              <TableColumnHeader width="20%" isNumeric>Amount</TableColumnHeader>
-              <TableColumnHeader width="10%">Status</TableColumnHeader>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            { items.map((item) => (
-              <ActivityListItem key={ `${ item.hash }-${ item.kind }-${ item.block_number }-${ item.ordinal }` } item={ item } isLoading={ isLoading }/>
-            )) }
-          </TableBody>
-        </TableRoot>
+        <TableScrollArea label="Account activity">
+          <TableRoot aria-label="Account activity" variant="scan" minW="max-content" data-label="paxeer-x-activity">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader width="20%">Action</TableColumnHeader>
+                <TableColumnHeader width="30%">Transaction</TableColumnHeader>
+                <TableColumnHeader width="20%">
+                  Block
+                  <TimeFormatToggle/>
+                </TableColumnHeader>
+                <TableColumnHeader width="20%" isNumeric>Amount</TableColumnHeader>
+                <TableColumnHeader width="10%">Status</TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              { items.map((item) => (
+                <ActivityListItem key={ `${ item.hash }-${ item.kind }-${ item.block_number }-${ item.ordinal }` } item={ item } isLoading={ isLoading }/>
+              )) }
+            </TableBody>
+          </TableRoot>
+        </TableScrollArea>
       ) }
-    </ScanTableCard>
+    </AccountTableCard>
   );
 };
 

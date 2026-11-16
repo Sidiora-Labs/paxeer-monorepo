@@ -32,8 +32,8 @@ function getExplorerUrls() {
 export default function Swap() {
   const isMobile = useIsMobile();
   const { colorMode } = useColorMode();
-  const [ mainColor ] = useToken('colors', 'blue.600');
-  const [ borderColor ] = useToken('colors', colorMode === 'light' ? 'blackAlpha.100' : 'whiteAlpha.100');
+  const scheme = colorMode === 'dark' ? '_dark' : '_light';
+  const [ mainColor, borderColor ] = useToken('colors', [ `theme.accent.${ scheme }`, `theme.hairline.${ scheme }` ]);
 
   const message = useMemo(() => ({
     type: 'config',

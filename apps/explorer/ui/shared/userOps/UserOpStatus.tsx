@@ -13,7 +13,7 @@ const UserOpStatus = ({ status, isLoading }: Props) => {
   }
 
   return (
-    <StatusTag loading={ isLoading } type={ status === true ? 'ok' : 'error' } text={ status === true ? 'Success' : 'Failed' }/>
+    <StatusTag role="status" loading={ isLoading } type={ status === true ? 'ok' : 'error' } text={ status === true ? 'Success' : 'Failed' }/>
   );
 };
 

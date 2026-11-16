@@ -60,7 +60,7 @@ func platformDocumentsValues(t *testing.T) (string, string) {
 	}
 	digest := fmt.Sprintf("%x", sha256.Sum256([]byte("pnl schema configuration")))
 	schema := production.ExpectedSchema{
-		Service: "pnl", RuntimeRole: "pnl_runtime", RegistryDigest: digest,
+		Service: "core/pnl-tracker", RuntimeRole: "pnl_runtime", RegistryDigest: digest,
 		InterfaceDigest: digest, ReaderVersion: 1, Migrations: map[int64]string{160001: digest},
 		Schemas: map[string]string{"pnl": digest}, Epoch: 1, Region: "mainnet-beta",
 		Privileges: []production.Grant{{Schema: "pnl", Object: "positions", Privileges: []string{"SELECT"}}},

@@ -97,7 +97,13 @@ const SearchResultsInput = ({ searchTerm, handleSubmit, handleSearchTermChange }
             isSuggestOpen={ isSuggestOpen }
           />
         </PopoverTrigger>
-        <PopoverContent w={ `${ menuWidth.current }px` } maxH={{ base: '300px', lg: '500px' }} overflowY="scroll" ref={ menuRef }>
+        <PopoverContent
+          w={ `${ menuWidth.current }px` }
+          maxH={{ base: 75, lg: 125 }}
+          overflowY="auto"
+          aria-label="Recent searches"
+          ref={ menuRef }
+        >
           <PopoverBody py={ 6 }>
             <SearchBarRecentKeywords onClick={ handleSearchTermChange } onClear={ onClose }/>
           </PopoverBody>

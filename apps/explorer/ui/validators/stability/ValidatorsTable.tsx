@@ -7,12 +7,13 @@ import type {
 } from 'types/api/validators';
 
 import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
 import getNextSortValue from 'ui/shared/sort/getNextSortValue';
 
+import { hasValidatorField } from '../columns';
 import { VALIDATORS_STABILITY_SORT_SEQUENCE } from './utils';
 import ValidatorsTableItem from './ValidatorsTableItem';
-import { hasValidatorField } from '../columns';
 
 interface Props {
   data: Array<ValidatorStability>;
@@ -34,43 +35,49 @@ const ValidatorsTable = ({ data, sort, setSorting, isLoading }: Props) => {
   };
 
   return (
-    <TableRoot variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}>
-      <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP } bg="canvas">
-        <TableRow>
-          <TableColumnHeader width="50%">Validator</TableColumnHeader>
-          { columns.status && (
-            <TableColumnHeaderSortable
-              width="25%"
-              sortField="state"
-              sortValue={ sort }
-              onSortToggle={ onSortToggle }
-            >
-              Status
-            </TableColumnHeaderSortable>
-          ) }
-          { columns.blocks && (
-            <TableColumnHeaderSortable
-              width="25%"
-              sortField="blocks_validated"
-              sortValue={ sort }
-              onSortToggle={ onSortToggle }
-              isNumeric
-            >
-              Blocks
-            </TableColumnHeaderSortable>
-          ) }
-        </TableRow>
-      </TableHeaderSticky>
-      <TableBody>
-        { data.map((item, index) => (
-          <ValidatorsTableItem
-            key={ item.address.hash + (isLoading ? index : '') }
-            data={ item }
-            columns={ columns }
-            isLoading={ isLoading }/>
-        )) }
-      </TableBody>
-    </TableRoot>
+    <TableScrollArea label="Validators">
+      <TableRoot aria-label="Validators" variant="scan"
+        css={{
+          '& [data-status="error"] > span': { color: 'text.primary' },
+          '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' },
+        }}>
+        <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP } bg="canvas">
+          <TableRow>
+            <TableColumnHeader width="50%">Validator</TableColumnHeader>
+            { columns.status && (
+              <TableColumnHeaderSortable
+                width="25%"
+                sortField="state"
+                sortValue={ sort }
+                onSortToggle={ onSortToggle }
+              >
+                Status
+              </TableColumnHeaderSortable>
+            ) }
+            { columns.blocks && (
+              <TableColumnHeaderSortable
+                width="25%"
+                sortField="blocks_validated"
+                sortValue={ sort }
+                onSortToggle={ onSortToggle }
+                isNumeric
+              >
+                Blocks
+              </TableColumnHeaderSortable>
+            ) }
+          </TableRow>
+        </TableHeaderSticky>
+        <TableBody>
+          { data.map((item, index) => (
+            <ValidatorsTableItem
+              key={ item.address.hash + (isLoading ? index : '') }
+              data={ item }
+              columns={ columns }
+              isLoading={ isLoading }/>
+          )) }
+        </TableBody>
+      </TableRoot>
+    </TableScrollArea>
   );
 };
 

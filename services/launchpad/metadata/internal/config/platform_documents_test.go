@@ -6,10 +6,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -38,7 +40,7 @@ func platformDocumentValues(t *testing.T) (string, string) {
 	}
 	sum := fmt.Sprintf("%x", sha256.Sum256([]byte("metadata-schema")))
 	schema := dbproduction.ExpectedSchema{
-		Service: "metadata", RuntimeRole: "metadatad", RegistryDigest: sum, InterfaceDigest: sum,
+		Service: "media/metadata", RuntimeRole: "metadatad", RegistryDigest: sum, InterfaceDigest: sum,
 		ReaderVersion: 1, Migrations: map[int64]string{1: sum}, Schemas: map[string]string{"metadata": sum},
 		Epoch: 1, Region: "mainnet-beta",
 		Privileges: []dbproduction.Grant{{Schema: "metadata", Object: "assets", Privileges: []string{"SELECT"}}},
@@ -125,14 +127,16 @@ func setPlatformDocumentEnvironment(t *testing.T, root string, composed map[stri
 		"CLAMAV_HOST":  "clamav.railway.internal",
 		"DATABASE_URL": "postgres://metadatad_user:test-password@postgres:5432/launchpad",
 		"DB_POOL_ID":   "metadatad_pool", "INSTANCE_ID": "metadata_1", "ZONE": "mainnet-beta",
-		"IDENTITY_AUDIENCE": "metadata", "IDENTITY_SERVICE_URL": "http://gateway.railway.internal:8080",
-		"IDENTITY_SERVICE_TOKEN":         "test-only-metadata-identity-service-token",
+		"IDENTITY_AUDIENCE": "metadata", "IDENTITY_ENDPOINT": "https://gateway.example:9443",
 		"METADATA_PUBLICATION_AUDIT_KEY": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte("k"), 32)),
 		"PUBLIC_URL":                     "https://metadata.example", "REDIS_URL": "redis://redis:6379",
 		"RPC_URL":          "https://rpc.example",
 		"S3_ACCESS_KEY_ID": "test-only-access-key", "S3_SECRET_ACCESS_KEY": "test-only-secret-key",
 		"S3_APPROVED_BUCKET": "metadata-approved", "S3_QUARANTINE_BUCKET": "metadata-quarantine",
 		"S3_BUCKET": "metadata-approved", "S3_ENDPOINT": "https://objects.example",
+	}
+	for name, value := range mutualIngressMaterials(t) {
+		values[name] = value
 	}
 	for name, value := range entry.Fixed {
 		t.Setenv(name, value)
@@ -219,7 +223,7 @@ func TestPlatformDocuments(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw = bytes.Replace(raw, []byte(`"service":"metadata"`), []byte(`"service":"social"`), 1)
+		raw = bytes.Replace(raw, []byte(`"service":"media/metadata"`), []byte(`"service":"media/social"`), 1)
 		t.Setenv("EXPECTED_SCHEMA_DOCUMENT", base64.StdEncoding.EncodeToString(raw))
 		t.Setenv("EXPECTED_SCHEMA_SHA256", fmt.Sprintf("%x", sha256.Sum256(raw)))
 		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "runtime_schema_service_mismatch") {
@@ -268,5 +272,50 @@ func TestPlatformDocumentsValues(t *testing.T) {
 	runtime, _, err := cfg.ReadPublicationRuntime()
 	if err != nil || runtime.Environment != "paxeer125-small" {
 		t.Fatalf("deployment environment = %q, error = %v", runtime.Environment, err)
+	}
+}
+
+func TestPrivateListenAddressContract(t *testing.T) {
+	root, values := platformDocumentValues(t)
+	setPlatformDocumentEnvironment(t, root, composePlatformDocuments(t, root, values))
+	contractRaw, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "railway", "variables.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]struct {
+		Fixed map[string]string `json:"fixed"`
+	}
+	if err := json.Unmarshal(contractRaw, &contract); err != nil {
+		t.Fatal(err)
+	}
+	address := contract["metadata"].Fixed["METADATA_PRIVATE_LISTEN_ADDRESS"]
+	if address != "[::]:8443" {
+		t.Fatalf("private listener contract = %q, want [::]:8443", address)
+	}
+	t.Setenv("METADATA_PRIVATE_LISTEN_ADDRESS", address)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load production contract: %v", err)
+	}
+	if cfg.NodeEnv != "production" || cfg.RuntimeProfile != "container" || cfg.Port != 8080 || cfg.PrivateListenAddress != address {
+		t.Fatal("private listener must use the production contract")
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate production contract: %v", err)
+	}
+	for name, invalid := range map[string]string{
+		"missing_ip":   ":8443",
+		"hostname":     "localhost:8443",
+		"missing_port": "[::]",
+		"empty_port":   "[::]:",
+		"health_port":  net.JoinHostPort("::", strconv.Itoa(cfg.Port)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := cfg
+			candidate.PrivateListenAddress = invalid
+			if err := candidate.Validate(); err == nil || !strings.Contains(err.Error(), "METADATA_PRIVATE_LISTEN_ADDRESS") {
+				t.Fatalf("Validate accepted private listener %q: %v", invalid, err)
+			}
+		})
 	}
 }

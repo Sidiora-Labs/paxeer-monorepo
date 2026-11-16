@@ -9,7 +9,6 @@ import { useAccount } from 'wagmi';
 
 import config from 'configs/app';
 import essentialDappsChainsConfig from 'configs/essential-dapps-chains';
-import useIsMobile from 'lib/hooks/useIsMobile';
 import * as mixpanel from 'lib/mixpanel';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { useQueryParams } from 'lib/router/useQueryParams';
@@ -17,7 +16,7 @@ import useWeb3Wallet from 'lib/web3/useWallet';
 import wagmiConfig from 'lib/web3/wagmiConfig';
 import { Button } from 'toolkit/chakra/button';
 import { EmptyState } from 'toolkit/chakra/empty-state';
-import { Tooltip } from 'toolkit/chakra/tooltip';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 
 import AddressEntity from './components/AddressEntity';
 import ChainSelect from './components/ChainSelect';
@@ -51,7 +50,6 @@ const Revoke = () => {
   const approvalsQuery = useApprovalsQuery(selectedChain, searchAddress);
   const coinBalanceQuery = useCoinBalanceQuery(selectedChain, searchAddress);
   const web3Wallet = useWeb3Wallet({ source: 'Essential dapps' });
-  const isMobile = useIsMobile();
 
   const isValidAddress = useMemo(
     () => isAddress(searchAddress.toLowerCase()),
@@ -135,24 +133,18 @@ const Revoke = () => {
           <Flex
             gap={ 3 }
             alignItems="center"
-            h="32px"
-            overflowX="auto"
-            css={{
-              '-ms-overflow-style': 'none',
-              scrollbarWidth: 'none',
-              '&::-webkit-scrollbar': {
-                display: 'none',
-              },
-            }}
+            minH="var(--chakra-spacing-8)"
+            flexWrap="wrap"
+            minW={ 0 }
           >
-            <Text textStyle="sm" fontWeight="500" color="text.secondary">
+            <Text textStyle="sm" fontWeight="medium" color="text.secondary">
               Examples
             </Text>
             { [
               '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
               '0xFe89cc7aBB2C4183683ab71653C4cdc9B02D44b7',
               '0xf6B6F07862A02C85628B3A9688beae07fEA9C863',
-            ].slice(0, isMobile ? 2 : undefined).map((address) => (
+            ].map((address) => (
               <Button
                 key={ address }
                 variant="plain"
@@ -166,15 +158,15 @@ const Revoke = () => {
                   noLink
                   noCopy
                   textStyle="sm"
-                  fontWeight="600"
+                  fontWeight="semibold"
                 />
               </Button>
             )) }
           </Flex>
-          <Flex gap={ 3 } w={{ base: 'full', md: 'auto' }}>
+          <Flex gap={ 3 } w={{ base: 'full', md: 'auto' }} flexWrap="wrap" minW={ 0 }>
             { connectedAddress ? (
               <Flex gap={ 2 } alignItems="center" flexShrink={ 0 }>
-                <Text textStyle="sm" fontWeight="500" color="text.secondary">My wallet</Text>
+                <Text textStyle="sm" fontWeight="medium" color="text.secondary">My wallet</Text>
                 <Tooltip content="Click to see your approvals" disableOnMobile>
                   <Button
                     variant="plain"
@@ -189,7 +181,7 @@ const Revoke = () => {
                       noLink
                       noCopy
                       textStyle="sm"
-                      fontWeight="600"
+                      fontWeight="semibold"
                     />
                   </Button>
                 </Tooltip>
@@ -210,6 +202,8 @@ const Revoke = () => {
               value={ selectedChainId }
               onValueChange={ handleChainValueChange }
               mode="default"
+              maxW="full"
+              minW={ 0 }
             />
           </Flex>
         </Flex>

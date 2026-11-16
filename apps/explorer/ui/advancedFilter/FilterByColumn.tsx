@@ -5,8 +5,8 @@ import type { AdvancedFilterParams, AdvancedFiltersSearchParams } from 'types/ap
 import config from 'configs/app';
 import { useMultichainContext } from 'lib/contexts/multichain';
 import type { ColumnsIds } from 'ui/advancedFilter/constants';
-import TableColumnFilterWrapper from 'ui/shared/filters/TableColumnFilterWrapper';
 
+import TableColumnFilterWrapper from './ActivityColumnFilter';
 import { getNativeToken } from './constants';
 import type { AddressFilterMode } from './filters/AddressFilter';
 import AddressFilter from './filters/AddressFilter';
@@ -51,7 +51,8 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
           columnName="Method"
           isLoading={ isLoading }
           selected={ Boolean(value && value.length) }
-          w="350px"
+          w="var(--chakra-spacing-80)"
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
         >
           <MethodFilter { ...commonProps } value={ value }/>
         </TableColumnFilterWrapper>
@@ -64,7 +65,8 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
           columnName="Age"
           isLoading={ isLoading }
           selected={ Boolean(value.from || value.to || value.age) }
-          w="382px"
+          w="var(--chakra-spacing-96)"
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
         >
           <AgeFilter { ...commonProps } value={ value }/>
         </TableColumnFilterWrapper>
@@ -76,7 +78,8 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
           columnName="And/Or"
           isLoading={ isLoading }
           selected
-          w="106px"
+          w="var(--chakra-spacing-28)"
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
           value={ filters.address_relation === 'and' ? 'AND' : 'OR' }
         >
           <AddressRelationFilter { ...commonProps } value={ filters.address_relation }/>
@@ -93,7 +96,8 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
           columnName="Address from"
           isLoading={ isLoading }
           selected={ Boolean(value.length) }
-          w="480px"
+          w="var(--chakra-spacing-100)"
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
         >
           <AddressFilter { ...commonProps } type="from" value={ value }/>
         </TableColumnFilterWrapper>
@@ -110,7 +114,8 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
           columnName="Address to"
           isLoading={ isLoading }
           selected={ Boolean(value.length) }
-          w="480px"
+          w="var(--chakra-spacing-100)"
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
         >
           <AddressFilter { ...commonProps } type="to" value={ value }/>
         </TableColumnFilterWrapper>
@@ -123,7 +128,8 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
           columnName="Amount"
           isLoading={ isLoading }
           selected={ Boolean(value.from || value.to) }
-          w="382px"
+          w="var(--chakra-spacing-96)"
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
         >
           <AmountFilter { ...commonProps } value={ value }/>
         </TableColumnFilterWrapper>
@@ -155,7 +161,8 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
           columnName="Asset"
           isLoading={ isLoading }
           selected={ Boolean(value.length) }
-          w="382px"
+          w="var(--chakra-spacing-96)"
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
         >
           <AssetFilter { ...commonProps } value={ value } currency={ currency }/>
         </TableColumnFilterWrapper>

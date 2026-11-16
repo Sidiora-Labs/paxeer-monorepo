@@ -3,6 +3,8 @@ package production
 import (
 	"context"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func TestMigrationRegistryHonorsPredecessorOrder(t *testing.T) {
@@ -45,5 +47,73 @@ func TestMigrationRegistryHonorsPredecessorOrder(t *testing.T) {
 	}
 	if err := ApplyRegisteredMigration(context.Background(), nil, first, []byte("SELECT 1"), catalog, first.InterfaceDigest, first.ApprovalManifestDigest, 1); err == nil {
 		t.Fatal("migration without direct coordinator connection admitted")
+	}
+}
+
+func TestMigrationRegistryHonorsPredecessorOrderOnlineIndexKeys(t *testing.T) {
+	plan := OnlineIndexPlan{Schema: "stats", Table: "pool_holders", Name: "idx_ph_balance_numeric", Keys: []OnlineIndexKey{{Column: "pool_address"}, {Column: "balance", Numeric: true, Descending: true}, {Column: "holder_address"}}}
+	sql, err := plan.CreateSQL()
+	if err != nil || sql != `CREATE INDEX CONCURRENTLY "idx_ph_balance_numeric" ON "stats"."pool_holders" ("pool_address", ("balance"::numeric) DESC, "holder_address");` {
+		t.Fatalf("numeric holder index SQL = %q: %v", sql, err)
+	}
+	m := migration([]byte(sql))
+	m.Path = "migrations/70001.sql"
+	m.PredecessorIDs = nil
+	m.TransactionMode = "nontransactional"
+	m.OnlineIndex = &plan
+	registry := map[int64]MigrationManifest{m.MigrationID: m}
+	if err := m.Validate([]byte(sql), registry, map[int64]string{}, m.InterfaceDigest, m.ApprovalManifestDigest, 1); err != nil {
+		t.Fatal(err)
+	}
+	changed := m
+	changedPlan := plan
+	changedPlan.Keys = append([]OnlineIndexKey(nil), plan.Keys...)
+	changedPlan.Keys[1].Descending = false
+	changed.OnlineIndex = &changedPlan
+	if err := changed.Validate([]byte(sql), registry, map[int64]string{}, m.InterfaceDigest, m.ApprovalManifestDigest, 1); err == nil {
+		t.Fatal("unapproved index order admitted")
+	}
+	registry[m.MigrationID] = changed
+	if err := changed.Validate([]byte(sql), registry, map[int64]string{}, m.InterfaceDigest, m.ApprovalManifestDigest, 1); err == nil {
+		t.Fatal("registered plan differing from SQL admitted")
+	}
+	for _, invalid := range []OnlineIndexPlan{
+		{Schema: "stats", Table: "pool_holders", Name: "idx", Keys: []OnlineIndexKey{{Column: "balance::numeric"}}},
+		{Schema: "stats", Table: "pool_holders", Name: "idx", Keys: []OnlineIndexKey{{Column: "balance"}, {Column: "balance"}}},
+		{Schema: "stats", Table: "pool_holders", Name: "idx", Columns: []string{"balance"}, Keys: []OnlineIndexKey{{Column: "balance", Numeric: true}}},
+	} {
+		if _, err := invalid.CreateSQL(); err == nil {
+			t.Fatal("ambiguous or unbounded index key admitted")
+		}
+	}
+}
+
+func TestMigrationRegistryHonorsPredecessorOrderOnlineIndexOnPopulatedTable(t *testing.T) {
+	pool, dsn := phase2MigrationFixture(t)
+	ctx := context.Background()
+	exec(t, pool, `SET ROLE stats_owner; CREATE TABLE stats.pool_holders(pool_address varchar(42),balance text,holder_address varchar(42)); INSERT INTO stats.pool_holders VALUES('pool','9','b'),('pool','100','a'); RESET ROLE`)
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	plan := OnlineIndexPlan{Schema: "stats", Table: "pool_holders", Name: "idx_ph_balance_numeric", Keys: []OnlineIndexKey{{Column: "pool_address"}, {Column: "balance", Numeric: true, Descending: true}, {Column: "holder_address"}}}
+	sql, err := plan.CreateSQL()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := phase2RegisteredMigration(70001, sql, nil)
+	m.TransactionMode, m.OnlineIndex = "nontransactional", &plan
+	registry := map[int64]MigrationManifest{m.MigrationID: m}
+	if err = ApplyOnlineIndexMigration(ctx, conn, m, plan, registry, m.InterfaceDigest, m.ApprovalManifestDigest, 1, nil); err != nil {
+		t.Fatal(err)
+	}
+	state, err := InspectOnlineIndex(ctx, conn, plan)
+	if err != nil || !state.matches(plan) || !state.Valid || !state.Ready {
+		t.Fatalf("populated numeric index: %+v: %v", state, err)
+	}
+	var count int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM stats.pool_holders`).Scan(&count); err != nil || count != 2 {
+		t.Fatalf("holder rows after concurrent index: %d: %v", count, err)
 	}
 }

@@ -17,10 +17,14 @@ const ValidatorsTableItem = ({ data, isLoading, columns }: Props) => {
   return (
     <TableRow>
       <TableCell verticalAlign="middle">
-        <ValidatorEntity id={ data.bls_public_key } isLoading={ isLoading } fontWeight="700"/>
+        <ValidatorEntity id={ data.bls_public_key } isLoading={ isLoading } fontWeight="bold"/>
       </TableCell>
       { columns.index && <TableCell isNumeric><Skeleton loading={ isLoading }>{ data.index ?? '—' }</Skeleton></TableCell> }
-      { columns.stake && <TableCell isNumeric>{ data.balance == null ? '—' : <NativeCoinValue amount={ data.balance } loading={ isLoading } noSymbol/> }</TableCell> }
+      { columns.stake && (
+        <TableCell isNumeric>
+          { data.balance == null ? '—' : <NativeCoinValue amount={ data.balance } loading={ isLoading } noSymbol/> }
+        </TableCell>
+      ) }
     </TableRow>
   );
 };

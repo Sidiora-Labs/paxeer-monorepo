@@ -51,7 +51,7 @@ const MyProfile = () => {
           You can add your email to receive watchlist notifications.
           Additionally, you can manage your wallet address and email, which can be used for logging into your Blockscout account.
         </AccountPageDescription>
-        <Flex maxW="480px" mt={ 8 } flexDir="column" rowGap={ 12 }>
+        <Flex maxW="var(--chakra-spacing-100)" mt={ 8 } flexDir="column" rowGap={ 12 }>
           <MyProfileEmail profileQuery={ profileQuery }/>
           { config.features.blockchainInteraction.isEnabled &&
             <MyProfileWallet profileQuery={ profileQuery } onAddWallet={ handleAddWalletClick }/> }

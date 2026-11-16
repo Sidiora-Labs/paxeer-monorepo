@@ -21,7 +21,7 @@ const AddressEntityContentProxy = (props: ContentProps) => {
 
   const content = (
     <>
-      <Box fontWeight={ 600 }>
+      <Box fontWeight="semibold">
         Proxy contract
         { props.address.name ? ` (${ props.address.name })` : '' }
       </Box>
@@ -34,7 +34,7 @@ const AddressEntityContentProxy = (props: ContentProps) => {
         justifyContent="center"
         w="100%"
       />
-      <Box fontWeight={ 600 } mt={ 2 }>
+      <Box fontWeight="semibold" mt={ 2 }>
         Implementation{ implementations.length > 1 ? 's' : '' }
         { implementationName ? ` (${ implementationName })` : '' }
       </Box>

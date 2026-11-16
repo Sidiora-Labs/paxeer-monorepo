@@ -28,7 +28,7 @@ const NetworkAddToWallet = ({ source, onAddSuccess }: Props) => {
       variant="outline"
       size="2xs"
       borderWidth="1px"
-      fontWeight="500"
+      fontWeight="medium"
       color={ walletInfo.color }
       borderColor={ walletInfo.color }
       onClick={ handleClick }

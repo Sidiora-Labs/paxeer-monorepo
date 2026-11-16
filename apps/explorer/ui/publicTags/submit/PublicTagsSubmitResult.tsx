@@ -45,7 +45,7 @@ const PublicTagsSubmitResult = ({ data }: Props) => {
       ) }
 
       <Heading level="2">Company info</Heading>
-      <Grid rowGap={ 3 } columnGap={ 6 } gridTemplateColumns="170px 1fr" mt={ 6 }>
+      <Grid rowGap={ 3 } columnGap={ 6 } gridTemplateColumns="var(--chakra-sizes-44) 1fr" mt={ 6 }>
         <GridItem>Your name</GridItem>
         <GridItem>{ groupedData.requesterName }</GridItem>
         <GridItem>Email</GridItem>

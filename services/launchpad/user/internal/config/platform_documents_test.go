@@ -8,12 +8,14 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -52,7 +54,7 @@ func platformValues(t *testing.T) (string, string) {
 	}
 	digest := strings.Repeat("0", 64)
 	schema := dbproduction.ExpectedSchema{
-		Service: "user", RuntimeRole: "userd", RegistryDigest: digest, InterfaceDigest: digest,
+		Service: "media/user", RuntimeRole: "userd", RegistryDigest: digest, InterfaceDigest: digest,
 		ReaderVersion: 1, Migrations: map[int64]string{1: digest}, Schemas: map[string]string{"users": digest},
 		Epoch: 1, Region: "mainnet-beta",
 		Privileges: []dbproduction.Grant{{Schema: "users", Object: "user_profiles", Privileges: []string{"SELECT"}}},
@@ -256,7 +258,7 @@ func TestPlatformDocuments(t *testing.T) {
 			}
 		case "EXPECTED_SCHEMA":
 			schema, err := dbproduction.LoadExpectedSchema(raw, cfg.ExpectedSchemaSHA256)
-			if err != nil || schema.Service != "user" || schema.RuntimeRole != "userd" {
+			if err != nil || schema.Service != "media/user" || schema.RuntimeRole != "userd" {
 				t.Fatalf("expected schema: service=%s role=%s error=%v", schema.Service, schema.RuntimeRole, err)
 			}
 		case "ACCOUNT_SUBJECTS":
@@ -398,4 +400,61 @@ func TestPlatformDocumentsRejectInvalidValues(t *testing.T) {
 			t.Fatal("composed subjects differ from user.json values")
 		}
 	})
+}
+
+func TestPrivateListenAddressContract(t *testing.T) {
+	root, values := platformValues(t)
+	out := t.TempDir()
+	if output, err := platformCompose(t, root, values, out).CombinedOutput(); err != nil {
+		t.Fatalf("compose user: %v: %s", err, output)
+	}
+	raw, err := os.ReadFile(filepath.Join(out, "user.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var documents map[string]string
+	if err := json.Unmarshal(raw, &documents); err != nil {
+		t.Fatal(err)
+	}
+	platformEnvironment(t, root, documents)
+	contractRaw, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "railway", "variables.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]struct {
+		Fixed map[string]string `json:"fixed"`
+	}
+	if err := json.Unmarshal(contractRaw, &contract); err != nil {
+		t.Fatal(err)
+	}
+	address := contract["user"].Fixed["USER_PRIVATE_LISTEN_ADDRESS"]
+	if address != "[::]:8443" {
+		t.Fatalf("private listener contract = %q, want [::]:8443", address)
+	}
+	t.Setenv("USER_PRIVATE_LISTEN_ADDRESS", address)
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load production contract: %v", err)
+	}
+	if cfg.NodeEnv != "production" || cfg.RuntimeProfile != "container" || cfg.Port != 8080 || cfg.PrivateListenAddress != address {
+		t.Fatal("private listener must use the production contract")
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate production contract: %v", err)
+	}
+	for name, invalid := range map[string]string{
+		"missing_ip":   ":8443",
+		"hostname":     "localhost:8443",
+		"missing_port": "[::]",
+		"empty_port":   "[::]:",
+		"health_port":  net.JoinHostPort("::", strconv.Itoa(cfg.Port)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := cfg
+			candidate.PrivateListenAddress = invalid
+			if err := candidate.Validate(); err == nil || !strings.Contains(err.Error(), "USER_PRIVATE_LISTEN_ADDRESS") {
+				t.Fatalf("Validate accepted private listener %q: %v", invalid, err)
+			}
+		})
+	}
 }

@@ -10,6 +10,7 @@ import useGradualIncrement from 'lib/hooks/useGradualIncrement';
 import { useRollbar } from 'lib/rollbar';
 import { Alert } from 'toolkit/chakra/alert';
 import { Button } from 'toolkit/chakra/button';
+import { Field } from 'toolkit/chakra/field';
 import { Textarea } from 'toolkit/chakra/textarea';
 import { toaster } from 'toolkit/chakra/toaster';
 import PageTitle from 'ui/shared/Page/PageTitle';
@@ -62,7 +63,7 @@ const Login = () => {
   }, [ setNum ]);
 
   return (
-    <VStack gap={ 4 } alignItems="flex-start" maxW="1000px">
+    <VStack gap={ 4 } alignItems="flex-start" maxW="var(--chakra-spacing-200)">
       <PageTitle title="Login page 😂"/>
       { isFormVisible && (
         <>
@@ -75,16 +76,19 @@ const Login = () => {
             <Code ml={ 1 }>{ cookies.NAMES.API_TOKEN }</Code> and paste it in the form below. After submitting the form you should be successfully
             authenticated in current environment
           </Alert>
-          <Textarea value={ token } onChange={ handleTokenChange } placeholder="API token"/>
+          <Field label="API token">
+            <Textarea name="api_token" value={ token } onChange={ handleTokenChange } placeholder="API token"
+              autoCorrect="off" autoCapitalize="none" spellCheck={ false }/>
+          </Field>
           <Button onClick={ handleSetTokenClick }>Set cookie</Button>
         </>
       ) }
-      <Flex columnGap={ 2 }>
+      <Flex gap={ 2 } flexWrap="wrap">
         <Button colorScheme="red" onClick={ checkRollbar }>Check Rollbar</Button>
         <Button colorScheme="teal" onClick={ checkMixpanel }>Check Mixpanel</Button>
       </Flex>
       <Flex columnGap={ 2 } alignItems="center">
-        <Box w="50px" textAlign="center">{ num }</Box>
+        <Box w={ 'var(--chakra-spacing-12\\.5)' } textAlign="center">{ num }</Box>
         <Button onClick={ handleNumIncrement } size="sm">add</Button>
       </Flex>
       <Box>Test feature value: <b>{ testFeature.isLoading ? 'loading...' : JSON.stringify(testFeature.value) }</b></Box>

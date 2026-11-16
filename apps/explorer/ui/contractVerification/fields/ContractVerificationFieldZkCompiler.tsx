@@ -1,4 +1,4 @@
-import { Box, createListCollection } from '@chakra-ui/react';
+import { Box, createListCollection, VisuallyHidden } from '@chakra-ui/react';
 import React from 'react';
 
 import type { FormFields } from '../types';
@@ -12,6 +12,7 @@ import ContractVerificationFormRow from '../ContractVerificationFormRow';
 const OPTIONS_LIMIT = 50;
 
 const ContractVerificationFieldZkCompiler = ({ config }: { config: SmartContractVerificationConfig }) => {
+  const compilerLabelId = React.useId();
   const versions = React.useMemo(() => (
     config?.zk_compiler_versions || []
   ), [ config?.zk_compiler_versions ]);
@@ -36,12 +37,16 @@ const ContractVerificationFieldZkCompiler = ({ config }: { config: SmartContract
 
   return (
     <ContractVerificationFormRow>
-      <FormFieldSelectAsync<FormFields, 'zk_compiler'>
-        name="zk_compiler"
-        placeholder="ZK compiler"
-        loadOptions={ loadOptions }
-        required
-      />
+      <Box minW={ 0 }>
+        <VisuallyHidden id={ compilerLabelId }>ZK compiler</VisuallyHidden>
+        <FormFieldSelectAsync<FormFields, 'zk_compiler'>
+          name="zk_compiler"
+          placeholder="ZK compiler"
+          ids={{ label: compilerLabelId }}
+          loadOptions={ loadOptions }
+          required
+        />
+      </Box>
       <Box>
         <Link external href="https://docs.zksync.io/zk-stack/components/compiler/specification#glossary">zksolc</Link>
         <span> compiler version.</span>

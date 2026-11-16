@@ -1,4 +1,5 @@
-import { HStack, StackSeparator } from '@chakra-ui/react';
+import { Grid } from '@chakra-ui/react';
+import { Global } from '@emotion/react';
 import React from 'react';
 
 import { SECOND } from 'toolkit/utils/consts';
@@ -35,18 +36,36 @@ const BlockCountdownTimer = ({ value: initialValue, onFinish }: Props) => {
   const periods = splitSecondsInPeriods(value);
 
   return (
-    <HStack
-      bgColor={{ _light: 'gray.50', _dark: 'whiteAlpha.100' }}
-      mt={{ base: 6, lg: 8 }}
-      p={{ base: 3, lg: 4 }}
-      borderRadius="base"
-      separator={ <StackSeparator borderColor="border.divider"/> }
-    >
-      <BlockCountdownTimerItem label="Days" value={ periods.days }/>
-      <BlockCountdownTimerItem label="Hours" value={ periods.hours }/>
-      <BlockCountdownTimerItem label="Minutes" value={ periods.minutes }/>
-      <BlockCountdownTimerItem label="Seconds" value={ periods.seconds }/>
-    </HStack>
+    <>
+      <Global styles={{
+        ':where(div):has(> [data-block-countdown-timer]) :where(div):has(> a[href^="https://www.google.com/calendar/render"])': {
+          flexWrap: 'wrap',
+          rowGap: 'var(--chakra-spacing-2)',
+        },
+      }}/>
+      <Grid
+        data-block-countdown-timer
+        role="timer"
+        aria-label="Block countdown"
+        templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-24)), 1fr))"
+        gap={ 4 }
+        w="full"
+        bgColor="surface"
+        mt={{ base: 6, lg: 8 }}
+        p={{ base: 3, lg: 4 }}
+        borderRadius="base"
+        css={{
+          '& + div': {
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-40)), 1fr))',
+          },
+        }}
+      >
+        <BlockCountdownTimerItem label="Days" value={ periods.days }/>
+        <BlockCountdownTimerItem label="Hours" value={ periods.hours }/>
+        <BlockCountdownTimerItem label="Minutes" value={ periods.minutes }/>
+        <BlockCountdownTimerItem label="Seconds" value={ periods.seconds }/>
+      </Grid>
+    </>
   );
 };
 

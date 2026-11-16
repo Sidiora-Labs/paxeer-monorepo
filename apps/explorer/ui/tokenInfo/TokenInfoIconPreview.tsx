@@ -12,9 +12,9 @@ const TokenInfoIconPreview = ({ url, isInvalid, children }: Props) => {
 
   return (
     <Center
-      boxSize="60px"
+      boxSize="var(--chakra-spacing-15)"
       flexShrink={ 0 }
-      borderWidth="2px"
+      borderWidth="1"
       borderColor={ url ? borderColorActive : 'input.border' }
       borderRadius="base"
     >

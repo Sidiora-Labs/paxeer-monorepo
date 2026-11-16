@@ -26,7 +26,7 @@ const InteropMessagesTableItem = ({ item, isLoading }: Props) => {
         <InteropMessageAdditionalInfo payload={ item.payload } isLoading={ isLoading }/>
       </TableCell>
       <TableCell>
-        <Skeleton loading={ isLoading } fontWeight="700">
+        <Skeleton loading={ isLoading } fontWeight="bold">
           { item.nonce }
         </Skeleton>
       </TableCell>

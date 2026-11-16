@@ -22,30 +22,30 @@ const TxAdditionalInfoContainer = ({ hash }: Props) => {
   if (isPending) {
     return (
       <Box>
-        <Skeleton loading w="80px" h="24px" borderRadius="sm" mb={ 3 }/>
+        <Skeleton loading w="var(--chakra-spacing-20)" h="var(--chakra-spacing-6)" borderRadius="sm" mb={ 3 }/>
         <Box>
-          <Skeleton loading w="110px" h="16px" borderRadius="full" mb={ 3 }/>
-          <Skeleton loading w="100%" h="16px" borderRadius="full"/>
+          <Skeleton loading w="var(--chakra-spacing-28)" h="var(--chakra-spacing-4)" borderRadius="full" mb={ 3 }/>
+          <Skeleton loading w="100%" h="var(--chakra-spacing-4)" borderRadius="full"/>
         </Box>
         <Separator my={ 4 }/>
         <Box>
-          <Skeleton loading w="110px" h="16px" borderRadius="full" mb={ 3 }/>
-          <Skeleton loading w="100%" h="16px" borderRadius="full"/>
+          <Skeleton loading w="var(--chakra-spacing-28)" h="var(--chakra-spacing-4)" borderRadius="full" mb={ 3 }/>
+          <Skeleton loading w="100%" h="var(--chakra-spacing-4)" borderRadius="full"/>
         </Box>
         <Separator my={ 4 }/>
         <Box>
-          <Skeleton loading w="110px" h="16px" borderRadius="full" mb={ 3 }/>
-          <Skeleton loading w="100%" h="16px" borderRadius="full"/>
+          <Skeleton loading w="var(--chakra-spacing-28)" h="var(--chakra-spacing-4)" borderRadius="full" mb={ 3 }/>
+          <Skeleton loading w="100%" h="var(--chakra-spacing-4)" borderRadius="full"/>
         </Box>
         <Separator my={ 4 }/>
         <Box>
-          <Skeleton loading w="110px" h="16px" borderRadius="full" mb={ 3 }/>
-          <Skeleton loading w="75%" h="16px" borderRadius="full"/>
-          <Skeleton loading w="75%" h="16px" borderRadius="full" mt={ 1 }/>
-          <Skeleton loading w="75%" h="16px" borderRadius="full" mt={ 1 }/>
+          <Skeleton loading w="var(--chakra-spacing-28)" h="var(--chakra-spacing-4)" borderRadius="full" mb={ 3 }/>
+          <Skeleton loading w="75%" h="var(--chakra-spacing-4)" borderRadius="full"/>
+          <Skeleton loading w="75%" h="var(--chakra-spacing-4)" borderRadius="full" mt={ 1 }/>
+          <Skeleton loading w="75%" h="var(--chakra-spacing-4)" borderRadius="full" mt={ 1 }/>
         </Box>
         <Separator my={ 4 }/>
-        <Skeleton loading w="80px" h="16px" borderRadius="full"/>
+        <Skeleton loading w="var(--chakra-spacing-20)" h="var(--chakra-spacing-4)" borderRadius="full"/>
       </Box>
     );
   }

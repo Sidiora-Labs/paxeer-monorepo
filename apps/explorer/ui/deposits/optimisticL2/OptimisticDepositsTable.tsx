@@ -4,8 +4,9 @@ import type { OptimisticL2DepositsItem } from 'types/api/optimisticL2';
 
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
 import { layerLabels } from 'lib/rollups/utils';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import OptimisticDepositsTableItem from './OptimisticDepositsTableItem';
 
@@ -18,10 +19,10 @@ type Props = {
 const OptimisticDepositsTable = ({ items, top, isLoading }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot tableLayout="auto" minW="950px">
+      <ActivityTable label="Deposits" tableLayout="auto" minW="var(--chakra-sizes-4xl)">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            <TableColumnHeader>{ layerLabels.parent } block No</TableColumnHeader>
+            <TableColumnHeader isNumeric>{ layerLabels.parent } block No</TableColumnHeader>
             <TableColumnHeader>{ layerLabels.current } txn hash</TableColumnHeader>
             <TableColumnHeader>
               Timestamp
@@ -37,7 +38,7 @@ const OptimisticDepositsTable = ({ items, top, isLoading }: Props) => {
             <OptimisticDepositsTableItem key={ item.l2_transaction_hash + (isLoading ? index : '') } item={ item } isLoading={ isLoading }/>
           )) }
         </TableBody>
-      </TableRoot>
+      </ActivityTable>
     </AddressHighlightProvider>
   );
 };

@@ -16,9 +16,9 @@ import { Tag } from 'toolkit/chakra/tag';
 import { ClearButton } from 'toolkit/components/buttons/ClearButton';
 import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import * as TokenEntity from 'ui/shared/entities/token/TokenEntity';
-import TableColumnFilter from 'ui/shared/filters/TableColumnFilter';
 import NativeTokenIcon from 'ui/shared/NativeTokenIcon';
 
+import TableColumnFilter from '../ActivityFilter';
 import { getNativeToken } from '../constants';
 
 const FILTER_PARAM_INCLUDE = 'token_contract_address_hashes_to_include';
@@ -119,21 +119,26 @@ const AssetFilter = ({ value = [], handleFilterChange, currency: currencyProp }:
       hasReset
     >
       <FilterInput
+        name="asset_search"
+        minW={ 0 }
+        inputProps={{ 'aria-label': 'Token name or symbol', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }}
         size="sm"
         onChange={ onSearchChange }
         placeholder="Token name or symbol"
         initialValue={ searchTerm }
       />
       { !searchTerm && currentValue.map((item, index) => (
-        <Flex key={ item.token.address_hash } alignItems="center">
+        <Flex key={ item.token.address_hash } alignItems="center" minW={ 0 } flexWrap="wrap" gap={ 2 }>
           <Select
+            name={ `asset_mode_${ index }` }
+            triggerProps={{ 'aria-label': 'Asset filter mode' }}
             collection={ collection }
             placeholder="Select mode"
             defaultValue={ [ item.mode || 'include' ] }
             onValueChange={ handleModeSelectChange(index) }
             portalled={ false }
-            w="105px"
-            minW="105px"
+            w="var(--chakra-spacing-28)"
+            minW="var(--chakra-spacing-28)"
             mr={ 3 }
           />
           <TokenEntity.default token={ item.token } noLink noCopy flexGrow={ 1 }/>
@@ -143,7 +148,7 @@ const AssetFilter = ({ value = [], handleFilterChange, currency: currencyProp }:
       { tokensQuery.isLoading && <Spinner display="block" mt={ 3 }/> }
       { tokensQuery.data && !searchTerm && (
         <>
-          <Text color="text.secondary" fontWeight="600" mt={ 3 }>Popular</Text>
+          <Text color="text.secondary" fontWeight="semibold" mt={ 3 }>Popular</Text>
           <Flex rowGap={ 3 } flexWrap="wrap" gap={ 3 } mb={ 2 }>
             { [ nativeToken, ...tokensQuery.data.items ].map(token => (
               <Tag
@@ -163,7 +168,7 @@ const AssetFilter = ({ value = [], handleFilterChange, currency: currencyProp }:
       ) }
       { searchTerm && tokensQuery.data && !tokensQuery.data?.items.length && <Text>No tokens found</Text> }
       { searchTerm && tokensQuery.data && Boolean(tokensQuery.data?.items.length) && (
-        <Flex display="flex" flexDir="column" rowGap={ 3 } maxH="250px" overflowY="scroll" mt={ 3 } ml="-4px">
+        <Flex display="flex" flexDir="column" rowGap={ 3 } maxH="var(--chakra-spacing-62\.5)" overflowY="auto" mt={ 3 } ml="calc(var(--chakra-spacing-1) * -1)">
           <CheckboxGroup value={ currentValue.map(i => i.token.address_hash) } orientation="vertical">
             { tokensQuery.data.items.map(token => (
               <Checkbox

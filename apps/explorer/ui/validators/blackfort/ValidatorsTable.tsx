@@ -7,11 +7,12 @@ import type {
 } from 'types/api/validators';
 
 import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import getNextSortValue from 'ui/shared/sort/getNextSortValue';
 
+import { hasValidatorField } from '../columns';
 import { VALIDATORS_BLACKFORT_SORT_SEQUENCE } from './utils';
 import ValidatorsTableItem from './ValidatorsTableItem';
-import { hasValidatorField } from '../columns';
 
 interface Props {
   data: Array<ValidatorBlackfort>;
@@ -35,32 +36,34 @@ const ValidatorsTable = ({ data, sort, setSorting, isLoading, top }: Props) => {
   };
 
   return (
-    <TableRoot variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}>
-      <TableHeaderSticky top={ top } bg="canvas">
-        <TableRow>
-          <TableColumnHeaderSortable
-            sortField="address_hash"
-            sortValue={ sort }
-            onSortToggle={ onSortToggle }
-            indicatorPosition="right"
-          >
-            Validator
-          </TableColumnHeaderSortable>
-          { columns.stake && <TableColumnHeader isNumeric title="Self-bonded amount">Stake</TableColumnHeader> }
-          { columns.delegated && <TableColumnHeader isNumeric>Delegated amount</TableColumnHeader> }
-          { columns.commission && <TableColumnHeader isNumeric>Commission</TableColumnHeader> }
-        </TableRow>
-      </TableHeaderSticky>
-      <TableBody>
-        { data.map((item, index) => (
-          <ValidatorsTableItem
-            key={ item.address.hash + (isLoading ? index : '') }
-            data={ item }
-            columns={ columns }
-            isLoading={ isLoading }/>
-        )) }
-      </TableBody>
-    </TableRoot>
+    <TableScrollArea label="Validators">
+      <TableRoot aria-label="Validators" variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}>
+        <TableHeaderSticky top={ top } bg="canvas">
+          <TableRow>
+            <TableColumnHeaderSortable
+              sortField="address_hash"
+              sortValue={ sort }
+              onSortToggle={ onSortToggle }
+              indicatorPosition="right"
+            >
+              Validator
+            </TableColumnHeaderSortable>
+            { columns.stake && <TableColumnHeader isNumeric title="Self-bonded amount">Stake</TableColumnHeader> }
+            { columns.delegated && <TableColumnHeader isNumeric>Delegated amount</TableColumnHeader> }
+            { columns.commission && <TableColumnHeader isNumeric>Commission</TableColumnHeader> }
+          </TableRow>
+        </TableHeaderSticky>
+        <TableBody>
+          { data.map((item, index) => (
+            <ValidatorsTableItem
+              key={ item.address.hash + (isLoading ? index : '') }
+              data={ item }
+              columns={ columns }
+              isLoading={ isLoading }/>
+          )) }
+        </TableBody>
+      </TableRoot>
+    </TableScrollArea>
   );
 };
 

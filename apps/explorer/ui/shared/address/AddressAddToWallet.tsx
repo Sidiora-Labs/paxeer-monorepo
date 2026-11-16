@@ -1,4 +1,4 @@
-import { Box, chakra } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import React from 'react';
 import type { WatchAssetParams } from 'viem';
 
@@ -113,7 +113,7 @@ const AddressAddToWallet = ({ className, token, tokenId, isLoading, variant = 'i
   }
 
   if (isLoading) {
-    return <Skeleton loading className={ className } boxSize={ iconSize } borderRadius="base"/>;
+    return <Skeleton loading className={ className } boxSize="touchTarget" borderRadius="base"/>;
   }
 
   const canBeAdded = (
@@ -147,9 +147,25 @@ const AddressAddToWallet = ({ className, token, tokenId, isLoading, variant = 'i
 
   return (
     <Tooltip content={ `Add token to ${ WALLETS_INFO[wallet].name }` }>
-      <Box className={ className } display="inline-flex" cursor="pointer" onClick={ handleClick } flexShrink={ 0 } aria-label="Add token to wallet">
+      <chakra.button
+        type="button"
+        className={ className }
+        display="inline-flex"
+        onClick={ handleClick }
+        flexShrink={ 0 }
+        minW="touchTarget"
+        minH="touchTarget"
+        alignItems="center"
+        justifyContent="center"
+        aria-label="Add token to wallet"
+        _focusVisible={{
+          outline: 'var(--chakra-border-widths-2) solid',
+          outlineColor: 'focusRing',
+          outlineOffset: 'var(--chakra-spacing-0\\.5)',
+        }}
+      >
         <IconSvg name={ WALLETS_INFO[wallet].icon } boxSize={ iconSize }/>
-      </Box>
+      </chakra.button>
     </Tooltip>
   );
 };

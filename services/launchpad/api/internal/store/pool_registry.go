@@ -96,7 +96,7 @@ func (s *Store) PoolReserves(ctx context.Context, pools []string) (map[string]Po
 	}
 	defer cancel()
 	defer rollbackRead(tx)
-	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools p JOIN indexer.pool_state_snapshots st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC`, pools)
+	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools_read_v1 p JOIN indexer.pool_state_snapshots_v1 st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC`, pools)
 	if err != nil {
 		return nil, err
 	}

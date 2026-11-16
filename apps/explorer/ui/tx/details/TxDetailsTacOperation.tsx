@@ -5,9 +5,9 @@ import type * as tac from '@blockscout/tac-operation-lifecycle-types';
 
 import { getTacOperationStage } from 'lib/operations/tac';
 import { Tag } from 'toolkit/chakra/tag';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import OperationEntity from 'ui/shared/entities/operation/OperationEntity';
 import TacOperationStatus from 'ui/shared/statusTag/TacOperationStatus';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 interface Props {
   tacOperations: Array<tac.OperationDetails>;
@@ -32,7 +32,7 @@ const TxDetailsTacOperation = ({ tacOperations, isLoading, txHash }: Props) => {
         gradientHeight={ 48 }
         onScrollVisibilityChange={ setHasScroll }
         rowGap={ 3 }
-        maxH="200px"
+        maxH="var(--chakra-spacing-48)"
       >
         { tacOperations.map((tacOperation) => {
           const tags = [
@@ -45,10 +45,10 @@ const TxDetailsTacOperation = ({ tacOperations, isLoading, txHash }: Props) => {
                 id={ tacOperation.operation_id }
                 type={ tacOperation.type }
                 isLoading={ isLoading }
-                my={{ base: '5px', lg: 0 }}
+                my={{ base: 'var(--chakra-spacing-1\\.25)', lg: 0 }}
               />
               { tags.length > 0 && (
-                <HStack flexShrink={ 0 } flexWrap="wrap" my={{ base: '3px', lg: 0 }}>
+                <HStack flexShrink={ 0 } flexWrap="wrap" my={{ base: 'var(--chakra-spacing-0\\.5)', lg: 0 }}>
                   <TacOperationStatus status={ tacOperation.type } isLoading={ isLoading }/>
                   { tags.map((tag) => <Tag key={ tag } loading={ isLoading } flexShrink={ 0 }>{ tag }</Tag>) }
                 </HStack>

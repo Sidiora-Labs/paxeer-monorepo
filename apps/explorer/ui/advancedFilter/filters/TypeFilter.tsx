@@ -6,8 +6,8 @@ import type { AdvancedFilterParams, AdvancedFilterType } from 'types/api/advance
 
 import { useMultichainContext } from 'lib/contexts/multichain';
 import { Checkbox, CheckboxGroup } from 'toolkit/chakra/checkbox';
-import TableColumnFilter from 'ui/shared/filters/TableColumnFilter';
 
+import TableColumnFilter from '../ActivityFilter';
 import { getAdvancedFilterTypes } from '../constants';
 
 const RESET_VALUE = 'all';

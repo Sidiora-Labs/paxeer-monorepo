@@ -1,0 +1,51 @@
+{
+  "transactionHash": "0xabababababababababababababababababababababababababababababababab",
+  "missingHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "committed": {
+    "rung": "committed",
+    "block_number": 100,
+    "committed_height": 100
+  },
+  "olderCommitted": {
+    "rung": "committed",
+    "block_number": 99,
+    "committed_height": 100
+  },
+  "submitted": {
+    "rung": "submitted",
+    "block_number": null,
+    "committed_height": null
+  },
+  "blocks": {
+    "items": [
+      {
+        "height": 100
+      },
+      {
+        "height": 99
+      }
+    ],
+    "next_page_params": null
+  },
+  "staleBlocks": {
+    "items": [
+      {
+        "height": 99
+      }
+    ],
+    "next_page_params": null
+  },
+  "emptyBlocks": {
+    "items": [],
+    "next_page_params": null
+  },
+  "receipt": {
+    "transactionHash": "0xabababababababababababababababababababababababababababababababab",
+    "blockNumber": "0x64",
+    "status": "0x1",
+    "logs": []
+  },
+  "notFound": {
+    "message": "Not found"
+  }
+}

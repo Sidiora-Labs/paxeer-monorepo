@@ -4,8 +4,8 @@ import React from 'react';
 import type { Transaction } from 'types/api/transaction';
 
 import config from 'configs/app';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoNativeCoinValue from 'ui/shared/DetailedInfo/DetailedInfoNativeCoinValue';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import TxDetailsGasUsage from './TxDetailsGasUsage';
 

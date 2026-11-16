@@ -4,7 +4,7 @@ import { route } from 'nextjs-routes';
 
 import config from 'configs/app';
 import { Link } from 'toolkit/chakra/link';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import useTxCrossChainTransfersQuery from '../useTxCrossChainTransfersQuery';
 

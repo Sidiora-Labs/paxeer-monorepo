@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,8 +24,9 @@ import (
 )
 
 type platformDocumentContract struct {
-	Fixed    map[string]string `json:"fixed"`
-	Required []string          `json:"required"`
+	Fixed           map[string]string `json:"fixed"`
+	Required        []string          `json:"required"`
+	DocumentSources map[string]string `json:"documentSources"`
 }
 
 func platformDocumentsRoot(t *testing.T) string {
@@ -65,6 +68,12 @@ func platformDocumentsValues(t *testing.T, service string) (string, string) {
 			t.Fatal(err)
 		}
 	}
+	if service == "api" {
+		raw := platformDocumentsRead(t, filepath.Join(root, "deploy", "launchpad", "documents", "values", "network-authority.json"))
+		if err := os.WriteFile(filepath.Join(values, "network-authority.json"), raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := os.Mkdir(filepath.Join(values, "expected-schema"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +83,7 @@ func platformDocumentsValues(t *testing.T, service string) (string, string) {
 	}
 	digest := production.Checksum([]byte("test-schema"))
 	want := production.ExpectedSchema{
-		Service: service, RuntimeRole: role, RegistryDigest: digest, InterfaceDigest: digest,
+		Service: "core/api", RuntimeRole: role, RegistryDigest: digest, InterfaceDigest: digest,
 		ReaderVersion: 1, Migrations: map[int64]string{1: digest},
 		Schemas: map[string]string{"api_stream": digest}, Epoch: 1, Region: "mainnet-beta",
 		Privileges: []production.Grant{{Schema: "api_stream", Object: "frames", Privileges: []string{"SELECT"}}},
@@ -129,13 +138,25 @@ func platformDocumentsEnvironment(t *testing.T, root, service string, documents 
 		"STATS_SERVICE_URL":    "https://stats.example.invalid",
 		"STREAM_SIGNING_KEY":   "test-stream-signing-key-for-platform-documents",
 		"NATS_URL":             "nats://localhost:4222", "NATS_CREDENTIALS": credsPath,
+		"NETWORK_RPC_URL": "https://api5.mainnet-beta.paxeer.network",
 	}
 	for key, value := range entry.Fixed {
 		t.Setenv(key, value)
 	}
-	for _, key := range entry.Required {
+	sources := entry.DocumentSources
+	sourcePaths := map[string]bool{}
+	names := append([]string(nil), entry.Required...)
+	for document, path := range sources {
+		if _, composed := documents[path]; composed {
+			sourcePaths[path] = true
+			names = append(names, path)
+		} else if _, composed := documents[document]; !composed {
+			t.Fatalf("composer omitted both %s and %s", document, path)
+		}
+	}
+	for _, key := range names {
 		value, composed := documents[key]
-		if strings.HasSuffix(key, "_DOCUMENT") || strings.HasSuffix(key, "_SHA256") && key != "IDENTITY_PEER_CERT_SHA256" {
+		if strings.HasSuffix(key, "_DOCUMENT") || sourcePaths[key] || strings.HasSuffix(key, "_SHA256") && key != "IDENTITY_PEER_CERT_SHA256" {
 			if !composed {
 				t.Fatalf("composer omitted %s", key)
 			}
@@ -148,7 +169,7 @@ func platformDocumentsEnvironment(t *testing.T, root, service string, documents 
 		t.Setenv(key, value)
 	}
 	required := map[string]bool{}
-	for _, key := range entry.Required {
+	for _, key := range names {
 		required[key] = true
 	}
 	for key := range documents {
@@ -176,8 +197,12 @@ func TestPlatformDocuments(t *testing.T) {
 			if err := json.Unmarshal(platformDocumentsRead(t, path), &documents); err != nil {
 				t.Fatal(err)
 			}
-			if len(documents) != 6 {
-				t.Fatalf("got %d variables, want three document/digest pairs", len(documents))
+			wantVariables := 6
+			if service == "api" {
+				wantVariables = 12
+			}
+			if len(documents) != wantVariables {
+				t.Fatalf("got %d variables, want %d document/file and digest variables", len(documents), wantVariables)
 			}
 			for key, encoded := range documents {
 				if !strings.HasSuffix(key, "_DOCUMENT") {
@@ -204,10 +229,13 @@ func TestPlatformDocuments(t *testing.T) {
 					if string(raw) != string(want) {
 						t.Fatal("expected schema bytes changed")
 					}
-					if schema, err := production.LoadExpectedSchema(raw, digest); err != nil || schema.Service != service {
+					if schema, err := production.LoadExpectedSchema(raw, digest); err != nil || schema.Service != "core/api" {
 						t.Fatalf("expected schema for %s: %v", service, err)
 					}
 				}
+			}
+			if service == "api" {
+				documents["NETWORK_AUTHORITY_CONFIG_FILE"] = filepath.Join(values, "network-authority.json")
 			}
 			platformDocumentsEnvironment(t, root, service, documents)
 			cfg, err := Load()
@@ -235,6 +263,9 @@ func TestPlatformDocuments(t *testing.T) {
 				if readConfig != want {
 					t.Fatal("accounting document differs from deployment values")
 				}
+				if readConfig.ChartsDeliverySchema != "candles" || readConfig.StatsDeliverySchema != "stats" || readConfig.ProjectionGeneration != "g1" || readConfig.ProjectionVersion != "accounting-market-v1" || readConfig.SourceStream != "chain125-canonical" {
+					t.Fatalf("accounting document must name the charts, stats and indexer example identities: %+v", readConfig)
+				}
 				poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 				if err != nil {
 					t.Fatal(err)
@@ -246,6 +277,30 @@ func TestPlatformDocuments(t *testing.T) {
 				defer pool.Close()
 				if _, err := store.NewAccountingReadModel(pool, readConfig); err != nil {
 					t.Fatalf("accounting read configuration: %v", err)
+				}
+				var relay map[string]any
+				if err := ReadBoundDocument(cfg.StreamRelayFile, cfg.StreamRelaySHA256, &relay); err != nil {
+					t.Fatal(err)
+				}
+				if relay["region"] != "mainnet-beta" {
+					t.Fatalf("stream relay document differs from deployment values: %+v", relay)
+				}
+				var discovery map[string]any
+				if err := ReadBoundDocument(cfg.DiscoveryRuntimeFile, cfg.DiscoveryRuntimeSHA256, &discovery); err != nil {
+					t.Fatal(err)
+				}
+				if discovery["d11TokenRef"] != "ACCOUNT_SERVICE_TOKEN" {
+					t.Fatalf("discovery runtime document differs from deployment values: %+v", discovery)
+				}
+				var authority map[string]any
+				if err := ReadBoundDocument(cfg.NetworkAuthorityFile, cfg.NetworkAuthoritySHA256, &authority); err != nil {
+					t.Fatal(err)
+				}
+				if authority["schemaVersion"] != float64(2) {
+					t.Fatalf("network authority document differs from rendered values: %+v", authority)
+				}
+				if err := ReadBoundDocument(cfg.NetworkAuthorityFile, strings.Repeat("0", 64), &authority); err == nil || !strings.Contains(err.Error(), "runtime_document_binding_mismatch") {
+					t.Fatalf("changed network authority file digest was accepted: %v", err)
 				}
 			} else {
 				var consumers []natsdriver.ConsumerConfig
@@ -441,6 +496,60 @@ func TestPlatformDocumentsDeploymentValues(t *testing.T) {
 				if _, err := consumers[0].BrokerConsumerConfig(); err != nil {
 					t.Fatal(err)
 				}
+			}
+		})
+	}
+}
+
+func TestPrivateListenAddressContract(t *testing.T) {
+	root, values := platformDocumentsValues(t, "api")
+	out := t.TempDir()
+	if output, err := platformDocumentsCompose(root, values, out, "api", "--examples"); err != nil {
+		t.Fatalf("compose api: %v: %s", err, output)
+	}
+	var documents map[string]string
+	if err := json.Unmarshal(platformDocumentsRead(t, filepath.Join(out, "api.json")), &documents); err != nil {
+		t.Fatal(err)
+	}
+	documents["NETWORK_AUTHORITY_CONFIG_FILE"] = filepath.Join(values, "network-authority.json")
+	platformDocumentsEnvironment(t, root, "api", documents)
+	contractRaw, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "railway", "variables.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]struct {
+		Fixed map[string]string `json:"fixed"`
+	}
+	if err := json.Unmarshal(contractRaw, &contract); err != nil {
+		t.Fatal(err)
+	}
+	address := contract["api"].Fixed["API_PRIVATE_LISTEN_ADDRESS"]
+	if address != "[::]:8443" {
+		t.Fatalf("private listener contract = %q, want [::]:8443", address)
+	}
+	t.Setenv("API_PRIVATE_LISTEN_ADDRESS", address)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load production contract: %v", err)
+	}
+	if cfg.NodeEnv != "production" || cfg.RuntimeProfile != "container" || cfg.Port != 8080 || cfg.PrivateListenAddress != address {
+		t.Fatal("private listener must use the production contract")
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate production contract: %v", err)
+	}
+	for name, invalid := range map[string]string{
+		"missing_ip":   ":8443",
+		"hostname":     "localhost:8443",
+		"missing_port": "[::]",
+		"empty_port":   "[::]:",
+		"health_port":  net.JoinHostPort("::", strconv.Itoa(cfg.Port)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := cfg
+			candidate.PrivateListenAddress = invalid
+			if err := candidate.Validate(); err == nil || !strings.Contains(err.Error(), "API_PRIVATE_LISTEN_ADDRESS") {
+				t.Fatalf("Validate accepted private listener %q: %v", invalid, err)
 			}
 		})
 	}

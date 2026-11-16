@@ -12,7 +12,7 @@ import { Heading } from 'toolkit/chakra/heading';
 import { Image } from 'toolkit/chakra/image';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
-import { Tooltip } from 'toolkit/chakra/tooltip';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import TokenLogoPlaceholder from 'ui/shared/TokenLogoPlaceholder';
 
 import type useApprovalsQuery from '../hooks/useApprovalsQuery';
@@ -97,13 +97,13 @@ const Content = ({
         position={ !isMobile && approvals?.length ? 'sticky' : 'unset' }
         top={ 0 }
         zIndex="1"
-        bg={{ _light: 'white', _dark: 'black' }}
+        bg="canvas"
       >
         <Flex
           flexDir="column"
           alignItems="flex-start"
           flex={ 1 }
-          bg={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+          bg="surface"
           gap={ 3 }
           p={ 6 }
           borderRadius="base"
@@ -121,8 +121,7 @@ const Content = ({
                 address={{ hash: searchAddress }}
                 truncation="constant"
                 textStyle={{ base: 'heading.sm', lg: 'heading.md' }}
-                fontWeight="500"
-                icon={{ size: isMobile ? undefined : 30 }}
+                fontWeight="medium"
                 noLink
               />
               <Tooltip content="Connect a wallet to revoke approvals" disabled={ isAddressMatch } disableOnMobile>
@@ -141,19 +140,19 @@ const Content = ({
               { (coinBalanceQuery.isPlaceholderData ||
                 coinBalanceQuery.data) && (
                 <>
-                  <Flex gap={ 2 } alignItems="center" ml={{ base: 0, lg: '5px' }}>
+                  <Flex gap={ 2 } alignItems="center" ml={{ base: 0, lg: 'calc(var(--chakra-spacing-1) * 1.25)' }}>
                     <Image
                       src={ coinBalanceQuery.data.coinImage }
                       alt={ coinBalanceQuery.data.symbol }
                       boxSize={ 5 }
                       fallback={ <TokenLogoPlaceholder/> }
                     />
-                    <Text textStyle="sm" fontWeight="500">
+                    <Text textStyle="sm" fontWeight="medium">
                       { coinBalanceQuery.data.balance }{ ' ' }
                       { coinBalanceQuery.data.symbol }
                     </Text>
                   </Flex>
-                  <Text textStyle="sm" fontWeight="500" color="text.secondary">
+                  <Text textStyle="sm" fontWeight="medium" color="text.secondary">
                     ${ coinBalanceQuery.data.balanceUsd }
                   </Text>
                 </>
@@ -163,7 +162,7 @@ const Content = ({
               href={ route({ pathname: '/address/[hash]', query: { hash: searchAddress } }, { chain: selectedChain, external: true }) }
               external
               textStyle="sm"
-              fontWeight="500"
+              fontWeight="medium"
               noIcon
             >
               View details
@@ -171,8 +170,8 @@ const Content = ({
           </Flex>
         </Flex>
         <Flex
-          w={{ base: 'full', lg: '400px' }}
-          bg={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+          w={{ base: 'full', lg: 'var(--chakra-spacing-100)' }}
+          bg="surface"
           p={ 6 }
           borderRadius="base"
         >
@@ -183,12 +182,12 @@ const Content = ({
             alignItems="center"
             gap={ 2 }
           >
-            <Text textStyle="sm" fontWeight="500" color="text.secondary">
+            <Text textStyle="sm" fontWeight="medium" color="text.secondary">
               Total approvals
             </Text>
             <Skeleton
               loading={ approvalsQuery.isPlaceholderData && !isScanIncomplete }
-              minW="40px"
+              minW="var(--chakra-spacing-10)"
               textAlign="center"
             >
               <Heading level="3">
@@ -207,12 +206,12 @@ const Content = ({
             alignItems="center"
             gap={ 2 }
           >
-            <Text textStyle="sm" fontWeight="500" color="text.secondary">
+            <Text textStyle="sm" fontWeight="medium" color="text.secondary">
               Total value at risk
             </Text>
             <Skeleton
               loading={ approvalsQuery.isPlaceholderData && !isScanIncomplete }
-              minW="40px"
+              minW="var(--chakra-spacing-10)"
               textAlign="center"
             >
               <Heading level="3">

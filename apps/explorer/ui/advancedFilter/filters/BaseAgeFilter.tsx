@@ -6,12 +6,13 @@ import React from 'react';
 import { ADVANCED_FILTER_AGES, type AdvancedFilterAge } from 'types/api/advancedFilter';
 
 import dayjs from 'lib/date/dayjs';
+import { Button } from 'toolkit/chakra/button';
+import { Field } from 'toolkit/chakra/field';
 import { Input } from 'toolkit/chakra/input';
 import { PopoverCloseTriggerWrapper } from 'toolkit/chakra/popover';
 import { ndash } from 'toolkit/utils/htmlEntities';
-import TableColumnFilter from 'ui/shared/filters/TableColumnFilter';
-import TagGroupSelect from 'ui/shared/tagGroupSelect/TagGroupSelect';
 
+import TableColumnFilter from '../ActivityFilter';
 import { getDurationFromAge } from '../lib';
 
 const defaultValue = { age: '', from: '', to: '' } as const;
@@ -37,21 +38,43 @@ type Props<T> = {
   dateConverter: DateConverter;
 };
 
-const DateInput = ({ value, onChange, placeholder, max }: { value: string; onChange: (value: string) => void; placeholder: string; max: string }) => {
+const DateInput = ({ value, onChange, placeholder, max, min, error }: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  max: string;
+  min?: string;
+  error?: string;
+}) => {
+  const [ interacted, setInteracted ] = React.useState(false);
   const handleChange = React.useCallback((event: ChangeEvent<HTMLInputElement>) => {
     onChange(event.target.value);
   }, [ onChange ]);
 
+  const handleBlur = React.useCallback(() => setInteracted(true), []);
+
   return (
-    <Input
-      value={ value }
-      onChange={ handleChange }
-      placeholder={ placeholder }
-      type="date"
-      max={ max }
-      autoComplete="off"
+    <Field
+      label={ placeholder }
       size="sm"
-    />
+      minW={ 0 }
+      flexGrow={ 1 }
+      flexBasis="var(--chakra-spacing-40)"
+      invalid={ interacted && Boolean(error) }
+      errorText={ interacted ? error : undefined }
+    >
+      <Input
+        name={ placeholder === 'From' ? 'age_from' : 'age_to' }
+        value={ value }
+        onChange={ handleChange }
+        onBlur={ handleBlur }
+        placeholder={ placeholder }
+        type="date"
+        max={ max }
+        min={ min }
+        size="sm"
+      />
+    </Field>
   );
 };
 
@@ -78,6 +101,14 @@ function BaseAgeFilter<T>({
     to: getToValue(),
   });
 
+  const dateError = (date: string) => date && (!dayjs(date).isValid() || dayjs(date).isAfter(dayjs(), 'day')) ?
+    'Enter a valid date on or before today' : undefined;
+  const fromError = dateError(currentValue.from);
+  const toError = dateError(currentValue.to) || (
+    currentValue.from && currentValue.to && currentValue.to < currentValue.from ? 'End date must be on or after the start date' : undefined
+  );
+  const hasInvalidRange = Boolean(fromError || toError);
+
   const handleFromChange = React.useCallback((newValue: string) => {
     setCurrentValue(prev => ({ age: '', to: prev.to, from: newValue }));
   }, []);
@@ -95,11 +126,17 @@ function BaseAgeFilter<T>({
     onClose?.();
   }, [ handleFilterChange, onClose, fieldNames, dateConverter ]);
 
+  const handlePresetClick = React.useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const age = ADVANCED_FILTER_AGES.find(age => age === event.currentTarget.value);
+    if (age) onPresetChange(age);
+  }, [ onPresetChange ]);
+
   const onReset = React.useCallback(() => {
     setCurrentValue(defaultValue);
   }, []);
 
   const onFilter = React.useCallback(() => {
+    if (hasInvalidRange) return;
     if (!currentValue.age && !currentValue.to && !currentValue.from) {
       handleFilterChange(fieldNames.from, undefined);
       handleFilterChange(fieldNames.to, undefined);
@@ -122,7 +159,7 @@ function BaseAgeFilter<T>({
       handleFilterChange(fieldNames.to, to);
       handleFilterChange(fieldNames.age, undefined);
     }
-  }, [ handleFilterChange, currentValue, fieldNames, dateConverter ]);
+  }, [ handleFilterChange, currentValue, fieldNames, dateConverter, hasInvalidRange ]);
 
   // Check if the current values differ from the original values
   const isTouched = React.useMemo(() => {
@@ -150,32 +187,43 @@ function BaseAgeFilter<T>({
     <TableColumnFilter
       title="Set last duration"
       isFilled={ Boolean(currentValue.from || currentValue.to || currentValue.age) }
-      isTouched={ isTouched }
+      isTouched={ isTouched && !hasInvalidRange }
       onFilter={ onFilter }
       onReset={ onReset }
       hasReset
     >
-      <Flex gap={ 3 }>
-        <PopoverCloseTriggerWrapper>
-          <TagGroupSelect<AdvancedFilterAge>
-            items={ ADVANCED_FILTER_AGES.map(val => ({ id: val, title: val })) }
-            onChange={ onPresetChange }
-            value={ currentValue.age || undefined }
-          />
-        </PopoverCloseTriggerWrapper>
+      <Flex gap={ 3 } flexWrap="wrap" minW={ 0 } role="group" aria-label="Duration presets">
+        { ADVANCED_FILTER_AGES.map(age => (
+          <PopoverCloseTriggerWrapper key={ age } aria-label={ age }>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              selected={ currentValue.age === age }
+              aria-pressed={ currentValue.age === age }
+              value={ age }
+              onClick={ handlePresetClick }
+            >
+              { age }
+            </Button>
+          </PopoverCloseTriggerWrapper>
+        )) }
       </Flex>
-      <Flex mt={ 3 }>
+      <Flex mt={ 3 } gap={ 3 } flexWrap="wrap" alignItems="center">
         <DateInput
           value={ currentValue.age ? '' : currentValue.from }
           onChange={ handleFromChange }
           placeholder="From"
+          error={ fromError }
           max={ dayjs().format('YYYY-MM-DD') }
         />
-        <Text mx={ 3 }>{ ndash }</Text>
+        <Text aria-hidden>{ ndash }</Text>
         <DateInput
           value={ currentValue.age ? '' : currentValue.to }
           onChange={ handleToChange }
           placeholder="To"
+          min={ currentValue.from || undefined }
+          error={ toError }
           max={ dayjs().format('YYYY-MM-DD') }
         />
       </Flex>

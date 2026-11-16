@@ -19,7 +19,7 @@ const TxRevertReason = (props: Props) => {
 
     return (
       <Grid
-        bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+        bgColor="bg.surface"
         p={ 4 }
         fontSize="sm"
         borderRadius="md"
@@ -27,12 +27,13 @@ const TxRevertReason = (props: Props) => {
         rowGap={ 2 }
         columnGap={ 4 }
         whiteSpace="normal"
+        overflowWrap="anywhere"
       >
-        <GridItem fontWeight={ 500 }>Raw:</GridItem>
+        <GridItem fontWeight="medium">Raw:</GridItem>
         <GridItem>{ props.raw }</GridItem>
         { decoded.replace(/\s|\0/g, '') && (
           <>
-            <GridItem fontWeight={ 500 }>Decoded:</GridItem>
+            <GridItem fontWeight="medium">Decoded:</GridItem>
             <GridItem>{ decoded }</GridItem>
           </>
         ) }

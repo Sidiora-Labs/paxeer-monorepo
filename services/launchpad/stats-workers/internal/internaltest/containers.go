@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS metadata.token_metadata (
 	description   text,
 	created_by    varchar(42) NOT NULL,
 	created_at    bigint      NOT NULL
-);`
+);
+CREATE OR REPLACE VIEW metadata.token_search_v1 AS SELECT token_address,pool_address,name,symbol,description,created_by,created_at FROM metadata.token_metadata;`
 
 // NewPostgres creates a throwaway database on the STATS_TEST_POSTGRES_DSN
 // server, applies the stats-workers goose migrations (the stats schema), and
