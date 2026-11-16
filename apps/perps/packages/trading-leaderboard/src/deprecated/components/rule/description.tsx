@@ -21,6 +21,8 @@ export type DescriptionItem = {
   content: string; // Support markdown syntax, plain text, or image URL
   type: "markdown" | "text" | "image";
   alt?: string; // For images
+  width?: number;
+  height?: number;
   className?: string; // Custom styling
   listStyle?: ListStyle; // List style for ul/ol elements
   listClassName?: string; // Custom list container class
@@ -123,6 +125,8 @@ const parseRichText = (text: string): JSX.Element[] => {
             key={key++}
             src={match[2]}
             alt={match[1]}
+            loading="lazy"
+            decoding="async"
             className="oui-my-2 oui-block oui-h-auto oui-max-w-full"
           />,
         );
@@ -211,6 +215,10 @@ export const DescriptionContent: FC<{
         <img
           src={content.content}
           alt={content.alt || ""}
+          width={content.width}
+          height={content.height}
+          loading="lazy"
+          decoding="async"
           className="oui-my-2 oui-h-auto oui-max-w-full"
         />
       );
@@ -227,7 +235,7 @@ export const DescriptionContent: FC<{
   return (
     <div
       className={cn(
-        "oui-text-sm oui-font-semibold oui-leading-[28px] oui-text-base-contrast-54",
+        "oui-text-sm oui-font-semibold oui-leading-normal oui-text-base-contrast-54",
       )}
     >
       {renderContent(description)}
@@ -250,6 +258,10 @@ export const MarkdownDescriptionContent: FC<{
               <img
                 src={content.content}
                 alt={content.alt || ""}
+                width={content.width}
+                height={content.height}
+                loading="lazy"
+                decoding="async"
                 className="oui-my-2 oui-h-auto oui-max-w-full"
               />
             ) : (
@@ -270,7 +282,7 @@ export const MarkdownDescriptionContent: FC<{
   return (
     <div
       className={cn(
-        "oui-text-sm oui-font-semibold oui-leading-[28px] oui-text-base-contrast-54",
+        "oui-text-sm oui-font-semibold oui-leading-normal oui-text-base-contrast-54",
       )}
     >
       {renderContent(description)}

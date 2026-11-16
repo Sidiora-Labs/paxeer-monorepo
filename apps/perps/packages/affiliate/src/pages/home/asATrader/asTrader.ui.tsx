@@ -1,3 +1,6 @@
+import surface from "../../../surface.module.css";
+import { AffiliateDialog } from "../../../components/dialog";
+import { ReferralCodeInput } from "../../multiLevel/affiliate/referralCodeForm/referralCodeInput";
 import { FC } from "react";
 import {
   formatReferralCodeInput,
@@ -41,9 +44,10 @@ export const AsTrader: FC<AsTraderReturns> = (props) => {
       angle={180}
       width={"100%"}
       justify={"between"}
+      className={surface.surface}
     >
       <Flex
-        height={80}
+        height={"var(--oui-space-20)"}
         direction={"row"}
         gap={3}
         itemAlign={"start"}
@@ -87,7 +91,7 @@ const Icon = () => {
       viewBox="0 0 90 90"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="xl:oui-size-[90px] "
+      className="xl:oui-size-24 "
     >
       <path
         d="M44.996 7.324c-20.71 0-37.43 16.79-37.5 37.5-.07 20.682 16.806 37.575 37.5 37.617 20.694.04 37.537-17.082 37.5-37.617-.037-20.71-16.79-37.5-37.5-37.5m0 7.5c16.569 0 30 13.433 30 30 0 8.438-3.514 16.043-9.12 21.495-2.762-5.973-8.694-10.245-15.49-10.245h-10.78c-6.791 0-12.706 4.22-15.47 10.197-5.606-5.453-9.14-13.01-9.14-21.447 0-16.567 13.431-30 30-30m0 7.5c-8.284 0-15 6.717-15 15s6.716 15 15 15 15-6.716 15-15-6.716-15-15-15"
@@ -130,19 +134,16 @@ const Bottom: FC<AsTraderReturns> = (props) => {
               </Text>
             </Flex>
           </Flex>
-          <Flex
-            direction={"row"}
-            gap={1}
-            justify={"end"}
-            itemAlign={"center"}
-            className="oui-cursor-pointer"
-            onClick={props?.onEnterTraderPage}
+          <button
+            type="button"
+            className="oui-inline-flex oui-items-center oui-justify-end oui-gap-1 oui-underline"
+            onClick={props.onEnterTraderPage}
           >
             <Text className="oui-text-sm md:oui-text-base xl:oui-text-lg">
               {t("affiliate.enter")}
             </Text>
-            <ArrowRightIcon className="md:oui-size-[18px] lg:oui-size-[20px] xl:oui-size-[24px]" />
-          </Flex>
+            <ArrowRightIcon className="md:oui-size-4 lg:oui-size-5 xl:oui-size-6" />
+          </button>
         </>
       );
     }
@@ -164,93 +165,59 @@ const Bottom: FC<AsTraderReturns> = (props) => {
 
 const EntryCode: FC<AsTraderReturns> = (props) => {
   const { t } = useTranslation();
-
+  const invalid =
+    isReferralCodeLengthValid(props.code) && !props.isExist && !props.isLoading;
   return (
-    <Dialog open={props.open} onOpenChange={props.setOpen}>
-      <DialogTrigger>
-        <Button variant="contained" color="light">
-          {t("affiliate.asTrader.button")}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="oui-w-[320px] oui-font-semibold">
-        <DialogHeader>
-          <DialogTitle>{t("affiliate.referralCode.dialog.title")}</DialogTitle>
-        </DialogHeader>
-        <Divider />
-        <DialogBody>
-          <Text size="sm" intensity={54}>
+    <>
+      <Button type="button" color="light" onClick={() => props.setOpen(true)}>
+        {t("affiliate.asTrader.button")}
+      </Button>
+      <AffiliateDialog
+        open={props.open}
+        onOpenChange={props.setOpen}
+        title={t("affiliate.referralCode.dialog.title")}
+      >
+        <form
+          className="oui-grid oui-gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (isReferralCodeLengthValid(props.code) && props.isExist)
+              void props.onClickConfirm();
+          }}
+        >
+          <p className="oui-text-sm oui-text-content-muted">
             {t("affiliate.referralCode.dialog.description")}
-          </Text>
-
-          <TextField
-            className="oui-mt-4 oui-w-full"
-            placeholder={t("affiliate.referralCode")}
+          </p>
+          <ReferralCodeInput
             value={props.code}
-            onChange={(e) => {
-              props.setCode(formatReferralCodeInput(e.target.value));
-            }}
-            formatters={[
-              inputFormatter.createRegexInputFormatter(
-                (value: string | number) => {
-                  return String(value).replace(/[a-z]/g, (char: string) =>
-                    char.toUpperCase(),
-                  );
-                },
-              ),
-              inputFormatter.createRegexInputFormatter(/[^A-Z0-9]/g),
-            ]}
-            onClean={() => {
-              props.setCode("");
-            }}
+            onChange={(value) => props.setCode(formatReferralCodeInput(value))}
+            disabled={false}
+            autoFocus
             label={t("affiliate.referralCode.label")}
-            maxLength={REFERRAL_CODE_MAX_LENGTH}
-            minLength={REFERRAL_CODE_MIN_LENGTH}
-            classNames={{
-              label: "oui-text-2xs oui-text-base-contrast-54",
-            }}
+            placeholder={t("affiliate.referralCode")}
             helpText={
-              isReferralCodeLengthValid(props.code) &&
-              !props.isExist &&
-              !props.isLoading
-                ? t("affiliate.referralCode.notExist")
-                : undefined
+              invalid ? t("affiliate.referralCode.notExist") : undefined
             }
-            color={
-              isReferralCodeLengthValid(props.code) &&
-              !props.isExist &&
-              !props.isLoading
-                ? "danger"
-                : undefined
-            }
+            color={invalid ? "danger" : undefined}
           />
-
-          <Flex direction={"column"} gapY={3} mt={6}>
-            {props.warningMessage && (
-              <Text size="2xs" className="oui-text-warning-darken">
-                {props.warningMessage}
-              </Text>
-            )}
-            <AuthGuard buttonProps={{ size: "md", fullWidth: true }}>
-              <Button
-                variant="contained"
-                color="primary"
-                size="md"
-                className="oui-px-[40px]"
-                fullWidth
-                disabled={
-                  !isReferralCodeLengthValid(props.code) || !props.isExist
-                }
-                onClick={(e) => {
-                  e.stopPropagation();
-                  props.onClickConfirm();
-                }}
-              >
-                {t("common.confirm")}
-              </Button>
-            </AuthGuard>
-          </Flex>
-        </DialogBody>
-      </DialogContent>
-    </Dialog>
+          {props.warningMessage && (
+            <p className="oui-text-sm oui-text-warning-darken">
+              {props.warningMessage}
+            </p>
+          )}
+          <AuthGuard buttonProps={{ size: "md", fullWidth: true }}>
+            <Button
+              type="submit"
+              fullWidth
+              disabled={
+                !isReferralCodeLengthValid(props.code) || !props.isExist
+              }
+            >
+              {t("common.confirm")}
+            </Button>
+          </AuthGuard>
+        </form>
+      </AffiliateDialog>
+    </>
   );
 };
