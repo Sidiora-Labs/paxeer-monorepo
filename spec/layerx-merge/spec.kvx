@@ -15154,6 +15154,30 @@ value = "The example values of the gateway name for each upstream routes that th
 basis = "Gotcha 4590. Decisions 3663 and 3046."
 affects = []
 
+[decision.3674]
+title = "The registered migrations and the grants document give what the media authority of the gateway and the prune of the ranking service name"
+value = "A registered migration of the gateway adds the column initial_visibility to the table restrictions with the type, the default and the check of the statement in connected.go, and makes the table inventory_cursors with the columns and the key of the statement in inventory.go. The grants document gives the runtime role of the gateway on the table inventory_cursors the rights its statements use, and the runtime role of the ranking service on the table snapshots the right the row lock of the prune needs, each in the narrowest form. The registry and its digests follow. No right is taken away and no other role changes. The functions that hold the statements stay for the cases that make a schema of their own, and a case holds what they make equal to the registered migrations. Cases run the replay of the tombstones, the inventory cursor and the prune with connections of the runtime roles on a database made by the helper Bootstrap."
+basis = "Gotchas 4591 and 4592. Decisions 3672 and 3661."
+affects = []
+
+[decision.3675]
+title = "Each launchpad service holds a case that plans its statements under its runtime role and one task adds what the cases name"
+value = "Each of the services gateway, ranking, pnl, indexer, api, social, metadata, user and livestream holds a package internal/rolecheck with a list of every statement the service runs on a pool of a runtime role in its connected form, and a case that makes a database with the helper Bootstrap and takes the plan of each statement with a connection of the role. A file of the package, the waiting list, names each statement whose plan the database refuses, with the object, the right and the message. The case asserts the plan of every statement outside the waiting list. These nine tasks change neither the grants document nor a registered migration, so they run side by side. One task after them adds to the grants document and to the registered migrations what the nine waiting lists name, in one change of the registry, and empties the lists. The charts service and the stats service hold their lists through tasks 22.39.728 and 22.39.734."
+basis = "Gotcha 4593. Decisions 3674, 3672 and 3661."
+affects = []
+
+[decision.3676]
+title = "A launchpad service with a TLS listener answers its liveness and readiness paths without TLS on the port the health check reads"
+value = "The ranking service, the user service, the metadata service and the social service answer the paths /health/live and /health/ready without TLS on the port the health check of their definition reads, and that listener serves no other route. Every other route stays on the listener with TLS and its rule for client certificates, on a port of its own that a setting names. The gateway and the livestream service are the pattern. The variables file and the definition files in the platform directory under deploy/launchpad, the example values of the composer and the settings of the callers follow each port that moves. In the development form the services listen as before."
+basis = "Gotcha 4594. Decisions 3673 and 3663."
+affects = []
+
+[decision.3677]
+title = "A command of the api writes its network authority document"
+value = "A command under services/launchpad/api/cmd writes the network authority document of the api from the manifest of the repository, the reviewed pool runtime and the serial interface, with the revision digest the preflight engine gives for them and the address maps of the manifest, and prints the digest of the file for the digest setting. The source schema and the public endpoints are inputs of the command. The document it writes passes every check the api runs on such a document. The README under deploy/launchpad states the command and the settings that take the document."
+basis = "Gotcha 4595. Decisions 3663 and 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44814,6 +44838,123 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.748]
+title = "Write the network authority document of the api with a command of the repository"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api", "sdk/launchpad/shared/config/capabilities", "deploy/launchpad/README.md"]
+tests = []
+verification_contract = "cd services/launchpad/api && go test -count=1 -timeout 20m ./cmd/api-runtime-docs/"
+do_1 = "do_1 Gotcha 4595, decision 3677. Read services/launchpad/api/internal/app/authority.go with the type of the document, the function newNetworkAuthority and every check it runs, the settings of the document in services/launchpad/api/internal/config/config.go, the preflight engine and its revision in sdk/launchpad/shared/config/capabilities, the manifest and its address comparison in sdk/launchpad/shared/config/deployment, and the command services/launchpad/indexer/cmd/indexer-runtime-docs with its cases as the model."
+symbols = []
+
+[capability.22.39.747]
+title = "Answer the health paths of the ranking, user, metadata and social services without TLS on the port the health check reads"
+reqs = ["22998.1"]
+touches = ["services/launchpad", "deploy/launchpad", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run 'TestHealthListener|PlatformDocuments' ./internal/app/ ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run 'TestHealthListener|PlatformDocuments' ./internal/app/ ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run 'TestHealthListener|PlatformDocuments' ./internal/app/ ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run 'TestHealthListener|PlatformDocuments' ./internal/app/ ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd sdk/launchpad/shared && go test -count=1 -timeout 20m -run PlatformDocuments ./db/production/)"
+do_1 = "do_1 Gotcha 4594, decision 3676. Read in internal/app/app.go of the ranking service, the user service, the metadata service and the social service the place that makes the server and its TLS configuration, the handlers of the health paths and the check of the trusted ingress, and in internal/config of each the settings of the listen address and of the certificates. Read the same places of the gateway and of the livestream service as the pattern, the definition files and the variables file in the platform directory under deploy/launchpad, the composer modules and example values under deploy/launchpad/documents that name an address of one of the four services, and every setting of another service that names such an address."
+symbols = []
+
+[capability.22.39.746]
+title = "Add to the grants document and the registered migrations what the waiting lists of the statement cases name and empty the lists"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+verification_contract = "(cd services/launchpad/gateway && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/indexer && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/api && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/social && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/metadata && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/user && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/livestream && go test -count=1 -timeout 40m ./internal/rolecheck/) && cd sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the package internal/rolecheck of each of the nine services under services/launchpad with its list of statements and its waiting list, the entries of their runtime roles in migrations/grants.json, the registry migrations/registry.json with the history of the registration that was added last and every file that changed with it, and the code of sdk/launchpad/shared/db/production with the command of the schema that checks the registry and the grants document."
+symbols = []
+
+[capability.22.39.745]
+title = "List the statements of the livestream service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/livestream"]
+tests = []
+verification_contract = "cd services/launchpad/livestream && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role livestream_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/livestream/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/livestream and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.744]
+title = "List the statements of the user service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/user"]
+tests = []
+verification_contract = "cd services/launchpad/user && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role users_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/user/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/user and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.743]
+title = "List the statements of the metadata service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata"]
+tests = []
+verification_contract = "cd services/launchpad/metadata && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role metadata_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/metadata/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/metadata and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.742]
+title = "List the statements of the social service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "cd services/launchpad/social && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role chat_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/social/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/social and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.741]
+title = "List the statements of the api service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "cd services/launchpad/api && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime roles api_runtime, api_rest_runtime and api_sockets_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/api/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/api and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.740]
+title = "List the statements of the indexer service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "cd services/launchpad/indexer && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role indexer_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/indexer/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/indexer and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.739]
+title = "List the statements of the pnl service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "cd services/launchpad/pnl-tracker && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role pnl_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/pnl-tracker/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/pnl-tracker and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.738]
+title = "List the statements of the ranking service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "cd services/launchpad/ranking-algo && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role ranking_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/ranking-algo/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/ranking-algo and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.737]
+title = "List the statements of the gateway service under its runtime role and hold their plans with a case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "cd services/launchpad/gateway && go test -count=1 -timeout 40m ./internal/rolecheck/"
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime roles identity_runtime and control_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/gateway/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/gateway and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+symbols = []
+
+[capability.22.39.736]
+title = "Add the restriction column and the inventory cursor table of the gateway by a registered migration and give the ranking role the lock right of its prune"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad/gateway", "services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "cd services/launchpad/gateway && go test -count=1 -timeout 30m -run '^TestRuntimeRoleMediaAuthority' ./internal/storage/ && cd ../ranking-algo && go test -count=1 -timeout 30m -run '^TestRuntimeRolePrune' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+do_1 = "do_1 Gotchas 4591 and 4592, decision 3674. Read in services/launchpad/gateway/internal/storage the files connected.go, reconciliation.go, retention.go and inventory.go with every statement that names the table restrictions or the table inventory_cursors, the case file initial_visibility_test.go, the place in services/launchpad/gateway/internal/app/app.go that makes the media authority, runs the replay of the tombstones and starts the inventory, the function Prune of services/launchpad/ranking-algo/internal/store/publication.go, the registrations of the gateway and of the ranking service in migrations/registry.json with their files under migrations, their entries in migrations/grants.json, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the case beside it, the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store, and the history of the registration that was added last with every file that changed with it."
+symbols = []
 
 [capability.22.39.735]
 title = "Give the composer example values of the gateway the forms the gateway admits and hold them with a case of the app"
@@ -248914,6 +249055,425 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.748]
+title = "Write the network authority document of the api with a command of the repository"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.748"]
+interfaces = []
+do_1 = "do_1 Gotcha 4595, decision 3677. Read services/launchpad/api/internal/app/authority.go with the type of the document, the function newNetworkAuthority and every check it runs, the settings of the document in services/launchpad/api/internal/config/config.go, the preflight engine and its revision in sdk/launchpad/shared/config/capabilities, the manifest and its address comparison in sdk/launchpad/shared/config/deployment, and the command services/launchpad/indexer/cmd/indexer-runtime-docs with its cases as the model."
+do_2 = "do_2 A command in the new directory services/launchpad/api/cmd/api-runtime-docs writes the network authority document. Its inputs are the root of the repository, the source schema, the public endpoints, the reviewed pool runtime and an output directory. It takes the manifest from the code the api reads it from, the digest of the serial interface from the file the repository holds for it, the expected revision digest from the preflight engine and both address maps from the manifest. It writes the file with the mode the indexer command uses and prints the digest of the file and its size. An input the api would refuse is refused by the command with a message that names it."
+do_3 = "do_3 The checks the api runs on the document that need no network are split into a function that the function newNetworkAuthority and the command call, so both hold the same rule. The behaviour of the api does not change."
+do_4 = "do_4 Cases in the package of the command: the written document decodes into the type of the api and passes the checks of do_3; a changed manifest address, a changed revision digest, a wrong schema version and a source schema outside the admitted form are each refused; two runs with the same inputs write the same bytes. The cases need no network and no database. The present cases stay and none is weakened."
+do_5 = "do_5 The file deploy/launchpad/README.md states the command with its inputs, the settings that take the document as a file or inline and the digest setting. Run by hand the cases of the command and the cases of services/launchpad/api/internal/app and services/launchpad/api/internal/config and read each message."
+do_6 = "do_6 The files of services/launchpad/api and of sdk/launchpad/shared/config/capabilities and the file deploy/launchpad/README.md are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api", "sdk/launchpad/shared/config/capabilities", "deploy/launchpad/README.md"]
+tests = []
+planned_paths = ["services/launchpad/api/cmd/api-runtime-docs"]
+build_cmd = "cd services/launchpad/api && go build ./... && go vet ./cmd/... ./internal/app/"
+verify_cmd = "cd services/launchpad/api && go test -count=1 -timeout 20m ./cmd/api-runtime-docs/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.747]
+title = "Answer the health paths of the ranking, user, metadata and social services without TLS on the port the health check reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.747"]
+interfaces = []
+do_1 = "do_1 Gotcha 4594, decision 3676. Read in internal/app/app.go of the ranking service, the user service, the metadata service and the social service the place that makes the server and its TLS configuration, the handlers of the health paths and the check of the trusted ingress, and in internal/config of each the settings of the listen address and of the certificates. Read the same places of the gateway and of the livestream service as the pattern, the definition files and the variables file in the platform directory under deploy/launchpad, the composer modules and example values under deploy/launchpad/documents that name an address of one of the four services, and every setting of another service that names such an address."
+do_2 = "do_2 In the connected form each of the four services opens two listeners. The listener on the port the health check of its definition reads serves without TLS the paths /health/live and /health/ready and no other route. The listener with TLS serves every route as before, with the same rule for client certificates, on a port of its own that a setting of the service names, and the configuration refuses a start where the two ports are equal. Both listeners stop in the order the service stops today. In the development form the service listens as before."
+do_3 = "do_3 The variables file and the definition files in the platform directory under deploy/launchpad name the new setting where a service needs it, and the health check of each definition stays the path /health/ready. The example values of the composer, its README and every setting of a caller that names an address of one of the four services follow each port that moved. The final message names for each service the two ports and each file that followed."
+do_4 = "do_4 Cases: a case in internal/app of each of the four services whose name starts with TestHealthListener needs no database. It starts the two listeners with certificates made for the test and asserts that the two health paths answer without TLS on the health port, that another route of the service is not served there, that the listener with TLS serves the health paths and keeps its rule for client certificates, and that equal ports are refused. The present cases stay and none is weakened."
+do_5 = "do_5 Run by hand the cases of deploy/launchpad/documents/test_compose.py, the case of the values under deploy/launchpad/tests, the case under tools/deploy/tests of the tool that applies the variables of the launchpad, the cases named PlatformDocuments of the four services, of the gateway and of sdk/launchpad/shared/db/production, and the cases of internal/app and internal/config of the four services, and read each message."
+do_6 = "do_6 The files of the services under services/launchpad, the files under deploy/launchpad and the files under tools/deploy are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed to change them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad", "deploy/launchpad", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/ranking-algo && go vet ./internal/app/ ./internal/config/) && (cd services/launchpad/user && go vet ./internal/app/ ./internal/config/) && (cd services/launchpad/metadata && go vet ./internal/app/ ./internal/config/) && (cd services/launchpad/social && go vet ./internal/app/ ./internal/config/) && python3 -m py_compile deploy/launchpad/documents/compose.py"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run 'TestHealthListener|PlatformDocuments' ./internal/app/ ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run 'TestHealthListener|PlatformDocuments' ./internal/app/ ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run 'TestHealthListener|PlatformDocuments' ./internal/app/ ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run 'TestHealthListener|PlatformDocuments' ./internal/app/ ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd sdk/launchpad/shared && go test -count=1 -timeout 20m -run PlatformDocuments ./db/production/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.746]
+title = "Add to the grants document and the registered migrations what the waiting lists of the statement cases name and empty the lists"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.734", "22.39.736", "22.39.737", "22.39.738", "22.39.739", "22.39.740", "22.39.741", "22.39.742", "22.39.743", "22.39.744", "22.39.745"]
+reqs = ["22998.1"]
+capabilities = ["22.39.746"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the package internal/rolecheck of each of the nine services under services/launchpad with its list of statements and its waiting list, the entries of their runtime roles in migrations/grants.json, the registry migrations/registry.json with the history of the registration that was added last and every file that changed with it, and the code of sdk/launchpad/shared/db/production with the command of the schema that checks the registry and the grants document."
+do_2 = "do_2 For each entry of a waiting list: where a right is missing, the grants document gives it to the runtime role in the narrowest form. Where a table, a column, a sequence or a function is missing, a registered migration of the service that owns the schema makes it, in the form of the statement in the source that makes it for the cases, or, where the source holds no such statement, in the form the statements that use it need. Where the service does not reach a listed statement in its connected form, the statement leaves the list of the case with the reason, and nothing is added for it. Take no right away. The final message names each right and each object that was added, the statement that needs it, and each statement that left a list."
+do_3 = "do_3 The registry follows in one change: each new registration with its predecessor, the application order, the digests, the approval, and every file the code of sdk/launchpad/shared/db/production and the command of the schema hold equal to the registry or to the grants document. A file that records an approval of an earlier release stays as it is where the code reads it as history."
+do_4 = "do_4 Every waiting list is emptied, so each of the nine cases asserts the plan of every statement of its list. The cases of the charts service and of the stats service under their runtime roles stay as they are."
+do_5 = "do_5 Run by hand the nine cases, the cases of sdk/launchpad/shared/db/production, of sdk/launchpad/shared/db/production/coordinatortest and of the command of the schema, and read each message. The files under migrations, the files of sdk/launchpad/shared/db/production and the files of the services under services/launchpad are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed to change them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "cd sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "(cd services/launchpad/gateway && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/indexer && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/api && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/social && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/metadata && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/user && go test -count=1 -timeout 40m ./internal/rolecheck/) && (cd services/launchpad/livestream && go test -count=1 -timeout 40m ./internal/rolecheck/) && cd sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.745]
+title = "List the statements of the livestream service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.745"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role livestream_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/livestream/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/livestream and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the livestream service runs on a pool of the runtime role livestream_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/livestream/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime role livestream_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/livestream are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/livestream"]
+tests = []
+planned_paths = ["services/launchpad/livestream/internal/rolecheck"]
+build_cmd = "cd services/launchpad/livestream && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/livestream && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.744]
+title = "List the statements of the user service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.744"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role users_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/user/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/user and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the user service runs on a pool of the runtime role users_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/user/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime role users_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/user are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/user"]
+tests = []
+planned_paths = ["services/launchpad/user/internal/rolecheck"]
+build_cmd = "cd services/launchpad/user && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/user && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.743]
+title = "List the statements of the metadata service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.743"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role metadata_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/metadata/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/metadata and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the metadata service runs on a pool of the runtime role metadata_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/metadata/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime role metadata_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/metadata are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata"]
+tests = []
+planned_paths = ["services/launchpad/metadata/internal/rolecheck"]
+build_cmd = "cd services/launchpad/metadata && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/metadata && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.742]
+title = "List the statements of the social service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.742"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role chat_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/social/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/social and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the social service runs on a pool of the runtime role chat_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/social/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime role chat_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/social are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = ["services/launchpad/social/internal/rolecheck"]
+build_cmd = "cd services/launchpad/social && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/social && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.741]
+title = "List the statements of the api service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.741"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime roles api_runtime, api_rest_runtime and api_sockets_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/api/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/api and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the api service runs on a pool of the runtime roles api_runtime, api_rest_runtime and api_sockets_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/api/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime roles api_runtime, api_rest_runtime and api_sockets_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/api are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = ["services/launchpad/api/internal/rolecheck"]
+build_cmd = "cd services/launchpad/api && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/api && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.740]
+title = "List the statements of the indexer service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.740"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role indexer_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/indexer/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/indexer and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the indexer service runs on a pool of the runtime role indexer_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/indexer/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime role indexer_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/indexer are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = ["services/launchpad/indexer/internal/rolecheck"]
+build_cmd = "cd services/launchpad/indexer && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/indexer && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.739]
+title = "List the statements of the pnl service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.739"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role pnl_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/pnl-tracker/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/pnl-tracker and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the pnl service runs on a pool of the runtime role pnl_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/pnl-tracker/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime role pnl_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/pnl-tracker are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = ["services/launchpad/pnl-tracker/internal/rolecheck"]
+build_cmd = "cd services/launchpad/pnl-tracker && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/pnl-tracker && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.738]
+title = "List the statements of the ranking service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.738"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime role ranking_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/ranking-algo/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/ranking-algo and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the ranking service runs on a pool of the runtime role ranking_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/ranking-algo/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime role ranking_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/ranking-algo are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = ["services/launchpad/ranking-algo/internal/rolecheck"]
+build_cmd = "cd services/launchpad/ranking-algo && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/ranking-algo && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.737]
+title = "List the statements of the gateway service under its runtime role and hold their plans with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.737"]
+interfaces = []
+do_1 = "do_1 Gotcha 4593, decision 3675. Read the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, the entries of migrations/grants.json for the runtime roles identity_runtime and control_runtime, the registrations in migrations/registry.json of the schemas these roles use with their files under migrations, the place in services/launchpad/gateway/internal/app that opens each pool with the role it logs in with, and every package of services/launchpad/gateway and of sdk/launchpad/shared, as the service calls it, that holds a statement."
+do_2 = "do_2 List every statement the gateway service runs on a pool of the runtime roles identity_runtime and control_runtime in its connected form: the file, the function, the kind of the statement, the tables, sequences, functions and columns it names, and the role. A statement that runs only where the service makes a schema of its own in its development form is left out, and the final message names the packages left out with the reason. Where the source builds a statement in place, a function that returns its text may be split off so that the case reads the text the service runs. The behaviour of the service does not change."
+do_3 = "do_3 The package services/launchpad/gateway/internal/rolecheck holds the list and a case whose name starts with TestRuntimeRoleStatements. The case makes a database with the helper Bootstrap for the runtime roles identity_runtime and control_runtime, where the database of the coordinator is given, puts the schema names of the registered migrations into each statement and takes its plan with a connection of the role that runs it, through EXPLAIN with the option GENERIC_PLAN where the statement has parameters. A statement that has no plan of that kind is run with the connection of the role inside a transaction that is rolled back."
+do_4 = "do_4 A file of the package, the waiting list, names each statement whose plan the database refuses because the registered migrations and the grants document do not give a table, a column, a sequence, a function or a right, with the object, the right and the message of the database. The case asserts that every statement outside the waiting list is planned and that every entry of the waiting list names a statement of the list, and it asserts nothing on the plan of a listed statement. This task changes neither migrations/grants.json nor a file under migrations nor migrations/registry.json: task 22.39.746 adds what the waiting lists name."
+do_5 = "do_5 Run the case by hand and read each message. In the qualification environment the database of the coordinator is given, so the case runs there and does not skip. The final message gives the number of statements per package, the number that are planned and the waiting list in full. The files of services/launchpad/gateway are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = ["services/launchpad/gateway/internal/rolecheck"]
+build_cmd = "cd services/launchpad/gateway && go build ./... && go vet ./internal/rolecheck/"
+verify_cmd = "cd services/launchpad/gateway && go test -count=1 -timeout 40m ./internal/rolecheck/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.736]
+title = "Add the restriction column and the inventory cursor table of the gateway by a registered migration and give the ranking role the lock right of its prune"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.733"]
+reqs = ["22998.1"]
+capabilities = ["22.39.736"]
+interfaces = []
+do_1 = "do_1 Gotchas 4591 and 4592, decision 3674. Read in services/launchpad/gateway/internal/storage the files connected.go, reconciliation.go, retention.go and inventory.go with every statement that names the table restrictions or the table inventory_cursors, the case file initial_visibility_test.go, the place in services/launchpad/gateway/internal/app/app.go that makes the media authority, runs the replay of the tombstones and starts the inventory, the function Prune of services/launchpad/ranking-algo/internal/store/publication.go, the registrations of the gateway and of the ranking service in migrations/registry.json with their files under migrations, their entries in migrations/grants.json, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the case beside it, the case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store, and the history of the registration that was added last with every file that changed with it."
+do_2 = "do_2 Add a registered migration of the gateway that adds the column initial_visibility to the table restrictions with the type, the default and the check of the statement in connected.go, and makes the table inventory_cursors with the columns and the key of the statement in inventory.go. The rows a database already holds keep their meaning: state in the final message which value the column takes for them and why. The registry follows: the registration with its predecessor, the application order, the digests, the approval, and every file the code of sdk/launchpad/shared/db/production and the command of the schema hold equal to the registry. A file that records an approval of an earlier release stays as it is where the code reads it as history."
+do_3 = "do_3 The grants document gives the runtime role of the gateway on the table inventory_cursors the rights the statements of inventory.go use, and on the table restrictions every right the statements of the storage package use and the document lacks. It gives the runtime role of the ranking service on the table snapshots the right the row lock of the read in the function Prune needs. Read in the documentation of PostgreSQL which right a read under a row lock needs, choose the narrowest form and state the choice in the final message. Take no right away and change no other role."
+do_4 = "do_4 The functions of connected.go and inventory.go that hold the statements stay for the cases that make a schema of their own. A case holds the table restrictions and the table inventory_cursors they make equal to the tables of the registered migrations, by columns, types, defaults, checks and keys read from the catalog."
+do_5 = "do_5 Cases: a case in services/launchpad/gateway/internal/storage whose name starts with TestRuntimeRoleMediaAuthority makes a database with the helper Bootstrap for the runtime role of the gateway, where the database of the coordinator is given, and runs with the connection of the role the replay of the tombstones, one restriction that takes its first visibility, one later revision of it, and one read and one write of the inventory cursor, and asserts the rows they leave. A case in services/launchpad/ranking-algo/internal/store whose name starts with TestRuntimeRolePrune makes a database in the same way for the runtime role of the ranking service, inserts a published snapshot that is old enough, runs the function Prune with the connection of the role and asserts that the row is gone and that a second run removes nothing. The present cases stay and none is weakened. Run by hand the cases of the two packages, the cases of sdk/launchpad/shared/db/production, of sdk/launchpad/shared/db/production/coordinatortest and of the command of the schema, and read each message."
+do_6 = "do_6 The files under migrations, the files of sdk/launchpad/shared/db/production, the files of services/launchpad/gateway and the files of services/launchpad/ranking-algo are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed to change them. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad/gateway", "services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/gateway && go vet ./internal/storage/ && cd ../ranking-algo && go vet ./internal/store/ && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "cd services/launchpad/gateway && go test -count=1 -timeout 30m -run '^TestRuntimeRoleMediaAuthority' ./internal/storage/ && cd ../ranking-algo && go test -count=1 -timeout 30m -run '^TestRuntimeRolePrune' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.735]
 title = "Give the composer example values of the gateway the forms the gateway admits and hold them with a case of the app"
 status = "pending"
@@ -249081,7 +249641,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.730]
 title = "Write the file form of the receipt and lifecycle documents of the indexer from rendered files in the composer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.729"]
