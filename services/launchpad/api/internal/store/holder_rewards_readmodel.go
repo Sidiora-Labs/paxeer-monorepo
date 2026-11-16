@@ -99,7 +99,7 @@ func (s *Store) HolderRewardsStats(ctx context.Context) (*HolderRewardsStats, er
 func holderRewardsTotals(ctx context.Context, tx pgx.Tx) (UInt256, int64, error) {
 	var distributed string
 	var wallets int64
-	if err := tx.QueryRow(ctx, `SELECT COALESCE((SELECT sum(amount::numeric) FROM indexer.fee_distributions WHERE strategy=$1), 0)::text, (SELECT count(DISTINCT lower(holder)) FROM indexer.airdrop_claims)`, feeStrategyAirdrop).Scan(&distributed, &wallets); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT COALESCE((SELECT sum(amount::numeric) FROM indexer.fee_distributions_v1 WHERE strategy=$1), 0)::text, (SELECT count(DISTINCT lower(holder)) FROM indexer.airdrop_claims_v1)`, feeStrategyAirdrop).Scan(&distributed, &wallets); err != nil {
 		return "", 0, err
 	}
 	total, err := ParseUInt256(distributed)
@@ -126,18 +126,18 @@ func (s *Store) HolderRewardPools(ctx context.Context, sortKey string) (*HolderR
 	if err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, `WITH dist AS (SELECT pool_id, sum(amount::numeric) AS distributed FROM indexer.fee_distributions WHERE strategy=$1 GROUP BY pool_id),
-claims AS (SELECT pool_id, count(DISTINCT lower(holder)) AS holders FROM indexer.airdrop_claims WHERE pool_id IS NOT NULL GROUP BY pool_id),
-events AS (SELECT pool_id, block_number, log_index, new_strategy AS strategy FROM indexer.fee_strategy_changes UNION ALL SELECT pool_id, block_number, log_index, strategy FROM indexer.fee_distributions),
+	rows, err := tx.Query(ctx, `WITH dist AS (SELECT pool_id, sum(amount::numeric) AS distributed FROM indexer.fee_distributions_v1 WHERE strategy=$1 GROUP BY pool_id),
+claims AS (SELECT pool_id, count(DISTINCT lower(holder)) AS holders FROM indexer.airdrop_claims_v1 WHERE pool_id IS NOT NULL GROUP BY pool_id),
+events AS (SELECT pool_id, block_number, log_index, new_strategy AS strategy FROM indexer.fee_strategy_changes_v1 UNION ALL SELECT pool_id, block_number, log_index, strategy FROM indexer.fee_distributions_v1),
 latest AS (SELECT DISTINCT ON (pool_id) pool_id, strategy FROM events ORDER BY pool_id, block_number DESC, log_index DESC),
 candidates AS (SELECT pool_id FROM dist UNION SELECT pool_id FROM claims UNION SELECT pool_id FROM latest WHERE strategy=$1)
 SELECT lower(p.pool_address), lower(p.token_address), COALESCE(d.distributed, 0)::text, COALESCE(c.holders, 0), l.strategy, COALESCE(cc.block_timestamp, p.created_at), ps.market_cap
-FROM candidates k JOIN indexer.pools p ON p.pool_id=k.pool_id
+FROM candidates k JOIN indexer.pools_read_v1 p ON p.pool_id=k.pool_id
 LEFT JOIN dist d ON d.pool_id=k.pool_id
 LEFT JOIN claims c ON c.pool_id=k.pool_id
 LEFT JOIN latest l ON l.pool_id=k.pool_id
 LEFT JOIN indexer.indexer_canonical_creations_v1 cc ON cc.pool=lower(p.pool_address)
-LEFT JOIN stats.pool_stats ps ON lower(ps.pool_address)=lower(p.pool_address)
+LEFT JOIN stats.pool_market_caps_v1 ps ON lower(ps.pool_address)=lower(p.pool_address)
 ORDER BY lower(p.pool_address)`, feeStrategyAirdrop)
 	if err != nil {
 		return nil, err

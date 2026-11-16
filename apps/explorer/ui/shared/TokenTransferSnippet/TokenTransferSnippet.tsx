@@ -28,7 +28,7 @@ const TokenTransferSnippet = ({ data, isLoading, noAddressIcons = true }: Props)
   const content = (() => {
 
     if (isLoading) {
-      return <Skeleton loading w="250px" h={ 6 }/>;
+      return <Skeleton loading w={ 'var(--chakra-spacing-62\\.5)' } h={ 6 }/>;
     }
 
     if (data.token && isConfidentialTokenType(data.token.type)) {
@@ -106,6 +106,8 @@ const TokenTransferSnippet = ({ data, isLoading, noAddressIcons = true }: Props)
       rowGap={ 0 }
       flexDir="row"
       w="100%"
+      minW={ 0 }
+      overflowWrap="anywhere"
     >
       <AddressFromTo
         from={ data.from }
@@ -113,7 +115,7 @@ const TokenTransferSnippet = ({ data, isLoading, noAddressIcons = true }: Props)
         truncation="constant"
         noIcon={ noAddressIcons }
         isLoading={ isLoading }
-        lineHeight={{ lg: '24px' }}
+        lineHeight={{ lg: 'h2' }}
       />
       { content }
     </Flex>

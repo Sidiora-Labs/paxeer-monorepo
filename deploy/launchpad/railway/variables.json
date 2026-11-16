@@ -12,6 +12,7 @@
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
       "API_ROLE": "rest",
+      "API_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "PORT": "8080",
       "IDENTITY_ASSERTION_AUDIENCE": "identity"
     },
@@ -114,6 +115,12 @@
     ]
   },
   "indexer": {
+    "optional": {
+      "INDEXER_MODE": true,
+      "BACKFILL_FROM_BLOCK": true,
+      "BACKFILL_BATCH_SIZE": true,
+      "BACKFILL_ONLY": true
+    },
     "buildArgs": {
       "SERVICE": "indexer",
       "BIN": "indexerd"
@@ -356,7 +363,7 @@
       "RUNTIME_PROFILE": "container",
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
-      "RANKING_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
+      "RANKING_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "CHAIN_ID": "125",
       "EVENT_EMITTER_ADDRESS": "0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6",
       "POOL_REGISTRY_ADDRESS": "0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7",
@@ -460,7 +467,7 @@
       "RUNTIME_PROFILE": "container",
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
-      "USER_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
+      "USER_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "PORT": "8080"
     },
     "required": [
@@ -544,7 +551,7 @@
       "RUNTIME_PROFILE": "container",
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
-      "SOCIAL_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
+      "SOCIAL_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "PORT": "8080"
     },
     "required": [
@@ -580,7 +587,7 @@
       "BIND_ADDRESS": "0.0.0.0",
       "SECRETS_PROVIDER": "env",
       "METADATA_INGRESS": "mtls",
-      "METADATA_PRIVATE_LISTEN_ADDRESS": "0.0.0.0:8443",
+      "METADATA_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
       "RASTER_ISOLATION": "rlimit",
       "RASTER_EXECUTABLE": "/app/app",
       "PORT": "8080",

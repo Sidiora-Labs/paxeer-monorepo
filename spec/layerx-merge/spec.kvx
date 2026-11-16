@@ -15262,6 +15262,66 @@ value = "The document deploy/launchpad/object-store/accounts.json states, for ea
 basis = "Gotcha 4610. Gotcha 4608."
 affects = []
 
+[decision.3692]
+title = "The contract fixes the private listen address to the wildcard that accepts both address families"
+value = "The contract fixes the private listen address of the ranking service, the user service, the social service, the metadata service and the api to [::]:8443, the form the checks of the services name. The checks keep their rules: an IP and a port, the port distinct from PORT. The compose file under deploy/launchpad keeps the value 0.0.0.0:8443, since its network gives the services IPv4 addresses, and the README states both values and the reason for each. A case in the configuration package of each of the five services reads the contract and holds that the check of the service admits the fixed value, so that contract and check cannot part."
+basis = "Gotcha 4612. Decision 3685."
+affects = []
+
+[decision.3693]
+title = "The social service answers every authority route the notification library reads, in each runtime"
+value = "The private listener of the container profile answers, for an admitted peer of the authority list, the routes graph, visibility, public, callouts:review and callout-authority besides ranking-visibility, with the results the other runtime gives for the same input. Both runtimes take the routes from one function, so that a route cannot be present in one and absent in the other. The route public answers for a kind and an id the public resource the library decodes, and not found for a resource that is not public. A peer outside the authority list keeps its refusal on every route. A case holds the list of routes of the library and the routes of the service together."
+basis = "Gotcha 4613."
+affects = []
+
+[decision.3694]
+title = "A runtime document of the social service without a voice binding is a complete form with voice off"
+value = "Without the member voice the social service runs with voice off: the voice routes answer the refusal of an unavailable voice service, no provider is called, and readiness does not depend on voice. With the member present the rules stay: a binding that cannot be built stops the start. The parts the check social_runtime joins today become checks of their own, each with a name that starts with social_, the way the media parts of the metadata service are checks of their own, so that a readiness answer names the failing part. A part that is off registers no check. The composer keeps its refusal of a values member voice until the launchpad contract holds the references a binding needs."
+basis = "Gotcha 4614."
+affects = []
+
+[decision.3695]
+title = "The private identity listener of the gateway answers the readiness path to a verified peer"
+value = "The private identity listener answers GET /health/ready to a request with a verified client chain: 200 while the gateway is in the ready state of its lifecycle, 503 otherwise, with a body that holds the status only. The answer comes from the state the gateway holds, and no dependency is read for the request. Every other path outside /internal/v2/identity/ keeps 404, a request without a verified chain keeps 404 on every path, and the identity routes keep their assertion rules. A case in the gateway sends the request the way the check of the metadata service sends it."
+basis = "Gotcha 4615."
+affects = []
+
+[decision.3696]
+title = "An empty set of markets is a complete answer"
+value = "With no known market the route ranking-visibility answers 200 with complete true, an empty object of pools, the time of the read and the revision of the empty set, in both runtimes. The upper bound of the set stays. The ranking service takes that answer, publishes the head of every category with no entry and the revision of the empty set, answers its read routes with an empty page, and its readiness check passes. An answer that is incomplete, stale or without the member pools stays refused."
+basis = "Gotcha 4616."
+affects = []
+
+[decision.3697]
+title = "The composer writes the route that brings the history below the anchor into the indexer"
+value = "The values of the indexer take an optional member for the first height of the history, not below the activation height of the deployment manifest and not above the anchor. With it the composer writes what the service needs to hold every market and event from that height to the anchor: the requests in the lifecycle document, split where the bound of one request needs it, the values of the mode and of the batch settings, and a statement file with the rows of authorization the requests need, each with its scope and an expiry, which the operator applies with the migration role. After the history the service goes on in the live mode from the anchor without a second set of documents where the service allows that, and the README states the sequence of starts where it does not. Without the member the documents stay as they are. The route to the history is a route of the operator: no request and no authorization arises without the values member."
+basis = "Gotcha 4617."
+affects = []
+
+[decision.3698]
+title = "The verification form subscribes to the topic of the address in lower case"
+value = "The page script of the verification form brings the address to lower case before it builds the topic of the address channel, so the topic equals the one on which the notifier publishes for every spelling of the address. Nothing else of the page changes, and the other page scripts under services/explorer/backend/apps/block_scout_web/assets/js stay as they are. Task 22.39.688 makes the change, since the feature cases of that form lie in its paths."
+basis = "Gotcha 4618."
+affects = []
+
+[decision.3699]
+title = "The append of a ranking head reads the committed head with its category"
+value = "A registered migration replaces the function so that the read of the committed head also holds the category, taken from the topic of the frame, and finds one row for every run. Everything else of the function stays as it is: the comparisons of topic, revision, snapshot and items, the rule of the source order, the owner, the security setting and the rights. The file of migration 190003 stays unchanged. Task 22.39.766 makes the change, since its cases hold the publication of a run over an empty set of markets."
+basis = "Gotcha 4619. Decision 3696."
+affects = []
+
+[decision.3700]
+title = "The readiness refresh of the canonical source is a reader that names its cause"
+value = "The refresh reads the height of the source, the watermark of the stream and the checkpoint at the watermark without a write: it retains no committed head, quarantines none and reports no durable height; those stay with the ingestion alone. A refresh gives the same answer whether or not the ingestion advances the watermark during the read, at any pace the ingestion reaches. At each change between success and failure the service writes one log line with the step of the read and the class of the error, without the address of a node and without a credential; the readiness answer itself stays as it is. The present refusals stay: a mismatch and an incomplete checkpoint are held as invalid until a refresh succeeds, a service without a successful refresh is not ready, and a last success older than one minute is refused."
+basis = "Gotcha 4620."
+affects = []
+
+[decision.3701]
+title = "A case that renders a whole page states its own time bounds, and a task verifies the directories it owns"
+value = "A case of the explorer that renders a whole page or the whole layout states its bounds itself: thirty seconds for the case and fifteen seconds for a wait for content, written at the case or once for its file. No assertion changes and the configuration of the runner stays as it is, so every other case keeps the default bounds. Task 22.44.72 brings the cases under apps/explorer/ui/shared/Page and apps/explorer/ui/shared/layout to that form. The verification of task 22.44.4 selects the twenty directories of its paths; the cases of the other directories of apps/explorer/ui/shared are verified by the tasks that own them and by the proof task of the surface."
+basis = "Gotcha 4621. Decision 3587."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44922,6 +44982,78 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.72]
+title = "Give the explorer cases that render a whole page or the whole layout their own time bounds"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/layout"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/shared/Page/ ui/shared/layout/"
+do_1 = "do_1 Gotcha 4621, decision 3701. Read the configuration of the test runner of apps/explorer with its setup file, every spec file under apps/explorer/ui/shared/Page and under apps/explorer/ui/shared/layout, and the helpers they render with. List in the final message every case of the two directories that renders a whole page or the whole layout, with the time each takes in a run of its file alone and in a run of the whole directory apps/explorer/ui/shared."
+symbols = []
+
+[capability.22.39.768]
+title = "Make the readiness refresh of the canonical source a reader that holds on a moving head and names its cause"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "(cd services/launchpad/indexer && go test -count=1 -timeout 30m -run TestCanonicalSourceReadiness ./internal/app/)"
+do_1 = "do_1 Gotcha 4620, decision 3700. Read in services/launchpad/indexer/internal/app the readiness of the canonical source with its cases, the place in app.go that builds it, the head reader of the ingestion with every write it makes, and the check of the checkpoint at the watermark; read in services/launchpad/indexer/internal/source the committed source with the conditions under which a block read at a height is refused, and in services/launchpad/indexer/internal/store the retention and the quarantine of a committed head. State in the final message: every step of one refresh that can return an error while the ingestion advances the watermark several heights a second and the watermark stands at the newest height of the chain, whether two callers of the head reader in the same seconds can make one of them fail or quarantine a head, and which of those errors the present code keeps."
+symbols = []
+
+[capability.22.39.767]
+title = "Compose the route that brings the history below the anchor into the indexer"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad/indexer"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/indexer && go test -count=1 -timeout 40m -run TestHistoryBelowAnchor ./internal/... ./cmd/...)"
+do_1 = "do_1 Gotcha 4617, decision 3697. Read the composer of the indexer documents under deploy/launchpad/documents with its values example, the command under services/launchpad/indexer/cmd that writes the runtime documents, and in services/launchpad/indexer/internal the lifecycle document and its validation, the backfill and the replay runner with the source they read, the store of replay requests with the authorization it reads, the migration that creates the table of authorizations, and the place where the service passes from the backfill to the live mode. State in the final message: what a request of each mode does to the tables of the canonical stream, whether the live mode can follow a backfill in one start, what bounds the heights a backfill completes in a second, and which settings change that bound."
+symbols = []
+
+[capability.22.39.766]
+title = "Publish empty ranking heads for an empty set of markets"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestEmptyUniverse ./internal/..."
+do_1 = "do_1 Gotcha 4616, decision 3696. Read in services/launchpad/ranking-algo the client of the route ranking-visibility, the reader of the frozen inputs, the coordinator and its two runs, the publication store, the readiness function of the runtime and the read routes. State in the final message, for an answer of the route with complete true and an empty object of pools, what each of these does today and where the first refusal is."
+symbols = []
+
+[capability.22.39.765]
+title = "Answer the readiness path on the private identity listener of the gateway"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "cd services/launchpad/gateway && go test -count=1 -timeout 30m -run TestPrivateIdentityReadiness ./internal/app/"
+do_1 = "do_1 Gotcha 4615, decision 3695. Read in services/launchpad/gateway/internal/app the handler of the private identity listener, its TLS policy, the place where the listener is built and the lifecycle state the public readiness route reads; read in services/launchpad/metadata/internal/app the check media_identity and the function that sends its request. State in the final message the exact request the check sends and what the listener answers to it today."
+symbols = []
+
+[capability.22.39.764]
+title = "Make the social service ready without a voice binding and with an empty set of markets"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "cd services/launchpad/social && go test -count=1 -timeout 30m -run TestReadinessWithoutVoice ./internal/app/ && go test -count=1 -timeout 30m -run TestRankingVisibilityWithoutMarkets ./internal/app/ && go test -count=1 -timeout 30m -run ContainerProfile ./internal/app/ && go test -count=1 -timeout 30m -run PlatformDocuments ./internal/config/"
+do_1 = "do_1 Gotchas 4614 and 4616, decisions 3694 and 3696. Read in services/launchpad/social/internal/app the construction of the connected runtime, its readiness function, the voice control and the voice routes, the two functions that answer the route ranking-visibility, one for each runtime, and the cases named ContainerProfile; read in the configuration package the runtime binding with its member voice and the cases named PlatformDocuments; read the composer of the social documents under deploy/launchpad/documents. State in the final message what each voice route answers today without a binding and which cases build a runtime without one."
+symbols = []
+
+[capability.22.39.763]
+title = "Answer every authority route the notification library reads on the private listener of the social service"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "cd services/launchpad/social && go test -count=1 -timeout 30m -run TestAuthorityRoutes ./internal/app/ && go test -count=1 -timeout 30m -run ContainerProfile ./internal/app/"
+do_1 = "do_1 Gotcha 4613, decision 3693. Read services/launchpad/notifications/wire.go and name each route the library calls below /internal/v2/social, with method, input and the members of the answer it decodes and checks. Read in services/launchpad/social/internal/app the function that answers the authority routes of the private listener of the container profile and the function that answers them in the other runtime, and what each needs: the pool, the chat store, the functions for graph, visibility, review and the callout authority. State in the final message, per route, which runtime answers it at the start of the task."
+symbols = []
+
+[capability.22.39.762]
+title = "Fix the private listen address of the launchpad contract to the wildcard of both address families"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+do_1 = "do_1 Gotcha 4612, decision 3692. Read the entries of the ranking service, the user service, the social service, the metadata service and the api in the contract in the platform directory under deploy/launchpad; the check of the private listen address in the configuration package of each of the five, under services/launchpad/ranking-algo, services/launchpad/user, services/launchpad/social, services/launchpad/metadata and services/launchpad/api; every file under deploy/launchpad, services/launchpad and tools/deploy that names the present value; and the three cases that compare the fixed names: deploy/launchpad/documents/test_compose.py, the values case under deploy/launchpad/tests and the case under tools/deploy/tests that applies the variables of the launchpad. State in the final message every file that names the value and what reads it."
+symbols = []
 
 [capability.22.44.71]
 title = "Read the groups of the mobile navigation in the layout case of the search results as the header gives them"
@@ -174919,9 +175051,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.72]
+title = "Give the explorer cases that render a whole page or the whole layout their own time bounds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.71"]
+reqs = ["22998.1"]
+capabilities = ["22.44.72"]
+interfaces = []
+do_1 = "do_1 Gotcha 4621, decision 3701. Read the configuration of the test runner of apps/explorer with its setup file, every spec file under apps/explorer/ui/shared/Page and under apps/explorer/ui/shared/layout, and the helpers they render with. List in the final message every case of the two directories that renders a whole page or the whole layout, with the time each takes in a run of its file alone and in a run of the whole directory apps/explorer/ui/shared."
+do_2 = "do_2 Each listed case takes the bounds of decision 3701, thirty seconds for the case and fifteen seconds for each wait for content, written at the case or once at the head of its file. The case of the block details in apps/explorer/ui/shared/Page/entityPageComposition.spec.tsx and the cases of apps/explorer/ui/shared/layout/Layout.spec.tsx are among them. No assertion is changed, removed or weakened, no case is skipped, the components are not changed, and the configuration of the runner and its setup file stay as they are."
+do_3 = "do_3 Where a listed case can reach its content sooner without a change of what it holds, for example by waiting for the one element it reads, do that as well and name it in the final message."
+do_4 = "do_4 Run by hand the whole directory apps/explorer/ui/shared three times in a row and read each summary: every case of apps/explorer/ui/shared/Page and apps/explorer/ui/shared/layout holds in each run. A case of another directory that does not hold in one of the runs is named in the final message with test, file and first message and is not changed. The files of apps/explorer/ui/shared/Page and apps/explorer/ui/shared/layout are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/layout"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/shared/Page/ ui/shared/layout/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.71]
 title = "Read the groups of the mobile navigation in the layout case of the search results as the header gives them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.3"]
@@ -174952,7 +175115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.70]
 title = "Count a request the page cancelled without a finding in the render check and report an ended request once"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.62"]
@@ -177720,7 +177883,7 @@ touches = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/share
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.4.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.4.kvx && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.4.kvx && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/AccountActionsMenu/ ui/shared/DetailedInfo/ ui/shared/TokenTransfer/ ui/shared/TokenTransferSnippet/ ui/shared/address/ ui/shared/batch/ ui/shared/block/ ui/shared/chart/ ui/shared/gas/ ui/shared/logs/ ui/shared/monaco/ ui/shared/nft/ ui/shared/scan/ ui/shared/stats/ ui/shared/tx/ ui/shared/userOps/ ui/shared/web3/ ui/shared/ad/ ui/shared/verificationSteps/ ui/shared/solidityscanReport/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -177733,6 +177896,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_10 = "do_10 Decision 3701, gotcha 4621. The work of the earlier candidate stays as it is: the changes of the components, the cases and the record. The verification now selects the twenty directories of the paths of this task. Take main, run the cases of those directories by hand and read each message, then run the build once and the counted verification once. The cases under apps/explorer/ui/shared/Page and apps/explorer/ui/shared/layout belong to task 22.44.72 and are not part of this verification; change nothing there. It makes no difference whether a case passed before the change, and no approval is needed to repair a case or its cause inside the paths. No case is removed or weakened. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.3]
 title = "Bring the shared structure parts of the explorer to the web platform guidance"
@@ -249585,9 +249749,235 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.768]
+title = "Make the readiness refresh of the canonical source a reader that holds on a moving head and names its cause"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.760"]
+reqs = ["22998.1"]
+capabilities = ["22.39.768"]
+interfaces = []
+do_1 = "do_1 Gotcha 4620, decision 3700. Read in services/launchpad/indexer/internal/app the readiness of the canonical source with its cases, the place in app.go that builds it, the head reader of the ingestion with every write it makes, and the check of the checkpoint at the watermark; read in services/launchpad/indexer/internal/source the committed source with the conditions under which a block read at a height is refused, and in services/launchpad/indexer/internal/store the retention and the quarantine of a committed head. State in the final message: every step of one refresh that can return an error while the ingestion advances the watermark several heights a second and the watermark stands at the newest height of the chain, whether two callers of the head reader in the same seconds can make one of them fail or quarantine a head, and which of those errors the present code keeps."
+do_2 = "do_2 The refresh becomes a reader as decision 3700 states: it takes the height of the source by a path that makes no write to the committed heads, makes no quarantine and reports no durable height. The ingestion keeps its head reader unchanged in what it writes. Where do_1 finds a step that fails only because the watermark moved or stands at the newest height during the read, change the refresh so that it holds there without weakening the comparison of the checkpoint: the hash of a complete height at or below the watermark is still compared with the block of the source at that height."
+do_3 = "do_3 The readiness takes the logger of the service. At the first failure after a success or after the start, and at the first success after a failure, it writes one line with the step of the read, one of height of the source, watermark and checkpoint, and the class of the error; repeated failures of the same step and class write no further line. The line holds no address of a node, no credential and no text of an error that can carry one. The readiness answer and its three refusals stay as they are."
+do_4 = "do_4 Cases whose names start with TestCanonicalSourceReadiness, beside the present ones: a double of the ingestion advances the watermark several heights a second through the real head reader while the refresh runs for several rounds, and every refresh succeeds; the refresh leaves the rows of the committed heads and the durable height of the source as they were; an error of each step gives exactly one line with that step, and the return to success one line; a mismatch and an incomplete checkpoint are still held until a success; a success older than one minute is still refused."
+do_5 = "do_5 Task 22.39.767 changes the same service: take main before the counted verification and keep both changes. Run the new cases by hand, one after another, and read each message. The files of services/launchpad/indexer are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/indexer && go build ./... && go vet ./internal/app/)"
+verify_cmd = "(cd services/launchpad/indexer && go test -count=1 -timeout 30m -run TestCanonicalSourceReadiness ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.767]
+title = "Compose the route that brings the history below the anchor into the indexer"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.749"]
+reqs = ["22998.1"]
+capabilities = ["22.39.767"]
+interfaces = []
+do_1 = "do_1 Gotcha 4617, decision 3697. Read the composer of the indexer documents under deploy/launchpad/documents with its values example, the command under services/launchpad/indexer/cmd that writes the runtime documents, and in services/launchpad/indexer/internal the lifecycle document and its validation, the backfill and the replay runner with the source they read, the store of replay requests with the authorization it reads, the migration that creates the table of authorizations, and the place where the service passes from the backfill to the live mode. State in the final message: what a request of each mode does to the tables of the canonical stream, whether the live mode can follow a backfill in one start, what bounds the heights a backfill completes in a second, and which settings change that bound."
+do_2 = "do_2 The values of the indexer take the optional member of decision 3697; the composer refuses a value below the activation height of the manifest or above the anchor. With the member the composer writes the requests into the lifecycle document, split at the bound of one request, each with the anchor as its checkpoint, with identities that are stable for equal values, and it gives the values of the mode and of the batch settings for the variables of the service. The contract in the platform directory under deploy/launchpad names those variables as optional names of the indexer. Without the member every document is byte for byte as before."
+do_3 = "do_3 The composer writes the statement file of the authorizations beside the documents: one row for each request with the scope the service reads, the operator identity taken from the values and an expiry taken from the values, written so that a second application changes nothing. The file is applied by the migration role; the service role gains no right on the table through this task."
+do_4 = "do_4 Where the service cannot pass a range longer than one request or cannot go on in the live mode after the history in one start, make that possible inside services/launchpad/indexer where the change is small and holds the present refusals, and otherwise state the sequence of starts in the README. Every present refusal stays: a request without a matching authorization, a request above the bound, a request of another stream."
+do_5 = "do_5 Cases: in deploy/launchpad/documents/test_compose.py the member absent, at its bounds, below the activation height, above the anchor, and a range that needs several requests, with the statement file compared row for row; in services/launchpad/indexer cases whose names start with TestHistoryBelowAnchor that read documents the composer wrote for a recorded range holding the creation of a market below the anchor, apply the statement file to the database of the case, run the history with the doubles the packages have for the node, and hold that the canonical creations hold the market, that the live mode goes on from the anchor, and that the same documents without the applied statement file are refused."
+do_6 = "do_6 The README of deploy/launchpad states the member, the statement file, who applies it, the sequence of starts and what do_1 found on the heights a backfill completes in a second. Task 22.39.760 changes the readiness of the canonical source in the same service: take main before the counted verification and keep both changes. Run the new cases by hand, one after another, and read each message. The files of deploy/launchpad and services/launchpad/indexer are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./internal/app/ ./internal/processor/ ./internal/store/ ./cmd/..."
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/indexer && go test -count=1 -timeout 40m -run TestHistoryBelowAnchor ./internal/... ./cmd/...)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.766]
+title = "Publish empty ranking heads for an empty set of markets"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.754"]
+reqs = ["22998.1"]
+capabilities = ["22.39.766"]
+interfaces = []
+do_1 = "do_1 Gotcha 4616, decision 3696. Read in services/launchpad/ranking-algo the client of the route ranking-visibility, the reader of the frozen inputs, the coordinator and its two runs, the publication store, the readiness function of the runtime and the read routes. State in the final message, for an answer of the route with complete true and an empty object of pools, what each of these does today and where the first refusal is."
+do_2 = "do_2 With that answer and no market in the source the refresh completes: the head of every category, the category new among them, is published with no entry and carries the revision of the empty set, the readiness check ranking passes once the heads are current, and the read routes answer an empty page with the status they give a page today. Nothing is logged as a failure for the empty set."
+do_3 = "do_3 The refusals stay: an answer with a status other than 200, an answer that is incomplete, an answer without the member pools, an observation time in the future or older than the bound, and a revision that is not 64 characters long are refused as today, and a case holds each beside the empty set."
+do_4 = "do_4 Cases whose names start with TestEmptyUniverse in the packages the change touches, and at least one in services/launchpad/ranking-algo/internal/app that runs the path from the answer of the route to the published heads and the readiness check with the doubles and the database the present cases of the package use. When the first market appears in the source and in the answer of the route, the next refresh publishes it: one case holds that step."
+do_5 = "do_5 The README of the service states the behaviour for an empty set of markets. Run the new cases by hand and read each message. The files of services/launchpad/ranking-algo are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo", "migrations"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/ranking-algo && go vet ./internal/..."
+verify_cmd = "cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestEmptyUniverse ./internal/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3699, gotcha 4619. The directory migrations is now inside the paths of this task: add one registered migration with the next free number of the series of the ranking service that replaces api_stream.append_ranking as decision 3699 states, with the owner, the security setting and the rights of the present function, and enter it in the registry and in the grants document the way the present registered migrations are entered. Change no present migration file. Add to the cases of this task one for a run whose categories share sequence and digest and hold entries, so that each head is appended once under its own topic. Run the cases under sdk/launchpad/shared/db that read the registry and the grants document by hand; where one needs a change outside the paths, change nothing there and give test, file and first message in the final message. The work of the earlier candidate stays as it is. It makes no difference whether a case passed before the change, and no approval is needed to repair a case or its cause inside the paths. No case is removed or weakened. Run the cases of the verification by hand first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+
+[task.22.39.765]
+title = "Answer the readiness path on the private identity listener of the gateway"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.759"]
+reqs = ["22998.1"]
+capabilities = ["22.39.765"]
+interfaces = []
+do_1 = "do_1 Gotcha 4615, decision 3695. Read in services/launchpad/gateway/internal/app the handler of the private identity listener, its TLS policy, the place where the listener is built and the lifecycle state the public readiness route reads; read in services/launchpad/metadata/internal/app the check media_identity and the function that sends its request. State in the final message the exact request the check sends and what the listener answers to it today."
+do_2 = "do_2 The handler of the private identity listener answers GET /health/ready to a request with a verified client chain: 200 while the gateway is in the ready state of its lifecycle and 503 otherwise, with a JSON body that holds the status only. The answer is taken from the state the gateway holds; the handler runs no check of a dependency for the request and does not wait. Every other method on the path, every other path outside /internal/v2/identity/ and every request without a verified chain keep the present answer. The identity routes are not changed."
+do_3 = "do_3 Cases in services/launchpad/gateway/internal/app whose names start with TestPrivateIdentityReadiness, against the handler behind a TLS listener with the policy of the private listener: a client with a certificate of the private authority that sends GET with the path /health/ready below the endpoint and no assertion header, the way the check of the metadata service does, gets 200 in the ready state and 503 before it and after the stop began; a client without a certificate does not complete the connection; POST on the path and GET on /health/live, /health and /metrics get 404; a path below /internal/v2/identity/ reaches the identity routes as before. The cases need no database, no broker and no node."
+do_4 = "do_4 The README of the gateway states the path, who may read it and what it answers. Run the new cases by hand and read each message. The files of services/launchpad/gateway are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/gateway && go vet ./internal/app/"
+verify_cmd = "cd services/launchpad/gateway && go test -count=1 -timeout 30m -run TestPrivateIdentityReadiness ./internal/app/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.764]
+title = "Make the social service ready without a voice binding and with an empty set of markets"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.754"]
+reqs = ["22998.1"]
+capabilities = ["22.39.764"]
+interfaces = []
+do_1 = "do_1 Gotchas 4614 and 4616, decisions 3694 and 3696. Read in services/launchpad/social/internal/app the construction of the connected runtime, its readiness function, the voice control and the voice routes, the two functions that answer the route ranking-visibility, one for each runtime, and the cases named ContainerProfile; read in the configuration package the runtime binding with its member voice and the cases named PlatformDocuments; read the composer of the social documents under deploy/launchpad/documents. State in the final message what each voice route answers today without a binding and which cases build a runtime without one."
+do_2 = "do_2 A runtime document without the member voice gives a runtime with voice off: no voice failure is held, no provider is called, every voice route answers the refusal of an unavailable voice service with the status and code the routes use for it today, and readiness does not depend on voice. With the member present nothing changes: a binding that cannot be built stops the start, and a built binding is checked as today."
+do_3 = "do_3 The parts the readiness function joins become checks of their own beside social_runtime: voice where a binding is present, the notification credentials where they are configured, the broker, durable work and the consumed secrets. Each name starts with social_ and is stable, a part that is off registers no check, and the body of the readiness answer shows each check. The log line of durable work keeps its message. No check gives a secret, a reference value or an address in body or log."
+do_4 = "do_4 The route ranking-visibility answers 200 for an empty set of markets in both runtimes: complete true, an empty object of pools that is present in the body, the time of the read, and a revision of 64 hexadecimal characters that is the digest of the empty set. The upper bound of the set stays and a failed read stays 503."
+do_5 = "do_5 Cases in services/launchpad/social/internal/app whose names start with TestReadinessWithoutVoice: a runtime built from a document without the member voice is ready when its other parts are, each voice route answers its refusal, and with a failing part the readiness answer names that part and no other. Cases whose names start with TestRankingVisibilityWithoutMarkets: both runtimes answer the empty set as decision 3696 states, and the body decodes with a member pools that is present and empty. A case named PlatformDocuments in the configuration package holds that the runtime document the composer writes has no member voice and that the service reads it. The cases take the database the way the present cases of the package do and need no broker beyond the doubles the package has, and no node."
+do_6 = "do_6 The README of the service states the form with voice off, the names of the checks and the answer for an empty set of markets. Task 22.39.763 changes the authority routes of the same package: take main before the counted verification and keep both changes. Run by hand the new cases and the cases named ContainerProfile and PlatformDocuments, one after another, and read each message. The files of services/launchpad/social are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/social && go vet ./internal/app/ ./internal/config/"
+verify_cmd = "cd services/launchpad/social && go test -count=1 -timeout 30m -run TestReadinessWithoutVoice ./internal/app/ && go test -count=1 -timeout 30m -run TestRankingVisibilityWithoutMarkets ./internal/app/ && go test -count=1 -timeout 30m -run ContainerProfile ./internal/app/ && go test -count=1 -timeout 30m -run PlatformDocuments ./internal/config/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.763]
+title = "Answer every authority route the notification library reads on the private listener of the social service"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.754"]
+reqs = ["22998.1"]
+capabilities = ["22.39.763"]
+interfaces = []
+do_1 = "do_1 Gotcha 4613, decision 3693. Read services/launchpad/notifications/wire.go and name each route the library calls below /internal/v2/social, with method, input and the members of the answer it decodes and checks. Read in services/launchpad/social/internal/app the function that answers the authority routes of the private listener of the container profile and the function that answers them in the other runtime, and what each needs: the pool, the chat store, the functions for graph, visibility, review and the callout authority. State in the final message, per route, which runtime answers it at the start of the task."
+do_2 = "do_2 One function of the package answers the authority routes for an admitted peer: ranking-visibility, content-visibility, graph, visibility, callouts:review and callout-authority, with the present results of the other runtime. Both the private listener of the container profile and the other runtime call it after their own admission of the peer. The admission of each runtime stays as it is: a peer outside the authority list is refused before any route is read."
+do_3 = "do_3 The route public: GET below /internal/v2/social/public with a kind and an id answers the public resource in the form the library decodes, for the kinds the library asks for, from the tables of the service; a resource that is absent, removed or not public is answered with not found. It is part of the one function of do_2. Read the type of the answer in the discovery package of the library and the present queries of the service for a post, a comment and a callout before writing the query."
+do_4 = "do_4 Cases in services/launchpad/social/internal/app whose names start with TestAuthorityRoutes. One reads the text of services/launchpad/notifications/wire.go, takes every route below /internal/v2/social from it and asserts for each that the private listener of the container profile and the other runtime answer an admitted peer with something other than not found for a valid input. One asserts per route that a peer outside the authority list is refused. One asserts that graph, visibility and public answer the members the library checks: the account, a revision above zero and an observation time for graph and visibility, and the reference with kind, id and its public state for public. The cases use the database fixture the present cases of the package use and need no broker and no node."
+do_5 = "do_5 Run by hand the new cases and every present case of services/launchpad/social/internal/app, and read each message. The files of services/launchpad/social are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/social && go vet ./internal/app/"
+verify_cmd = "cd services/launchpad/social && go test -count=1 -timeout 30m -run TestAuthorityRoutes ./internal/app/ && go test -count=1 -timeout 30m -run ContainerProfile ./internal/app/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.762]
+title = "Fix the private listen address of the launchpad contract to the wildcard of both address families"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.755"]
+reqs = ["22998.1"]
+capabilities = ["22.39.762"]
+interfaces = []
+do_1 = "do_1 Gotcha 4612, decision 3692. Read the entries of the ranking service, the user service, the social service, the metadata service and the api in the contract in the platform directory under deploy/launchpad; the check of the private listen address in the configuration package of each of the five, under services/launchpad/ranking-algo, services/launchpad/user, services/launchpad/social, services/launchpad/metadata and services/launchpad/api; every file under deploy/launchpad, services/launchpad and tools/deploy that names the present value; and the three cases that compare the fixed names: deploy/launchpad/documents/test_compose.py, the values case under deploy/launchpad/tests and the case under tools/deploy/tests that applies the variables of the launchpad. State in the final message every file that names the value and what reads it."
+do_2 = "do_2 The contract fixes the five names to [::]:8443. Every file that compares a fixed value follows the contract: the values file of the launchpad where it holds one, fixtures and recordings, and the cases of the services that name the value. The compose file keeps 0.0.0.0:8443. Where the configuration of a service holds a default or an example of the address for production, it names the contract value."
+do_3 = "do_3 The case under tools/deploy/tests that applies the variables of the launchpad asserts, for each of the five services, that the value applied for its private listen address is the value of the contract and that its host is the unspecified IPv6 address. The case deploy/launchpad/documents/test_compose.py or the values case under deploy/launchpad/tests asserts that the five names of the contract hold one value."
+do_4 = "do_4 In the configuration package of each of the five services a case whose name starts with TestPrivateListenAddressContract: it finds the contract the way the cases named PlatformDocuments of the package find the files of the repository, reads the fixed value of the service and asserts that the check of the service admits it with a production configuration of the package, and that the check still refuses a value without an IP, a value without a port and the port of PORT. The cases need no database, no broker and no node."
+do_5 = "do_5 The README of deploy/launchpad states the value of the contract, that it accepts both address families, and that the compose file keeps 0.0.0.0:8443 for its network. Run by hand the new cases, the cases named PlatformDocuments of the five packages, the cases of deploy/launchpad/documents/test_compose.py and the two shell cases, one after another, and read each message. The files of deploy/launchpad, services/launchpad and tools/deploy with its tests and fixtures are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/api && go vet ./internal/config/) && (cd services/launchpad/user && go vet ./internal/config/) && (cd services/launchpad/social && go vet ./internal/config/) && (cd services/launchpad/metadata && go vet ./internal/config/) && (cd services/launchpad/ranking-algo && go vet ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run PrivateListenAddressContract ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.761]
 title = "State the object rights of the launchpad service accounts in one document with a command and a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249619,7 +250009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.760]
 title = "Run the source check of the indexer outside the readiness request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249651,7 +250041,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.759]
 title = "Name the media part that is not available at the start of the metadata service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249683,7 +250073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.758]
 title = "Write the first search generation of the stats service by a registered migration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.746"]
@@ -249696,7 +250086,7 @@ do_3 = "do_3 The statement of the readiness check search moves into one function
 do_4 = "do_4 Cases in internal/search whose names start with TestFirstSearchGeneration. With a database the helper Bootstrap made for the role stats_runtime: the function of the readiness check answers ready; BeginGeneration with a new name followed by ActivateGeneration with its proof passes without a row the case wrote, and the generation initial then has the state retained. In the form of the present cases that apply migration files to a database of their own: 200001.sql and the new file give exactly one generation and one row of the active table; the new file applied again changes nothing; 200001.sql, then a generation and a row the case writes, then the new file leaves the rows of the case as the only ones. The present cases stay and none is weakened."
 do_5 = "do_5 Run by hand the new cases, the present cases of internal/search and internal/httpapi, and each part of the verification command, one after another, and read each message. The files under migrations, sdk/launchpad/shared/db/production and services/launchpad are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+touches = ["migrations", "services/launchpad"]
 tests = []
 planned_paths = []
 build_cmd = "cd services/launchpad/stats-*ers && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
@@ -249715,7 +250105,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.757]
 title = "Attest the network authority of the api outside the readiness request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.755"]
@@ -249778,7 +250168,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.755]
 title = "Serve the internal notification routes of the api on a private listener with mutual TLS"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.747", "22.39.751", "22.39.753"]
@@ -250068,7 +250458,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.746]
 title = "Add to the grants document and the registered migrations what the waiting lists of the statement cases name and empty the lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.734", "22.39.736", "22.39.737", "22.39.738", "22.39.739", "22.39.740", "22.39.741", "22.39.742", "22.39.743", "22.39.744", "22.39.745"]
@@ -466667,7 +467057,7 @@ do_2 = "do_2 A case that passes when its app runs alone and fails in the whole r
 do_3 = "do_3 Run the whole suite once more by hand and repair what it shows."
 do_4 = "do_4 Give in the final message the count of cases of each app in the last whole run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test", "services/explorer/backend/apps/block_scout_web/assets/js"]
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -466683,6 +467073,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3698, gotcha 4618. The directory services/explorer/backend/apps/block_scout_web/assets/js is now inside the paths of this task: in pages/verification_form.js bring the address to lower case before the topic of the address channel is built, and change nothing else under that directory. The work of the earlier candidate stays as it is. Run the feature cases of the contract verification form by hand and read each message, then the whole suite with no path once by hand, then the build once and the counted verification once. It makes no difference whether a case passed before the change, and no approval is needed to repair a case inside the paths. No case is removed, skipped or weakened. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.687]
 title = "Let the suite of the media app of the explorer backend pass in the builder"

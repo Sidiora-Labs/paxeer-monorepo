@@ -1029,21 +1029,16 @@
     "call": 1,
     "role": "pnl_runtime",
     "kind": "SELECT",
-    "tables": [
-      "indexer.indexer_ingest_leases_v1"
-    ],
+    "tables": [],
     "sequences": [],
     "functions": [
-      "pg_catalog.clock_timestamp"
+      "indexer.lock_ingest_lease_v1"
     ],
     "columns": [
-      "chain_id",
-      "expires_at",
       "fence_token",
-      "owner_instance",
-      "stream_id"
+      "owner_instance"
     ],
-    "sha256": "e0a9e0fe4d545bbb2c2b0914f379264e75af9d95384bfc2a6988bd06c6d12363"
+    "sha256": "387949d7d4c4459ef89d90c878b34235a71ee69fcf9a7fe3278f06680e4ecc13"
   },
   {
     "id": "internal/production/l16/baseline.go:BaselineAuthority.coverage:1",
@@ -6151,9 +6146,9 @@
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
-      "metadata.token_metadata",
+      "metadata.token_search_v1",
       "pnl.user_positions",
-      "stats.pool_stats"
+      "stats.pool_market_context_v1"
     ],
     "sequences": [],
     "functions": [],
@@ -6178,7 +6173,7 @@
       "ps.pool_address",
       "ps.price"
     ],
-    "sha256": "fbef9825cbd1d3f6a9407dc6b80e9956869b6a408836e1f84c1384c43d046fde"
+    "sha256": "96a8e8c7b3966b85c021dbb486ae6a5795b6cb390c7dc4e67ffcbf8f034e3d90"
   },
   {
     "id": "internal/store/positions.go:Store.GetPosition:1",
@@ -6538,7 +6533,7 @@
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
-      "indexer.swaps"
+      "indexer.swap_progress_v1"
     ],
     "sequences": [],
     "functions": [
@@ -6547,7 +6542,7 @@
     "columns": [
       "block_number"
     ],
-    "sha256": "2cddfb1f3537086ee516bd301dbbb1ef9834057fafbbda02c0b71b1f1d906b1e"
+    "sha256": "31cdbd88c9f8774c85679a35b0d2126a001e4c0fcd49a53fe4492f1b79335f1f"
   },
   {
     "id": "internal/store/reconcile.go:Store.ConsumerBlock:1",

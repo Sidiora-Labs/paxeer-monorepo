@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import json
+import hashlib
+from datetime import datetime, timezone
 import re
 from pathlib import Path
 from typing import Any
@@ -136,6 +138,16 @@ def _receipt(values: dict[str, Any], addresses: dict[str, dict[str, str]]) -> di
         "status": "active",
         "roles": addresses,
     }
+    if "history_from_height" in values:
+        source = Path(__file__).resolve().parents[3] / "sdk/launchpad/shared/config/deployment/current.json"
+        try:
+            manifest = json.loads(source.read_bytes())
+        except (OSError, ValueError) as exc:
+            raise DocumentError("indexer: deployment manifest unavailable") from exc
+        if manifest["sourceManifestSha256"] != manifest_digest or manifest["deploymentVersion"] != deployment:
+            raise DocumentError("indexer: history requires the matching rendered receipt manifest")
+        for epoch in epochs:
+            epoch["Deployment"]["From"]["Block"] = manifest["activationHeight"]
     production = {
         "Manifest": manifest,
         "CatalogJSON": base64.b64encode(catalog_bytes).decode("ascii"),
@@ -265,7 +277,107 @@ def documents(service: str, values: str | Path) -> dict[str, Any]:
         result["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"] = _lifecycle(data)
     else:
         result["INDEXER_LIFECYCLE_CONFIG_FILE"] = lifecycle
+    if "history_from_height" in data:
+        requests, _ = _history(data, result)
+        if lifecycle is None:
+            result["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"]["BackfillRequests"] = requests
+            receipt_file = result.get("INDEXER_RECEIPT_CONFIG_FILE")
+            receipt_doc = json.loads(receipt_file.data) if receipt_file else result["INDEXER_RECEIPT_CONFIG_DOCUMENT"]
+            production = receipt_doc.get("Production", receipt_doc.get("production", {}))
+            epochs = []
+            for epoch in production.get("Epochs", production.get("epochs", [])):
+                deployment = epoch.get("deployment", epoch.get("Deployment", {}))
+                order = deployment["From"]
+                epochs.append({"Address": deployment["Address"].lower(), "Role": deployment["Role"], "ABIRevision": deployment["ABIRevision"], "ManifestDigest": data["manifest_digest"], "ActivationHeight": order.get("Block", order.get("block"))})
+            result["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"]["Committed"]["Epochs"] = epochs
+        else:
+            doc = json.loads(lifecycle.data)
+            if doc.get("backfillRequest", doc.get("BackfillRequest")) or doc.get("backfillRequests", doc.get("BackfillRequests")):
+                raise DocumentError("indexer: rendered lifecycle already has backfill requests")
+            doc["backfillRequests"] = requests
+            result["INDEXER_LIFECYCLE_CONFIG_FILE"] = FileDocument(_json(doc), lifecycle.path)
     return result
+
+
+def _json(value: Any) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _history(data: dict[str, Any], docs: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
+    receipt_file = docs.get("INDEXER_RECEIPT_CONFIG_FILE")
+    receipt = json.loads(receipt_file.data) if receipt_file else docs["INDEXER_RECEIPT_CONFIG_DOCUMENT"]
+    production = receipt.get("Production", receipt.get("production", {}))
+    manifest = production.get("Manifest", production.get("manifest", {}))
+    activation = manifest.get("activationHeight")
+    anchor = production.get("Anchor", production.get("anchor", {}))
+    first = _nonnegative(data, "history_from_height", 2**63 - 1)
+    last = _nonnegative(data, "anchor_height", 2**63 - 1)
+    if not isinstance(activation, int) or isinstance(activation, bool) or first < activation:
+        raise DocumentError("indexer: history_from_height below manifest activation height")
+    if first > last:
+        raise DocumentError("indexer: history_from_height above anchor")
+    if manifest.get("sourceManifestSha256") != _digest(data, "manifest_digest") or manifest.get("deploymentVersion") != _token(data, "deployment_id") or anchor.get("Height", anchor.get("height")) != last or anchor.get("Hash", anchor.get("hash", "")).lower() != data["anchor_hash"].lower():
+        raise DocumentError("indexer: history receipt manifest or anchor mismatch")
+    operator = _field(data, "history_operator", str)
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", operator):
+        raise DocumentError("indexer: history_operator")
+    expiry = _field(data, "history_expires_at", str)
+    try:
+        parsed = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise ValueError("timezone required")
+        expiry = parsed.astimezone(timezone.utc).isoformat()
+    except ValueError as exc:
+        raise DocumentError("indexer: history_expires_at must be an RFC3339 timestamp with timezone") from exc
+    stream = _token(data, "canonical_stream_id")
+    projection = _token(data, "projection_version")
+    generation = _token(data, "inventory_generation")
+    for token in (stream, projection, generation):
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", token):
+            raise DocumentError("indexer: history requires replay-safe stream, projection and generation identities")
+    count = (last - first) // 1_000_000 + 1
+    if count > 16:
+        raise DocumentError("indexer: history exceeds 16 bounded requests")
+    requests = []
+    for start in range(first, last + 1, 1_000_000):
+        request = {
+            "SourceStream": stream, "Target": "indexer", "Generation": generation,
+            "ProjectionRevision": projection, "Mode": "backfill", "Requester": operator,
+            "FromHeight": start, "ToHeight": min(start + 999_999, last),
+            "CheckpointHeight": last, "CheckpointHash": data["anchor_hash"].lower(),
+        }
+        identity = hashlib.sha256(_json(request)).hexdigest()
+        request.update(JobID="history-" + identity, AuthorizationID="history-" + identity)
+        requests.append(request)
+    return requests, expiry
+
+
+def environment(service: str, values: str | Path) -> dict[str, str]:
+    data = _read_values(Path(values))
+    if "history_from_height" not in data:
+        return {}
+    batch = _positive(data, "backfill_batch_size", 64) if "backfill_batch_size" in data else _positive(data, "replay_batch_size", 64)
+    return {"INDEXER_MODE": "backfill", "BACKFILL_ONLY": "false", "BACKFILL_FROM_BLOCK": str(data["history_from_height"]), "BACKFILL_BATCH_SIZE": str(batch)}
+
+
+def output_files(service: str, values: str | Path) -> dict[str, bytes]:
+    data = _read_values(Path(values))
+    if "history_from_height" not in data:
+        return {}
+    docs = documents(service, values)
+    requests, expiry = _history(data, docs)
+    columns = "authorization_id,operator_identity,authorization_evidence,action,target,generation,projection_revision,from_height,to_height,max_concurrent,expires_at,revoked_at"
+    rows = []
+    for request in requests:
+        evidence = hashlib.sha256(_json(request)).hexdigest()
+        fields = [request["AuthorizationID"], request["Requester"], evidence, request["Mode"], request["Target"], request["Generation"], request["ProjectionRevision"]]
+        literals = ["'" + field.replace("'", "''") + "'" for field in fields]
+        literals += [str(request["FromHeight"]), str(request["ToHeight"]), "1", "'" + expiry + "'::timestamptz", "NULL"]
+        rows.append(f"INSERT INTO indexer.indexer_replay_authorizations ({columns}) VALUES ({','.join(literals)}) ON CONFLICT (authorization_id) DO NOTHING;")
+    files = {"indexer-history-authorizations.sql": ("BEGIN;\n" + "\n".join(rows) + "\nCOMMIT;\n").encode("utf-8")}
+    if "INDEXER_LIFECYCLE_CONFIG_FILE" in docs:
+        files["indexer-lifecycle.json"] = docs["INDEXER_LIFECYCLE_CONFIG_FILE"].data
+    return files
 
 
 compose = documents

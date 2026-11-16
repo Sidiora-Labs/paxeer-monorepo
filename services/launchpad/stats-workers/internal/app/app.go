@@ -422,17 +422,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			return nil
 		}
 		secretChecks["projections"] = runtimeHealth.check
-		secretChecks["search"] = func(ctx context.Context) error {
-			var active bool
-			err := pool.QueryRow(ctx, "SELECT g.state='active' AND g.validated_at IS NOT NULL FROM stats_search.active_v2 a JOIN stats_search.generations_v2 g USING(generation) WHERE a.singleton").Scan(&active)
-			if err != nil {
-				return err
-			}
-			if !active {
-				return canonicalsearch.ErrUnavailable
-			}
-			return nil
-		}
+		secretChecks["search"] = canonicalsearch.Store{Pool: pool}.Ready
 	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins: cfg.CORSAllowedOrigins,

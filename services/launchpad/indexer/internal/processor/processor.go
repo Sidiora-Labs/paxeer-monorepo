@@ -87,6 +87,7 @@ type Deps struct {
 	Quarantine                  *QuarantinePolicy
 	HistoricalReplay            *ReplayRunner
 	HistoricalRequest           *store.ReplayRequest
+	HistoricalRequests          []store.ReplayRequest
 	QualifiedBatchSource        QualifiedBatchSource
 	CanonicalStreamID           string
 	CanonicalOwner              string

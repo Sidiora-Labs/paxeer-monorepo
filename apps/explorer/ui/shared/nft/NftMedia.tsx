@@ -5,8 +5,10 @@ import { useInView } from 'react-intersection-observer';
 
 import type { TokenInstance } from 'types/api/token';
 
+import { IconButton } from 'toolkit/chakra/icon-button';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { useDisclosure } from 'toolkit/hooks/useDisclosure';
+import IconSvg from 'ui/shared/IconSvg';
 
 import NftFallback from './NftFallback';
 import NftHtml from './NftHtml';
@@ -127,6 +129,21 @@ const NftMediaViewer = ({ data, size = 'original', allowedTypes, isLoading, with
             }}
           >
             { content }
+            { withFullscreen && !isLoading && (
+              <IconButton
+                aria-label="Open NFT media preview"
+                aria-haspopup="dialog"
+                variant="icon_background"
+                size="md"
+                position="absolute"
+                top={ 2 }
+                right={ 2 }
+                zIndex="2"
+                onClick={ onOpen }
+              >
+                <IconSvg name="scope"/>
+              </IconButton>
+            ) }
           </Box>
           { isMediaLoading && <Skeleton loading position="absolute" left={ 0 } top={ 0 } w="100%" h="100%" zIndex="1"/> }
         </>

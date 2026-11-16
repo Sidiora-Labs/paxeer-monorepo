@@ -1,4 +1,4 @@
-import { Box } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import useThemeColors from './utils/useThemeColors';
@@ -14,19 +14,27 @@ const CoderEditorCollapseButton = ({ onClick, label, isDisabled, isCollapsed }: 
   const themeColors = useThemeColors();
 
   return (
-    <Box
+    <chakra.button
+      type="button"
       ml="auto"
       alignSelf="center"
       className={ isCollapsed ? 'codicon codicon-search-expand-results' : 'codicon codicon-collapse-all' }
-      opacity={ isDisabled ? 0.6 : 1 }
-      boxSize="20px"
-      p="2px"
+      disabled={ isDisabled }
+      aria-expanded={ isCollapsed === undefined ? undefined : !isCollapsed }
+      _disabled={{ opacity: 'control.disabled', cursor: 'not-allowed' }}
+      boxSize="touchTarget"
+      p={ 0.5 }
       borderRadius="sm"
       _before={{
         content: isCollapsed ? '"\\eb95"' : '"\\eac5"',
       }}
       _hover={{
         bgColor: themeColors['custom.inputOption.hoverBackground'],
+      }}
+      _focusVisible={{
+        outline: 'var(--chakra-border-widths-2) solid',
+        outlineColor: 'focusRing',
+        outlineOffset: 'var(--chakra-spacing-0\\.5)',
       }}
       onClick={ onClick }
       cursor="pointer"

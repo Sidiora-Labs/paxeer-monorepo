@@ -22880,3 +22880,53 @@ fix = "Decision 3691. Task 22.39.761."
 title = "The mobile navigation of the explorer gives its groups as details with a summary"
 symptom = "The mobile navigation in apps/explorer/ui/snippets/navigation/mobile renders each group of the header as a details element whose summary carries the name of the group, and the case of the header navigation in apps/explorer/ui/snippets/header reads a group by its summary and by the open state of the details element. The case of the search results layout in apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx opens the mobile navigation below the width 1024 and asks it for a button with the name Explore and the attribute aria-expanded. A case that mounts a layout reads the parts of the header in the form the header gives them."
 fix = "Task 22.44.71."
+
+[gotcha.4612]
+title = "The contract fixes the private listen address to a wildcard of one address family"
+symptom = "The variables file that is the contract in the platform directory under deploy/launchpad fixes RANKING_PRIVATE_LISTEN_ADDRESS, USER_PRIVATE_LISTEN_ADDRESS, SOCIAL_PRIVATE_LISTEN_ADDRESS and METADATA_PRIVATE_LISTEN_ADDRESS to 0.0.0.0:8443, and decision 3685 gives API_PRIVATE_LISTEN_ADDRESS the same value. A listener on that address accepts connections of the IPv4 family only. The configuration of the same services names [::]:8443 in the message of its check of the address: the wildcard that accepts both families on a host that has both. On a private network that gives a service a name with an IPv6 address only, a peer that resolves the name cannot reach a listener in the form the contract fixes."
+fix = "Decision 3692. Task 22.39.762."
+
+[gotcha.4613]
+title = "The social service answers one authority route on the private listener of the container profile"
+symptom = "The notification library under services/launchpad/notifications reads five routes of the social service below /internal/v2/social: graph, visibility, public, callouts:review and callout-authority. The private listener of the container profile of the social service admits a peer of the authority list and then answers one route only, ranking-visibility; every other path below /internal/v2/social is answered with not found. The other runtime of the service answers graph, visibility, callouts:review and callout-authority and has no route public. The library reads not found as a refusal, so a reader of the library gets no graph, no visibility decision and no public resource from a social service in the container profile."
+fix = "Decision 3693. Task 22.39.763."
+
+[gotcha.4614]
+title = "A runtime document of the social service without a voice binding never becomes ready"
+symptom = "The runtime document of the social service holds an optional member voice. Without it the service starts, keeps a voice control without a provider and holds a voice failure that its readiness check social_runtime returns on every call. The composer under deploy/launchpad/documents refuses a values member voice, so a composed runtime document never holds the binding. The check answers failed for six different causes and names none: a failure of the runtime, voice, the notification credentials, the broker, durable work and a changed secret."
+fix = "Decision 3694. Task 22.39.764."
+
+[gotcha.4615]
+title = "The identity check of the metadata service reads a readiness path the private identity listener of the gateway does not serve"
+symptom = "In the form with mutual TLS the readiness check media_identity of the metadata service sends GET to the identity endpoint with the path /health/ready appended, with its client certificate, and takes every status other than 200 as a failure. The identity endpoint is the private identity listener of the gateway, and its handler answers only paths below /internal/v2/identity/ and gives 404 to every other path. The check therefore fails against a gateway in every state."
+fix = "Decision 3695. Task 22.39.765."
+
+[gotcha.4616]
+title = "An empty set of markets makes the ranking visibility of the social service unavailable"
+symptom = "The route ranking-visibility of the social service answers 503 when the set of known markets is empty, in the container profile and in the bound runtime alike. The ranking service reads that route in every refresh and in its readiness check ranking, so on a chain where the factory has created no market yet the ranking service publishes nothing, its check fails and it logs a refresh failure in every cycle. An empty set is the regular state of a launchpad before its first market."
+fix = "Decision 3696. Tasks 22.39.764 and 22.39.766."
+
+[gotcha.4617]
+title = "A composed indexer cannot take the history below its anchor"
+symptom = "The composer of the indexer documents under deploy/launchpad/documents writes a lifecycle document with an empty list of replay requests and without a backfill request, and the contract in the platform directory under deploy/launchpad names neither the mode of the indexer nor the batch settings of its backfill. The service reads heights below its anchor only through such a request, admits a request only with a matching row in its table of replay authorizations, bounds one request to 1000000 heights, and no command of the repository writes a request or that row. An indexer composed with an anchor above the creation height of a market that already exists on the chain therefore never holds that market."
+fix = "Decision 3697. Task 22.39.767."
+
+[gotcha.4618]
+title = "The verification form of the explorer backend subscribes with the address as its field holds it"
+symptom = "The page script pages/verification_form.js under services/explorer/backend/apps/block_scout_web/assets/js reads the address from the field of the form and builds the topic of the address channel from that value as it stands. The notifier under services/explorer/backend/apps/block_scout_web/lib publishes the result of a contract verification on the topic of the address in its lower case form. A form opened with an address written with capitals therefore listens on a topic on which no result is published, and the form shows neither the result nor the messages of the compiler."
+fix = "Decision 3698. Task 22.39.688."
+
+[gotcha.4619]
+title = "The function that appends a ranking head to the public stream reads its head without the category"
+symptom = "The function api_stream.append_ranking of the registered migration 190003 under migrations reads the committed head by the run, by the sequence of its category and by the output digest, and admits one row. The heads of several categories of one run can share that sequence and that digest; every category of a run over an empty set of markets does. The read then finds several rows, the function ends with an error, and the publication of that run does not complete."
+fix = "Decision 3699. Task 22.39.766."
+
+[gotcha.4620]
+title = "The readiness refresh of the canonical source writes through the head reader of the ingestion and keeps no cause"
+symptom = "The refresh behind the readiness of the canonical source in services/launchpad/indexer/internal/app takes the height of the source through the same head reader the ingestion uses. That reader does more than read: it retains the committed head it observed, reports the durable height to the source, and where the observation returns an error it quarantines the committed head of the stream. The refresh keeps an error only where it is a mismatch or an incomplete checkpoint; any other error of the head reader, of the watermark read or of the block read at the watermark is neither kept nor written to the log, so the readiness answer then states only that no refresh succeeded or that the last success is older than one minute, and nothing names the step that did not answer."
+fix = "Decision 3700. Task 22.39.768."
+
+[gotcha.4621]
+title = "Cases of the explorer that render a whole page or the whole layout run under the default time bounds"
+symptom = "The configuration of the test runner of apps/explorer sets no time bound of its own, so a case ends after five seconds and a wait for content after one second. The case of the block details in apps/explorer/ui/shared/Page/entityPageComposition.spec.tsx renders the whole block page and waits for the hash of the block with that wait; the first case of apps/explorer/ui/shared/layout/Layout.spec.tsx renders the whole layout with the header, the navigation and the footer. The time of such a first render grows with the count of files a run holds, since the files share the processor, so a run of the whole directory apps/explorer/ui/shared gives these cases less time than a run of one file. The verification of task 22.44.4 runs the whole directory, while its paths hold twenty of the directories below it and neither apps/explorer/ui/shared/Page nor apps/explorer/ui/shared/layout."
+fix = "Decision 3701. Tasks 22.44.4 and 22.44.72."

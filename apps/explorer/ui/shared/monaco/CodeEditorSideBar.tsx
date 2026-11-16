@@ -1,4 +1,4 @@
-import { Box } from '@chakra-ui/react';
+import { Box, Flex, chakra } from '@chakra-ui/react';
 import { throttle } from 'es-toolkit';
 import type * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import React from 'react';
@@ -24,8 +24,6 @@ interface Props {
   mainFile?: string;
 }
 
-export const CONTAINER_WIDTH = 250;
-
 const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, mainFile, models }: Props) => {
 
   const [ isStuck, setIsStuck ] = React.useState(false);
@@ -33,21 +31,21 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
   const [ activeTab, setActiveTab ] = React.useState('explorer');
   const [ searchValue, setSearchValue ] = React.useState('');
   const [ actionBarRenderer, setActionBarRenderer ] = React.useState<() => React.JSX.Element>();
+  const sidebarId = React.useId();
+  const toggleRef = React.useRef<HTMLButtonElement>(null);
 
   const themeColors = useThemeColors();
 
   const tabProps: Partial<TabsTriggerProps> = {
     fontFamily: 'heading',
     textTransform: 'uppercase',
-    fontSize: '11px',
-    lineHeight: '35px',
-    fontWeight: 500,
+    textStyle: 'label',
+    minH: 'touchTarget',
     color: themeColors['tab.inactiveForeground'],
     _selected: {
       color: themeColors['tab.activeForeground'],
     },
     px: 0,
-    letterSpacing: 0.3,
   };
 
   const handleScrollThrottled = React.useRef(throttle((event: React.SyntheticEvent) => {
@@ -62,6 +60,14 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
   const handleSideBarButtonClick = React.useCallback(() => {
     setIsDrawerOpen((prev) => !prev);
   }, []);
+
+  const handleKeyDown = React.useCallback((event: React.KeyboardEvent) => {
+    if (event.key === 'Escape' && isDrawerOpen) {
+      event.stopPropagation();
+      setIsDrawerOpen(false);
+      toggleRef.current?.focus();
+    }
+  }, [ isDrawerOpen ]);
 
   const handleTabChange = React.useCallback(({ value }: { value: string }) => {
     setActiveTab(value);
@@ -102,28 +108,58 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
 
   return (
     <>
+      <chakra.button
+        type="button"
+        ref={ toggleRef }
+        boxSize="touchTarget"
+        p={ 1 }
+        position="absolute"
+        display={{ base: 'block', lg: 'none' }}
+        right={ isDrawerOpen ? 'min(calc(100% - var(--chakra-sizes-touch-target)), var(--chakra-spacing-62\\.5))' : 0 }
+        top="50%"
+        transform="translateY(-50%)"
+        backgroundColor={ themeColors['sideBar.background'] }
+        borderTopLeftRadius="control"
+        borderBottomLeftRadius="control"
+        boxShadow="md"
+        onClick={ handleSideBarButtonClick }
+        onKeyDown={ handleKeyDown }
+        zIndex="3"
+        title={ isDrawerOpen ? 'Close sidebar' : 'Open sidebar' }
+        aria-label={ isDrawerOpen ? 'Close sidebar' : 'Open sidebar' }
+        aria-expanded={ isDrawerOpen }
+        aria-controls={ sidebarId }
+        _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'calc(-1 * var(--chakra-spacing-0\\.5))' }}
+      >
+        <Box
+          className="codicon codicon-tree-item-expanded"
+          transform={ isDrawerOpen ? 'rotate(-90deg)' : 'rotate(+90deg)' }
+          boxSize={ 4 }
+        />
+      </chakra.button>
       <Box
-        w={ `${ CONTAINER_WIDTH }px` }
+        id={ sidebarId }
+        w={ 'var(--chakra-spacing-62\\.5)' }
+        maxW="100%"
         flexShrink={ 0 }
         bgColor={ themeColors['sideBar.background'] }
-        fontSize="13px"
+        textStyle="sm"
         overflowY="scroll"
         onScroll={ handleScrollThrottled.current }
         position={{ base: 'absolute', lg: 'relative' }}
-        right={{ base: isDrawerOpen ? '0' : `-${ CONTAINER_WIDTH }px`, lg: '0' }}
+        right={ 0 }
+        visibility={{ base: isDrawerOpen ? 'visible' : 'hidden', lg: 'visible' }}
         top={{ base: 0, lg: undefined }}
         h="100%"
-        pb="22px"
+        pb={ 6 }
         boxShadow={{ base: isDrawerOpen ? 'md' : 'none', lg: 'none' }}
         zIndex={{ base: '2', lg: undefined }}
-        transitionProperty="right"
-        transitionDuration="normal"
-        transitionTimingFunction="ease-in-out"
+        onKeyDown={ handleKeyDown }
         borderTopRightRadius="md"
         borderBottomRightRadius="md"
       >
         <TabsRoot unmountOnExit={ false } variant="unstyled" size="free" value={ activeTab } onValueChange={ handleTabChange }>
-          <TabsList
+          <Flex
             columnGap={ 3 }
             position="sticky"
             top={ 0 }
@@ -131,15 +167,18 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
             bgColor={ themeColors['sideBar.background'] }
             zIndex="1"
             px={ 2 }
-            h="35px"
+            minH="touchTarget"
+            flexWrap="wrap"
             alignItems="center"
             boxShadow={ isStuck ? 'md' : 'none' }
             borderTopRightRadius="md"
           >
-            <TabsTrigger value="explorer" { ...tabProps } title={ `File explorer (${ shift + cmd }E)` }>Explorer</TabsTrigger>
-            <TabsTrigger value="search" { ...tabProps } title={ `Search in files (${ shift + cmd }F)` }>Search</TabsTrigger>
+            <TabsList columnGap={ 3 } flexWrap="wrap">
+              <TabsTrigger value="explorer" { ...tabProps } title={ `File explorer (${ shift + cmd }E)` }>Explorer</TabsTrigger>
+              <TabsTrigger value="search" { ...tabProps } title={ `Search in files (${ shift + cmd }F)` }>Search</TabsTrigger>
+            </TabsList>
             { actionBarRenderer?.() }
-          </TabsList>
+          </Flex>
           <TabsContent value="explorer" p={ 0 }>
             <CodeEditorFileExplorer
               data={ data }
@@ -162,31 +201,6 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
             />
           </TabsContent>
         </TabsRoot>
-      </Box>
-      <Box
-        boxSize="24px"
-        p="4px"
-        position="absolute"
-        display={{ base: 'block', lg: 'none' }}
-        right={ isDrawerOpen ? `${ CONTAINER_WIDTH - 1 }px` : '0' }
-        top="calc(50% - 12px)"
-        backgroundColor={ themeColors['sideBar.background'] }
-        borderTopLeftRadius="4px"
-        borderBottomLeftRadius="4px"
-        boxShadow="md"
-        onClick={ handleSideBarButtonClick }
-        zIndex="1"
-        transitionProperty="right"
-        transitionDuration="normal"
-        transitionTimingFunction="ease-in-out"
-        title={ isDrawerOpen ? 'Open sidebar' : 'Close sidebar' }
-        aria-label={ isDrawerOpen ? 'Open sidebar' : 'Close sidebar' }
-      >
-        <Box
-          className="codicon codicon-tree-item-expanded"
-          transform={ isDrawerOpen ? 'rotate(-90deg)' : 'rotate(+90deg)' }
-          boxSize="16px"
-        />
       </Box>
     </>
   );
