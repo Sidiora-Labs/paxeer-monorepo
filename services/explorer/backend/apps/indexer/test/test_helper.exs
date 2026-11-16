@@ -1,3 +1,6 @@
+Code.require_file("../../utils/test/suite_helper.exs", __DIR__)
+Backend.TestSuite.restore_configuration_after_suite()
+
 # https://github.com/CircleCI-Public/circleci-demo-elixir-phoenix/blob/a89de33a01df67b6773ac90adc74c34367a4a2d6/test/test_helper.exs#L1-L3
 junit_folder = Mix.Project.build_path() <> "/junit/#{Mix.Project.config()[:app]}"
 File.mkdir_p!(junit_folder)
@@ -10,6 +13,8 @@ Application.load(:indexer)
 for application <- Application.spec(:indexer, :applications) do
   Application.ensure_all_started(application)
 end
+
+Backend.TestSuite.stop_background_pollers()
 
 # no declared in :applications since it is test-only
 {:ok, _} = Application.ensure_all_started(:ex_machina)
