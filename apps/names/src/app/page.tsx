@@ -90,8 +90,24 @@ export default async function StatusPage({
               <section className="result" aria-label="Verification result">
                 <h2 className="result-title">{name}</h2>
                 <p className="status" data-state={verified ? 'verified' : error ? 'error' : 'pending'} role="status" aria-live="polite">
-                  <svg className="status-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    {verified ? <path d="m5 12 4 4L19 6" /> : <path d="M12 7v5m0 4h.01" />}
+                  <svg
+                    className="status-icon"
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    {verified ? (
+                      <path d="m5 12 4 4L19 6" />
+                    ) : (
+                      <>
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5m0 4h.01" />
+                      </>
+                    )}
                   </svg>
                   <span>{verified ? 'Verified storage proof and site content' : error || 'This site is not verified.'}</span>
                 </p>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dialog focus</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  label { display: block; }
+  input[type=radio] { appearance: none; width: 48px; min-width: 48px; vertical-align: middle; }
+  input[type=radio]:checked { background: black; }
+</style>
+<body>
+<h1>Surface</h1>
+<label><input id="behind" type="radio" name="background" tabindex="0">Background option</label>
+<label><input id="background" type="radio" name="background" tabindex="0" checked>Selected option</label>
+<script>
+  const parameters = new URLSearchParams(location.search);
+  const host = document.createElement("section");
+  document.body.append(host);
+  const root = parameters.has("shadow") ? host.attachShadow({ mode: "open" }) : host;
+  const style = document.createElement("style");
+  style.textContent = `
+    * { box-sizing: border-box; }
+    dialog { color: black; background: white; border: 2px solid black; padding: 16px; max-width: calc(100vw - 32px); }
+    h1 { font: 24px/1.5 sans-serif; margin: 0 0 16px; }
+    button { display: block; font: 16px/1.5 sans-serif; color: black; background: white; border: 2px solid black; min-width: 64px; min-height: 48px; padding: 8px; margin: 8px 0; }
+    :focus-visible { outline: 3px solid blue; outline-offset: 2px; }
+    ${parameters.has("unmarked") ? "#first:focus-visible { outline: none; }" : ""}
+  `;
+  root.append(style);
+  const dialog = document.createElement("dialog");
+  dialog.setAttribute("aria-labelledby", "dialog-title");
+  dialog.innerHTML = '<h1 id="dialog-title">Actions</h1><button id="first" autofocus>First action</button><button id="second">Second action</button><button id="third">Third action</button>';
+  root.append(dialog);
+  if (parameters.has("stacked")) {
+    const lower = document.createElement("dialog");
+    lower.setAttribute("aria-label", "Other actions");
+    lower.innerHTML = '<button id="lower">Other action</button>';
+    root.append(lower);
+    lower.showModal();
+  }
+  if (parameters.has("nonmodal")) dialog.show();
+  else dialog.showModal();
+</script>
+</body>
+</html>
