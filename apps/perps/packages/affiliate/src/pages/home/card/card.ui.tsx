@@ -1,3 +1,4 @@
+import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { Flex, Text } from "@paxeer-network/ui";
 import { AsTraderWidget } from "../asATrader";
@@ -11,7 +12,7 @@ export const Card: FC<CardReturns> = (props) => {
   return (
     <Flex
       id="oui-affiliate-home-card"
-      className="oui-flex oui-w-full oui-flex-col oui-items-stretch oui-gap-6 xl:oui-flex-row xl:oui-gap-[36px]"
+      className={`${surface.surface} ${surface.columns}`}
     >
       <AsAnAffiliateWidget />
       <AsTraderWidget />

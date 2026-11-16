@@ -18,7 +18,7 @@ export const CampaignTermsUI: FC<TermsUIProps> = ({
 }) => {
   const { t } = useTranslation();
   return (
-    <div className={cn("oui-mx-auto oui-max-w-[992px] oui-py-10", className)}>
+    <div className={cn("oui-mx-auto oui-max-w-screen-xl oui-py-10", className)}>
       <LeaderboardTitle
         isMobile={isMobile}
         title={t("tradingLeaderboard.termsAndConditions")}

@@ -94,7 +94,10 @@ export const OrderEntry: React.FC<OrderEntryProps> = (props) => {
   const [selectedExtraId, setSelectedExtraId] = useState<string | null>(null);
 
   const [permissionlessAcknowledgedKeys, setPermissionlessAcknowledgedKeys] =
-    useLocalStorage<string[]>("paxeer-network-permissionless-market-notice", []);
+    useLocalStorage<string[]>(
+      "paxeer-network-permissionless-market-notice",
+      [],
+    );
 
   const { t } = useTranslation();
 
@@ -115,13 +118,20 @@ export const OrderEntry: React.FC<OrderEntryProps> = (props) => {
     true,
   );
   const [showTPSLAdvanced, setShowTPSLAdvanced] = useState(false);
-  const [hidden, setHidden] = useLocalStorage("paxeer-network-order-hidden", false);
+  const [hidden, setHidden] = useLocalStorage(
+    "paxeer-network-order-hidden",
+    false,
+  );
 
-  const [slippage, setSlippage] = useLocalStorage("paxeer-network-slippage", "1", {
-    parseJSON: ((value: string | null) => {
-      return !value || value === '""' ? "1" : JSON.parse(value);
-    }) as any,
-  });
+  const [slippage, setSlippage] = useLocalStorage(
+    "paxeer-network-slippage",
+    "1",
+    {
+      parseJSON: ((value: string | null) => {
+        return !value || value === '""' ? "1" : JSON.parse(value);
+      }) as any,
+    },
+  );
 
   const { notification } = usePaxeerNetworkContext();
 
@@ -693,7 +703,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = (props) => {
           overlay: cn("oui-tpslAdvanced-overlay", "!oui-bg-base-10/60"),
           content: cn(
             "oui-tpslAdvanced-sheet",
-            "oui-rounded-[16px] oui-border-none !oui-p-0",
+            "oui-rounded-2xl oui-border-none !oui-p-0",
             isMobile
               ? "oui-inset-y-0 oui-end-0 oui-w-[280px]"
               : "!oui-bottom-[40px] oui-end-3 oui-top-[44px] !oui-h-auto oui-w-[360px]",

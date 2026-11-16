@@ -1,0 +1,317 @@
+.surface {
+  min-inline-size: 0;
+  inline-size: 100%;
+  color: rgb(var(--oui-color-text));
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  container-type: inline-size;
+}
+.surface :where(div, section, fieldset) {
+  min-inline-size: 0;
+}
+.surface :where(h1, h2, h3, th) {
+  text-wrap: balance;
+}
+.surface :where(p, dd) {
+  text-wrap: pretty;
+}
+.surface
+  :where(
+    button,
+    input,
+    select,
+    textarea,
+    summary,
+    [role="tab"],
+    [role="combobox"]
+  ) {
+  min-block-size: var(--oui-space-12);
+  min-inline-size: var(--oui-space-12);
+  block-size: auto;
+  @apply oui-leading-normal;
+}
+.surface :where(button, summary, [role="tab"]) {
+  white-space: normal;
+}
+.surface
+  :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  font-size: var(--oui-font-size-base);
+}
+.surface :where(input[type="checkbox"], input[type="radio"]) {
+  min-inline-size: var(--oui-space-5);
+  min-block-size: var(--oui-space-5);
+  inline-size: var(--oui-space-5);
+  block-size: var(--oui-space-5);
+  accent-color: rgb(var(--oui-color-primary));
+}
+.surface
+  :where(label:has(input[type="checkbox"]), label:has(input[type="radio"])) {
+  min-block-size: var(--oui-space-12);
+}
+.surface
+  :where(
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    summary,
+    [tabindex]
+  ):focus-visible {
+  outline: var(--oui-focus-ring-width) solid rgb(var(--oui-color-text));
+  outline-offset: var(--oui-focus-ring-offset);
+}
+.surface
+  :where(
+    :global(.oui-text-base-contrast-20),
+    :global(.oui-text-base-contrast-36),
+    :global(.oui-text-base-contrast-54)
+  ) {
+  color: rgb(var(--oui-color-text-muted));
+}
+.surface :where(:global(.oui-input-root)) {
+  min-block-size: var(--oui-space-12);
+  block-size: auto;
+  outline-color: rgb(var(--oui-color-text-muted));
+}
+.surface :where([role="tablist"]) {
+  max-inline-size: 100%;
+  overflow-x: auto;
+  justify-content: start;
+  block-size: auto;
+}
+.surface :where([role="tab"]) {
+  flex-shrink: 0;
+}
+.surface :where([role="tab"][data-state="active"]) {
+  text-decoration: underline;
+  text-underline-offset: var(--oui-space-1);
+}
+.surface :where(:global(.oui-table-root)) {
+  max-inline-size: 100%;
+}
+.surface :where(table) {
+  inline-size: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.surface :where(th, td) {
+  overflow-wrap: normal;
+}
+.surface :where(img) {
+  max-inline-size: 100%;
+  object-fit: contain;
+}
+.surface :where(button:disabled) {
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .surface
+    :where(
+      :global(.oui-animate-spin),
+      :global(.oui-animate-rotate-360),
+      :global(.oui-animate-pulse)
+    ) {
+    animation: none;
+  }
+  .surface :where([class*="oui-transition"]) {
+    transition: none;
+  }
+}
+.landing {
+  max-inline-size: calc(var(--oui-space-24) * 11);
+  margin-inline: auto;
+  padding: var(--oui-space-5);
+}
+.hero {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--oui-space-8);
+  margin-block-end: var(--oui-space-12);
+}
+.hero > :where(div, svg) {
+  inline-size: 100%;
+  max-inline-size: calc(var(--oui-space-24) * 5);
+}
+.steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--oui-space-6);
+}
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--oui-space-4);
+  inline-size: 100%;
+}
+@container (min-width: 48rem) {
+  .hero {
+    flex-direction: row;
+  }
+  .hero > :where(div, svg) {
+    inline-size: 50%;
+  }
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.reading {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto calc(var(--oui-space-24) * 6);
+}
+.dialog {
+  margin: auto;
+  max-inline-size: min(calc(100% - var(--oui-space-6)), var(--oui-spacing-md));
+  max-block-size: calc(100dvh - var(--oui-space-6));
+  inline-size: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: var(--oui-focus-ring-width) solid rgb(var(--oui-color-line) / 0.16);
+  border-radius: var(--oui-radius-xl);
+  padding: var(--oui-space-5);
+  background: rgb(var(--oui-color-surface-raised));
+  color: rgb(var(--oui-color-text));
+  box-shadow: var(--oui-shadow-lg);
+}
+.dialog::backdrop {
+  background: rgb(var(--oui-color-base-static-contrast) / 0.7);
+}
+.dialog form {
+  max-inline-size: 100%;
+}
+.surface :where(:global(.oui-max-h-24), :global(.oui-max-h-20)) {
+  max-block-size: none;
+}
+
+.surface :where(:global(.oui-table-root), :global(.oui-table-scroll)) {
+  max-inline-size: 100%;
+}
+.surface :where(th, td) {
+  block-size: auto;
+  white-space: normal;
+  padding-block: var(--oui-space-3);
+}
+.surface :where(th) {
+  color: rgb(var(--oui-color-text-muted));
+}
+.surface :where(svg) {
+  flex-shrink: 0;
+}
+.surface :where(a) {
+  text-underline-offset: var(--oui-space-1);
+}
+.surface :where(:global(.oui-input-root)) {
+  background: rgb(var(--oui-color-surface));
+}
+.scrollRegion {
+  max-inline-size: 100%;
+  overflow: auto;
+  overscroll-behavior-inline: contain;
+}
+.scrollRegion:focus-visible {
+  outline: var(--oui-focus-ring-width) solid rgb(var(--oui-color-focus-ring));
+  outline-offset: var(--oui-focus-ring-offset);
+}
+.scrollRegion :where(table) {
+  min-inline-size: calc(var(--oui-space-24) * 7);
+}
+
+.surface :where(:global(.oui-list-view)) {
+  max-block-size: none;
+}
+.mobileCard {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, calc(var(--oui-space-24) * 1.5)), 1fr)
+  );
+  gap: var(--oui-space-3);
+}
+.infoPopover {
+  margin: auto;
+  max-inline-size: min(calc(100% - var(--oui-space-8)), var(--oui-spacing-sm));
+  max-block-size: calc(100dvh - var(--oui-space-8));
+  overflow: auto;
+  padding: var(--oui-space-4);
+  border: var(--oui-focus-ring-width) solid rgb(var(--oui-color-line) / 0.16);
+  border-radius: var(--oui-radius-lg);
+  background: rgb(var(--oui-color-surface-raised));
+  color: rgb(var(--oui-color-text));
+  box-shadow: var(--oui-shadow-lg);
+}
+.infoTrigger {
+  min-block-size: var(--oui-space-12);
+  padding-inline: var(--oui-space-1);
+  text-align: inherit;
+  text-decoration: underline dashed;
+  text-underline-offset: var(--oui-space-1);
+}
+
+.surface :where(:global(.oui-flex-row)) {
+  flex-wrap: wrap;
+}
+.surface :where(:global(.oui-h-full), :global(.oui-size-full)) {
+  block-size: auto;
+}
+.surface :where(:global(.oui-flex-1)) {
+  min-inline-size: 0;
+}
+.surface :where(:global(.oui-space-y-3) > div) {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto calc(var(--oui-space-24) * 2);
+}
+.surface :where([class*="oui-max-h-"]:not(:global(.oui-table-scroll))) {
+  max-block-size: none;
+}
+
+.surface
+  :where(
+    :global(.oui-text-primary),
+    :global(.oui-text-primary-light),
+    :global(.oui-text-warning-darken)
+  ) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-text)) 75%,
+    rgb(var(--oui-color-primary))
+  );
+}
+.surface
+  :where(
+    :global(.oui-text-success),
+    :global(.oui-text-success-darken),
+    :global(.oui-text-trade-profit)
+  ) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-text)) 75%,
+    rgb(var(--oui-color-success))
+  );
+}
+.surface :where(:global(.oui-text-danger), :global(.oui-text-trade-loss)) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-text)) 75%,
+    rgb(var(--oui-color-danger))
+  );
+}
+.surface :where(:global(.oui-bg-clip-text)) {
+  background-image: none;
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-text)) 75%,
+    rgb(var(--oui-color-primary))
+  );
+}
+
+.surface :where(:global(.oui-datepicker-trigger)) {
+  max-inline-size: 100%;
+}
+.surface :where(:global(.oui-datepicker-trigger)) span {
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}

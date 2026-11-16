@@ -54,7 +54,7 @@ const ConvertDetailsModal = modal.create<{
           root: "oui-bg-base-8 oui-max-h-[60vh] oui-overflow-y-scroll oui-custom-scrollbar",
         }}
         onRow={() => ({
-          className: "oui-h-[40px]",
+          className: "oui-h-10",
         })}
         generatedRowKey={(record) =>
           record.transaction_id || Math.random().toString()
@@ -161,10 +161,10 @@ export const ConvertDesktopUI: React.FC<ConvertDesktopUIProps> = ({
         manualPagination
         className="oui-mt-4 oui-w-full"
         classNames={{
-          root: "oui-h-[calc(100%_-_49px)]",
+          root: "oui-h-[calc(100%_-_var(--oui-space-12))]",
         }}
         onRow={() => ({
-          className: "oui-h-[48px] oui-cursor-pointer",
+          className: "oui-h-12 oui-cursor-pointer",
         })}
         generatedRowKey={(record) => {
           return record.convert_id.toString();

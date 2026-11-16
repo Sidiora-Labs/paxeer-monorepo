@@ -1,3 +1,4 @@
+import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Button, cn, Flex, Text } from "@paxeer-network/ui";
@@ -17,7 +18,7 @@ export const AsAnAffiliate: FC<AsAnAffiliateReturns> = (props) => {
       direction={"column"}
       width={"100%"}
       justify={"between"}
-      className="oui-bg-primary-darken oui-text-primary-contrast"
+      className={`${surface.surface} oui-bg-primary-darken oui-text-primary-contrast`}
     >
       <Flex
         direction={"row"}
@@ -63,7 +64,7 @@ const Icon = () => {
       viewBox="0 0 72 72"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="xl:oui-size-[90px]"
+      className="xl:oui-size-24"
     >
       <path
         d="M35.997 5.86c-16.569 0-29.944 13.43-30 30-.056 16.545 13.445 30.06 30 30.093s30.03-13.665 30-30.093c-.03-16.57-13.432-30-30-30m0 6c13.255 0 24 10.746 24 24 0 6.75-2.812 12.834-7.297 17.196-2.209-4.78-6.955-8.196-12.39-8.196h-8.626c-5.432 0-10.164 3.375-12.375 8.157-4.485-4.362-7.312-10.407-7.312-17.157 0-13.254 10.745-24 24-24m0 6c-6.628 0-12 5.373-12 12s5.372 12 12 12c6.627 0 12-5.373 12-12s-5.373-12-12-12"
@@ -94,7 +95,7 @@ const Bottom: FC<AsAnAffiliateReturns> = (props) => {
         <>
           <Flex direction={"column"} itemAlign={"start"} gap={2}>
             <Text className="oui-text-2xs md:oui-text-xs xl:oui-text-sm">
-              {t("affiliate.commission")} {<Text intensity={36}>(USDC)</Text>}
+              {t("affiliate.commission")} {<Text>(USDC)</Text>}
             </Text>
             <Flex direction={"row"} gap={1}>
               <USDCIcon />
@@ -107,19 +108,16 @@ const Bottom: FC<AsAnAffiliateReturns> = (props) => {
             </Flex>
           </Flex>
 
-          <Flex
-            direction={"row"}
-            gap={1}
-            justify={"end"}
-            itemAlign={"center"}
-            className="oui-cursor-pointer"
+          <button
+            type="button"
+            className="oui-inline-flex oui-items-center oui-justify-end oui-gap-1 oui-underline"
             onClick={props.onEnterAffiliatePage}
           >
             <Text className="oui-text-sm md:oui-text-base xl:oui-text-lg">
               {t("affiliate.enter")}
             </Text>
-            <ArrowRightIcon className="md:oui-size-[18px] lg:oui-size-[20px] xl:oui-size-[24px]" />
-          </Flex>
+            <ArrowRightIcon className="md:oui-size-4 lg:oui-size-5 xl:oui-size-6" />
+          </button>
         </>
       );
     }

@@ -1,3 +1,5 @@
+import { withMarketTableControls } from "../shared/tableColumns";
+import styles from "../../presentation.module.css";
 import { FC, ReactNode } from "react";
 import { Trans } from "@paxeer-network/i18n";
 import { cn, Flex, DataTable } from "@paxeer-network/ui";
@@ -27,12 +29,12 @@ export const FavoritesListFull: FC<FavoritesListFullProps> = (props) => {
   const columns = useMarketsListFullColumns(favorite, true);
 
   const emptyView = props.emptyView || (
-    <Flex className="oui-text-xs oui-text-base-contrast-36">
+    <Flex className="oui-text-xs oui-text-base-contrast-80">
       {/* @ts-ignore */}
       <Trans
         i18nKey="markets.dataList.favorites.empty"
         components={[
-          <UnFavoritesIcon key="0" className="oui-text-base-contrast-36" />,
+          <UnFavoritesIcon key="0" className="oui-text-base-contrast-80" />,
         ]}
       />
     </Flex>
@@ -43,9 +45,10 @@ export const FavoritesListFull: FC<FavoritesListFullProps> = (props) => {
       <FavoritesTabWidget favorite={favorite} className="oui-my-3" />
 
       <DataTable
+        className={`${styles.surface} ${styles.table}`}
         bordered
         // minHeight={187.5}
-        columns={columns}
+        columns={withMarketTableControls(columns)}
         dataSource={dataSource}
         emptyView={
           isHiddenByLowVolumeFilter ? <LowVolumeEmptyView /> : emptyView
@@ -58,7 +61,17 @@ export const FavoritesListFull: FC<FavoritesListFullProps> = (props) => {
         loading={loading}
         onRow={(record, index) => {
           return {
-            className: cn("oui-h-[55px] oui-cursor-pointer"),
+            tabIndex: 0,
+            onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+              if (
+                event.target === event.currentTarget &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
+                event.preventDefault();
+                event.currentTarget.click();
+              }
+            },
+            className: cn("oui-h-14 oui-cursor-pointer"),
             onClick: () => {
               onSymbolChange?.(record);
               favorite.addToHistory(record);

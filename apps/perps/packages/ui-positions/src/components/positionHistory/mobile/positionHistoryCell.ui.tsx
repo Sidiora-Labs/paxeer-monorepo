@@ -91,7 +91,12 @@ export const Header: FC<PositionHistoryCellState> = (props) => {
           {t("positions.history.column.netPnl")}
         </Text>
         <Flex gapX={1}>
-          <button onClick={showAlert}>
+          <button
+            onClick={showAlert}
+            type="button"
+            aria-label={t("positions.history.column.netPnl")}
+            className="oui-touch-target"
+          >
             <Text.numeral size="xs" coloring>
               {props.item.netPnL ?? "--"}
             </Text.numeral>

@@ -32,12 +32,19 @@ export const PortfolioChartsMobileUI: React.FC<
         "oui-relative oui-overflow-hidden oui-rounded-2xl oui-border oui-border-solid oui-border-line-12 oui-bg-base-9",
       )}
     >
-      <Flex width={"100%"} justify={"between"} itemAlign={"start"} mb={3}>
+      <Flex
+        width={"100%"}
+        justify={"between"}
+        itemAlign={"start"}
+        mb={3}
+        wrap="wrap"
+        gap={3}
+      >
         <Flex direction="column" gap={1}>
-          <Text size="sm" intensity={54}>
+          <Text size="sm" intensity={80}>
             {t("portfolio.overview.todaysPnl")}
           </Text>
-          <Flex justify={"start"} itemAlign={"center"} gapX={1}>
+          <Flex justify={"start"} itemAlign={"center"} gap={1} wrap="wrap">
             <Text.pnl coloring size="base" weight="semibold" visible={visible}>
               {invisible || todaysPnl == null ? "--" : todaysPnl}
             </Text.pnl>
@@ -55,7 +62,7 @@ export const PortfolioChartsMobileUI: React.FC<
           </Flex>
         </Flex>
         <Flex direction="column" gap={1} itemAlign="end">
-          <Text size="sm" intensity={54}>
+          <Text size="sm" intensity={80}>
             {t("portfolio.overview.todaysVol")}
           </Text>
           <Text.numeral
@@ -75,9 +82,9 @@ export const PortfolioChartsMobileUI: React.FC<
         justify={"center"}
         itemAlign={"center"}
         mb={3}
-        className="oui-px-1"
+        className="oui-px-1 oui-h-[calc(var(--oui-space-12)+var(--oui-space-1))]"
       >
-        <ResponsiveContainer width="100%" height={52}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data || EMPTY_LIST}>
             {!invisible && (
               <>
@@ -112,13 +119,19 @@ export const PortfolioChartsMobileUI: React.FC<
 
       <Flex width={"100%"} justify={"start"} itemAlign={"center"} mt={1}>
         <Text
+          asChild
           size="xs"
-          intensity={54}
+          intensity={80}
           className="oui-flex oui-items-center oui-justify-start oui-gap-1"
-          onClick={onPerformanceClick}
         >
-          {t("portfolio.overview.performance")}
-          <ChevronRightIcon className="oui-text-base-contrast-54" />
+          <button
+            type="button"
+            onClick={onPerformanceClick}
+            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+          >
+            {t("portfolio.overview.performance")}
+            <ChevronRightIcon className="oui-text-base-contrast-80" />
+          </button>
         </Text>
       </Flex>
     </Flex>

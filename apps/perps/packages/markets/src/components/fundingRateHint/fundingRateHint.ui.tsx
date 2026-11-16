@@ -30,7 +30,7 @@ export const FundingRateHint: FC<FundingRateHintProps> = (props) => {
     }
     return (
       <Flex justify="between" itemAlign={"center"} width={"100%"}>
-        <Text intensity={54}>
+        <Text intensity={80}>
           {annualizedValue
             ? `${label}/ ${t("trading.fundingRate.annualized")}`
             : label}

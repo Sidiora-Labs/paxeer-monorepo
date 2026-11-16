@@ -22580,3 +22580,33 @@ fix = "Decision 3633. Task 22.39.706."
 title = "The receipt authority names a batch evidence origin, and the core service answers that contract as retired"
 symptom = "The receipt authority reads its settings for a loopback origin of batch evidence with an identity, a bearer and a range of batches, and its readiness asks that origin beside the node. The core service answers the route of batch evidence with the refusal of a retired contract, and its readiness names no such origin. A service and the services beside it name the same contracts, and a setting that only a retired contract can fill is not a required setting."
 fix = "Decision 3634. Task 22.39.707."
+
+[gotcha.4552]
+title = "The hosted gateway reads origins and bindings that its definition does not name"
+symptom = "The hosted gateway reads an indexer origin, a consensus route and a document of bindings for the routes of the products, each as an optional setting, and its readiness names a backend without its setting as not configured. The definition of the gateway in deploy/projects/platform/gateway.kvx names none of the three, and the file table the definition selects holds no row for the document of bindings. A setting a service reads and its definition does not name cannot be given through the definition."
+fix = "Decision 3635. Tasks 22.39.708 and 22.39.709."
+
+[gotcha.4553]
+title = "A source file imports a package by its name from a package that declares it"
+symptom = "The consent module of the trading workspace in apps/perps/apps/web/src/legal/useCookieConsent.ts imports the error reporter through a relative path into the module directory of the package apps/perps/packages/paxeer-backend. The web application does not declare that package among its dependencies. An import through such a path does not take the entry the package gives a bundle of the browser, and the production build of the workspace reads the entry the import names. A task that adds a module to the web application builds the workspace in the production form."
+fix = "Decision 3636. Tasks 22.39.710 and 22.39.564."
+
+[gotcha.4554]
+title = "The render step of a task of the explorer names the form of the surface, the sizes and the count of passes"
+symptom = "The explorer is a large application. Its development server compiles a page when the page is first asked for and stays in the foreground of the command that starts it; its production form is built once and then served from the built files. The tasks 22.44.1 to 22.44.11 each hold a step that renders the views of their paths, and the proof 22.44.38 renders every route at the whole device list with the render check. A render step names the form of the surface it renders, the sizes, the count of passes and the order of the work, and no command of it stays in the foreground."
+fix = "Decision 3637. Tasks 22.44.1 to 22.44.11 and 22.44.38."
+
+[gotcha.4555]
+title = "The native file table of the gateway holds rows the general table does not hold, and the general table leaves modes open"
+symptom = "The table docker/platform-gateway/native-files.tsv is the table of the native deployment and docker/platform-gateway/files.tsv the general one. The native table holds rows of inputs the general table does not name, and every row of the native table states a mode while rows of the general table leave the mode open. A case that compares the two tables compares the rows whose name both tables hold, by name and path."
+fix = "Decision 3638. Task 22.39.709."
+
+[gotcha.4556]
+title = "A service that serves TLS under the internal CA has a row in the roster of service certificates"
+symptom = "The definition deploy/projects/platform/receipt-authority.kvx reads the server certificate of the hosted authority and its key as inputs of the kind operator. The CA tool issues a certificate for a row of tools/bringup/ca-services.tsv, and the roster names the hosted authority in no row. The roster refuses the name receipt-authority among the names of retired owners, and several cases hold the count of its rows."
+fix = "Decision 3639. Task 22.39.711."
+
+[gotcha.4557]
+title = "An answer of the render check to a request can end after the render of its page"
+symptom = "The render check answers each request of a page through the routing of its browser context: a request to the surface is fetched and its response is passed on, and another request takes its fixed answer or is refused. A render ends after its measurements or at its deadline, and its context closes while a request can still be in its answer. A call that passes on, answers, continues or refuses a request after its context has closed is rejected, and a rejection without a reader ends the process of the check before its report."
+fix = "Decision 3640. Task 22.44.59; tasks 22.44.55, 22.44.38 and 22.44.39."

@@ -23,51 +23,58 @@ const MarketItemComponent: React.FC<MarketItemProps> = (props) => {
 
   return (
     <Flex
+      asChild
       direction="row"
       className={cn(
-        "oui-me-3 oui-h-[18px] oui-shrink-0 oui-cursor-pointer oui-items-center oui-rounded",
-        "oui-transition-all oui-duration-200",
+        "oui-me-3 oui-h-4 oui-shrink-0 oui-cursor-pointer oui-items-center oui-rounded",
+        "oui-transition-colors motion-reduce:oui-transition-none",
       )}
-      onClick={handleClick}
     >
-      {/* Symbol */}
-      <Flex gapX={1} itemAlign="center" className="oui-me-[6px]">
-        <TokenIcon symbol={symbol} className="oui-size-[18px]" />
-        <SymbolDisplay
-          formatString="base"
-          size="2xs"
-          className="oui-text-base-contrast-80"
-        >
-          {symbol}
-        </SymbolDisplay>
-      </Flex>
+      <button
+        type="button"
+        style={{ transitionDuration: "var(--oui-duration-normal)" }}
+        onClick={handleClick}
+        className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+      >
+        {/* Symbol */}
+        <Flex gapX={1} itemAlign="center" className="oui-me-1.5">
+          <TokenIcon symbol={symbol} className="oui-size-4" />
+          <SymbolDisplay
+            formatString="base"
+            size="2xs"
+            className="oui-text-base-contrast-80"
+          >
+            {symbol}
+          </SymbolDisplay>
+        </Flex>
 
-      {/* Price */}
-      <Flex gapX={1} className="oui-me-[6px]">
-        <Text.numeral
-          dp={tickerData.quote_dp || 2}
-          size="xs"
-          className="oui-text-base-contrast-80"
-        >
-          {tickerData["24h_close"]}
-        </Text.numeral>
-      </Flex>
+        {/* Price */}
+        <Flex gapX={1} className="oui-me-1.5">
+          <Text.numeral
+            dp={tickerData.quote_dp || 2}
+            size="xs"
+            className="oui-text-base-contrast-80"
+          >
+            {tickerData["24h_close"]}
+          </Text.numeral>
+        </Flex>
 
-      {/* Change */}
-      <Flex gapX={1} className="oui-me-3">
-        <Text.numeral
-          rule="percentages"
-          coloring
-          rm={Decimal.ROUND_DOWN}
-          showIdentifier
-          size="xs"
-        >
-          {tickerData.change}
-        </Text.numeral>
-      </Flex>
+        {/* Change */}
+        <Flex gapX={1} className="oui-me-3">
+          <Text.numeral
+            rule="percentages"
+            coloring
+            rm={Decimal.ROUND_DOWN}
+            showIdentifier
+            size="xs"
+          >
+            {tickerData.change}
+          </Text.numeral>
+        </Flex>
 
-      {/* Divider */}
-      <Divider direction="vertical" className="oui-h-[18px] oui-border-line" />
+        {/* Divider */}
+        <Divider direction="vertical" className="oui-h-4 oui-border-line" />
+      </button>
     </Flex>
   );
 };

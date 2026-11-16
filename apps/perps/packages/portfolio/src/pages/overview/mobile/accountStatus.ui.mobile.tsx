@@ -101,7 +101,7 @@ export function EVMChainPopover({ children }: { children: React.ReactNode }) {
       size: "xs",
       content: (
         <div>
-          <div className="oui-p-1 oui-grid oui-grid-cols-2 oui-gap-x-2 oui-gap-y-3 oui-text-2xs oui-text-base-contrast-54">
+          <div className="oui-p-1 oui-grid oui-grid-cols-2 oui-gap-x-2 oui-gap-y-3 oui-text-2xs oui-text-base-contrast-80">
             {chains.map((item, key) => (
               <div
                 key={key}
@@ -117,7 +117,11 @@ export function EVMChainPopover({ children }: { children: React.ReactNode }) {
     });
   };
 
-  return <button onClick={showDialog}>{children}</button>;
+  return (
+    <button type="button" onClick={showDialog}>
+      {children}
+    </button>
+  );
 }
 
 export const MoreIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
@@ -138,17 +142,20 @@ export const MoreIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
 const EVMChains = () => {
   return (
     <div className="oui-relative oui-flex oui-items-center oui-justify-center">
-      <div className="oui-flex oui-h-[18px] oui-items-center oui-justify-center ">
+      <div className="oui-flex oui-h-4 oui-items-center oui-justify-center ">
         <img
           src="/assets/static/sdk/portfolio/chains.png"
-          className="oui-relative oui-z-0 oui-h-[18px] oui-w-[49px]"
+          className="oui-relative oui-z-0 oui-h-4 oui-w-12"
+          width={24}
+          height={24}
+          alt=""
         />
       </div>
-      <div className="oui-relative oui-start-[-9px] oui-flex oui-items-center oui-justify-center oui-gap-1">
-        <div className="oui-flex oui-size-[18px] oui-items-center oui-justify-center oui-rounded-full oui-bg-base-5">
+      <div className="oui-relative -oui-start-2 oui-flex oui-items-center oui-justify-center oui-gap-1">
+        <div className="oui-flex oui-size-4 oui-items-center oui-justify-center oui-rounded-full oui-bg-base-5">
           <EVMChainPopover>
             <MoreIcon
-              className="oui-relative oui-z-10 oui-size-3 oui-text-base-contrast-54 hover:oui-text-base-contrast"
+              className="oui-relative oui-z-10 oui-size-3 oui-text-base-contrast-80 hover:oui-text-base-contrast"
               style={{ zIndex: 1 }}
             />
           </EVMChainPopover>
@@ -188,7 +195,9 @@ const ShowAccount: FC = () => {
       <Flex className="oui-text-base oui-text-base-contrast" gapX={2}>
         {formatAddress(state.address ?? "")}
         <button
+          type="button"
           className="oui-cursor-pointer"
+          aria-label={t("common.copy")}
           onClick={() => {
             onCopyAddress();
           }}
@@ -211,7 +220,10 @@ const ShowAccount: FC = () => {
       <Flex gapX={1} itemAlign={"center"} className="oui-text-2xs">
         <img
           src="/assets/static/sdk/solana-logo.png"
-          className="oui-w-[15px]"
+          className="oui-w-3.5"
+          width={24}
+          height={24}
+          alt=""
         />
         Solana
       </Flex>
@@ -232,7 +244,7 @@ const ShowAccount: FC = () => {
   return (
     <div
       className={cn([
-        "oui-flex oui-h-[44px] oui-w-full oui-items-center oui-justify-between oui-rounded-[10px] oui-px-3 oui-py-[10px]",
+        "oui-flex oui-h-11 oui-w-full oui-items-center oui-justify-between oui-rounded-lg oui-px-3 oui-py-2.5",
         bgClass,
       ])}
     >
@@ -264,7 +276,7 @@ export const AccountStatusMobile: FC = () => {
   return (
     <div
       className={cn([
-        "oui-flex oui-h-[44px] oui-w-full oui-items-center oui-justify-center oui-gap-1.5 oui-rounded-[10px] oui-px-3 oui-py-[10px]",
+        "oui-flex oui-h-11 oui-w-full oui-items-center oui-justify-center oui-gap-1.5 oui-rounded-lg oui-px-3 oui-py-2.5",
         rootClass,
       ])}
     >
@@ -273,10 +285,10 @@ export const AccountStatusMobile: FC = () => {
       )}
       <div
         className={cn(
-          "oui-flex oui-items-center oui-justify-end oui-rounded-[10px] oui-text-xs oui-font-semibold",
+          "oui-flex oui-items-center oui-justify-end oui-rounded-lg oui-text-xs oui-font-semibold",
           info
             ? "oui-text-primary oui-font-medium"
-            : "oui-text-base-contrast-54",
+            : "oui-text-base-contrast-80",
         )}
       >
         {description}

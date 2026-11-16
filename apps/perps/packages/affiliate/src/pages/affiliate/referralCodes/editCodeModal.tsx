@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { AffiliateDialog as SimpleDialog } from "../../../components/dialog";
+import { useEffect, useId, useState } from "react";
 import {
   formatReferralCodeInput,
   isReferralCodeLengthValid,
@@ -10,8 +11,7 @@ import { useTranslation } from "@paxeer-network/i18n";
 import {
   inputFormatter,
   modal,
-  SimpleDialog,
-  TextField,
+  Input,
   Text,
   useModal,
   Flex,
@@ -26,6 +26,8 @@ export const EditCodeModal = modal.create<{
 }>((props) => {
   const { t } = useTranslation();
   const { visible, onOpenChange } = useModal();
+  const id = useId();
+  const [touched, setTouched] = useState(false);
   const [newCode, setNewCode] = useState<string>("");
   const [filedError, setFiledError] = useState<{
     length: boolean;
@@ -40,6 +42,7 @@ export const EditCodeModal = modal.create<{
   );
   useEffect(() => {
     setNewCode(props.code.code);
+    setTouched(false);
   }, [props.code]);
 
   useEffect(() => {
@@ -60,7 +63,7 @@ export const EditCodeModal = modal.create<{
   return (
     <SimpleDialog
       classNames={{
-        content: "oui-max-w-[360px]",
+        content: "oui-max-w-[calc(var(--oui-space-24)*4)]",
       }}
       title={<div>{t("affiliate.referralCode.editCodeModal.title")}</div>}
       open={visible}
@@ -86,7 +89,9 @@ export const EditCodeModal = modal.create<{
               }
               toast.error(res.message);
             } catch (e) {
-              console.error("edit referral code error", e);
+              toast.error(
+                e instanceof Error ? e.message : t("common.somethingWentWrong"),
+              );
             }
           },
         },
@@ -95,13 +100,27 @@ export const EditCodeModal = modal.create<{
       <div className="oui-mb-6 oui-text-xs oui-text-base-contrast-54">
         {t("affiliate.referralCode.editCodeModal.description")}
       </div>
-      <TextField
+      <label
+        htmlFor={id}
+        className="oui-block oui-text-sm oui-text-content-muted"
+      >
+        {t("affiliate.referralCode.editCodeModal.label")}
+      </label>
+      <Input
+        id={id}
+        size="xl"
+        required
+        pattern="[A-Z0-9]+"
+        aria-describedby={`${id}-help`}
+        name="referral_code"
+        onBlur={() => setTouched(true)}
+        onInvalid={() => setTouched(true)}
+        aria-invalid={touched && (filedError.length || filedError.format)}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         placeholder=""
         fullWidth
-        label={t("affiliate.referralCode.editCodeModal.label")}
-        onClean={() => {
-          setNewCode("");
-        }}
         value={newCode}
         onChange={(e) => {
           setNewCode(formatReferralCodeInput(e.target.value));
@@ -115,16 +134,15 @@ export const EditCodeModal = modal.create<{
           inputFormatter.createRegexInputFormatter(/[^A-Z0-9]/g),
         ]}
         classNames={{
-          label: "oui-text-base-contrast-54 oui-text-xs",
           input:
             "placeholder:oui-text-base-contrast-20 placeholder:oui-text-sm",
         }}
         maxLength={REFERRAL_CODE_MAX_LENGTH}
         minLength={REFERRAL_CODE_MIN_LENGTH}
-        autoComplete="off"
-        helpText=""
+        autoComplete="on"
       />
       <Flex
+        id={`${id}-help`}
         direction={"column"}
         justify={"center"}
         itemAlign={"start"}
@@ -134,7 +152,9 @@ export const EditCodeModal = modal.create<{
         <Text
           className={cn(
             "oui-ms-4 oui-list-item oui-list-outside oui-list-disc oui-text-xs oui-text-base-contrast-36 marker:oui-text-3xs",
-            filedError.length ? "oui-text-danger" : "oui-text-success",
+            touched && filedError.length
+              ? "oui-text-danger"
+              : "oui-text-content-muted",
           )}
         >
           {t("affiliate.referralCode.editCodeModal.helpText.length")}
@@ -142,7 +162,7 @@ export const EditCodeModal = modal.create<{
         <Text
           className={cn(
             "oui-ms-4 oui-list-item oui-list-outside oui-list-disc oui-text-xs oui-text-base-contrast-36 marker:oui-text-3xs",
-            "oui-text-success",
+            "oui-text-content-muted",
           )}
         >
           {t("affiliate.referralCode.editCodeModal.helpText.format")}

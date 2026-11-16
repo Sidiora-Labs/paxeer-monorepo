@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import { FC, useState } from "react";
 import { Trans, useTranslation } from "@paxeer-network/i18n";
 import {
@@ -97,7 +98,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = (props) => {
         setAccountDropdownOpen={props.setToAccountInfoDropdownOpen}
       />
       <Box mb={1} px={2}>
-        <Text size="xs" intensity={54}>
+        <Text size="xs" intensity={80}>
           {t("transfer.withdraw.accountIdOrAddress.hint")}
         </Text>
       </Box>
@@ -107,7 +108,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = (props) => {
   return (
     <Box
       id="oui-withdraw-form"
-      className={textVariants({ weight: "semibold" })}
+      className={`${styles.surface} ${textVariants({ weight: "semibold" })}`}
     >
       <Box className="oui-mb-6 lg:oui-mb-8">
         <BrokerWallet />
@@ -159,7 +160,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = (props) => {
             justify="end"
             gap={1}
             mt={2}
-            className="oui-flex-wrap oui-text-2xs oui-text-base-contrast-36"
+            className="oui-flex-wrap oui-text-2xs oui-text-base-contrast-80"
           >
             <Trans
               i18nKey="transfer.reverseConvert.available"
@@ -242,7 +243,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = (props) => {
             </Box>
             <QuantityInput
               classNames={{
-                root: "oui-mt-[2px] oui-rounded-t-sm oui-rounded-b-xl",
+                root: "oui-mt-0.5 oui-rounded-t-sm oui-rounded-b-xl",
               }}
               token={sourceToken}
               value={props.showQty}
@@ -260,7 +261,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = (props) => {
           />
         </Box>
         <Flex direction="column" mt={1} gapY={1} px={2} itemAlign="start">
-          <Text size="xs" intensity={36}>
+          <Text size="xs" intensity={80}>
             {t("common.fee")}
             {withdrawTo === WithdrawTo.Wallet ? " ≈ " : " = "}
             <Text size="xs" intensity={80}>

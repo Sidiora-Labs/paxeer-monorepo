@@ -10,22 +10,25 @@ export function AbstractConnectArea({ connect }: { connect: () => void }) {
         Abstract
       </div>
       <div className="oui-grid oui-grid-cols-2 oui-gap-2">
-        <div
+        <button
+          type="button"
           className={cn(
-            " oui-flex oui-flex-1 oui-cursor-pointer oui-items-center oui-justify-start oui-gap-1 oui-rounded-[6px]  oui-px-2 oui-py-[11px]",
+            " oui-flex oui-flex-1 oui-cursor-pointer oui-items-center oui-justify-start oui-gap-1 oui-rounded-md  oui-px-2 oui-py-3",
             isMobile ? "oui-bg-base-5" : "oui-bg-base-10",
           )}
           onClick={() => connect()}
         >
-          <div className="oui-flex oui-size-[18px] oui-items-center oui-justify-center">
+          <div className="oui-flex oui-size-5 oui-items-center oui-justify-center">
             <img
-              className={cn("oui-size-[12px]")}
+              width={24}
+              height={24}
+              className={cn("oui-size-3")}
               src={`${PrivyConnectorImagePath}/abstract.png`}
               alt="abstract wallet"
             />
           </div>
           <div className="oui-text-2xs oui-text-base-contrast">Abstract</div>
-        </div>
+        </button>
       </div>
     </div>
   );

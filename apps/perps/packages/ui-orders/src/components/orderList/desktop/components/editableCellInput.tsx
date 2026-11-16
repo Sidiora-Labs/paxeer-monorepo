@@ -85,7 +85,7 @@ export const EditableCellInput: FC<EditableCellInputProps> = (props) => {
       suffix={
         <Flex gapX={1}>
           {props.suffix}
-          <button onClick={onClick} disabled={!!props.error}>
+          <button onClick={onClick} disabled={!!props.error} type="button">
             <CheckIcon
               size={18}
               color="white"

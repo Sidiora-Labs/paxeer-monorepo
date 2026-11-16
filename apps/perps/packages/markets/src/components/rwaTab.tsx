@@ -8,7 +8,7 @@ const RwaIconTab = (props: { iconSize?: number }) => {
     <Flex gap={1}>
       <RwaIcon
         size={iconSize}
-        className="group-data-[state=active]:oui-text-base-contrast group-data-[state=inactive]:oui-text-base-contrast-36"
+        className="group-data-[state=active]:oui-text-base-contrast group-data-[state=inactive]:oui-text-base-contrast-80"
       />
       <Text>{t("markets.tradFi")}</Text>
     </Flex>
