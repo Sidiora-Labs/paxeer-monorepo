@@ -15184,6 +15184,12 @@ value = "Where receipts of the shell type are set aside, the comparison of the b
 basis = "Gotcha 4596. Decisions 3656 and 3046."
 affects = []
 
+[decision.3679]
+title = "The example values of the launchpad composer form one set across the services"
+value = "The example values under deploy/launchpad/documents/values describe one deployment. The source stream that charts, stats, pnl, ranking and the api name equals the canonical stream id of the indexer example. The projection version that charts, stats, ranking and the api name equals the projection version of the indexer example, and the projection version of pnl equals its inventory projection version. Charts, stats and the api name one generation. The delivery schema the api names for charts equals the schema of the charts example, and the delivery schema it names for stats equals the schema of the stats example; the consumer ids the api names equal the consumer ids of the charts and stats examples. A case of the composer holds the set: it reads every example file and compares these members, so that a later change of one example that leaves the set is refused. Where a service reads a member under another rule than this, the rule of the code decides and the final message of the task states it."
+basis = "Gotcha 4597. Decisions 3663 and 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44844,6 +44850,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.750]
+title = "Make the example values of the launchpad composer one set across the services"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/documents", "services/launchpad/api", "services/launchpad/trading-charts"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+do_1 = "do_1 Gotcha 4597, decision 3679. Read the example values of charts, stats, api, indexer, pnl and ranking under deploy/launchpad/documents/values and the composer modules that read them under deploy/launchpad/documents. Read where each service uses the members: the read model of the api in services/launchpad/api/internal/store/accounting_readmodel.go with its configuration, the consumer binding of the charts service in services/launchpad/trading-charts/internal/app/app.go, the functions LoadStats and LoadCharts of sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go, and the delivery parameters the indexer publishes with. State in the final message, member by member, which value of one service must equal which value of another for the services to read one another, and in which schema charts and stats keep their partition delivery tables."
+symbols = []
 
 [capability.22.39.749]
 title = "Compare the bloom and the root of a header in the launchpad indexer with the receipts the header of the node covers"
@@ -249070,6 +249085,38 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.750]
+title = "Make the example values of the launchpad composer one set across the services"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.735"]
+reqs = ["22998.1"]
+capabilities = ["22.39.750"]
+interfaces = []
+do_1 = "do_1 Gotcha 4597, decision 3679. Read the example values of charts, stats, api, indexer, pnl and ranking under deploy/launchpad/documents/values and the composer modules that read them under deploy/launchpad/documents. Read where each service uses the members: the read model of the api in services/launchpad/api/internal/store/accounting_readmodel.go with its configuration, the consumer binding of the charts service in services/launchpad/trading-charts/internal/app/app.go, the functions LoadStats and LoadCharts of sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go, and the delivery parameters the indexer publishes with. State in the final message, member by member, which value of one service must equal which value of another for the services to read one another, and in which schema charts and stats keep their partition delivery tables."
+do_2 = "do_2 The charts example names the source stream and the projection version of the indexer example and the generation the stats example names. The api example names as delivery schema of charts the schema of the charts example and as delivery schema of stats the schema of the stats example, the generation that charts and stats name, and the projection version and the source stream of the indexer example. Every other member of the examples stays as it is, the consumers with their numbers included. Where do_1 shows that the code reads a member under another rule, follow the code and state the rule in the final message."
+do_3 = "do_3 Case in deploy/launchpad/documents/test_compose.py with a name that holds one_set: it reads the example files of charts, stats, api, indexer, pnl and ranking and asserts that the source stream of charts, stats, pnl, ranking and the api equals the canonical stream id of the indexer, that the projection version of charts, stats, ranking and the api equals the projection version of the indexer, that the projection version of pnl equals the inventory projection version of the indexer, that charts, stats and the api name one generation, that the two delivery schemas of the api equal the schemas of charts and of stats, and that the two consumer ids of the api equal the consumer ids of charts and of stats. A second case composes each of these services from the examples with the composer and reads the same members from the composed documents. A third case changes one member of a copy of the examples and shows that the first comparison refuses the set."
+do_4 = "do_4 The README of deploy/launchpad/documents states in a short paragraph that the example values form one set and names the members that must agree. Where a case of services/launchpad/api or services/launchpad/trading-charts reads the example values and names one of the changed members, it takes the new value; a case that makes its own values stays as it is."
+do_5 = "do_5 Run by hand the cases of deploy/launchpad/documents/test_compose.py and the cases named PlatformDocuments of services/launchpad/api/internal/config and services/launchpad/trading-charts/internal/config, and read each message. The files of deploy/launchpad/documents, services/launchpad/api and services/launchpad/trading-charts are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/documents", "services/launchpad/api", "services/launchpad/trading-charts"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/api.py deploy/launchpad/documents/charts.py && (cd services/launchpad/api && go vet ./internal/config/) && (cd services/launchpad/trading-charts && go vet ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.749]
 title = "Compare the bloom and the root of a header in the launchpad indexer with the receipts the header of the node covers"
 status = "pending"
@@ -249104,7 +249151,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.748]
 title = "Write the network authority document of the api with a command of the repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249426,7 +249473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.738]
 title = "List the statements of the ranking service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249622,7 +249669,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.732]
 title = "Add the command that provisions and checks the streams and durables of the launchpad on a broker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.730"]
@@ -249787,7 +249834,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.727]
 title = "Let an instance of the launchpad indexer that finds the lease held wait as a standby"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.726"]
