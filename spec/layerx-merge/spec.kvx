@@ -14908,6 +14908,24 @@ value = "One function of apps/perps/packages/paxeer-backend/src/core/feeds.ts gi
 basis = "Gotcha 4549. Decisions 3046 and 3590."
 affects = []
 
+[decision.3633]
+title = "The node tool applies given transactions on a copy of a home in every form and compares the results"
+value = "The node tool gets the command applycheck. It opens a copy of a home, builds one block at the next height from the signed transactions it is given, and applies that block three times over the same committed state: in the form of a node with sequencing on, in the form of a node that follows with the fast execution path, and in the form of a node that follows with the ordinary path. It commits nothing, and the committed state of the copy is the same before and after. The report holds for each form the result of each transaction and the application hash, and names the first field that differs. The command ends with 0 when all forms agree, with 1 when they differ and with 2 when it refuses or fails. It refuses a home that does not hold the marker file applycheck-copy at its root, so that it never opens the home of a running node."
+basis = "Gotcha 4550. Decisions 3596 and 3606."
+affects = []
+
+[decision.3634]
+title = "The receipt authority serves from the node alone, and the batch evidence origin is an optional group of settings"
+value = "The settings of the batch evidence origin of the receipt authority form one optional group: the origin, its identity, its bearer and the range of batches are given together or not at all. Without the group the receipt authority starts, its readiness asks the node alone, and it answers a receipt of an activity from the node: the signature of the receipt against the pinned receipt keys with their ranges of heights, and the landing of the receipt in its committed block in the form of the committed evidence of the service. The relay of batch evidence then answers with the refusal of a retired contract in the form of the core service. With the group the service behaves as now. The answers keep each member a reader on the main line reads; a member that only the origin can give is absent without the group and its absence is stated in the page of the service."
+basis = "Gotcha 4551. Decision 3046."
+affects = []
+
+[decision.3635]
+title = "The definition of the hosted gateway names the indexer origin, the consensus route and the bindings of the product routes"
+value = "The definition gives the gateway the origin of the service indexer of the same project on the port of its listener, in the form the definition gives the origin of its store, and the consensus route from an input of the kind operator. The needs and the order of the gateway stay as they are: the gateway starts without these backends and its readiness names their state. The document of bindings is a file input of the definition with a row in the file table the definition selects. Each consensus method the gateway calls is a method the node front admits on its consensus path, and a case holds this."
+basis = "Gotcha 4552. Decisions 3046 and 3619."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44568,6 +44586,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.709]
+title = "Let the definition of the hosted gateway carry the bindings of the product routes"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform/gateway.kvx", "docker/platform-gateway/native-files.tsv", "deploy/projects/README.md", "docker/README.md", "tools/deploy/tests/projects/test_platform_gateway.py", "services/platform/hosted/gateway/tests/env_example.rs", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+do_1 = "do_1 Gotcha 4552, decision 3635. Read the row of LAYERX_GATEWAY_ROUTE_BINDINGS_FILE and the text on the routes of the products in docs/wiki/HostedGateway.md, in services/platform/hosted/gateway/src/main.rs and services/platform/hosted/gateway/src/routes.rs the reading of the document of bindings, what a binding of a service holds and the member product_routes of the readiness, then docker/platform-gateway/entrypoint.sh, docker/platform-gateway/files.tsv and docker/platform-gateway/native-files.tsv, deploy/projects/platform/gateway.kvx, the cases of tools/deploy/tests/projects/test_platform_gateway.py, the cases of services/platform/hosted/gateway/tests/env_example.rs that read the file table, and the list of services in tools/paxeer-x/route-catalogue.json."
+symbols = []
+
+[capability.22.39.708]
+title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform/gateway.kvx", "deploy/projects/README.md", "tools/deploy/tests/projects/test_platform_gateway.py", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py"
+do_1 = "do_1 Gotcha 4552, decision 3635. Read the table of settings and the section on the inputs of the native deployment in docs/wiki/HostedGateway.md, in services/platform/hosted/gateway/src/main.rs the reading of LAYERX_GATEWAY_CONSENSUS_RPC_URL with the readiness of the consensus backend, in services/platform/hosted/gateway/src/history.rs and services/platform/hosted/gateway/src/chain_reads.rs the reading of LAYERX_GATEWAY_INDEXER_URL and every consensus call, deploy/projects/platform/gateway.kvx, the listener, the port and the certificate of deploy/projects/platform/indexer.kvx, the rules on needs, order and inputs in deploy/projects/README.md, the cases of tools/deploy/tests/projects/test_platform_gateway.py, and the consensus path of the node front under services/platform/hosted/paxeer/src with the methods it admits."
+symbols = []
+
+[capability.22.39.707]
+title = "Let the receipt authority serve from the node alone, with the batch evidence origin as an optional group of settings"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/authority/src", "services/platform/hosted/authority/tests", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/README.md", "docs/wiki/HostedAuthority.md", "deploy/projects/platform/receipt-authority.kvx", "docker/platform-authority"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test merged_start --test chain_receipts --test documented_receipt_contract && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --lib --bins"
+do_1 = "do_1 Gotcha 4551, decision 3634. Read in services/platform/hosted/authority/src/main.rs the reading of the settings, the readiness, the relay of batch evidence, the route of the committed head and the routes of an activity, then services/platform/hosted/authority/src/trust.rs, services/platform/hosted/authority/src/committed.rs, services/platform/hosted/authority/src/chain_receipt.rs and services/platform/hosted/authority/src/committed_head_route.rs, the cases of services/platform/hosted/authority/tests/chain_receipts.rs and services/platform/hosted/authority/tests/documented_receipt_contract.rs, the sections on readiness and on retired contracts of docs/wiki/HostedCore.md with the landing check of a receipt in services/platform/hosted/core/src/main.rs, and docs/wiki/HostedAuthority.md."
+symbols = []
+
+[capability.22.39.706]
+title = "Give the node tool a command that applies given transactions on a copy of a home in every form and compares the results"
+reqs = ["22998.1"]
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+do_1 = "do_1 Gotcha 4550, decision 3633. Read daemon/paxd/cmd/root.go, daemon/paxd/cmd/ethreplay.go and daemon/paxd/cmd/blocktest.go for how a command opens the application over a home, node/app.go and node/abci.go for the block application and for the settings that select the fast execution path, the directory node/sequencer and node/sequenced_finalize_test.go for how a node with sequencing on admits and executes a transaction and builds the block, node/giga_storage_gas_test.go and node/giga_params_parity_test.go as the form of a case that applies one block through two paths, and node/committed_hash_restart_test.go for a case that opens a home again."
+symbols = []
 
 [capability.22.39.705]
 title = "Let the route catalogue hold the keys of the product, and admit the routes of the advanced filters and the pages of the feed in the gateway"
@@ -173946,7 +174000,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.58]
 title = "Let the render check bound each render, render several at once and read the modes of a view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.53"]
@@ -174078,7 +174132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.703]
 title = "Let the container check pass for the whole repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -202241,7 +202295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.569]
 title = "Point the Go readers of the trading client at the workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.674", "22.39.704"]
@@ -212680,6 +212734,73 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.709]
+title = "Let the definition of the hosted gateway carry the bindings of the product routes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.708"]
+reqs = ["22998.1"]
+capabilities = ["22.39.709"]
+interfaces = []
+do_1 = "do_1 Gotcha 4552, decision 3635. Read the row of LAYERX_GATEWAY_ROUTE_BINDINGS_FILE and the text on the routes of the products in docs/wiki/HostedGateway.md, in services/platform/hosted/gateway/src/main.rs and services/platform/hosted/gateway/src/routes.rs the reading of the document of bindings, what a binding of a service holds and the member product_routes of the readiness, then docker/platform-gateway/entrypoint.sh, docker/platform-gateway/files.tsv and docker/platform-gateway/native-files.tsv, deploy/projects/platform/gateway.kvx, the cases of tools/deploy/tests/projects/test_platform_gateway.py, the cases of services/platform/hosted/gateway/tests/env_example.rs that read the file table, and the list of services in tools/paxeer-x/route-catalogue.json."
+do_2 = "do_2 In docker/platform-gateway/native-files.tsv add the row of the file input ENDPOINT_ROUTE_BINDINGS with the path and the mode of its row in docker/platform-gateway/files.tsv, for the role the definition sets. In deploy/projects/platform/gateway.kvx the variable LAYERX_GATEWAY_ROUTE_BINDINGS_FILE holds that path, and the file input ENDPOINT_ROUTE_BINDINGS reads the input PLATFORM_GATEWAY_ENDPOINT_ROUTE_BINDINGS of the kind operator, with a comment that states its form: the document of bindings as padded base64."
+do_3 = "do_3 In tools/deploy/tests/projects/test_platform_gateway.py add cases: every variable of the definition that names a file below the directory of the staged files has a row with that path in the file table the definition selects, and every file input the definition reads has a row there; the row and the input of the document of bindings hold the forms of do_2. In services/platform/hosted/gateway/tests/env_example.rs add a case: every row of docker/platform-gateway/native-files.tsv has a row of the same name, the same path and the same mode in docker/platform-gateway/files.tsv. No present case is removed or weakened."
+do_4 = "do_4 State in docs/wiki/HostedGateway.md, in the section on the inputs of the native deployment, the input, the row, the members of a binding, the transports a binding takes, how an HTTPS upstream is trusted, and what a document that binds no service gives. Bring deploy/projects/README.md and docker/README.md in line where they list the inputs or the rows of the gateway."
+do_5 = "do_5 Give in the final message, for each service the readiness lists under product_routes, the members a binding of that service needs as the source reads them, so that the document can be written from the final message alone."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform/gateway.kvx", "docker/platform-gateway/native-files.tsv", "deploy/projects/README.md", "docker/README.md", "tools/deploy/tests/projects/test_platform_gateway.py", "services/platform/hosted/gateway/tests/env_example.rs", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.707]
+title = "Let the receipt authority serve from the node alone, with the batch evidence origin as an optional group of settings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.707"]
+interfaces = []
+do_1 = "do_1 Gotcha 4551, decision 3634. Read in services/platform/hosted/authority/src/main.rs the reading of the settings, the readiness, the relay of batch evidence, the route of the committed head and the routes of an activity, then services/platform/hosted/authority/src/trust.rs, services/platform/hosted/authority/src/committed.rs, services/platform/hosted/authority/src/chain_receipt.rs and services/platform/hosted/authority/src/committed_head_route.rs, the cases of services/platform/hosted/authority/tests/chain_receipts.rs and services/platform/hosted/authority/tests/documented_receipt_contract.rs, the sections on readiness and on retired contracts of docs/wiki/HostedCore.md with the landing check of a receipt in services/platform/hosted/core/src/main.rs, and docs/wiki/HostedAuthority.md."
+do_2 = "do_2 In services/platform/hosted/authority/src the settings LAYERX_AUTHORITY_REPLICA_URL, LAYERX_AUTHORITY_REPLICA_ID, LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE, LAYERX_AUTHORITY_FIRST_BATCH and LAYERX_AUTHORITY_LAST_BATCH form one optional group. All five given: the service behaves as now. None given: the service starts in the form of the node alone. Some given: the start is refused with a message that names the group and the missing settings. The other settings are read as now."
+do_3 = "do_3 In the form of the node alone the readiness asks the node alone and keeps its members, with the header of the origin stating that no origin is set. The routes of an activity read the receipt from the node, check its signature against the pinned receipt keys and their ranges of heights, and check its landing in the committed block in the form of the committed evidence of the service: the position and hash of the transaction, the block, the status of the execution and the binding of the block to the commit the node gives. The answer keeps each member the answer with an origin holds that does not come from the document of the origin, and the waiting route keeps its deadline. The relay of batch evidence answers 410 with the code retired_http_contract. The route of the committed head answers from the committed state of the node where the service can state it without the origin, and otherwise with the same refusal."
+do_4 = "do_4 Add services/platform/hosted/authority/tests/merged_start.rs and name it in services/platform/hosted/authority/Cargo.toml in the form of the present cases: without the group the service starts against a node of the case and is ready; with a part of the group the start is refused; a receipt of an activity is answered with its members and a receipt with a wrong signature, a key outside its range of heights or a landing that does not match is refused; the relay answers 410; with the whole group the present behaviour holds. No present case is removed or weakened."
+do_5 = "do_5 In deploy/projects/platform/receipt-authority.kvx the inputs of the group are stated as optional in the form the file gives to an optional input, and docker/platform-authority stages the bearer of the origin only when it is given. Where a case outside the paths reads these files and no longer passes, change nothing there and name case, file and first message in the final message."
+do_6 = "do_6 State the optional group, the form of the node alone, the answers of each route in both forms and the members that are absent without the origin in services/platform/hosted/authority/README.md and docs/wiki/HostedAuthority.md. Give in the final message each reader on the main line that requires a member only the origin can give, with file and member, and change nothing in the readers."
+do_7 = "do_7 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/authority/src", "services/platform/hosted/authority/tests", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/README.md", "docs/wiki/HostedAuthority.md", "deploy/projects/platform/receipt-authority.kvx", "docker/platform-authority"]
+tests = []
+planned_paths = ["services/platform/hosted/authority/tests/merged_start.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test merged_start --test chain_receipts --test documented_receipt_contract && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --lib --bins"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -247878,6 +247999,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.706]
+title = "Give the node tool a command that applies given transactions on a copy of a home in every form and compares the results"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.706"]
+interfaces = []
+do_1 = "do_1 Gotcha 4550, decision 3633. Read daemon/paxd/cmd/root.go, daemon/paxd/cmd/ethreplay.go and daemon/paxd/cmd/blocktest.go for how a command opens the application over a home, node/app.go and node/abci.go for the block application and for the settings that select the fast execution path, the directory node/sequencer and node/sequenced_finalize_test.go for how a node with sequencing on admits and executes a transaction and builds the block, node/giga_storage_gas_test.go and node/giga_params_parity_test.go as the form of a case that applies one block through two paths, and node/committed_hash_restart_test.go for a case that opens a home again."
+do_2 = "do_2 Add node/apply_check.go with the comparison: over an application opened at the last committed height of a home it builds one block at the next height from a list of signed transactions, with the time of the last block plus one second unless a time is given, and the proposer and the last commit taken from the validators of the committed state. It applies the block in three forms, each from the same committed state and without a commit: the form of a node with sequencing on, with the admission check of each transaction and the execution on arrival that this node runs; the form of a node that follows with the fast execution path on; the form of a node that follows with the ordinary path. For each form it records for each transaction the code, the codespace, the gas wanted, the gas used, the events, and for a transaction of the virtual machine the status, the logs, the contract address and the receipt, and for the block the application hash it would commit. It compares the forms field by field and names the first transaction and field that differ. A panic of one form is recorded as the result of that form with its message and is a difference."
+do_3 = "do_3 Add daemon/paxd/cmd/applycheck.go with the command applycheck and register it in daemon/paxd/cmd/root.go. Flags: the home; a file of transactions with one transaction in each line, either the hex of a signed transaction of the virtual machine or the base64 of the bytes of a signed transaction of the chain; a transaction given directly, repeatable; a block time; the output file of the report. The command refuses a home that does not hold the file applycheck-copy at its root, a home whose stores are held by another process, and an empty list of transactions, each with a plain message and the exit code 2. It prints the report as JSON with the chain id, the height, the forms, the results and the comparison, and ends with 0 when all forms agree and with 1 when they differ. It never commits and never writes into the committed state of the home."
+do_4 = "do_4 Add node/apply_check_test.go with cases named TestApplyCheck over a home the case builds: a transfer of the virtual machine, a contract creation, the first transaction of an address without an account, a transaction of the chain, and a contract creation that writes storage over a state whose storage gas parameter holds no value, each agree in all three forms; a difference planted through a test seam of one form is reported with its transaction and field; a second run over the same home gives the same report, and the committed height and application hash of the home are the same before and after."
+do_5 = "do_5 Add daemon/paxd/cmd/applycheck_test.go with cases named TestApplyCheck: the command is among the commands of the root, it refuses a home without the marker file, it refuses an empty list, and over a home the case builds it writes the report and ends with the stated exit codes. Bring daemon/paxd/cmd/root_commands_test.go in line where it lists the commands."
+do_6 = "do_6 State the command, its flags, the marker file, the three forms, the report and the exit codes in node/README.md and in daemon/README.md, with the steps to make a copy of a home of a stopped node."
+do_7 = "do_7 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+planned_paths = ["daemon/paxd/cmd/applycheck.go", "daemon/paxd/cmd/applycheck_test.go", "node/apply_check.go", "node/apply_check_test.go"]
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.693]
 title = "Let the chain id cases of the fast path state the table of the product"
@@ -383601,6 +383756,38 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.708]
+title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.705"]
+reqs = ["22998.1"]
+capabilities = ["22.39.708"]
+interfaces = []
+do_1 = "do_1 Gotcha 4552, decision 3635. Read the table of settings and the section on the inputs of the native deployment in docs/wiki/HostedGateway.md, in services/platform/hosted/gateway/src/main.rs the reading of LAYERX_GATEWAY_CONSENSUS_RPC_URL with the readiness of the consensus backend, in services/platform/hosted/gateway/src/history.rs and services/platform/hosted/gateway/src/chain_reads.rs the reading of LAYERX_GATEWAY_INDEXER_URL and every consensus call, deploy/projects/platform/gateway.kvx, the listener, the port and the certificate of deploy/projects/platform/indexer.kvx, the rules on needs, order and inputs in deploy/projects/README.md, the cases of tools/deploy/tests/projects/test_platform_gateway.py, and the consensus path of the node front under services/platform/hosted/paxeer/src with the methods it admits."
+do_2 = "do_2 In deploy/projects/platform/gateway.kvx the variable LAYERX_GATEWAY_INDEXER_URL is the HTTPS origin of the service indexer of the project under its private name, in the form the file gives the origin of its store, with the port of the listener of deploy/projects/platform/indexer.kvx. The variable LAYERX_GATEWAY_CONSENSUS_RPC_URL reads the input PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL of the kind operator, with a comment that states its form: an absolute HTTPS address with a DNS host that may hold a path, and the calls go to exactly that path. The needs and the order of the service stay as they are."
+do_3 = "do_3 In tools/deploy/tests/projects/test_platform_gateway.py add cases: the two variables hold these forms; the port of the indexer origin equals the port of the listener of deploy/projects/platform/indexer.kvx; the input has its row and its comment; the consensus methods the gateway calls, read from its production source, are each among the methods the node front admits on its consensus path, read from its source. Where a called method is not admitted, change nothing in the node front or in the gateway: mark that case as expected to fail in the strict form and give method and file in the final message. No present case is removed or weakened."
+do_4 = "do_4 State both variables, the input and its form in the section on the inputs of the native deployment of docs/wiki/HostedGateway.md and in deploy/projects/README.md."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform/gateway.kvx", "deploy/projects/README.md", "tools/deploy/tests/projects/test_platform_gateway.py", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_gateway.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.699]
 title = "Let the definition of the gateway hold the key provisioning key of the key routes"
