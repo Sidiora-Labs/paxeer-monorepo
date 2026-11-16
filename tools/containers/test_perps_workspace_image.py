@@ -2,6 +2,8 @@ from pathlib import Path
 import json
 import re
 import runpy
+import shlex
+from fnmatch import fnmatchcase
 
 import yaml
 
@@ -11,6 +13,134 @@ WORKSPACE = ROOT / "apps/perps"
 MANIFEST_ACTIVATION = (
     "corepack prepare \"$(node -p 'require(\"./package.json\").packageManager')\" --activate"
 )
+
+
+def read_compile_config(path):
+    tokens = re.sub(
+        r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/',
+        lambda match: match[0] if match[0].startswith('"') else " ",
+        path.read_text(),
+        flags=re.S,
+    )
+    return json.loads(re.sub(r",\s*([}\]])", r"\1", tokens))
+
+
+def workspace_compile_files():
+    layout = yaml.safe_load((WORKSPACE / "pnpm-workspace.yaml").read_text())
+    members = {}
+    for pattern in layout["packages"]:
+        for directory in WORKSPACE.glob(pattern):
+            manifest = directory / "package.json"
+            if manifest.is_file():
+                data = json.loads(manifest.read_text())
+                members[data["name"]] = (directory, data)
+    pending = ["@paxeer-network/web"]
+    visited = set()
+    configs = set()
+
+    def follow(path, chain=()):
+        path = path.resolve()
+        assert path.is_relative_to(WORKSPACE), path
+        assert path.is_file(), f"Compile configuration is absent: {path}"
+        assert path not in chain, f"Compile configuration cycle: {chain + (path,)}"
+        if path in configs:
+            return
+        configs.add(path)
+        parents = read_compile_config(path).get("extends", [])
+        if isinstance(parents, str):
+            parents = [parents]
+        for parent in parents:
+            if parent.startswith("."):
+                target = path.parent / parent
+            else:
+                parts = parent.split("/")
+                count = 2 if parent.startswith("@") else 1
+                package = "/".join(parts[:count])
+                assert package in members, f"Unknown compile configuration package: {parent}"
+                target = members[package][0].joinpath(*parts[count:])
+            if not target.suffix:
+                target = target.with_suffix(".json")
+            follow(target, chain + (path,))
+
+    while pending:
+        name = pending.pop()
+        if name in visited:
+            continue
+        visited.add(name)
+        directory, manifest = members[name]
+        for kind in ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies"):
+            pending.extend(
+                dependency for dependency, version in manifest.get(kind, {}).items()
+                if version.startswith("workspace:")
+            )
+        for config in directory.glob("tsconfig*.json"):
+            follow(config)
+    assert WORKSPACE / "tsconfig.json" in configs
+    assert WORKSPACE / "packages/tsconfig/base.json" in configs
+    return configs
+
+
+def context_excludes(path):
+    rules = (WORKSPACE / ".dockerignore").read_text().splitlines()
+
+    def matches(parts, pattern):
+        if not pattern:
+            return not parts
+        if pattern[0] == "**":
+            return matches(parts, pattern[1:]) or bool(parts) and matches(parts[1:], pattern)
+        return bool(parts) and fnmatchcase(parts[0], pattern[0]) and matches(parts[1:], pattern[1:])
+
+    relative = path.relative_to(WORKSPACE)
+    for candidate in (*reversed(relative.parents), relative):
+        excluded = False
+        for rule in rules:
+            rule = rule.strip()
+            if not rule or rule.startswith("#"):
+                continue
+            negate = rule.startswith("!")
+            pattern = rule.removeprefix("!").strip("/")
+            if matches(candidate.parts, pattern.split("/")):
+                excluded = not negate
+        if excluded:
+            return True
+    return False
+
+
+def test_perps_compile_config_chains_reach_builder():
+    recipe = (WORKSPACE / "Dockerfile").read_text()
+    deps = recipe.split(" AS deps\n", 1)[1].split("\nFROM ", 1)[0]
+    before_install = deps.split("RUN pnpm install --frozen-lockfile", 1)[0]
+    assert "WORKDIR /app\n" in before_install
+    copies = []
+    for line in before_install.splitlines():
+        if line.startswith("COPY "):
+            arguments = shlex.split(line)[1:]
+            assert not any(argument.startswith("--") for argument in arguments), line
+            copies.extend((source, arguments[-1]) for source in arguments[:-1])
+    inputs = workspace_compile_files() | {
+        WORKSPACE / name for name in (
+            "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc",
+        )
+    }
+    for path in sorted(inputs):
+        relative = path.relative_to(WORKSPACE)
+        assert not context_excludes(path), f"Build context excludes {relative}"
+        copied = False
+        for source, destination in copies:
+            origin = WORKSPACE / source
+            if origin.is_dir() and path.is_relative_to(origin):
+                target = Path("/app") / destination / path.relative_to(origin)
+            elif origin == path:
+                target = Path("/app") / destination
+                if destination.endswith("/"):
+                    target /= path.name
+            else:
+                continue
+            copied |= target == Path("/app") / relative
+        assert copied, f"Install stage does not copy {relative} to /app/{relative}"
+    builder = recipe.split(" AS builder\n", 1)[1].split("\nFROM ", 1)[0]
+    assert builder.index("WORKDIR /app") < builder.index("COPY --from=deps /app ./")
+    assert builder.index("COPY --from=deps /app ./") < builder.index("pnpm build")
 
 
 def test_perps_workspace_install_contains_every_member():
