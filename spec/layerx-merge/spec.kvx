@@ -14860,6 +14860,24 @@ value = "The views of a surface file cover every route the application serves. A
 basis = "Gotcha 4541. Decisions 3587, 3591 and 3622."
 affects = []
 
+[decision.3625]
+title = "A task of one image verifies with the cases of its image, and one task holds the container check whole"
+value = "The verification of task 22.39.564 runs the cases of the workspace image in tools/containers/test_perps_workspace_image.py and no longer the script without a name. Task 22.39.703 brings the script without a name to pass and verifies with it. For that task: a service row whose recipe lies under docker has an ignore file beside the recipe that names what the recipe does not copy; the recipe docker/wallet-inventory/Dockerfile gets a service row; the recipe docs/site/paxeer-docs/Dockerfile stays where it is and is a line of the list of recipes that stay; the script docs/site/docs-assistant/scripts/deploy-release.mjs names the recipe of its own application and is a line of the list of files where the bare word is not the recipe at the root; each recipe of a directory under docker is checked from the context of its own row."
+basis = "Gotcha 4542. Decision 3554."
+affects = []
+
+[decision.3626]
+title = "The webhooks service answers a liveness route, and the definition of the ingress role on the hosting platform names it"
+value = "The webhooks service answers GET /livez with 200 and a JSON body of the fields live and role wherever it answers GET /healthz. The answer makes no call to the store, the signer, the node or an event source. GET /healthz stays the readiness of the role with its body as it is. The definition deploy/projects/platform/webhooks-ingress.kvx names /livez as its health path; the definition of the public role keeps /healthz. A reader that needs the readiness of the ingress role reads /healthz."
+basis = "Gotcha 4543. Decision 3046."
+affects = []
+
+[decision.3627]
+title = "A surface with a proof is rendered again at the head, and each detail gets a task that verifies with the surface file"
+value = "A surface whose proof task is done is rendered again with the render check of the head of the main line, and its images are looked at in both schemes at the smallest, a middle and the largest size. A finding of the check or a detail the look names gets a task of its own in the paths of the application, and that task verifies with the surface file of the application. A mark beside a text is drawn whole at the size of the line: closed forms, round ends and joins, and a stroke that reads at every size of the device list. The link that skips to the content is hidden without focus and with keyboard focus is drawn at the start of the page as a control of the touch target size with the focus indicator of the theme."
+basis = "Gotcha 4544. Decisions 3588 and 3624."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44520,6 +44538,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.57]
+title = "Give the link that skips to the content of the bridge application a change with focus that the render check reads"
+reqs = ["22998.1"]
+touches = ["apps/bridge/src"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/bridge.json --out /tmp/ui-check/bridge && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+do_1 = "do_1 Gotcha 4544, decision 3627. Read in apps/bridge/src/app/globals.css the rules of the class sr-only and of the link that skips to the content, the layout file that holds the link, in tools/ui-check/browser.mjs the list of properties the keyboard pass compares and in tools/ui-check/check.mjs the function of the keyboard pass, and tools/ui-check/surfaces/bridge.json."
+symbols = []
+
+[capability.22.44.56]
+title = "Draw the status mark of the names shell whole at every size"
+reqs = ["22998.1"]
+touches = ["apps/names/src"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/names.json --out /tmp/ui-check/names && pnpm --dir apps/names run build"
+do_1 = "do_1 Gotcha 4544, decision 3627. Read in apps/names/src/app/page.tsx the status paragraph with its mark and the three states it shows, in apps/names/src/app/globals.css the rules of the status and of its mark with the tokens they use, and tools/ui-check/surfaces/names.json with the state invalid-name."
+symbols = []
+
+[capability.22.39.703]
+title = "Let the container check pass for the whole repository"
+reqs = ["22998.1"]
+touches = ["tools/containers", "docker/bridge-web", "docker/ai-evaluator", "docker/inference-peer-web", "docker/wallet-inventory"]
+tests = []
+verification_contract = "bash tools/containers/check.sh && python3 -m pytest -q tools/containers"
+do_1 = "do_1 Gotcha 4542, decision 3625. Read tools/containers/check.sh whole: the table of services, the table of ignore files, the list of recipes that stay where they are, the two lists of exempt files and the loop that checks the inputs of a recipe from its context. Run bash tools/containers/check.sh once by hand and list every line it reports."
+symbols = []
+
+[capability.22.39.702]
+title = "Let the webhooks service answer a liveness route and name it in the definition of the ingress role"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/webhooks/src", "services/platform/hosted/webhooks/tests", "services/platform/hosted/webhooks/env-init.sh", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedWebhooks.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test liveness_route --test plain_listener && python3 -m pytest -q tools/deploy/tests/projects/test_platform_webhooks_ingress.py"
+do_1 = "do_1 Gotcha 4543, decision 3626. Read in services/platform/hosted/webhooks/src/main.rs the function readiness, the function serve_health and the place where the application listener answers GET /healthz, the file services/platform/hosted/webhooks/env-init.sh, the definition deploy/projects/platform/webhooks-ingress.kvx, the cases of tools/deploy/tests/projects/test_platform_webhooks_ingress.py, services/platform/hosted/webhooks/tests/plain_listener.rs as the form of a case that starts the binary, and the parts of docs/wiki/HostedWebhooks.md on health."
+symbols = []
 
 [capability.22.44.55]
 title = "Render every route of the human web application in its surface file"
@@ -173833,6 +173887,104 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.57]
+title = "Give the link that skips to the content of the bridge application a change with focus that the render check reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.45"]
+reqs = ["22998.1"]
+capabilities = ["22.44.57"]
+interfaces = []
+do_1 = "do_1 Gotcha 4544, decision 3627. Read in apps/bridge/src/app/globals.css the rules of the class sr-only and of the link that skips to the content, the layout file that holds the link, in tools/ui-check/browser.mjs the list of properties the keyboard pass compares and in tools/ui-check/check.mjs the function of the keyboard pass, and tools/ui-check/surfaces/bridge.json."
+do_2 = "do_2 Run node tools/ui-check/check.mjs with the surface file of the bridge application once by hand and list each finding with view, state, size, scheme, mode and selector."
+do_3 = "do_3 The link that skips to the content is hidden without focus and takes no space in the page. With keyboard focus it is drawn at the start of the page above the header as a control of the touch target size, with the ground and text colours of the theme and the focus indicator the other controls of the application show. Its change with focus is a change of properties the keyboard pass compares and of the pixels of the view, in both schemes. Activating it moves focus to the main content."
+do_4 = "do_4 Bring every other finding of do_2 in line in the source of the application. The surface file keeps its views and states."
+do_5 = "do_5 Run the check again until it ends without a finding, look at the image of the first step of the keyboard pass at the widths 390 and 1440 in both schemes, and say in the final message what it shows, with the file names of the images. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/bridge/src"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/bridge install --frozen-lockfile && pnpm --dir apps/bridge run typecheck"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/bridge.json --out /tmp/ui-check/bridge && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.56]
+title = "Draw the status mark of the names shell whole at every size"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.46"]
+reqs = ["22998.1"]
+capabilities = ["22.44.56"]
+interfaces = []
+do_1 = "do_1 Gotcha 4544, decision 3627. Read in apps/names/src/app/page.tsx the status paragraph with its mark and the three states it shows, in apps/names/src/app/globals.css the rules of the status and of its mark with the tokens they use, and tools/ui-check/surfaces/names.json with the state invalid-name."
+do_2 = "do_2 The mark of a result that is not verified and of an error is a closed form: a circle with a vertical stroke and a dot below it. The mark of a verified result is a check inside the same box. Both marks have round ends and round joins, share one box and one stroke width, take the colour of the status text and stay hidden from assistive technology as now. The mark has the block size of one line of the status text, does not shrink when the text wraps and sits on the first line of the text."
+do_3 = "do_3 Run node tools/ui-check/check.mjs with the surface file of the names shell and bring it to end without a finding at every size, in both schemes and in every mode."
+do_4 = "do_4 Look at the images of the state invalid-name at the widths 360, 1440 and 2560 in both schemes and say in the final message what the mark shows in each, with the file names of the images."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/names/src"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/names install --frozen-lockfile"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/names.json --out /tmp/ui-check/names && pnpm --dir apps/names run build"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.703]
+title = "Let the container check pass for the whole repository"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.703"]
+interfaces = []
+do_1 = "do_1 Gotcha 4542, decision 3625. Read tools/containers/check.sh whole: the table of services, the table of ignore files, the list of recipes that stay where they are, the two lists of exempt files and the loop that checks the inputs of a recipe from its context. Run bash tools/containers/check.sh once by hand and list every line it reports."
+do_2 = "do_2 Add the ignore files docker/bridge-web/Dockerfile.dockerignore, docker/ai-evaluator/Dockerfile.dockerignore, docker/inference-peer-web/Dockerfile.dockerignore. Each names what its recipe does not copy from the context of its row, in the form of the ignore files beside the other recipes under docker, and keeps every path the recipe copies."
+do_3 = "do_3 The recipe docker/wallet-inventory/Dockerfile gets a row in the table of services with the context its instructions copy from, and the ignore file docker/wallet-inventory/Dockerfile.dockerignore. The recipe docs/site/paxeer-docs/Dockerfile becomes a line of the list of recipes that stay where they are, under a comment that names the documentation site."
+do_4 = "do_4 The script docs/site/docs-assistant/scripts/deploy-release.mjs becomes a line of the list of files where the bare word is not the recipe at the root. The script itself stays as it is."
+do_5 = "do_5 Each recipe of a directory under docker is checked from the context of its own row: the two recipes of docker/explorer-backend are each read with the context their instructions copy from, and the rows state those contexts. A recipe without a row of its own keeps the context of the first row of its directory."
+do_6 = "do_6 Bring the cases under tools/containers that state rows, ignore files or the lists in line with the tables, and add cases to tools/containers/test_container_inventory.py: every service row whose recipe lies under docker has a tracked ignore file beside it; every tracked recipe outside docker is a line of the list of recipes that stay; the two recipes of docker/explorer-backend are checked from their own contexts. No present case is removed or weakened."
+do_7 = "do_7 Give in the final message the last line of the script and the count of cases. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/containers", "docker/bridge-web", "docker/ai-evaluator", "docker/inference-peer-web", "docker/wallet-inventory"]
+tests = []
+planned_paths = ["docker/bridge-web/Dockerfile.dockerignore", "docker/ai-evaluator/Dockerfile.dockerignore", "docker/inference-peer-web/Dockerfile.dockerignore", "docker/wallet-inventory/Dockerfile.dockerignore"]
+build_cmd = "bash -n tools/containers/check.sh && python3 -m py_compile tools/containers/test_container_inventory.py"
+verify_cmd = "bash tools/containers/check.sh && python3 -m pytest -q tools/containers"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.55]
 title = "Render every route of the human web application in its surface file"
 status = "pending"
@@ -176430,7 +176582,7 @@ touches = ["apps/perps/apps/web/src/pages", "apps/perps/apps/web/next.config.js"
 tests = []
 planned_paths = ["apps/perps/Dockerfile", "apps/perps/.dockerignore", "apps/perps/railway.json", "apps/perps/deploy/README.md", "apps/perps/deploy/docker-compose.yml", "apps/perps/deploy/.env.production.example", "apps/perps/deploy/build-args.production.env", "apps/perps/apps/web/src/pages/api/build-id.ts", "apps/perps/apps/web/src/pages/api/candle/[...path].ts", "apps/perps/apps/web/src/pages/api/presence.ts", "apps/perps/tests/dockerfile-args.test.ts", "apps/perps/tests/deploy-config.test.ts"]
 build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && PAXEER_NETWORK_BUILD_DIR=.next-production pnpm --dir apps/perps build"
-verify_cmd = "bash tools/deploy/tests/offchain-images.test.sh && bash tools/containers/check.sh && python3 -m pytest -q tools/containers tests/ci/test_package_manager_pins_agree.py tests/ci/test_no_deployment_hosts_in_source.py tools/qualification/audit_repairs/test_perps_compose_lifecycle.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
+verify_cmd = "bash tools/deploy/tests/offchain-images.test.sh && python3 -m pytest -q tools/containers/test_perps_workspace_image.py tests/ci/test_package_manager_pins_agree.py tests/ci/test_no_deployment_hosts_in_source.py tools/qualification/audit_repairs/test_perps_compose_lifecycle.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -176442,6 +176594,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3625, gotcha 4542. The verification now runs the cases of the workspace image in tools/containers/test_perps_workspace_image.py and no longer the container check without a name, which task 22.39.703 holds. The file tools/containers/test_perps_workspace_image.py is inside the paths and holds the cases of the image, the service definition and the lists of tools/containers for the workspace. Change nothing in the rows of other services. The work of the earlier candidate stays as it is: run the cases by hand first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.563]
 title = "Bind the trading workspace to the native markets and the perps data gateway"
@@ -212396,6 +212549,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.702]
+title = "Let the webhooks service answer a liveness route and name it in the definition of the ingress role"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.702"]
+interfaces = []
+do_1 = "do_1 Gotcha 4543, decision 3626. Read in services/platform/hosted/webhooks/src/main.rs the function readiness, the function serve_health and the place where the application listener answers GET /healthz, the file services/platform/hosted/webhooks/env-init.sh, the definition deploy/projects/platform/webhooks-ingress.kvx, the cases of tools/deploy/tests/projects/test_platform_webhooks_ingress.py, services/platform/hosted/webhooks/tests/plain_listener.rs as the form of a case that starts the binary, and the parts of docs/wiki/HostedWebhooks.md on health."
+do_2 = "do_2 In services/platform/hosted/webhooks/src/main.rs GET /livez answers 200 with a JSON body of the fields live with the value true and role with the role of the process, on the health listener and on the application listener wherever GET /healthz is answered. The answer needs no bearer, makes no call to the store, the signer, the node or an event source and reads no state of the background children. Another method on /livez is refused as an unknown route is. GET /healthz stays as it is in status and body."
+do_3 = "do_3 The definition deploy/projects/platform/webhooks-ingress.kvx names /livez as its health path. Bring the cases of tools/deploy/tests/projects/test_platform_webhooks_ingress.py in line: they state the health path of the definition and that the source of the service answers that route. The definition of the public role stays as it is."
+do_4 = "do_4 Add services/platform/hosted/webhooks/tests/liveness_route.rs in the form of services/platform/hosted/webhooks/tests/plain_listener.rs: a process whose readiness answers 503 answers GET /livez with 200, live true and its role, and GET /healthz of the same process stays 503; a process that is ready answers both with 200; POST /livez is refused; the answer of /livez holds no field of the readiness body."
+do_5 = "do_5 State the route in the table of routes and in the part on health of docs/wiki/HostedWebhooks.md, with the route each definition names, and in the comment at the head of services/platform/hosted/webhooks/env-init.sh."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/webhooks/src", "services/platform/hosted/webhooks/tests", "services/platform/hosted/webhooks/env-init.sh", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedWebhooks.md"]
+tests = []
+planned_paths = ["services/platform/hosted/webhooks/tests/liveness_route.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test liveness_route --test plain_listener && python3 -m pytest -q tools/deploy/tests/projects/test_platform_webhooks_ingress.py"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
