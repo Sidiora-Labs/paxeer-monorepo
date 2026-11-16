@@ -21,7 +21,7 @@ const UserProfilePopover = ({ children, isAutoConnectDisabled }: Props) => {
       <PopoverTrigger>
         { children }
       </PopoverTrigger>
-      <PopoverContent w="280px">
+      <PopoverContent w="calc(var(--chakra-spacing-65) + var(--chakra-spacing-5))">
         <PopoverBody
           css={{
             '& .dynamic-login-button': {
@@ -32,7 +32,7 @@ const UserProfilePopover = ({ children, isAutoConnectDisabled }: Props) => {
           { isAutoConnectDisabled && <UserWalletAutoConnectAlert/> }
           <UserProfileContentWallet/>
           <DynamicConnectButton buttonClassName="dynamic-login-button">
-            <Button as="div" mt={ 3 } onClick={ authenticateUser } size="sm" w="100%" >Log in</Button>
+            <Button minH="touchTarget" minW="touchTarget" as="div" mt={ 3 } onClick={ authenticateUser } size="sm" w="100%" >Log in</Button>
           </DynamicConnectButton>
         </PopoverBody>
       </PopoverContent>

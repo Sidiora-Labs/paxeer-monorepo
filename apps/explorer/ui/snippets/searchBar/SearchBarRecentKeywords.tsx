@@ -3,7 +3,7 @@ import React from 'react';
 
 import useIsMobile from 'lib/hooks/useIsMobile';
 import { clearRecentSearchKeywords, getRecentSearchKeywords, removeRecentSearchKeyword } from 'lib/recentSearchKeywords';
-import { Link } from 'toolkit/chakra/link';
+import { Button } from 'toolkit/chakra/button';
 import { ClearButton } from 'toolkit/components/buttons/ClearButton';
 import TextAd from 'ui/shared/ad/TextAd';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
@@ -45,13 +45,19 @@ const SearchBarRecentKeywords = ({ onClick, onClear }: Props) => {
   return (
     <>
       { !isMobile && (
-        <Box pb={ 4 } mb={ 5 } borderColor="hairline" borderBottomWidth="1px" _empty={{ display: 'none' }}>
+        <Box
+          pb={ 4 }
+          mb={ 5 }
+          borderColor="hairline"
+          borderBottomWidth="var(--chakra-border-widths-1)"
+          _empty={{ display: 'none' }}
+        >
           <TextAd textStyle={{ lg: 'sm' }}/>
         </Box>
       ) }
       <Flex mb={ 3 } justifyContent="space-between" fontSize="sm">
         <Text textStyle="label">Recent</Text>
-        <Link onClick={ clearKeywords } variant="secondary">Clear all</Link>
+        <Button onClick={ clearKeywords } variant="link" minH="touchTarget" minW="touchTarget" textStyle="small">Clear all</Button>
       </Flex>
       <Flex flexDirection="column" overflowY="auto">
         { keywords.map(kw => (
@@ -60,7 +66,7 @@ const SearchBarRecentKeywords = ({ onClick, onClear }: Props) => {
             py={ 2 }
             px={{ base: 0, lg: 1 }}
             borderColor="hairline"
-            borderBottomWidth="1px"
+            borderBottomWidth="var(--chakra-border-widths-1)"
             _last={{
               borderBottomWidth: '0',
             }}
@@ -71,24 +77,35 @@ const SearchBarRecentKeywords = ({ onClick, onClear }: Props) => {
             _first={{
               mt: 2,
             }}
-            onClick={ handleClick(kw) }
             alignItems="center"
             justifyContent="space-between"
             cursor="pointer"
             columnGap={ 2 }
-            fontWeight={ 400 }
+            fontWeight="normal"
             color="text.primary"
             minW={ 0 }
             flexGrow={ 1 }
           >
-            { kw.startsWith('0x') ? (
-              <Box overflow="hidden" whiteSpace="nowrap" fontFamily="mono" fontVariantNumeric="tabular-nums">
-                <HashStringShortenDynamic hash={ kw } noTooltip/>
-              </Box>
-            ) :
-              <Text overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">{ kw }</Text>
-            }
-            <ClearButton onClick={ removeKeyword(kw) }/>
+            <Button
+              onClick={ handleClick(kw) }
+              variant="plain"
+              minW={ 0 }
+              minH="touchTarget"
+              flex="1"
+              justifyContent="flex-start"
+              px={ 0 }
+              fontWeight="normal"
+              aria-label={ kw }
+            >
+              { kw.startsWith('0x') ? (
+                <Box overflow="hidden" whiteSpace="nowrap" fontFamily="mono" fontVariantNumeric="tabular-nums">
+                  <HashStringShortenDynamic hash={ kw } noTooltip/>
+                </Box>
+              ) :
+                <Text overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">{ kw }</Text>
+              }
+            </Button>
+            <ClearButton minH="touchTarget" minW="touchTarget" color="text.secondary" aria-label={ `Remove ${ kw }` } onClick={ removeKeyword(kw) }/>
           </Flex>
         )) }
       </Flex>

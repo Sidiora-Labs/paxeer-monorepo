@@ -1,0 +1,230 @@
+[manifest]
+task = "22.44.7"
+surface = "Paxscan explorer account, address, verification and name-service views"
+paths = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+reduced_motion = true
+text_scales = [1, 2]
+keyboard = true
+patterns = ["page layout and grids", "tables and lists", "dialogs", "popovers", "menus", "tooltips", "tabs", "accordions", "forms and validation", "selects and comboboxes", "skeletons and spinners", "scroll areas and sticky parts", "theme selection", "icons and images", "fonts", "motion"]
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addresses", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/addressVerification", "apps/explorer/ui/nameServices"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/ui/addressVerification", "apps/explorer/ui/address", "apps/explorer/ui/nameServices"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/ui/address", "apps/explorer/ui/nameServices"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/explorer/ui/address", "apps/explorer/ui/nameDomain"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/ui/address"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/ui/accounts", "apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/addressesLabelSearch", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[guide.dark_mode_toggle]
+id = "dark-mode-toggle"
+directories = ["apps/explorer/ui/address", "apps/explorer/ui/nameServices"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/address", "apps/explorer/ui/addressVerification", "apps/explorer/ui/addresses", "apps/explorer/ui/nameDomain", "apps/explorer/ui/nameServices", "apps/explorer/ui/verifiedAddresses"]
+
+[view.accounts]
+route = "/accounts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address]
+route = "/address/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-verification]
+route = "/account/verified-addresses"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.addresses]
+route = "/accounts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-label-search]
+route = "/accounts/label/[slug]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.name-domain]
+route = "/name-services/domains/[name]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.name-services]
+route = "/name-services"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.verified-addresses]
+route = "/account/verified-addresses"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-txs]
+route = "/address/[hash]?tab=txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-internal_txns]
+route = "/address/[hash]?tab=internal_txns"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-token_transfers_local]
+route = "/address/[hash]?tab=token_transfers_local"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-tokens_erc20]
+route = "/address/[hash]?tab=tokens_erc20"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-tokens_nfts_list]
+route = "/address/[hash]?tab=tokens_nfts_list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-tokens_nfts_collection]
+route = "/address/[hash]?tab=tokens_nfts_collection"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-analytics]
+route = "/address/[hash]?tab=analytics"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-contract_code]
+route = "/address/[hash]?tab=contract_code"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-coin_balance_history]
+route = "/address/[hash]?tab=coin_balance_history"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-blocks_validated]
+route = "/address/[hash]?tab=blocks_validated"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-logs]
+route = "/address/[hash]?tab=logs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.name-directory]
+route = "/name-services?tab=directories"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.name-leaderboard]
+route = "/name-services?tab=directories&view=leaderboard"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.name-domain-history]
+route = "/name-services/domains/[name]?tab=history"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-verification-signature]
+route = "/account/verified-addresses"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-verification-success]
+route = "/account/verified-addresses"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address-token-selector]
+route = "/address/[hash]?tab=overview"
+content = "Token holdings dialog and popover"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.name-filters]
+route = "/name-services"
+content = "Domain protocol, address and status filters"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]

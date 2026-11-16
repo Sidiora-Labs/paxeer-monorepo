@@ -15,16 +15,16 @@ const UserIdenticon = ({ address, isAutoConnectDisabled }: Props) => {
       <AddressIdenticon size={ 20 } hash={ address }/>
       { isAutoConnectDisabled && (
         <Center
-          boxSize="14px"
+          boxSize={ 'var(--chakra-spacing-3\\.5)' }
           position="absolute"
-          bottom="-1px"
-          right="-3px"
+          bottom={ 'calc(-1 * var(--chakra-spacing-0\\.25))' }
+          right="calc(-1 * (var(--chakra-spacing-1) / 1.3333333333333333))"
           backgroundColor="identicon.overlay"
           borderRadius="full"
-          border="1px solid"
-          borderColor={{ _light: 'orange.100', _dark: 'orange.900' }}
+          borderWidth="var(--chakra-border-widths-1)"
+          borderColor="warningSoft"
         >
-          <IconSvg
+          <IconSvg aria-hidden={ true }
             name="integration/partial"
             color="white"
             boxSize={ 2 }

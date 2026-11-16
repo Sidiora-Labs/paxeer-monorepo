@@ -9,9 +9,10 @@ import useIsInitialLoading from 'lib/hooks/useIsInitialLoading';
 import { Button } from 'toolkit/chakra/button';
 import { Checkbox, CheckboxGroup } from 'toolkit/chakra/checkbox';
 import { Image } from 'toolkit/chakra/image';
+import { PopoverBody, PopoverContent, PopoverRoot, PopoverTrigger } from 'toolkit/chakra/popover';
 import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import ActionBar from 'ui/shared/ActionBar';
-import PopoverFilter from 'ui/shared/filters/PopoverFilter';
+import FilterButton from 'ui/shared/filters/FilterButton';
 import IconSvg from 'ui/shared/IconSvg';
 import Pagination from 'ui/shared/pagination/Pagination';
 import Sort from 'ui/shared/sort/Sort';
@@ -54,8 +55,9 @@ const NameDomainsActionBar = ({
 
   const searchInput = (
     <FilterInput
-      w={{ base: '100%', lg: '360px' }}
-      minW={{ base: 'auto', lg: '250px' }}
+      w={{ base: '100%', lg: 'calc({spacing.80} + {spacing.10})' }}
+      minW={{ base: 0, lg: '{spacing.62.5}' }}
+      maxW="100%"
       size="sm"
       onChange={ onSearchChange }
       placeholder="Search by name or address"
@@ -81,69 +83,74 @@ const NameDomainsActionBar = ({
   const appliedFiltersNum = filterValue.length + (protocolsData && protocolsData.length > 1 ? protocolsFilterValue.length : 0);
 
   const filter = (
-    <PopoverFilter appliedFiltersNum={ appliedFiltersNum } contentProps={{ minW: '220px', w: 'fit-content' }} isLoading={ isInitialLoading }>
-      <div>
-        { protocolsData && protocolsData.length > 1 && (
-          <>
-            <Flex justifyContent="space-between" textStyle="sm" mb={ 3 }>
-              <Text fontWeight={ 600 } color="text.secondary">Protocol</Text>
-              <Button
-                variant="link"
-                onClick={ handleProtocolReset }
-                disabled={ protocolsFilterValue.length === 0 }
-                textStyle="sm"
-              >
-                Reset
-              </Button>
-            </Flex>
-            <CheckboxGroup defaultValue={ protocolsFilterValue } onValueChange={ onProtocolsFilterChange } value={ protocolsFilterValue } name="token_type">
-              { protocolsData.map((protocol) => {
-                const topLevelDomains = protocol.tld_list.map((domain) => `.${ domain }`).join(' ');
-                return (
-                  <Checkbox key={ protocol.id } value={ protocol.id }>
-                    <Flex alignItems="center">
-                      <Image
-                        src={ protocol.icon_url }
-                        boxSize={ 5 }
-                        borderRadius="sm"
-                        mr={ 2 }
-                        alt={ `${ protocol.title } protocol icon` }
-                        fallback={ <IconSvg name="ENS"/> }
-                      />
-                      <span>{ protocol.short_name }</span>
-                      <chakra.span color="text.secondary" whiteSpace="pre"> { topLevelDomains }</chakra.span>
-                    </Flex>
-                  </Checkbox>
-                );
-              }) }
-            </CheckboxGroup>
-            { filterGroupDivider }
-          </>
-        ) }
-        <Fieldset.Root>
-          <CheckboxGroup defaultValue={ filterValue } onValueChange={ handleFilterValueChange } value={ filterValue } name="token_type">
-            <Fieldset.Content gap={ 0 }>
-              <Text color="text.secondary" fontWeight={ 600 } mb={ 3 } textStyle="sm">Address</Text>
-              <Checkbox value="owned_by" disabled={ !isAddressSearch }>
-                Owned by
-              </Checkbox>
-              <Checkbox
-                value="resolved_to"
-                mt={ 3 }
-                disabled={ !isAddressSearch }
-              >
-                Resolved to address
-              </Checkbox>
+    <PopoverRoot autoFocus>
+      <PopoverTrigger className="group">
+        <FilterButton aria-label="Filter domains" appliedFiltersNum={ appliedFiltersNum } isLoading={ isInitialLoading }/>
+      </PopoverTrigger>
+      <PopoverContent minW="min(calc(100dvw - {spacing.4}), calc({spacing.100} / 2 + {spacing.5}))" w="fit-content">
+        <PopoverBody>
+          { protocolsData && protocolsData.length > 1 && (
+            <>
+              <Flex justifyContent="space-between" textStyle="sm" mb={ 3 }>
+                <Text fontWeight="semibold" color="text.secondary">Protocol</Text>
+                <Button
+                  variant="link"
+                  onClick={ handleProtocolReset }
+                  disabled={ protocolsFilterValue.length === 0 }
+                  textStyle="sm"
+                >
+                  Reset
+                </Button>
+              </Flex>
+              <CheckboxGroup defaultValue={ protocolsFilterValue } onValueChange={ onProtocolsFilterChange } value={ protocolsFilterValue } name="token_type">
+                { protocolsData.map((protocol) => {
+                  const topLevelDomains = protocol.tld_list.map((domain) => `.${ domain }`).join(' ');
+                  return (
+                    <Checkbox key={ protocol.id } value={ protocol.id }>
+                      <Flex alignItems="center">
+                        <Image
+                          src={ protocol.icon_url }
+                          boxSize={ 5 }
+                          borderRadius="sm"
+                          mr={ 2 }
+                          alt={ `${ protocol.title } protocol icon` }
+                          fallback={ <IconSvg name="ENS"/> }
+                        />
+                        <span>{ protocol.short_name }</span>
+                        <chakra.span color="text.secondary" whiteSpace="pre"> { topLevelDomains }</chakra.span>
+                      </Flex>
+                    </Checkbox>
+                  );
+                }) }
+              </CheckboxGroup>
               { filterGroupDivider }
-              <Text color="text.secondary" fontWeight={ 600 } mb={ 3 } textStyle="sm">Status</Text>
-              <Checkbox value="with_inactive">
-                Include expired
-              </Checkbox>
-            </Fieldset.Content>
-          </CheckboxGroup>
-        </Fieldset.Root>
-      </div>
-    </PopoverFilter>
+            </>
+          ) }
+          <Fieldset.Root>
+            <CheckboxGroup defaultValue={ filterValue } onValueChange={ handleFilterValueChange } value={ filterValue } name="token_type">
+              <Fieldset.Content gap={ 0 }>
+                <Text color="text.secondary" fontWeight="semibold" mb={ 3 } textStyle="sm">Address</Text>
+                <Checkbox value="owned_by" disabled={ !isAddressSearch }>
+                  Owned by
+                </Checkbox>
+                <Checkbox
+                  value="resolved_to"
+                  mt={ 3 }
+                  disabled={ !isAddressSearch }
+                >
+                  Resolved to address
+                </Checkbox>
+                { filterGroupDivider }
+                <Text color="text.secondary" fontWeight="semibold" mb={ 3 } textStyle="sm">Status</Text>
+                <Checkbox value="with_inactive">
+                  Include expired
+                </Checkbox>
+              </Fieldset.Content>
+            </CheckboxGroup>
+          </Fieldset.Root>
+        </PopoverBody>
+      </PopoverContent>
+    </PopoverRoot>
   );
 
   const sortButton = (
@@ -158,7 +165,7 @@ const NameDomainsActionBar = ({
 
   return (
     <>
-      <HStack gap={ 3 } mb={ 6 } hideFrom="lg">
+      <HStack gap={ 3 } mb={ 6 } flexWrap="wrap" minW={ 0 } hideFrom="lg">
         { filter }
         { sortButton }
         { searchInput }

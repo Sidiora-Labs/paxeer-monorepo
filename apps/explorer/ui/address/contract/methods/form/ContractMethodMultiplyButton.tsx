@@ -50,7 +50,7 @@ const ContractMethodMultiplyButton = ({ onClick, isDisabled, initialValue, onCha
           px={ 1 }
           textStyle="md"
           size="xs"
-          fontWeight={ 500 }
+          fontWeight="medium"
           ml={ 1 }
           variant="subtle"
           display="inline"
@@ -61,7 +61,7 @@ const ContractMethodMultiplyButton = ({ onClick, isDisabled, initialValue, onCha
         >
           { times }
           <chakra.span>10</chakra.span>
-          <chakra.span fontSize="xs" lineHeight="16px" verticalAlign="super">{ value }</chakra.span>
+          <chakra.span fontSize="xs" verticalAlign="super">{ value }</chakra.span>
         </Button>
       ) }
       <PopoverRoot open={ open } onOpenChange={ onOpenChange } positioning={{ placement: 'bottom-end' }}>
@@ -87,7 +87,7 @@ const ContractMethodMultiplyButton = ({ onClick, isDisabled, initialValue, onCha
             />
           </IconButton>
         </PopoverTrigger>
-        <PopoverContent w="110px">
+        <PopoverContent w="calc({spacing.24} + {spacing.3.5})">
           <PopoverBody textStyle="md" py={ 2 }>
             <List.Root>
               { [ 8, 12, 16, 18, 20 ].map((id) => (

@@ -14,9 +14,11 @@ import * as TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 import IconSvg from 'ui/shared/IconSvg';
 
-const SearchBarSuggestToken = ({ data, isMobile, searchTerm, addressFormat, chainInfo }: ItemsProps<SearchResultToken | multichain.QuickSearchResultToken>) => {
+import { resultLayout } from './resultLayout';
+
+const SearchBarSuggestToken = ({ data, searchTerm, addressFormat, chainInfo }: ItemsProps<SearchResultToken | multichain.QuickSearchResultToken>) => {
   const icon = <TokenEntity.Icon token={{ ...data, type: data.token_type }} chain={ chainInfo }/>;
-  const verifiedIcon = <IconSvg name="certified" boxSize={ 4 } color="positive" ml={ 1 } flexShrink={ 0 }/>;
+  const verifiedIcon = <IconSvg aria-hidden={ true } name="certified" boxSize={ 4 } color="positive" ml={ 1 } flexShrink={ 0 }/>;
   const certifiedIcon = <ContractCertifiedLabel iconSize={ 4 } boxSize={ 4 } ml={ 1 } flexShrink={ 0 }/>;
   const hash = (() => {
     if ('filecoin_robust_address' in data && data.filecoin_robust_address) {
@@ -34,12 +36,14 @@ const SearchBarSuggestToken = ({ data, isMobile, searchTerm, addressFormat, chai
 
   const name = (
     <Text
-      fontWeight={ 700 }
+      fontWeight="bold"
       overflow="hidden"
       whiteSpace="nowrap"
       textOverflow="ellipsis"
     >
-      <span dangerouslySetInnerHTML={{ __html: highlightText(data.name + (data.symbol ? ` (${ data.symbol })` : ''), searchTerm) }}/>
+      <span
+        dangerouslySetInnerHTML={{ __html: highlightText(data.name + (data.symbol ? ` (${ data.symbol })` : ''), searchTerm) }}
+      />
     </Text>
   );
 
@@ -49,7 +53,16 @@ const SearchBarSuggestToken = ({ data, isMobile, searchTerm, addressFormat, chai
     </Text>
   );
 
-  const contractVerifiedIcon = isVerified && <IconSvg name="status/success" boxSize="14px" color="positive" ml={ 1 } flexShrink={ 0 }/>;
+  const contractVerifiedIcon = isVerified && (
+    <IconSvg
+      aria-hidden={ true }
+      name="status/success"
+      boxSize={ 'var(--chakra-spacing-3\\.5)' }
+      color="positive"
+      ml={ 1 }
+      flexShrink={ 0 }
+    />
+  );
   const additionalInfo = (
     <Text overflow="hidden" whiteSpace="nowrap" textStyle="number">
       { data.token_type === 'ERC-20' && 'exchange_rate' in data && data.exchange_rate && `$${ Number(data.exchange_rate).toLocaleString() }` }
@@ -57,33 +70,8 @@ const SearchBarSuggestToken = ({ data, isMobile, searchTerm, addressFormat, chai
     </Text>
   );
 
-  if (isMobile) {
-    const templateCols = `1fr
-    ${ (data.token_type === 'ERC-20' && 'exchange_rate' in data && data.exchange_rate) ||
-      (data.token_type !== 'ERC-20' && 'total_supply' in data && data.total_supply) ? ' auto' : '' }`;
-
-    return (
-      <>
-        <Flex alignItems="center">
-          { icon }
-          { name }
-          { 'certified' in data && data.certified && certifiedIcon }
-          { 'is_verified_via_admin_panel' in data && data.is_verified_via_admin_panel && !data.certified && verifiedIcon }
-          { data.reputation && <TokenEntity.Reputation value={ data.reputation }/> }
-        </Flex>
-        <Grid templateColumns={ templateCols } alignItems="center" gap={ 2 }>
-          <Flex alignItems="center" overflow="hidden">
-            { address }
-            { contractVerifiedIcon }
-          </Flex>
-          { additionalInfo }
-        </Grid>
-      </>
-    );
-  }
-
   return (
-    <Grid templateColumns="228px 1fr auto" gap={ 2 }>
+    <Grid css={ resultLayout } gap={ 2 }>
       <Flex alignItems="center">
         { icon }
         { name }
