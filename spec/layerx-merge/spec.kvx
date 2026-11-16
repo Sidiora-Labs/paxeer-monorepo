@@ -249104,7 +249104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.748]
 title = "Write the network authority document of the api with a command of the repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249426,7 +249426,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.738]
 title = "List the statements of the ranking service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249622,7 +249622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.732]
 title = "Add the command that provisions and checks the streams and durables of the launchpad on a broker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.730"]
@@ -249787,7 +249787,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.727]
 title = "Let an instance of the launchpad indexer that finds the lease held wait as a standby"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.726"]
