@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/netip"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,6 +99,7 @@ type Options struct {
 	Chain          uint64
 	AuthSecret     string
 	TrustedProxies []netip.Prefix
+	AllowedOrigins []string
 	// Node reads the node for the spot holdings and positions routes.
 	Node    rest.SpotNode
 	Metrics *telemetry.Metrics
@@ -119,6 +121,7 @@ type Server struct {
 	spotUsers      *rest.SpotUsers
 	logger         *slog.Logger
 	trustedProxies []netip.Prefix
+	allowedOrigins []string
 	// data serves the shared topic protocol through the hub.
 	data *ws.Server
 	// closer closes every socket it upgrades with 1013 and a retry-after
@@ -200,11 +203,11 @@ func NewServer(ctx context.Context, opts Options) (*Server, error) {
 		return nil, err
 	}
 	limits := ws.DefaultLimits()
-	data, err := ws.NewServer(snapshotID, providers.Served, limits)
+	data, err := ws.NewServer(snapshotID, providers.Served, limits, opts.AllowedOrigins)
 	if err != nil {
 		return nil, err
 	}
-	closer, err := ws.NewServer(snapshotID, providers.Served, limits)
+	closer, err := ws.NewServer(snapshotID, providers.Served, limits, opts.AllowedOrigins)
 	if err != nil {
 		return nil, err
 	}
@@ -242,13 +245,14 @@ func NewServer(ctx context.Context, opts Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	transport := &graphql.TransportWS{Schema: schema, Feed: feed}
+	transport := &graphql.TransportWS{Schema: schema, Feed: feed, AllowedOrigins: append([]string(nil), opts.AllowedOrigins...)}
 
 	s := &Server{
 		db: opts.DB, nats: opts.NATS, chain: opts.Chain, js: js, providers: providers, hub: hub, feed: feed,
-		schema: schema, transport: transport, spotUser: &ws.SpotUser{}, spotUsers: spotUsers, logger: logger, data: data, closer: closer,
+		schema: schema, transport: transport, spotUser: &ws.SpotUser{AllowedOrigins: append([]string(nil), opts.AllowedOrigins...)}, spotUsers: spotUsers, logger: logger, data: data, closer: closer,
 		metrics: opts.Metrics, sockets: sockets, subscriptions: subscriptions, gqlTime: gqlTime,
 		trustedProxies: append([]netip.Prefix(nil), opts.TrustedProxies...),
+		allowedOrigins: append([]string(nil), opts.AllowedOrigins...),
 		limiter:        &windowLimiter{max: clientRequests, window: clientWindow, entries: map[string]windowEntry{}},
 		mux:            http.NewServeMux(),
 		socketRoutes:   map[string]bool{"GET /graphql": true, "GET /graphql-ws": true, "GET /v1/ws": true},
@@ -462,6 +466,17 @@ func (s *Server) hold(sock *ws.Socket, n int) {
 }
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
+	if origin := r.Header.Get("Origin"); origin != "" && slices.Contains(s.allowedOrigins, origin) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		addVaryOrigin(w.Header())
+		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+			w.Header().Set("Access-Control-Max-Age", "600")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
 	_, pattern := s.mux.Handler(r)
 	if s.socketRoutes[pattern] {
 		s.sockets.Inc()
@@ -480,6 +495,17 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		route = unmatchedRoute
 	}
 	_ = s.metrics.RecordRead(route, sw.status)
+}
+
+func addVaryOrigin(header http.Header) {
+	for _, value := range header.Values("Vary") {
+		for _, token := range strings.Split(value, ",") {
+			if strings.EqualFold(strings.TrimSpace(token), "Origin") {
+				return
+			}
+		}
+	}
+	header.Add("Vary", "Origin")
 }
 
 // limited spends one request of the client key's budget, marks the account

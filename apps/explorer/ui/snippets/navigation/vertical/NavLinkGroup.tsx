@@ -25,8 +25,19 @@ const NavLinkGroup = ({ item, isCollapsed }: Props) => {
   const isHighlighted = checkRouteHighlight(item.subItems);
 
   const content = (
-    <Box width="228px" top={{ lg: isExpanded ? '-16px' : 0, xl: isCollapsed ? 0 : '-16px' }}>
-      <Text color="text.secondary" fontSize="sm" mb={ 1 } display={{ lg: isExpanded ? 'none' : 'block', xl: isCollapsed ? 'block' : 'none' }}>
+    <Box
+      width="calc(var(--chakra-spacing-40) + var(--chakra-spacing-16) + var(--chakra-spacing-1))"
+      top={{
+        lg: isExpanded ? 'calc(-1 * var(--chakra-spacing-4))' : 0,
+        xl: isCollapsed ? 0 : 'calc(-1 * var(--chakra-spacing-4))',
+      }}
+    >
+      <Text
+        color="text.secondary"
+        fontSize="sm"
+        mb={ 1 }
+        display={{ lg: isExpanded ? 'none' : 'block', xl: isCollapsed ? 'block' : 'none' }}
+      >
         { item.text }
       </Text>
       <VStack gap={ 1 } alignItems="start" as="ul">
@@ -38,7 +49,7 @@ const NavLinkGroup = ({ item, isCollapsed }: Props) => {
             _notLast={{
               mb: 2,
               pb: 2,
-              borderBottomWidth: '1px',
+              borderBottomWidth: 'var(--chakra-border-widths-1)',
               borderColor: 'border.divider',
             }}
           >
@@ -63,9 +74,12 @@ const NavLinkGroup = ({ item, isCollapsed }: Props) => {
       >
         <Box
           { ...styleProps.itemProps }
-          w={{ lg: isExpanded ? '180px' : '60px', xl: isCollapsed ? '60px' : '180px' }}
-          pl={{ lg: isExpanded ? 2 : '15px', xl: isCollapsed ? '15px' : 2 }}
-          pr={{ lg: isExpanded ? 0 : '15px', xl: isCollapsed ? '15px' : 0 }}
+          w={{
+            lg: isExpanded ? 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-5))' : 'var(--chakra-spacing-15)',
+            xl: isCollapsed ? 'var(--chakra-spacing-15)' : 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-5))',
+          }}
+          pl={{ lg: isExpanded ? 2 : 'var(--chakra-spacing-3\\.75)', xl: isCollapsed ? 'var(--chakra-spacing-3\\.75)' : 2 }}
+          pr={{ lg: isExpanded ? 0 : 'var(--chakra-spacing-3\\.75)', xl: isCollapsed ? 'var(--chakra-spacing-3\\.75)' : 0 }}
           aria-label={ `${ item.text } link group` }
           position="relative"
           color={ item.isActive ? 'link.navigation.fg.selected' : 'link.navigation.fg' }
@@ -93,15 +107,15 @@ const NavLinkGroup = ({ item, isCollapsed }: Props) => {
                 isCollapsed={ isCollapsed }
               />
             ) }
-            <IconSvg
+            <IconSvg aria-hidden={ true }
               name="arrows/east-mini"
               position="absolute"
-              right="7px"
+              right="calc(var(--chakra-spacing-2) - var(--chakra-spacing-1) / 4)"
               transform="rotate(180deg)"
               boxSize={ 6 }
               opacity={{ lg: isExpanded ? '1' : '0', xl: isCollapsed ? '0' : '1' }}
               transitionProperty="opacity"
-              transitionDuration="normal"
+              _motionSafe={{ transitionDuration: 'normal' }}
               transitionTimingFunction="ease"
             />
           </HStack>

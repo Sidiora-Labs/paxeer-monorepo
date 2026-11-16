@@ -21,16 +21,16 @@ const NetworkMenu = () => {
       onOpenChange={ handlePopoverOpenChange }
     >
       <PopoverTrigger>
-        <Button
+        <Button minH="touchTarget" minW="touchTarget"
           variant="link"
           aria-label="Network menu"
           onClick={ menu.onToggle }
           size="2xs"
-          fontWeight={ 500 }
+          fontWeight="medium"
         >
-          <IconSvg name="networks" boxSize="14px"/>
+          <IconSvg aria-hidden={ true } name="networks" boxSize={ 'var(--chakra-spacing-3\\.5)' }/>
           <span>Chains</span>
-          <IconSvg name="arrows/east-mini" boxSize={ 4 } transform="rotate(-90deg)"/>
+          <IconSvg aria-hidden={ true } name="arrows/east-mini" boxSize={ 4 } transform="rotate(-90deg)"/>
         </Button>
       </PopoverTrigger>
       <NetworkMenuContent items={ menu.data } tabs={ menu.availableTabs }/>

@@ -11,12 +11,12 @@ export default function NavigationDesktopAuthScene() {
   return (
     <Flex
       w="100%"
-      minH="100vh"
+      minH="100dvh"
       alignItems="stretch"
       aria-busy={ !profileQuery.isSuccess || profileQuery.isFetching }
     >
       <NavigationDesktop/>
-      <Box bgColor="lightpink" w="100%"/>
+      <Box bgColor="canvas" w="100%"/>
     </Flex>
   );
 }

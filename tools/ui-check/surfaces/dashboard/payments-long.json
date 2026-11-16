@@ -1,0 +1,737 @@
+{
+  "principal": "developer-fixture",
+  "generated_at": 2,
+  "usage": {
+    "keys": 2,
+    "live_keys": 1,
+    "disabled_keys": 1,
+    "requests_allowed": 10,
+    "requests_used": 1,
+    "requests_remaining": 9,
+    "utilisation_per_mille": 100
+  },
+  "keys": [
+    {
+      "key_id": "key-fixture",
+      "principal": "developer-fixture",
+      "disabled": false,
+      "requests_per_window": 10,
+      "window_seconds": 60,
+      "used_in_window": 1,
+      "remaining_in_window": 9,
+      "window_started_at": 0,
+      "window_resets_at": 60,
+      "window_lapsed": false,
+      "utilisation_per_mille": 100
+    },
+    {
+      "key_id": "key-revoked",
+      "principal": "developer-fixture",
+      "disabled": true,
+      "requests_per_window": 10,
+      "window_seconds": 60,
+      "used_in_window": 10,
+      "remaining_in_window": 0,
+      "window_started_at": 0,
+      "window_resets_at": 60,
+      "window_lapsed": false,
+      "utilisation_per_mille": 100
+    }
+  ],
+  "requests": {
+    "records": 1,
+    "pending": 0,
+    "completed": 1,
+    "rate_limited": 0,
+    "refused": 0,
+    "first_at": 1,
+    "last_at": 1
+  },
+  "recent_requests": [
+    {
+      "at": 1,
+      "operation": null,
+      "operation_digest": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+      "outcome": "pending",
+      "verification": "unverified"
+    },
+    {
+      "at": 2,
+      "operation": null,
+      "operation_digest": "e4d0617d9b050a17ed82221bc95f2a786797ef48fed705b9ae3aef918df7fa24",
+      "outcome": "completed",
+      "verification": "unverified"
+    },
+    {
+      "at": 3,
+      "operation": null,
+      "operation_digest": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+      "outcome": "rate-limited",
+      "verification": "unverified"
+    },
+    {
+      "at": 4,
+      "operation": null,
+      "operation_digest": "e4d0617d9b050a17ed82221bc95f2a786797ef48fed705b9ae3aef918df7fa24",
+      "outcome": "refused",
+      "verification": "unverified"
+    }
+  ],
+  "deliveries": {
+    "endpoints": 0,
+    "suspended_endpoints": 0,
+    "pending": 0,
+    "in_flight": 0,
+    "retrying": 0,
+    "delivered_total": 0,
+    "dead_lettered_total": 0,
+    "delivered_per_mille": 0,
+    "oldest_undelivered_seconds": 0,
+    "next_attempt_at": null
+  },
+  "endpoints": [
+    {
+      "endpoint": "endpoint-active",
+      "url": "https://webhook.example/active",
+      "suspended": false,
+      "pending": 1,
+      "in_flight": 2,
+      "retrying": 3,
+      "delivered_total": 12,
+      "dead_lettered_total": 1
+    },
+    {
+      "endpoint": "endpoint-suspended",
+      "url": "https://webhook.example/suspended",
+      "suspended": true,
+      "pending": 1,
+      "in_flight": 2,
+      "retrying": 3,
+      "delivered_total": 12,
+      "dead_lettered_total": 1
+    }
+  ],
+  "dead_letters": [],
+  "payments": [
+    {
+      "event": "payment-1",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-2",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-3",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-4",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-5",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-6",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-7",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-8",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-9",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-10",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-11",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-12",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-13",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-14",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-15",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-16",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-17",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-18",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    },
+    {
+      "event": "payment-19",
+      "subject": "payments",
+      "amount": "0",
+      "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verification": "unverified",
+      "settlement_verification": "receipt-verified",
+      "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+      "settled": true,
+      "facts": [
+        {
+          "name": "state",
+          "value": "settled",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "amount",
+          "value": "0",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "asset",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verification": "unverified",
+          "receipt_digest": null
+        },
+        {
+          "name": "activity_id",
+          "value": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        },
+        {
+          "name": "receipt_bytes",
+          "value": "1074",
+          "verification": "receipt-verified",
+          "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b"
+        }
+      ]
+    },
+    {
+      "event": "payment-20",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    }
+  ]
+}

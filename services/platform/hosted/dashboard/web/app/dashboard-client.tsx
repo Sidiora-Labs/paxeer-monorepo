@@ -1,17 +1,14 @@
 "use client";
 
-
 import {
   Avatar,
   Badge,
   Button,
   Card,
-  ConfirmDialog,
   EmptyState,
   Input,
   List,
   ListItem,
-  ResponsiveDialog,
   SkeletonRow,
   Stat,
   StatPair,
@@ -39,6 +36,8 @@ import {
   type Overview,
   type Receipt,
 } from "./data";
+
+import { DashboardDialog } from "./dashboard-dialog";
 
 import {
   browserKeyState,
@@ -84,11 +83,13 @@ function DashboardShell({
           LX
         </span>
         <h1>Developer dashboard</h1>
-        <div className="dashboard-account">
-          <Avatar alt={principal} initials="DX" size="sm" tone="primary" />
-          <span>{principal}</span>
+        <div className="dashboard-identity">
+          <div className="dashboard-account">
+            <Avatar alt={principal} initials="DX" size="sm" tone="primary" />
+            <span>{principal}</span>
+          </div>
+          <div className="dashboard-session-control">{notificationControl}</div>
         </div>
-        {notificationControl}
       </header>
       <main>{children}</main>
     </div>
@@ -136,6 +137,35 @@ function DashboardTabs({
   onChange: (value: string) => void;
 }) {
   const selectedTab = useRef<HTMLButtonElement | null>(null);
+  const tabList = useRef<HTMLDivElement | null>(null);
+  const [continuation, setContinuation] = useState({
+    start: false,
+    end: false,
+  });
+
+  useEffect(() => {
+    const list = tabList.current;
+    const first = list?.firstElementChild;
+    const last = list?.lastElementChild;
+    if (!list || !first || !last) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setContinuation((current) => {
+          const next = { ...current };
+          for (const entry of entries) {
+            if (entry.target === first)
+              next.start = entry.intersectionRatio < 1;
+            if (entry.target === last) next.end = entry.intersectionRatio < 1;
+          }
+          return next;
+        });
+      },
+      { root: list, threshold: 1, rootMargin: "1px" },
+    );
+    observer.observe(first);
+    observer.observe(last);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     selectedTab.current?.scrollIntoView({
@@ -146,40 +176,47 @@ function DashboardTabs({
 
   return (
     <div
-      className="dashboard-tabs"
-      role="tablist"
-      aria-label="Dashboard section"
+      className="dashboard-tab-strip"
+      data-more-start={continuation.start}
+      data-more-end={continuation.end}
     >
-      {tabs.map((tab, index) => (
-        <Button
-          key={tab.value}
-          ref={active === tab.value ? selectedTab : undefined}
-          id={`tab-${tab.value}`}
-          type="button"
-          role="tab"
-          variant="ghost"
-          aria-selected={active === tab.value}
-          tabIndex={active === tab.value ? 0 : -1}
-          onClick={() => onChange(tab.value)}
-          onKeyDown={(event) => {
-            let next: number;
-            const rtl =
-              getComputedStyle(event.currentTarget).direction === "rtl";
-            if (event.key === "ArrowRight")
-              next = (index + (rtl ? -1 : 1) + tabs.length) % tabs.length;
-            else if (event.key === "ArrowLeft")
-              next = (index + (rtl ? 1 : -1) + tabs.length) % tabs.length;
-            else if (event.key === "Home") next = 0;
-            else if (event.key === "End") next = tabs.length - 1;
-            else return;
-            event.preventDefault();
-            onChange(tabs[next].value);
-            document.getElementById(`tab-${tabs[next].value}`)?.focus();
-          }}
-        >
-          {tab.label}
-        </Button>
-      ))}
+      <div
+        ref={tabList}
+        className="dashboard-tabs"
+        role="tablist"
+        aria-label="Dashboard section"
+      >
+        {tabs.map((tab, index) => (
+          <Button
+            key={tab.value}
+            ref={active === tab.value ? selectedTab : undefined}
+            id={`tab-${tab.value}`}
+            type="button"
+            role="tab"
+            variant="ghost"
+            aria-selected={active === tab.value}
+            tabIndex={active === tab.value ? 0 : -1}
+            onClick={() => onChange(tab.value)}
+            onKeyDown={(event) => {
+              let next: number;
+              const rtl =
+                getComputedStyle(event.currentTarget).direction === "rtl";
+              if (event.key === "ArrowRight")
+                next = (index + (rtl ? -1 : 1) + tabs.length) % tabs.length;
+              else if (event.key === "ArrowLeft")
+                next = (index + (rtl ? 1 : -1) + tabs.length) % tabs.length;
+              else if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = tabs.length - 1;
+              else return;
+              event.preventDefault();
+              onChange(tabs[next].value);
+              document.getElementById(`tab-${tabs[next].value}`)?.focus();
+            }}
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -390,10 +427,17 @@ export default function DashboardClient({
             tabIndex={0}
           >
             {overview && active === "overview" ? (
-              <OverviewPanel value={overview} onOpenKeys={() => setActive("keys")} />
+              <OverviewPanel
+                value={overview}
+                onOpenKeys={() => setActive("keys")}
+              />
             ) : null}
             {overview && active === "keys" ? (
-              <KeysPanel keys={overview.keys} browserKey={heldBrowserKey} onRefresh={refresh} />
+              <KeysPanel
+                keys={overview.keys}
+                browserKey={heldBrowserKey}
+                onRefresh={refresh}
+              />
             ) : null}
             {overview && active === "requests" ? (
               <RequestsPanel requests={requests} />
@@ -547,6 +591,20 @@ function refusalWords(cause: unknown): string {
   return "Sign-in is unavailable. Please try again.";
 }
 
+async function copyDashboardText(value: string): Promise<void> {
+  if (
+    "featurePolicy" in document &&
+    typeof document.featurePolicy === "object" &&
+    document.featurePolicy !== null &&
+    "allowsFeature" in document.featurePolicy &&
+    typeof document.featurePolicy.allowsFeature === "function" &&
+    !document.featurePolicy.allowsFeature("clipboard-write")
+  ) {
+    throw new Error("clipboard_write_unavailable");
+  }
+  await navigator.clipboard.writeText(value);
+}
+
 function SignInView({
   gatewayTenant,
   gatewayOriginConfigured,
@@ -563,7 +621,8 @@ function SignInView({
   const signInHeading = useRef<HTMLHeadingElement | null>(null);
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
-  const keySignInConfigured = gatewayTenant !== undefined && gatewayOriginConfigured;
+  const keySignInConfigured =
+    gatewayTenant !== undefined && gatewayOriginConfigured;
 
   useEffect(() => {
     signInHeading.current?.focus();
@@ -612,69 +671,6 @@ function SignInView({
       <h2 ref={signInHeading} tabIndex={-1}>
         Sign in to your developer dashboard
       </h2>
-      {keyState === undefined ? (
-        <div aria-busy="true">
-          <progress
-            className="dashboard-progress"
-            aria-label="Loading browser key"
-          />
-          <SkeletonRow />
-        </div>
-      ) : null}
-      {keyState?.ed25519 && keySignInConfigured ? (
-        <form
-          className="dashboard-form"
-          aria-label="Developer key sign-in"
-          method="post"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void withKey(!keyState.hasKey);
-          }}
-        >
-          <p>The private developer key stays in this browser.</p>
-          {keyState.publicKey ? (
-            <div className="dashboard-public-key">
-              <span>Public key</span>
-              <code>{keyState.publicKey}</code>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={busy !== undefined}
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(keyState.publicKey!);
-                    setCopied(true);
-                  } catch {
-                    setMessage("The public key could not be copied.");
-                  }
-                }}
-              >
-                Copy public key
-              </Button>
-              <span role="status">{copied ? "Public key copied" : ""}</span>
-            </div>
-          ) : null}
-          <Button
-            type="submit"
-            name="key-action"
-            value={keyState.hasKey ? "existing" : "create"}
-            className="dashboard-busy-control"
-            loading={busy === "create" || busy === "key"}
-            disabled={busy !== undefined}
-          >
-            {keyState.hasKey
-              ? "Sign in with the key this browser holds"
-              : "Create a developer key in this browser and sign in"}
-          </Button>
-        </form>
-      ) : keyState && !keySignInConfigured ? (
-        <p>Key sign-in is not configured.</p>
-      ) : keyState ? (
-        <p>
-          This browser does not support Ed25519 keys; sign in with a session
-          token.
-        </p>
-      ) : null}
       <form
         className="dashboard-form"
         aria-label="Session token sign-in"
@@ -739,12 +735,81 @@ function SignInView({
           Sign in with a session token
         </Button>
       </form>
+      {keyState === undefined ? (
+        <div aria-busy="true">
+          <progress
+            className="dashboard-progress"
+            aria-label="Loading browser key"
+          />
+          <SkeletonRow />
+        </div>
+      ) : null}
+      {keyState?.ed25519 && keySignInConfigured ? (
+        <form
+          className="dashboard-form"
+          aria-label="Developer key sign-in"
+          method="post"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void withKey(!keyState.hasKey);
+          }}
+        >
+          <p>The private developer key stays in this browser.</p>
+          {keyState.publicKey ? (
+            <div className="dashboard-public-key">
+              <span>Public key</span>
+              <code>{keyState.publicKey}</code>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy !== undefined}
+                onClick={async () => {
+                  try {
+                    await copyDashboardText(keyState.publicKey!);
+                    setCopied(true);
+                  } catch {
+                    setMessage("The public key could not be copied.");
+                  }
+                }}
+              >
+                Copy public key
+              </Button>
+              <span role="status">{copied ? "Public key copied" : ""}</span>
+            </div>
+          ) : null}
+          <Button
+            type="submit"
+            name="key-action"
+            value={keyState.hasKey ? "existing" : "create"}
+            className="dashboard-busy-control"
+            loading={busy === "create" || busy === "key"}
+            disabled={busy !== undefined}
+          >
+            {keyState.hasKey
+              ? "Sign in with the key this browser holds"
+              : "Create a developer key in this browser and sign in"}
+          </Button>
+        </form>
+      ) : keyState && !keySignInConfigured ? (
+        <p>Key sign-in is not configured.</p>
+      ) : keyState ? (
+        <p>
+          This browser does not support Ed25519 keys; sign in with a session
+          token.
+        </p>
+      ) : null}
       <p role="alert">{message}</p>
     </Card>
   );
 }
 
-function OverviewPanel({ value, onOpenKeys }: { value: Overview; onOpenKeys: () => void }) {
+function OverviewPanel({
+  value,
+  onOpenKeys,
+}: {
+  value: Overview;
+  onOpenKeys: () => void;
+}) {
   const hasActiveKey = value.keys.some((key) => !key.disabled);
   return (
     <>
@@ -761,7 +826,9 @@ function OverviewPanel({ value, onOpenKeys }: { value: Overview; onOpenKeys: () 
         ) : (
           <div className="dashboard-no-quota">
             <p>No active key holds a request quota.</p>
-            <Button type="button" variant="secondary" onClick={onOpenKeys}>Open Keys</Button>
+            <Button type="button" variant="secondary" onClick={onOpenKeys}>
+              Open Keys
+            </Button>
           </div>
         )}
       </Card>
@@ -817,7 +884,12 @@ function operationKey(): string {
   return crypto.randomUUID();
 }
 
-async function keyRequest(path: string, method: "POST" | "DELETE", body: object, idempotency?: string): Promise<Record<string, unknown>> {
+async function keyRequest(
+  path: string,
+  method: "POST" | "DELETE",
+  body: object,
+  idempotency?: string,
+): Promise<Record<string, unknown>> {
   let result: Response;
   try {
     result = await fetch(path, {
@@ -840,12 +912,16 @@ async function keyRequest(path: string, method: "POST" | "DELETE", body: object,
     throw new KeyActionFailure("gateway_invalid_response");
   }
   if (!result.ok) {
-    const reason = value && typeof value === "object" && typeof (value as { reason?: unknown }).reason === "string"
-      ? (value as { reason: string }).reason
-      : "gateway_unavailable";
+    const reason =
+      value &&
+      typeof value === "object" &&
+      typeof (value as { reason?: unknown }).reason === "string"
+        ? (value as { reason: string }).reason
+        : "gateway_unavailable";
     throw new KeyActionFailure(reason);
   }
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new KeyActionFailure("gateway_invalid_response");
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new KeyActionFailure("gateway_invalid_response");
   return value as Record<string, unknown>;
 }
 
@@ -871,11 +947,20 @@ function KeysPanel({
     setBusy(kind);
     setMessage("");
     try {
-      const result = await keyRequest(path, kind === "revoke" ? "DELETE" : "POST", body, kind === "revoke" ? undefined : operationKey());
+      const result = await keyRequest(
+        path,
+        kind === "revoke" ? "DELETE" : "POST",
+        body,
+        kind === "revoke" ? undefined : operationKey(),
+      );
       if (kind !== "revoke") {
         const key = result.key;
-        const value = key && typeof key === "object" && !Array.isArray(key) ? (key as { secret?: unknown }).secret : undefined;
-        if (typeof value !== "string" || value.length === 0) throw new KeyActionFailure("gateway_invalid_response");
+        const value =
+          key && typeof key === "object" && !Array.isArray(key)
+            ? (key as { secret?: unknown }).secret
+            : undefined;
+        if (typeof value !== "string" || value.length === 0)
+          throw new KeyActionFailure("gateway_invalid_response");
         setSecret(value);
         setCopied(false);
       }
@@ -905,15 +990,37 @@ function KeysPanel({
   return (
     <>
       <DashboardCard title="Issue a developer key">
-        <form className="dashboard-form" aria-label="Issue a developer key" onSubmit={(event) => void issue(event)}>
+        <form
+          className="dashboard-form"
+          aria-label="Issue a developer key"
+          onSubmit={(event) => void issue(event)}
+        >
           <p>A key in this browser signs the request when one is held.</p>
           <div className="dashboard-field">
-            <label htmlFor="key-quota-requests">Requests per quota window</label>
-            <Input id="key-quota-requests" type="number" min={1} max={1000000} value={quotaRequests} onChange={(event) => setQuotaRequests(event.target.value)} required />
+            <label htmlFor="key-quota-requests">
+              Requests per quota window
+            </label>
+            <Input
+              id="key-quota-requests"
+              type="number"
+              min={1}
+              max={1000000}
+              value={quotaRequests}
+              onChange={(event) => setQuotaRequests(event.target.value)}
+              required
+            />
           </div>
           <div className="dashboard-field">
             <label htmlFor="key-quota-window">Quota window in seconds</label>
-            <Input id="key-quota-window" type="number" min={1} max={2592000} value={quotaWindowSeconds} onChange={(event) => setQuotaWindowSeconds(event.target.value)} required />
+            <Input
+              id="key-quota-window"
+              type="number"
+              min={1}
+              max={2592000}
+              value={quotaWindowSeconds}
+              onChange={(event) => setQuotaWindowSeconds(event.target.value)}
+              required
+            />
           </div>
           <fieldset className="dashboard-scope-list">
             <legend>Key scopes</legend>
@@ -922,62 +1029,168 @@ function KeysPanel({
                 <input
                   type="checkbox"
                   checked={scopes.includes(scope)}
-                  onChange={(event) => setScopes((current) => event.target.checked ? [...new Set([...current, scope])] : current.filter((value) => value !== scope))}
+                  onChange={(event) =>
+                    setScopes((current) =>
+                      event.target.checked
+                        ? [...new Set([...current, scope])]
+                        : current.filter((value) => value !== scope),
+                    )
+                  }
                 />
                 <span>{scope}</span>
               </label>
             ))}
           </fieldset>
-          <Button type="submit" loading={busy === "issue"} disabled={busy !== undefined || !browserKey?.publicKey}>Issue key</Button>
-          {!browserKey?.publicKey ? <p>This browser has no developer key to sign issuance.</p> : null}
+          <Button
+            type="submit"
+            loading={busy === "issue"}
+            disabled={busy !== undefined || !browserKey?.publicKey}
+          >
+            Issue key
+          </Button>
+          {!browserKey?.publicKey ? (
+            <p>This browser has no developer key to sign issuance.</p>
+          ) : null}
           <p role="alert">{message}</p>
         </form>
       </DashboardCard>
-      <DashboardCard title="API keys and current quota windows">
+      <DashboardCard
+        title="API keys and current quota windows"
+        className="dashboard-key-card"
+      >
         {keys.length === 0 ? (
-          <EmptyState title="No API keys" description="Issue a principal-bound key through the gateway key management surface." />
+          <EmptyState
+            title="No API keys"
+            description="Issue a principal-bound key through the gateway key management surface."
+          />
         ) : (
-          <List>
+          <List className="dashboard-key-list">
             {keys.map((key) => (
               <ListItem
                 key={key.key_id}
                 title={key.key_id}
                 subtitle={`${key.used_in_window} of ${key.requests_per_window} requests used · ${key.window_seconds}s window`}
                 trailing={
-                  key.disabled ? <Badge className="dashboard-badge" data-tone="destructive" variant="destructive">revoked</Badge> : (
+                  key.disabled ? (
+                    <Badge
+                      className="dashboard-badge"
+                      data-tone="destructive"
+                      variant="destructive"
+                    >
+                      revoked
+                    </Badge>
+                  ) : (
                     <span className="dashboard-key-actions">
-                      <Button type="button" variant="secondary" loading={busy === "rotate"} disabled={busy !== undefined} onClick={() => void action("rotate", `/keys/${encodeURIComponent(key.key_id)}/rotate`)}>Rotate</Button>
-                      <Button type="button" variant="destructive" loading={busy === "revoke" && revokeTarget === key.key_id} disabled={busy !== undefined} onClick={() => setRevokeTarget(key.key_id)}>Revoke</Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        loading={busy === "rotate"}
+                        disabled={busy !== undefined}
+                        onClick={() =>
+                          void action(
+                            "rotate",
+                            `/keys/${encodeURIComponent(key.key_id)}/rotate`,
+                          )
+                        }
+                      >
+                        Rotate
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        loading={
+                          busy === "revoke" && revokeTarget === key.key_id
+                        }
+                        disabled={busy !== undefined}
+                        onClick={() => setRevokeTarget(key.key_id)}
+                      >
+                        Revoke
+                      </Button>
                     </span>
                   )
                 }
-                trailingCaption={`${key.remaining_in_window} remaining`}
+                trailingCaption={
+                  key.disabled
+                    ? undefined
+                    : `${key.remaining_in_window} remaining`
+                }
               />
             ))}
           </List>
         )}
         <p role="alert">{message}</p>
       </DashboardCard>
-      <ResponsiveDialog
+      <DashboardDialog
         open={secret !== undefined}
-        onOpenChange={(open) => { if (!open) setSecret(undefined); }}
+        onOpenChange={(open) => {
+          if (!open) setSecret(undefined);
+        }}
         title="Your new key secret"
         description="This secret is shown once and will not be shown again after this dialog closes. Store it in your password manager."
-        footer={<Button type="button" variant="primary" onClick={() => setSecret(undefined)}>Done</Button>}
+        footer={
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => setSecret(undefined)}
+          >
+            Done
+          </Button>
+        }
       >
         <div className="dashboard-secret">
           <code>{secret}</code>
-          <Button type="button" variant="secondary" onClick={async () => { try { await navigator.clipboard.writeText(secret!); setCopied(true); } catch { setMessage("The key secret could not be copied."); } }}>Copy secret</Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={async () => {
+              try {
+                await copyDashboardText(secret!);
+                setCopied(true);
+              } catch {
+                setMessage("The key secret could not be copied.");
+              }
+            }}
+          >
+            Copy secret
+          </Button>
           <span role="status">{copied ? "Key secret copied" : ""}</span>
         </div>
-      </ResponsiveDialog>
-      <ConfirmDialog
+      </DashboardDialog>
+      <DashboardDialog
         open={revokeTarget !== undefined}
-        onOpenChange={(open) => { if (!open && busy === undefined) setRevokeTarget(undefined); }}
+        onOpenChange={(open) => {
+          if (!open && busy === undefined) setRevokeTarget(undefined);
+        }}
         title="Revoke this key?"
-        consequence="Revoking the key stops it from authenticating requests and cannot be undone."
-        cancel={{ label: "Keep key" }}
-        confirm={{ label: "Revoke key", variant: "destructive", loading: busy === "revoke", onClick: () => revokeTarget && void action("revoke", `/keys/${encodeURIComponent(revokeTarget)}`) }}
+        description="Revoking the key stops it from authenticating requests and cannot be undone."
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              autoFocus
+              disabled={busy !== undefined}
+              onClick={() => setRevokeTarget(undefined)}
+            >
+              Keep key
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              loading={busy === "revoke"}
+              disabled={busy !== undefined}
+              onClick={() =>
+                revokeTarget &&
+                void action(
+                  "revoke",
+                  `/keys/${encodeURIComponent(revokeTarget)}`,
+                )
+              }
+            >
+              Revoke key
+            </Button>
+          </>
+        }
       />
     </>
   );
@@ -1085,7 +1298,10 @@ function PaymentsPanel({
               subtitle={
                 <>
                   <span id={`payment-event-${index}`}>{payment.event}</span>
-                  {` · ${payment.facts.map((fact) => `${fact.name}=${fact.value} [${fact.verification}]`).join(" · ")} · receipt ${payment.receipt_digest ?? "not available"} · all facts ${payment.verification}`}
+                  {` · ${payment.facts.map((fact) => `${fact.name}=${fact.value} [${fact.verification}]`).join(" · ")} · receipt ${payment.receipt_digest ?? "not available"} · `}
+                  <span className="dashboard-fact-verification">
+                    all facts {payment.verification}
+                  </span>
                 </>
               }
               trailing={

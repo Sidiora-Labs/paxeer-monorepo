@@ -64,7 +64,7 @@ const IndexingBlocksAlert = () => {
   }
 
   if (isPending) {
-    return hasAlertCookie ? <Skeleton loading h={{ base: '96px', lg: '48px' }} w="100%"/> : null;
+    return hasAlertCookie ? <Skeleton loading h={{ base: 'var(--chakra-spacing-24)', lg: 'var(--chakra-spacing-12)' }} w="100%"/> : null;
   }
 
   if (data.finished_indexing_blocks !== false) {

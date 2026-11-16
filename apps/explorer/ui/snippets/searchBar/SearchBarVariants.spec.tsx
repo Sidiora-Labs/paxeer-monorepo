@@ -11,7 +11,7 @@ import colors from 'toolkit/theme/foundations/colors';
 import semanticTokens from 'toolkit/theme/foundations/semanticTokens';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { fireEvent, wrapper as TestApp } from 'vitest/lib';
+import { fireEvent, screen, wrapper as TestApp } from 'vitest/lib';
 
 vi.hoisted(() => {
   window.__envs = {
@@ -54,12 +54,13 @@ function heroAndCompactRenderPromptVariants(): void {
   const inputs = Array.from(container.querySelectorAll('input'));
   expect(inputs.map(input => input.placeholder)).toEqual([ HERO_PLACEHOLDER, COMPACT_PLACEHOLDER ]);
   expect(inputs.map(input => input.getAttribute('aria-label'))).toEqual([ 'Search', 'Search' ]);
-  expect(window.getComputedStyle(inputs[0]).height).toBe('52px');
-  expect(window.getComputedStyle(inputs[0].closest('form')!).width).toBe('640px');
-  expect(window.getComputedStyle(inputs[1].closest('form')!).width).toBe('320px');
-  expect(window.getComputedStyle(inputs[1]).borderRadius).toBe('999px');
-  expect(window.getComputedStyle(inputs[0]).borderWidth).toBe('1px');
-  expect(window.getComputedStyle(inputs[1]).borderWidth).toBe('1px');
+  expect(window.getComputedStyle(inputs[0]).height).toBe('auto');
+  expect(window.getComputedStyle(inputs[0]).minHeight).toBe('calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))');
+  expect(window.getComputedStyle(inputs[0].closest('form')!).width).toBe('calc(var(--chakra-spacing-80) * 2)');
+  expect(window.getComputedStyle(inputs[1].closest('form')!).width).toBe('var(--chakra-spacing-80)');
+  expect(window.getComputedStyle(inputs[1]).borderRadius).toBe('var(--chakra-radii-pill)');
+  expect(window.getComputedStyle(inputs[0]).borderWidth).toBe('var(--chakra-border-widths-1)');
+  expect(window.getComputedStyle(inputs[1]).borderWidth).toBe('var(--chakra-border-widths-1)');
   expect(container.textContent).toMatch(/Ctrl K|⌘K/);
 }
 
@@ -75,10 +76,13 @@ async function explicitCompactAndHeroRenderInBothModes(): Promise<void> {
     const inputs = Array.from(container.querySelectorAll('input'));
     expect(inputs.map(input => input.placeholder)).toEqual([ HERO_PLACEHOLDER, COMPACT_PLACEHOLDER ]);
     expect(inputs.map(input => input.getAttribute('aria-label'))).toEqual([ 'Search', 'Search or ask' ]);
-    expect(inputs.map(input => window.getComputedStyle(input).height)).toEqual([ '52px', '36px' ]);
-    expect(inputs.map(input => window.getComputedStyle(input.closest('form')!).width)).toEqual([ '640px', '320px' ]);
-    expect(inputs.map(input => window.getComputedStyle(input).borderRadius)).toEqual([ '6px', '999px' ]);
-    expect(inputs.map(input => window.getComputedStyle(input).borderWidth)).toEqual([ '1px', '1px' ]);
+    expect(inputs.map(input => window.getComputedStyle(input).height)).toEqual([ 'auto', 'auto' ]);
+    expect(inputs.map(input => window.getComputedStyle(input).minHeight))
+      .toEqual([ 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))', 'var(--chakra-sizes-touch-target)' ]);
+    expect(inputs.map(input => window.getComputedStyle(input.closest('form')!).width))
+      .toEqual([ 'calc(var(--chakra-spacing-80) * 2)', 'var(--chakra-spacing-80)' ]);
+    expect(inputs.map(input => window.getComputedStyle(input).borderRadius)).toEqual([ 'var(--chakra-radii-control)', 'var(--chakra-radii-pill)' ]);
+    expect(inputs.map(input => window.getComputedStyle(input).borderWidth)).toEqual([ 'var(--chakra-border-widths-1)', 'var(--chakra-border-widths-1)' ]);
     expect(container.querySelectorAll('kbd')).toHaveLength(2);
     unmount();
   }
@@ -159,7 +163,7 @@ async function assertGroupedSuggestions(isHeroBanner: boolean): Promise<void> {
     expect(groups[3].textContent).toContain(searchFixture.token1.name);
     expect(groups[4].textContent).toContain(appsFixture[0].title);
     expect(groups[4].textContent).toContain(appsFixture[0].description);
-    expect(window.getComputedStyle(groups[0].querySelector('a')!).minHeight).toBe('44px');
+    expect(window.getComputedStyle(groups[0].querySelector('a')!).minHeight).toBe('var(--chakra-sizes-touch-target)');
   }, { timeout: 30_000, interval: 100 });
   const searchRequests = fetchMock.mock.calls.map(([ request ]) => String(request));
   expect(searchRequests.some(url => url.includes('/api/v2/search/quick') && url.includes('q=o'))).toBe(true);
@@ -214,3 +218,19 @@ function searchColoursResolveInBothModes(): void {
 }
 
 test(searchColoursResolveInBothModes.name, searchColoursResolveInBothModes);
+
+async function mobileHeroUsesAnAccessibleSearchTrigger(): Promise<void> {
+  const { container } = render(<SearchBarMobile isHeroBanner/>);
+  const trigger = screen.getByRole('button', { name: 'Search' });
+  expect(container.querySelector('form')).toBeNull();
+  trigger.focus();
+  expect(document.activeElement).toBe(trigger);
+  fireEvent.click(trigger);
+  await vi.waitFor(() => {
+    const input = document.querySelector('input');
+    expect(input?.name).toBe('q');
+    expect(document.activeElement).toBe(input);
+  });
+}
+
+test(mobileHeroUsesAnAccessibleSearchTrigger, mobileHeroUsesAnAccessibleSearchTrigger);

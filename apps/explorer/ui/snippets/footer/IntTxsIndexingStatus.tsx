@@ -1,4 +1,4 @@
-import { Flex, Text } from '@chakra-ui/react';
+import { Text } from '@chakra-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 
@@ -9,6 +9,7 @@ import config from 'configs/app';
 import useApiQuery, { getResourceKey } from 'lib/api/useApiQuery';
 import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
+import { Button } from 'toolkit/chakra/button';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import { apos, nbsp, ndash } from 'toolkit/utils/htmlEntities';
 import IconSvg from 'ui/shared/IconSvg';
@@ -62,22 +63,24 @@ const IntTxsIndexingStatus = () => {
   );
 
   const trigger = (
-    <Flex
+    <Button
+      aria-label="Internal transaction indexing status"
+      variant="plain"
       px={ 1 }
-      bg={{ base: 'blackAlpha.50', _dark: 'whiteAlpha.100' }}
+      bg="positiveSoft"
       borderRadius="sm"
       alignItems="center"
       justifyContent="center"
-      color="green.400"
+      color="positive"
       _hover={{ color: 'hover' }}
     >
-      <IconSvg name="info" boxSize={ 5 }/>
+      <IconSvg aria-hidden={ true } name="info" boxSize={ 5 }/>
       { data.indexed_internal_transactions_ratio && (
-        <Text fontWeight={ 600 } textStyle="xs" color="inherit">
+        <Text fontWeight="semibold" textStyle="xs" color="inherit">
           { Math.floor(Number(data.indexed_internal_transactions_ratio) * 100) + '%' }
         </Text>
       ) }
-    </Flex>
+    </Button>
   );
 
   return (

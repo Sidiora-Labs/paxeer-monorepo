@@ -8,7 +8,7 @@ export default function useNavLinkStyleProps({ isExpanded, isCollapsed, isActive
   return {
     itemProps: {
       variant: 'navigation' as const,
-      py: '9px',
+      py: 'calc(var(--chakra-spacing-2) + var(--chakra-spacing-1) / 4)',
       display: 'flex',
       ...(isActive ? { 'data-selected': true } : {}),
       borderRadius: 'base',
@@ -19,7 +19,7 @@ export default function useNavLinkStyleProps({ isExpanded, isCollapsed, isActive
     textProps: {
       variant: 'inherit',
       fontSize: 'sm',
-      lineHeight: '20px',
+      lineHeight: 'body',
       opacity: { base: '1', lg: isExpanded ? '1' : '0', xl: isCollapsed ? '0' : '1' },
       transitionProperty: 'opacity',
       transitionDuration: 'normal',
