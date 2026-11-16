@@ -15364,6 +15364,12 @@ value = "A surface keeps the sizes it had before the tasks of series 22.44: the 
 basis = "Gotcha 4628. Decisions 3588, 3589, 3705 and 3707."
 affects = []
 
+[decision.3709]
+title = "The outbox of the perps data service is read in bounded time and keeps no delivered row beyond a bound, and the price rows per block have a bound of age"
+value = "A claim of the outbox, its head age read and the outbox read of the readiness check each read a count of rows that is bounded by the size of one batch and by the rows that are leased, backing off or quarantined, whatever the count of pending and of delivered rows is. The order of publication by sequence, the stop before a row that is leased, backing off or quarantined as transient, the fenced leases and the attempt budget stay as they are. The relay starts its next pass without a pause after a pass that claimed a full batch. A delivered row is removed once the acknowledgement of the broker is recorded and the row is older than one hour, in batches of bounded size, by the process that holds the writer lease. One hour is the least age, and it is never less than the window in which the stream refuses a message it already holds. The rows of index prices per block and the raw event rows of the price feed keep their full grain for a count of days that a setting gives, seven by default and one at least. Older rows of index prices are reduced to the last aggregate row of each market in each minute, and older raw event rows of the price feed are removed; the newest row of a market always stays. The chain holds every such event, and the replay command writes a range of heights again. Every other table and every other kind of row keeps its rows."
+basis = "Gotcha 4629."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45024,6 +45030,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.772]
+title = "Bound the age of the price rows per block in the perps data service"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "git grep -q TestPriceRetention -- services/platform/perps-data/internal/store && go test -count=1 -timeout 30m -run TestPriceRetention ./services/platform/perps-data/internal/store/ ./services/platform/perps-data/internal/indexer/ ./services/platform/perps-data/internal/config/ ./services/platform/perps-data/internal/graphql/"
+do_1 = "do_1 Gotcha 4629, decision 3709. This task starts from the main line that holds task 22.39.771. Read services/platform/perps-data/internal/decode/kinds.go, services/platform/perps-data/internal/decode/pricefeed.go, services/platform/perps-data/internal/store/facts.go, services/platform/perps-data/internal/graphql/perps.go, services/platform/perps-data/internal/graphql/subscriptions.go, services/platform/perps-data/internal/explorer/explorer.go, services/platform/perps-data/internal/indexer/rewind.go, the replay package and services/platform/perps-data/internal/config/config.go. List in the final message every read of the rows of index prices and of the raw event rows of the kinds pricefeed_aggregate and pricefeed_aggregate_skipped, with what the read needs: the newest row of a market, a list in time or a cursor by row id."
+symbols = []
+
+[capability.22.39.771]
+title = "Let the outbox of the perps data service be claimed in bounded time and drop its delivered rows"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data"]
+tests = []
+verification_contract = "git grep -q TestOutboxBounded -- services/platform/perps-data/internal/delivery && go test -count=1 -timeout 30m -run TestOutboxBounded ./services/platform/perps-data/internal/delivery/ ./services/platform/perps-data/internal/publish/ ./services/platform/perps-data/internal/indexer/"
+do_1 = "do_1 Gotcha 4629, decision 3709. Read services/platform/perps-data/internal/delivery/store.go, services/platform/perps-data/internal/delivery/relay.go, services/platform/perps-data/internal/publish/publisher.go, services/platform/perps-data/internal/indexer/indexer.go, services/platform/perps-data/cmd/perps-indexer/main.go, the migrations of the delivery tables under services/platform/perps-data/migrations and the cases of the three packages. List in the final message every statement that reads the outbox, with the rows it reads when the table holds many pending and many delivered rows."
+symbols = []
 
 [capability.22.44.79]
 title = "Bring the bridge application back to the sizes of its earlier state"
@@ -250098,6 +250122,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.772]
+title = "Bound the age of the price rows per block in the perps data service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.771"]
+reqs = ["22998.1"]
+capabilities = ["22.39.772"]
+interfaces = []
+do_1 = "do_1 Gotcha 4629, decision 3709. This task starts from the main line that holds task 22.39.771. Read services/platform/perps-data/internal/decode/kinds.go, services/platform/perps-data/internal/decode/pricefeed.go, services/platform/perps-data/internal/store/facts.go, services/platform/perps-data/internal/graphql/perps.go, services/platform/perps-data/internal/graphql/subscriptions.go, services/platform/perps-data/internal/explorer/explorer.go, services/platform/perps-data/internal/indexer/rewind.go, the replay package and services/platform/perps-data/internal/config/config.go. List in the final message every read of the rows of index prices and of the raw event rows of the kinds pricefeed_aggregate and pricefeed_aggregate_skipped, with what the read needs: the newest row of a market, a list in time or a cursor by row id."
+do_2 = "do_2 The configuration of the indexer takes a count of days for the full grain of these rows, seven by default; a value below one or a value that is no whole number is refused at the start. The setting is named in the way of the other settings of the service and described in docs/release/variables/service-platform.md in present tense. It is optional, so no deployment file changes."
+do_3 = "do_3 A pass in the store package, run at a bounded interval by the process that holds the writer lease, works through indexes on the time of the block, which a new migration under services/platform/perps-data/migrations with the next number adds where they are missing, and in statements of bounded size. For rows of index prices older than the bound it keeps the last row of the kind aggregate of each market in each minute and removes the other rows, the skipped ones among them. It removes the raw event rows of the two kinds of the price feed that are older than the bound. The newest row of a market is never removed, and no row of another kind or of another table is touched. A pass that is cut short is continued by the next one, and a pass holds no lock that stops the writes of the indexer for longer than one statement."
+do_4 = "do_4 Every read of the list of the first step keeps answering after a pass: the newest price of a market, the cursors of the subscriptions and the lists in time. A read that lists such rows in time states the grain of the older rows in its description in the schema of the gateway, and a read of the events of a block older than the bound answers with the rows that remain and states the bound in its description. A replay of an old range of heights writes rows of full grain again and the next pass reduces them: state that in the comment of the pass."
+do_5 = "do_5 Cases with the name prefix TestPriceRetention in the store package, with a case of the same prefix in each other package whose read changes. The cases use the real PostgreSQL database that the qualification environment names in PERPS_DATA_TEST_DATABASE_URL, as the present cases of the package do. With rows on both sides of the bound the kept and the removed rows are exactly the ones of the third step; the newest row of a market stays when it is older than the bound; rows of other kinds and of other tables stay; no statement of the pass exceeds its bound of rows; a second pass over the same rows changes nothing; the setting is refused below one; the reads of the subscriptions answer after a pass; and with two hundred thousand rows in each of the two tables the plan of each statement of the pass holds no sequential read of them. No present case is removed or weakened."
+do_6 = "do_6 Run by hand the cases of the store, indexer, config, graphql and explorer packages and read each summary. The files of services/platform/perps-data and docs/release/variables/service-platform.md are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/internal/store/ ./services/platform/perps-data/internal/indexer/"
+verify_cmd = "git grep -q TestPriceRetention -- services/platform/perps-data/internal/store && go test -count=1 -timeout 30m -run TestPriceRetention ./services/platform/perps-data/internal/store/ ./services/platform/perps-data/internal/indexer/ ./services/platform/perps-data/internal/config/ ./services/platform/perps-data/internal/graphql/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.771]
+title = "Let the outbox of the perps data service be claimed in bounded time and drop its delivered rows"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.771"]
+interfaces = []
+do_1 = "do_1 Gotcha 4629, decision 3709. Read services/platform/perps-data/internal/delivery/store.go, services/platform/perps-data/internal/delivery/relay.go, services/platform/perps-data/internal/publish/publisher.go, services/platform/perps-data/internal/indexer/indexer.go, services/platform/perps-data/cmd/perps-indexer/main.go, the migrations of the delivery tables under services/platform/perps-data/migrations and the cases of the three packages. List in the final message every statement that reads the outbox, with the rows it reads when the table holds many pending and many delivered rows."
+do_2 = "do_2 The claim statement reaches its rows through indexes. It takes the first open rows in the order of the sequence up to the size of the batch, and it finds the first row that is leased, backing off or quarantined as transient by an ordered read that ends at the first match; it compares the rows with one time that is taken once for the statement. A new migration under services/platform/perps-data/migrations with the next number adds the indexes this needs. The meaning of a claim stays as it is: publication in the order of the sequence, no row claimed ahead of an earlier row that is leased, backing off or quarantined as transient, the control leases of the relay, the serialised claims, the fences, the count of expired leases and the attempt budget."
+do_3 = "do_3 The head age read takes the oldest open row through an index. The outbox read of the readiness check does the same, and where a count of pending rows is reported it is read in bounded time, for example from the sequence of the newest row and the sequence of the oldest open row, and its description says what it counts. Read the loop of the publisher: after a pass that claimed a full batch the next pass starts at once, and the idle interval is waited only after a pass that claimed fewer rows."
+do_4 = "do_4 The process that holds the writer lease removes delivered rows: rows in the published state with a recorded sequence of the broker that are older than one hour, at most ten thousand in one statement, through an index on the time of publication that the migration adds, at a bounded interval and without a lock that holds a claim or an insert for longer than one statement. A row that is pending, leased or quarantined is never removed. Read in services/platform/perps-data/internal/store/facts.go how a repeated write of an event compares it with the stored row: after the removal a repeated write of an event older than the bound enters as a new row. State in the final message and in the comment of the delivery package what that means for a repeated write of an old range of heights and for the replay command."
+do_5 = "do_5 Cases with the name prefix TestOutboxBounded in the delivery package, and in the publish package for the pace of the loop. The cases use the real PostgreSQL database that the qualification environment names in PERPS_DATA_TEST_DATABASE_URL, as the present cases of the package do. They fill the outbox by one insert statement with two hundred thousand pending and two hundred thousand delivered rows at least and refresh the statistics of the table. Then: a claim returns the first batch in the order of the sequence, and the plan of the claim statement, of the head age read and of the readiness read holds no sequential read of the outbox; with a leased row, with a row that backs off and with a row quarantined as transient in the middle of the pending rows a claim ends before that row; a relay with a publisher double delivers twenty thousand rows in order without waiting the idle interval between full batches; the removal takes the delivered rows older than the bound in statements of bounded size and leaves the younger delivered rows and every pending, leased and quarantined row. The present cases of the delivery, publish and indexer packages keep passing; none is removed or weakened."
+do_6 = "do_6 Run by hand the cases of the delivery, publish and indexer packages and read each summary. The files of services/platform/perps-data are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/internal/delivery/ ./services/platform/perps-data/internal/publish/ ./services/platform/perps-data/internal/indexer/"
+verify_cmd = "git grep -q TestOutboxBounded -- services/platform/perps-data/internal/delivery && go test -count=1 -timeout 30m -run TestOutboxBounded ./services/platform/perps-data/internal/delivery/ ./services/platform/perps-data/internal/publish/ ./services/platform/perps-data/internal/indexer/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.770]
 title = "Take the cutoff of a ranking run from the clock of the database and name the step that refused"
