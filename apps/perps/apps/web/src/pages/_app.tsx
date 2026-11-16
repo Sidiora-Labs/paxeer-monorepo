@@ -1,4 +1,4 @@
-import React, { useEffect, type CSSProperties } from "react";
+import React, { useEffect } from "react";
 import type { AppProps } from "next/app";
 import Link from "next/link";
 import { CookieBanner } from "../legal/CookieBanner";
@@ -6,8 +6,9 @@ import {
   startConsentErrorReporting,
   useCookieConsent,
 } from "../legal/useCookieConsent";
-import { BLUE_DARK_THEME_CSS_VARS } from "../theme/blueDarkTheme";
+import Head from "next/head";
 import "../styles/globals.css";
+import "../../../../packages/ui-scaffold/src/surface.css";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import "../../../../packages/layout-grid/src/styles.css";
@@ -15,11 +16,14 @@ export default function WebApp({ Component, pageProps }: AppProps) {
   useCookieConsent();
   useEffect(startConsentErrorReporting, []);
   return (
-    <div style={BLUE_DARK_THEME_CSS_VARS as CSSProperties}>
+    <div>
+      <Head>
+        <meta name="color-scheme" content="light dark" />
+      </Head>
       <Component {...pageProps} />
       <nav
         aria-label="Legal"
-        className="oui-flex oui-flex-wrap oui-justify-center oui-gap-4 oui-p-4 oui-text-2xs oui-text-base-contrast-54"
+        className="oui-legal-nav oui-flex oui-flex-wrap oui-justify-center oui-gap-4 oui-p-4 oui-text-2xs oui-text-base-contrast-80"
       >
         <Link href="/privacy" className="hover:oui-text-base-contrast">
           Privacy Policy

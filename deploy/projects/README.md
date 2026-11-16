@@ -88,19 +88,26 @@ private HTTPS origin of the `indexer` service on its listener port.
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL`, an absolute HTTPS address
 with a DNS host that may hold a path; calls go to exactly that path.
 
-The native table adds these four `identity` rows, each with mode `0600`.
+The native table adds these six `identity` rows, each with mode `0600`.
 Each file input reads `PLATFORM_GATEWAY_` followed by its name from the launch
 environment; for example, `PLATFORM_GATEWAY_ENDPOINT_IDENTITY_TOKEN` supplies
 `ENDPOINT_IDENTITY_TOKEN`.
 
 | File input | Destination | Gateway file variable | Input category and format |
 | --- | --- | --- | --- |
+| `ENDPOINT_ROUTE_BINDINGS` | `/run/secrets/route-bindings.json` | `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | `operator`: product route bindings JSON document encoded as padded base64 |
 | `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of token text issued by the identity service |
 | `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by the identity service |
+| `ENDPOINT_KEY_PROVISIONING_KEY` | `/run/secrets/key-provisioning-key` | `LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` | `generated`: base64 of 64 hexadecimal characters, generated once and equal on every replica |
 | `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 client bundle written by the launcher |
 | `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client bundle password written by the launcher |
 
-The identity role selects eight native rows: these four plus the outbound CA,
+`PLATFORM_GATEWAY_ENDPOINT_ROUTE_BINDINGS` supplies the complete bindings
+document. Its service predicates, HTTPS trust, supported transports and empty
+document behavior are described in the
+[native gateway inputs](../../docs/wiki/HostedGateway.md#native-deployment-inputs).
+
+The identity role selects ten native rows: these six plus the outbound CA,
 Redis username, Redis password and receipt keys marked `*`. A native start
 without the role and identity settings selects only those four chain files,
 serves the chain methods, and answers `px_register` and `px_openSession` with

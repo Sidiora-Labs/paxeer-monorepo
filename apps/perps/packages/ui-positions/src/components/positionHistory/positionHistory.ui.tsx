@@ -1,14 +1,7 @@
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { MarginMode } from "@paxeer-network/types";
-import {
-  cn,
-  DataFilter,
-  Flex,
-  Grid,
-  ListView,
-  Text,
-} from "@paxeer-network/ui";
+import { cn, DataFilter, Flex, Grid, ListView, Text } from "@paxeer-network/ui";
 import { AuthGuardDataTable } from "@paxeer-network/ui-connector";
 import { SharePnLConfig } from "@paxeer-network/ui-share";
 import { SymbolProvider } from "../../provider/symbolProvider";
@@ -66,6 +59,9 @@ export const PositionHistory: FC<PositionHistoryProps> = (props) => {
             <button
               key={`item-${value}`}
               className="oui-relative oui-px-2 oui-py-[2px] oui-text-sm"
+              type="button"
+              aria-pressed={props.filterDays === value}
+              onClick={() => props.updateFilterDays(value as any)}
             >
               <div className="oui-z-10">
                 <Text.gradient
@@ -82,9 +78,7 @@ export const PositionHistory: FC<PositionHistoryProps> = (props) => {
               </div>
               <div
                 className="oui-absolute oui-inset-0 oui-rounded oui-opacity-[.12] oui-gradient-primary"
-                onClick={() => {
-                  props.updateFilterDays(value as any);
-                }}
+                aria-hidden="true"
               ></div>
             </button>
           );
@@ -118,6 +112,7 @@ export const PositionHistory: FC<PositionHistoryProps> = (props) => {
         }}
         classNames={{
           root: "!oui-h-[calc(100%_-_49px)]",
+          scroll: "oui-surface-scroll oui-overflow-x-auto",
         }}
       />
     </Flex>

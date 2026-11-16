@@ -1,16 +1,10 @@
+import { Tooltip } from "../../../../../ui-connector/src/platformOverlays";
+import { SimpleDialog } from "../../../../../ui-connector/src/platformOverlays";
 import { useState, useMemo } from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import { useAppContext } from "@paxeer-network/react-app";
-import {
-  Flex,
-  SimpleDialog,
-  toast,
-  Text,
-  useScreen,
-  cn,
-  Tooltip,
-} from "@paxeer-network/ui";
+import { Button, Flex, toast, Text, useScreen, cn } from "@paxeer-network/ui";
 import { AddIcon } from "../icons";
 import { NickNameTextField } from "./common";
 
@@ -43,22 +37,33 @@ export const CreateSubAccount = (props: CreateSubAccountProps) => {
   const trigger = useMemo(() => {
     return subAccountCount >= maxSubAccountCount ? (
       <Tooltip
-        className="oui-max-w-[188px]"
+        className="oui-max-w-48"
         content={t("subAccount.modal.create.max.description")}
       >
-        <AddIcon
-          className={cn("oui-cursor-not-allowed oui-fill-base-contrast-20")}
-        />
+        <button
+          type="button"
+          className="oui-shell-icon-button oui-cursor-not-allowed"
+          aria-disabled="true"
+          aria-label={t("subAccount.modal.create.max.description")}
+        >
+          <AddIcon className="oui-fill-base-contrast-80" />
+        </button>
       </Tooltip>
     ) : (
-      <AddIcon
-        className={cn(
-          "oui-cursor-pointer oui-fill-base-contrast-54 hover:oui-fill-base-contrast",
-        )}
+      <button
+        type="button"
+        className="oui-shell-icon-button"
+        aria-label="Create sub-account"
         onClick={() => {
           setOpen(true);
         }}
-      />
+      >
+        <AddIcon
+          className={cn(
+            "oui-cursor-pointer oui-fill-base-contrast-54 hover:oui-fill-base-contrast",
+          )}
+        />
+      </button>
     );
   }, [subAccountCount, maxSubAccountCount, t]);
 
@@ -71,7 +76,7 @@ export const CreateSubAccount = (props: CreateSubAccountProps) => {
       width="100%"
     >
       <Text weight="semibold">{t("subAccount.modal.create.title")}</Text>
-      <Text className="oui-text-2xs oui-text-base-contrast-36">
+      <Text className="oui-text-2xs oui-text-base-contrast-80">
         {t("subAccount.modal.create.description", {
           subAccountCount,
           remainingCount: maxSubAccountCount - subAccountCount,
@@ -129,33 +134,48 @@ export const CreateSubAccount = (props: CreateSubAccountProps) => {
           setOpen(open);
         }}
         size={isMobile ? "sm" : "xl"}
-        actions={{
-          primary: {
-            label: t("common.confirm"),
-            disabled: invalid || loading,
-            loading: loading,
-            onClick: () => {
-              const invalid = validateNickName(nickName);
-              if (invalid) {
-                return;
-              }
-              doCreatSubAccount(nickName);
-            },
-          },
-        }}
         classNames={{
-          content: "oui-w-[360px]",
+          content: "oui-shell-overlay oui-w-96",
         }}
       >
-        <NickNameTextField
-          nickName={nickName}
-          setNickName={(nickName) => {
-            validateNickName(nickName);
-            setNickName(nickName);
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!loading) {
+              (() => {
+                const invalid = validateNickName(nickName);
+                if (invalid) {
+                  return;
+                }
+                doCreatSubAccount(nickName);
+              })();
+            }
           }}
-          subAccountCount={subAccountCount}
-          invalid={invalid}
-        />
+          className="oui-flex oui-flex-col oui-gap-4"
+        >
+          <NickNameTextField
+            nickName={nickName}
+            setNickName={(nickName) => {
+              if (invalid) validateNickName(nickName);
+              setNickName(nickName);
+            }}
+            subAccountCount={subAccountCount}
+            onBlur={() => {
+              validateNickName(nickName);
+            }}
+            invalid={invalid}
+          />
+          <div className="oui-flex oui-flex-wrap oui-gap-3">
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={loading || invalid}
+              fullWidth
+            >
+              {t("common.confirm")}
+            </Button>
+          </div>
+        </form>
       </SimpleDialog>
     </>
   );

@@ -1,5 +1,6 @@
+import { ApiDialog } from "./apiDialog";
 import { FC } from "react";
-import { Flex, SimpleDialog, Text } from "@paxeer-network/ui";
+import { Flex, Text } from "@paxeer-network/ui";
 import { APIKeyItem } from "@paxeer-network/hooks";
 import { formatKey } from "../apiManager.ui";
 import { useTranslation, Trans } from "@paxeer-network/i18n";
@@ -13,7 +14,7 @@ export const DeleteAPIKeyDialog: FC<{
   const { item, open, setOpen, onDelete } = props;
   const { t } = useTranslation();
   return (
-    <SimpleDialog
+    <ApiDialog
       size="sm"
       open={open}
       onOpenChange={setOpen}
@@ -22,7 +23,7 @@ export const DeleteAPIKeyDialog: FC<{
         primary: {
           label: t("common.confirm"),
           "data-testid": "oui-testid-apiKey-deleteApiKey-dialog-confirm-btn",
-          className: "oui-w-[120px] lg:oui-w-[154px]",
+          className: "oui-w-28 lg:oui-w-40",
           size: "md",
           onClick: async () => {
             await props.onDelete?.(item);
@@ -31,7 +32,7 @@ export const DeleteAPIKeyDialog: FC<{
         },
         secondary: {
           label: t("common.cancel"),
-          className: "oui-w-[120px] lg:oui-w-[154px]",
+          className: "oui-w-28 lg:oui-w-40",
           size: "md",
           onClick: async () => {
             setOpen(false);
@@ -40,8 +41,7 @@ export const DeleteAPIKeyDialog: FC<{
       }}
       classNames={{
         footer: "oui-justify-center",
-        content:
-          "oui-bg-base-8 oui-w-[300px] lg:oui-w-[360px] oui-font-semibold",
+        content: "oui-bg-base-8 oui-w-72 lg:oui-w-96 oui-font-semibold",
       }}
     >
       <Flex className="oui-text-xs">
@@ -52,6 +52,6 @@ export const DeleteAPIKeyDialog: FC<{
           components={[<Text color="primary" className="oui-px-1" />]}
         />
       </Flex>
-    </SimpleDialog>
+    </ApiDialog>
   );
 };

@@ -60,7 +60,7 @@ export const Quantity: FC<QuantityProps> = ({
         autoComplete="off"
         classNames={{
           // No resting border: the fill surface bounds the input. Focus ring stays off (Input has focus-within:outline-primary-light by default)
-          root: "oui-rounded-[6px] oui-bg-base-6 oui-outline oui-outline-1 oui-outline-offset-0 oui-outline-transparent focus-within:oui-outline-transparent",
+          root: "oui-rounded-md oui-bg-base-6 oui-outline oui-outline-1 oui-outline-offset-0 oui-outline-transparent focus-within:oui-outline-transparent",
           // keep value aligned to suffix side and match design emphasis
           input: "oui-text-sm oui-font-semibold oui-text-base-contrast-98",
           // override default additional padding so value can sit closer to suffix

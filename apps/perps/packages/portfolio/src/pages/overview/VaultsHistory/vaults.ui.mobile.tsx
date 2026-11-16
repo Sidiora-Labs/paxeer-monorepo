@@ -1,3 +1,4 @@
+import styles from "../../../presentation.module.css";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Divider } from "@paxeer-network/ui";
 import { DataFilter, TokenIcon, ListView, Text } from "@paxeer-network/ui";
@@ -26,11 +27,13 @@ export const VaultsHistoryMobile = (props: useVaultsHistoryHookReturn) => {
             {item.status?.slice(0, 1).toUpperCase() + item.status?.slice(1)}
           </div>
         </div>
-        <Text.formatted rule="date" intensity={36} size="2xs">
+        <Text.formatted rule="date" intensity={80} size="2xs">
           {item.created_time}
         </Text.formatted>
         <Divider className="oui-my-2" />
-        <div className="oui-flex oui-items-center [&>div]:oui-flex-1 [&>div]:oui-text-2xs [&>div]:oui-text-base-contrast-36">
+        <div
+          className={`${styles.listMetrics} [&>div]:oui-text-2xs [&>div]:oui-text-base-contrast-80`}
+        >
           <div>
             <div>{t("common.token")}</div>
             <div className="oui-flex oui-items-center oui-gap-1 oui-text-xs oui-text-base-contrast-80">
@@ -71,7 +74,7 @@ export const VaultsHistoryMobile = (props: useVaultsHistoryHookReturn) => {
         onFilter={(value) => {
           onFilter(value);
         }}
-        className="oui-sticky oui-top-[44px] oui-z-10 oui-border-none oui-bg-base-10 oui-px-3 oui-py-2"
+        className="oui-sticky oui-top-12 oui-z-10 oui-border-none oui-bg-base-10 oui-px-3 oui-py-2"
       />
       <ListView
         dataSource={dataSource}

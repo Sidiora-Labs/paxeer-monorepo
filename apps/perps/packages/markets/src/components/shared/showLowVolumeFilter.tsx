@@ -28,7 +28,7 @@ export const ShowLowVolumeFilter = ({ className }: { className?: string }) => {
       </label>
       <label
         htmlFor={id}
-        className="oui-cursor-pointer oui-whitespace-nowrap oui-text-xs oui-text-base-contrast-54"
+        className="oui-cursor-pointer oui-whitespace-nowrap oui-text-xs oui-text-base-contrast-80"
       >
         {t("markets.showLowVolume")}
       </label>
@@ -40,7 +40,7 @@ export const ShowLowVolumeFilter = ({ className }: { className?: string }) => {
           <InfoCircleIcon
             opacity={1}
             aria-label={tooltipContent}
-            className="oui-size-4 oui-cursor-pointer oui-text-base-contrast-54"
+            className="oui-size-4 oui-cursor-pointer oui-text-base-contrast-80"
           />
         }
       />

@@ -10,6 +10,7 @@ import (
 func TestRootCommandListsSequencerCommands(t *testing.T) {
 	rootCmd, _ := NewRootCmd()
 	for _, path := range [][]string{
+		{"applycheck"},
 		{"sequencer"},
 		{"sequencer", "gen-receipt-key"},
 		{"add-genesis-receipt-key"},

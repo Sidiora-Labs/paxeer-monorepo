@@ -35,7 +35,7 @@ export const ConvertRate: FC<ConvertRateProps> = (props) => {
 
   return (
     <Flex width={"100%"} itemAlign="center" justify="between">
-      <Text size="2xs" intensity={36}>
+      <Text size="2xs" intensity={80}>
         {t("transfer.deposit.convertRate")}
       </Text>
       <Flex
@@ -43,7 +43,7 @@ export const ConvertRate: FC<ConvertRateProps> = (props) => {
         gap={1}
         className={cn(
           props.className,
-          "oui-text-2xs oui-text-base-contrast-36",
+          "oui-text-2xs oui-text-base-contrast-80",
         )}
       >
         <Text intensity={80}>1</Text>

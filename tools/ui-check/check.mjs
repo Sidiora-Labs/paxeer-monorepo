@@ -6,12 +6,22 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { chromium } from "playwright";
+import { PNG } from "pngjs";
 import { DEVICES, LIMITS, MODES, outputDirectory, readSurface, renderMatrix } from "./config.mjs";
 import { startSurface } from "./server.mjs";
 import { doubleText, focusedElement, focusSnapshot, measureContrast, measurePage, observePage } from "./browser.mjs";
 
 const require = createRequire(import.meta.url);
 const axeSource = await readFile(require.resolve("axe-core/axe.min.js"), "utf8");
+
+function screenshotHasContent(screenshot) {
+  const { data } = PNG.sync.read(screenshot);
+  const colour = data.readUInt32BE(0);
+  for (let offset = 4; offset < data.length; offset += 4) {
+    if (data.readUInt32BE(offset) !== colour) return true;
+  }
+  return false;
+}
 
 async function applySteps(page, steps) {
   for (const step of steps) {
@@ -130,7 +140,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
   const expectedResponses = new WeakSet();
   const failedResponses = [];
   const consoleErrors = [];
-  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, screenshot: `${String(index + 1).padStart(5, "0")}.png`, findings: [] };
+  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, screenshot: `${String(index + 1).padStart(5, "0")}.png`, findings: [] };
   let page;
   const work = async () => {
     try {
@@ -214,8 +224,14 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       await settlePage(page);
       startStep("measurement");
       const measurements = await page.evaluate(measurePage, { limits: LIMITS, typeScale: surface.typeScale, doubled: mode === "double-text", reduced: mode === "reduced-motion" });
-      startStep("contrast");
+      if (!active) return;
       findings.push(...measurements);
+      startStep("screenshot");
+      const viewportHasContent = screenshotHasContent(await page.screenshot({ fullPage: false, timeout: LIMITS.navigationMs, animations: "allow" }));
+      if (!active) return;
+      if (!viewportHasContent) addLoad({ source: "single-colour-viewport", message: "Viewport screenshot contains a single colour" });
+      render.hasContent = viewportHasContent && !measurements.some((finding) => finding.kind === "load" && finding.values.source === "empty-document");
+      startStep("contrast");
       await page.evaluate(axeSource);
       const contrast = await page.evaluate(measureContrast, LIMITS);
       if (!active) return;
@@ -315,7 +331,7 @@ export async function checkSurface({ surface: filename, out: destination, view: 
     if (failed) throw failed.reason;
     for (const view of views) {
       const renders = result.renders.filter((render) => render.view === view.name);
-      print(`${view.name}: ${renders.length} renders, ${renders.filter((render) => !render.rendered).length} did not render, ${renders.reduce((total, render) => total + render.findings.length, 0)} findings`);
+      print(`${view.name}: ${renders.length} renders, ${renders.filter((render) => !render.rendered).length} did not render, ${renders.filter((render) => !render.hasContent).length} showed nothing, ${renders.reduce((total, render) => total + render.findings.length, 0)} findings`);
     }
   } catch (error) {
     result.findings.push({ kind: "load", view: null, state: null, size: null, scheme: null, mode: null, selector: "document", values: { source: "surface", message: error.message } });
@@ -326,7 +342,7 @@ export async function checkSurface({ surface: filename, out: destination, view: 
   result.findings.push(...result.renders.flatMap((render) => render.findings));
   result.passed = result.renders.length === tasks.length && result.renders.every((render) => render.rendered) && result.findings.length === 0;
   await writeFile(join(out, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
-  print(`Total: ${result.renders.length} renders, ${result.findings.length} findings, ${result.passed ? "pass" : "fail"}, ${reducedModeCount} views and states with fewer than all modes`);
+  print(`Total: ${result.renders.length} renders, ${result.renders.filter((render) => !render.hasContent).length} showed nothing, ${result.findings.length} findings, ${result.passed ? "pass" : "fail"}, ${reducedModeCount} views and states with fewer than all modes`);
   return result;
 }
 

@@ -10,6 +10,8 @@ export const ShareButton: FC<ShareButtonScriptReturn> = (props) => {
   return (
     <button
       type="button"
+      aria-label="Share profit and loss"
+      className="oui-touch-target oui-inline-flex oui-items-center oui-justify-center oui-rounded-full focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary"
       onClick={(e: any) => {
         e.stopPropagation();
         props.showModal();

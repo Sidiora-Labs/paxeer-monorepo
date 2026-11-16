@@ -107,6 +107,7 @@ export const DepositStatusContent = (props: DepositStatusContentProps) => {
       )}
     >
       <Flex
+        asChild
         justify="between"
         itemAlign="center"
         className={cn(
@@ -115,30 +116,41 @@ export const DepositStatusContent = (props: DepositStatusContentProps) => {
           clickable && "oui-cursor-pointer",
         )}
         width="100%"
-        onClick={props.onClick}
       >
-        <Flex gapX={1}>
-          <Dot
-            className={
-              status === AssetHistoryStatusEnum.COMPLETED
-                ? "oui-bg-success"
-                : "oui-bg-primary"
-            }
-          />
-          <Text size="2xs">{content}</Text>
-        </Flex>
-        {renderContent()}
+        <button
+          type="button"
+          onClick={props.onClick}
+          className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+        >
+          <Flex gapX={1}>
+            <Dot
+              className={
+                status === AssetHistoryStatusEnum.COMPLETED
+                  ? "oui-bg-success"
+                  : "oui-bg-primary"
+              }
+            />
+            <Text size="2xs">{content}</Text>
+          </Flex>
+          {renderContent()}
+        </button>
       </Flex>
-      <CloseIcon
-        size={14}
-        opacity={1}
-        className="oui-text-base-contrast-54 hover:oui-text-base-contrast"
+      <button
+        type="button"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           props.onClose(status);
         }}
-      />
+        aria-label="Close"
+        className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+      >
+        <CloseIcon
+          size={14}
+          opacity={1}
+          className="oui-text-base-contrast-80 hover:oui-text-base-contrast"
+        />
+      </button>
     </Flex>
   );
 };
@@ -149,8 +161,8 @@ const Badge: FC<{ className?: string; children: ReactNode }> = (props) => {
       justify="center"
       itemAlign="center"
       r="full"
-      width={18}
-      height={18}
+      width="var(--oui-space-4)"
+      height="var(--oui-space-4)"
       className={cn("oui-bg-line-12", props.className)}
     >
       <Text size="3xs" intensity={80}>
@@ -164,7 +176,7 @@ const Dot: FC<{ className?: string }> = (props) => {
   return (
     <div
       className={cn(
-        "oui-mx-[5px] oui-size-2 oui-shrink-0 oui-rounded-full",
+        "oui-mx-1 oui-size-2 oui-shrink-0 oui-rounded-full",
         props.className,
       )}
     />

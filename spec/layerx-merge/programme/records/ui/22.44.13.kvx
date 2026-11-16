@@ -1,0 +1,382 @@
+[manifest]
+task = "22.44.13"
+surface = "Trading workspace shell, responsive layouts, connection forms and announcements"
+
+[guide.css]
+id = "css"
+directories = ["apps/perps/packages/layout-core", "apps/perps/packages/layout-grid", "apps/perps/packages/layout-split", "apps/perps/packages/ui-scaffold"]
+
+[guide.html]
+id = "html"
+directories = ["apps/perps/apps/web/src/pages", "apps/perps/packages/ui-connector", "apps/perps/packages/ui-scaffold", "apps/perps/packages/wallet-connector", "apps/perps/packages/wallet-connector-privy"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/perps/packages/ui-connector", "apps/perps/packages/ui-scaffold", "apps/perps/packages/wallet-connector"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/perps/packages/i18n", "apps/perps/packages/ui-connector", "apps/perps/packages/ui-chain-selector", "apps/perps/packages/ui-notification", "apps/perps/packages/ui-scaffold", "apps/perps/packages/layout-split"]
+
+[guide.color]
+id = "color"
+directories = ["apps/perps/packages/app", "apps/perps/packages/plugin-core", "apps/perps/packages/ui-scaffold", "apps/perps/packages/ui-connector", "apps/perps/packages/wallet-connector-privy"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/perps/packages/app", "apps/perps/packages/plugin-core", "apps/perps/packages/ui-scaffold", "apps/perps/packages/ui-notification"]
+
+[guide.dark-mode]
+id = "dark-mode"
+directories = ["apps/perps/packages/app", "apps/perps/apps/web/src/pages"]
+
+[guide.responsive-design]
+id = "responsive-design"
+directories = ["apps/perps/packages/ui-scaffold", "apps/perps/packages/ui-connector", "apps/perps/packages/layout-grid", "apps/perps/packages/layout-split"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/perps/packages/layout-split", "apps/perps/packages/ui-scaffold", "apps/perps/packages/ui-notification"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/perps/packages/ui-notification"]
+
+[guide.css-layout]
+id = "css-layout"
+directories = ["apps/perps/packages/layout-core", "apps/perps/packages/layout-grid", "apps/perps/packages/layout-split", "apps/perps/packages/ui-scaffold"]
+
+[guide.size-aware-styling]
+id = "size-aware-styling"
+directories = ["apps/perps/packages/layout-core", "apps/perps/packages/layout-split"]
+
+[guide.responsive-table]
+id = "responsive-table"
+directories = ["apps/perps/packages/ui-scaffold/src/components/subAccount"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/perps/packages/ui-connector", "apps/perps/packages/ui-chain-selector", "apps/perps/packages/ui-scaffold", "apps/perps/packages/wallet-connector", "apps/perps/packages/wallet-connector-privy"]
+
+[guide.viewport-aware-dropdowns]
+id = "viewport-aware-dropdowns"
+directories = ["apps/perps/packages/ui-connector", "apps/perps/packages/ui-scaffold", "apps/perps/packages/layout-split", "apps/perps/packages/wallet-connector-privy"]
+
+[guide.position-aware-tooltips]
+id = "position-aware-tooltips"
+directories = ["apps/perps/packages/ui-connector", "apps/perps/packages/ui-scaffold", "apps/perps/packages/wallet-connector-privy"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/perps/packages/ui-scaffold/src/components/accountMenu", "apps/perps/packages/ui-connector"]
+
+[guide.navbar]
+id = "navbar"
+directories = ["apps/perps/packages/ui-scaffold"]
+
+[guide.navigation-drawer]
+id = "navigation-drawer"
+directories = ["apps/perps/packages/ui-scaffold/src/components/leftNav", "apps/perps/packages/wallet-connector-privy"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/perps/packages/ui-notification/src/components/announcementCenter"]
+
+[guide.autofill-sign-in-form]
+id = "autofill-sign-in-form"
+directories = ["apps/perps/packages/wallet-connector"]
+
+[guide.validate-input-after-interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/perps/packages/ui-scaffold/src/components/subAccount", "apps/perps/packages/wallet-connector"]
+
+[guide.branded-select-styling]
+id = "branded-select-styling"
+directories = ["apps/perps/packages/layout-grid"]
+
+[guide.persistent-toast-notifications]
+id = "persistent-toast-notifications"
+directories = ["apps/perps/packages/ui-notification", "apps/perps/packages/ui-scaffold/src/components/notification"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/perps/packages/ui-connector", "apps/perps/packages/ui-scaffold"]
+
+[guide.defer-rendering-heavy-content]
+id = "defer-rendering-heavy-content"
+directories = ["apps/perps/packages/ui-notification"]
+
+[guide.customize-scrollbar-color-and-thickness]
+id = "customize-scrollbar-color-and-thickness"
+directories = ["apps/perps/packages/ui-scaffold", "apps/perps/packages/layout-grid", "apps/perps/packages/layout-split"]
+
+[guide.dark-mode-toggle]
+id = "dark-mode-toggle"
+directories = ["apps/perps/packages/app"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/perps/packages/ui-scaffold", "apps/perps/packages/ui-chain-selector", "apps/perps/packages/wallet-connector-privy"]
+
+[guide.optimize-image-priority]
+id = "optimize-image-priority"
+directories = ["apps/perps/packages/ui-scaffold", "apps/perps/packages/wallet-connector-privy"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/perps/packages/ui-chain-selector"]
+
+[view.trade]
+route = "/trade"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.trade-grid]
+route = "/trade/grid"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.markets]
+route = "/markets"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio]
+route = "/portfolio"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-positions]
+route = "/portfolio/positions"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-orders]
+route = "/portfolio/orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-assets]
+route = "/portfolio/assets"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-history]
+route = "/portfolio/history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-setting]
+route = "/portfolio/setting"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-feeTier]
+route = "/portfolio/feeTier"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-apiKey]
+route = "/portfolio/apiKey"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.privacy]
+route = "/privacy"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.terms]
+route = "/terms"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.cookies]
+route = "/cookies"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.wallet-menu]
+route = "/trade"
+state = "Wallet commands"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.announcements]
+route = "/trade"
+state = "Expanded announcement list"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.chain-selector]
+route = "/trade"
+state = "Network selection"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.language-selector]
+route = "/trade"
+state = "Language selection"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.create-account]
+route = "/trade"
+state = "Create sub-account"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.edit-account]
+route = "/trade"
+state = "Edit sub-account nickname"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.account-summary]
+route = "/trade"
+state = "Account summary settings"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.onboarding]
+route = "/trade"
+state = "Connection and referral form"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.notification]
+route = "/trade"
+state = "Expanded notification"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.home-screen]
+route = "/trade"
+state = "Home screen instructions"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.wallet-picker]
+route = "/trade"
+state = "Wallet connection choices"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.layout-picker]
+route = "/trade"
+state = "Trading panel layout choices"
+widths = [1024, 1280, 1440, 1920, 2560]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.qr-scanner]
+route = "/trade"
+state = "QR scanner with camera permission message"
+widths = [360, 390, 430, 768, 834, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
