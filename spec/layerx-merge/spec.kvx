@@ -174952,7 +174952,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.70]
 title = "Count a request the page cancelled without a finding in the render check and report an ended request once"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.62"]
@@ -250068,7 +250068,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.746]
 title = "Add to the grants document and the registered migrations what the waiting lists of the statement cases name and empty the lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.734", "22.39.736", "22.39.737", "22.39.738", "22.39.739", "22.39.740", "22.39.741", "22.39.742", "22.39.743", "22.39.744", "22.39.745"]
