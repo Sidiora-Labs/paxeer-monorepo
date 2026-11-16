@@ -14836,6 +14836,12 @@ value = "While the document holds an open modal dialog, the kind focus expects t
 basis = "Gotcha 4537. Decisions 3591 and 3616."
 affects = []
 
+[decision.3621]
+title = "A proof task declares the designed refusals of its states and leaves answers and framework nodes as they are"
+value = "A state whose page receives an answer of refusal by design declares the answer in the field expects of the surface file with method, pattern and status, in the form tools/ui-check/README.md gives. The files of a surface answer a request with the status the service gives, and they change no node the framework renders. A proof task whose surface opens a modal dialog is verified with the keyboard measurement of task 22.44.53."
+basis = "Gotcha 4538. Decisions 3616 and 3620."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -174357,7 +174363,7 @@ title = "Close the wallet demonstration pages on the device list with the render
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.27", "22.44.37"]
+requires = ["22.44.27", "22.44.37", "22.44.53"]
 reqs = ["22998.1"]
 capabilities = ["22.44.42"]
 interfaces = []
@@ -174384,6 +174390,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decisions 3616, 3620 and 3621, gotchas 4533, 4537 and 4538. The render check now leaves out text clipped to nothing, takes the declared answers of a state and reads an open modal dialog. In tools/ui-check/surfaces/wallet-demo.json each state whose page receives an answer of refusal by design declares it in the field expects with method, pattern and status. The files of the surface keep the status of each answer, and the announcer of the framework stays as the framework renders it. The work of the earlier candidate stays as it is. Run the command for the surface by hand first: a finding that remains is corrected in the surface, and a case where the command is wrong is left standing and named with view, kind and reason in the final message. Then run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.41]
 title = "Close the wallet application on the device list with the render check"

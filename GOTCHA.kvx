@@ -22510,3 +22510,8 @@ fix = "Decision 3619. Task 22.39.701."
 title = "The keyboard measurement of the render check does not follow an open modal dialog"
 symptom = "A dialog opened as a modal makes every element outside it inert without the inert attribute and moves the focus to a control inside it. The list of elements the kind focus expects in tools/ui-check/browser.mjs leaves out only the elements under the inert attribute, so the controls behind the dialog are expected and the traversal cannot reach them. The appearance before focus is recorded after the focus is moved to the body, and the body of a document with an open modal dialog does not take the focus, so the control that holds the focus is recorded in its focused appearance and shows no change when the traversal comes to it."
 fix = "Decision 3620. Task 22.44.53."
+
+[gotcha.4538]
+title = "A state of a surface that receives a refusal by design is declared in the surface file"
+symptom = "A state of a surface under tools/ui-check/surfaces may show what the page does with an answer of refusal: a failed sign-in, an ended session, an account that is not there. The render check reports each answer with a status from 400 on under the kind load unless the state declares it in the field expects. Files of a surface that answer such a request with another status, or that alter a node the framework renders, change what the render shows."
+fix = "Decision 3621. Task 22.44.42."
