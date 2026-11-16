@@ -249296,7 +249296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.745]
 title = "List the statements of the livestream service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249328,7 +249328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.744]
 title = "List the statements of the user service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
