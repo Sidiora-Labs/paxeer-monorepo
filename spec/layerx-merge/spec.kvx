@@ -175437,7 +175437,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.79]
 title = "Bring the bridge application back to the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.78"]
@@ -250362,7 +250362,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.772]
 title = "Bound the age of the price rows per block in the perps data service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.771"]
