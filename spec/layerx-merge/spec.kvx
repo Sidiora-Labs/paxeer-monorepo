@@ -174936,7 +174936,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.71]
 title = "Read the groups of the mobile navigation in the layout case of the search results as the header gives them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.3"]
@@ -249634,7 +249634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.761]
 title = "State the object rights of the launchpad service accounts in one document with a command and a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249698,7 +249698,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.759]
 title = "Name the media part that is not available at the start of the metadata service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249825,7 +249825,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.755]
 title = "Serve the internal notification routes of the api on a private listener with mutual TLS"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.747", "22.39.751", "22.39.753"]
