@@ -14920,6 +14920,12 @@ value = "The settings of the batch evidence origin of the receipt authority form
 basis = "Gotcha 4551. Decision 3046."
 affects = []
 
+[decision.3635]
+title = "The definition of the hosted gateway names the indexer origin, the consensus route and the bindings of the product routes"
+value = "The definition gives the gateway the origin of the service indexer of the same project on the port of its listener, in the form the definition gives the origin of its store, and the consensus route from an input of the kind operator. The needs and the order of the gateway stay as they are: the gateway starts without these backends and its readiness names their state. The document of bindings is a file input of the definition with a row in the file table the definition selects. Each consensus method the gateway calls is a method the node front admits on its consensus path, and a case holds this."
+basis = "Gotcha 4552. Decisions 3046 and 3619."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44580,6 +44586,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.709]
+title = "Let the definition of the hosted gateway carry the bindings of the product routes"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform/gateway.kvx", "docker/platform-gateway/native-files.tsv", "deploy/projects/README.md", "docker/README.md", "tools/deploy/tests/projects/test_platform_gateway.py", "services/platform/hosted/gateway/tests/env_example.rs", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+do_1 = "do_1 Gotcha 4552, decision 3635. Read the row of LAYERX_GATEWAY_ROUTE_BINDINGS_FILE and the text on the routes of the products in docs/wiki/HostedGateway.md, in services/platform/hosted/gateway/src/main.rs and services/platform/hosted/gateway/src/routes.rs the reading of the document of bindings, what a binding of a service holds and the member product_routes of the readiness, then docker/platform-gateway/entrypoint.sh, docker/platform-gateway/files.tsv and docker/platform-gateway/native-files.tsv, deploy/projects/platform/gateway.kvx, the cases of tools/deploy/tests/projects/test_platform_gateway.py, the cases of services/platform/hosted/gateway/tests/env_example.rs that read the file table, and the list of services in tools/paxeer-x/route-catalogue.json."
+symbols = []
+
+[capability.22.39.708]
+title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"
+reqs = ["22998.1"]
+touches = ["deploy/projects/platform/gateway.kvx", "deploy/projects/README.md", "tools/deploy/tests/projects/test_platform_gateway.py", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py"
+do_1 = "do_1 Gotcha 4552, decision 3635. Read the table of settings and the section on the inputs of the native deployment in docs/wiki/HostedGateway.md, in services/platform/hosted/gateway/src/main.rs the reading of LAYERX_GATEWAY_CONSENSUS_RPC_URL with the readiness of the consensus backend, in services/platform/hosted/gateway/src/history.rs and services/platform/hosted/gateway/src/chain_reads.rs the reading of LAYERX_GATEWAY_INDEXER_URL and every consensus call, deploy/projects/platform/gateway.kvx, the listener, the port and the certificate of deploy/projects/platform/indexer.kvx, the rules on needs, order and inputs in deploy/projects/README.md, the cases of tools/deploy/tests/projects/test_platform_gateway.py, and the consensus path of the node front under services/platform/hosted/paxeer/src with the methods it admits."
+symbols = []
 
 [capability.22.39.707]
 title = "Let the receipt authority serve from the node alone, with the batch evidence origin as an optional group of settings"
@@ -212710,6 +212734,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.709]
+title = "Let the definition of the hosted gateway carry the bindings of the product routes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.708"]
+reqs = ["22998.1"]
+capabilities = ["22.39.709"]
+interfaces = []
+do_1 = "do_1 Gotcha 4552, decision 3635. Read the row of LAYERX_GATEWAY_ROUTE_BINDINGS_FILE and the text on the routes of the products in docs/wiki/HostedGateway.md, in services/platform/hosted/gateway/src/main.rs and services/platform/hosted/gateway/src/routes.rs the reading of the document of bindings, what a binding of a service holds and the member product_routes of the readiness, then docker/platform-gateway/entrypoint.sh, docker/platform-gateway/files.tsv and docker/platform-gateway/native-files.tsv, deploy/projects/platform/gateway.kvx, the cases of tools/deploy/tests/projects/test_platform_gateway.py, the cases of services/platform/hosted/gateway/tests/env_example.rs that read the file table, and the list of services in tools/paxeer-x/route-catalogue.json."
+do_2 = "do_2 In docker/platform-gateway/native-files.tsv add the row of the file input ENDPOINT_ROUTE_BINDINGS with the path and the mode of its row in docker/platform-gateway/files.tsv, for the role the definition sets. In deploy/projects/platform/gateway.kvx the variable LAYERX_GATEWAY_ROUTE_BINDINGS_FILE holds that path, and the file input ENDPOINT_ROUTE_BINDINGS reads the input PLATFORM_GATEWAY_ENDPOINT_ROUTE_BINDINGS of the kind operator, with a comment that states its form: the document of bindings as padded base64."
+do_3 = "do_3 In tools/deploy/tests/projects/test_platform_gateway.py add cases: every variable of the definition that names a file below the directory of the staged files has a row with that path in the file table the definition selects, and every file input the definition reads has a row there; the row and the input of the document of bindings hold the forms of do_2. In services/platform/hosted/gateway/tests/env_example.rs add a case: every row of docker/platform-gateway/native-files.tsv has a row of the same name, the same path and the same mode in docker/platform-gateway/files.tsv. No present case is removed or weakened."
+do_4 = "do_4 State in docs/wiki/HostedGateway.md, in the section on the inputs of the native deployment, the input, the row, the members of a binding, the transports a binding takes, how an HTTPS upstream is trusted, and what a document that binds no service gives. Bring deploy/projects/README.md and docker/README.md in line where they list the inputs or the rows of the gateway."
+do_5 = "do_5 Give in the final message, for each service the readiness lists under product_routes, the members a binding of that service needs as the source reads them, so that the document can be written from the final message alone."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform/gateway.kvx", "docker/platform-gateway/native-files.tsv", "deploy/projects/README.md", "docker/README.md", "tools/deploy/tests/projects/test_platform_gateway.py", "services/platform/hosted/gateway/tests/env_example.rs", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -383699,6 +383756,38 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.708]
+title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.705"]
+reqs = ["22998.1"]
+capabilities = ["22.39.708"]
+interfaces = []
+do_1 = "do_1 Gotcha 4552, decision 3635. Read the table of settings and the section on the inputs of the native deployment in docs/wiki/HostedGateway.md, in services/platform/hosted/gateway/src/main.rs the reading of LAYERX_GATEWAY_CONSENSUS_RPC_URL with the readiness of the consensus backend, in services/platform/hosted/gateway/src/history.rs and services/platform/hosted/gateway/src/chain_reads.rs the reading of LAYERX_GATEWAY_INDEXER_URL and every consensus call, deploy/projects/platform/gateway.kvx, the listener, the port and the certificate of deploy/projects/platform/indexer.kvx, the rules on needs, order and inputs in deploy/projects/README.md, the cases of tools/deploy/tests/projects/test_platform_gateway.py, and the consensus path of the node front under services/platform/hosted/paxeer/src with the methods it admits."
+do_2 = "do_2 In deploy/projects/platform/gateway.kvx the variable LAYERX_GATEWAY_INDEXER_URL is the HTTPS origin of the service indexer of the project under its private name, in the form the file gives the origin of its store, with the port of the listener of deploy/projects/platform/indexer.kvx. The variable LAYERX_GATEWAY_CONSENSUS_RPC_URL reads the input PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL of the kind operator, with a comment that states its form: an absolute HTTPS address with a DNS host that may hold a path, and the calls go to exactly that path. The needs and the order of the service stay as they are."
+do_3 = "do_3 In tools/deploy/tests/projects/test_platform_gateway.py add cases: the two variables hold these forms; the port of the indexer origin equals the port of the listener of deploy/projects/platform/indexer.kvx; the input has its row and its comment; the consensus methods the gateway calls, read from its production source, are each among the methods the node front admits on its consensus path, read from its source. Where a called method is not admitted, change nothing in the node front or in the gateway: mark that case as expected to fail in the strict form and give method and file in the final message. No present case is removed or weakened."
+do_4 = "do_4 State both variables, the input and its form in the section on the inputs of the native deployment of docs/wiki/HostedGateway.md and in deploy/projects/README.md."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/platform/gateway.kvx", "deploy/projects/README.md", "tools/deploy/tests/projects/test_platform_gateway.py", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_platform_gateway.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_gateway.py tools/deploy/tests/projects/test_platform_folder.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.699]
 title = "Let the definition of the gateway hold the key provisioning key of the key routes"
