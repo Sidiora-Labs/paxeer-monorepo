@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Covered content</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  body { min-height: 1600px; }
+  #cover { position: fixed; inset: 0; z-index: 1; background: #406080; }
+</style>
+<body>
+<p>Page content</p>
+<p style="margin-top:1000px">Content below the viewport</p>
+<div id="cover"></div>
+<script>
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") document.getElementById("cover")?.remove();
+  });
+</script>
+</body>
+</html>

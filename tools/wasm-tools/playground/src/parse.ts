@@ -56,7 +56,7 @@ function update() {
 input.addEventListener('input', debounce(update, 100));
 
 downloadButton.addEventListener('click', () => {
-  let blob = new Blob([lastBytes], { type: 'application/wasm' });
+  let blob = new Blob([new Uint8Array(lastBytes)], { type: 'application/wasm' });
   let link = document.createElement('a');
   let url = URL.createObjectURL(blob);
   link.href = url;
