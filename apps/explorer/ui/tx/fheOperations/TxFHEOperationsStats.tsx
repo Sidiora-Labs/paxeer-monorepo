@@ -14,7 +14,7 @@ const TxFHEOperationsStats = ({ totalHcu, maxDepthHcu, operationCount, isLoading
   return (
     <Box
       display="grid"
-      gridTemplateColumns={{ base: '1fr', lg: 'repeat(3, calc(33.333% - 8px))' }}
+      gridTemplateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-64)), 1fr))"
       gap={ 3 }
       mb={ 6 }
     >

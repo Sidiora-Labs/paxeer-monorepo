@@ -23,23 +23,23 @@ const OptimisticL2TxnBatchBlobCelestia = ({ blobs, isLoading }: Props) => {
       { blobs.map((blob) => {
         return (
           <OptimisticL2TxnBatchBlobWrapper key={ blob.commitment } isLoading={ isLoading } gridTemplateColumns="auto 1fr auto">
-            <GridItem fontWeight={ 600 }>Commitment</GridItem>
+            <GridItem fontWeight="semibold">Commitment</GridItem>
             <GridItem overflow="hidden">
-              <Flex minW="0" w="calc(100% - 20px)">
+              <Flex minW="0" w="calc(100% - var(--chakra-spacing-5))">
                 <HashStringShortenDynamic hash={ blob.commitment }/>
                 <CopyToClipboard text={ blob.commitment }/>
               </Flex>
             </GridItem>
             <CeleniumLink commitment={ blob.commitment } namespace={ blob.namespace } height={ blob.height } fallback={ <GridItem/> }/>
-            <GridItem fontWeight={ 600 }>Height</GridItem>
+            <GridItem fontWeight="semibold">Height</GridItem>
             <GridItem colSpan={ 2 }>
               { blob.height }
             </GridItem>
-            <GridItem fontWeight={ 600 }>Timestamp</GridItem>
+            <GridItem fontWeight="semibold">Timestamp</GridItem>
             <GridItem overflow="hidden" colSpan={ 2 }>
               <DetailedInfoTimestamp timestamp={ blob.l1_timestamp } isLoading={ isLoading } flexWrap={{ base: 'wrap', lg: 'nowrap' }}/>
             </GridItem>
-            <GridItem fontWeight={ 600 }>{ layerLabels.parent } txn hash</GridItem>
+            <GridItem fontWeight="semibold">{ layerLabels.parent } txn hash</GridItem>
             <GridItem overflow="hidden" colSpan={ 2 }>
               <TxEntityL1 hash={ blob.l1_transaction_hash } noIcon/>
             </GridItem>

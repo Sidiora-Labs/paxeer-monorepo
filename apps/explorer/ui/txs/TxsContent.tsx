@@ -1,4 +1,3 @@
-import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TxsSocketType } from './socket/types';
@@ -19,6 +18,7 @@ import { formatScanTableCount } from 'ui/shared/scan';
 import getNextSortValue from 'ui/shared/sort/getNextSortValue';
 import TableViewToggleButton from 'ui/shared/TableViewToggleButton';
 
+import ActivityViews from './ActivityViews';
 import useDescribeTxs from './noves/useDescribeTxs';
 import type { TransactionFeedItem } from './TxPriceUpdate';
 import TxsHeaderMobile from './TxsHeaderMobile';
@@ -94,8 +94,9 @@ const TxsContent = ({
   const translationQuery = useDescribeTxs(items, currentAddress, isPlaceholderData);
 
   const content = items && items.length > 0 ? (
-    <>
-      <Box display={ isTableView ? 'none' : 'block' }>
+    <ActivityViews
+      tableView={ Boolean(isMobile && isTableView) }
+      list={ (
         <TxsList
           showBlockInfo={ showBlockInfo }
           socketType={ socketType }
@@ -105,8 +106,8 @@ const TxsContent = ({
           items={ items }
           translationQuery={ translationQuery }
         />
-      </Box>
-      <Box display={ isTableView ? 'block' : 'none' }>
+      ) }
+      table={ (
         <TxsTable
           txs={ items }
           sort={ sort }
@@ -120,8 +121,8 @@ const TxsContent = ({
           stickyHeader={ !isMobile && stickyHeader }
           translationQuery={ translationQuery }
         />
-      </Box>
-    </>
+      ) }
+    />
   ) : null;
 
   const tableViewButton = isMobile && showTableViewButton ? (

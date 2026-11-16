@@ -16,54 +16,54 @@ export const TABLE_COLUMNS: Array<TxTableColumn> = [
   {
     id: 'tx_hash',
     name: 'Tx hash',
-    width: '180px',
+    width: 'var(--chakra-spacing-44)',
   },
   {
     id: 'type',
     name: 'Type',
-    width: '160px',
+    width: 'var(--chakra-spacing-40)',
   },
   {
     id: 'method',
     name: 'Method',
-    width: '160px',
+    width: 'var(--chakra-spacing-40)',
   },
   {
     id: 'age',
     name: 'Age',
-    width: '190px',
+    width: 'var(--chakra-spacing-48)',
   },
   {
     id: 'from',
     name: 'From',
-    width: '160px',
+    width: 'var(--chakra-spacing-40)',
   },
   {
     id: 'or_and',
     name: '',
-    width: '65px',
+    width: 'var(--chakra-spacing-16)',
   },
   {
     id: 'to',
     name: 'To',
-    width: '160px',
+    width: 'var(--chakra-spacing-40)',
   },
   {
     id: 'amount',
     name: 'Amount',
     isNumeric: true,
-    width: '150px',
+    width: 'var(--chakra-spacing-37\\.5)',
   },
   {
     id: 'asset',
     name: 'Asset',
-    width: '120px',
+    width: 'var(--chakra-spacing-30)',
   },
   {
     id: 'fee',
     name: 'Fee',
     isNumeric: true,
-    width: '120px',
+    width: 'var(--chakra-spacing-30)',
   },
 ] as const;
 

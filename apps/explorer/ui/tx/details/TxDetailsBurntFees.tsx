@@ -6,9 +6,9 @@ import type { Transaction } from 'types/api/transaction';
 import config from 'configs/app';
 import { currencyUnits } from 'lib/units';
 import { ZERO } from 'toolkit/utils/consts';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoNativeCoinValue from 'ui/shared/DetailedInfo/DetailedInfoNativeCoinValue';
 import IconSvg from 'ui/shared/IconSvg';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 const rollupFeature = config.features.rollup;
 

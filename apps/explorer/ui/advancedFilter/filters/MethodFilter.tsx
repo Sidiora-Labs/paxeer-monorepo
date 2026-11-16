@@ -9,7 +9,8 @@ import useDebounce from 'lib/hooks/useDebounce';
 import { Badge } from 'toolkit/chakra/badge';
 import { Checkbox, CheckboxGroup } from 'toolkit/chakra/checkbox';
 import { FilterInput } from 'toolkit/components/filters/FilterInput';
-import TableColumnFilter from 'ui/shared/filters/TableColumnFilter';
+
+import TableColumnFilter from '../ActivityFilter';
 
 const RESET_VALUE = 'all';
 
@@ -79,6 +80,9 @@ const MethodFilter = ({ value = [], handleFilterChange }: Props) => {
       hasReset
     >
       <FilterInput
+        name="method_search"
+        minW={ 0 }
+        inputProps={{ 'aria-label': 'Find by function name/ method ID', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }}
         size="sm"
         onChange={ onSearchChange }
         placeholder="Find by function name/ method ID"
@@ -89,7 +93,7 @@ const MethodFilter = ({ value = [], handleFilterChange }: Props) => {
       { Boolean(searchTerm) && methodsQuery.data?.length === 0 && <span>No results found.</span> }
       { methodsQuery.data && (
         // added negative margin because of checkbox focus styles & overflow hidden
-        <Flex display="flex" flexDir="column" rowGap={ 3 } maxH="250px" overflowY="scroll">
+        <Flex display="flex" flexDir="column" rowGap={ 3 } maxH="var(--chakra-spacing-62\.5)" overflowY="auto">
           <CheckboxGroup
             value={ currentValue.length ? currentValue.map(i => i.method_id) : [ ] }
             orientation="vertical"
