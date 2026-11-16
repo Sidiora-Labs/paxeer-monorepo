@@ -31,7 +31,7 @@ name = "payer_evm"
 path = "tests/payer_evm.rs"
 
 [dependencies]
-base64 = "=0.22.1"
+base64 = "=0.23.1"
 layerx-agentd = { path = "../layerx-agentd" }
 layerx-mcp = { path = "../layerx-mcp" }
 layerx-sdk = { path = "../layerx-sdk" }
