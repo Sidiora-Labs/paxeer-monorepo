@@ -22890,3 +22890,18 @@ fix = "Decision 3692. Task 22.39.762."
 title = "The social service answers one authority route on the private listener of the container profile"
 symptom = "The notification library under services/launchpad/notifications reads five routes of the social service below /internal/v2/social: graph, visibility, public, callouts:review and callout-authority. The private listener of the container profile of the social service admits a peer of the authority list and then answers one route only, ranking-visibility; every other path below /internal/v2/social is answered with not found. The other runtime of the service answers graph, visibility, callouts:review and callout-authority and has no route public. The library reads not found as a refusal, so a reader of the library gets no graph, no visibility decision and no public resource from a social service in the container profile."
 fix = "Decision 3693. Task 22.39.763."
+
+[gotcha.4614]
+title = "A runtime document of the social service without a voice binding never becomes ready"
+symptom = "The runtime document of the social service holds an optional member voice. Without it the service starts, keeps a voice control without a provider and holds a voice failure that its readiness check social_runtime returns on every call. The composer under deploy/launchpad/documents refuses a values member voice, so a composed runtime document never holds the binding. The check answers failed for six different causes and names none: a failure of the runtime, voice, the notification credentials, the broker, durable work and a changed secret."
+fix = "Decision 3694. Task 22.39.764."
+
+[gotcha.4615]
+title = "The identity check of the metadata service reads a readiness path the private identity listener of the gateway does not serve"
+symptom = "In the form with mutual TLS the readiness check media_identity of the metadata service sends GET to the identity endpoint with the path /health/ready appended, with its client certificate, and takes every status other than 200 as a failure. The identity endpoint is the private identity listener of the gateway, and its handler answers only paths below /internal/v2/identity/ and gives 404 to every other path. The check therefore fails against a gateway in every state."
+fix = "Decision 3695. Task 22.39.765."
+
+[gotcha.4616]
+title = "An empty set of markets makes the ranking visibility of the social service unavailable"
+symptom = "The route ranking-visibility of the social service answers 503 when the set of known markets is empty, in the container profile and in the bound runtime alike. The ranking service reads that route in every refresh and in its readiness check ranking, so on a chain where the factory has created no market yet the ranking service publishes nothing, its check fails and it logs a refresh failure in every cycle. An empty set is the regular state of a launchpad before its first market."
+fix = "Decision 3696. Tasks 22.39.764 and 22.39.766."

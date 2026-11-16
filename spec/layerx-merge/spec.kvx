@@ -15274,6 +15274,24 @@ value = "The private listener of the container profile answers, for an admitted 
 basis = "Gotcha 4613."
 affects = []
 
+[decision.3694]
+title = "A runtime document of the social service without a voice binding is a complete form with voice off"
+value = "Without the member voice the social service runs with voice off: the voice routes answer the refusal of an unavailable voice service, no provider is called, and readiness does not depend on voice. With the member present the rules stay: a binding that cannot be built stops the start. The parts the check social_runtime joins today become checks of their own, each with a name that starts with social_, the way the media parts of the metadata service are checks of their own, so that a readiness answer names the failing part. A part that is off registers no check. The composer keeps its refusal of a values member voice until the launchpad contract holds the references a binding needs."
+basis = "Gotcha 4614."
+affects = []
+
+[decision.3695]
+title = "The private identity listener of the gateway answers the readiness path to a verified peer"
+value = "The private identity listener answers GET /health/ready to a request with a verified client chain: 200 while the gateway is in the ready state of its lifecycle, 503 otherwise, with a body that holds the status only. The answer comes from the state the gateway holds, and no dependency is read for the request. Every other path outside /internal/v2/identity/ keeps 404, a request without a verified chain keeps 404 on every path, and the identity routes keep their assertion rules. A case in the gateway sends the request the way the check of the metadata service sends it."
+basis = "Gotcha 4615."
+affects = []
+
+[decision.3696]
+title = "An empty set of markets is a complete answer"
+value = "With no known market the route ranking-visibility answers 200 with complete true, an empty object of pools, the time of the read and the revision of the empty set, in both runtimes. The upper bound of the set stays. The ranking service takes that answer, publishes the head of every category with no entry and the revision of the empty set, answers its read routes with an empty page, and its readiness check passes. An answer that is incomplete, stale or without the member pools stays refused."
+basis = "Gotcha 4616."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44934,6 +44952,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.766]
+title = "Publish empty ranking heads for an empty set of markets"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestEmptyUniverse ./internal/..."
+do_1 = "do_1 Gotcha 4616, decision 3696. Read in services/launchpad/ranking-algo the client of the route ranking-visibility, the reader of the frozen inputs, the coordinator and its two runs, the publication store, the readiness function of the runtime and the read routes. State in the final message, for an answer of the route with complete true and an empty object of pools, what each of these does today and where the first refusal is."
+symbols = []
+
+[capability.22.39.765]
+title = "Answer the readiness path on the private identity listener of the gateway"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "cd services/launchpad/gateway && go test -count=1 -timeout 30m -run TestPrivateIdentityReadiness ./internal/app/"
+do_1 = "do_1 Gotcha 4615, decision 3695. Read in services/launchpad/gateway/internal/app the handler of the private identity listener, its TLS policy, the place where the listener is built and the lifecycle state the public readiness route reads; read in services/launchpad/metadata/internal/app the check media_identity and the function that sends its request. State in the final message the exact request the check sends and what the listener answers to it today."
+symbols = []
+
+[capability.22.39.764]
+title = "Make the social service ready without a voice binding and with an empty set of markets"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "cd services/launchpad/social && go test -count=1 -timeout 30m -run TestReadinessWithoutVoice ./internal/app/ && go test -count=1 -timeout 30m -run TestRankingVisibilityWithoutMarkets ./internal/app/ && go test -count=1 -timeout 30m -run ContainerProfile ./internal/app/ && go test -count=1 -timeout 30m -run PlatformDocuments ./internal/config/"
+do_1 = "do_1 Gotchas 4614 and 4616, decisions 3694 and 3696. Read in services/launchpad/social/internal/app the construction of the connected runtime, its readiness function, the voice control and the voice routes, the two functions that answer the route ranking-visibility, one for each runtime, and the cases named ContainerProfile; read in the configuration package the runtime binding with its member voice and the cases named PlatformDocuments; read the composer of the social documents under deploy/launchpad/documents. State in the final message what each voice route answers today without a binding and which cases build a runtime without one."
+symbols = []
 
 [capability.22.39.763]
 title = "Answer every authority route the notification library reads on the private listener of the social service"
@@ -249614,6 +249659,102 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.766]
+title = "Publish empty ranking heads for an empty set of markets"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.754"]
+reqs = ["22998.1"]
+capabilities = ["22.39.766"]
+interfaces = []
+do_1 = "do_1 Gotcha 4616, decision 3696. Read in services/launchpad/ranking-algo the client of the route ranking-visibility, the reader of the frozen inputs, the coordinator and its two runs, the publication store, the readiness function of the runtime and the read routes. State in the final message, for an answer of the route with complete true and an empty object of pools, what each of these does today and where the first refusal is."
+do_2 = "do_2 With that answer and no market in the source the refresh completes: the head of every category, the category new among them, is published with no entry and carries the revision of the empty set, the readiness check ranking passes once the heads are current, and the read routes answer an empty page with the status they give a page today. Nothing is logged as a failure for the empty set."
+do_3 = "do_3 The refusals stay: an answer with a status other than 200, an answer that is incomplete, an answer without the member pools, an observation time in the future or older than the bound, and a revision that is not 64 characters long are refused as today, and a case holds each beside the empty set."
+do_4 = "do_4 Cases whose names start with TestEmptyUniverse in the packages the change touches, and at least one in services/launchpad/ranking-algo/internal/app that runs the path from the answer of the route to the published heads and the readiness check with the doubles and the database the present cases of the package use. When the first market appears in the source and in the answer of the route, the next refresh publishes it: one case holds that step."
+do_5 = "do_5 The README of the service states the behaviour for an empty set of markets. Run the new cases by hand and read each message. The files of services/launchpad/ranking-algo are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/ranking-algo && go vet ./internal/..."
+verify_cmd = "cd services/launchpad/ranking-algo && go test -count=1 -timeout 30m -run TestEmptyUniverse ./internal/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.765]
+title = "Answer the readiness path on the private identity listener of the gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.759"]
+reqs = ["22998.1"]
+capabilities = ["22.39.765"]
+interfaces = []
+do_1 = "do_1 Gotcha 4615, decision 3695. Read in services/launchpad/gateway/internal/app the handler of the private identity listener, its TLS policy, the place where the listener is built and the lifecycle state the public readiness route reads; read in services/launchpad/metadata/internal/app the check media_identity and the function that sends its request. State in the final message the exact request the check sends and what the listener answers to it today."
+do_2 = "do_2 The handler of the private identity listener answers GET /health/ready to a request with a verified client chain: 200 while the gateway is in the ready state of its lifecycle and 503 otherwise, with a JSON body that holds the status only. The answer is taken from the state the gateway holds; the handler runs no check of a dependency for the request and does not wait. Every other method on the path, every other path outside /internal/v2/identity/ and every request without a verified chain keep the present answer. The identity routes are not changed."
+do_3 = "do_3 Cases in services/launchpad/gateway/internal/app whose names start with TestPrivateIdentityReadiness, against the handler behind a TLS listener with the policy of the private listener: a client with a certificate of the private authority that sends GET with the path /health/ready below the endpoint and no assertion header, the way the check of the metadata service does, gets 200 in the ready state and 503 before it and after the stop began; a client without a certificate does not complete the connection; POST on the path and GET on /health/live, /health and /metrics get 404; a path below /internal/v2/identity/ reaches the identity routes as before. The cases need no database, no broker and no node."
+do_4 = "do_4 The README of the gateway states the path, who may read it and what it answers. Run the new cases by hand and read each message. The files of services/launchpad/gateway are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/gateway && go vet ./internal/app/"
+verify_cmd = "cd services/launchpad/gateway && go test -count=1 -timeout 30m -run TestPrivateIdentityReadiness ./internal/app/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.764]
+title = "Make the social service ready without a voice binding and with an empty set of markets"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.754"]
+reqs = ["22998.1"]
+capabilities = ["22.39.764"]
+interfaces = []
+do_1 = "do_1 Gotchas 4614 and 4616, decisions 3694 and 3696. Read in services/launchpad/social/internal/app the construction of the connected runtime, its readiness function, the voice control and the voice routes, the two functions that answer the route ranking-visibility, one for each runtime, and the cases named ContainerProfile; read in the configuration package the runtime binding with its member voice and the cases named PlatformDocuments; read the composer of the social documents under deploy/launchpad/documents. State in the final message what each voice route answers today without a binding and which cases build a runtime without one."
+do_2 = "do_2 A runtime document without the member voice gives a runtime with voice off: no voice failure is held, no provider is called, every voice route answers the refusal of an unavailable voice service with the status and code the routes use for it today, and readiness does not depend on voice. With the member present nothing changes: a binding that cannot be built stops the start, and a built binding is checked as today."
+do_3 = "do_3 The parts the readiness function joins become checks of their own beside social_runtime: voice where a binding is present, the notification credentials where they are configured, the broker, durable work and the consumed secrets. Each name starts with social_ and is stable, a part that is off registers no check, and the body of the readiness answer shows each check. The log line of durable work keeps its message. No check gives a secret, a reference value or an address in body or log."
+do_4 = "do_4 The route ranking-visibility answers 200 for an empty set of markets in both runtimes: complete true, an empty object of pools that is present in the body, the time of the read, and a revision of 64 hexadecimal characters that is the digest of the empty set. The upper bound of the set stays and a failed read stays 503."
+do_5 = "do_5 Cases in services/launchpad/social/internal/app whose names start with TestReadinessWithoutVoice: a runtime built from a document without the member voice is ready when its other parts are, each voice route answers its refusal, and with a failing part the readiness answer names that part and no other. Cases whose names start with TestRankingVisibilityWithoutMarkets: both runtimes answer the empty set as decision 3696 states, and the body decodes with a member pools that is present and empty. A case named PlatformDocuments in the configuration package holds that the runtime document the composer writes has no member voice and that the service reads it. The cases take the database the way the present cases of the package do and need no broker beyond the doubles the package has, and no node."
+do_6 = "do_6 The README of the service states the form with voice off, the names of the checks and the answer for an empty set of markets. Task 22.39.763 changes the authority routes of the same package: take main before the counted verification and keep both changes. Run by hand the new cases and the cases named ContainerProfile and PlatformDocuments, one after another, and read each message. The files of services/launchpad/social are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/social && go vet ./internal/app/ ./internal/config/"
+verify_cmd = "cd services/launchpad/social && go test -count=1 -timeout 30m -run TestReadinessWithoutVoice ./internal/app/ && go test -count=1 -timeout 30m -run TestRankingVisibilityWithoutMarkets ./internal/app/ && go test -count=1 -timeout 30m -run ContainerProfile ./internal/app/ && go test -count=1 -timeout 30m -run PlatformDocuments ./internal/config/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.763]
 title = "Answer every authority route the notification library reads on the private listener of the social service"
