@@ -34,11 +34,25 @@ body {
   clip-path: inset(50%);
 }
 
+.skip-link {
+  position: absolute;
+  top: var(--spacing-2);
+  left: var(--spacing-2);
+  z-index: 50;
+  display: inline-flex;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  max-width: calc(100% - var(--spacing-4));
+  align-items: center;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-lg);
+  background-color: var(--background);
+  color: var(--foreground);
+  transform: translateY(calc(-100% - var(--spacing-4)));
+}
+
 .skip-link:focus {
-  width: auto;
-  height: auto;
-  clip-path: none;
-  white-space: normal;
+  transform: none;
 }
 
 next-route-announcer {
