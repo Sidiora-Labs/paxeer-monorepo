@@ -248712,7 +248712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.725]
 title = "Hold the receipts of a block in the eth namespace equal to the transactions the block lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -386273,7 +386273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.571]
 title = "Point the package, lockfile and advisory checks at the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.564", "22.39.716", "22.39.717"]
