@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
@@ -61,7 +62,8 @@ func runtimeIdentity(c *config.Config) (sharedauth.MTLSIdentityAuthority, error)
 	return sharedauth.NewMTLSIdentityAuthority(c.IdentityURL, c.IdentityPeerCertSHA256, &http.Client{Transport: transport, Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, issuer)
 }
 
-type networkAuthorityConfig struct {
+// NetworkAuthorityConfig is the digest-bound network authority document.
+type NetworkAuthorityConfig struct {
 	SchemaVersion          int                        `json:"schemaVersion"`
 	Manifest               deployment.Manifest        `json:"manifest"`
 	ReviewedPoolRuntime    string                     `json:"reviewedPoolRuntime"`
@@ -72,6 +74,9 @@ type networkAuthorityConfig struct {
 	GoAddresses            map[string]string          `json:"goAddresses"`
 	FrontendAddresses      map[string]string          `json:"frontendAddresses"`
 }
+
+type networkAuthorityConfig = NetworkAuthorityConfig
+
 type networkAuthority struct {
 	pool        *pgxpool.Pool
 	config      networkAuthorityConfig
@@ -130,6 +135,34 @@ var authoritySchema = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 var authorityHash = regexp.MustCompile(`^0x[0-9a-fA-F]{64}$`)
 var authorityDecimal = regexp.MustCompile(`^(0|[1-9][0-9]{0,19})$`)
 
+// ValidateNetworkAuthorityConfig checks the authority document without network
+// or database access.
+func ValidateNetworkAuthorityConfig(d NetworkAuthorityConfig) error {
+	if d.SchemaVersion != 2 {
+		return errors.New("network authority schemaVersion invalid")
+	}
+	if !authoritySchema.MatchString(d.SourceSchema) {
+		return errors.New("network authority sourceSchema invalid")
+	}
+	if err := d.Manifest.Validate(); err != nil {
+		return fmt.Errorf("network authority manifest: %w", err)
+	}
+	revision, err := capabilities.NewPreflightRevision(d.Manifest, d.ReviewedPoolRuntime, d.SerialInterfaceSHA256)
+	if err != nil {
+		return fmt.Errorf("network authority reviewedPoolRuntime or serialInterfaceSha256: %w", err)
+	}
+	if revision.RevisionSHA256 != d.ExpectedRevisionSHA256 {
+		return errors.New("reviewed network revision mismatch: expectedRevisionSha256")
+	}
+	if err := d.Manifest.CompareAddresses(d.GoAddresses); err != nil {
+		return fmt.Errorf("network authority goAddresses: %w", err)
+	}
+	if err := d.Manifest.CompareAddresses(d.FrontendAddresses); err != nil {
+		return fmt.Errorf("network authority frontendAddresses: %w", err)
+	}
+	return nil
+}
+
 func newNetworkAuthority(ctx context.Context, pool *pgxpool.Pool, c *config.Config) (*networkAuthority, error) {
 	a := &networkAuthority{pool: pool, origins: map[string]bool{}}
 	for _, origin := range strings.Split(c.CORSAllowedOrigins, ",") {
@@ -150,10 +183,7 @@ func newNetworkAuthority(ctx context.Context, pool *pgxpool.Pool, c *config.Conf
 		return nil, err
 	}
 	d := a.config
-	if d.SchemaVersion != 2 || !authoritySchema.MatchString(d.SourceSchema) {
-		return nil, errors.New("network authority configuration invalid")
-	}
-	if err := d.Manifest.Validate(); err != nil {
+	if err := ValidateNetworkAuthorityConfig(d); err != nil {
 		return nil, err
 	}
 	u, err := url.Parse(c.NetworkRPCURL)
@@ -172,18 +202,6 @@ func newNetworkAuthority(ctx context.Context, pool *pgxpool.Pool, c *config.Conf
 	}
 	a.engine, err = capabilities.NewPreflightEngine(a.reader, d.Manifest, d.ReviewedPoolRuntime, d.SerialInterfaceSHA256, time.Minute, 10*time.Second)
 	if err != nil {
-		a.Close()
-		return nil, err
-	}
-	if a.engine.Revision().RevisionSHA256 != d.ExpectedRevisionSHA256 {
-		a.Close()
-		return nil, errors.New("reviewed network revision mismatch")
-	}
-	if err = d.Manifest.CompareAddresses(d.GoAddresses); err != nil {
-		a.Close()
-		return nil, err
-	}
-	if err = d.Manifest.CompareAddresses(d.FrontendAddresses); err != nil {
 		a.Close()
 		return nil, err
 	}
