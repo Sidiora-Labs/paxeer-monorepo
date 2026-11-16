@@ -24,6 +24,7 @@ func ApplyCheckCmd(defaultHome string) *cobra.Command {
 
 func newApplyCheckCmd(defaultHome string, exit func(int)) *cobra.Command {
 	var home, input, blockTime, output string
+	var standInReceiptKey bool
 	var transactions []string
 	finish := func(cmd *cobra.Command, code int, err error) {
 		if err != nil {
@@ -44,7 +45,7 @@ func newApplyCheckCmd(defaultHome string, exit func(int)) *cobra.Command {
 				finish(cmd, 2, errors.New("applycheck accepts flags only"))
 				return
 			}
-			code, err := executeApplyCheck(cmd, home, input, transactions, blockTime, output)
+			code, err := executeApplyCheck(cmd, home, input, transactions, blockTime, output, standInReceiptKey)
 			finish(cmd, code, err)
 		},
 	}
@@ -54,10 +55,11 @@ func newApplyCheckCmd(defaultHome string, exit func(int)) *cobra.Command {
 	command.Flags().StringArrayVar(&transactions, "tx", nil, "Signed Ethereum hex or chain base64 transaction (repeatable; appended after the file)")
 	command.Flags().StringVar(&blockTime, "block-time", "", "Block time in RFC3339 format (default: last block time plus one second)")
 	command.Flags().StringVar(&output, "output", "", "Write the JSON report outside the copied home (default: stdout)")
+	command.Flags().BoolVar(&standInReceiptKey, "stand-in-receipt-key", false, "Use an in-memory receipt key instead of the configured receipt and consensus key files")
 	return command
 }
 
-func executeApplyCheck(cmd *cobra.Command, home, input string, direct []string, blockTime, output string) (int, error) {
+func executeApplyCheck(cmd *cobra.Command, home, input string, direct []string, blockTime, output string, standInReceiptKey bool) (int, error) {
 	var txs [][]byte
 	appendTransaction := func(line string) error {
 		if strings.TrimSpace(line) == "" {
@@ -108,7 +110,17 @@ func executeApplyCheck(cmd *cobra.Command, home, input string, direct []string, 
 			return 2, err
 		}
 	}
-	report, err := app.ApplyCheckHome(cmd.Context(), home, txs, at, sequencer.ApplyCheck{})
+	applyCheck := sequencer.ApplyCheck{}
+	applyOptions := app.ApplyCheckOptions{}
+	if standInReceiptKey {
+		key, err := sequencer.NewApplyCheckReceiptKey()
+		if err != nil {
+			return 2, err
+		}
+		applyCheck.ReceiptKey = key
+		applyOptions.StandInReceiptKey = true
+	}
+	report, err := app.ApplyCheckHomeWithOptions(cmd.Context(), home, txs, at, applyCheck, applyOptions)
 	if err != nil {
 		return 2, err
 	}
