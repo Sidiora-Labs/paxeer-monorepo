@@ -21,13 +21,15 @@ export function Stat({
         className,
       )}
     >
-      <span className="text-2xl font-bold tabular-nums text-foreground">{value}</span>
+      <span className="max-w-full text-xl font-bold tabular-nums text-foreground">
+        {value}
+      </span>
       <span className="text-sm text-muted-foreground">{label}</span>
     </div>
   );
 }
 
-/** Two stats separated by a vertical hairline, as on Earning / Network. */
+/** Paired statistics adapt their columns to the available width. */
 export function StatPair({
   left,
   right,
@@ -38,9 +40,14 @@ export function StatPair({
   className?: string;
 }) {
   return (
-    <div className={cn("grid grid-cols-2", className)}>
+    <div
+      className={cn(
+        "grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--space-sidebar)),1fr))] gap-6",
+        className,
+      )}
+    >
       <Stat value={left.value} label={left.label} />
-      <Stat value={right.value} label={right.label} className="border-l border-border" />
+      <Stat value={right.value} label={right.label} />
     </div>
   );
 }
