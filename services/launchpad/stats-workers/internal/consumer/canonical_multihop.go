@@ -81,8 +81,8 @@ func (r canonicalRoute) event() (MultihopEvent, error) {
 // bound to the same complete canonical receipt and source position.
 func (b *CanonicalLegacyBridge) multihops(ctx context.Context, tx pgx.Tx, typed int64) (int, error) {
 	rows, err := tx.Query(ctx, `SELECT r.transaction_hash,r.log_index,r.height,r.transaction_index,r.block_hash,r.emitter,r.topics,r.data,o.payload,
- coalesce((SELECT max(p.log_index) FROM `+b.source("indexer_ingest_outbox")+` p WHERE p.chain_id=o.chain_id AND p.transaction_hash=o.transaction_hash AND p.log_index<o.log_index AND p.event_kind IN ('Buy','Sell','MultihopSwap')),-1)
- FROM `+b.source("indexer_ingest_outbox")+` o JOIN `+b.source("indexer_raw_logs_v1")+` r USING(chain_id,transaction_hash,log_index)
+ coalesce((SELECT max(p.log_index) FROM `+b.source("indexer_swap_outbox_v1")+` p WHERE p.chain_id=o.chain_id AND p.transaction_hash=o.transaction_hash AND p.log_index<o.log_index AND p.event_kind IN ('Buy','Sell','MultihopSwap')),-1)
+ FROM `+b.source("indexer_swap_outbox_v1")+` o JOIN `+b.source("indexer_raw_logs_v1")+` r USING(chain_id,transaction_hash,log_index)
  WHERE o.chain_id=125 AND o.event_kind='MultihopSwap' AND r.height<=$1
  AND NOT EXISTS(SELECT 1 FROM stats.cross_token_swaps s WHERE s.id=r.transaction_hash||'-'||r.log_index::text)
  ORDER BY r.height,r.transaction_index,r.log_index LIMIT $2`, typed, b.Batch)
