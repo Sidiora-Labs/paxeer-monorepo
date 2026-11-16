@@ -28,5 +28,8 @@
     "WEB_CHARTS_UPSTREAM": "http://charts.railway.internal:8080",
     "WEB_GATEWAY_UPSTREAM": "http://gateway.railway.internal:8080",
     "WEB_SOCKETS_UPSTREAM": "http://api-sockets.railway.internal:8080"
+  },
+  "metadata": {
+    "METADATA_INGRESS": "mtls"
   }
 }

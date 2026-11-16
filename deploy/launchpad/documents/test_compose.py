@@ -351,6 +351,30 @@ def test_compose_platform_variable_values() -> None:
     assert "PASS railway-values" in result.stdout
 
 
+def test_compose_metadata_mutual_ingress(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    result = _run(values, out, "metadata")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "metadata.json").read_bytes())
+    assert set(record) == {
+        "DB_BUDGET_DOCUMENT", "DB_BUDGET_SHA256",
+        "EXPECTED_SCHEMA_DOCUMENT", "EXPECTED_SCHEMA_SHA256",
+        "METADATA_PUBLICATION_CONFIG_DOCUMENT", "METADATA_PUBLICATION_CONFIG_SHA256",
+    }
+    publication = base64.b64decode(record["METADATA_PUBLICATION_CONFIG_DOCUMENT"], validate=True)
+    assert hashlib.sha256(publication).hexdigest() == record["METADATA_PUBLICATION_CONFIG_SHA256"]
+    assert json.loads(publication) == {
+        "schemaVersion": 3, "environment": "paxeer125-mainnet-beta",
+        "envelopeHeader": "X-Kindle-Operation", "signatureHeader": "X-Kindle-Operation-Signature",
+    }
+    contract = json.loads((ROOT.parent / "railway" / "variables.json").read_bytes())["metadata"]
+    assert contract["fixed"]["METADATA_INGRESS"] == "mtls"
+    assert set(record) <= set(contract["required"])
+    assert {"METADATA_TLS_CERT_PEM", "METADATA_TLS_KEY_PEM", "METADATA_TLS_CLIENT_CA_PEM"} <= set(contract["required"])
+    assert {"METADATA_ASSERTION_PRIVATE_KEY_HEX", "METADATA_TLS_KEY_PEM"} <= set(contract["secrets"])
+    assert not {"IDENTITY_SERVICE_URL", "IDENTITY_SERVICE_TOKEN"} & set(contract["required"])
+
+
 def test_compose_gateway_binding_forms(tmp_path: Path) -> None:
     values, out = _values(tmp_path), tmp_path / "out"
     result = _run(values, out, "gateway")

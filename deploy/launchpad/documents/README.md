@@ -112,3 +112,10 @@ check locally, including exact authority URLs, control schemas, object role
 references, numeric bounds, epoch syntax and identity key dates and overlap.
 The gateway validates certificate contents, resolved keys, configured buckets
 and route admission at startup.
+
+For `--service metadata`, the composer writes
+`METADATA_PUBLICATION_CONFIG_DOCUMENT` and its `*_SHA256` binding from the
+example's `environment`. Listener PEM materials and assertion keys are supplied
+separately under the metadata variable contract. The contract selects `mtls`
+with `METADATA_TLS_CERT_PEM`, `METADATA_TLS_KEY_PEM` and
+`METADATA_TLS_CLIENT_CA_PEM`; these materials are not publication documents.

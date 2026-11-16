@@ -196,6 +196,24 @@ to `0.0.0.0:8443` in the Railway contract. Gateway upstreams for user, metadata
 and social use their corresponding HTTPS `:8443` origins; the ranking runtime's
 social visibility endpoint does the same.
 
+Metadata uses `METADATA_INGRESS=mtls`. Its private listener requires TLS 1.3
+and a certificate verified by `METADATA_TLS_CLIENT_CA_PEM`. Set
+`METADATA_TLS_CERT_PEM`, `METADATA_TLS_KEY_PEM` and
+`METADATA_TLS_CLIENT_CA_PEM` to the listener's PEM materials. Each also admits
+its `*_FILE` alternative outside the inline platform contract; select exactly
+one source for each material. Key files must be regular and accessible only
+to their owner. The inline key and `METADATA_ASSERTION_PRIVATE_KEY_HEX` are
+secrets resolved through the configured secrets provider.
+
+The gateway channel uses `GATEWAY_ASSERTION_PUBLIC_KEY_HEX` and
+`GATEWAY_PEER_CERT_SHA256`; the user account channel uses
+`USER_ASSERTION_PUBLIC_KEY_HEX` and `USER_PEER_CERT_SHA256`. Metadata calls
+`IDENTITY_ENDPOINT` over mTLS using its listener certificate and assertion key,
+with `IDENTITY_PEER_CERT_SHA256` pinning the identity server. The separate
+`edge` form uses `IDENTITY_SERVICE_URL` and `IDENTITY_SERVICE_TOKEN` for session
+introspection and requires database moderation. The platform contract selects
+the mTLS form and database moderation.
+
 Production tooling has separate configuration described in the linked pages:
 bootstrap uses `compose.yml`, `fixture.env.example`, `images.json` and
 `nats.conf`; topology uses `production-input.template.json`; observability uses
