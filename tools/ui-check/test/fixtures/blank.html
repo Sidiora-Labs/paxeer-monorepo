@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page content</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const variant = new URLSearchParams(location.search);
+    if (variant.has("clipped")) {
+      const text = document.createElement("p");
+      text.textContent = "Clipped text";
+      text.style.cssText = "position:absolute;clip-path:inset(50%);";
+      document.body.append(text);
+    }
+    if (variant.has("text")) {
+      const text = document.createElement("p");
+      text.textContent = "One line of text";
+      document.body.append(text);
+    }
+    if (variant.has("image")) {
+      const image = document.createElement("img");
+      image.alt = "Black square";
+      image.width = 48;
+      image.height = 48;
+      image.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="black"/></svg>')}`;
+      document.body.append(image);
+    }
+  });
+</script>
+</head>
+<body></body>
+</html>
