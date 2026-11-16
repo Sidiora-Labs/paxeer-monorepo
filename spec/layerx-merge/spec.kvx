@@ -174668,7 +174668,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.674]
 title = "Declare at the root of the trading workspace the packages its root tests import"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -463160,7 +463160,7 @@ do_7 = "do_7 Decision 3611, gotcha 4528. The verification now runs the suite of 
 
 [task.22.39.685]
 title = "Let the suite of the indexer app of the explorer backend pass whole in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
