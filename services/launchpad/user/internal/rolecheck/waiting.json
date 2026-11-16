@@ -1,0 +1,216 @@
+[
+  {
+    "statement": "services/launchpad/user/internal/account/backfill.go/legacyProfileInventory/1/1",
+    "requirements": [
+      {
+        "object": "users.user_profiles",
+        "right": "UPDATE (row lock)"
+      }
+    ],
+    "message": "permission denied for table user_profiles"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/backfill.go/legacyProfileInventory/1/2",
+    "requirements": [
+      {
+        "object": "users.user_images",
+        "right": "UPDATE (row lock)"
+      }
+    ],
+    "message": "permission denied for table user_images"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/backfill.go/quarantineLegacyProfile/1",
+    "requirements": [
+      {
+        "object": "users.account_backfill.state",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_backfill.reason",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_backfill"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/12",
+    "requirements": [
+      {
+        "object": "users.account_backfill.state",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_backfill.reason",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_backfill"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/14",
+    "requirements": [
+      {
+        "object": "users.account_backfill.state",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_backfill.reason",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_backfill"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/16",
+    "requirements": [
+      {
+        "object": "users.account_backfill.state",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_backfill.reason",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_backfill"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/devices_http.go/HTTP.devicePut/7",
+    "requirements": [
+      {
+        "object": "users.account_endpoint.account_id",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_endpoint.platform",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_endpoint.device_id",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_endpoint.provider",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_endpoint.session_id",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_endpoint"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/preferences_http.go/HTTP.GatewayHandler/2",
+    "requirements": [
+      {
+        "object": "users.account_idempotency.digest",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_idempotency.result",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_idempotency.expires_at",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_idempotency"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/privacy.go/Store.BindEndpoint/2",
+    "requirements": [
+      {
+        "object": "users.account_endpoint.account_id",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_endpoint.platform",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_endpoint"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/privacy.go/Store.deletionMutation/1/4",
+    "requirements": [
+      {
+        "object": "users.account_device_installation",
+        "right": "DELETE"
+      }
+    ],
+    "message": "permission denied for table account_device_installation"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/privacy.go/Store.deletionMutation/1/5",
+    "requirements": [
+      {
+        "object": "users.account_idempotency",
+        "right": "DELETE"
+      }
+    ],
+    "message": "permission denied for table account_idempotency"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/privacy.go/Store.RequestDeletionOperation/6",
+    "requirements": [
+      {
+        "object": "users.account_idempotency.digest",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_idempotency.result",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_idempotency.expires_at",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_idempotency"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/4",
+    "requirements": [
+      {
+        "object": "users.account_backfill",
+        "right": "UPDATE (row lock)"
+      }
+    ],
+    "message": "permission denied for table account_backfill"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/7",
+    "requirements": [
+      {
+        "object": "users.account_backfill.state",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_backfill.reason",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_backfill"
+  },
+  {
+    "statement": "services/launchpad/user/internal/account/store.go/Store.Idempotent/2",
+    "requirements": [
+      {
+        "object": "users.account_idempotency.digest",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_idempotency.result",
+        "right": "UPDATE"
+      },
+      {
+        "object": "users.account_idempotency.expires_at",
+        "right": "UPDATE"
+      }
+    ],
+    "message": "permission denied for table account_idempotency"
+  }
+]
