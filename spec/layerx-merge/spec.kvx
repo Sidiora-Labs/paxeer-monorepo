@@ -174040,7 +174040,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.56]
 title = "Draw the status mark of the names shell whole at every size"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.46"]
@@ -212714,7 +212714,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.702]
 title = "Let the webhooks service answer a liveness route and name it in the definition of the ingress role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
