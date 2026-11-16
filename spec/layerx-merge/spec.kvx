@@ -173961,7 +173961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.58]
 title = "Let the render check bound each render, render several at once and read the modes of a view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.53"]
@@ -174093,7 +174093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.703]
 title = "Let the container check pass for the whole repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
