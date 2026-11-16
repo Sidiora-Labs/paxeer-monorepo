@@ -249134,7 +249134,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.750]
 title = "Make the example values of the launchpad composer one set across the services"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.735"]
