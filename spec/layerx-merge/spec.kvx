@@ -174678,7 +174678,7 @@ do_7 = "do_7 Decision 3629, gotcha 4546. The render check ends each render at a 
 
 [task.22.44.47]
 title = "Close the page of the inference peer, the playground pages and the codebase map on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.35", "22.44.37"]
@@ -248050,7 +248050,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.706]
 title = "Give the node tool a command that applies given transactions on a copy of a home in every form and compares the results"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
