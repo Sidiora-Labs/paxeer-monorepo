@@ -1,9 +1,9 @@
+import { Tooltip } from "../platformOverlays";
 import { PropsWithChildren, useMemo, useState } from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import { useAppContext } from "@paxeer-network/react-app";
 import { AccountStatusEnum } from "@paxeer-network/types";
-import { Tooltip } from "@paxeer-network/ui";
 
 type AuthGuardProps = {
   content?: string;
@@ -81,7 +81,9 @@ const AuthGuardTooltip = (props: PropsWithChildren<AuthGuardProps>) => {
       side={props.side}
       sideOffset={props.sideOffset}
     >
-      <div style={{ opacity: newOpacity }}>{props.children}</div>
+      <div tabIndex={hint ? 0 : undefined} style={{ opacity: newOpacity }}>
+        {props.children}
+      </div>
     </Tooltip>
   );
 };

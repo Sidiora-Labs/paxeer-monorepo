@@ -1,4 +1,13 @@
-import { FC, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Tooltip } from "../platformOverlays";
+import {
+  FC,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useId,
+} from "react";
 import {
   formatReferralCodeInput,
   REFERRAL_CODE_MAX_LENGTH,
@@ -15,15 +24,13 @@ import {
   Box,
   Button,
   capitalizeFirstLetter,
-  Divider,
   Flex,
   inputFormatter,
   modal,
   Switch,
   Text,
-  TextField,
+  Input,
   toast,
-  Tooltip,
 } from "@paxeer-network/ui";
 import { StepItem } from "./step";
 
@@ -64,7 +71,10 @@ export const WalletConnectContent = (props: WalletConnectContentProps) => {
   );
   useEffect(() => {
     return () => {
-      localStorage.setItem("paxeer-network-first-show-wallet-connector-dialog", "1");
+      localStorage.setItem(
+        "paxeer-network-first-show-wallet-connector-dialog",
+        "1",
+      );
     };
   }, []);
 
@@ -215,7 +225,7 @@ export const WalletConnectContent = (props: WalletConnectContentProps) => {
 
   return (
     <Box id="oui-wallet-connect-dialog-content" className="oui-font-semibold">
-      <Text intensity={54} size="xs">
+      <Text intensity={80} size="xs">
         {t("connector.expired")}
       </Text>
       <Box
@@ -248,6 +258,7 @@ export const WalletConnectContent = (props: WalletConnectContentProps) => {
         <Flex justify={"between"} itemAlign={"center"}>
           <RememberMe />
           <Switch
+            aria-label={t("connector.rememberMe")}
             color={"primary"}
             checked={remember}
             onCheckedChange={setRemember}
@@ -281,16 +292,19 @@ export const WalletConnectContent = (props: WalletConnectContentProps) => {
       </Flex>
       {displayStatus > AccountStatusEnum.NotConnected && (
         <Flex
+          asChild
           justify={"center"}
           mt={4}
           gap={1}
           className="oui-w-full oui-cursor-pointer"
           onClick={onDisconnect}
         >
-          <DisconnectIcon />
-          <Text className="oui-text-base-contrast-80 oui-text-sm">
-            {t("connector.disconnectWallet")}
-          </Text>
+          <button type="button" className="oui-shell-action">
+            <DisconnectIcon />
+            <Text className="oui-text-base-contrast-80 oui-text-sm">
+              {t("connector.disconnectWallet")}
+            </Text>
+          </button>
         </Flex>
       )}
     </Box>
@@ -492,37 +506,52 @@ const WithLedgerButton = ({
 const ReferralCode: FC<WalletConnectContentProps> = (props) => {
   const { t } = useTranslation();
 
+  const fieldId = useId();
   return (
-    <TextField
-      placeholder={t("connector.referralCode.placeholder")}
-      fullWidth
-      label=""
-      value={props.refCode}
-      onChange={(e) => {
-        props.setRefCode(formatReferralCodeInput(e.target.value));
-      }}
-      classNames={{
-        label: "oui-text-base-contrast-54 oui-text-xs",
-        input: "placeholder:oui-text-base-contrast-20 placeholder:oui-text-sm",
-      }}
-      formatters={[
-        inputFormatter.createRegexInputFormatter((value: string | number) => {
-          return String(value).replace(/[a-z]/g, (char: string) =>
-            char.toUpperCase(),
-          );
-        }),
-        inputFormatter.createRegexInputFormatter(/[^A-Z0-9]/g),
-      ]}
-      onClear={() => {
-        props.setRefCode("");
-      }}
-      autoComplete="off"
-      maxLength={REFERRAL_CODE_MAX_LENGTH}
-      minLength={REFERRAL_CODE_MIN_LENGTH}
-      helpText={props.helpText}
-      className="oui-mb-4"
-      color={props.helpText ? "danger" : undefined}
-    />
+    <div className="oui-mb-4 oui-flex oui-flex-col oui-gap-2">
+      <label
+        htmlFor={fieldId}
+        className="oui-text-xs oui-text-base-contrast-80"
+      >
+        {t("connector.referralCode.placeholder")}
+      </label>
+      <Input
+        id={fieldId}
+        size="xl"
+        aria-invalid={!!props.helpText}
+        aria-describedby={props.helpText ? `${fieldId}-help` : undefined}
+        placeholder={t("connector.referralCode.placeholder")}
+        name="referral-code"
+        value={props.refCode}
+        onChange={(e) => {
+          props.setRefCode(formatReferralCodeInput(e.target.value));
+        }}
+        formatters={[
+          inputFormatter.createRegexInputFormatter((value: string | number) => {
+            return String(value).replace(/[a-z]/g, (char: string) =>
+              char.toUpperCase(),
+            );
+          }),
+          inputFormatter.createRegexInputFormatter(/[^A-Z0-9]/g),
+        ]}
+        onClear={() => {
+          props.setRefCode("");
+        }}
+        autoComplete="off"
+        maxLength={REFERRAL_CODE_MAX_LENGTH}
+        minLength={REFERRAL_CODE_MIN_LENGTH}
+        color={props.helpText ? "danger" : undefined}
+      />
+      {props.helpText && (
+        <Text
+          id={`${fieldId}-help`}
+          size="2xs"
+          className="oui-text-base-contrast"
+        >
+          {props.helpText}
+        </Text>
+      )}
+    </div>
   );
 };
 
@@ -545,11 +574,15 @@ const RememberMe = () => {
   return (
     <Tooltip
       content={t("connector.rememberMe.description")}
-      className="oui-max-w-[300px]"
+      className="oui-max-w-80"
     >
-      <button onClick={showRememberHint}>
+      <button
+        type="button"
+        className="oui-shell-action"
+        onClick={showRememberHint}
+      >
         <Text
-          intensity={54}
+          intensity={80}
           size={"xs"}
           className={
             "oui-underline oui-underline-offset-4 oui-decoration-dashed oui-decoration-base-contrast-36"

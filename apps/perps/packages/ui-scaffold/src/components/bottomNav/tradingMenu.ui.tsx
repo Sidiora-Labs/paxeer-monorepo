@@ -1,14 +1,15 @@
-import React, { useState } from "react";
 import {
-  Flex,
   PopoverRoot,
   PopoverTrigger,
   PopoverContent,
+} from "../../../../ui-connector/src/platformOverlays";
+import React, { useState } from "react";
+import {
+  Flex,
   Text,
   SpotIcon,
   PerpsIcon,
   SelectedChoicesFillIcon,
-  PopupUnionIcon,
   CloseRoundFillIcon,
 } from "@paxeer-network/ui";
 import { cn } from "@paxeer-network/ui";
@@ -25,6 +26,7 @@ const TradingMenuChoice: React.FC<TradingMenuChoiceProps> = (props) => {
   const { icon, label, selected, onClick, className } = props;
   return (
     <Flex
+      asChild
       itemAlign="center"
       className={cn(
         "oui-w-full oui-px-2 oui-py-3",
@@ -34,15 +36,17 @@ const TradingMenuChoice: React.FC<TradingMenuChoiceProps> = (props) => {
       )}
       onClick={onClick}
     >
-      <Flex gap={2} itemAlign="center">
-        {icon}
-        <Text size="sm" intensity={80} weight="semibold">
-          {label}
-        </Text>
-      </Flex>
-      <Flex className="oui-ms-auto">
-        {selected ? <SelectedChoicesFillIcon size={14} /> : null}
-      </Flex>
+      <button type="button" className="oui-shell-action">
+        <Flex gap={2} itemAlign="center">
+          {icon}
+          <Text size="sm" intensity={80} weight="semibold">
+            {label}
+          </Text>
+        </Flex>
+        <Flex className="oui-ms-auto">
+          {selected ? <SelectedChoicesFillIcon size={14} /> : null}
+        </Flex>
+      </button>
     </Flex>
   );
 };
@@ -70,61 +74,39 @@ export const BottomNavTradingMenu: React.FC<BottomNavTradingMenuProps> = (
   };
 
   return (
-    <PopoverRoot open={open} onOpenChange={setOpen}>
+    <PopoverRoot
+      open={open}
+      onOpenChange={(next) => {
+        if (active) setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
-        {!open ? (
-          <>
-            <Flex
-              width={48}
-              height={48}
-              r="full"
-              itemAlign={"center"}
-              justify={"center"}
-              className="oui-bg-base-7 oui--mt-6"
-              onClick={onClickTrigger}
-            >
-              {active ? activeIcon : inactiveIcon}
-            </Flex>
-            <Text
-              size="2xs"
-              intensity={active ? 98 : 36}
-              className="oui-text-center"
-            >
-              {label}
-            </Text>
-          </>
-        ) : (
-          <Flex
-            width={48}
-            height={48}
-            r="full"
-            itemAlign={"center"}
-            justify={"center"}
-            className="oui-relative oui--mt-12"
-            onClick={(e) => {
-              e.stopPropagation?.();
-              setOpen(false);
-            }}
-          >
-            <PopupUnionIcon
-              size={78}
-              className="oui-text-base-8 oui-absolute oui-start-1/2 oui-top-1/2 -oui-translate-x-1/2 -oui-translate-y-1/2"
-            />
-            <Flex
-              className="oui-absolute oui-start-1/2 oui-top-1/2 -oui-translate-x-1/2 -oui-translate-y-1/2"
-              itemAlign="center"
-              justify="center"
-            >
-              <CloseRoundFillIcon size={28} />
-            </Flex>
-          </Flex>
-        )}
+        <button
+          type="button"
+          aria-label={open ? "Close trading menu" : label}
+          aria-current={active ? "page" : undefined}
+          onClick={() => {
+            if (!active) onNavigate();
+          }}
+          className="oui-shell-action oui-flex oui-flex-col oui-items-center oui-justify-center oui-gap-1"
+        >
+          {open ? (
+            <CloseRoundFillIcon size={28} />
+          ) : active ? (
+            activeIcon
+          ) : (
+            inactiveIcon
+          )}
+          <Text size="2xs" intensity={active ? 98 : 80}>
+            {label}
+          </Text>
+        </button>
       </PopoverTrigger>
       <PopoverContent
         sideOffset={12}
         align="center"
         side="top"
-        className="!oui-w-[180px] !oui-bg-base-8 !oui-p-1 oui-border-none oui--mb-[22px]"
+        className="!oui-w-48 !oui-bg-base-8 !oui-p-1 oui-border-none -oui-mb-6"
       >
         <Flex direction="column" className="oui-gap-1 oui-w-full">
           <TradingMenuChoice

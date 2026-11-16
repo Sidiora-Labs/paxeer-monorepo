@@ -1,8 +1,9 @@
+import { SimpleDialog } from "../../../../../ui-connector/src/platformOverlays";
 import { useEffect, useState } from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
-import { SimpleDialog, toast, Text, TextField } from "@paxeer-network/ui";
-import { NickNameDescriptionText, NickNameTextField } from "./common";
+import { Button, toast, Text } from "@paxeer-network/ui";
+import { NickNameTextField } from "./common";
 
 export const EditNickNameDialog = (props: {
   nickName: string;
@@ -34,50 +35,68 @@ export const EditNickNameDialog = (props: {
       open={props.open}
       onOpenChange={props.onOpenChange}
       classNames={{
-        content: "oui-w-[360px]",
-      }}
-      actions={{
-        primary: {
-          label: t("common.confirm"),
-          disabled: loading || invalid,
-          loading: loading,
-          onClick: () => {
-            if (validateNickName(newNickName)) {
-              return;
-            }
-            setLoading(true);
-            subAccount
-              ?.update({
-                subAccountId: props.accountId,
-                description: newNickName,
-              })
-              .catch((e) => {
-                console.log("e", e);
-                toast.error(t("subAccount.modal.edit.failed.description"));
-              })
-              .then((res) => {
-                toast.success(t("subAccount.modal.edit.success.description"));
-                props.onOpenChange(false);
-              })
-              .finally(() => {
-                setLoading(false);
-              });
-          },
-        },
-        secondary: {
-          label: t("common.cancel"),
-          onClick: () => props.onOpenChange(false),
-        },
+        content: "oui-shell-overlay oui-w-96",
       }}
     >
-      <NickNameTextField
-        nickName={newNickName}
-        setNickName={(nickName) => {
-          validateNickName(nickName);
-          setNewNickName(nickName ?? "");
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!loading) {
+            (() => {
+              if (validateNickName(newNickName)) {
+                return;
+              }
+              setLoading(true);
+              subAccount
+                ?.update({
+                  subAccountId: props.accountId,
+                  description: newNickName,
+                })
+                .catch((e) => {
+                  console.log("e", e);
+                  toast.error(t("subAccount.modal.edit.failed.description"));
+                })
+                .then((res) => {
+                  toast.success(t("subAccount.modal.edit.success.description"));
+                  props.onOpenChange(false);
+                })
+                .finally(() => {
+                  setLoading(false);
+                });
+            })();
+          }
         }}
-        invalid={invalid}
-      />
+        className="oui-flex oui-flex-col oui-gap-4"
+      >
+        <NickNameTextField
+          nickName={newNickName}
+          setNickName={(nickName) => {
+            if (invalid) validateNickName(nickName);
+            setNewNickName(nickName ?? "");
+          }}
+          onBlur={() => {
+            validateNickName(newNickName);
+          }}
+          invalid={invalid}
+        />
+        <div className="oui-flex oui-flex-wrap oui-gap-3">
+          <Button
+            type="button"
+            color="gray"
+            onClick={() => props.onOpenChange(false)}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            loading={loading}
+            disabled={loading || invalid}
+            fullWidth
+          >
+            {t("common.confirm")}
+          </Button>
+        </div>
+      </form>
     </SimpleDialog>
   );
 };
