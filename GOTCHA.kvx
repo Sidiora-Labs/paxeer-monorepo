@@ -22515,3 +22515,8 @@ fix = "Decision 3620. Task 22.44.53."
 title = "A state of a surface that receives a refusal by design is declared in the surface file"
 symptom = "A state of a surface under tools/ui-check/surfaces may show what the page does with an answer of refusal: a failed sign-in, an ended session, an account that is not there. The render check reports each answer with a status from 400 on under the kind load unless the state declares it in the field expects. Files of a surface that answer such a request with another status, or that alter a node the framework renders, change what the render shows."
 fix = "Decision 3621. Task 22.44.42."
+
+[gotcha.4539]
+title = "A view that draws nothing passes every measurement of the render check"
+symptom = "The measurements of tools/ui-check/browser.mjs go over the visible elements of a page. A page that answers with status 200 and draws nothing has no visible element, so no measurement reports it, and a run over such views ends with no finding while every screenshot holds a single colour. A page whose tree is drawn below a layer that covers the viewport gives the same screenshots."
+fix = "Decision 3622. Task 22.44.54."

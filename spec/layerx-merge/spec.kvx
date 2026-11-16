@@ -14842,6 +14842,12 @@ value = "A state whose page receives an answer of refusal by design declares the
 basis = "Gotcha 4538. Decisions 3616 and 3620."
 affects = []
 
+[decision.3622]
+title = "A render that shows nothing is a finding of the kind load"
+value = "A render is a finding of the kind load where the document holds no visible text, image, drawing or control after the state is reached, and where the screenshot of the viewport holds a single colour. The finding names the view, the state and which of the two it met. No field of a surface file leaves the measurement out. A proof of a surface states in its record the count of screenshots that hold content and the count of a single colour, and the second count is zero."
+basis = "Gotcha 4539. Decisions 3591 and 3616."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44502,6 +44508,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.54]
+title = "Let the render check report a render that shows nothing"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4539, decision 3622. Read tools/ui-check/README.md, the measurement of a page in tools/ui-check/browser.mjs, the place in tools/ui-check/check.mjs where a render takes its screenshot and gathers its findings, and the cases of the kind load in tools/ui-check/test/check.test.mjs with their pages."
+symbols = []
 
 [capability.22.44.53]
 title = "Let the keyboard measurement of the render check follow an open modal dialog"
@@ -173793,6 +173808,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.54]
+title = "Let the render check report a render that shows nothing"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.53"]
+reqs = ["22998.1"]
+capabilities = ["22.44.54"]
+interfaces = []
+do_1 = "do_1 Gotcha 4539, decision 3622. Read tools/ui-check/README.md, the measurement of a page in tools/ui-check/browser.mjs, the place in tools/ui-check/check.mjs where a render takes its screenshot and gathers its findings, and the cases of the kind load in tools/ui-check/test/check.test.mjs with their pages."
+do_2 = "do_2 In tools/ui-check/browser.mjs the measurement of a page reports the kind load where the document holds no visible element with text of its own, no visible image, drawing, canvas, video or embedded frame with an area, and no visible control. Visible has the meaning the other measurements use, so text clipped to nothing does not count as content."
+do_3 = "do_3 In tools/ui-check/check.mjs the screenshot of the viewport of each render is read, and a screenshot whose pixels hold a single colour is a finding of the kind load. The pixels are read with the modules the runtime holds or with one package at a pinned version in tools/ui-check/package.json and its lock file. The finding names the view, the state and which of the two measurements it met, and the result file holds for each render whether it showed content."
+do_4 = "do_4 The summary line of a view and the total line state the count of renders that showed nothing. No field of a surface file leaves the measurement out, and tools/ui-check/config.mjs refuses such a field as it refuses other unknown fields."
+do_5 = "do_5 Add the pages tools/ui-check/test/fixtures/blank.html and tools/ui-check/test/fixtures/covered.html and cases in tools/ui-check/test/check.test.mjs: a page with an empty body reports the kind load at every size; a page whose only text is clipped to nothing reports it; a page whose text lies below a layer of one colour that covers the viewport reports it by the screenshot; a page with one line of text passes; a page that holds only an image with an area passes. Every present case stays and passes."
+do_6 = "do_6 In tools/ui-check/README.md state the measurement at the row of the kind load in the table of measurements and the new counts of the summary. The sentence that a surface file cannot alter a limit or omit a kind stays true and stays in the text."
+do_7 = "do_7 Run the tests by hand before the counted verification and repair what they show. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = ["tools/ui-check/test/fixtures/blank.html", "tools/ui-check/test/fixtures/covered.html"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
