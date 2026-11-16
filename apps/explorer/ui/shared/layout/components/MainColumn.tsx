@@ -16,7 +16,7 @@ const MainColumn = ({ children, className }: Props) => {
       minW={ 0 }
       paddingX={{ base: 4, lg: 6 }}
       paddingRight={{ '2xl': 6 }}
-      paddingTop={{ base: '12px', lg: 6 }} // 12px is top padding of content area
+      paddingTop={{ base: 3, lg: 6 }}
       paddingBottom={ 8 }
     >
       { children }

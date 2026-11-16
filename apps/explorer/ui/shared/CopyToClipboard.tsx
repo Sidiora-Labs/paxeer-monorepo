@@ -42,6 +42,8 @@ const CopyToClipboard = (props: Props) => {
     <IconButton
       aria-label="copy"
       boxSize={ boxSize }
+      minW="touchTarget"
+      minH="touchTarget"
       onClick={ handleClick }
       ml={ 1 }
       flexShrink={ 0 }
