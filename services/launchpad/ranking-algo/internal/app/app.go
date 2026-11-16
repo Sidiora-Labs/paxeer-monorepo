@@ -30,6 +30,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
 
@@ -325,25 +326,28 @@ func runtimeHandler(tracker *sharedprocess.Tracker, next http.Handler, metrics *
 }
 
 type nativeRankingRuntime struct {
-	binding     config.RankingRuntimeBinding
-	serverTLS   *tls.Config
-	visibility  *rankingVisibilityClient
-	reader      *store.CanonicalInputReader
-	coordinator *ranker.Coordinator
-	publication *store.PublicationStore
-	cache       *store.SnapshotCache
-	pool        *pgxpool.Pool
-	stream      delivery.StreamWriter
-	guard       *queue.EpochGuard
-	provider    sharedsecrets.Provider
-	secrets     map[string]string
-	ctx         context.Context
-	stop        context.CancelFunc
-	client      *http.Client
-	logger      *slog.Logger
-	workers     sync.WaitGroup
-	refreshMu   sync.Mutex
-	refreshStep map[string]string
+	binding                     config.RankingRuntimeBinding
+	serverTLS                   *tls.Config
+	visibility                  *rankingVisibilityClient
+	reader                      *store.CanonicalInputReader
+	coordinator                 *ranker.Coordinator
+	publication                 *store.PublicationStore
+	cache                       *store.SnapshotCache
+	pool                        *pgxpool.Pool
+	stream                      delivery.StreamWriter
+	guard                       *queue.EpochGuard
+	provider                    sharedsecrets.Provider
+	secrets                     map[string]string
+	ctx                         context.Context
+	stop                        context.CancelFunc
+	client                      *http.Client
+	logger                      *slog.Logger
+	workers                     sync.WaitGroup
+	refreshMu                   sync.Mutex
+	refreshStep                 map[string]string
+	publicationRecoveryCategory string
+	publicationRecoveryClass    string
+	publicationRecoveryPending  bool
 }
 type rankingVisibilityClient struct {
 	endpoint string
@@ -610,36 +614,82 @@ func (r *nativeRankingRuntime) run(parent context.Context) {
 	}
 	go func() {
 		defer r.workers.Done()
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for tick := 1; ; tick++ {
-			select {
-			case <-r.ctx.Done():
-				return
-			case <-ticker.C:
-				// Superseded, published snapshots past the 900 s cursor horizon
-				// are deleted once a minute so ranking storage stays bounded.
-				if tick%60 == 0 {
-					if _, err := r.publication.Prune(r.ctx, time.Now().UTC(), 100); err != nil {
-						r.logger.Error("ranking prune failed", slog.String("code", "RANKING_PRUNE_UNAVAILABLE"))
-					}
+		r.runPublication()
+	}()
+}
+
+func publicationErrorClass(err error) string {
+	var databaseError *pgconn.PgError
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "deadline"
+	case errors.Is(err, context.Canceled):
+		return "canceled"
+	case errors.As(err, &databaseError):
+		return "database"
+	default:
+		return "unavailable"
+	}
+}
+
+func (r *nativeRankingRuntime) publishRound() {
+	for i := 0; i < 6; i++ {
+		result, err := r.publication.CommitStreamOnceWithStatus(r.ctx, r.stream, r.binding.MaxAttempts)
+		if err != nil {
+			class := publicationErrorClass(err)
+			if result.ReachedBound || result.AtBound {
+				r.publicationRecoveryCategory = result.Category
+				r.publicationRecoveryClass = class
+				if result.ReachedBound {
+					r.logger.Error("ranking publication attempt bound reached", slog.String("category", result.Category), slog.String("errorClass", class))
 				}
-				for i := 0; i < 6; i++ {
-					worked, err := r.publication.CommitStreamOnce(r.ctx, r.stream, r.binding.MaxAttempts)
-					if err != nil {
-						r.logger.Error("ranking publication failed", slog.String("code", "RANKING_PUBLICATION_UNAVAILABLE"), slog.Any("error", err))
-						break
-					}
-					if !worked {
-						break
-					}
-				}
-				for _, category := range append(ranker.HeavyCategoryNames(), "new") {
-					_ = r.cache.Rebuild(r.ctx, r.publication.SnapshotStore, category)
+			} else {
+				r.logger.Error("ranking publication failed", slog.String("code", "RANKING_PUBLICATION_UNAVAILABLE"), slog.String("category", result.Category), slog.String("errorClass", class))
+			}
+			break
+		}
+		if result.Published && result.AtBound {
+			r.publicationRecoveryCategory = result.Category
+			r.publicationRecoveryPending = true
+		}
+		if !result.Published {
+			break
+		}
+	}
+	if r.publicationRecoveryPending {
+		health, err := r.publication.PublicationHealth(r.ctx, time.Now().UTC(), r.binding.MaxAttempts)
+		if err == nil && health.Exhausted == 0 {
+			class := r.publicationRecoveryClass
+			if class == "" {
+				class = "none"
+			}
+			r.logger.Info("ranking publication recovered", slog.String("category", r.publicationRecoveryCategory), slog.String("errorClass", class))
+			r.publicationRecoveryPending = false
+			r.publicationRecoveryClass = ""
+		}
+	}
+}
+
+func (r *nativeRankingRuntime) runPublication() {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	r.publishRound()
+	for tick := 1; ; tick++ {
+		select {
+		case <-r.ctx.Done():
+			return
+		case <-ticker.C:
+			if tick%60 == 0 {
+				if _, err := r.publication.Prune(r.ctx, time.Now().UTC(), 100); err != nil {
+					r.logger.Error("ranking prune failed", slog.String("code", "RANKING_PRUNE_UNAVAILABLE"))
 				}
 			}
+			r.publishRound()
+			for _, category := range append(ranker.HeavyCategoryNames(), "new") {
+				_ = r.cache.Rebuild(r.ctx, r.publication.SnapshotStore, category)
+			}
 		}
-	}()
+	}
 }
 
 func (r *nativeRankingRuntime) reportRefresh(newOnly bool, err error) {

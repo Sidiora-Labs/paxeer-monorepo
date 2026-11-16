@@ -8,6 +8,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/ranker"
@@ -31,8 +32,13 @@ type EpochGuard interface {
 }
 type PublicationStore struct {
 	*SnapshotStore
-	guard EpochGuard
+	guard         EpochGuard
+	publicationMu sync.Mutex
+	retryAfter    map[int64]time.Time
+	retryInterval time.Duration
 }
+
+const defaultPublicationRetryInterval = time.Minute
 
 func NewPublicationStore(pool *pgxpool.Pool, schema string, guard EpochGuard) (*PublicationStore, error) {
 	s, err := NewSnapshotStore(pool, schema)
@@ -42,7 +48,28 @@ func NewPublicationStore(pool *pgxpool.Pool, schema string, guard EpochGuard) (*
 	if guard == nil {
 		return nil, ranker.ErrUnavailable
 	}
-	return &PublicationStore{s, guard}, nil
+	return &PublicationStore{SnapshotStore: s, guard: guard, retryAfter: map[int64]time.Time{}, retryInterval: defaultPublicationRetryInterval}, nil
+}
+
+// SetRetryInterval changes the retry pace used for rows at the attempt bound.
+// Production keeps the one-minute default; tests may use a shorter pace to
+// exercise the same state transitions without waiting a minute.
+func (s *PublicationStore) SetRetryInterval(interval time.Duration) error {
+	if interval <= 0 {
+		return ranker.ErrUnavailable
+	}
+	s.publicationMu.Lock()
+	s.retryInterval = interval
+	s.publicationMu.Unlock()
+	return nil
+}
+
+func (s *PublicationStore) retryDeadline(now time.Time) time.Time {
+	interval := s.retryInterval
+	if interval <= 0 {
+		interval = defaultPublicationRetryInterval
+	}
+	return now.Add(interval)
 }
 func (s *PublicationStore) Complete(ctx context.Context, snapshots []ranker.Snapshot) error {
 	heavyCategories := ranker.HeavyCategoryNames()
@@ -231,6 +258,7 @@ func WireSnapshot(h ranker.Header, items []ranker.RankedItem) (v1.RankingSnapsho
 // committed snapshot inside the claiming transaction.
 type pendingEvent struct {
 	sequence, categorySequence int64
+	attempts                   int
 	header                     ranker.Header
 	event                      v1.RankingEvent
 }
@@ -243,7 +271,13 @@ func (s *PublicationStore) nextEvent(ctx context.Context, tx pgx.Tx, maxAttempts
 	}
 	var p pendingEvent
 	var runID, category string
-	err := tx.QueryRow(ctx, `SELECT o.sequence,o.run_id,o.category,o.category_sequence FROM `+s.table("publication_outbox")+` o WHERE o.published_at IS NULL AND o.attempts<$1 AND o.category_sequence IS NOT NULL AND NOT EXISTS(SELECT 1 FROM `+s.table("publication_outbox")+` prior WHERE prior.category=o.category AND prior.category_sequence<o.category_sequence AND prior.published_at IS NULL) ORDER BY o.sequence LIMIT 1 FOR UPDATE OF o SKIP LOCKED`, maxAttempts).Scan(&p.sequence, &runID, &category, &p.categorySequence)
+	cooling := []int64{}
+	for sequence, retryAt := range s.retryAfter {
+		if time.Now().Before(retryAt) {
+			cooling = append(cooling, sequence)
+		}
+	}
+	err := tx.QueryRow(ctx, `SELECT o.sequence,o.run_id,o.category,o.category_sequence,o.attempts FROM `+s.table("publication_outbox")+` o WHERE o.published_at IS NULL AND (o.attempts<$1 OR NOT(o.sequence=ANY($2::bigint[]))) AND o.category_sequence IS NOT NULL AND NOT EXISTS(SELECT 1 FROM `+s.table("publication_outbox")+` prior WHERE prior.category=o.category AND prior.category_sequence<o.category_sequence AND prior.published_at IS NULL) ORDER BY o.sequence LIMIT 1 FOR UPDATE OF o SKIP LOCKED`, maxAttempts, cooling).Scan(&p.sequence, &runID, &category, &p.categorySequence, &p.attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -307,52 +341,83 @@ type StreamAppender interface {
 // committed to api_stream rather than published to a broker directly.
 const StreamBroker = "api_stream"
 
+type PublicationResult struct {
+	Published    bool
+	Category     string
+	AtBound      bool
+	ReachedBound bool
+}
+
 // CommitStreamOnce commits the oldest pending category head to api_stream
 // (api_stream.append_ranking) and marks the ranking outbox row published in
 // the same transaction. The api_stream relay then publishes the frame to
 // market.rankings.<category>, so every NATS message has its outbox row.
 func (s *PublicationStore) CommitStreamOnce(ctx context.Context, writer StreamAppender, maxAttempts int) (bool, error) {
+	result, err := s.CommitStreamOnceWithStatus(ctx, writer, maxAttempts)
+	return result.Published, err
+}
+
+func (s *PublicationStore) CommitStreamOnceWithStatus(ctx context.Context, writer StreamAppender, maxAttempts int) (PublicationResult, error) {
+	s.publicationMu.Lock()
+	defer s.publicationMu.Unlock()
+	result := PublicationResult{}
 	if writer == nil || maxAttempts < 1 || maxAttempts > 100 {
-		return false, ranker.ErrUnavailable
+		return result, ranker.ErrUnavailable
 	}
 	opCtx, stop := context.WithTimeout(ctx, 5*time.Second)
 	defer stop()
 	ctx = opCtx
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return false, err
+		return result, err
 	}
 	defer rollbackTransaction(ctx, tx)
 	p, err := s.nextEvent(ctx, tx, maxAttempts)
 	if err != nil || p == nil {
-		return false, err
+		return result, err
+	}
+	result.Category = p.header.Category
+	result.AtBound = p.attempts >= maxAttempts
+	if result.AtBound {
+		s.retryAfter[p.sequence] = s.retryDeadline(time.Now())
 	}
 	watermark, err := json.Marshal(p.event.Watermark)
 	if err != nil {
-		return false, err
+		return result, err
 	}
 	payload, err := json.Marshal(p.event.Payload)
 	if err != nil {
-		return false, err
+		return result, err
 	}
 	update := delivery.StreamUpdate{EventID: p.event.EventId, Topic: p.event.Topic, Revision: string(p.event.Revision), OccurredAt: p.event.OccurredAt, Watermark: watermark, Payload: payload, Source: delivery.StreamSourceProof{Kind: "ranking_commit", SourceID: p.header.RunID, Sequence: strconv.FormatInt(p.categorySequence, 10), SourceDigest: p.header.OutputDigest}}
 	if appendErr := writer.AppendTx(ctx, tx, update); appendErr != nil {
 		_ = tx.Rollback(ctx)
 		if recordErr := s.recordFailure(ctx, p.sequence, maxAttempts); recordErr != nil {
-			return false, errors.Join(appendErr, recordErr)
+			return result, errors.Join(appendErr, recordErr)
 		}
-		return false, appendErr
+		result.ReachedBound = p.attempts == maxAttempts-1
+		if result.AtBound || result.ReachedBound {
+			s.retryAfter[p.sequence] = s.retryDeadline(time.Now())
+		}
+		return result, appendErr
 	}
-	if _, err = tx.Exec(ctx, "UPDATE "+s.table("publication_outbox")+" SET published_at=clock_timestamp(),attempts=attempts+1,broker_stream=$2,broker_sequence=$3 WHERE sequence=$1 AND published_at IS NULL", p.sequence, StreamBroker, p.categorySequence); err != nil {
-		return false, err
+	if _, err = tx.Exec(ctx, "UPDATE "+s.table("publication_outbox")+" SET published_at=clock_timestamp(),attempts=LEAST(attempts+1,$4),broker_stream=$2,broker_sequence=$3 WHERE sequence=$1 AND published_at IS NULL", p.sequence, StreamBroker, p.categorySequence, maxAttempts); err != nil {
+		return result, err
 	}
-	return true, tx.Commit(ctx)
+	if err = tx.Commit(ctx); err != nil {
+		return result, err
+	}
+	delete(s.retryAfter, p.sequence)
+	result.Published = true
+	return result, nil
 }
 
 // DispatchOnce publishes the oldest pending category head straight to a
 // broker. Production commits through CommitStreamOnce instead; a direct
 // publish has no api_stream outbox row for core/api to verify.
 func (s *PublicationStore) DispatchOnce(ctx context.Context, publisher delivery.PersistentPublisher, stream string, maxAttempts int) (bool, error) {
+	s.publicationMu.Lock()
+	defer s.publicationMu.Unlock()
 	if publisher == nil || stream == "" || maxAttempts < 1 || maxAttempts > 100 {
 		return false, ranker.ErrUnavailable
 	}
@@ -367,6 +432,9 @@ func (s *PublicationStore) DispatchOnce(ctx context.Context, publisher delivery.
 	p, err := s.nextEvent(ctx, tx, maxAttempts)
 	if err != nil || p == nil {
 		return false, err
+	}
+	if p.attempts >= maxAttempts {
+		s.retryAfter[p.sequence] = s.retryDeadline(time.Now())
 	}
 	wire, err := json.Marshal(p.event)
 	if err != nil {
@@ -384,13 +452,20 @@ func (s *PublicationStore) DispatchOnce(ctx context.Context, publisher delivery.
 		if recordErr != nil {
 			return false, errors.Join(sendErr, recordErr)
 		}
+		if p.attempts >= maxAttempts-1 {
+			s.retryAfter[p.sequence] = s.retryDeadline(time.Now())
+		}
 		return false, sendErr
 	}
-	_, err = tx.Exec(ctx, "UPDATE "+s.table("publication_outbox")+" SET published_at=clock_timestamp(),attempts=attempts+1,broker_stream=$2,broker_sequence=$3 WHERE sequence=$1 AND published_at IS NULL", p.sequence, ack.Stream, int64(ack.Sequence))
+	_, err = tx.Exec(ctx, "UPDATE "+s.table("publication_outbox")+" SET published_at=clock_timestamp(),attempts=LEAST(attempts+1,$4),broker_stream=$2,broker_sequence=$3 WHERE sequence=$1 AND published_at IS NULL", p.sequence, ack.Stream, int64(ack.Sequence), maxAttempts)
 	if err != nil {
 		return false, err
 	}
-	return true, tx.Commit(ctx)
+	if err = tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	delete(s.retryAfter, p.sequence)
+	return true, nil
 }
 
 func (s *PublicationStore) recordFailure(ctx context.Context, sequence int64, maxAttempts int) error {
@@ -473,7 +548,7 @@ func (s *SnapshotStore) PublicationHealth(ctx context.Context, now time.Time, ma
 		health.AllHeavyStaleSince = &since
 		health.AllHeavyStaleForFiveMinutes = now.Sub(since) >= 5*time.Minute
 	}
-	err = s.pool.QueryRow(ctx, "SELECT count(*),count(*) FILTER(WHERE attempts>=$1),COALESCE(GREATEST(0,$2-EXTRACT(EPOCH FROM min(created_at)))::bigint,0) FROM "+s.table("publication_outbox")+" WHERE published_at IS NULL", maxAttempts, now.Unix()).Scan(&health.Pending, &health.Exhausted, &health.OldestPendingAgeSeconds)
+	err = s.pool.QueryRow(ctx, "SELECT count(*),count(*) FILTER(WHERE attempts>=$1),COALESCE(GREATEST(0,CEIL($2-EXTRACT(EPOCH FROM min(created_at))))::bigint,0) FROM "+s.table("publication_outbox")+" WHERE published_at IS NULL", maxAttempts, now.Unix()).Scan(&health.Pending, &health.Exhausted, &health.OldestPendingAgeSeconds)
 	return health, err
 }
 
