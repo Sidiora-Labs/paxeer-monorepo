@@ -249816,7 +249816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.766]
 title = "Publish empty ranking heads for an empty set of markets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.754"]
