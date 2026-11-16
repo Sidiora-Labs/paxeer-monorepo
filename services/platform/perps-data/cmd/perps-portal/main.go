@@ -1,7 +1,8 @@
 // Command perps-portal renders the markets, account, leaderboard and venue
 // statistics pages of the Paxeer X Network perps venue on the server from the
 // gateway REST and GraphQL. It is ready while the gateway is ready and exits
-// non-zero on a configuration or HTTP server failure.
+// non-zero on a configuration or HTTP server failure. Without
+// PERPS_EXPLORER_TX_BASE, transaction hashes appear as plain text.
 package main
 
 import (
