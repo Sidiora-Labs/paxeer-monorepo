@@ -14938,6 +14938,12 @@ value = "In the tasks 22.44.1 to 22.44.11 the render step takes this form. The c
 basis = "Gotcha 4554. Decisions 3588, 3591, 3629 and 3630."
 affects = []
 
+[decision.3638]
+title = "The case over the two file tables of the gateway compares name and path of the rows both tables name"
+value = "The case of task 22.39.709 in services/platform/hosted/gateway/tests/env_example.rs takes this form: every row of the native table whose name the general table holds has a row of the same name and the same path in the general table, and the row of the document of bindings holds the same mode in both tables. A row of the native table whose name the general table does not hold is left as it is, and the general table is not changed."
+basis = "Gotcha 4555. Decision 3635."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -212835,6 +212841,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3638, gotcha 4555. The case of do_3 over the two tables takes the form of decision 3638 in place of the form do_3 gives: every row of docker/platform-gateway/native-files.tsv whose name docker/platform-gateway/files.tsv holds has a row of the same name and the same path there, and the row of the document of bindings holds the same mode in both tables. A row of the native table whose name the general table does not hold is left as it is, and docker/platform-gateway/files.tsv is not changed. The work of the earlier candidate stays as it is. Run the cases of the verification by hand first, then the build once and the counted verification once. Keep in the final message the members of a binding for each service as the earlier final message gave them. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.707]
 title = "Let the receipt authority serve from the node alone, with the batch evidence origin as an optional group of settings"

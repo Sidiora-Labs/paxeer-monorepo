@@ -22595,3 +22595,8 @@ fix = "Decision 3636. Tasks 22.39.710 and 22.39.564."
 title = "The render step of a task of the explorer names the form of the surface, the sizes and the count of passes"
 symptom = "The explorer is a large application. Its development server compiles a page when the page is first asked for and stays in the foreground of the command that starts it; its production form is built once and then served from the built files. The tasks 22.44.1 to 22.44.11 each hold a step that renders the views of their paths, and the proof 22.44.38 renders every route at the whole device list with the render check. A render step names the form of the surface it renders, the sizes, the count of passes and the order of the work, and no command of it stays in the foreground."
 fix = "Decision 3637. Tasks 22.44.1 to 22.44.11 and 22.44.38."
+
+[gotcha.4555]
+title = "The native file table of the gateway holds rows the general table does not hold, and the general table leaves modes open"
+symptom = "The table docker/platform-gateway/native-files.tsv is the table of the native deployment and docker/platform-gateway/files.tsv the general one. The native table holds rows of inputs the general table does not name, and every row of the native table states a mode while rows of the general table leave the mode open. A case that compares the two tables compares the rows whose name both tables hold, by name and path."
+fix = "Decision 3638. Task 22.39.709."
