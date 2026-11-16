@@ -19,7 +19,7 @@ interface Props {
 
 const NameDomainHistoryTable = ({ history, domain, isLoading, sort, onSortToggle }: Props) => {
   return (
-    <TableRoot>
+    <TableRoot aria-label="Domain transaction history" aria-busy={ isLoading }>
       <TableHeaderSticky top={ 0 }>
         <TableRow>
           <TableColumnHeader width="25%">Txn hash</TableColumnHeader>

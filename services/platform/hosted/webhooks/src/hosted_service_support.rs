@@ -151,6 +151,8 @@ impl Peer {
 pub struct MemoryRedis {
     pub shards: BTreeMap<String, (u64, String)>,
     pub members: std::collections::BTreeSet<String>,
+    pub activity_indexes: BTreeMap<String, BTreeMap<String, Vec<u8>>>,
+    pub activity_versions: BTreeMap<String, String>,
 }
 impl MemoryRedis {
     fn command(&mut self, args: &[String]) -> Resp {
@@ -162,6 +164,11 @@ impl MemoryRedis {
                     .map(|id| Resp::Bulk(Some(id.as_bytes().to_vec())))
                     .collect(),
             ),
+            "GET" => Resp::Bulk(
+                self.activity_versions
+                    .get(&args[1])
+                    .map(|value| value.as_bytes().to_vec()),
+            ),
             "HMGET" => {
                 let value = self.shards.get(&args[1]);
                 Resp::Array(vec![
@@ -169,20 +176,50 @@ impl MemoryRedis {
                     Resp::Bulk(value.map(|v| v.1.as_bytes().to_vec())),
                 ])
             }
-            "HGET" => Resp::Bulk(self.shards.get(&args[1]).map(|v| v.1.as_bytes().to_vec())),
-            "EVAL" => {
-                assert_eq!(args[1], CAS_SCRIPT);
-                assert_eq!(args[2], "2");
-                assert_eq!(args[4], "webhooks:principals");
-                let expected = must(args[5].parse::<u64>());
-                let current = self.shards.get(&args[3]).map_or(0, |v| v.0);
-                if current != expected {
-                    return Resp::Integer(0);
+            "HGET" => {
+                if let Some(index) = self.activity_indexes.get(&args[1]) {
+                    return Resp::Bulk(index.get(&args[2]).cloned());
                 }
-                self.shards
-                    .insert(args[3].clone(), (current + 1, args[6].clone()));
-                self.members.insert(args[7].clone());
-                Resp::Integer(1)
+                Resp::Bulk(self.shards.get(&args[1]).map(|v| v.1.as_bytes().to_vec()))
+            }
+            "EVAL" => {
+                if args[1] == CAS_SCRIPT {
+                    assert_eq!(args[2], "4");
+                    assert_eq!(args[4], "webhooks:principals");
+                    let expected = must(args[7].parse::<u64>());
+                    let current = self.shards.get(&args[3]).map_or(0, |v| v.0);
+                    if current != expected {
+                        return Resp::Integer(0);
+                    }
+                    self.shards
+                        .insert(args[3].clone(), (current + 1, args[8].clone()));
+                    self.members.insert(args[9].clone());
+                    let index = self.activity_indexes.entry(args[5].clone()).or_default();
+                    let count = must(args[10].parse::<usize>());
+                    for pair in args[11..].chunks_exact(2).take(count) {
+                        if pair[1].is_empty() {
+                            index.remove(&pair[0]);
+                        } else {
+                            index.insert(pair[0].clone(), pair[1].as_bytes().to_vec());
+                        }
+                    }
+                    self.activity_versions.insert(args[6].clone(), "1".into());
+                    Resp::Integer(1)
+                } else {
+                    assert_eq!(args[1], INDEX_REBUILD_SCRIPT);
+                    assert_eq!(args[2], "2");
+                    if self.activity_versions.contains_key(&args[4]) {
+                        return Resp::Integer(0);
+                    }
+                    let index = self.activity_indexes.entry(args[3].clone()).or_default();
+                    index.clear();
+                    let count = must(args[5].parse::<usize>());
+                    for pair in args[6..].chunks_exact(2).take(count) {
+                        index.insert(pair[0].clone(), pair[1].as_bytes().to_vec());
+                    }
+                    self.activity_versions.insert(args[4].clone(), "1".into());
+                    Resp::Integer(1)
+                }
             }
             other => panic!("unsupported Redis operation {other}"),
         }

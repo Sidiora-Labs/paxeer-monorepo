@@ -81,6 +81,7 @@ export const SlippageEditor = forwardRef<
           message: <Text size="2xs">{t("orderEntry.slippage.tips")}</Text>,
         });
       }}
+      type="button"
     >
       <ExclamationFillIcon className="oui-text-base-contrast-54" size={16} />
     </button>

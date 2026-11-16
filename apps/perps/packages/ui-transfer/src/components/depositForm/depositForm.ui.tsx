@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Box, Flex, textVariants, Tabs, TabPanel } from "@paxeer-network/ui";
@@ -131,7 +132,10 @@ export const DepositForm: FC<DepositFormScriptReturn> = (props) => {
   };
 
   return (
-    <Box id="oui-deposit-form" className={textVariants({ weight: "semibold" })}>
+    <Box
+      id="oui-deposit-form"
+      className={`${styles.surface} ${textVariants({ weight: "semibold" })}`}
+    >
       <Tabs
         value={activeSubTab}
         onValueChange={(value) =>
@@ -160,7 +164,7 @@ export const DepositForm: FC<DepositFormScriptReturn> = (props) => {
               <QuantityInput
                 data-testId="oui-testid-deposit-dialog-quantity-input"
                 classNames={{
-                  root: "oui-mt-[2px] oui-rounded-t-sm oui-rounded-b-xl",
+                  root: "oui-mt-0.5 oui-rounded-t-sm oui-rounded-b-xl",
                 }}
                 value={quantity}
                 onValueChange={onQuantityChange}

@@ -254,8 +254,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if err = d.validateStatus(); err != nil {
 			return nil, err
 		}
-		if d.Schema != "indexer" || d.Owner == "" || d.CanonicalStreamID == "" || d.ProjectionVersion == "" || d.DeploymentID == "" {
-			return nil, errors.New("indexer: incomplete durable source configuration")
+		if err = d.validateIdentity(); err != nil {
+			return nil, err
 		}
 		archiveTuning, err := cfg.ArchiveTuning()
 		if err != nil {
@@ -891,6 +891,13 @@ type deliveryRuntimeDocument struct {
 	Generation                 string                `json:"generation"`
 	Policy                     delivery.Policy       `json:"policy"`
 	Subjects                   map[string]string     `json:"subjects"`
+}
+
+func (d deliveryRuntimeDocument) validateIdentity() error {
+	if d.Schema != "indexer" || d.Owner == "" || d.CanonicalStreamID == "" || d.ProjectionVersion == "" || !delivery.ValidDeploymentVersion(d.DeploymentID) {
+		return errors.New("indexer: incomplete durable source configuration")
+	}
+	return nil
 }
 
 func (d deliveryRuntimeDocument) validateStatus() error {

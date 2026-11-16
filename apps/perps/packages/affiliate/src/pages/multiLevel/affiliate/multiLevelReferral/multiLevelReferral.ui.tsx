@@ -1,3 +1,4 @@
+import surface from "../../../../surface.module.css";
 import { FC } from "react";
 import { SVGProps } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -18,10 +19,11 @@ export const MultiLevelReferral: FC<MultiLevelReferralReturns> = (props) => {
       p={5}
       direction={"column"}
       intensity={900}
-      className={cn(
-        "oui-affiliate-multiLevelReferral",
-        "oui-border oui-border-line-6",
-      )}
+      className={
+        surface.surface +
+        " " +
+        cn("oui-affiliate-multiLevelReferral", "oui-border oui-border-line-6")
+      }
     >
       <Text size="lg" className="oui-w-full oui-text-start">
         {t("affiliate.referral")}

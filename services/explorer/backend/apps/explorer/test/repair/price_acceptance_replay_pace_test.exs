@@ -20,12 +20,15 @@ defmodule Explorer.Repair.PriceAcceptanceReplayPaceTest do
   @base 60_000_000
 
   setup do
+    Explorer.TestHelper.start_migration_owner!()
     assert Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_down]
     assert :ok = Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
 
     on_exit(fn ->
       Repo.delete_all(from(b in Block, where: b.number >= @base and b.number < @base + 16))
-      Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
+      assert Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_down]
+      assert Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_up]
+      Ecto.Adapters.SQL.Sandbox.mode(Repo, :auto)
     end)
 
     :ok

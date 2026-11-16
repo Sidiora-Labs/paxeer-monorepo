@@ -67,6 +67,6 @@ describe('AddressTokens', () => {
     await waitFor(() => {
       expect(requestedPaths()).toContain(`/api/v2/addresses/${ HASH }/nft`);
     });
-    expect(requestedPaths()).not.toContain(`/api/v2/addresses/${ HASH }/tokens`);
+    expect(requestedPaths()).not.toContain(`/api/v2/addresses/${ HASH }/nft/collections`);
   });
 });

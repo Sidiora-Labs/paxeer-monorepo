@@ -23,12 +23,12 @@ const HeaderMobile = ({ hideSearchButton, onGoToSearchResults }: Props) => {
       top={ 0 }
       zIndex="sticky2"
       bg="header.sticky.bg"
-      backdropFilter="blur(12px)"
-      borderBottomWidth="1px"
+      backdropFilter="blur(var(--chakra-blurs-header-bar))"
+      borderBottomWidth="var(--chakra-border-widths-1)"
       borderColor="hairline"
-      height="56px"
+      minH="var(--chakra-spacing-14)"
     >
-      <Flex px={ 4 } h="100%" alignItems="center" gap={ 2 }>
+      <Flex px={ 4 } minH="var(--chakra-spacing-14)" py={ 1 } flexWrap="wrap" alignItems="center" gap={ 2 }>
         <NetworkIcon/>
         <TestnetBadge/>
         <RollupStageBadge/>

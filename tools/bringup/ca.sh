@@ -571,6 +571,11 @@ ca_inventory() {
 		rows="$table"
 	fi
 	while read -r service target custody _; do
+		if [[ "$target" == railway:* ]] && ! command -v "$railway_bin" >/dev/null 2>&1; then
+			echo "ca: $railway_bin is required" >&2
+			failures=$((failures + 1))
+			continue
+		fi
 		row_ca="$(row_ca_dir "$service")" || row_ca=""
 		read -r state fingerprint days <<<"$(inventory_row "$service" "$target" "$custody" "$row_ca")"
 		[ "$custody" = volume ] || custody=secrets
@@ -604,6 +609,10 @@ ca_issue() {
 		echo "fail material missing=BRINGUP_HOSTS_FILE:${target#box:} producer=the private hosts file"
 		echo "ca: $service: BRINGUP_HOSTS_FILE does not assign ${target#box:}" >&2
 		exit 1
+	fi
+	if [[ "$target" == railway:* ]] && ! command -v "$railway_bin" >/dev/null 2>&1; then
+		echo "ca: $railway_bin is required" >&2
+		exit 2
 	fi
 	umask 077
 	exec {ca_issue_lock_fd}>"$ca_dir/issue.lock"
@@ -1135,8 +1144,8 @@ case "$mode" in
 request-server | sign-server | install-server) tools+=(python3 stat realpath mktemp flock) ;;
 esac
 [ "$mode" != issue-local ] || tools+=(stat realpath mktemp find flock)
-[ "$mode" != issue ] || tools+=(timeout ssh tar base64 python3 flock realpath "$railway_bin")
-[ "$mode" != inventory ] || tools+=(timeout ssh base64 python3 realpath "$railway_bin")
+[ "$mode" != issue ] || tools+=(timeout ssh tar base64 python3 flock realpath)
+[ "$mode" != inventory ] || tools+=(timeout ssh base64 python3 realpath)
 for tool in "${tools[@]}"; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		echo "ca: $tool is required" >&2

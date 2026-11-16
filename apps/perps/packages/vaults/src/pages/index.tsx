@@ -1,3 +1,4 @@
+import styles from "../presentation.module.css";
 import React, { FC } from "react";
 import { cn, useScreen } from "@paxeer-network/ui";
 import { VaultsProvider } from "../components/provider/vaults-provider";
@@ -32,7 +33,8 @@ export const VaultsPage: FC<VaultsPageProps> = (props) => {
     <VaultsProvider {...props}>
       <div
         className={cn(
-          "oui-relative oui-min-h-screen ",
+          styles.surface,
+          "oui-relative oui-min-h-screen",
           "oui-bg-base-10",
           isMobile ? "oui-px-3 oui-py-6" : "oui-px-6 oui-py-12",
           props?.className,
@@ -41,7 +43,7 @@ export const VaultsPage: FC<VaultsPageProps> = (props) => {
         <div
           id="vaults-content"
           className={cn(
-            "oui-mx-auto oui-flex oui-max-w-[1200px] oui-flex-col",
+            "oui-mx-auto oui-flex oui-max-w-7xl oui-w-full oui-flex-col",
             isMobile ? "oui-gap-6" : "oui-gap-12",
           )}
         >

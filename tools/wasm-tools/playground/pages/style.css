@@ -310,12 +310,15 @@ textarea,
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
-  font: var(--text-small)/var(--leading-body) var(--font-mono);
+  font: var(--text-small) / var(--leading-body) var(--font-mono);
   box-shadow: var(--shadow);
 }
 textarea {
+  scroll-margin-block: var(--space-4);
   block-size: var(--editor-size);
   resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 #output {
   margin: 0;
@@ -327,8 +330,8 @@ textarea {
   overflow: auto;
   scrollbar-gutter: stable;
 }
-#output[style*="color"],
-#output [style*="color"] {
+#output[style*="color: rgb(170, 0, 0)"],
+#output [style*="color: rgb(170, 0, 0)"] {
   color: var(--error) !important;
 }
 .print-name {
@@ -370,6 +373,8 @@ textarea {
 }
 #overlay {
   display: none;
+  align-items: center;
+  justify-content: center;
   position: fixed;
   inset: 0;
   z-index: 1;
@@ -384,4 +389,14 @@ textarea {
 .redirect {
   max-inline-size: var(--measure);
   margin-inline: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
 }

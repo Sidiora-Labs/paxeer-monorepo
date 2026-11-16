@@ -3,13 +3,16 @@ import * as ed from "@noble/ed25519";
 
 beforeAll(() => {
   const crypto = require("crypto");
-  global.crypto = crypto;
+  Object.defineProperty(globalThis, "crypto", {
+    value: crypto.webcrypto,
+    configurable: true,
+  });
 });
 
 describe("keyPair", () => {
   test("get public", async () => {
     const keyPair = new BasePaxeerNetworkKeyPair(
-      "AFmQSju4FhDwG93cMdKogcnKx7SWmViDtDv5PVzfvRDF"
+      "AFmQSju4FhDwG93cMdKogcnKx7SWmViDtDv5PVzfvRDF",
     );
 
     const publicKey = await keyPair.getPublicKey();
@@ -17,7 +20,7 @@ describe("keyPair", () => {
     //
 
     expect(publicKey).toBe(
-      "ed25519:FwPH3gH4G6NqFyYr1YD5njRC6FGNRPRXnZ5SLAxHie5J"
+      "ed25519:FwPH3gH4G6NqFyYr1YD5njRC6FGNRPRXnZ5SLAxHie5J",
     );
   });
 

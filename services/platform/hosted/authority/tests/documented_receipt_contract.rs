@@ -47,11 +47,8 @@ fn tls_config(harness: &ReceiptHarness) -> Arc<Config> {
         tls: config.tls.clone(),
         tokens: config.tokens.clone(),
         human: None,
-        replica_address: config.replica_address,
-        replica_host: config.replica_host.clone(),
-        replica_token: config.replica_token.clone(),
+        replica: config.replica.clone(),
         evidence_read_token: None,
-        replica_id: config.replica_id,
         chain_receipts: must(ChainReceipts::load(
             &config.chain_rpc_url,
             &harness.directory.join("receipt-keys.json"),
@@ -60,7 +57,6 @@ fn tls_config(harness: &ReceiptHarness) -> Arc<Config> {
         protocol_network_id: config.protocol_network_id,
         network_id: config.network_id.clone(),
         wire_version: config.wire_version.clone(),
-        authorization: config.authorization,
         sequencer_public_key: config.sequencer_public_key,
     })
 }
@@ -161,7 +157,7 @@ fn readme_matches_service_sources_and_configuration() {
         "A header at H authenticates\nstate at H-1",
         "not an independently bootstrapped light client",
         committed_head_route::HEAD_PATH,
-        "authority-readme-lni",
+        "batch evidence origin group",
         "readme_matches_service_sources_and_configuration",
         "documented_receipt_transport_and_tls_refusals",
         "documented_protected_key_list_and_restart_rules",
@@ -245,7 +241,8 @@ fn documented_protected_key_list_and_restart_rules() {
     );
     // Compatibility startup pins do not replace the actual receipt-key list.
     harness.config.sequencer_public_key = [0x42; 32];
-    harness.config.authorization = SequencerAuthorization::new([0x43; 32], [0x42; 32], 1, 1);
+    harness.config.replica.as_mut().must().authorization =
+        SequencerAuthorization::new([0x43; 32], [0x42; 32], 1, 1);
     assert_eq!(must(trust::current(&harness.config)), vec![key]);
     let changed = document!([{
         "key_id": base64(&key.sequencer_id()),

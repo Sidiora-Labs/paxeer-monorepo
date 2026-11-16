@@ -1,3 +1,4 @@
+import surface from "../../../surface.module.css";
 import { Flex } from "@paxeer-network/ui";
 import { Faq } from "./components/faq";
 import { Hero } from "./components/hero";
@@ -9,7 +10,7 @@ export const LandingPage = () => {
       id="oui-affiliate-landing-page"
       direction="column"
       itemAlign={"stretch"}
-      className="oui-affiliate-landing-page oui-mx-auto oui-w-full oui-p-5 md:oui-w-[1040px] md:oui-py-12"
+      className={`${surface.surface} ${surface.landing} oui-affiliate-landing-page`}
     >
       <Hero />
       <HowItWorks />

@@ -1,11 +1,7 @@
 import React, { useMemo } from "react";
 import { useStorageChain } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
-import {
-  AbstractChains,
-  ChainNamespace,
-  SolanaChains,
-} from "@paxeer-network/types";
+import { AbstractChains, SolanaChains } from "@paxeer-network/types";
 import {
   ExclamationFillIcon,
   Flex,
@@ -45,23 +41,24 @@ export function SwitchNetworkTips({
       );
   };
   return (
-    <div
+    <button
+      type="button"
       onClick={onSwitchNetwork}
-      className="oui-mb-3 oui-flex oui-cursor-pointer oui-items-center oui-justify-between  oui-gap-1 oui-rounded-[8px] oui-bg-[rgb(var(--oui-color-warning-darken)_/_0.1)] oui-px-2 oui-py-[6px] "
+      className="oui-mb-3 oui-flex oui-cursor-pointer oui-items-center oui-justify-between  oui-gap-1 oui-rounded-lg oui-bg-[rgb(var(--oui-color-warning-darken)_/_0.1)] oui-px-2 oui-py-2 "
     >
       <Flex gap={1}>
         <ExclamationFillIcon
           size={14}
-          className=" oui-shrink-0 oui-text-warning-darken"
+          className=" oui-shrink-0 oui-text-base-contrast-80"
         />
-        <div className="oui-text-2xs oui-text-warning-darken">
+        <div className="oui-text-2xs oui-text-base-contrast-80">
           {t("connector.privy.switchNetwork.tips", {
             chainName: tipsContent,
           })}
         </div>
       </Flex>
-      <ArrowRightIcon size={14} className="oui-text-warning-darken" />
-    </div>
+      <ArrowRightIcon size={14} className="oui-text-base-contrast-80" />
+    </button>
   );
 }
 export const StorageChainNotCurrentWalletType = ({

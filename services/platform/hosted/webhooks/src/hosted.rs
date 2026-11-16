@@ -229,6 +229,48 @@ impl PrincipalShard {
     }
 }
 
+fn activity_index_events(
+    shard: &PrincipalShard,
+) -> Result<BTreeMap<String, Vec<u8>>, WebhookError> {
+    let mut entries = BTreeMap::new();
+    for event in shard.events.values() {
+        if event.kind() != EventKind::Payment {
+            continue;
+        }
+        let bytes = serde_json::to_vec(event).map_err(|_| WebhookError::CorruptStore)?;
+        for fact in event
+            .facts()
+            .iter()
+            .filter(|fact| fact.name() == "activity_id")
+        {
+            entries.insert(fact.value().to_owned(), bytes.clone());
+        }
+    }
+    Ok(entries)
+}
+
+fn activity_index_changes(
+    previous: &PrincipalShard,
+    shard: &PrincipalShard,
+) -> Result<Vec<(String, Option<Vec<u8>>)>, WebhookError> {
+    let previous = activity_index_events(previous)?;
+    let current = activity_index_events(shard)?;
+    let activities = previous
+        .keys()
+        .chain(current.keys())
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut changes = Vec::new();
+    for activity in activities {
+        let old = previous.get(&activity);
+        let new = current.get(&activity);
+        if old != new {
+            changes.push((activity, new.cloned()));
+        }
+    }
+    Ok(changes)
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct HostedRegistration {
     pub endpoint: String,
@@ -277,6 +319,7 @@ pub enum WorkerStage {
     Dispatch,
     Retention,
     MarketDrain,
+    ActivityIndex,
 }
 
 /// Identifiers and closed categories only: never include store bytes, URLs or secrets.
@@ -297,6 +340,13 @@ pub struct WorkerHealth {
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct HostedRetentionReport {
     pub released: usize,
+    pub failures: Vec<ParticipantFailure>,
+    pub failure_count: usize,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct HostedActivityIndexReport {
+    pub rebuilt: usize,
     pub failures: Vec<ParticipantFailure>,
     pub failure_count: usize,
 }
@@ -416,6 +466,7 @@ impl RedisRepository {
         &self,
         principal: &Principal,
         expected: u64,
+        previous: &PrincipalShard,
         shard: &PrincipalShard,
     ) -> Result<bool, WebhookError> {
         let bytes = serde_json::to_vec(shard).map_err(|_| WebhookError::CorruptStore)?;
@@ -423,18 +474,64 @@ impl RedisRepository {
             return Err(WebhookError::Unavailable);
         }
         let json = std::str::from_utf8(&bytes).map_err(|_| WebhookError::CorruptStore)?;
+        let changes = activity_index_changes(previous, shard)?;
         let digest = principal_digest(principal);
+        let mut arguments = vec![
+            "EVAL".to_owned(),
+            CAS_SCRIPT.to_owned(),
+            "4".to_owned(),
+            shard_key(principal),
+            "webhooks:principals".to_owned(),
+            format!("webhooks:principal:{digest}:activities"),
+            format!("webhooks:principal:{digest}:activities:version"),
+            expected.to_string(),
+            json.to_owned(),
+            digest,
+            changes.len().to_string(),
+        ];
+        for (activity, event) in changes {
+            arguments.push(activity);
+            arguments.push(match event {
+                Some(bytes) => String::from_utf8(bytes).map_err(|_| WebhookError::CorruptStore)?,
+                None => String::new(),
+            });
+        }
+        let command = arguments.iter().map(String::as_str).collect::<Vec<_>>();
         let response = self
-            .command(&[
-                "EVAL",
-                CAS_SCRIPT,
-                "2",
-                &shard_key(principal),
-                "webhooks:principals",
-                &expected.to_string(),
-                json,
-                &digest,
-            ])
+            .command(&command)
+            .map_err(|_| WebhookError::Unavailable)?;
+        Ok(matches!(response, Resp::Integer(value) if value == 1))
+    }
+
+    fn activity_index_version(&self, principal: &Principal) -> Result<Resp, WebhookError> {
+        let digest = principal_digest(principal);
+        let key = format!("webhooks:principal:{digest}:activities:version");
+        self.command(&["GET", &key])
+            .map_err(|_| WebhookError::Unavailable)
+    }
+
+    fn rebuild_activity_index(
+        &self,
+        principal: &Principal,
+        shard: &PrincipalShard,
+    ) -> Result<bool, WebhookError> {
+        let entries = activity_index_events(shard)?;
+        let digest = principal_digest(principal);
+        let mut arguments = vec![
+            "EVAL".to_owned(),
+            INDEX_REBUILD_SCRIPT.to_owned(),
+            "2".to_owned(),
+            format!("webhooks:principal:{digest}:activities"),
+            format!("webhooks:principal:{digest}:activities:version"),
+            entries.len().to_string(),
+        ];
+        for (activity, event) in entries {
+            arguments.push(activity);
+            arguments.push(String::from_utf8(event).map_err(|_| WebhookError::CorruptStore)?);
+        }
+        let command = arguments.iter().map(String::as_str).collect::<Vec<_>>();
+        let response = self
+            .command(&command)
             .map_err(|_| WebhookError::Unavailable)?;
         Ok(matches!(response, Resp::Integer(value) if value == 1))
     }
@@ -833,10 +930,11 @@ impl HostedService {
     ) -> Result<R, WebhookError> {
         for _ in 0..CAS_ATTEMPTS {
             let (revision, mut shard) = self.repository.load(principal)?;
+            let previous = shard.clone();
             let result = change(&mut shard)?;
             if self
                 .repository
-                .compare_and_set(principal, revision, &shard)?
+                .compare_and_set(principal, revision, &previous, &shard)?
             {
                 return Ok(result);
             }
@@ -1249,6 +1347,91 @@ impl HostedService {
                 Err(error)
             }
         }
+    }
+
+    fn reconcile_activity_index(&self, principal: &Principal) -> Result<bool, WebhookError> {
+        match self.repository.activity_index_version(principal)? {
+            Resp::Bulk(None) => {
+                let (_, shard) = self.repository.load(principal)?;
+                self.repository.rebuild_activity_index(principal, &shard)
+            }
+            Resp::Bulk(Some(_)) => Ok(false),
+            _ => Err(WebhookError::CorruptStore),
+        }
+    }
+
+    /// Rebuilds missing receipt indexes without blocking request serving.
+    ///
+    /// # Errors
+    /// Returns an error when principal enumeration cannot complete. Individual
+    /// principal failures are reported and do not stop other principals.
+    pub fn reconcile_activity_indexes_report(
+        &self,
+    ) -> Result<HostedActivityIndexReport, WebhookError> {
+        let mut report = HostedActivityIndexReport::default();
+        for participant in self.participants_for(WorkerStage::ActivityIndex)? {
+            let principal = match participant.principal {
+                Ok(principal) => principal,
+                Err(error) => {
+                    self.record_worker_failure(
+                        &participant.digest,
+                        None,
+                        WorkerStage::ActivityIndex,
+                        &error,
+                    );
+                    report.failure_count += 1;
+                    push_failure(
+                        &mut report.failures,
+                        participant.digest,
+                        None,
+                        WorkerStage::ActivityIndex,
+                        &error,
+                    );
+                    continue;
+                }
+            };
+            match self.reconcile_activity_index(&principal) {
+                Ok(true) => {
+                    report.rebuilt = report.rebuilt.saturating_add(1);
+                    self.clear_worker_failure(
+                        &principal_digest(&principal),
+                        WorkerStage::ActivityIndex,
+                    );
+                }
+                Ok(false) => {
+                    self.clear_worker_failure(
+                        &principal_digest(&principal),
+                        WorkerStage::ActivityIndex,
+                    );
+                }
+                Err(error) => {
+                    self.record_worker_failure(
+                        &principal_digest(&principal),
+                        Some(principal.clone()),
+                        WorkerStage::ActivityIndex,
+                        &error,
+                    );
+                    report.failure_count += 1;
+                    push_failure(
+                        &mut report.failures,
+                        principal_digest(&principal),
+                        Some(principal),
+                        WorkerStage::ActivityIndex,
+                        &error,
+                    );
+                }
+            }
+        }
+        Ok(report)
+    }
+
+    /// Rebuilds missing receipt indexes and fails when any principal could not be rebuilt.
+    pub fn reconcile_activity_indexes(&self) -> Result<usize, WebhookError> {
+        let report = self.reconcile_activity_indexes_report()?;
+        if report.failure_count != 0 {
+            return Err(WebhookError::Unavailable);
+        }
+        Ok(report.rebuilt)
     }
 
     pub fn worker_health(&self) -> WorkerHealth {
@@ -2239,6 +2422,32 @@ if current ~= ARGV[1] then return 0 end
 redis.call('HSET', KEYS[1], 'json', ARGV[2])
 redis.call('HINCRBY', KEYS[1], 'revision', 1)
 redis.call('SADD', KEYS[2], ARGV[3])
+local count = tonumber(ARGV[4])
+local index = 5
+for _ = 1, count do
+    local activity = ARGV[index]
+    local event = ARGV[index + 1]
+    if event == '' then
+        redis.call('HDEL', KEYS[3], activity)
+    else
+        redis.call('HSET', KEYS[3], activity, event)
+    end
+    index = index + 2
+end
+redis.call('SET', KEYS[4], '1')
+return 1
+";
+
+const INDEX_REBUILD_SCRIPT: &str = r"
+if redis.call('GET', KEYS[2]) ~= false then return 0 end
+redis.call('DEL', KEYS[1])
+local count = tonumber(ARGV[1])
+local index = 2
+for _ = 1, count do
+    redis.call('HSET', KEYS[1], ARGV[index], ARGV[index + 1])
+    index = index + 2
+end
+redis.call('SET', KEYS[2], '1')
 return 1
 ";
 

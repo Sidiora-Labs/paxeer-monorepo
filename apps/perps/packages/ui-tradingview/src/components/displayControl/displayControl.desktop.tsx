@@ -168,10 +168,10 @@ export const DesktopDisplayControl: React.FC<IProps> = (props) => {
     <>
       <DropdownMenuRoot open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
-          <Flex
-            justify="start"
-            itemAlign="center"
-            className="oui-gap-[2px] oui-cursor-pointer oui-text-base-contrast-36  hover:oui-text-base-contrast-80"
+          <button
+            type="button"
+            aria-label={t("common.settings")}
+            className="oui-flex oui-items-center oui-justify-start oui-gap-0.5 oui-text-base-contrast-36 hover:oui-text-base-contrast-80"
           >
             <DisplaySettingIcon
               className={cn(
@@ -185,7 +185,7 @@ export const DesktopDisplayControl: React.FC<IProps> = (props) => {
                 open && "oui-text-base-contrast-80 oui-rotate-180",
               )}
             />
-          </Flex>
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuPortal>
           <DropdownMenuContent

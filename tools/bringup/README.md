@@ -156,6 +156,12 @@ Configuration is supplied by the invoking environment, the private host map name
 
 `LAYERX_EXTRA_SANS_<ROW>` uses a service roster row name. Internal readiness checks also select private connections through the `CHECK_LIVE_INTERNAL_CONNECT_<GROUP>` variables read by [check-live.sh](check-live.sh).
 
+The service certificate roster includes `hosted-authority`, a server identity on
+`box:KERNEL_HOST` with volume custody, common name `layerx-hosted-authority`,
+and SANs `DNS:layerx-hosted-authority`, `DNS:localhost`, `IP:127.0.0.1`, and
+`DNS:kernel.paxeer.network`. The CA command completes that row from the
+`HOSTED_AUTHORITY` name in [railway-names.env](railway-names.env).
+
 The maintained files read by these tools include:
 
 - [ca-services.tsv](ca-services.tsv) and [railway-names.env](railway-names.env) for certificate identities and service names.

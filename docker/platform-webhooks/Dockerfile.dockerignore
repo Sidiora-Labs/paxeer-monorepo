@@ -21,6 +21,7 @@ consensus
 custodyproof
 daemon
 docker
+include
 engine
 tests/fixtures/example
 hpx
@@ -31,6 +32,7 @@ node
 tests/occ
 rpc
 sdk
+spec
 storage
 tests/testutil
 utils
@@ -42,3 +44,6 @@ apps/web
 tools/qualification/output
 !docker/common/env-files.sh
 !docker/platform-webhooks/files.tsv
+!include/layerx
+!include/layerx/**
+!spec/layerx-merge/contracts/address-table.md

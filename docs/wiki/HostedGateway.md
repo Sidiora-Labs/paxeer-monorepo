@@ -208,11 +208,24 @@ is deployed or has completed an end-to-end operation.
 | `DELETE /v1/keys/{id}` | Bearer session; revoke an owned key |
 | `POST /v1/keys/{id}/rotate` | Bearer session and `Idempotency-Key`; replace an owned key |
 | `GET /internal/v1/principal` | `LayerX-Key`; durable principal digest |
-| `GET /v1/routes` | `LayerX-Key`; catalogue plus dependency readiness |
+| `GET /v1/routes` | `LayerX-Key`; catalogue plus dependency readiness. Top-level keys: `schema`, `canonical_origin`, `chain_id`, `rpc_records`, `preserve_api1_original_host`, `wallet_authentication`, `wallet_placement`, `services`, `routes`, `denied_surfaces`, `node_signing_methods`, `rpc_paths`, `node_rpc`, `hosted_gateway` and `readiness` |
 | `GET /v1/routes/{service}` | `LayerX-Key`; service routes and health; private services are refused |
 | `GET /v1/receipts/{id}` | `LayerX-Key`, `receipt:read`, configured component; owner-scoped receipt verification |
 | `GET /v1/state` | `LayerX-Key`, `state:read`, configured component; verified current head evidence |
 | `POST /v1/settle` | `LayerX-Key`, `receipt:read`, configured component; JSON merchant evidence checked against chain commitment |
+
+The explorer proxy admits these public backend routes:
+
+- `GET /explorer/backend/api/v2/advanced-filters`
+- `GET /explorer/backend/api/v2/advanced-filters/csv`
+- `GET /explorer/backend/api/v2/advanced-filters/methods`
+- `GET /explorer/backend/api/v2/paxeer-x/feed/markets`
+- `GET /explorer/backend/api/v2/paxeer-x/feed/markets/{market_id}/updates`
+- `GET /explorer/backend/api/v2/paxeer-x/feed/updates`
+- `GET /explorer/backend/api/v2/paxeer-x/feed/updates/{hash}`
+
+Its feed pages are available for `GET` and `HEAD`: `/explorer/feed`,
+`/explorer/feed/market/[id]` and `/explorer/feed/update/[hash]`.
 
 Receipt path identifiers are exactly 64 ASCII hex characters, including
 uppercase. Settlement consumes the seller's existing evidence; it does not
@@ -264,32 +277,167 @@ Outbound service mTLS may alternatively use the paired
 `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables. The two
 client-identity pairs cannot be configured together.
 
-### Native deployment identity inputs
+### Native deployment inputs
 
 The [platform gateway definition](../../deploy/projects/platform/gateway.kvx)
 sets `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` and `LAYERX_ROLE=identity`.
+It sets `LAYERX_GATEWAY_INDEXER_URL` to the private HTTPS origin of the project
+indexer, using the indexer's listener port. `LAYERX_GATEWAY_CONSENSUS_RPC_URL`
+comes from the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL`, an absolute HTTPS address
+with a DNS host that may hold a path; consensus calls use exactly that path.
 It reads `LAYERX_GATEWAY_IDENTITY_URL` from the operator input
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL`, an absolute HTTPS identity
 service address, and `LAYERX_GATEWAY_TENANT` from the operator input
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT` with the tenant format above.
 
 The [native file table](../../docker/platform-gateway/native-files.tsv) selects
-four additional rows for this role, each with mode `0600`. The project reads
+six additional rows for this role, each with mode `0600`. The project reads
 each file input from a launch input named `PLATFORM_GATEWAY_` followed by the
 file input name. The image stages the files for the gateway's runtime user.
 
 | File input | Destination | Gateway variable | Input category and format |
 | --- | --- | --- | --- |
+| `ENDPOINT_ROUTE_BINDINGS` | `/run/secrets/route-bindings.json` | `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | `operator`: product route bindings JSON document encoded as padded base64 |
 | `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of token text issued by the identity service |
 | `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by identity |
+| `ENDPOINT_KEY_PROVISIONING_KEY` | `/run/secrets/key-provisioning-key` | `LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` | `generated`: base64 of 64 hexadecimal characters, generated once and equal on every replica |
 | `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 bundle written by the launcher |
 | `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client password written by the launcher |
 
-The role selects eight rows including the four `*` rows for outbound CA,
+The key issuance and rotation routes require the key provisioning key. The
+platform project definition holds it as the generated input
+`PLATFORM_GATEWAY_ENDPOINT_KEY_PROVISIONING_KEY`: base64 of 64 hexadecimal
+characters, generated once and equal on every replica.
+
+The role selects ten rows including the four `*` rows for outbound CA,
 Redis username, Redis password and receipt keys. A native start without the
 role and identity settings selects only those four chain files and serves
 the chain methods; `px_register` and `px_openSession` answer
 `registration_not_configured`.
+
+Supply `PLATFORM_GATEWAY_ENDPOINT_ROUTE_BINDINGS` as the padded base64 encoding
+of the complete UTF-8 JSON document. The definition passes it through
+`ENDPOINT_ROUTE_BINDINGS`; the native table writes it to
+`/run/secrets/route-bindings.json` with mode `0600` for the `identity` role.
+The entrypoint reads this protected document, stages any referenced
+`health_authorization_file` and rewrites those paths before dropping privileges.
+Those authorization files must already exist as protected files; the bindings
+input does not create their contents.
+
+The document has this shape; replace `NETWORK` and `WIRE` with the gateway's
+`LAYERX_GATEWAY_NETWORK_ID` and decimal-string `LAYERX_GATEWAY_LXP_WIRE_VERSION`:
+
+```json
+{
+  "schema": "paxeer-x.route-bindings.v1",
+  "chain_id": 125,
+  "network_id": "NETWORK",
+  "wire_version": "WIRE",
+  "allowed_origins": [],
+  "services": {},
+  "upstreams": {},
+  "passthrough": [],
+  "mcp": []
+}
+```
+
+`upstreams` and `mcp` are optional and default to empty collections. Other
+top-level members are required; unknown fields are refused. The document is
+bounded at 1 MiB, with at most 31 service bindings, 64 named upstreams and 32
+MCP principal bindings. `allowed_origins` holds distinct HTTPS origins without
+wildcards or base paths for browser CORS.
+
+Each `services` key is a service ID from the
+[route catalogue](../../tools/paxeer-x/route-catalogue.json). Its binding holds:
+
+| Member | Required value or meaning |
+| --- | --- |
+| `url` | HTTPS origin with a DNS host, optional port, and no base path, credentials, query or fragment |
+| `discovery_url` | Optional HTTPS endpoint advertised after a successful product service probe; private services cannot advertise one |
+| `health_path` | Absolute path probed with GET for readiness |
+| `identity_path` | Absolute path probed with GET for network and version identity; may equal `health_path` |
+| `health_authorization_file` | Optional protected file containing the complete Authorization header value, such as `Bearer ...`, for both probes |
+| `ready_pointer`, `ready_value` | JSON pointer into the health response and the exact non-null JSON value required there |
+| `network_pointer`, `network_value` | JSON pointer into the identity response and the exact JSON value, either integer `125` or the gateway network label string |
+| `version_pointer`, `version_value` | JSON pointer into the identity response and the exact nonempty version string of at most 64 bytes |
+
+Pointers start with `/` and are at most 128 bytes. Probe paths are at most
+2048 bytes, use graphic ASCII, and contain no query, fragment, backslash,
+percent encoding or `.`/`..` path segment. Both probes require HTTP 200 and a
+JSON content type; every configured predicate must match. For `agentd`,
+`network_value` must be the gateway network label and `version_value` must
+equal its wire version. No default health path or predicate is inferred for
+any service.
+
+For `dashboard` and `webhooks`, use the service's HTTPS origin with both
+`health_path` and `identity_path` set to `/healthz`. Configure the following
+predicates for each binding:
+
+| Service | `ready_pointer` / `ready_value` | `network_pointer` / `network_value` | `version_pointer` / `version_value` |
+| --- | --- | --- | --- |
+| `dashboard` | `/ready` / `true` | `/network_id` / the gateway network label string, also set as `LAYERX_DASHBOARD_NETWORK_ID` | `/version` / the deployed `layerx-platform-dashboard` package version string |
+| `webhooks` | `/ready` / `true` | `/network_id` / the gateway network label string, also set as `LAYERX_WEBHOOKS_NETWORK_ID` | `/version` / the deployed `layerx-platform-webhooks` package version string |
+
+The network settings accept 1–64 printable ASCII bytes without spaces.
+Each health response always includes the package version; the network member
+is present when configured. Set the network label on every bound service.
+Both webhooks roles expose these health members; ingress application TLS
+requires a trusted internal client certificate. `/livez` carries no readiness,
+network or version predicate.
+
+For example, if an upstream actually returns
+`{"ready":true,"network_id":"NETWORK","wire_version":"WIRE"}` at `/readyz`,
+its binding can be:
+
+```json
+{
+  "url": "https://service.example.net:9443",
+  "health_path": "/readyz",
+  "identity_path": "/readyz",
+  "ready_pointer": "/ready",
+  "ready_value": true,
+  "network_pointer": "/network_id",
+  "network_value": "NETWORK",
+  "version_pointer": "/wire_version",
+  "version_value": "WIRE"
+}
+```
+
+Bindings use HTTPS even for services whose catalogue transports are HTTP,
+WebSocket, JSON-RPC, authenticated discovery, MCP or A2A. The catalogue chooses
+the transport; a binding has no `transport` member. HTTPS uses the gateway's
+`native_tls` client with TLS 1.2 or later, normal certificate and hostname
+verification, system trust roots plus the DER certificate from
+`LAYERX_GATEWAY_OUTBOUND_CA_DER`, and its configured PKCS#12 client identity
+when present. A binding cannot select its own CA or disable verification.
+
+When a proxy route's `upstream` differs from its service ID, put
+`{"service":"SERVICE_ID","binding":{...}}` under that name in `upstreams`.
+In particular, `webhooks-dashboard` needs both `dashboard` and `webhooks`;
+`explorer` needs `services.explorer` and `upstreams.explorer-backend`.
+Only named proxy upstreams admitted by the catalogue are accepted.
+
+TLS passthrough is available only for `agentd` and `program-registry` through
+`passthrough` entries with `service`, a unique nonzero socket address `listen`,
+and HTTPS `upstream` matching the service binding's host and port without a
+base path. It forwards the TLS stream without terminating it. MCP additionally
+requires per-principal `mcp` entries containing `principal`, `identity_socket`,
+`identity_tenant`, `identity_uid`, `identity_gid`, `owner_binding_file`,
+`owner_binding_sha256`, `owner_uid`, `owner_gid` and `mcp_version`; readiness
+checks the pinned owner document and socket identity. `human-web` readiness
+instead uses `human_web_origin` in the separate protected
+`LAYERX_GATEWAY_UI_BINDINGS_FILE` document, with schema
+`paxeer-x.ui-bindings.v2` and required `wallet_origin`. Its probe requires a
+nonempty HTTP 200 HTML response at `/explorer/verify`.
+
+The empty collections in the first example bind no service. With no separate
+Human web configuration, every `product_routes.services` entry reports
+`configured=false`, `ready=false`, `reason=not_configured`, while
+`product_routes.complete=true`: unconfigured services do not block that
+aggregate. This does not enable product routes or prove that their dependencies
+are deployed. Overall `/readyz` still requires chain serving and every
+configured backend to be ready.
 
 `capabilities::chain_rpc` sends upstream node calls to the root path: a
 bare node origin gets the base path `/`.
@@ -311,8 +459,16 @@ replicas; do not clear that state to recover an uncertain operation.
 | `gateway:pending` | Pending operation references |
 | `gateway:activity:{id}`, `gateway:activity-operation:{id}` | Activity owner and operation pointer |
 | `gateway:audit`, `gateway:audit:head` | Hash-chained audit stream and head |
+| `gateway:principal:{digest}:audit` | Gateway-written principal audit stream with the common stream's IDs and fields; the dashboard reads absent entries and an absent version as empty history |
+| `gateway:principal:{digest}:audit:version` | Gateway-written index version `1`; other versions and entries without a version are refused by the dashboard |
+| `gateway:audit:principal-index:cursor` | Durable position for background recovery in pages of at most 256 common audit entries |
 | `gateway:tap:nonce:{scope}`, `gateway:tap:binding:{digest}` | TAP replay protection and credential binding |
 | `gateway:events:*` | Durable event outbox, observations and sequence tracking |
+
+The gateway writes each principal audit entry and version in the same script
+as the common audit entry. At startup it recovers principal indexes in the
+background from the stored cursor without delaying serving. Recovery reports
+its stage on failure and leaves serving available.
 
 Stored continuations are bounded at 2 MiB in at most 16 chunks. The presence
 of operation storage does not make the removed public submission routes

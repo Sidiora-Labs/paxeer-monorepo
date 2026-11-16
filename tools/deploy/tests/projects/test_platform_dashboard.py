@@ -215,3 +215,16 @@ def test_platform_dashboard_definition() -> None:
         manifest = directory.relative_to(ROOT) / "Cargo.toml"
         assert watched(manifest), directory
 
+
+
+def test_dashboard_network_label_input() -> None:
+    sections = parse_kvx(DEFINITION)
+    input_name = "PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID"
+    assert sections["vars.dashboard"]["LAYERX_DASHBOARD_NETWORK_ID"] == f"env:{input_name}"
+    assert sections["inputs.dashboard"][input_name] == "operator"
+    lines = DEFINITION.read_text().splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith(input_name + " ="))
+    assert lines[index - 1] == (
+        "# Network label used by the project gateway: "
+        "1-64 printable ASCII bytes without spaces."
+    )

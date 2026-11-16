@@ -104,7 +104,7 @@ defmodule Explorer.Migrator.BackfillMetadataURLTest do
       assert MigrationStatus.get_status("backfill_metadata_url") == nil
 
       BackfillMetadataURL.start_link([])
-      Process.sleep(100)
+      assert :ok = wait_for_completion()
 
       [instance_1, instance_2] =
         Instance
@@ -423,7 +423,7 @@ defmodule Explorer.Migrator.BackfillMetadataURLTest do
       assert MigrationStatus.get_status("backfill_metadata_url") == nil
 
       BackfillMetadataURL.start_link([])
-      Process.sleep(100)
+      assert :ok = wait_for_completion()
 
       [instance_1, instance_2] =
         Instance
@@ -441,6 +441,24 @@ defmodule Explorer.Migrator.BackfillMetadataURLTest do
       assert instance_1.error == "not_printable"
 
       assert MigrationStatus.get_status("backfill_metadata_url") == "completed"
+    end
+  end
+
+  defp wait_for_completion(timeout \\ 10_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+    wait_for_completion(deadline, timeout)
+  end
+
+  defp wait_for_completion(deadline, timeout) do
+    if MigrationStatus.get_status("backfill_metadata_url") == "completed" do
+      :ok
+    else
+      if System.monotonic_time(:millisecond) >= deadline do
+        flunk("backfill_metadata_url did not complete within #{timeout} ms")
+      else
+        Process.sleep(50)
+        wait_for_completion(deadline, timeout)
+      end
     end
   end
 end

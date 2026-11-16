@@ -1,0 +1,116 @@
+{
+  "name": "Paxeer Bridge",
+  "directory": "../../../apps/bridge",
+  "build": "pnpm run build",
+  "start": "pnpm run start -H 127.0.0.1 -p 4173",
+  "address": "http://localhost:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "deposit transfer",
+      "path": "/",
+      "states": [
+        {
+          "name": "filled",
+          "steps": [
+            { "action": "fill", "selector": "#bridge-amount", "value": "1.25" },
+            { "action": "fill", "selector": "#bridge-destination", "value": "0x1111111111111111111111111111111111111111" }
+          ]
+        },
+        {
+          "name": "amount validation",
+          "steps": [
+            { "action": "fill", "selector": "#bridge-amount", "value": "not-an-amount" },
+            { "action": "press", "selector": "#bridge-amount", "key": "Tab" },
+            { "action": "wait", "text": "Enter a valid amount" }
+          ]
+        },
+        {
+          "name": "destination validation",
+          "steps": [
+            { "action": "fill", "selector": "#bridge-destination", "value": "0x" },
+            { "action": "press", "selector": "#bridge-destination", "key": "Tab" },
+            { "action": "wait", "text": "Enter a valid Paxeer" }
+          ]
+        },
+        {
+          "name": "source route dialog",
+          "steps": [
+            { "action": "click", "selector": "button[aria-label^=\"From:\"]" },
+            { "action": "wait", "text": "Bridge from" }
+          ]
+        },
+        {
+          "name": "destination route dialog",
+          "steps": [
+            { "action": "click", "selector": "button[aria-label^=\"To:\"]" },
+            { "action": "wait", "text": "Bridge to" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "withdrawal transfer",
+      "path": "/",
+      "states": [
+        {
+          "name": "withdrawal form",
+          "steps": [
+            { "action": "click", "selector": "button[aria-label=\"Swap bridge direction\"]" },
+            { "action": "fill", "selector": "#bridge-amount", "value": "2" },
+            { "action": "fill", "selector": "#bridge-destination", "value": "0x2222222222222222222222222222222222222222" }
+          ]
+        },
+        {
+          "name": "withdrawal destination validation",
+          "steps": [
+            { "action": "click", "selector": "button[aria-label=\"Swap bridge direction\"]" },
+            { "action": "fill", "selector": "#bridge-destination", "value": "0x" },
+            { "action": "press", "selector": "#bridge-destination", "key": "Tab" },
+            { "action": "wait", "text": "Enter a valid Base" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "import transfer",
+      "path": "/",
+      "states": [
+        {
+          "name": "invalid source transaction",
+          "steps": [
+            { "action": "fill", "selector": "#import-source-hash", "value": "0x1234" },
+            { "action": "click", "selector": "form[aria-label=\"Import a bridge transfer\"] button[type=submit]" },
+            { "action": "wait", "text": "Enter a source transaction hash" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "transfer history",
+      "path": "/"
+    },
+    {
+      "name": "theme and wallet controls",
+      "path": "/",
+      "states": [
+        {
+          "name": "dark scheme",
+          "steps": [
+            { "action": "click", "selector": "button[data-slot=theme-toggle]" }
+          ]
+        }
+      ]
+    }
+  ],
+  "answers": [],
+  "typeScale": [
+    { "min": 7, "max": 11 },
+    { "min": 12, "max": 13 },
+    { "min": 13, "max": 14 },
+    { "min": 14, "max": 16 },
+    16,
+    { "min": 18, "max": 22 },
+    { "min": 30, "max": 44 }
+  ]
+}

@@ -679,7 +679,7 @@ func TestCAApprovedRoster(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(rows) != 30 || len(base) != len(rows) {
+	if len(rows) != 31 || len(base) != len(rows) {
 		t.Fatal("independently approved identity membership differs")
 	}
 	names := map[string]string{}

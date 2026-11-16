@@ -13,10 +13,13 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +29,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/lib/pq"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 
@@ -42,6 +46,7 @@ func TestProofGraphqlProducerTransportConsumer(t *testing.T) {
 	if databaseURL == "" {
 		t.Fatal("PERPS_DATA_TEST_DATABASE_URL is required (a dedicated test database)")
 	}
+	databaseURL = proofGraphqlDatabase(t, ctx, databaseURL)
 	db, err := store.Open(databaseURL)
 	if err != nil {
 		t.Fatal(err)
@@ -180,6 +185,38 @@ UPDATE perps.positions_current SET size_usd = 9007199254740995 WHERE position_id
 	}
 }
 
+func proofGraphqlDatabase(t *testing.T, ctx context.Context, raw string) string {
+	t.Helper()
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin, err := store.Open(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := admin.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	var suffix [8]byte
+	if _, err := rand.Read(suffix[:]); err != nil {
+		t.Fatal(err)
+	}
+	name := pq.QuoteIdentifier("perps_graphql_" + hex.EncodeToString(suffix[:]))
+	if _, err := admin.ExecContext(ctx, `CREATE DATABASE `+name); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := admin.Exec(`DROP DATABASE ` + name + ` WITH (FORCE)`); err != nil {
+			t.Error(err)
+		}
+	})
+	u.Path = "/perps_graphql_" + hex.EncodeToString(suffix[:])
+	return u.String()
+}
+
 func proofGraphqlExec(t *testing.T, db *sql.DB, statement string) {
 	t.Helper()
 	if _, err := db.Exec(statement); err != nil {
@@ -203,8 +240,8 @@ const proofGraphqlConsumer = `
 const assert = require("node:assert/strict");
 const readline = require("node:readline");
 const { market, fetchMarkets, subgraphQuery, MARKET_QUERY, POSITIONS_QUERY,
-        decodeMarketResult } = require("./src/hooks/perps/useSubgraph.ts");
-const { fetchPortfolioPositions, decodePortfolioPositions } = require("./src/hooks/perps/usePortfolioStats.ts");
+        decodeMarketResult } = require("@paxeer-network/paxeer-backend/hooks/perps/useSubgraph");
+const { fetchPortfolioPositions, decodePortfolioPositions } = require("@paxeer-network/paxeer-backend/hooks/perps/usePortfolioStats");
 const address = "0x0000000000000000000000000000000000211071";
 const uintMax = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
@@ -256,10 +293,10 @@ async function snapshot(updated) {
   // Alias values emitted by the real producers into incompatible fields.
   // These HTTP responses are valid GraphQL but invalid consumer results.
   await assert.rejects(subgraphQuery(
-    MARKET_QUERY.replace("maxLeverage enabled", "maxLeverage: name enabled"),
+    MARKET_QUERY.replace(/maxLeverage\s+enabled/, "maxLeverage: name enabled"),
     {marketId: 211071}, decodeMarketResult), {name: "ZodError"});
   await assert.rejects(subgraphQuery(
-    POSITIONS_QUERY.replace("sizeUsd leverage", "sizeUsd: status leverage"),
+    POSITIONS_QUERY.replace(/sizeUsd\s+leverage/, "sizeUsd: status leverage"),
     {userAddress: address}, decodePortfolioPositions), {name: "ZodError"});
   console.log("PROOF:complete");
   process.exit(0);

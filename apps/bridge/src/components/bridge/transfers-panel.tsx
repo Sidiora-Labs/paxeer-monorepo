@@ -365,6 +365,7 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
         <span className="text-body-sm text-muted-foreground">This browser's record — chain state is re-read live.</span>
       </div>
 
+      <ImportTransfer onImported={ onChanged }/>
       { !isConnected ? (
         <Alert variant="info">
           <AlertTitle>Connect a wallet to see your transfers</AlertTitle>
@@ -375,7 +376,6 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
         </Alert>
       ) : (
         <>
-          <ImportTransfer onImported={ onChanged }/>
           { transfersQuery.error ? <div role="alert">RPC unavailable. Last verified transfers are retained. <Button size="sm" disabled={ transfersQuery.isFetching } onClick={ () => void transfersQuery.refetch() }>Retry RPC</Button></div> : null }
           { pending.length > 0 ? (
             <div className="flex flex-col gap-3">

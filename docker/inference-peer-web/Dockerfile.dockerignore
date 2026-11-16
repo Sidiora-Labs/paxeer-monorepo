@@ -1,0 +1,13 @@
+*
+!apps/
+!apps/inference-peer/
+!apps/inference-peer/package.json
+!apps/inference-peer/index.html
+!apps/inference-peer/NOTICE
+!apps/inference-peer/LICENSE-ENGINE
+!apps/inference-peer/scripts/
+!apps/inference-peer/scripts/**
+!apps/inference-peer/src/
+!apps/inference-peer/src/**
+!apps/inference-peer/engine/
+!apps/inference-peer/engine/**

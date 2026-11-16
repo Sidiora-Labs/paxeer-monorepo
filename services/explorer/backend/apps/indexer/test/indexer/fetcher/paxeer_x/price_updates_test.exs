@@ -181,7 +181,7 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
       PriceUpdates.run([13, waiting, :invalid], state)
     end
 
-    refute_receive {:buffer, _, _}, 1_500
+    refute_receive {:buffer, [{13, _, _, _}], _}, 1_500
     assert Repo.get(PriceFeedScannedBlock, 13) == nil
   end
 

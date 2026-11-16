@@ -34,9 +34,9 @@ type HostContextConfig struct {
 // NewHostContextConfig creates a HostContextConfig from the chain config.
 // This extracts and pre-computes values needed by HostContext.
 func NewHostContextConfig(chainConfig *params.ChainConfig) HostContextConfig {
-	var delta int64
+	paxSstoreGas := StandardSstoreSetGasEIP2200
 	if chainConfig != nil && chainConfig.PaxSstoreSetGasEIP2200 != nil {
-		paxSstoreGas := *chainConfig.PaxSstoreSetGasEIP2200
+		paxSstoreGas = *chainConfig.PaxSstoreSetGasEIP2200
 
 		// Guard against overflow: paxSstoreGas is uint64, and casting to int64 would
 		// overflow if value > math.MaxInt64. This is a critical misconfiguration.
@@ -45,10 +45,10 @@ func NewHostContextConfig(chainConfig *params.ChainConfig) HostContextConfig {
 				paxSstoreGas, uint64(math.MaxInt64)))
 		}
 
-		// Delta = Pax cost - standard cost (can be positive or negative)
-		// Safe to cast now that we've verified paxSstoreGas <= math.MaxInt64
-		delta = int64(paxSstoreGas) - int64(StandardSstoreSetGasEIP2200)
 	}
+	// Delta = Pax cost - standard cost (can be positive or negative). A nil
+	// chain setting uses the ordinary path's legacy SSTORE cost.
+	delta := int64(paxSstoreGas) - int64(StandardSstoreSetGasEIP2200)
 	return HostContextConfig{
 		SstoreGasDelta: delta,
 	}

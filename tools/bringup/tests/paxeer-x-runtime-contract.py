@@ -2181,6 +2181,7 @@ def ca_roster():
         'pending-core': ('box:KERNEL_HOST', 'volume', 'layerx-pending-core', 'serverAuth', 'DNS:layerx-pending-core,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'pending-core-admin': ('box:KERNEL_HOST', 'volume', 'layerx-pending-core-admin', 'serverAuth', 'DNS:layerx-pending-core-admin,DNS:kernel.paxeer.network', 'internal'),
         'agent-boundary': ('box:KERNEL_HOST', 'volume', 'layerx-agent-boundary', 'serverAuth', 'DNS:layerx-agent-boundary,DNS:component,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
+        'hosted-authority': ('box:KERNEL_HOST', 'volume', 'layerx-hosted-authority', 'serverAuth', 'DNS:layerx-hosted-authority,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),
         'agentd': ('box:KERNEL_HOST', 'volume', 'layerx-agentd', 'serverAuth', 'DNS:layerx-agentd,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network,DNS:machine.paxeer.network', 'internal'),
         'agentd-client': ('box:KERNEL_HOST', 'volume', 'layerx-agentd-client', 'clientAuth', '-', 'internal'),
         'paxeer-boundary-loopback': ('box:KERNEL_HOST', 'volume', 'paxeer-boundary', 'serverAuth', 'DNS:paxeer-boundary,DNS:paxeer-boundary-loopback,DNS:localhost,IP:127.0.0.1,DNS:kernel.paxeer.network', 'internal'),

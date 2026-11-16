@@ -58,6 +58,62 @@ and a receipt is final when its block is committed.
 The Go test files beside these sources cover application wiring, proposal and
 receipt handling, module execution, storage, and upgrades.
 
+## Compare transaction execution
+
+`paxd applycheck` applies signed transactions at the next height of a copied
+home. It compares execution on arrival with sequencer admission checks, follower
+execution with the fast executor, and follower execution with the ordinary
+executor. Each form starts from the same committed state in a separate temporary
+copy. The command never commits a block or changes the supplied home's state.
+
+Stop the node and wait for its process to exit before copying its entire home:
+
+```sh
+cp -a /path/to/stopped-home /path/to/check-home
+touch /path/to/check-home/applycheck-copy
+paxd applycheck --home /path/to/check-home --tx-file transactions.txt --output report.json
+```
+
+Keep all configured stores inside the copy. Update absolute store paths and
+symlinks in the copy to refer to the copied files. On a home where sequencing is
+active, include the configured receipt key and consensus key in the copy;
+`sequencer.receipt-key-file` in `config/app.toml` must point inside that copy.
+The receipt key signs the batch used by all three forms. To check a copy that
+has neither key file, pass `--stand-in-receipt-key`; this registers an in-memory
+key in the pinned key record and parameter record of the state each temporary
+form executes, covering the checked block height, and in the signer's pins.
+The key is written to no file and included in no output. Store locks must be
+available, and `applycheck-copy` must be a regular file at the root of the home.
+
+Flags:
+
+- `--home PATH`: the marked copy of the stopped node's home.
+- `--tx-file PATH`: one transaction per line, as signed Ethereum transaction
+  hex (with an optional `0x` prefix) or base64 signed chain transaction bytes.
+  Blank lines are ignored.
+- `--tx TRANSACTION`: provide a transaction directly; repeat the flag to append
+  more transactions after those in the file, preserving order.
+- `--block-time RFC3339`: choose a time after the last committed block. The
+  default is that block's time plus one second.
+- `--output PATH`: write JSON outside the copied home; omit it to use stdout.
+- `--stand-in-receipt-key`: use an in-memory key registered in each temporary
+  form's execution state in place of the configured key files.
+
+The JSON report includes the chain ID, next block height and time, receipt key
+mode (`registered` or `stand-in`), committed
+height and application hash, and the `sequencer`, `follower_fast`, and
+`follower_ordinary` forms. Each form records transaction codes, codespaces, gas
+wanted and used, events, EVM status, logs, contract addresses and receipts, and
+the application hash it would commit. The fast form enables the fast executor
+and loads the platform's engine library from the same location as the node.
+It runs when the library is absent too; its `engine_library` report member is
+`loaded` or `absent`. The comparison identifies the first
+differing field and the one-based position in the supplied transaction list,
+excluding the generated sequence batch. Panics include their messages and count
+as differences. Exit codes are `0` for agreement, `1` for differences, and `2`
+for refused input or an operational error, including a missing marker, locked
+stores, or an empty transaction list.
+
 ## Build and test
 
 The package belongs to the root [Go module](../go.mod). Run these targets from

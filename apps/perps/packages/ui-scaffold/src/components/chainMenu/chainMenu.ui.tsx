@@ -1,17 +1,11 @@
-import { useTranslation } from "@paxeer-network/i18n";
+import { Tooltip } from "../../../../ui-connector/src/platformOverlays";
 import {
-  Button,
-  ChainIcon,
-  cn,
-  Flex,
-  modal,
-  Tooltip,
-  DropdownMenuContent,
-  DropdownMenuPortal,
-  DropdownMenuRoot,
-  DropdownMenuTrigger,
-  Spinner,
-} from "@paxeer-network/ui";
+  PopoverContent,
+  PopoverRoot,
+  PopoverTrigger,
+} from "../../../../ui-connector/src/platformOverlays";
+import { useTranslation } from "@paxeer-network/i18n";
+import { Button, ChainIcon, cn, modal, Spinner } from "@paxeer-network/ui";
 import {
   ChainSelectorDialogId,
   ChainSelectorWidget,
@@ -51,7 +45,7 @@ export const ChainMenu = (props: UseChainMenuScriptReturn) => {
 
   const renderIcon = () => {
     if (props.loading) {
-      return <Spinner className="oui-w-[18px] oui-h-[18px]" />;
+      return <Spinner className="oui-w-5 oui-h-5" />;
     }
 
     if (props.currentChainId) {
@@ -60,13 +54,13 @@ export const ChainMenu = (props: UseChainMenuScriptReturn) => {
   };
 
   const trigger = (
-    <Flex
-      intensity={500}
-      justify="center"
+    <button
+      type="button"
+      aria-label={t("connector.switchNetwork")}
       className={cn(
-        "oui-relative oui-cursor-pointer",
-        "oui-w-11 oui-h-8",
-        "oui-rounded-t-[6px] oui-rounded-bl-[6px] oui-rounded-br-[3px]",
+        "oui-relative oui-shell-icon-button oui-bg-base-5",
+
+        "oui-rounded-t-md oui-rounded-bl-md oui-rounded-br-sm",
       )}
     >
       {renderIcon()}
@@ -95,31 +89,29 @@ export const ChainMenu = (props: UseChainMenuScriptReturn) => {
           fill="url(#paint0_linear_490_5080)"
         />
       </svg>
-    </Flex>
+    </button>
   );
 
   return (
-    <DropdownMenuRoot open={props.open} onOpenChange={props.onOpenChange}>
-      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuPortal>
-        <DropdownMenuContent
-          onCloseAutoFocus={(e) => e.preventDefault()}
-          onClick={(e) => e.stopPropagation()}
-          sideOffset={4}
-          collisionPadding={{ left: 16, right: 16 }}
-          className={cn(
-            "oui-bg-base-8 oui-w-[456px] oui-p-4 oui-rounded-xl",
-            "oui-border oui-border-line-6",
-            "oui-font-semibold",
-          )}
-        >
-          <ChainSelectorWidget
-            close={props.hide}
-            onChainChangeBefore={props.onChainChangeBefore}
-            onChainChangeAfter={props.onChainChangeAfter}
-          />
-        </DropdownMenuContent>
-      </DropdownMenuPortal>
-    </DropdownMenuRoot>
+    <PopoverRoot open={props.open} onOpenChange={props.onOpenChange}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent
+        aria-label={t("connector.switchNetwork")}
+        onClick={(e) => e.stopPropagation()}
+        sideOffset={4}
+        collisionPadding={{ left: 16, right: 16 }}
+        className={cn(
+          "oui-shell-overlay oui-bg-base-8 oui-w-96 oui-p-4 oui-rounded-xl",
+          "oui-border oui-border-line-6",
+          "oui-font-semibold",
+        )}
+      >
+        <ChainSelectorWidget
+          close={props.hide}
+          onChainChangeBefore={props.onChainChangeBefore}
+          onChainChangeAfter={props.onChainChangeAfter}
+        />
+      </PopoverContent>
+    </PopoverRoot>
   );
 };

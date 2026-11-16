@@ -1,58 +1,41 @@
 import { Box } from '@chakra-ui/react';
 import React from 'react';
 
+import { IconButton } from 'toolkit/chakra/icon-button';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 
 interface Props {
-  onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   isActive: boolean;
   bg: string;
   value: string;
   label: string;
 }
 
-const SettingsSample = ({ label, value, bg, onClick, isActive }: Props) => {
-  const bgColor = { base: 'white', _dark: 'gray.900' };
-  const activeBgColor = { base: 'blue.50', _dark: 'whiteAlpha.100' };
-  const activeBorderColor = { base: 'blackAlpha.800', _dark: 'gray.50' };
-
-  return (
-    <Box p="9px" bgColor={ isActive ? activeBgColor : 'transparent' } borderRadius="base">
-      <Tooltip content={ label }>
-        <Box
-          bg={ bg }
-          boxSize="22px"
-          borderRadius="full"
-          borderWidth="1px"
-          borderColor={ isActive ? activeBgColor : bgColor }
-          position="relative"
-          cursor="pointer"
-          _before={{
-            position: 'absolute',
-            display: 'block',
-            boxSizing: 'content-box',
-            content: '""',
-            top: '-3px',
-            left: '-3px',
-            width: 'calc(100% + 2px)',
-            height: 'calc(100% + 2px)',
-            borderStyle: 'solid',
-            borderRadius: 'full',
-            borderWidth: '2px',
-            borderColor: isActive ? activeBorderColor : 'transparent',
-          }}
-          _hover={{
-            _before: {
-              borderColor: isActive ? activeBorderColor : 'hover',
-            },
-          }}
-          aria-current={ isActive ? 'true' : undefined }
-          data-value={ value }
-          onClick={ onClick }
-        />
-      </Tooltip>
-    </Box>
-  );
-};
+const SettingsSample = ({ label, value, bg, onClick, isActive }: Props) => (
+  <Tooltip content={ label }>
+    <IconButton minH="touchTarget" minW="touchTarget"
+      type="button"
+      variant="plain"
+      aria-label={ label }
+      aria-pressed={ isActive }
+      aria-current={ isActive ? 'true' : undefined }
+      data-value={ value }
+      onClick={ onClick }
+      borderRadius="control"
+      bg={ isActive ? 'accent.soft' : 'transparent' }
+      _hover={{ bg: 'accent.soft' }}
+    >
+      <Box
+        aria-hidden="true"
+        bg={ bg }
+        boxSize={ 6 }
+        borderRadius="full"
+        borderWidth="var(--chakra-border-widths-2)"
+        borderColor={ isActive ? 'accent' : 'border.strong' }
+      />
+    </IconButton>
+  </Tooltip>
+);
 
 export default React.memo(SettingsSample);

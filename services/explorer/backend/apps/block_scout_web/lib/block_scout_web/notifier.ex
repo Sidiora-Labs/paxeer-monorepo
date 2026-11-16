@@ -543,7 +543,7 @@ defmodule BlockScoutWeb.Notifier do
 
   @spec endpoint_pubsub_running?() :: boolean()
   def endpoint_pubsub_running? do
-    is_pid(Process.whereis(BlockScoutWeb.PubSub))
+    is_pid(Process.whereis(Endpoint)) && is_pid(Process.whereis(BlockScoutWeb.PubSub))
   end
 
   @doc """

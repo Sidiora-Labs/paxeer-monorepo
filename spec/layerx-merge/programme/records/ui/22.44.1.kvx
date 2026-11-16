@@ -1,0 +1,93 @@
+[manifest]
+task = "22.44.1"
+surface = "Paxscan explorer theme, global styles and reusable components"
+paths = ["apps/explorer/toolkit/theme", "apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components", "apps/explorer/nextjs", "apps/explorer/configs/envs"]
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/nextjs"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components", "apps/explorer/nextjs"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components", "apps/explorer/toolkit/theme"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components/forms"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/toolkit/chakra", "apps/explorer/nextjs"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/nextjs"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/toolkit/chakra", "apps/explorer/nextjs"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components/charts", "apps/explorer/toolkit/components/loaders"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/toolkit/chakra", "apps/explorer/nextjs"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/toolkit/theme/recipes", "apps/explorer/toolkit/chakra/table.tsx"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/toolkit/theme/recipes/dialog.recipe.ts", "apps/explorer/toolkit/chakra/dialog.tsx"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/toolkit/theme/recipes/menu.recipe.ts", "apps/explorer/toolkit/chakra/menu.tsx"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/explorer/toolkit/theme/recipes/tabs.recipe.ts", "apps/explorer/toolkit/chakra/tabs.tsx"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/toolkit/theme/recipes/accordion.recipe.ts", "apps/explorer/toolkit/chakra/accordion.tsx"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/explorer/toolkit/theme/recipes/spinner.recipe.ts", "apps/explorer/toolkit/chakra/progress.tsx"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/explorer/toolkit/theme/foundations/typography.ts", "apps/explorer/nextjs/global.css"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/toolkit/theme", "apps/explorer/nextjs"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components"]
+
+[guide.dark_mode_toggle]
+id = "dark-mode-toggle"
+directories = ["apps/explorer/toolkit/chakra/color-mode.tsx"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/toolkit/chakra", "apps/explorer/toolkit/components"]
+

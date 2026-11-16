@@ -52,14 +52,14 @@ export const recipe = defineSlotRecipe({
         root: {
           flexDirection: 'column',
           alignItems: 'flex-start',
-          rowGap: '12px',
+          rowGap: 'var(--chakra-spacing-3)',
         },
       },
       horizontal: {
         root: {
           flexDirection: 'row',
           alignItems: 'center',
-          columnGap: '32px',
+          columnGap: 'var(--chakra-spacing-8)',
         },
       },
     },

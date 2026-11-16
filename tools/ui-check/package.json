@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "axe-core": "4.11.0",
-    "playwright": "1.65.1"
+    "playwright": "1.65.1",
+    "pngjs": "7.0.0"
   }
 }

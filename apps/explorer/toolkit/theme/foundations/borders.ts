@@ -16,4 +16,14 @@ export const radii: ExcludeUndefined<ThemingConfig['tokens']>['radii'] = {
   control: { value: '6px' },
   card: { value: '8px' },
   pill: { value: '999px' },
+  indicator: { value: '0.125rem' },
+  scrollbar: { value: '1.25rem' },
 };
+
+export const borderWidths = {
+  '0': { value: '0px' },
+  '1': { value: '1px' },
+  '2': { value: '2px' },
+  '3': { value: '3px' },
+  '8': { value: '8px' },
+} as const;

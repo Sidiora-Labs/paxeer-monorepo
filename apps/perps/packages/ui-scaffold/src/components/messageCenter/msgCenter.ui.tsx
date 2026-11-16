@@ -1,20 +1,14 @@
+import { SimpleDialog } from "../../../../ui-connector/src/platformOverlays";
+import {
+  PopoverRoot,
+  PopoverTrigger,
+  PopoverContent,
+  Tooltip,
+} from "../../../../ui-connector/src/platformOverlays";
 import { FC, useMemo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { API } from "@paxeer-network/types";
-import {
-  BellIcon,
-  DialogHeader,
-  DialogBody,
-  DialogContent,
-  Dialog,
-  Popover,
-  Divider,
-  DialogTitle,
-  TooltipProvider,
-  TooltipRoot,
-  TooltipTrigger,
-  TooltipContent,
-} from "@paxeer-network/ui";
+import { BellIcon } from "@paxeer-network/ui";
 import { AnnouncementCenterUI } from "@paxeer-network/ui-notification";
 import { useScaffoldContext } from "../scaffold";
 
@@ -49,68 +43,60 @@ export const MessageCenter: FC<{
   return (
     <>
       {!!maintenanceDialogInfo && (
-        <Dialog open>
-          <DialogContent
-            closable={false}
-            onOpenAutoFocus={(event) => event.preventDefault()}
-            className="oui-w-[320px] lg:oui-w-auto"
-          >
-            <DialogHeader>
-              <DialogTitle>{t("maintenance.dialog.title")}</DialogTitle>
-            </DialogHeader>
-            <Divider />
-            <DialogBody className="oui-text-2xs lg:oui-text-xs">
-              {maintenanceDialogInfo}
-            </DialogBody>
-          </DialogContent>
-        </Dialog>
+        <SimpleDialog
+          open
+          closable={false}
+          title={t("maintenance.dialog.title")}
+          classNames={{ content: "oui-w-80 lg:oui-w-auto" }}
+        >
+          {maintenanceDialogInfo}
+        </SimpleDialog>
       )}
-      <TooltipProvider delayDuration={250}>
-        {/* When the Popover is open, force Tooltip closed to avoid dual overlays */}
-        <TooltipRoot open={popoverOpen ? false : undefined}>
-          <Popover
-            open={popoverOpen}
-            onOpenChange={(open) => {
-              setPopoverOpen(open);
-              if (open) {
-                closeTips();
-              }
-            }}
-            arrow
-            content={
-              <AnnouncementCenterUI
-                dataSource={messages}
-                onItemClick={onItemClick}
+      <PopoverRoot
+        open={popoverOpen}
+        onOpenChange={(open) => {
+          setPopoverOpen(open);
+          if (open) {
+            closeTips();
+          }
+        }}
+      >
+        <Tooltip
+          open={popoverOpen ? false : undefined}
+          content={t("ui.messageCenter.tooltip")}
+          delayDuration={250}
+        >
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={t("ui.messageCenter.tooltip")}
+              className="oui-relative oui-shell-icon-button"
+            >
+              <BellIcon
+                color="white"
+                opacity={0.8}
+                size={20}
+                viewBox="0 0 20 20"
+                className="hover:oui-opacity-100"
               />
-            }
-            contentProps={{
-              align: "end",
-              className: "oui-w-[360px] oui-shadow-xl oui-p-0",
-            }}
-          >
-            {/* Stack TooltipTrigger and PopoverTrigger (via Popover's asChild) on the same element */}
-            <TooltipTrigger asChild>
-              <div className="oui-relative oui-flex oui-cursor-pointer oui-items-center oui-justify-center">
-                <BellIcon
-                  color="white"
-                  opacity={0.8}
-                  size={20}
-                  viewBox="0 0 20 20"
-                  className="hover:oui-opacity-100"
-                />
-                {messageSize > 0 && showAnnouncement && (
-                  <div className="oui-absolute -oui-end-[6px] -oui-top-[6px] oui-flex oui-size-4 oui-items-center oui-justify-center oui-rounded-full oui-bg-primary-darken oui-text-[10px] oui-leading-none oui-text-primary-contrast">
-                    {messageSize}
-                  </div>
-                )}
-              </div>
-            </TooltipTrigger>
-          </Popover>
-          <TooltipContent side="bottom">
-            {t("ui.messageCenter.tooltip")}
-          </TooltipContent>
-        </TooltipRoot>
-      </TooltipProvider>
+              {messageSize > 0 && showAnnouncement && (
+                <div className="oui-absolute oui-end-0 oui-top-0 oui-flex oui-size-4 oui-items-center oui-justify-center oui-rounded-full oui-bg-primary-darken oui-text-3xs oui-leading-none oui-text-primary-contrast">
+                  {messageSize}
+                </div>
+              )}
+            </button>
+          </PopoverTrigger>
+        </Tooltip>
+        <PopoverContent
+          align="end"
+          className="oui-shell-overlay oui-w-96 oui-shadow-lg oui-p-0"
+        >
+          <AnnouncementCenterUI
+            dataSource={messages}
+            onItemClick={onItemClick}
+          />
+        </PopoverContent>
+      </PopoverRoot>
     </>
   );
 };

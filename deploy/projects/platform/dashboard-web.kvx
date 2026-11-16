@@ -14,9 +14,12 @@ needs = []
 PORT = "3000"
 DASHBOARD_API_ORIGIN = "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN"
 DASHBOARD_GATEWAY_ORIGIN = "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN"
+DASHBOARD_GATEWAY_TENANT = "env:PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT"
 
 [inputs.dashboard-web]
 # Dashboard API origin compiled into the production rewrite as an absolute HTTP(S) origin.
 PLATFORM_DASHBOARD_WEB_DASHBOARD_API_ORIGIN = "operator"
 # Hosted gateway origin called by the web for sign-in, as an absolute HTTP(S) origin.
 PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_ORIGIN = "operator"
+# Hosted gateway tenant: one to 95 characters from lower case letters, digits, dot, underscore and hyphen.
+PLATFORM_DASHBOARD_WEB_DASHBOARD_GATEWAY_TENANT = "operator"

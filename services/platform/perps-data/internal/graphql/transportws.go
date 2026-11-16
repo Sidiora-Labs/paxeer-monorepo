@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -37,8 +38,9 @@ const (
 // acknowledged within 10 seconds, every subscribe runs on Feed, and one
 // socket multiplexes up to 100 subscriptions by id.
 type TransportWS struct {
-	Schema *graphql.Schema
-	Feed   *Feed
+	Schema         *graphql.Schema
+	Feed           *Feed
+	AllowedOrigins []string
 }
 
 // Upgrade serves the websocket upgrades of a route with t and every other
@@ -63,7 +65,11 @@ func (t *TransportWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "graphql subscriptions are not configured", http.StatusServiceUnavailable)
 		return
 	}
-	conn, err := transportUpgrader.Upgrade(w, r, nil)
+	upgrader := transportUpgrader
+	upgrader.CheckOrigin = func(r *http.Request) bool {
+		return len(t.AllowedOrigins) == 0 || r.Header.Get("Origin") == "" || slices.Contains(t.AllowedOrigins, r.Header.Get("Origin"))
+	}
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}

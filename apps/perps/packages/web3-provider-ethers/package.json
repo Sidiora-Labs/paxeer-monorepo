@@ -6,8 +6,7 @@
   "module": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "tsup",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsup"
   },
   "keywords": [],
   "files": [

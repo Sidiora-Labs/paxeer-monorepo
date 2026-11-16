@@ -36,7 +36,7 @@ const AdaptiveTabsMenu = ({ tabs, tabsCut, isActive, ...props }: Props, ref: Rea
           }}
           ref={ ref }
           expanded={ isActive }
-          px="18px"
+          px={ 'var(--chakra-spacing-4\\.5)' }
           aria-label="Open tabs menu"
           { ...props }
         >
@@ -54,7 +54,7 @@ const AdaptiveTabsMenu = ({ tabs, tabsCut, isActive, ...props }: Props, ref: Rea
                   className="group"
                   value={ value }
                   w="100%"
-                  py="5px"
+                  py={ 'var(--chakra-spacing-1\\.25)' }
                   borderRadius="none"
                   fontWeight="normal"
                   color="tabs.solid.fg"

@@ -36,7 +36,7 @@ export const BaseReminder: FC<BaseReminderProps> = ({
   return (
     <Box
       className={cn(
-        "oui-border-[0.5px] oui-border-primary oui-bg-primary/[0.12]",
+        "oui-border oui-border-primary oui-bg-primary/[0.12]",
         className,
       )}
       px={3}
@@ -58,7 +58,7 @@ export const BaseReminder: FC<BaseReminderProps> = ({
             {t("transfer.deposit.yieldReminder.earnRewards")}
           </Text>
         )}
-        <Text size="2xs" intensity={54} className="oui-font-normal">
+        <Text size="2xs" intensity={80} className="oui-font-normal">
           {t("transfer.deposit.yieldReminder.distribution")}
         </Text>
       </Flex>
@@ -68,7 +68,7 @@ export const BaseReminder: FC<BaseReminderProps> = ({
         {formattedAPY !== null && (
           <Flex gap={1}>
             <TooltipIcon />
-            <Text size="2xs" intensity={36} className="oui-font-normal">
+            <Text size="2xs" intensity={80} className="oui-font-normal">
               {t("transfer.deposit.yieldReminder.disclaimer")}
             </Text>
           </Flex>
@@ -79,7 +79,7 @@ export const BaseReminder: FC<BaseReminderProps> = ({
             href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="oui-inline-flex oui-items-center oui-gap-[2px]  oui-font-normal oui-no-underline oui-transition-opacity hover:oui-opacity-80"
+            className="oui-inline-flex oui-items-center oui-gap-0.5  oui-font-normal oui-no-underline oui-transition-opacity hover:oui-opacity-80"
           >
             {t("common.details")}
             <svg
@@ -87,7 +87,7 @@ export const BaseReminder: FC<BaseReminderProps> = ({
               height="14"
               viewBox="0 0 14 14"
               fill="none"
-              className="oui-text-base-contrast-54"
+              className="oui-text-base-contrast-80"
               xmlns="http://www.w3.org/2000/svg"
             >
               <path

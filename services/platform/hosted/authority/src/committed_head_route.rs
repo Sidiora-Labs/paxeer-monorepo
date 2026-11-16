@@ -63,3 +63,30 @@ pub fn route(
     }
     Some((200, document))
 }
+
+/// Serves the committed native state coordinates available from the node.
+pub fn node(rpc_url: &str, query: Option<&str>) -> layerx_platform_authority::Response {
+    use layerx_platform_authority::{committed::CommittedHeader, hex, json as response, refusal};
+    let height = match query {
+        None => None,
+        Some(query) => {
+            let Some(height) = query.strip_prefix("height=").and_then(|text| {
+                text.parse::<u64>()
+                    .ok()
+                    .filter(|value| *value != 0 && value.to_string() == text)
+            }) else {
+                return refusal(400, "invalid_height", None);
+            };
+            Some(height)
+        }
+    };
+    match CommittedHeader::open_at(rpc_url, height) {
+        Ok(head) => response(
+            200,
+            &json!({"height": head.height.to_string(),
+            "block_hash": hex::encode(&head.block_hash), "state_root": hex::encode(&head.app_hash),
+            "commitment": "native_app_hash"}),
+        ),
+        Err(_) => refusal(503, "committed_head_unavailable", None),
+    }
+}

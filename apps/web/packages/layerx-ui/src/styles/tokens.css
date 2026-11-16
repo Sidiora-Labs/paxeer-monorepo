@@ -290,6 +290,8 @@
   .lx-disclosure-grid { display: grid; transition: grid-template-rows var(--duration-slow) var(--ease-standard); }
   .lx-disclosure-open { grid-template-rows: 1fr; }
   .lx-disclosure-closed { grid-template-rows: 0fr; }
+  .lx-disclosure-closed > * { visibility: hidden; }
+  .lx-disclosure-open > * { visibility: visible; }
   .lx-sheet-content { max-height: calc(100dvh - env(safe-area-inset-top)); }
   .lx-search-list { max-height: var(--search-list-max-height); }
   .lx-notification-list { max-height: var(--notification-list-max-height); }

@@ -20,6 +20,14 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 OWNED_PATHS = (
     "apps/perps/deploy/README.md",
+    "apps/perps/deploy/docker-compose.yml",
+    "apps/perps/deploy/.env.production.example",
+    "apps/perps/deploy/build-args.production.env",
+    "apps/perps/Dockerfile",
+    "apps/perps/railway.json",
+    "apps/perps/vercel.json",
+    "apps/perps/apps/web/next.config.js",
+    "apps/perps/apps/web/src/pages/api",
     "deploy/launchpad/railway-values.json",
     "deploy/launchpad/railway/variables.json",
     "docker/localnode/config/config.toml",

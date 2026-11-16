@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scrollable row</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  #row { overflow-x: auto; }
+  #track { width: calc(100vw + 160px); }
+  #nested { overflow-x: scroll; }
+  #content { width: calc(100vw + 320px); }
+</style>
+<body>
+<div id="row"><div id="track"><p>Row content</p><div id="nested"><p id="content">Nested row content</p></div></div></div>
+<script>
+  const parameters = new URLSearchParams(location.search);
+  if (parameters.has("unscrolled")) document.getElementById("row").style.overflowX = "visible";
+  if (parameters.has("wide")) document.getElementById("row").style.width = "calc(100vw + 48px)";
+</script>
+</body>
+</html>

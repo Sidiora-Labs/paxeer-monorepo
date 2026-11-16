@@ -18,7 +18,7 @@ export const useColumns = () => {
       {
         title: t("common.token"),
         dataIndex: "token",
-        width: 80,
+
         render(val: string) {
           return (
             <Flex gapX={2}>
@@ -31,7 +31,7 @@ export const useColumns = () => {
       {
         title: t("common.time"),
         dataIndex: "updated_time",
-        width: 120,
+
         rule: "date",
       },
       {
@@ -77,7 +77,7 @@ export const useColumns = () => {
       {
         title: t("common.status"),
         dataIndex: "status",
-        width: 120,
+
         render(val: string) {
           return capitalizeString(val);
         },
@@ -85,7 +85,6 @@ export const useColumns = () => {
       {
         title: t("common.amount"),
         dataIndex: "amount",
-        width: 80,
       },
     ];
   }, [t, state.mainAccountId, sub]);

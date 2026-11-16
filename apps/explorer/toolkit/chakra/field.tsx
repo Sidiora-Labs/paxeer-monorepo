@@ -41,7 +41,7 @@ export const Field = React.forwardRef<HTMLDivElement, FieldProps>(
           { label }
           <ChakraField.RequiredIndicator fallback={ optionalText }/>
           { errorText && (
-            <ChakraField.ErrorText ml="2px">-{ space }{ errorText }</ChakraField.ErrorText>
+            <ChakraField.ErrorText ml={ 'var(--chakra-spacing-0\\.5)' }>-{ space }{ errorText }</ChakraField.ErrorText>
           ) }
         </ChakraField.Label>
       );

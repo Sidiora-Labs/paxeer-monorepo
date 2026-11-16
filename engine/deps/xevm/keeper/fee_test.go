@@ -190,7 +190,7 @@ func TestGetDynamicBaseFeePerGasWithNilMinFee(t *testing.T) {
 	require.Nil(t, store.Get(types.NextBaseFeePerGasPrefix))
 
 	fee := k.GetNextBaseFeePerGas(ctx)
-	require.Equal(t, types.DefaultParams().MinimumFeePerGas, fee)
+	require.Equal(t, sdk.NewDec(67_000_000), fee)
 	require.False(t, fee.IsNil())
 
 	// A stored next fee takes precedence even with a missing minimum parameter.
@@ -213,6 +213,6 @@ func TestGetPrevBlockBaseFeePerGasWithNilMinFee(t *testing.T) {
 	require.Nil(t, store.Get(types.NextBaseFeePerGasPrefix))
 
 	fee := k.GetNextBaseFeePerGas(ctx)
-	require.Equal(t, types.DefaultParams().MinimumFeePerGas, fee)
+	require.Equal(t, sdk.NewDec(67_000_000), fee)
 	require.False(t, fee.IsNil())
 }

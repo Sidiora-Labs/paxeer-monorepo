@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useId, useMemo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { AnnouncementType, type API } from "@paxeer-network/types";
 import {
@@ -50,7 +50,7 @@ const NotificationHeader: FC<{
   current: number;
   expanded?: boolean;
   onExpandToggle?: () => void;
-  // onClose?: () => void;
+  contentId: string;
 }> = (props) => {
   const { t } = useTranslation();
   const { expanded } = props;
@@ -116,8 +116,12 @@ const NotificationHeader: FC<{
         {title}
       </div>
       <button
+        type="button"
+        aria-label={t("notification.generalTitle")}
+        aria-expanded={!!expanded}
+        aria-controls={props.contentId}
         onClick={props.onExpandToggle}
-        className="oui-transition-transform oui-duration-300"
+        className="oui-shell-icon-button oui-transition-transform oui-[transition-duration:var(--oui-duration-normal)]"
         style={{
           transform: !expanded ? "rotate(180deg)" : "rotate(0deg)",
         }}
@@ -145,24 +149,28 @@ const NotificationFooter: FC<{
     >
       <Flex gap={2}>
         <button
+          type="button"
+          aria-label="Previous announcement"
           disabled={current - 1 < 0}
           onClick={onPrev}
-          className="oui-flex oui-size-[18px] oui-items-center oui-justify-center oui-rounded-full oui-bg-base-6 hover:oui-bg-base-5 disabled:oui-opacity-50"
+          className="oui-shell-icon-button oui-rounded-full oui-bg-base-6 hover:oui-bg-base-5 disabled:oui-opacity-50"
         >
           <ChevronLeftIcon size={14} color="white" />
         </button>
-        <Text intensity={54} size="sm">
+        <Text intensity={80} size="sm">
           {current + 1}/{total}
         </Text>
         <button
+          type="button"
+          aria-label="Next announcement"
           disabled={current + 1 >= total}
           onClick={onNext}
-          className="oui-flex oui-size-[18px] oui-items-center oui-justify-center oui-rounded-full oui-bg-base-6 hover:oui-bg-base-5 disabled:oui-opacity-50"
+          className="oui-shell-icon-button oui-rounded-full oui-bg-base-6 hover:oui-bg-base-5 disabled:oui-opacity-50"
         >
           <ChevronRightIcon size={14} color="white" />
         </button>
       </Flex>
-      <button onClick={onCloseAll}>
+      <button type="button" className="oui-shell-action" onClick={onCloseAll}>
         <Text size="xs" color="primary">
           {t("notification.closeAll", { total })}
         </Text>
@@ -180,7 +188,9 @@ const NotificationContent: FC<{
   onItemClick: (url: string) => void;
 }> = (props) => {
   const elements = useMemo(() => {
-    return props.dataSource.map((message) => {
+    const message = props.dataSource[props.current];
+    if (!message) return null;
+    return (() => {
       const { type } = message;
       switch (type) {
         case AnnouncementType.Campaign:
@@ -224,9 +234,9 @@ const NotificationContent: FC<{
             />
           );
       }
-    });
-  }, [props.dataSource]);
-  return <>{elements[props.current]}</>;
+    })();
+  }, [props.dataSource, props.current, props.onItemClick]);
+  return <>{elements}</>;
 };
 
 export const NotificationUI: FC<
@@ -237,7 +247,12 @@ export const NotificationUI: FC<
 > = (props) => {
   const [expanded, setExpanded] = useState(true);
 
-  const [current, setCurrent] = useState(0);
+  const [selectedIndex, setCurrent] = useState(0);
+  const current = Math.min(
+    selectedIndex,
+    Math.max(0, props.dataSource.length - 1),
+  );
+  const contentId = useId();
   const len = useMemo(() => props.dataSource?.length ?? 0, [props.dataSource]);
 
   if (len === 0) {
@@ -247,6 +262,7 @@ export const NotificationUI: FC<
   return (
     <div className="paxeer-network-notification oui-w-full ">
       <NotificationHeader
+        contentId={contentId}
         dataSource={props.dataSource ?? []}
         current={current}
         expanded={expanded}
@@ -255,21 +271,13 @@ export const NotificationUI: FC<
         }}
       />
       <Divider className="oui-mx-4" />
-      <div
-        className="oui-grid oui-transition-all oui-duration-300 oui-ease-in-out"
-        style={{
-          gridTemplateRows: expanded ? "1fr" : "0fr",
-        }}
-      >
-        {/* Inner div needs overflow-hidden and min-height-0 for grid animation to work */}
-        <div className="oui-min-h-0 oui-overflow-hidden ">
-          <div className="oui-px-4 oui-py-3">
-            <NotificationContent
-              dataSource={props.dataSource ?? []}
-              current={current}
-              onItemClick={props.onItemClick}
-            />
-          </div>
+      <div id={contentId} hidden={!expanded}>
+        <div className="oui-px-4 oui-py-3 oui-break-words">
+          <NotificationContent
+            dataSource={props.dataSource}
+            current={current}
+            onItemClick={props.onItemClick}
+          />
         </div>
       </div>
 

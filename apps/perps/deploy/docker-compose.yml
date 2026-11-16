@@ -1,0 +1,121 @@
+# Hyperpax-UI production stack.
+#
+# Two services:
+#   - app:   Next.js standalone server, internal only (no host port published).
+#   - nginx: TLS terminator + reverse proxy. Publishes 80 and 443 on the host.
+#
+# Networking model:
+#   - app and nginx share a private bridge network. nginx → app via DNS name "app".
+#   - app is never reachable from outside the host. Only nginx is.
+#   - 80 always 301-redirects to 443; nginx enforces this.
+#
+# Restart policy:
+#   - `unless-stopped` lets you `docker compose down` to stop the stack
+#     intentionally; otherwise containers come back across reboots.
+#
+# Logging:
+#   - JSON log driver capped at 50 MB × 5 files per container (~250 MB max each).
+#     Prevents a misbehaving service from filling the NVMe with logs.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      # Public values are embedded in the bundle; changing them requires a build.
+      args:
+        NEXT_PUBLIC_AUTH_REDIRECT_URL: ${NEXT_PUBLIC_AUTH_REDIRECT_URL:-}
+        NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS: ${NEXT_PUBLIC_DIRECT_PRICE_FEED_ORIGINS:-}
+        NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE: ${NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE:-}
+        NEXT_PUBLIC_LOG_LEVEL: ${NEXT_PUBLIC_LOG_LEVEL:-}
+        NEXT_PUBLIC_PAXEER_RPC_URL: ${NEXT_PUBLIC_PAXEER_RPC_URL:-}
+        NEXT_PUBLIC_PAXEER_RPC_URLS: ${NEXT_PUBLIC_PAXEER_RPC_URLS:-}
+        NEXT_PUBLIC_PAXEER_WALLET_API: ${NEXT_PUBLIC_PAXEER_WALLET_API:-}
+        NEXT_PUBLIC_PAXSCAN_API_URL: ${NEXT_PUBLIC_PAXSCAN_API_URL:-}
+        NEXT_PUBLIC_PAXSCAN_BASE_URL: ${NEXT_PUBLIC_PAXSCAN_BASE_URL:-}
+        NEXT_PUBLIC_PAXSCAN_WS_URL: ${NEXT_PUBLIC_PAXSCAN_WS_URL:-}
+        NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE: ${NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE:-}
+        NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE: ${NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE:-}
+        NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE: ${NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE:-}
+        NEXT_PUBLIC_PECOR_STOP_PRECOMPILE: ${NEXT_PUBLIC_PECOR_STOP_PRECOMPILE:-}
+        NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE: ${NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE:-}
+        NEXT_PUBLIC_PERPS_GATEWAY_URL: ${NEXT_PUBLIC_PERPS_GATEWAY_URL:?Set the public gateway origin}
+        NEXT_PUBLIC_PERPS_PRECOMPILE: ${NEXT_PUBLIC_PERPS_PRECOMPILE:-}
+        NEXT_PUBLIC_RELEASE: ${NEXT_PUBLIC_RELEASE:-}
+        NEXT_PUBLIC_RELEASE_SPOT_OPEN: ${NEXT_PUBLIC_RELEASE_SPOT_OPEN:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SENTRY_ENV: ${NEXT_PUBLIC_SENTRY_ENV:-}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_WALLET_IFRAME_ORIGIN: ${NEXT_PUBLIC_WALLET_IFRAME_ORIGIN:-}
+    image: perps-ui:${BUILD_COMMIT_SHA:?Set BUILD_COMMIT_SHA to the image revision}
+    container_name: hyperpax-app
+    restart: unless-stopped
+    # Compose interpolates the operator's --env-file into the server environment.
+    # Recreate this container to apply edits; restart preserves the old values.
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      PRICE_FEED_ORIGIN: ${PRICE_FEED_ORIGIN:-https://data.feed.chainflowtrading.com}
+      PRICE_FEED_REST_API_KEY: ${PRICE_FEED_REST_API_KEY:-}
+      PRICE_FEED_WS_API_KEY: ${PRICE_FEED_WS_API_KEY:-}
+      CANDLE_TRUSTED_PROXY_IPS: ${CANDLE_TRUSTED_PROXY_IPS:-}
+      PRESENCE_TRUSTED_PROXY_IPS: ${PRESENCE_TRUSTED_PROXY_IPS:-}
+      MARKET_PROXY_ORIGIN: ${MARKET_PROXY_ORIGIN:?Set the bare HTTP(S) proxy origin}
+      VERCEL_GIT_COMMIT_SHA: ${BUILD_COMMIT_SHA:?Set BUILD_COMMIT_SHA to the image revision}
+    networks:
+      - internal
+    # The Dockerfile supplies /api/build-id health checks; no host port is needed.
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "4.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: hyperpax-nginx
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Main nginx config + per-site config.
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # TLS certificates. Mount the directory rather than individual
+      # files so cert rotation doesn't require recreating the container.
+      - ./nginx/certs:/etc/nginx/certs:ro
+      # Let's Encrypt certificates — full /etc/letsencrypt so symlinks in
+      # live/ resolve correctly to archive/. Certbot on the host writes here;
+      # nginx in the container reads it. renewal-hook reloads nginx on renew.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      # Certbot webroot for HTTP-01 ACME challenge (certbot --webroot -w ...)
+      - ./nginx/certbot-webroot:/var/www/certbot:ro
+      # DH parameters (4096-bit, generated by docker-deploy.sh)
+      - ./nginx/dhparam.pem:/etc/nginx/dhparam.pem:ro
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "2.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+networks:
+  internal:
+    driver: bridge

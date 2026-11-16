@@ -18,7 +18,7 @@ export const SwapFee: FC<SwapFeeProps> = (props) => {
           return (
             <Box key={index}>
               <Flex gapX={1}>
-                <Text intensity={54}>{item.title}:</Text>
+                <Text intensity={80}>{item.title}:</Text>
                 {/* TODO: format price in data */}
                 <Text
                   intensity={80}
@@ -28,11 +28,11 @@ export const SwapFee: FC<SwapFeeProps> = (props) => {
                 >
                   {item.value}
                 </Text>
-                <Text intensity={54}>{item.symbol}</Text>
+                <Text intensity={80}>{item.symbol}</Text>
               </Flex>
 
               <Box mt={2}>
-                <Text intensity={36}>{item.description}</Text>
+                <Text intensity={80}>{item.description}</Text>
               </Box>
 
               {!isEnd && (
@@ -58,7 +58,7 @@ export const SwapFee: FC<SwapFeeProps> = (props) => {
 
     const list = feeQtys.map((item, index) => {
       return (
-        <Text intensity={54} key={index}>
+        <Text intensity={80} key={index}>
           <Text.numeral dp={item.dp} padding={false} rm={Decimal.ROUND_UP}>
             {item.value}
           </Text.numeral>
@@ -82,21 +82,27 @@ export const SwapFee: FC<SwapFeeProps> = (props) => {
 
   return (
     <Text
+      asChild
       size="xs"
-      intensity={36}
+      intensity={80}
       className="oui-cursor-pointer oui-border-b oui-border-dashed oui-border-line-12"
-      onClick={onShowFee}
     >
-      {`${t("common.fee")} ≈ `}
-      <Text size="xs" intensity={80}>
-        $
-        <Text.numeral dp={2} padding={false} rm={Decimal.ROUND_UP}>
-          {feeAmount}
-        </Text.numeral>
-        {` `}
-      </Text>
+      <button
+        type="button"
+        onClick={onShowFee}
+        className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+      >
+        {`${t("common.fee")} ≈ `}
+        <Text size="xs" intensity={80}>
+          $
+          <Text.numeral dp={2} padding={false} rm={Decimal.ROUND_UP}>
+            {feeAmount}
+          </Text.numeral>
+          {` `}
+        </Text>
 
-      {renderFeeQty()}
+        {renderFeeQty()}
+      </button>
     </Text>
   );
 };

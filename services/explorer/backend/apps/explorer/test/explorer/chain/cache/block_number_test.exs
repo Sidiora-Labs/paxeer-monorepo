@@ -5,9 +5,13 @@ defmodule Explorer.Chain.Cache.BlockNumberTest do
 
   setup do
     Application.put_env(:explorer, Explorer.Chain.Cache.BlockNumber, enabled: true)
+    Supervisor.terminate_child(Explorer.Supervisor, BlockNumber.child_id())
+    Supervisor.restart_child(Explorer.Supervisor, BlockNumber.child_id())
 
     on_exit(fn ->
       Application.put_env(:explorer, Explorer.Chain.Cache.BlockNumber, enabled: false)
+      Supervisor.terminate_child(Explorer.Supervisor, BlockNumber.child_id())
+      Supervisor.restart_child(Explorer.Supervisor, BlockNumber.child_id())
     end)
   end
 

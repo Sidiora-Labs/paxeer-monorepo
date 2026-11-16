@@ -228,3 +228,33 @@ func TestDeliveryInventoryBindingValidated(t *testing.T) {
 		t.Fatal("inventory subject approved without a generation")
 	}
 }
+
+func TestDeliveryDeploymentIdentityMatchesManifestVersionRule(t *testing.T) {
+	parameters := DefaultDeliveryParameters()
+	parameters.MaxDeliveryLagMS = 60000
+	docs, err := RenderRuntimeDocuments(renderInputs(t), parameters)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rendered deliveryRuntimeDocument
+	if err := json.Unmarshal(docs["delivery.json"].Bytes, &rendered); err != nil {
+		t.Fatal(err)
+	}
+	if err := rendered.validateIdentity(); err != nil {
+		t.Fatalf("rendered deployment identity refused: %v", err)
+	}
+	for _, version := range []string{"a", "a.b", string([]byte{'a'}) + strings.Repeat("-", 95)} {
+		candidate := rendered
+		candidate.DeploymentID = version
+		if err := candidate.validateIdentity(); err != nil {
+			t.Fatalf("manifest version %q refused: %v", version, err)
+		}
+	}
+	for _, version := range []string{"", "a b", "a/b", ".a", "_a", strings.Repeat("a", 97)} {
+		candidate := rendered
+		candidate.DeploymentID = version
+		if err := candidate.validateIdentity(); err == nil {
+			t.Fatalf("invalid manifest version %q admitted", version)
+		}
+	}
+}
