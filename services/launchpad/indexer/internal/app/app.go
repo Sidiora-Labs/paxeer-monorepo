@@ -197,21 +197,26 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	st := store.New(pool)
 	pub := publisher.New(publisher.Options{Logger: logger, Redis: rdb})
+	canonicalReadTimeout, err := cfg.CanonicalReadTimeout()
+	if err != nil {
+		return nil, err
+	}
 
 	deps := processor.Deps{
-		Source:              sources.Log,
-		Head:                sources.Head,
-		Store:               st,
-		Publisher:           pub,
-		Decoder:             decode.NewDecoder(),
-		NFT:                 nftReader,
-		EventEmitterAddress: cfg.EventEmitterAddress,
-		ChainID:             cfgChainIDInt32,
-		StartBlock:          cfg.IndexerStartBlock,
-		BatchSize:           cfg.IndexerBatchSize,
-		Concurrency:         cfg.IndexerConcurrency,
-		PollInterval:        time.Duration(cfg.IndexerPollIntervalMS) * time.Millisecond,
-		Logger:              logger,
+		Source:               sources.Log,
+		Head:                 sources.Head,
+		Store:                st,
+		Publisher:            pub,
+		Decoder:              decode.NewDecoder(),
+		NFT:                  nftReader,
+		EventEmitterAddress:  cfg.EventEmitterAddress,
+		ChainID:              cfgChainIDInt32,
+		StartBlock:           cfg.IndexerStartBlock,
+		BatchSize:            cfg.IndexerBatchSize,
+		Concurrency:          cfg.IndexerConcurrency,
+		PollInterval:         time.Duration(cfg.IndexerPollIntervalMS) * time.Millisecond,
+		CanonicalReadTimeout: canonicalReadTimeout,
+		Logger:               logger,
 	}
 	var runtimeRPC *ethclient.Client
 	var runtimeRPCClose func()
@@ -506,7 +511,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			persistentPublisher = fixturePublishBarrier{Publisher: brokerPublisher, Path: cfg.FixturePubAckBarrier}
 		}
 		relay = &delivery.Relay{Store: durable, Publisher: persistentPublisher, Owner: d.Owner, Batch: 32, LeaseDuration: 30 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 5}
-		replay = &processor.ReplayRunner{Store: st, Source: historicalQualified, Deliveries: durable, Owner: d.Owner, DeliverySchema: d.Schema, BatchSize: lifecycle.ReplayBatchSize}
+		replay = &processor.ReplayRunner{Store: st, Source: historicalQualified, Deliveries: durable, Owner: d.Owner, DeliverySchema: d.Schema, BatchSize: lifecycle.ReplayBatchSize, ReadTimeout: canonicalReadTimeout}
 		if lifecycle.Archive.Enabled {
 			catalog := doc.Production.CatalogJSON
 			if doc.Realm == valuePrivateFixture {

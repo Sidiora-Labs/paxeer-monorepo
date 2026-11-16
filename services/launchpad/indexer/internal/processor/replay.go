@@ -39,6 +39,9 @@ type ReplayRunner struct {
 	Archive               *Archive
 	Owner, DeliverySchema string
 	BatchSize             int
+	// ReadTimeout bounds one replay source read. The replay lease is renewed
+	// while the read is active.
+	ReadTimeout time.Duration
 }
 
 func (r *ReplayRunner) validate() error {
@@ -46,6 +49,56 @@ func (r *ReplayRunner) validate() error {
 		return errors.New("replay requires actual guarded store, qualified source, durable outbox and bounded owner configuration")
 	}
 	return nil
+}
+
+const replayLeaseRenewInterval = 10 * time.Second
+
+func (r *ReplayRunner) fetchWithLease(ctx context.Context, job store.ReplayJob, request store.ReplayRequest, from, to int64) (store.ReplaySegment, store.ReplayJob, error) {
+	readTimeout := r.ReadTimeout
+	if readTimeout <= 0 {
+		readTimeout = 120 * time.Second
+	}
+	readCtx, cancel := context.WithTimeout(ctx, readTimeout)
+	defer cancel()
+	type result struct {
+		segment store.ReplaySegment
+		err     error
+	}
+	readDone := make(chan result, 1)
+	go func() {
+		var segment store.ReplaySegment
+		var err error
+		if request.Mode == valueReconstruct {
+			if r.Archive == nil {
+				err = errors.New("archive provider unavailable")
+			} else {
+				segment, err = r.Archive.Restore(readCtx, request.SourceStream, from, to)
+			}
+		} else {
+			segment, err = r.fetch(readCtx, request, from, to)
+		}
+		readDone <- result{segment: segment, err: err}
+	}()
+	ticker := time.NewTicker(replayLeaseRenewInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case done := <-readDone:
+			return done.segment, job, done.err
+		case <-ticker.C:
+			renewed, err := r.Store.AcquireReplay(ctx, job.Request.JobID, r.Owner, 30*time.Second)
+			if err != nil {
+				cancel()
+				<-readDone
+				return store.ReplaySegment{}, job, err
+			}
+			job = renewed
+		case <-ctx.Done():
+			cancel()
+			<-readDone
+			return store.ReplaySegment{}, job, ctx.Err()
+		}
+	}
 }
 func qualifiedSegment(ctx context.Context, stream string, b store.CanonicalBatch, receipts []*receipt.QualifiedReceipt) (store.ReplaySegment, error) {
 	var segment store.ReplaySegment
@@ -179,7 +232,7 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 	if err != nil {
 		return err
 	}
-	checkpoint, err := r.fetch(ctx, request, request.CheckpointHeight, request.CheckpointHeight)
+	checkpoint, active, err := r.fetchWithLease(ctx, active, request, request.CheckpointHeight, request.CheckpointHeight)
 	if err != nil {
 		return r.pauseOwned(ctx, active, err, request.CheckpointHeight, request.CheckpointHeight)
 	}
@@ -211,18 +264,7 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 		if to > request.ToHeight {
 			to = request.ToHeight
 		}
-		readCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		var segment store.ReplaySegment
-		if request.Mode == valueReconstruct {
-			if r.Archive == nil {
-				cancel()
-				return r.pauseOwned(ctx, job, errors.New("archive provider unavailable"), from, to)
-			}
-			segment, err = r.Archive.Restore(readCtx, request.SourceStream, from, to)
-		} else {
-			segment, err = r.fetch(readCtx, request, from, to)
-		}
-		cancel()
+		segment, job, err := r.fetchWithLease(ctx, job, request, from, to)
 		if err != nil {
 			return r.pauseOwned(ctx, job, err, from, to)
 		}

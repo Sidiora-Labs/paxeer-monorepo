@@ -89,6 +89,9 @@ type Config struct {
 	IndexerBatchSize      int   `env:"INDEXER_BATCH_SIZE" envDefault:"50"`
 	IndexerPollIntervalMS int   `env:"INDEXER_POLL_INTERVAL_MS" envDefault:"100"`
 	IndexerConcurrency    int   `env:"INDEXER_CONCURRENCY" envDefault:"25"`
+	// CanonicalReadTimeoutMS bounds one qualified batch read. It may exceed
+	// the lease term because ingestion renews the lease while reading.
+	CanonicalReadTimeoutMS int `env:"INDEXER_CANONICAL_READ_TIMEOUT_MS" envDefault:"120000"`
 
 	// Webhook fan-out targets + signing (matched-index CSV arrays).
 	WebhookURLs        []string `env:"WEBHOOK_URLS" envSeparator:","`
@@ -170,6 +173,18 @@ type ArchiveTuning struct {
 	AttemptTimeout         time.Duration
 }
 
+// CanonicalReadTimeout is the bounded read budget used by live ingestion and
+// replay. The lease heartbeat keeps ownership valid for the whole interval.
+func (c *Config) CanonicalReadTimeout() (time.Duration, error) {
+	if c.CanonicalReadTimeoutMS == 0 {
+		c.CanonicalReadTimeoutMS = 120000
+	}
+	if c.CanonicalReadTimeoutMS < 1000 || c.CanonicalReadTimeoutMS > 15*60*1000 {
+		return 0, errors.New("config: INDEXER_CANONICAL_READ_TIMEOUT_MS must be 1000..900000")
+	}
+	return time.Duration(c.CanonicalReadTimeoutMS) * time.Millisecond, nil
+}
+
 func (c *Config) ArchiveTuning() (ArchiveTuning, error) {
 	if c.HistoricalConcurrency == 0 {
 		c.HistoricalConcurrency = 48
@@ -209,6 +224,9 @@ func (c *Config) Validate() error {
 
 	var errs []error
 	if err := c.BaseEnv.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if _, err := c.CanonicalReadTimeout(); err != nil {
 		errs = append(errs, err)
 	}
 

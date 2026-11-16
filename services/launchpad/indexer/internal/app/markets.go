@@ -164,7 +164,7 @@ func (s *recoveringQualifiedSource) FetchQualifiedBatch(ctx context.Context, fro
 	if err != nil {
 		return store.CanonicalBatch{}, nil, err
 	}
-	addresses, pinned, err := s.marketAddresses(ctx, from, to)
+	addresses, pinned, err := s.marketAddressesWithAuthority(ctx, authority, from, to)
 	if err != nil {
 		return store.CanonicalBatch{}, nil, err
 	}
@@ -205,11 +205,114 @@ func (s *recoveringQualifiedSource) FetchQualifiedBatch(ctx context.Context, fro
 	return batch, qualified, nil
 }
 
+// marketHeightRead contains the complete network response for one height.
+// Requests are collected concurrently, while admission checks below consume
+// these entries in height order.
+type marketHeightRead struct {
+	header       types.Header
+	hash         common.Hash
+	transactions types.Transactions
+	receipts     types.Receipts
+	rawTxs       []json.RawMessage
+}
+
 // Read every receipt, including opaque emitters, before choosing the bounded
 // authority. Filtering by an authority's previous discoveries would omit old
-// pools after restart. The source pins the consensus block; receipts and signed
-// transactions are checked by the same identity rules as receipt qualification.
+// pools after restart. Network reads are bounded by the historical source
+// concurrency and are cancelled as soon as one read fails.
 func (s *recoveringQualifiedSource) marketAddresses(ctx context.Context, from, to uint64) ([]common.Address, map[uint64]source.BlockRecord, error) {
+	return s.marketAddressesWithAuthority(ctx, nil, from, to)
+}
+
+func (s *recoveringQualifiedSource) marketAddressesWithAuthority(ctx context.Context, authority *receipt.RPCQualification, from, to uint64) ([]common.Address, map[uint64]source.BlockRecord, error) {
+	if authority != nil {
+		reads, err := authority.ReadBatch(ctx, from, to)
+		if err != nil {
+			if errors.Is(err, receipt.ErrQualification) {
+				return nil, nil, receipt.ErrBinding
+			}
+			return nil, nil, err
+		}
+		return s.validateMarketReads(ctx, from, to, readsToMarketReads(reads))
+	}
+	if s == nil || s.client == nil || from > to || to-from >= 64 {
+		return nil, nil, receipt.ErrQualification
+	}
+	concurrency := 1
+	if s.history != nil && s.history.RPC != nil {
+		concurrency = s.history.RPC.HistoricalConcurrency()
+	}
+	reads, err := s.readMarketHeights(ctx, from, to, concurrency)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.validateMarketReads(ctx, from, to, reads)
+}
+
+func readsToMarketReads(reads []receipt.BatchRead) []marketHeightRead {
+	out := make([]marketHeightRead, len(reads))
+	for i, read := range reads {
+		header := types.Header{}
+		if read.Header != nil {
+			header = *read.Header
+		}
+		out[i] = marketHeightRead{header: header, hash: read.Hash, transactions: read.Transactions, receipts: read.Receipts}
+	}
+	return out
+}
+
+func (s *recoveringQualifiedSource) readMarketHeights(ctx context.Context, from, to uint64, concurrency int) ([]marketHeightRead, error) {
+	count := int(to-from) + 1
+	return source.ParallelBatchRead(ctx, count, concurrency, func(readCtx context.Context, index int) (marketHeightRead, error) {
+		return s.readMarketHeight(readCtx, from+uint64(index))
+	})
+}
+
+func (s *recoveringQualifiedSource) readMarketHeight(ctx context.Context, height uint64) (marketHeightRead, error) {
+	var raw json.RawMessage
+	if err := s.client.Client().CallContext(ctx, &raw, "eth_getBlockByNumber", hexutil.EncodeUint64(height), true); err != nil {
+		return marketHeightRead{}, err
+	}
+	var header types.Header
+	var body struct {
+		Hash         common.Hash
+		Transactions []json.RawMessage
+	}
+	if json.Unmarshal(raw, &header) != nil || json.Unmarshal(raw, &body) != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || body.Hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 || len(body.Transactions) > 4096 {
+		return marketHeightRead{}, receipt.ErrBinding
+	}
+	transactions := make(types.Transactions, len(body.Transactions))
+	for i, rawTx := range body.Transactions {
+		var tx types.Transaction
+		if tx.UnmarshalJSON(rawTx) != nil {
+			return marketHeightRead{}, receipt.ErrBinding
+		}
+		transactions[i] = &tx
+	}
+	// An empty transaction list cannot contain a market log. The receipt-root
+	// and bloom checks below still run on an empty list, so no receipt RPC is
+	// needed in either block-identity mode.
+	if len(transactions) == 0 {
+		return marketHeightRead{header: header, hash: body.Hash, transactions: transactions, receipts: types.Receipts{}, rawTxs: body.Transactions}, nil
+	}
+	receipts, err := s.client.BlockReceipts(ctx, rpc.BlockNumberOrHashWithHash(body.Hash, true))
+	if err != nil {
+		var rpcErr rpc.Error
+		if !errors.As(err, &rpcErr) || rpcErr.ErrorCode() != -32601 {
+			return marketHeightRead{}, err
+		}
+		receipts = make(types.Receipts, len(transactions))
+		for i, tx := range transactions {
+			receipts[i], err = s.client.TransactionReceipt(ctx, tx.Hash())
+			if err != nil {
+				return marketHeightRead{}, err
+			}
+		}
+	}
+	return marketHeightRead{header: header, hash: body.Hash, transactions: transactions, receipts: types.Receipts(receipts), rawTxs: body.Transactions}, nil
+}
+
+func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, from, to uint64, reads []marketHeightRead) ([]common.Address, map[uint64]source.BlockRecord, error) {
 	blocks := map[uint64]source.BlockRecord{}
 	addresses := map[common.Address]bool{}
 	add := func(word []byte) error {
@@ -229,25 +332,19 @@ func (s *recoveringQualifiedSource) marketAddresses(ctx context.Context, from, t
 		addresses[address] = true
 		return nil
 	}
+	if len(reads) != int(to-from)+1 {
+		return nil, nil, receipt.ErrBinding
+	}
 	totalBytes, totalLogs, totalTransactions := 0, 0, 0
-	for height := from; height <= to; height++ {
-		var raw json.RawMessage
-		if err := s.client.Client().CallContext(ctx, &raw, "eth_getBlockByNumber", hexutil.EncodeUint64(height), true); err != nil {
-			return nil, nil, err
-		}
-		var header types.Header
-		var body struct {
-			Hash         common.Hash
-			Transactions []json.RawMessage
-		}
-		if json.Unmarshal(raw, &header) != nil || json.Unmarshal(raw, &body) != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || body.Hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 || len(body.Transactions) > 4096 {
+	for index, read := range reads {
+		height := from + uint64(index)
+		header := read.header
+		block := source.BlockRecord{ChainID: 125, Height: height, Hash: read.hash, ParentHash: header.ParentHash, TimestampSeconds: 0, TransactionCount: len(read.transactions)}
+		headerTimeInt64, conversionErr := checked.Convert[int64](header.Time)
+		if conversionErr != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || read.hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 || len(read.transactions) > 4096 {
 			return nil, nil, receipt.ErrBinding
 		}
-		headerTimeInt64, conversionErr := checked.Convert[int64](header.Time)
-		if conversionErr != nil {
-			return nil, nil, conversionErr
-		}
-		block := source.BlockRecord{ChainID: 125, Height: height, Hash: body.Hash, ParentHash: header.ParentHash, TimestampSeconds: headerTimeInt64, TransactionCount: len(body.Transactions)}
+		block.TimestampSeconds = headerTimeInt64
 		if height > from && block.ParentHash != blocks[height-1].Hash {
 			return nil, nil, receipt.ErrBinding
 		}
@@ -255,61 +352,45 @@ func (s *recoveringQualifiedSource) marketAddresses(ctx context.Context, from, t
 		if s.blockIdentity != receipt.BlockIdentityReported && header.Hash() != block.Hash {
 			return nil, nil, receipt.ErrBinding
 		}
-		totalTransactions += len(body.Transactions)
+		totalTransactions += len(read.transactions)
 		if totalTransactions > 4096 {
 			return nil, nil, receipt.ErrQualification
 		}
-		transactions := make(types.Transactions, len(body.Transactions))
-		for i, rawTx := range body.Transactions {
-			var tx types.Transaction
-			var meta struct {
-				Hash             *common.Hash
-				BlockHash        *common.Hash
-				TransactionIndex *hexutil.Uint64
-			}
-			if tx.UnmarshalJSON(rawTx) != nil || json.Unmarshal(rawTx, &meta) != nil || meta.Hash == nil || *meta.Hash != tx.Hash() || meta.BlockHash != nil && *meta.BlockHash != block.Hash {
-				return nil, nil, receipt.ErrBinding
-			}
-			if meta.TransactionIndex != nil {
-				transactionIndex, conversionErr := checked.Convert[uint64](*meta.TransactionIndex)
-				if conversionErr != nil {
-					return nil, nil, conversionErr
+		if len(read.rawTxs) > 0 {
+			for i, rawTx := range read.rawTxs {
+				var meta struct {
+					Hash             *common.Hash
+					BlockHash        *common.Hash
+					TransactionIndex *hexutil.Uint64
 				}
-				expectedIndex, conversionErr := checked.Convert[uint64](i)
-				if conversionErr != nil {
-					return nil, nil, conversionErr
-				}
-				if transactionIndex != expectedIndex {
+				if json.Unmarshal(rawTx, &meta) != nil || meta.Hash == nil || *meta.Hash != read.transactions[i].Hash() || meta.BlockHash != nil && *meta.BlockHash != block.Hash {
 					return nil, nil, receipt.ErrBinding
 				}
-			}
-			transactions[i] = &tx
-		}
-		if s.blockIdentity != receipt.BlockIdentityReported && types.DeriveSha(transactions, trie.NewStackTrie(nil)) != header.TxHash {
-			return nil, nil, receipt.ErrBinding
-		}
-		receipts, err := s.client.BlockReceipts(ctx, rpc.BlockNumberOrHashWithHash(block.Hash, true))
-		if err != nil {
-			var rpcErr rpc.Error
-			if !errors.As(err, &rpcErr) || rpcErr.ErrorCode() != -32601 {
-				return nil, nil, err
-			}
-			receipts = make(types.Receipts, len(transactions))
-			for i, tx := range transactions {
-				receipts[i], err = s.client.TransactionReceipt(ctx, tx.Hash())
-				if err != nil {
-					return nil, nil, err
+				if meta.TransactionIndex != nil {
+					transactionIndex, conversionErr := checked.Convert[uint64](*meta.TransactionIndex)
+					if conversionErr != nil || transactionIndex != uint64(i) {
+						return nil, nil, receipt.ErrBinding
+					}
 				}
 			}
 		}
-		regularReceipts, shellReceipts, err := receipt.SeparateShellReceipts(transactions, types.Receipts(receipts), block.Hash, header.Number, header.Bloom, header.ReceiptHash, s.blockIdentity == receipt.BlockIdentityReported)
+		if s.blockIdentity != receipt.BlockIdentityReported && types.DeriveSha(read.transactions, trie.NewStackTrie(nil)) != header.TxHash {
+			return nil, nil, receipt.ErrBinding
+		}
+		regularReceipts, shellReceipts, err := receipt.SeparateShellReceipts(read.transactions, read.receipts, block.Hash, header.Number, header.Bloom, header.ReceiptHash, s.blockIdentity == receipt.BlockIdentityReported)
 		if err != nil {
 			return nil, nil, receipt.ErrBinding
 		}
 		allReceipts := append(append(types.Receipts(nil), regularReceipts...), shellReceipts...)
 		for _, r := range allReceipts {
+			if r == nil {
+				return nil, nil, receipt.ErrBinding
+			}
 			totalLogs += len(r.Logs)
 			for _, log := range r.Logs {
+				if log == nil {
+					return nil, nil, receipt.ErrBinding
+				}
 				totalBytes += 256 + len(log.Data) + 32*len(log.Topics)
 			}
 		}
