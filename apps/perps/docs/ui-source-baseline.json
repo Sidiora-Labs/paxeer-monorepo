@@ -1860,12 +1860,12 @@
     {
       "path": "packages/affiliate/src/pages/home/subtitle/subtitle.ui.tsx",
       "sourceSha256": "2e17984bf713ce2ccf01cb7a38eab3e07e043e530afa5725bf75fa950c86af3e",
-      "runtimeSha256": "95311371e48f74a62f9780dcacf2a15374d4e512671e707c854b9980b48fe7c4"
+      "runtimeSha256": "b67d131e38dfffd38bf1f7c05da1d1fcc2d600655926d6afb248a4195ec72945"
     },
     {
       "path": "packages/affiliate/src/pages/home/asATrader/asTrader.ui.tsx",
       "sourceSha256": "07062c7570c567bb45e61232730c9429825d507ed28fc1c1a154eee45ced8b37",
-      "runtimeSha256": "784e9acc67ee7e9cca786de57ebcaf3c843b8ce40db8bbd227ef9db4adbb5525"
+      "runtimeSha256": "f414afd268e4cac3517ae4468c2ad2d53f8306d41cc96faa1ee87bb738c820b1"
     },
     {
       "path": "packages/affiliate/src/pages/home/title/title.ui.tsx",
@@ -1875,127 +1875,127 @@
     {
       "path": "packages/affiliate/src/pages/home/becomeAffiliate/becomeAffiliate.ui.tsx",
       "sourceSha256": "078af715a3cb53934c03640e83897df1716be442b77ce30419720a1deb3083f6",
-      "runtimeSha256": "76adfd84041daa344958a9ac38cf1a6f660a98797f059107a0ae6f7d9ae72dec"
+      "runtimeSha256": "7776f3e8f60151c90df4840095c9369906a00409276c9bd568bb22e2d8f9931b"
     },
     {
       "path": "packages/affiliate/src/pages/home/card/card.ui.tsx",
       "sourceSha256": "26c8746e4b7d04b4e822b3f2552588023872edb4436e5994ae38b6dae9cf7fd0",
-      "runtimeSha256": "2194cf1e5673a0f43ba26abe9a6694734a4d2b0e4db0fe3fa14b9f85b81394ce"
+      "runtimeSha256": "e85d2ad7a11ae6daa95548595d49468e6add1e0b319c1b612fa885d16f2856e7"
     },
     {
       "path": "packages/affiliate/src/pages/home/top/top.ui.tsx",
       "sourceSha256": "ac6b4485d156ccf20972d7f3e4080dc1f14a74f5b3498d85527022367be9a6d4",
-      "runtimeSha256": "54149a1d49ad4a13312c20e9888991c5dd47f3a695f50cd4975694cde8a88286"
+      "runtimeSha256": "0112af2b3861968e10f76d771fb947465067ed2e7eb26246caafb8a9990e7c07"
     },
     {
       "path": "packages/affiliate/src/pages/home/asAnAffilate/asAnAffiliate.ui.tsx",
       "sourceSha256": "22780d057b2b80436a3999dae966da94bf64b7ddc0d2d470592706d673a984fe",
-      "runtimeSha256": "0f4ca5b6b978c3fafef5e858b0e694fed15fc3cf4b9e9e99061e3b0f6a8f76f4"
+      "runtimeSha256": "9961dfeb276b26726a2c8d9e3864992a5ab75e9f444dcb3b1028a44759a383c2"
     },
     {
       "path": "packages/affiliate/src/pages/affiliate/summary/summary.ui.tsx",
       "sourceSha256": "da4ba4d975d0d6d3e77bb66471a593f45dbb08b3181facc50aa0cb179bc9d067",
-      "runtimeSha256": "6cd375b41bf7a81d60c06d56da8024d86c931879f051d7f2197c0eda5c47d497"
+      "runtimeSha256": "727e60851578c4ab5f0b9d6fd2c869cc98606928e3d904952c32f40233c457e2"
     },
     {
       "path": "packages/affiliate/src/pages/affiliate/commissionAndReferees/commissionAndReferees.ui.tsx",
       "sourceSha256": "4bf3b9e962cb96361b77f2f03e657829228709345f4de75b2ea6a7818ea79c95",
-      "runtimeSha256": "2eaef1a4a90dca3dabd24c2bf27ee59d39bd84a1a2ed16d7ad85aa84a62a6135"
+      "runtimeSha256": "9e3ca7878285bd2cf17c207faf0fe8312d1b213d9c58664471e60e00c93568ae"
     },
     {
       "path": "packages/affiliate/src/pages/affiliate/titleStatistic/titleStatistic.ui.tsx",
       "sourceSha256": "5b303ab7e22d1ff4bb4a305fde99607191eefea632ee412791935e106dcd5731",
-      "runtimeSha256": "7d77a398fd57e176444c2fdf35d49a433ba3c5f0051aefe8502345ec24d48bc4"
+      "runtimeSha256": "7e62c1d8d16d37313e311953f0c0078149304e4f8245a96e23149c9372135c20"
     },
     {
       "path": "packages/affiliate/src/pages/affiliate/referralLink/referralLink.ui.tsx",
       "sourceSha256": "57d64e1b77c58b191c9ecce814b39f43e1bb0cafcffaade3d26f21857082c2af",
-      "runtimeSha256": "5c4a4bd7b94ee7aa03647324eef26be78db328579bb500bcdbb6593932b67cd6"
+      "runtimeSha256": "1d7e31fde9f0daf34621172689c9ab7ef3ad65fe3c4372e712faa485e7120e69"
     },
     {
       "path": "packages/affiliate/src/pages/affiliate/referralCodes/referralCodes.ui.tsx",
       "sourceSha256": "e3e260f5e676a2c65f501bdd31e11c466c7906ff1f091208d9747a0c390400c5",
-      "runtimeSha256": "faa49dc51f85b3ade65994b89019a72fc3f340fedf18613f76f04a5757289721"
+      "runtimeSha256": "a2e41ed157a2e9681e807278cb9624ae524d39a463c1941e08e900900a2e41b9"
     },
     {
       "path": "packages/affiliate/src/pages/dashboard/tab/tab.ui.tsx",
       "sourceSha256": "8fccefd89447f16151efe5db269bf3108bf00e5f834f32fb8aa59b2dc8c393bd",
-      "runtimeSha256": "c677e2fe3ba38962f5707f799ae2aa1a342b882a4f0f874606221eb6c1fd34af"
+      "runtimeSha256": "373ef2ca02e409d1f89e1bad19041c9725118cfc916b3809bcbe09650de83ad3"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/components/bindReferralCode/bindReferralCode.ui.tsx",
       "sourceSha256": "96368de45535116b442cbeb9632a675a8b226bc71f579541c39feaab5d7f56b0",
-      "runtimeSha256": "cc331dd3fa54d87ffe39dd369aee35d382c31b91173739af329877d17d125f2a"
+      "runtimeSha256": "24a5f8051f2d1ea57b79e00c2656678c72db62e78a8ba94be04af0c0b4efe80c"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/multiLevelReferral/multiLevelReferral.ui.tsx",
       "sourceSha256": "b3c3b71e3e26fb1b7bfd328972b48e0fd52a215f6dda5b53476687bb827b05f0",
-      "runtimeSha256": "7dd5e49e82ab82bfd8284aedd2b09021a779b4aa983fde4a6fa5eab8e3d02c54"
+      "runtimeSha256": "8b7669b4e2ae720ba4abb01fe2bcc2ba0cc60c4f70b0d0a1ed87a14b95cf7130"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/referralCodeForm/referralCodeForm.ui.tsx",
       "sourceSha256": "9569718b0c0b8e67e1b8b11f3ba672ac829b48a47662246b3b211505f95ddfec",
-      "runtimeSha256": "5f8fd78d0a4b0a038809a8fe8d521c9b1f7cb7d5b9f63c141a7a8afc713d6a13"
+      "runtimeSha256": "016b1e7311ee6a0988a1c5d12fa4fc743589115fd334703240da27ae61d39bfd"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/referrerTable/referrerTable.ui.tsx",
       "sourceSha256": "eac55a40351c93720a4ec4574216f53e0ec2917a10acaa4f080428910cafa4ec",
-      "runtimeSha256": "74363cefd3e0f1af679d7fa2ae61c1512429208a57b7d58c2cb4e1e4b90e3347"
+      "runtimeSha256": "969bb574eec9fa22e4f666cbee54d809667ed831c32e5747af30fd18305c6196"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/referralInfo/referralInfo.ui.tsx",
       "sourceSha256": "bb0b20adbbca59e118963b073a51b0a013754f5d9f0d95a8e4d54cddfa29f263",
-      "runtimeSha256": "e4491ad49b954e29bfe3b2e71d6190f2eb33c14d27e708f833d0d3c859b12d3c"
+      "runtimeSha256": "21a8eb0c8972b544bc22fc04347546eda2fb6c176a85d9c9738dec019f6cbe94"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/tradingFeeRebate/tradingFeeRebate.ui.tsx",
       "sourceSha256": "d99a15da8880a8f519329bc7d3f417f01fb2332d113ca0541009260e1d2ea4b4",
-      "runtimeSha256": "e1f1b0dee0dda0af52b64d927d12349358404ed1bd48d1cd9e46694005dbb56d"
+      "runtimeSha256": "5193190f5e2d6026ffa82b7881fd48d367f56c1c5ff8b24e0488e6e82b637962"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/summary/summary.ui.tsx",
       "sourceSha256": "a00f98fe176293042b63808b98e4a31279e2dadf4212176b53f78669db10880f",
-      "runtimeSha256": "81d726b08cc5ce3cdb23102292953c3a9c8b00e59ccbeaa26650aef330b0e9ec"
+      "runtimeSha256": "663f486e0429db63625d1e19bb4c5718cc4a71d52839d4cd7b2313f658f9daee"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/commissionChart/commissionChart.ui.tsx",
       "sourceSha256": "d92de449f7033f0c86b40669c1d8ea2a897f47da754ad402b5a4daa3ab5523de",
-      "runtimeSha256": "d3bd636a8ee839f0e26fe045da54ce032fe0c0708b21de0304c756830450baf2"
+      "runtimeSha256": "a61bfcf8c40fb71503de512f8ac30df6ab40701fee1ca8cf06996be482bec64b"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/referrerTable/referralCodesTable/referralCodesTable.ui.tsx",
       "sourceSha256": "dbff4e6fa1cc5300d7a971023976dba5cac994de1dac4ab48f19291783d1fbf2",
-      "runtimeSha256": "a833e7b05477ad965c9f8893b33c0f35dd17a79c61b2bb763c4fef927ffc7bbe"
+      "runtimeSha256": "fcdbf99e6fe3ace5f2b17fc57d989be3c49a9de94ffa55feee2738fa85ab94d3"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/referrerTable/refereesTable/refereesTable.ui.tsx",
       "sourceSha256": "a27afb9758777dffbe3c97ad2d9cf28d4f9960181334bd1912c5f6d25a68a981",
-      "runtimeSha256": "16130d8167624634669bcdfd7e85c7c4899dae3a02332eabc4a7d272bb0d5f89"
+      "runtimeSha256": "8be90396dea99ed0685d9c5ea0e28a574040c3a401c0776738ef7f3f3b7f2c55"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/referrerTable/refereeDescriptionForm/refereeDescriptionForm.ui.tsx",
       "sourceSha256": "2218b31a37667914919097f66028e5ea7712b1d5d78183330d18e51676510258",
-      "runtimeSha256": "bc6374e4ca24bfad4dc0593bdd415bfbd235d2bd26664a8c4b4d5435ce90fb8f"
+      "runtimeSha256": "807406cd7de56a3d9d9b77c0a8c4c314e54a075040a689dd16601577879989c3"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/referrerTable/commissionTable/commissionTable.ui.tsx",
       "sourceSha256": "2a096d0668d1e7498cd692cf8211c3ee68d0747cbe7b28c005db9e35d9570288",
-      "runtimeSha256": "6bc3ea0f484fa368364585254febc23f407394e11c947949d7245cdca7ec5049"
+      "runtimeSha256": "4cac56e5782f7184559db6e8d06c42e41dbe487fd88e59b21a3312214207fe60"
     },
     {
       "path": "packages/affiliate/src/pages/trader/rebates/rebates.ui.tsx",
       "sourceSha256": "04bb24952f1d2c27293ca59a22b7d36acc5a29ddf6558421432c632f75bf4ed0",
-      "runtimeSha256": "3e2c5e18d43d0334c34c9a7b9a8c6352f71c8ffb5f53e5ef701ffffc62136d41"
+      "runtimeSha256": "46c2cd23cb8fb6f3f70febc6dbe98d39c558f7c61b56b4d617acf7fdfe1d4a72"
     },
     {
       "path": "packages/affiliate/src/pages/trader/summary/summary.ui.tsx",
       "sourceSha256": "e01fad81a00dca16688d25474f8e43e52e9c8e9938df83a75a7085ccd40b3691",
-      "runtimeSha256": "fbc070fdbb2997938508c93b81232be24e978449bd11bc0d9c25bc0ff3fb97de"
+      "runtimeSha256": "86ebcc8537c5ca883b69635d8496bd34dab9d87308089846d9005042dcfa5a78"
     },
     {
       "path": "packages/affiliate/src/pages/trader/titleStatistic/titleStatistic.ui.tsx",
       "sourceSha256": "04778ce37775d4f2e74623c757ecaff5d1edbce34b25a3ae9508a9ab6f38f568",
-      "runtimeSha256": "8236ebff714dd510589002db52245eb1d3945aefb334585a50c5440927814903"
+      "runtimeSha256": "09eac1e4a61a6bc27400ee685ddb6b9b83465ea58460b873866b16bd0e7bda06"
     },
     {
       "path": "packages/trading-rewards/src/tailwind.css",
@@ -2010,27 +2010,27 @@
     {
       "path": "packages/trading-rewards/src/pages/index/curEpoch/curEpoch.ui.tsx",
       "sourceSha256": "e75e943aaaaabf5f02204d50aff805bc8b4006f75e3aaf5fe3303d665d6555c9",
-      "runtimeSha256": "e5a3b5ec6c9e21ef483db3980d134d35625a4d4dd9bf1c900e617f5085fa7b3f"
+      "runtimeSha256": "f7734049c6f8ab3522a86fe080006eb46e09ac0930d721577bfc7b36c999616e"
     },
     {
       "path": "packages/trading-rewards/src/pages/index/rewardHistory/rewardsHistory.ui.tsx",
       "sourceSha256": "627cf4e09c3522e6836cf47d76eda6974d063e69f9670c1267999d4e3cb8f12e",
-      "runtimeSha256": "a0d88011d71db5a9828b61e73b959601494cc3c8261b5b594c6cc8b7cf943bbf"
+      "runtimeSha256": "5c45e605fd7b4a2f8b6e1ce640b887affc655861fd4da4b7358c16d4242f4032"
     },
     {
       "path": "packages/trading-rewards/src/pages/index/availableToClaim/availableToClaim.ui.tsx",
       "sourceSha256": "1938d78fa3c4ac82cedea1f37b31a5262a2d58a3c347040aef4cdefdc1af4336",
-      "runtimeSha256": "e0cec22121415974a317ac28a12029b10610df53eabb839292636d2e1cd2260b"
+      "runtimeSha256": "70a617bc984f4f156bd36dcb96933bfbca213feb39ce6f4b65ca77aa4b0638e3"
     },
     {
       "path": "packages/trading-rewards/src/pages/index/title/title.ui.tsx",
       "sourceSha256": "7a31fb8a8f077f070e5b95ccba71bad855fccc28d11b162cd00b1284bb06b37d",
-      "runtimeSha256": "dfba47bb9d5af59e82ec4ece98b1c120ff722d34413028224097a23386bc464d"
+      "runtimeSha256": "a37bdd720c34f5a8a72a0d0b1d87bee0035f48c53edc0d06a9407793e1f8a818"
     },
     {
       "path": "packages/trading-rewards/src/pages/index/stakeBooster/stakeBooster.ui.tsx",
       "sourceSha256": "4a9ab42fea7566ea0e798b44d375162c5d50be8f187edecf7a8aaa8a47c61444",
-      "runtimeSha256": "26043c276cad95da0f9a8ff40ef277f99a1fcf9652f2c655c56c231a5ba0f3dd"
+      "runtimeSha256": "8366625582d9af668eb29328e6d17c18250c69a0145ab8586a291e8dfee162c3"
     },
     {
       "path": "packages/ui-notification/src/tailwind.css",
@@ -2075,122 +2075,122 @@
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/rewards/rewards.desktop.ui.tsx",
       "sourceSha256": "99894466ddd7d3f7e9784a110216154beb5b2b9b7c1eceadc67ecff22db76291",
-      "runtimeSha256": "300610daacedb807faf24c71cb7ce8f1fc0a3d910f0b9b83cb02ddc28805b5c8"
+      "runtimeSha256": "5448e416950126dd4a88aa249df0a72893b26ad040e8fa55ba31add3a355e4f7"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/campaign.item.ui.tsx",
       "sourceSha256": "5ade0ea736f5bbb5101029bcfd3f5f9d86a3c19e164fcf98a187b60dd7521ef5",
-      "runtimeSha256": "7847908a6fdb25cf5c73fa0b9501d325b583f8f88ef0d123f2c7f81cd9b6c622"
+      "runtimeSha256": "700aad69028dca1632590f6fc03e45d898c678c8bb8d39dcbdf7ceed6e587a03"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/campaigns.content.desktop.ui.tsx",
       "sourceSha256": "088a4ea6e281ba9ad69b0fbe801d45ed4edcb5bc6459e98c0255fb12bc7e6266",
-      "runtimeSha256": "1709af96bfa60a8b9bac65c4d82206989456b80ca5662dcde23b628a1b99a46e"
+      "runtimeSha256": "2f79bd37c5c5c41237e049d33dad717959dedc41772706709b015151f157bbd7"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/leaderboard/campaignLeaderboard/campaignLeaderboard.ui.tsx",
       "sourceSha256": "51baf099a342db3b437dd9b445164f97e92dcdf7340199293f796a7a9e7deb92",
-      "runtimeSha256": "4a8b823c5df2c9825a1f4a6ce2f45cb2b82cfc0bc345064eb892ae27d6d4713f"
+      "runtimeSha256": "11082e9eeb64a9d74a2848da843879d79765bd8be7c3592da1ce6aba2ed1602b"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/leaderboard/generalLeaderboard/generalLeaderboard.ui.tsx",
       "sourceSha256": "267f451160a282cb3247a57ee2f3383a2cde0f95806fc0e0dbfcb414da4fd9c5",
-      "runtimeSha256": "9ac099912466da5bacfd350fbe7e72d292f1521cadc4432d3884bbc1412548ee"
+      "runtimeSha256": "9be18a0be285fcf6bc0c01c2c8ea78acab5b6d025e2fc302a0e607d9572d7f97"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/ranking128/shared/ranking.ui.tsx",
       "sourceSha256": "12f339e029d440f6563786f8cc12cbc50dd36278a90fcef7ce21909f0b2fef0b",
-      "runtimeSha256": "16adce1a12aaa55afbeb69751060aa4524164fea9e773200cdf019250195e420"
+      "runtimeSha256": "c8de96874bb07c150b2f00b6f172c59fb04c5e492da24592a139601e85317992"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/ranking/shared/ranking.ui.tsx",
       "sourceSha256": "7ba9ff0ef91bc7fde1f844d0f076e5c3bc2377b8c69d720bab6c78ca1f1ba4fc",
-      "runtimeSha256": "d7f9a96e2323c91f1463219125af5936c96c0c4a0de72b6c1bab8e433e6db038"
+      "runtimeSha256": "5a9e33323c263058bbec7c6b26b7e6c28b457687b73c33d65ab5a65b6732da33"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/leaderboard128/generalLeaderboard/generalLeaderboard.ui.tsx",
       "sourceSha256": "c8ca783db36ce99035791104fe8d82796c5b7361e8bbc23a17f31442432575e6",
-      "runtimeSha256": "668cada0d1ee94455c5a468e05c6293b3cb67f48624641513ba70a18b2ef577c"
+      "runtimeSha256": "7fbefb82af4f0210fcf2c5071a2f96a94448a20db9b6b9d54eaf73ed4292a934"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/pricePool/normalPricePool.ui.tsx",
       "sourceSha256": "98036cdddf8a6d12ba4005c082c71f321c19971d92d90f682dccc5889e7c7efb",
-      "runtimeSha256": "fecae5b49bb3b2c6ab4857608bbe46942cefd7bb64dc9fc802317fdca3f0720d"
+      "runtimeSha256": "432391da3cabdce26c8def3c9c4ef131b8737d956ee5e9b256255b19cc4b3e26"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/pricePool/pricePool.desktop.ui.tsx",
       "sourceSha256": "c731088fe695d9cf039bfca7990f6fdfbba9995975e2dea50c8baa10cb9b149b",
-      "runtimeSha256": "5de83456f40fc6ced9df33c6c636ebd5be3247582b743cd4ffc323416b8191f1"
+      "runtimeSha256": "0f726142496ada3d565ca60650491ecb760cc7a6a19bfdd7453772f3aa087e38"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/header/campaigns.header.mobile.ui.tsx",
       "sourceSha256": "8bdf45578386153c6b00c9ac4d023a4c6cb8c9feb77f4def2ce846e5a5de2b69",
-      "runtimeSha256": "75b0402534597ffda39f85ecf2b1086806920d7174ea552cc96847f738d809ad"
+      "runtimeSha256": "5fcfd2f1eb7f19563e87112dd25bc03e42d80761acbb4f46064b82ead0720b58"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/header/campaigns.header.desktop.ui.tsx",
       "sourceSha256": "e71c64a8ba6713d2e4d10b602fa7aacc0e88ec1358e2a20d31842a51813dc380",
-      "runtimeSha256": "a7c87fe45e13eb721de3a297abe630a91cdeababa1ef0c936e336b69a642ddca"
+      "runtimeSha256": "f3e18b7ebdb265eb128faa29d64ef046d24d16112f37fc5e527d3101a0c62f34"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/components/time.desktop.ui.tsx",
       "sourceSha256": "900cea7b21f27f2c38fcef9c67ee63c730d9d519d55296901662699fd017c9ae",
-      "runtimeSha256": "182227663fe8185ca17df6acb1b9aaa61d21b976d3403340a697197358a3daf4"
+      "runtimeSha256": "546989c9088f4098c73abb2b2f643f1c77530b6416a317210ee36ffeed578191"
     },
     {
       "path": "packages/trading-leaderboard/src/components/rewards/rewards.desktop.ui.tsx",
       "sourceSha256": "4f06d0214340beec531ddc4a3e2b3fdf18027a557494325a0ddc9e336542c8c0",
-      "runtimeSha256": "e7d5a4115589e3498f21fe92930bf97099857f7c4ac83a62aa2affa0624a1d5c"
+      "runtimeSha256": "b823a7ec61e6f5decc26e5f22fdbd66a2db6bc42618d3cf06dd78dee14569db9"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/campaign.item.ui.tsx",
       "sourceSha256": "5ade0ea736f5bbb5101029bcfd3f5f9d86a3c19e164fcf98a187b60dd7521ef5",
-      "runtimeSha256": "7847908a6fdb25cf5c73fa0b9501d325b583f8f88ef0d123f2c7f81cd9b6c622"
+      "runtimeSha256": "700aad69028dca1632590f6fc03e45d898c678c8bb8d39dcbdf7ceed6e587a03"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/campaigns.content.desktop.ui.tsx",
       "sourceSha256": "a6a78e94797b9a0ff7a8e958de51fe5795ce316375ca5dd18c2bc00121ecbf33",
-      "runtimeSha256": "a27e8ff9fac41d206e3f3999f9f4476e45dd8ea164e89466f55b476de963ffbc"
+      "runtimeSha256": "d124d8df4e4802f2a32a3cbd842141219f5d43b3cbffeec4a28984cdb36ea8e1"
     },
     {
       "path": "packages/trading-leaderboard/src/components/leaderboard/campaignLeaderboard/campaignLeaderboard.ui.tsx",
       "sourceSha256": "3b203473517f6e8db1f5f9da4edbb2c8f67b43c1f37ba77f839313cd2f682a32",
-      "runtimeSha256": "a20864adfddcd926d5de8a0ec6fb0491bd889391775a4376bfa8e5d169cbc96f"
+      "runtimeSha256": "bc6b43414ab358448b1a8c97876e3154a90dc62a01ce1f94775156a5b11ecab0"
     },
     {
       "path": "packages/trading-leaderboard/src/components/leaderboard/generalLeaderboard/generalLeaderboard.ui.tsx",
       "sourceSha256": "267f451160a282cb3247a57ee2f3383a2cde0f95806fc0e0dbfcb414da4fd9c5",
-      "runtimeSha256": "9ac099912466da5bacfd350fbe7e72d292f1521cadc4432d3884bbc1412548ee"
+      "runtimeSha256": "9be18a0be285fcf6bc0c01c2c8ea78acab5b6d025e2fc302a0e607d9572d7f97"
     },
     {
       "path": "packages/trading-leaderboard/src/components/ranking/shared/ranking.ui.tsx",
       "sourceSha256": "7ba9ff0ef91bc7fde1f844d0f076e5c3bc2377b8c69d720bab6c78ca1f1ba4fc",
-      "runtimeSha256": "d7f9a96e2323c91f1463219125af5936c96c0c4a0de72b6c1bab8e433e6db038"
+      "runtimeSha256": "492cecbd5eb387ba4f9afea957286eaa3f2e79c695382f4055051e593f01e909"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/pricePool/normalPricePool.ui.tsx",
       "sourceSha256": "fbb8b8f22bb6a5f5b748b1a087bdd0bc9f2c5a23df220e5ad946c559549c1148",
-      "runtimeSha256": "1c52b2d359fa61020f02a1564c968cea86d8989a3f3fdea1d34543680c44923d"
+      "runtimeSha256": "db461289d81456fdb671cfc4e18b4039ea4f2853e40705a83bd2495c226241c9"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/pricePool/pricePool.desktop.ui.tsx",
       "sourceSha256": "4115c5c59cccc15e3378c6cc5257b2fab25c288f04ba1e24e061ff12c653862a",
-      "runtimeSha256": "f3494dad6912eaf97402bbb60865347ef01fe857f640682e8ef0c1381b474164"
+      "runtimeSha256": "a6bd0cdb499ef54494f0fcef02251c9d6a39c6460e00d3367719db045279a2e4"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/header/campaigns.header.mobile.ui.tsx",
       "sourceSha256": "afb1f436760d2b887e258821884596de55443aa1d1e470bb0619b505c378b5c2",
-      "runtimeSha256": "4846ba45021a784263058ebd1197fda399bd0eddc395bd33c7d9eeb4d753495b"
+      "runtimeSha256": "5fcfd2f1eb7f19563e87112dd25bc03e42d80761acbb4f46064b82ead0720b58"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/header/campaigns.header.desktop.ui.tsx",
       "sourceSha256": "983604fe1488c23ff597907b3eb6ac386bef97fe79606d277ad4bb594d6e40ed",
-      "runtimeSha256": "b7800345c204749fd36bde2620fa98b9562ae3281ca5a974d4d69c7f8ca42af9"
+      "runtimeSha256": "9fa570ffdf6c3e82b6a8211fcc47df5cd50f92be84b9c7ab7f0e71d3fd9055e6"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/components/time.desktop.ui.tsx",
       "sourceSha256": "900cea7b21f27f2c38fcef9c67ee63c730d9d519d55296901662699fd017c9ae",
-      "runtimeSha256": "182227663fe8185ca17df6acb1b9aaa61d21b976d3403340a697197358a3daf4"
+      "runtimeSha256": "546989c9088f4098c73abb2b2f643f1c77530b6416a317210ee36ffeed578191"
     },
     {
       "path": "packages/trading-next/src/tailwind.css",

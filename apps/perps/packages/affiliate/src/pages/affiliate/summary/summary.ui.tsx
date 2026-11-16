@@ -1,3 +1,5 @@
+import surface from "../../../surface.module.css";
+import { PeriodSelect } from "../../../components/periodSelect";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Flex, Select, Text } from "@paxeer-network/ui";
@@ -17,7 +19,7 @@ export const Summary: FC<SummaryReturns> = (props) => {
       height={"100%"}
       gap={4}
       direction={"column"}
-      className="oui-bg-base-9"
+      className={`${surface.surface} oui-bg-base-9`}
     >
       <Title {...props} />
       <CommissionData {...props} />
@@ -52,7 +54,7 @@ const Title: FC<SummaryReturns> = (props) => {
     <Flex direction={"row"} justify={"between"} width={"100%"}>
       <Text className="oui-text-lg">{t("affiliate.summary")}</Text>
       <div className={"oui-min-w-14"}>
-        <Select.options
+        <PeriodSelect
           size={"xs"}
           value={props.period}
           onValueChange={props.onPeriodChange}
@@ -77,7 +79,7 @@ const CommissionData: FC<SummaryReturns> = (props) => {
       direction={"column"}
       gap={3}
       height={"100%"}
-      className="oui-max-h-[104px]"
+      className="oui-max-h-[calc(var(--oui-space-24)*1)]"
     >
       <Text intensity={54} className="oui-text-base 2xl:oui-text-lg">
         {`${t("affiliate.commission")} (USDC)`}
@@ -87,7 +89,7 @@ const CommissionData: FC<SummaryReturns> = (props) => {
         gap={3}
         className="oui-text-xl md:oui-text-2xl xl:oui-text-3xl"
       >
-        <USDCIcon className="md:oui-w-[24px] md:oui-h-[24px] lg:oui-w-[28px] lg:oui-h-[28px] " />
+        <USDCIcon className="md:oui-w-6 md:oui-h-6 lg:oui-w-6 lg:oui-h-6 " />
         <Text>
           {commifyOptional(props.commission, { fix: 2, fallback: "0" })}
         </Text>

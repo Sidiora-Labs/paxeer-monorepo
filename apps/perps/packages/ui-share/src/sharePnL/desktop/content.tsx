@@ -1,4 +1,5 @@
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import surface from "../../surface.module.css";
+import { FC, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { EMPTY_LIST } from "@paxeer-network/types";
 import { Divider, Flex, toast, Text, Box } from "@paxeer-network/ui";
@@ -20,7 +21,7 @@ import { PnlFormatView } from "./pnlFormat";
 
 export const DesktopSharePnLContent: FC<{
   entity: ShareEntity;
-  hide: any;
+  hide?: () => void;
   baseDp?: number;
   quoteDp?: number;
   referral?: ReferralType;
@@ -29,8 +30,9 @@ export const DesktopSharePnLContent: FC<{
 }> = (props) => {
   const { shareOptions } = props;
   const { t } = useTranslation();
+  const id = useId();
 
-  const localPnlConfig = getPnlInfo();
+  const [localPnlConfig] = useState(getPnlInfo);
   const hasRoiAndPnl = props.entity.roi != null && props.entity.pnl != null;
   const formats: PnLDisplayFormat[] = hasRoiAndPnl
     ? ["roi_pnl", "roi", "pnl"]
@@ -46,18 +48,23 @@ export const DesktopSharePnLContent: FC<{
   const [shareOption, setShareOption] = useState<Set<ShareOptions>>(
     new Set(localPnlConfig.options),
   );
-  const [selectedSnap, setSelectedSnap] = useState(localPnlConfig.bgIndex);
-  const [message, setMessage] = useState(localPnlConfig.message);
+  const [selectedSnap, setSelectedSnap] = useState(
+    Math.max(
+      0,
+      Math.min(
+        localPnlConfig.bgIndex,
+        (shareOptions.backgroundImages?.length ?? 1) - 1,
+      ),
+    ),
+  );
+  const [message, setMessage] = useState<string>(localPnlConfig.message);
   const [check, setCheck] = useState(false);
   const { backgroundImages, ...resetOptions } = shareOptions ?? {
     backgroundImages: [],
   };
 
   const [domain, setDomain] = useState("");
-  // Temporary switch: force LTR poster rendering for now.
-  // Set to true to re-enable RTL poster rendering later.
-  const enableRTLPoster = false;
-  const direction: "ltr" | "rtl" = enableRTLPoster ? "rtl" : "ltr";
+  const direction = "ltr";
 
   const posterRef = useRef<PosterRef | null>(null);
 
@@ -95,7 +102,7 @@ export const DesktopSharePnLContent: FC<{
           return (
             <div>
               <div>{t("common.copy.failed")}</div>
-              <div className="oui-mt-2 oui-max-w-[396px] oui-text-2xs oui-text-base-contrast-54">
+              <div className="oui-mt-2 oui-max-w-[calc(var(--oui-space-24)*4)] oui-text-2xs oui-text-base-contrast-54">
                 {t("share.pnl.copy.failed.description")}
               </div>
             </div>
@@ -123,12 +130,17 @@ export const DesktopSharePnLContent: FC<{
     return mapping.filter((key) => !!props.entity[key]);
   }, [props.entity]);
 
-  savePnlInfo(pnlFormat, shareOption, selectedSnap, message);
+  useEffect(
+    () => savePnlInfo(pnlFormat, shareOption, selectedSnap, message),
+    [pnlFormat, shareOption, selectedSnap, message],
+  );
 
   return (
-    <div className="oui-relative oui-flex oui-size-full oui-flex-col">
+    <div
+      className={`${surface.surface} oui-relative oui-flex oui-size-full oui-flex-col`}
+    >
       <div className="oui-h-full oui-flex-1 oui-overflow-y-auto">
-        <Box mt={9} height={422}>
+        <Box mt={6}>
           <Flex itemAlign={"center"} justify={"center"}>
             <Poster
               // className="oui-mx-11"
@@ -153,7 +165,7 @@ export const DesktopSharePnLContent: FC<{
 
         <Flex
           direction={"column"}
-          px={10}
+          px={4}
           mt={6}
           justify={"start"}
           itemAlign={"start"}
@@ -162,10 +174,18 @@ export const DesktopSharePnLContent: FC<{
           <Text size="sm" intensity={80}>
             {t("share.pnl.displayFormat")}
           </Text>
-          <Flex pt={3} gap={3} itemAlign={"center"}>
+          <Flex
+            pt={3}
+            gap={3}
+            itemAlign={"center"}
+            className="oui-flex-wrap"
+            role="group"
+            aria-label={t("share.pnl.displayFormat")}
+          >
             {formats.map((e, index) => (
               <PnlFormatView
                 key={index}
+                name={`${id}-format`}
                 setPnlFormat={setPnlFormat}
                 type={e}
                 curType={pnlFormat}

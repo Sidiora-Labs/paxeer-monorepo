@@ -1,3 +1,4 @@
+import surface from "../../../../surface.module.css";
 import { useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Flex, Text, Grid, Box } from "@paxeer-network/ui";
@@ -38,12 +39,12 @@ export const HowItWorks = () => {
   return (
     <Box
       id="oui-affiliate-landing-how-it-works"
-      className="oui-affiliate-howItWorks oui-mb-[clamp(4rem,6vw,6rem)]"
+      className="oui-affiliate-howItWorks oui-mb-24"
     >
       {/* Title and subtitle */}
       <Flex direction="column" itemAlign="start">
-        <Text weight="semibold" className="oui-text-[32px]">
-          {t("affiliate.howItWorks.title")}
+        <Text asChild weight="semibold" className="oui-text-4xl">
+          <h2>{t("affiliate.howItWorks.title")}</h2>
         </Text>
         <Box py={4}>
           <Text intensity={54}>{t("affiliate.howItWorks.description")}</Text>
@@ -51,10 +52,7 @@ export const HowItWorks = () => {
       </Flex>
 
       {/* Step cards */}
-      <Grid
-        className="oui-howItWorks-steps oui-grid-cols-1 md:oui-grid-cols-3"
-        gap={6}
-      >
+      <Grid className={`${surface.steps} oui-howItWorks-steps`} gap={6}>
         {steps.map((step) => (
           <StepCard
             key={step.step}

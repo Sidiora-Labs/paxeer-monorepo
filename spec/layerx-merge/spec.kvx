@@ -201577,7 +201577,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.675]
 title = "Prove the mounted markets view of the trading workspace against the perps data gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.674"]
@@ -212855,7 +212855,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.705]
 title = "Let the route catalogue hold the keys of the product, and admit the routes of the advanced filters and the pages of the feed in the gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

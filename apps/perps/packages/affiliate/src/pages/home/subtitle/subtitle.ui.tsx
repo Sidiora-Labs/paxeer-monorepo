@@ -1,3 +1,4 @@
+import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { SubtitleReturns } from "./subtitle.script";
 import { Flex, Text } from "@paxeer-network/ui";
@@ -10,14 +11,13 @@ export const Subtitle: FC<SubtitleReturns> = (props) => {
     <Flex
       id="oui-affiliate-home-subtitle"
       direction={"column"}
-      className="oui-text-sm md:oui-text-base xl:oui-text-lg oui-text-base-contrast-80 oui-text-center"
+      className={`${surface.surface} oui-text-sm md:oui-text-base xl:oui-text-lg oui-text-base-contrast-80 oui-text-center`}
       gap={3}
     >
       <Text>{t("affiliate.page.subTitle")}</Text>
-      <Flex
-        direction={"row"}
-        gap={1}
-        className="oui-text-primary-light oui-fill-primary-light hover:oui-text-primary-darken oui-cursor-pointer oui-text-2xs md:oui-text-xs xl:oui-text-sm"
+      <button
+        type="button"
+        className="oui-inline-flex oui-items-center oui-gap-1 oui-text-primary-light oui-fill-primary-light hover:oui-text-primary-darken oui-cursor-pointer oui-text-2xs md:oui-text-xs xl:oui-text-sm"
         onClick={(e) => {
           if (props.onLearnAffiliate) {
             props.onLearnAffiliate?.();
@@ -36,7 +36,7 @@ export const Subtitle: FC<SubtitleReturns> = (props) => {
         >
           <path d="M4.008 7.995c0-.368.298-.666.666-.666H9.71L7.733 5.331l.937-.936 3.143 3.122c.13.13.195.304.195.479a.67.67 0 0 1-.195.478L8.67 11.596l-.937-.937 1.978-1.998H4.674a.666.666 0 0 1-.666-.666" />
         </svg>
-      </Flex>
+      </button>
     </Flex>
   );
 };

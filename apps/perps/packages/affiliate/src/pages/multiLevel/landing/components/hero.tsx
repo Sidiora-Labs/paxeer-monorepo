@@ -1,3 +1,4 @@
+import surface from "../../../../surface.module.css";
 import { useMemo } from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -214,7 +215,7 @@ export const Hero = () => {
   return (
     <Flex
       gap={8}
-      className="oui-affiliate-hero oui-mb-[clamp(2rem,3vw,3rem)] oui-flex-col-reverse md:oui-flex-row"
+      className={`${surface.hero} oui-affiliate-hero`}
       id="oui-affiliate-landing-hero"
       itemAlign={"center"}
     >
@@ -226,10 +227,11 @@ export const Hero = () => {
           id="oui-affiliate-landing-hero-title"
         >
           <Text
+            asChild
             weight="semibold"
-            className="oui-text-[32px] oui-leading-tight md:oui-text-[48px]"
+            className="oui-text-4xl oui-leading-tight md:oui-text-6xl"
           >
-            {t("affiliate.landing.title")}
+            <h1>{t("affiliate.landing.title")}</h1>
           </Text>
         </Flex>
 
@@ -253,7 +255,7 @@ export const Hero = () => {
       <NetworkDiagram
         role="img"
         aria-label="Network diagram"
-        className="oui-size-[335px] md:oui-size-[480px]"
+        className="oui-h-auto oui-w-full oui-shrink-0"
         id="oui-affiliate-landing-network-diagram"
       />
     </Flex>

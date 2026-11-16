@@ -42,19 +42,21 @@ const MAX_READINESS_CHECKS: usize = 16;
 const ZERO_HEX32: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 
-const USAGE: &str = "layerx-receipt-authority serves verified authorised-batch facts over TLS.
+const USAGE: &str = "layerx-receipt-authority serves verified receipt facts over TLS, from the node alone or with a batch evidence origin.
 
 Routes (GET only):
   /livez
   /readyz                                              {ready, network_id, protocol_network_id, wire_version}
   /v1/authorized-batches/by-activity/{activity_id}     bearer required
   /v1/authorized-batches/wait-by-activity/{activity_id}
-                                                       bearer required; waits for a publication notification
+                                                       bearer required; waits within an eight-second deadline
   /internal/v1/activities/{activity_id}/authority      bearer required
   /v1/batches/{batch_id}/receipt-authority?receipt_digest={digest}
-                                                       bearer required, relayed to the replica unchanged
+                                                       bearer required; relayed with an origin, otherwise 410 retired_http_contract
 
 Environment:
+  Batch evidence origin group: REPLICA_URL, REPLICA_ID, REPLICA_BEARER_TOKEN_FILE,
+  FIRST_BATCH and LAST_BATCH (all prefixed LAYERX_AUTHORITY_): set all five or none.
   LAYERX_AUTHORITY_LISTEN                    listen address, default 0.0.0.0:9445
   LAYERX_AUTHORITY_TLS_CERT_DER              server certificate (DER)
   LAYERX_AUTHORITY_TLS_KEY_DER               server private key (PKCS#8 DER)
@@ -75,22 +77,27 @@ Environment:
   LAYERX_AUTHORITY_LAST_BATCH                last authorised batch number
 ";
 
+#[derive(Clone)]
+struct ReplicaConfig {
+    address: SocketAddr,
+    host: String,
+    token: Zeroizing<String>,
+    id: [u8; 32],
+    authorization: SequencerAuthorization,
+}
+
 pub struct Config {
     listen: SocketAddr,
     tls: Arc<ServerConfig>,
     tokens: Vec<Zeroizing<String>>,
     human: Option<human::Human>,
-    replica_address: SocketAddr,
-    replica_host: String,
-    replica_token: Zeroizing<String>,
+    replica: Option<ReplicaConfig>,
     evidence_read_token: Option<Zeroizing<Vec<u8>>>,
-    replica_id: [u8; 32],
     chain_receipts: ChainReceipts,
     chain_rpc_url: String,
     protocol_network_id: u32,
     network_id: String,
     wire_version: String,
-    authorization: SequencerAuthorization,
     sequencer_public_key: [u8; 32],
 }
 
@@ -148,7 +155,7 @@ fn read_secret(variable: &str) -> Result<Zeroizing<String>, String> {
 
 fn read_evidence_read_token(
     tokens: &[Zeroizing<String>],
-    replica_token: &Zeroizing<String>,
+    replica: Option<&ReplicaConfig>,
 ) -> Result<Option<Zeroizing<Vec<u8>>>, String> {
     let Some(path) = env::var_os("LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE") else {
         return Ok(None);
@@ -163,7 +170,7 @@ fn read_evidence_read_token(
     }
     let collides = tokens
         .iter()
-        .chain(std::iter::once(replica_token))
+        .chain(replica.map(|replica| &replica.token))
         .fold(false, |found, other| {
             found | bool::from(other.as_bytes().ct_eq(token.as_slice()))
         });
@@ -227,11 +234,69 @@ fn server_tls_config() -> Result<Arc<ServerConfig>, String> {
     Ok(Arc::new(config))
 }
 
+const REPLICA_SETTINGS: [&str; 5] = [
+    "LAYERX_AUTHORITY_REPLICA_URL",
+    "LAYERX_AUTHORITY_REPLICA_ID",
+    "LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE",
+    "LAYERX_AUTHORITY_FIRST_BATCH",
+    "LAYERX_AUTHORITY_LAST_BATCH",
+];
+
+fn replica_config() -> Result<Option<ReplicaConfig>, String> {
+    let missing: Vec<_> = REPLICA_SETTINGS
+        .into_iter()
+        .filter(|name| env::var_os(name).is_none())
+        .collect();
+    if missing.len() == REPLICA_SETTINGS.len() {
+        return Ok(None);
+    }
+    if !missing.is_empty() {
+        return Err(format!(
+            "batch evidence origin group is incomplete; missing settings: {}",
+            missing.join(", ")
+        ));
+    }
+    let (host, address) = env::var("LAYERX_AUTHORITY_REPLICA_URL")
+        .ok()
+        .as_deref()
+        .and_then(loopback_http)
+        .ok_or_else(|| {
+            "LAYERX_AUTHORITY_REPLICA_URL must be a loopback http://host:port endpoint".to_owned()
+        })?;
+    let token = read_secret("LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE")?;
+    let id = parse_hex32("LAYERX_AUTHORITY_REPLICA_ID")?;
+    if id == [0; 32] {
+        return Err("LAYERX_AUTHORITY_REPLICA_ID must not be zero".to_owned());
+    }
+    let first = parse_u64("LAYERX_AUTHORITY_FIRST_BATCH")?;
+    let last = parse_u64("LAYERX_AUTHORITY_LAST_BATCH")?;
+    if first == 0 || last < first {
+        return Err(
+            "LAYERX_AUTHORITY_FIRST_BATCH..LAYERX_AUTHORITY_LAST_BATCH is not a batch range"
+                .to_owned(),
+        );
+    }
+    let authorization = SequencerAuthorization::new(
+        parse_hex32("LAYERX_AUTHORITY_SEQUENCER_ID")?,
+        parse_hex32("LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY")?,
+        first,
+        last,
+    );
+    Ok(Some(ReplicaConfig {
+        address,
+        host,
+        token,
+        id,
+        authorization,
+    }))
+}
+
 fn config() -> Result<Config, String> {
     let listen = env::var("LAYERX_AUTHORITY_LISTEN")
         .unwrap_or_else(|_| "0.0.0.0:9445".to_owned())
         .parse::<SocketAddr>()
         .map_err(|_| "LAYERX_AUTHORITY_LISTEN must be a socket address".to_owned())?;
+    let replica = replica_config()?;
     let tls = server_tls_config()?;
     let token_files = env::var("LAYERX_AUTHORITY_TOKEN_FILES")
         .map_err(|_| "LAYERX_AUTHORITY_TOKEN_FILES is required")?;
@@ -242,24 +307,12 @@ fn config() -> Result<Config, String> {
     if tokens.is_empty() {
         return Err("LAYERX_AUTHORITY_TOKEN_FILES names no token file".to_owned());
     }
-    let (replica_host, replica_address) = env::var("LAYERX_AUTHORITY_REPLICA_URL")
-        .ok()
-        .as_deref()
-        .and_then(loopback_http)
-        .ok_or_else(|| {
-            "LAYERX_AUTHORITY_REPLICA_URL must be a loopback http://host:port endpoint".to_owned()
-        })?;
-    let replica_token = read_secret("LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE")?;
-    let evidence_read_token = read_evidence_read_token(&tokens, &replica_token)?;
+    let evidence_read_token = read_evidence_read_token(&tokens, replica.as_ref())?;
     let mut human_peers = tokens.clone();
     if let Some(token) = &evidence_read_token {
         human_peers.push(Zeroizing::new(String::from_utf8(token.to_vec()).map_err(
             |_| "LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE is not printable",
         )?));
-    }
-    let replica_id = parse_hex32("LAYERX_AUTHORITY_REPLICA_ID")?;
-    if replica_id == [0; 32] {
-        return Err("LAYERX_AUTHORITY_REPLICA_ID must not be zero".to_owned());
     }
     let chain_rpc_url = env::var("LAYERX_AUTHORITY_CHAIN_RPC_URL")
         .map_err(|_| "LAYERX_AUTHORITY_CHAIN_RPC_URL is required")?;
@@ -290,35 +343,18 @@ fn config() -> Result<Config, String> {
     if sequencer_id == [0; 32] || sequencer_public_key == [0; 32] {
         return Err("sequencer identity and public key must not be zero".to_owned());
     }
-    let first_batch = parse_u64("LAYERX_AUTHORITY_FIRST_BATCH")?;
-    let last_batch = parse_u64("LAYERX_AUTHORITY_LAST_BATCH")?;
-    if first_batch == 0 || last_batch < first_batch {
-        return Err(
-            "LAYERX_AUTHORITY_FIRST_BATCH..LAYERX_AUTHORITY_LAST_BATCH is not a batch range"
-                .to_owned(),
-        );
-    }
     Ok(Config {
         listen,
         tls,
         human: human::Human::load(&human_peers)?,
         tokens,
-        replica_address,
-        replica_host,
-        replica_token,
+        replica,
         evidence_read_token,
-        replica_id,
         chain_receipts,
         chain_rpc_url,
         protocol_network_id,
         network_id,
         wire_version,
-        authorization: SequencerAuthorization::new(
-            sequencer_id,
-            sequencer_public_key,
-            first_batch,
-            last_batch,
-        ),
         sequencer_public_key,
     })
 }
@@ -416,6 +452,7 @@ fn write_response(
         403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
+        410 => "Gone",
         502 => "Bad Gateway",
         _ => "Service Unavailable",
     };
@@ -493,13 +530,17 @@ fn replica_exchange_until(
     path: &str,
     deadline: Instant,
 ) -> Result<ReplicaAnswer, String> {
+    let replica = config
+        .replica
+        .as_ref()
+        .ok_or("batch evidence origin is not configured")?;
     let remaining = || {
         deadline
             .checked_duration_since(Instant::now())
             .filter(|duration| !duration.is_zero())
             .ok_or_else(|| "replica deadline elapsed".to_owned())
     };
-    let mut stream = TcpStream::connect_timeout(&config.replica_address, remaining()?)
+    let mut stream = TcpStream::connect_timeout(&replica.address, remaining()?)
         .map_err(|error| format!("connect: {error}"))?;
     stream
         .set_read_timeout(Some(remaining()?))
@@ -509,8 +550,8 @@ fn replica_exchange_until(
         .map_err(|error| format!("timeout: {error}"))?;
     let request = format!(
         "GET {path} HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
-        config.replica_host,
-        config.replica_token.as_str()
+        replica.host,
+        replica.token.as_str()
     );
     stream
         .write_all(request.as_bytes())
@@ -585,6 +626,7 @@ enum DependencyReason {
     Timeout,
     IdentityMismatch,
     ConnectionLimit,
+    NotConfigured,
 }
 
 #[derive(Clone, Copy, serde::Serialize)]
@@ -654,6 +696,96 @@ fn await_replica_evidence(
     }
 }
 
+static ACTIVE_NODE_READS: AtomicUsize = AtomicUsize::new(0);
+
+struct NodeReadPermit;
+impl NodeReadPermit {
+    fn acquire() -> Option<Self> {
+        ACTIVE_NODE_READS
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+                (active < MAX_CONNECTIONS).then_some(active + 1)
+            })
+            .ok()
+            .map(|_| Self)
+    }
+}
+impl Drop for NodeReadPermit {
+    fn drop(&mut self) {
+        ACTIVE_NODE_READS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+fn node_by_activity(
+    config: &Config,
+    activity: [u8; 32],
+    requested: &str,
+    wait: bool,
+    deadline: Instant,
+) -> Response {
+    let Some(permit) = NodeReadPermit::acquire() else {
+        return refusal(503, "receipt_source_unavailable", Some(5));
+    };
+    let chain = config.chain_receipts.clone();
+    let rpc_url = config.chain_rpc_url.clone();
+    let (send, receive) = std::sync::mpsc::channel();
+    thread::spawn(move || {
+        let _permit = permit;
+        loop {
+            let result = match chain.node_receipt(activity, deadline) {
+                Ok(Some((bytes, key, height, Some((block, hash))))) => {
+                    committed::node_landing(&rpc_url, activity, &bytes, height, block, hash)
+                        .map(|()| (bytes, key))
+                        .map_err(|_| refusal(502, "evidence_refused", None))
+                }
+                Ok(pending) => {
+                    if wait && Instant::now() < deadline {
+                        thread::sleep(
+                            Duration::from_millis(25)
+                                .min(deadline.saturating_duration_since(Instant::now())),
+                        );
+                        continue;
+                    }
+                    Err(if pending.is_none() {
+                        refusal(404, "unknown_activity", None)
+                    } else {
+                        refusal(503, "receipt_not_committed", Some(1))
+                    })
+                }
+                Err(reason) => {
+                    eprintln!("layerx-receipt-authority node receipt refused: {reason}");
+                    Err(refusal(503, "receipt_source_unavailable", Some(5)))
+                }
+            };
+            let _ = send.send(result);
+            break;
+        }
+    });
+    let (receipt, key) =
+        match receive.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+            Ok(Ok(verified)) => verified,
+            Ok(Err(response)) => return response,
+            Err(_) => return refusal(503, "receipt_source_unavailable", Some(5)),
+        };
+    let decoded = match layerx_wire::receipt::decode(&receipt) {
+        Ok(decoded) => decoded,
+        Err(_) => return evidence_refusal(&EvidenceRefusal::ReceiptDecode),
+    };
+    let Some(protocol) = decoded.protocol() else {
+        return evidence_refusal(&EvidenceRefusal::ReceiptShape);
+    };
+    json(
+        200,
+        &serde_json::json!({
+            "activity_id": requested, "receipt": hex::encode(&receipt),
+            "batch_id": hex::encode(&protocol.batch_id()), "asset": hex::encode(&protocol.asset()),
+            "previous_state_root": hex::encode(&protocol.previous_state_root()),
+            "resulting_state_root": hex::encode(&protocol.resulting_state_root()),
+            "sequencer_public_key": hex::encode(&key), "network_id": config.network_id,
+            "protocol_network_id": config.protocol_network_id, "wire_version": config.wire_version,
+        }),
+    )
+}
+
 fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Response {
     let Ok(activity_id) = hex::decode32(requested) else {
         return refusal(400, "invalid_activity_id", None);
@@ -662,6 +794,9 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
         return refusal(400, "invalid_activity_id", None);
     }
     let deadline = Instant::now() + IO_TIMEOUT;
+    if config.replica.is_none() {
+        return node_by_activity(config, activity_id, requested, wait_publication, deadline);
+    }
     let receipt = match await_requested_receipt(config, activity_id, wait_publication, deadline) {
         ReceiptSource::Found(receipt) => receipt,
         ReceiptSource::Unknown => return refusal(404, "unknown_activity", None),
@@ -748,6 +883,9 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
 }
 
 fn relay(config: &Config, batch_id: &str, query: Option<&str>) -> Response {
+    if config.replica.is_none() {
+        return refusal(410, "retired_http_contract", None);
+    }
     let Some(digest) = query.and_then(|query| query.strip_prefix("receipt_digest=")) else {
         return refusal(400, "invalid_request", None);
     };
@@ -840,12 +978,19 @@ fn readiness(config: &Arc<Config>) -> Response {
     let deadline = Instant::now() + READINESS_TIMEOUT;
     let unavailable = DependencyReadiness::from_result(Err(DependencyReason::Timeout));
     let mut dependencies = AuthorityDependencies {
-        replica: unavailable,
+        replica: if config.replica.is_some() {
+            unavailable
+        } else {
+            DependencyReadiness::from_result(Ok(DependencyReason::NotConfigured))
+        },
         chain: unavailable,
     };
     if let Some(permit) = ReadinessPermit::acquire() {
         let (send, receive) = std::sync::mpsc::channel();
-        for is_chain in [false, true] {
+        for is_chain in [false, true]
+            .into_iter()
+            .filter(|is_chain| *is_chain || config.replica.is_some())
+        {
             let config = Arc::clone(config);
             let send = send.clone();
             let permit = Arc::clone(&permit);
@@ -860,7 +1005,7 @@ fn readiness(config: &Arc<Config>) -> Response {
             });
         }
         drop(send);
-        for _ in 0..2 {
+        for _ in 0..if config.replica.is_some() { 2 } else { 1 } {
             let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
                 break;
             };
@@ -897,8 +1042,14 @@ fn readiness(config: &Arc<Config>) -> Response {
             "unavailable"
         }
     };
-    response.readiness_headers =
-        Some([category(dependencies.replica), category(dependencies.chain)]);
+    response.readiness_headers = Some([
+        if config.replica.is_none() {
+            "not_configured"
+        } else {
+            category(dependencies.replica)
+        },
+        category(dependencies.chain),
+    ]);
     if !ready {
         response.retry_after = Some(5);
     }
@@ -931,12 +1082,24 @@ fn route(config: &Arc<Config>, request: &Request) -> Response {
             Err(response) => response,
         };
     }
+    if path == committed_head_route::HEAD_PATH && config.replica.is_none() {
+        if authenticate(config, request).is_err() {
+            return json(
+                401,
+                &serde_json::json!({"error":{"code":"authentication_required"}}),
+            );
+        }
+        return committed_head_route::node(&config.chain_rpc_url, request.query.as_deref());
+    }
     if let Some((status, document)) = committed_head_route::route(
         &request.method,
         path,
         request.query.as_deref(),
         || authenticate(config, request).is_ok(),
-        config.replica_id,
+        config
+            .replica
+            .as_ref()
+            .map_or([0; 32], |replica| replica.id),
         |target| match replica_get(config, target) {
             ReplicaAnswer::Status(200, body) => {
                 serde_json::from_slice(&body).map_err(|error| error.to_string())
@@ -1336,11 +1499,19 @@ mod chain_readiness_tests {
                 tls: Arc::new(tls),
                 tokens: vec![Zeroizing::new("chain-receipts-test-token".to_owned())],
                 human: None,
-                replica_address: address,
-                replica_host: address.to_string(),
-                replica_token: Zeroizing::new("replica-test-token".to_owned()),
+                replica: Some(ReplicaConfig {
+                    address: address,
+                    host: address.to_string(),
+                    token: Zeroizing::new("replica-test-token".to_owned()),
+                    id: [1; 32],
+                    authorization: SequencerAuthorization::new(
+                        hex_bytes(&pin["keyId"]).try_into().must(),
+                        public_key,
+                        pin["firstHeight"].as_u64().must(),
+                        pin["lastHeight"].as_u64().must(),
+                    ),
+                }),
                 evidence_read_token: None,
-                replica_id: [1; 32],
                 chain_receipts: must(ChainReceipts::load(
                     &format!("http://{address}/evm"),
                     &keys_file,
@@ -1349,12 +1520,6 @@ mod chain_readiness_tests {
                 protocol_network_id: 125,
                 network_id: "chain-receipts-test".to_owned(),
                 wire_version: PROTOCOL_VERSION.to_string(),
-                authorization: SequencerAuthorization::new(
-                    hex_bytes(&pin["keyId"]).try_into().must(),
-                    public_key,
-                    pin["firstHeight"].as_u64().must(),
-                    pin["lastHeight"].as_u64().must(),
-                ),
                 sequencer_public_key: public_key,
             };
             Self {
