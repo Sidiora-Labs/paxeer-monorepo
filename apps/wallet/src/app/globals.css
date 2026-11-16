@@ -360,6 +360,7 @@ textarea {
 /* Tabular figures for financial data */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 /* Price color utilities */

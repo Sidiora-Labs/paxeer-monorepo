@@ -362,6 +362,7 @@ afterEach(async () => {
 
 async function market_stats_window_is_independent_of_chart_period() {
   await mount('pax');
+  await until(() => metric('24h High') !== null);
   expect(metric('24h High')).toBe('$7.00');
   expect(metric('24h Low')).toBe('$2.00');
   const market = client.getQueryData<MarketSeries>([
@@ -412,9 +413,11 @@ async function market_stats_window_reports_missing_coverage() {
 
 async function wpax_address_detection_uses_active_chain_and_exact_alias() {
   await mount(ethers.getAddress(TOKENS.WPAX9.address));
+  await until(() => metric('24h High') !== null);
   expect(metric('Symbol')).toBe('WPAX');
   expect(metric('Name')).toBe('Wrapped PAX');
   expect(metric('24h High')).toBe('$7.00');
+  expect(metric('24h Low')).toBe('$2.00');
   expect(container.textContent).toContain('$3.00');
   expect(requests.some((r) => r.searchParams.get('symbol') === 'WPAX')).toBe(true);
   expect(requests.some((r) => r.pathname.includes('/metadata/'))).toBe(false);
