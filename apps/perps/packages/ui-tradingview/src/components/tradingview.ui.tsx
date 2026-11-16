@@ -1,5 +1,6 @@
 import React, { forwardRef } from "react";
-import { Box, cn, Divider, Flex, useScreen } from "@paxeer-network/ui";
+import { useTranslation } from "@paxeer-network/i18n";
+import { cn, Divider, Flex, useScreen } from "@paxeer-network/ui";
 import { IndicatorsIcon, SettingIcon } from "../icons";
 import type { TradingviewUIPropsInterface } from "../type";
 import { NoTradingview } from "./noTradingview";
@@ -43,6 +44,7 @@ const MobileTopBar: React.FC<MobileTopBarProps> = ({
   changeDisplaySetting,
   openChartIndicators,
 }) => {
+  const { t } = useTranslation();
   return (
     <Flex
       gapX={2}
@@ -56,7 +58,7 @@ const MobileTopBar: React.FC<MobileTopBarProps> = ({
           changeInterval={changeInterval}
         />
       </React.Suspense>
-      <OperateButton onClick={openChartIndicators}>
+      <OperateButton label="Indicators" onClick={openChartIndicators}>
         <IndicatorsIcon />
       </OperateButton>
       <React.Suspense fallback={null}>
@@ -95,6 +97,7 @@ const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
   fullscreen,
   onFullScreenChange,
 }) => {
+  const { t } = useTranslation();
   return (
     <Flex justify={"between"} itemAlign={"center"} width={"100%"}>
       <Flex>
@@ -117,28 +120,39 @@ const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
               changeDisplayControlState={changeDisplaySetting}
             />
           </React.Suspense>
-          <OperateButton onClick={openChartIndicators}>
+          <OperateButton label="Indicators" onClick={openChartIndicators}>
             <IndicatorsIcon />
           </OperateButton>
           <React.Suspense fallback={null}>
             <LazyLineType lineType={lineType} changeLineType={changeLineType} />
           </React.Suspense>
-          <OperateButton onClick={openChartSetting}>
+          <OperateButton
+            label={t("common.settings")}
+            onClick={openChartSetting}
+          >
             <SettingIcon />
           </OperateButton>
         </Flex>
       </Flex>
       <Flex>
         {fullscreen ? (
-          <ZoomOutIcon
-            className="oui-text-base-contrast-54 hover:oui-text-base-contrast oui-cursor-pointer"
+          <button
+            type="button"
+            aria-label="Exit fullscreen"
+            className="oui-flex oui-size-5 oui-items-center oui-justify-center oui-text-base-contrast-54 hover:oui-text-base-contrast"
             onClick={onFullScreenChange}
-          />
+          >
+            <ZoomOutIcon />
+          </button>
         ) : (
-          <ZoomInIcon
-            className="oui-text-base-contrast-54 hover:oui-text-base-contrast oui-cursor-pointer"
+          <button
+            type="button"
+            aria-label="Enter fullscreen"
+            className="oui-flex oui-size-5 oui-items-center oui-justify-center oui-text-base-contrast-54 hover:oui-text-base-contrast"
             onClick={onFullScreenChange}
-          />
+          >
+            <ZoomInIcon />
+          </button>
         )}
       </Flex>
     </Flex>
@@ -146,15 +160,20 @@ const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
 };
 
 const OperateButton: React.FC<
-  React.PropsWithChildren<{ onClick?: React.MouseEventHandler<HTMLElement> }>
-> = ({ children, onClick }) => {
+  React.PropsWithChildren<{
+    label: string;
+    onClick?: React.MouseEventHandler<HTMLButtonElement>;
+  }>
+> = ({ children, label, onClick }) => {
   return (
-    <Box
+    <button
+      type="button"
+      aria-label={label}
       onClick={onClick}
-      className="oui-cursor-pointer oui-w-[18px] oui-h-[18px] oui-text-base-contrast-36  hover:oui-text-base-contrast-80"
+      className="oui-flex oui-size-5 oui-items-center oui-justify-center oui-text-base-contrast-36 hover:oui-text-base-contrast-80"
     >
       {children}
-    </Box>
+    </button>
   );
 };
 
