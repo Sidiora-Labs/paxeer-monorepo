@@ -1,8 +1,8 @@
 import React from 'react';
 
 import { CollapsibleList } from 'toolkit/chakra/collapsible';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 interface Props {
   items: Array<string>;

@@ -81,16 +81,16 @@ const LatestArbitrumL2Batches = () => {
             ))) }
           </VStack>
           <Flex justifyContent="center">
-            <Link textStyle="sm" href={ route({ pathname: '/batches' }) }>View all batches</Link>
+            <Link textStyle="body" href={ route({ pathname: '/batches' }) }>View all batches</Link>
           </Flex>
         </>
       );
     }
-    return <Box textStyle="sm">No latest batches found.</Box>;
+    return <Box textStyle="body">No latest batches found.</Box>;
   })();
 
   return (
-    <Box width={{ base: '100%', lg: '280px' }} flexShrink={ 0 }>
+    <Box width={{ base: '100%', lg: 'var(--chakra-spacing-65)' }} flexShrink={ 0 }>
       <Heading level="3" mb={ 3 }>Latest batches</Heading>
       { content }
     </Box>

@@ -73,7 +73,7 @@ const Pool = () => {
     return externalLinks
       .map((link) => {
         return (
-          <Link external h="34px" key={ link.url } href={ link.url } alignItems="center" display="inline-flex" minW="120px">
+          <Link external minH="touchTarget" key={ link.url } href={ link.url } alignItems="center" display="inline-flex" minW="var(--chakra-spacing-30)">
             <Image boxSize={ 5 } mr={ 2 } src={ link.image } alt={ `${ link.title } icon` }/>
             { link.title }
           </Link>
@@ -99,7 +99,7 @@ const Pool = () => {
   }, [ data, isPlaceholderData, addressQuery.isPlaceholderData, addressQuery.data ]);
 
   const titleSecondRow = (
-    <Flex alignItems="center" justifyContent="space-between" w="100%">
+    <Flex alignItems="center" justifyContent="space-between" w="100%" minW={ 0 } flexWrap="wrap" gap={ 2 }>
       { poolIdOrContract }
       <Flex gap={ 2 } ml={ 2 }>
         <InfoButton>

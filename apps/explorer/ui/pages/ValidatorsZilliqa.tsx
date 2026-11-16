@@ -26,7 +26,7 @@ const ValidatorsZilliqa = () => {
   });
 
   const actionBar = pagination.isVisible ? (
-    <ActionBar mt={ -6 }>
+    <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
       <Pagination ml="auto" { ...pagination }/>
     </ActionBar>
   ) : null;
@@ -36,7 +36,7 @@ const ValidatorsZilliqa = () => {
       <Box hideFrom="lg">
         <ValidatorsList data={ data.items } isLoading={ isPlaceholderData }/>
       </Box>
-      <Box hideBelow="lg" overflowX="auto">
+      <Box hideBelow="lg" overflowX="auto" maxW="100%" tabIndex={ 0 } role="region" aria-label="Validators">
         <ValidatorsTable data={ data.items } isLoading={ isPlaceholderData } top={ pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }/>
       </Box>
     </>

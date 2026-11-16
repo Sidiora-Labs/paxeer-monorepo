@@ -21,7 +21,7 @@ const NovesTokenTooltipContent: FC<Props> = ({ token, amount }) => {
   const showTokenAddress = HEX_REGEXP.test(token.address);
 
   return (
-    <Box color={{ _light: 'white', _dark: 'blackAlpha.900' }} display="flex" flexDir="column" alignItems="center" gap={ 1 }>
+    <Box color="tooltip.DEFAULT.fg" display="flex" flexDir="column" alignItems="center" gap={ 1 }>
       <Text as="p" color="inherit" fontWeight="semibold">
         <Text color="inherit" as="span">
           { amount }
@@ -32,7 +32,7 @@ const NovesTokenTooltipContent: FC<Props> = ({ token, amount }) => {
       </Text>
 
       { showTokenName && (
-        <Text as="p" color="inherit" fontWeight="semibold" mt="6px">
+        <Text as="p" color="inherit" fontWeight="semibold" mt="var(--chakra-spacing-1\.5)">
           { token.name }
         </Text>
       ) }

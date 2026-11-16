@@ -246,8 +246,14 @@ func loadBundleMode(directory string, approval bool) (*migrationBundle, error) {
 				return nil, failure(fmt.Sprintf("migration %d requires matching approval, interface, reader and safety metadata", id), err)
 			}
 		}
-		if !approval && m.TransactionMode != "transactional" {
-			return nil, failure("registered migration requires a separately reviewed nontransactional runner", nil)
+		if m.TransactionMode != "transactional" {
+			if m.TransactionMode != "nontransactional" || m.OnlineIndex == nil || m.OnlineIndex.Schema != m.Schema {
+				return nil, failure("registered migration requires an exact online index plan", nil)
+			}
+			statement, err := m.OnlineIndex.CreateSQL()
+			if err != nil || statement != string(raw) {
+				return nil, failure("registered online index differs from its source", err)
+			}
 		}
 		if approval && (m.Path == "" || !validDigest(m.SHA256) || len(raw) == 0 || production.Checksum(raw) != m.SHA256) {
 			return nil, failure(fmt.Sprintf("migration %d source is unavailable or its checksum differs", id), nil)
@@ -565,6 +571,14 @@ func (b *migrationBundle) applyInternal(ctx context.Context, conn *pgx.Conn, app
 				return err
 			}
 		}
+		if err := conn.QueryRow(ctx, "SELECT to_regclass('migration_control.migration_attempts') IS NOT NULL").Scan(&present); err != nil {
+			return failure("migration attempts lookup failed", err)
+		}
+		if !present {
+			if err := execute(ctx, conn, "migration attempts creation failed", production.OnlineIndexControlDDL()); err != nil {
+				return err
+			}
+		}
 		applied, err := b.applied(ctx, conn, false)
 		if err != nil {
 			return err
@@ -626,7 +640,12 @@ func (b *migrationBundle) applyInternal(ctx context.Context, conn *pgx.Conn, app
 			if err := execute(ctx, conn, "migration database privilege failed", "GRANT CREATE ON DATABASE "+database+" TO "+owner); err != nil {
 				return err
 			}
-			migrationErr := production.ApplyRegisteredMigration(ctx, conn, m, b.sql[id], b.catalog, b.interfaceDigest, b.registry.ApprovalDigest, readerVersion)
+			var migrationErr error
+			if m.TransactionMode == "nontransactional" {
+				migrationErr = production.ApplyOnlineIndexMigration(ctx, conn, m, *m.OnlineIndex, b.catalog, b.interfaceDigest, b.registry.ApprovalDigest, readerVersion, nil)
+			} else {
+				migrationErr = production.ApplyRegisteredMigration(ctx, conn, m, b.sql[id], b.catalog, b.interfaceDigest, b.registry.ApprovalDigest, readerVersion)
+			}
 			revokeErr := execute(context.Background(), conn, "migration database privilege revocation failed", "REVOKE CREATE ON DATABASE "+database+" FROM "+owner)
 			if migrationErr != nil {
 				return failure(fmt.Sprintf("migration %d refused", id), migrationErr)

@@ -1,4 +1,4 @@
-import { Box, chakra, Flex, GridItem, Text } from '@chakra-ui/react';
+import { Box, Flex, GridItem, Text } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import { capitalize } from 'es-toolkit';
 import { useRouter } from 'next/router';
@@ -17,6 +17,7 @@ import { formatZkSyncL2TxnBatchStatus, layerLabels } from 'lib/rollups/utils';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { Textarea } from 'toolkit/chakra/textarea';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import { ZERO } from 'toolkit/utils/consts';
 import { space } from 'toolkit/utils/htmlEntities';
@@ -55,7 +56,7 @@ interface Props {
 
 const rollupFeature = config.features.rollup;
 
-const GRID_TEMPLATE_COLUMNS = { base: 'minmax(0, 1fr)', lg: '220px minmax(0, 1fr)' };
+const GRID_TEMPLATE_COLUMNS = { base: 'minmax(0, 1fr)', lg: 'var(--chakra-spacing-62\\.5) minmax(0, 1fr)' };
 
 const BlockDetails = ({ query }: Props) => {
   const router = useRouter();
@@ -63,6 +64,10 @@ const BlockDetails = ({ query }: Props) => {
   const multichainContext = useMultichainContext();
 
   const { data, isPlaceholderData } = query;
+
+  const handleExtraDataFocus = React.useCallback((event: React.FocusEvent<HTMLTextAreaElement>) => {
+    event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+  }, []);
 
   const handlePrevNextClick = React.useCallback((direction: 'prev' | 'next') => {
     if (!data) {
@@ -89,7 +94,7 @@ const BlockDetails = ({ query }: Props) => {
     }
 
     if (isPlaceholderData) {
-      return <Skeleton loading w="525px" h="20px"/>;
+      return <Skeleton loading w="full" minW={ 0 } h="5"/>;
     }
 
     return (
@@ -175,7 +180,33 @@ const BlockDetails = ({ query }: Props) => {
   );
 
   return (
-    <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-block-details>
+    <Flex
+      flexDir="column"
+      rowGap={{ base: 3, lg: 4 }}
+      data-block-details
+      css={{
+        '& a': { display: 'inline-flex', alignItems: 'center' },
+        '& button, & a': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+        '& [data-control]': { borderColor: 'border.strong', color: 'text.primary', '& svg': { color: 'text.primary' } },
+        '& button[role="combobox"]': { focusVisibleRing: 'outside', focusRingColor: 'focusRing' },
+        '& [data-detailed-info-label], & [data-detailed-info-label] > div > div': { minWidth: 0, overflowWrap: 'anywhere' },
+        '& [data-detailed-info-value]': { overflowWrap: 'anywhere' },
+        '& [data-entity]': { maxWidth: 'full', flexWrap: 'wrap' },
+        '& [data-entity-link]': { maxWidth: 'full' },
+        '& [data-detailed-info-value] :is(div, span).chakra-skeleton:not([data-loading])': {
+          height: 'auto',
+          lineHeight: 'body',
+          whiteSpace: 'normal',
+          overflow: 'visible',
+          flexWrap: 'wrap',
+        },
+        '& [data-detailed-info-value] [data-scope="tooltip"][data-part="trigger"]:not(button)': {
+          whiteSpace: 'normal',
+          overflowWrap: 'anywhere',
+          maxWidth: 'full',
+        },
+      }}
+    >
       <Box data-block-details-card>
         <DetailedInfo.Group label="BLOCK INFO" templateColumns={ GRID_TEMPLATE_COLUMNS }>
           <ScanKeyValue
@@ -188,7 +219,9 @@ const BlockDetails = ({ query }: Props) => {
             </Skeleton>
             { data.height === 0 && <Text whiteSpace="pre"> - Genesis Block</Text> }
             <PrevNext
-              ml={ 6 }
+              ml={{ base: 0, lg: 6 }}
+              flexWrap="wrap"
+              maxW="full"
               onClick={ handlePrevNextClick }
               prevLabel="View previous block"
               nextLabel="View next block"
@@ -504,6 +537,7 @@ const BlockDetails = ({ query }: Props) => {
               { !txFees.isEqualTo(ZERO) && (
                 <Tooltip content="Burnt fees / Txn fees * 100%">
                   <Utilization
+                    css={{ '& .chakra-skeleton': { color: 'positive' }, '& .chakra-skeleton > div > div': { bg: 'positive' } }}
                     value={ burntFees.dividedBy(txFees).toNumber() }
                     isLoading={ isPlaceholderData }
                   />
@@ -530,25 +564,29 @@ const BlockDetails = ({ query }: Props) => {
               multiRow
             >
               <Skeleton loading={ isPlaceholderData } w="100%">
-                <chakra.textarea
+                <Textarea
                   data-extra-data
                   aria-label="Extra data"
                   readOnly
                   value={ data.extra_data }
                   w="100%"
-                  minH="120px"
+                  minH="var(--chakra-spacing-30)"
                   px={ 4 }
                   py={ 3 }
-                  textStyle="sm"
+                  textStyle="body"
                   fontFamily="body"
                   whiteSpace="pre-wrap"
                   wordBreak="break-all"
                   bg="bg.sunken"
                   color="text.primary"
-                  borderWidth="1px"
+                  borderWidth="1"
                   borderStyle="solid"
                   borderColor="border.divider"
                   borderRadius="md"
+                  focusVisibleRing="outside"
+                  focusRingColor="focusRing"
+                  scrollMarginBlock={ 4 }
+                  onFocus={ handleExtraDataFocus }
                 />
               </Skeleton>
             </ScanKeyValue>
@@ -574,7 +612,9 @@ const BlockDetails = ({ query }: Props) => {
 
       { hasMoreDetails && (
         <ScanExpander hint="The fields this block carries beyond the ones the overview shows">
-          <DetailedInfo.Container templateColumns={ GRID_TEMPLATE_COLUMNS }>
+          <DetailedInfo.Container
+            templateColumns={ GRID_TEMPLATE_COLUMNS }
+          >
             { rollupFeature.isEnabled && rollupFeature.type === 'zkSync' && data.zksync &&
               <ZkSyncL2TxnBatchHashesInfo data={ data.zksync } isLoading={ isPlaceholderData }/> }
 
@@ -597,7 +637,7 @@ const BlockDetails = ({ query }: Props) => {
                   data={ data.bitcoin_merged_mining_coinbase_transaction }
                   isLoading={ isPlaceholderData }
                   showCopy={ false }
-                  textareaMaxHeight="100px"
+                  textareaMaxHeight="var(--chakra-spacing-24)"
                   w="100%"
                 />
               </ScanKeyValue>
@@ -609,7 +649,7 @@ const BlockDetails = ({ query }: Props) => {
                   data={ data.bitcoin_merged_mining_merkle_proof }
                   isLoading={ isPlaceholderData }
                   showCopy={ false }
-                  textareaMaxHeight="100px"
+                  textareaMaxHeight="var(--chakra-spacing-24)"
                   w="100%"
                 />
               </ScanKeyValue>

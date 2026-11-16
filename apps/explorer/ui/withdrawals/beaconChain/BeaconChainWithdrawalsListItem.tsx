@@ -8,9 +8,9 @@ import config from 'configs/app';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 const feature = config.features.beaconChain;
 
@@ -31,7 +31,7 @@ const BeaconChainWithdrawalsListItem = ({ item, isLoading, view }: Props) => {
   }
 
   return (
-    <ListItemMobileGrid.Container gridTemplateColumns="100px auto">
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr) minmax(0, 2fr)">
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Index</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>

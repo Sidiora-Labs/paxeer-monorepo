@@ -264,6 +264,7 @@ defmodule BlockScoutWeb.API.V2.VerificationControllerTest do
 
       test "verify contract from sourcify repo", %{conn: conn} do
         address = "0xf26594F585De4EB0Ae9De865d9053FEe02ac6eF1"
+        BlockScoutWeb.SourcifyServer.start(address)
 
         _contract = insert(:address, hash: address, contract_code: "0x01")
 

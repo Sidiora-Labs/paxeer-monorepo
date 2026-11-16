@@ -103,6 +103,63 @@ variable names. `railway-values.json` supplies the shared `RPC_URL`,
 `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_PAXEER_RPC_URL` and
 `NEXT_PUBLIC_RPC_URL_FALLBACK` select node root URLs.
 
+### API network authority document
+
+The API composer emits `ACCOUNTING_READ_CONFIG_DOCUMENT`,
+`STREAM_RELAY_CONFIG_DOCUMENT` and `DISCOVERY_RUNTIME_CONFIG_DOCUMENT` from
+the API values. The authority command below writes
+`network-authority.json`; set `network_authority_rendered_file` and
+`network_authority_runtime_path` in the API values so the composer emits
+`NETWORK_AUTHORITY_CONFIG_FILE` and its `NETWORK_AUTHORITY_CONFIG_SHA256`.
+
+Generate `network-authority.json` from the repository root with:
+
+```bash
+(cd services/launchpad/api && go run ./cmd/api-runtime-docs \
+  -repo ../../.. \
+  -source-schema "$INDEXER_SOURCE_SCHEMA" \
+  -endpoints "$PUBLIC_ENDPOINTS_FILE" \
+  -pool-runtime "$REVIEWED_POOL_RUNTIME" \
+  -out "$AUTHORITY_OUTPUT_DIR")
+```
+
+Use absolute paths for `PUBLIC_ENDPOINTS_FILE` and `AUTHORITY_OUTPUT_DIR`.
+`-repo` selects the repository root. `-source-schema` names the indexer's
+committed-head schema: a lowercase letter followed by up to 62 lowercase
+letters, digits or underscores. `-pool-runtime` is the reviewed, nonzero
+`0x`-prefixed 32-byte keccak256 hash of the deployed pool runtime.
+`-endpoints` reads one JSON object containing the reviewed public endpoints
+and their exact allowlists, for example:
+
+```json
+{
+  "RPC": "https://api1.mainnet-beta.paxeer.network",
+  "Explorer": "https://paxscan.paxeer.app",
+  "AllowedRPCs": ["https://api1.mainnet-beta.paxeer.network"],
+  "AllowedExplorers": ["https://paxscan.paxeer.app"]
+}
+```
+
+Endpoints must use HTTPS without credentials, queries or fragments and must
+match their respective allowlists. Each allowlist contains 1 to 16 entries.
+The command uses `deployment.Current()` for the manifest and both address maps,
+reads the serial interface digest from task `1.99`'s `interface_bundle.expected_sha256`
+in `tools/launchpad/production/bootstrap/check-registry.json`, and derives the
+expected revision through the preflight engine's revision calculation. Generation
+needs no network connection or database. Identical inputs produce identical bytes.
+The output directory is created with mode `0750` and the document with mode `0600`.
+The command prints `<sha256> network-authority.json <byte-count>`.
+
+Set `NETWORK_AUTHORITY_CONFIG_FILE` to the mounted document path, or set
+`NETWORK_AUTHORITY_CONFIG_DOCUMENT` to standard base64 encoding of its exact
+bytes. Set only one source. In either case, set
+`NETWORK_AUTHORITY_CONFIG_SHA256` to the printed lowercase SHA-256 digest.
+`NETWORK_RPC_URL` supplies the API's HTTPS chain reader independently of the
+public endpoints in the document. The API validates the document's schema,
+manifest, reviewed runtime, revision digest and both address maps before use.
+
+### Web build arguments
+
 The web build arguments are:
 
 - Backend origins: `NEXT_PUBLIC_DATA_API_URL`, `NEXT_PUBLIC_GATEWAY_URL`, `NEXT_PUBLIC_METADATA_API_URL`, `NEXT_PUBLIC_PNL_API_URL`, `NEXT_PUBLIC_STATS_API_URL`, `NEXT_PUBLIC_LIVESTREAM_API_URL`, `NEXT_PUBLIC_SOCIAL_API_URL`, `NEXT_PUBLIC_USER_API_URL`.
@@ -137,6 +194,32 @@ The Go service definitions set `NODE_ENV`, `RUNTIME_PROFILE`, `BIND_ADDRESS`,
 `PORT`, `SECRETS_PROVIDER` and `SECRETS_REFRESH_SECONDS`; API definitions also set
 `API_ROLE`. The Railway definitions select readiness checks: the API uses
 `/health/ready` and the web uses `/api/health`.
+
+The connected ranking, user, metadata and social services keep their health
+listener on `PORT=8080` and serve their private mTLS routes on
+`RANKING_PRIVATE_LISTEN_ADDRESS`, `USER_PRIVATE_LISTEN_ADDRESS`,
+`METADATA_PRIVATE_LISTEN_ADDRESS` and `SOCIAL_PRIVATE_LISTEN_ADDRESS`, each set
+to `0.0.0.0:8443` in the Railway contract. Gateway upstreams for user, metadata
+and social use their corresponding HTTPS `:8443` origins; the ranking runtime's
+social visibility endpoint does the same.
+
+Metadata uses `METADATA_INGRESS=mtls`. Its private listener requires TLS 1.3
+and a certificate verified by `METADATA_TLS_CLIENT_CA_PEM`. Set
+`METADATA_TLS_CERT_PEM`, `METADATA_TLS_KEY_PEM` and
+`METADATA_TLS_CLIENT_CA_PEM` to the listener's PEM materials. Each also admits
+its `*_FILE` alternative outside the inline platform contract; select exactly
+one source for each material. Key files must be regular and accessible only
+to their owner. The inline key and `METADATA_ASSERTION_PRIVATE_KEY_HEX` are
+secrets resolved through the configured secrets provider.
+
+The gateway channel uses `GATEWAY_ASSERTION_PUBLIC_KEY_HEX` and
+`GATEWAY_PEER_CERT_SHA256`; the user account channel uses
+`USER_ASSERTION_PUBLIC_KEY_HEX` and `USER_PEER_CERT_SHA256`. Metadata calls
+`IDENTITY_ENDPOINT` over mTLS using its listener certificate and assertion key,
+with `IDENTITY_PEER_CERT_SHA256` pinning the identity server. The separate
+`edge` form uses `IDENTITY_SERVICE_URL` and `IDENTITY_SERVICE_TOKEN` for session
+introspection and requires database moderation. The platform contract selects
+the mTLS form and database moderation.
 
 Production tooling has separate configuration described in the linked pages:
 bootstrap uses `compose.yml`, `fixture.env.example`, `images.json` and

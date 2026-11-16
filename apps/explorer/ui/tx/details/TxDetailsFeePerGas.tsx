@@ -2,8 +2,8 @@ import BigNumber from 'bignumber.js';
 import React from 'react';
 
 import config from 'configs/app';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoNativeCoinValue from 'ui/shared/DetailedInfo/DetailedInfoNativeCoinValue';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 interface Props {
   txFee: string | null;

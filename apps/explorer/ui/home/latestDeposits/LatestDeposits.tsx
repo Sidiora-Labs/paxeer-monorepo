@@ -44,13 +44,13 @@ const LatestDepositsItem = ({ item, isLoading }: ItemProps) => {
     <BlockEntityL1
       number={ item.l1BlockNumber }
       isLoading={ isLoading }
-      fontWeight={ 700 }
+      fontWeight="bold"
     />
   ) : (
     <BlockEntityL1
       number="TBD"
       isLoading={ isLoading }
-      fontWeight={ 700 }
+      fontWeight="bold"
       noLink
     />
   );
@@ -95,12 +95,12 @@ const LatestDepositsItem = ({ item, isLoading }: ItemProps) => {
               />
             ) : <GridItem/> }
           </Flex>
-          <Grid gridTemplateColumns="56px auto">
-            <Skeleton loading={ isLoading } my="5px" w="fit-content">
+          <Grid gridTemplateColumns="var(--chakra-spacing-14) auto">
+            <Skeleton loading={ isLoading } my="var(--chakra-spacing-1\.25)" w="fit-content">
               { layerLabels.parent } txn
             </Skeleton>
             { l1TxLink }
-            <Skeleton loading={ isLoading } my="3px" w="fit-content">
+            <Skeleton loading={ isLoading } my="var(--chakra-spacing-0\.5)" w="fit-content">
               { layerLabels.current } txn
             </Skeleton>
             { l2TxLink }
@@ -112,7 +112,7 @@ const LatestDepositsItem = ({ item, isLoading }: ItemProps) => {
     return (
       <Grid width="100%" columnGap={ 4 } rowGap={ 2 } templateColumns="max-content max-content auto" w="100%">
         { l1BlockLink }
-        <Skeleton loading={ isLoading } w="fit-content" h="fit-content" my="5px">
+        <Skeleton loading={ isLoading } w="fit-content" h="fit-content" my="var(--chakra-spacing-1\.25)">
           { layerLabels.parent } txn
         </Skeleton>
         { l1TxLink }
@@ -124,10 +124,10 @@ const LatestDepositsItem = ({ item, isLoading }: ItemProps) => {
             color="text.secondary"
             w="fit-content"
             h="fit-content"
-            my="2px"
+            my="var(--chakra-spacing-0\.5)"
           />
         ) : <GridItem/> }
-        <Skeleton loading={ isLoading } w="fit-content" h="fit-content" my="2px">
+        <Skeleton loading={ isLoading } w="fit-content" h="fit-content" my="var(--chakra-spacing-0\.5)">
           { layerLabels.current } txn
         </Skeleton>
         { l2TxLink }
@@ -138,11 +138,11 @@ const LatestDepositsItem = ({ item, isLoading }: ItemProps) => {
   return (
     <Box
       width="100%"
-      borderBottom="1px solid"
+      borderBottom="var(--chakra-border-widths-1) solid"
       borderColor="border.divider"
       py={ 4 }
       px={{ base: 0, lg: 4 }}
-      textStyle="sm"
+      textStyle="body"
     >
       { content }
     </Box>
@@ -171,7 +171,7 @@ const LatestDeposits = ({ isLoading, items, showSocketErrorAlert, socketItemsNum
         ))) }
       </Box>
       <Flex justifyContent="center">
-        <Link textStyle="sm" href={ depositsUrl }>View all deposits</Link>
+        <Link textStyle="body" href={ depositsUrl }>View all deposits</Link>
       </Flex>
     </>
   );

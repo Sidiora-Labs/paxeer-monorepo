@@ -10,11 +10,14 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -39,6 +42,7 @@ type Config struct {
 	RuntimeMetricsEnvironment string `env:"METRICS_ENVIRONMENT" envDefault:"production"`
 	RuntimeProfile            string `env:"RUNTIME_PROFILE"`
 	BindAddress               string `env:"BIND_ADDRESS"`
+	PrivateListenAddress      string `env:"RANKING_PRIVATE_LISTEN_ADDRESS"`
 	RuntimeBudgetFile         string `env:"DB_BUDGET_FILE"`
 	RuntimeBudgetDocument     string `env:"DB_BUDGET_DOCUMENT"`
 	RuntimeBudgetSHA256       string `env:"DB_BUDGET_SHA256"`
@@ -96,6 +100,26 @@ func (c Config) TickInterval() time.Duration {
 // NewTickInterval returns the new-pools ranker cadence as a time.Duration.
 func (c Config) NewTickInterval() time.Duration {
 	return time.Duration(c.RankingNewTickIntervalMS) * time.Millisecond
+}
+
+func (c *Config) Validate() error {
+	errs := []error{c.BaseEnv.Validate()}
+	if c.NodeEnv == productionEnv && c.RuntimeProfile != "" {
+		errs = append(errs, c.validatePrivateListenAddress())
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Config) validatePrivateListenAddress() error {
+	host, port, err := net.SplitHostPort(c.PrivateListenAddress)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("RANKING_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	privatePort, err := strconv.Atoi(port)
+	if err != nil || privatePort < 1 || privatePort > 65535 || privatePort == c.Port {
+		return fmt.Errorf("RANKING_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	return nil
 }
 
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {

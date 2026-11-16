@@ -164,7 +164,7 @@ const CsvExport = () => {
             token={ tokenQuery.data }
             truncation={ isMobile ? 'constant' : 'dynamic' }
             w="fit-content"
-            maxW={{ base: '100%', lg: '400px' }}
+            maxW={{ base: '100%', lg: 'var(--chakra-spacing-100)' }}
             noCopy
             noSymbol
           />

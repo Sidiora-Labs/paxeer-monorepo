@@ -67,7 +67,23 @@ const EpochDetails = ({ data, isLoading }: Props) => {
   })();
 
   return (
-    <Box display="flex" flexDirection="column" gap={ 8 }>
+    <Box display="flex" flexDirection="column" gap={ 8 } overflowWrap="anywhere" css={{
+      '& a': { display: 'inline-flex', alignItems: 'center' },
+      '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+      '& button[role="combobox"]': { focusVisibleRing: 'outside', focusRingColor: 'focusRing' },
+      '& [data-detailed-info-label], & [data-detailed-info-label] > div > div': { minWidth: 0, overflowWrap: 'anywhere' },
+      '& [data-detailed-info-value]': { overflowWrap: 'anywhere' },
+      '& [data-entity]': { maxWidth: 'full', flexWrap: 'wrap' },
+      '& [data-entity-link]': { maxWidth: 'full' },
+      '& :is(div, span).chakra-skeleton:not([data-loading])': {
+        height: 'auto', lineHeight: 'body', whiteSpace: 'normal', overflow: 'visible', flexWrap: 'wrap',
+      },
+      '& [data-scope="tooltip"][data-part="trigger"]:not(button)': {
+        whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: 'full',
+      },
+      '& .chakra-badge > span': { color: 'text.primary' },
+      '& button[aria-label="Show QR code"]': { borderWidth: '1', borderStyle: 'solid', borderColor: 'border.strong' },
+    }}>
       <DetailedInfo.Group label="Epoch info">
         <DetailedInfo.ItemLabel
           hint="Current status of the epoch"

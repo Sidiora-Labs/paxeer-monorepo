@@ -114,7 +114,7 @@ const LatestTxs = () => {
     );
   }
 
-  return <Box px={{ base: 3, lg: 4 }} py={ 3 } textStyle="sm">No latest transactions found.</Box>;
+  return <Box px={{ base: 3, lg: 4 }} py={ 3 } textStyle="body">No latest transactions found.</Box>;
 };
 
 export default LatestTxs;

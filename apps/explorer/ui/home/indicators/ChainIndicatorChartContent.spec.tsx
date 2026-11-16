@@ -35,6 +35,12 @@ describe('ChainIndicatorChartContent', () => {
 
     expect(svg).not.toBeNull();
     expect(svg.querySelector('path')).not.toBeNull();
+    expect(svg.getAttribute('role')).toBe('img');
+    expect(svg.getAttribute('aria-label')).toBe('Tx/day');
+    const description = document.getElementById(svg.getAttribute('aria-describedby')!);
+    expect(description?.textContent).toContain(data[0].items[0].date.toLocaleDateString());
+    expect(description?.textContent).toContain(data[0].items[0].value.toLocaleString());
+    expect(description?.textContent).toContain(data[0].items[13].value.toLocaleString());
   });
 
   it('labels the sparkline on both axes', () => {

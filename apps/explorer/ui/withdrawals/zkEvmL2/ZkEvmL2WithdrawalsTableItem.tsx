@@ -24,16 +24,16 @@ const ZkEvmL2WithdrawalsTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BlockEntity
           number={ item.block_number }
           isLoading={ isLoading }
           textStyle="sm"
-          fontWeight={ 600 }
+          fontWeight="semibold"
           noIcon
         />
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <Skeleton loading={ isLoading }>
           <span>{ item.index }</span>
         </Skeleton>

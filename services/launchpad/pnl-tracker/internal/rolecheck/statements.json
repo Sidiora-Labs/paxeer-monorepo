@@ -1,0 +1,6571 @@
+[
+  {
+    "id": "db/production/migrations.go:CatalogFingerprint:1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CatalogFingerprint",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_attrdef",
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_constraint",
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_proc",
+      "pg_catalog.pg_trigger"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.concat_ws",
+      "pg_catalog.format_type",
+      "pg_catalog.pg_get_constraintdef",
+      "pg_catalog.pg_get_expr",
+      "pg_catalog.pg_get_function_identity_arguments",
+      "pg_catalog.pg_get_functiondef",
+      "pg_catalog.pg_get_indexdef",
+      "pg_catalog.pg_get_triggerdef",
+      "pg_catalog.pg_get_userbyid",
+      "pg_catalog.pg_get_viewdef"
+    ],
+    "columns": [
+      "a.attidentity",
+      "a.attisdropped",
+      "a.attname",
+      "a.attnotnull",
+      "a.attnum",
+      "a.attrelid",
+      "a.atttypid",
+      "a.atttypmod",
+      "c.oid",
+      "c.relforcerowsecurity",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "c.relowner",
+      "c.relrowsecurity",
+      "d.adbin",
+      "d.adnum",
+      "d.adrelid",
+      "definition",
+      "identity",
+      "k.conname",
+      "k.conrelid",
+      "k.oid",
+      "kind",
+      "n.nspname",
+      "n.oid",
+      "p.oid",
+      "p.proname",
+      "p.pronamespace",
+      "p.proowner",
+      "t.oid",
+      "t.tgisinternal",
+      "t.tgname",
+      "t.tgrelid"
+    ],
+    "sha256": "1fe6597d9b18359a9d660503897d5f8e6e80975ecf41d13d0ec8eb359ccbcc07"
+  },
+  {
+    "id": "db/production/migrations.go:CheckReadiness:1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SET",
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "61c76c8e91835753ad815b5ede1f69c482545fa445aa1dd64dd9bd49ebd58739"
+  },
+  {
+    "id": "db/production/migrations.go:CheckReadiness:2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_roles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_schema_privilege",
+      "pg_catalog.pg_has_role"
+    ],
+    "columns": [
+      "c.relnamespace",
+      "c.relowner",
+      "n.nspname",
+      "n.nspowner",
+      "n.oid",
+      "nspname",
+      "oid",
+      "r.oid",
+      "r.rolbypassrls",
+      "r.rolcreatedb",
+      "r.rolcreaterole",
+      "r.rolname",
+      "r.rolsuper"
+    ],
+    "sha256": "42dd3a2afc5eb35c837b4322e0345d95332463054549bd9f5bcc0a63639b8d2b"
+  },
+  {
+    "id": "db/production/migrations.go:CheckReadiness:3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "migration_control.readiness"
+    ],
+    "columns": [
+      "interface_digest",
+      "migrations",
+      "reader_min_version",
+      "registry_digest"
+    ],
+    "sha256": "353e202ed3da1bdef8d25cc68d67020ccaf5b6cae54e048862b79bbd6c1f917b"
+  },
+  {
+    "id": "db/production/migrations.go:CheckReadiness:4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_schema_privilege",
+      "pg_catalog.pg_has_role"
+    ],
+    "columns": [
+      "n.nspname",
+      "n.nspowner"
+    ],
+    "sha256": "5270e61437fbfd155ad089b16dc9db455ceb07ba0e5fc06e73f3f212ca5cf068"
+  },
+  {
+    "id": "db/production/migrations.go:CheckReadiness:5",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "recovery.current_epoch"
+    ],
+    "columns": [
+      "epoch",
+      "region"
+    ],
+    "sha256": "deef3fc412d0d1ee65feecc3822d1c20fc3e99ac58410541081379c27452a827"
+  },
+  {
+    "id": "db/production/migrations.go:checkPrivilege:1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_function_privilege"
+    ],
+    "columns": [],
+    "sha256": "3beb4d6a343e168fdcb1b0b657060c833a7c0aae6e62b98500cd626ec1c93c66"
+  },
+  {
+    "id": "db/production/migrations.go:checkPrivilege:2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_sequence_privilege"
+    ],
+    "columns": [],
+    "sha256": "671f1e2a076545b665c4ea6e9d6cf724e91f93ee447ef9ffb56432e789b84284"
+  },
+  {
+    "id": "db/production/migrations.go:checkPrivilege:3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_column_privilege"
+    ],
+    "columns": [],
+    "sha256": "8972cb0abdb55b37be889aa2686ed0a2f910088e80c2763526e36d2e2cea546c"
+  },
+  {
+    "id": "db/production/migrations.go:checkPrivilege:4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_table_privilege"
+    ],
+    "columns": [],
+    "sha256": "7873aae4ce247fb183b637179f0ff947014748465b4ebf8ef98210f9ea296d0c"
+  },
+  {
+    "id": "db/production/migrations.go:checkUnexpectedPrivileges:1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_table_privilege"
+    ],
+    "columns": [
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "sha256": "50818cb4337fd78ff79795f475e1d9e784fea6895bf9c0907b6cbc0df8d09cdc"
+  },
+  {
+    "id": "db/production/migrations.go:checkUnexpectedPrivileges:2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_column_privilege"
+    ],
+    "columns": [
+      "a.attisdropped",
+      "a.attname",
+      "a.attnum",
+      "a.attrelid",
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "sha256": "91cc1667dd2d56a5bbeff837af246838be25367013d60f40f97cbc28220bc1f5"
+  },
+  {
+    "id": "db/production/migrations.go:checkUnexpectedPrivileges:3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_proc"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_function_privilege",
+      "pg_catalog.oidvectortypes"
+    ],
+    "columns": [
+      "n.nspname",
+      "n.oid",
+      "p.oid",
+      "p.proargtypes",
+      "p.proname",
+      "p.pronamespace"
+    ],
+    "sha256": "cfdfc1f689082a9242b380f57f6f7444b3dc7d87efff142b1b144f2fa878bf7d"
+  },
+  {
+    "id": "db/production/migrations.go:checkUnexpectedPrivileges:4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_sequence_privilege"
+    ],
+    "columns": [
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "sha256": "e1d3fa26ec71cc96400cf8022bfce5085dbf48d4736b39a23c8f19fffa42840a"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.Acquire:1",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.Acquire",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.delivery_partition_leases"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "consumer_id",
+      "epoch",
+      "excluded.owner",
+      "expires_at",
+      "l.epoch",
+      "l.expires_at",
+      "l.owner",
+      "owner",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "2370e67171c645ad4dbbe0972cc6be3e46bdcbd4c4d464b6f22845281306a53f"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.lockLeaseTx:1",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.lockLeaseTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_leases"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "consumer_id",
+      "epoch",
+      "expires_at",
+      "owner",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "5243ca0e64aefb9e9fc0180df4533e97593b5c3aeddd82b665d76cc54627ca45"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.finalFenceTx:1",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.finalFenceTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_leases"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "consumer_id",
+      "epoch",
+      "expires_at",
+      "owner",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "7dbd80211515fa61f4c1eeac4d909769f641086f8d06cda8090a82c8e11e852b"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.BootstrapTx:1",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.BootstrapTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.delivery_partition_offsets"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "checkpoint_digest",
+      "consumer_id",
+      "initial_predecessor",
+      "initial_sequence",
+      "next_sequence",
+      "partition_key",
+      "partition_kind",
+      "previous_effect_identity",
+      "projection_generation"
+    ],
+    "sha256": "1403682db515baf1ab4dd34ce440e47c307f67f22ff8f309f17f1e89855c5097"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.BootstrapTx:2",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.BootstrapTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_offsets"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "checkpoint_digest",
+      "consumer_id",
+      "initial_predecessor",
+      "initial_sequence",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "7a7eb87ffc46ff6ff4a34b31968fef9d910892f60de4a81cc53c6d4178853283"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.CheckAndLockTx:1",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.CheckAndLockTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_offsets"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "next_sequence",
+      "partition_key",
+      "partition_kind",
+      "previous_effect_identity",
+      "projection_generation"
+    ],
+    "sha256": "aca8880fc1c840e25db2b898a6aedf4220afe5dd97a755152407518b9ad9b7ad"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.CheckAndLockTx:2",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.CheckAndLockTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_commits"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "partition_key",
+      "partition_kind",
+      "position",
+      "projection_generation",
+      "sequence"
+    ],
+    "sha256": "0d3f1e5a4ed0f9260ba2b88ea7f34fd2d7ec86f992013837e02476e6612e2bd0"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.AdvanceTx:1",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.AdvanceTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.delivery_partition_commits"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "effect_identity",
+      "partition_key",
+      "partition_kind",
+      "position",
+      "projection_generation",
+      "sequence"
+    ],
+    "sha256": "7a0cbc3e790cfb709a9d618c3950e78bb68b22fb2d7c279221fac45c082eaca7"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.AdvanceTx:2",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.AdvanceTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.delivery_partition_leases"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "consumer_id",
+      "l.consumer_id",
+      "l.epoch",
+      "l.expires_at",
+      "l.owner",
+      "l.partition_key",
+      "l.partition_kind",
+      "l.projection_generation",
+      "next_sequence",
+      "o.consumer_id",
+      "o.partition_key",
+      "o.partition_kind",
+      "o.projection_generation",
+      "partition_key",
+      "partition_kind",
+      "previous_effect_identity",
+      "projection_generation"
+    ],
+    "sha256": "a4dd282229d6d1846c0ff85c96821be4a9c2d57eb50fa9d5511362f78b221c0e"
+  },
+  {
+    "id": "delivery/partition.go:PartitionStore.verifyCommitTx:1",
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.verifyCommitTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_commits",
+      "pnl.delivery_partition_offsets"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.consumer_id",
+      "c.partition_key",
+      "c.partition_kind",
+      "c.position",
+      "c.projection_generation",
+      "c.sequence",
+      "o.next_sequence"
+    ],
+    "sha256": "53fde393b997953acdbc80db7f1d534506b0cc183b2efa20deb6bf38f43bf597"
+  },
+  {
+    "id": "delivery/store.go:Store.Enqueue:1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Enqueue",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "envelope",
+      "event_id",
+      "payload_hash",
+      "schema_version",
+      "subject"
+    ],
+    "sha256": "aa5599129f874cf79a56918bc2da641a83d3fbef38ad88d3e7c4586d13a782e5"
+  },
+  {
+    "id": "delivery/store.go:Store.Enqueue:2",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Enqueue",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "envelope",
+      "event_id",
+      "subject"
+    ],
+    "sha256": "49ad6e819aec71b0bdf0d214900e630f95e4a4b981c63b1fb41ed2ce3f380cfc"
+  },
+  {
+    "id": "delivery/store.go:Store.Claim:1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Claim",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "available_at",
+      "claimed_at",
+      "created_at",
+      "event_id",
+      "fence",
+      "lease_expiry_count",
+      "lease_owner",
+      "lease_until",
+      "o.attempts",
+      "o.envelope",
+      "o.event_id",
+      "o.fence",
+      "o.lease_expiry_count",
+      "o.lease_until",
+      "o.subject",
+      "picked.event_id",
+      "state"
+    ],
+    "sha256": "cc1b7d66ba65ff6f871d218bfeaedb3d940940c82674f577f043e262a5f24b07"
+  },
+  {
+    "id": "delivery/store.go:Store.MarkPublished:1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.MarkPublished",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.extract"
+    ],
+    "columns": [
+      "acknowledgement_latency_ms",
+      "broker_sequence",
+      "broker_stream",
+      "claimed_at",
+      "event_id",
+      "failure_class",
+      "fence",
+      "lease_owner",
+      "lease_until",
+      "published_at",
+      "state"
+    ],
+    "sha256": "61ba6c781b4f645e732478aa02fce70561753f599bb0d8859f3a23201fdc7f3f"
+  },
+  {
+    "id": "delivery/store.go:Store.Retry:1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Retry",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "available_at",
+      "event_id",
+      "failure_class",
+      "fence",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sha256": "cb0d1076910cf839da265413ff6191af58715e13dc4b6a6f018fc2960b9497df"
+  },
+  {
+    "id": "delivery/store.go:Store.CheckAttemptBudget:1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.CheckAttemptBudget",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "event_id",
+      "failure_class",
+      "fence",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sha256": "90bc3e5e599d2fca25e574c59759766e4a0cf075ec3439eb0adb70ae0e29b87d"
+  },
+  {
+    "id": "delivery/store.go:Store.ConsumeOrdered:1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.ConsumeOrdered",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.delivery_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "envelope_hash",
+      "event_id",
+      "projection_generation"
+    ],
+    "sha256": "6fab8f78c1dc31166f040616f6c9ddda7ca5047ed027332e05f378e2098a3a1f"
+  },
+  {
+    "id": "delivery/store.go:Store.ConsumeOrdered:2",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.ConsumeOrdered",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "envelope_hash",
+      "event_id",
+      "projection_generation"
+    ],
+    "sha256": "d7a267fb9ff3b176a2612c9aaf3df6de91832f056db340611ddd1f3fd24e9711"
+  },
+  {
+    "id": "delivery/store.go:Store.QuarantineAfterRollback:1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.QuarantineAfterRollback",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_leases"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "ec2df4ccbeaa84f8243a63cf02054cf17e5544d092f438af5e2a21f76815884a"
+  },
+  {
+    "id": "delivery/store.go:Store.QuarantineAfterRollback:2",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.QuarantineAfterRollback",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_offsets"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "66cbd2eaafc1729cd2bd5ed8fed1022c8e92499388b1d67870cfde3b774834b3"
+  },
+  {
+    "id": "delivery/store.go:Store.QuarantineAfterRollback:3",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.QuarantineAfterRollback",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.delivery_ordered_quarantine"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "affected_pools",
+      "consumer_id",
+      "envelope",
+      "envelope_hash",
+      "evidence_digest",
+      "failure_class",
+      "projection_generation",
+      "publication_id",
+      "subject"
+    ],
+    "sha256": "908220bb56654d28816df45a335f962833b22db0595e40a835b10b4b098d3f2a"
+  },
+  {
+    "id": "delivery/store.go:Store.QuarantineAfterRollback:4",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.QuarantineAfterRollback",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_ordered_quarantine"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "affected_pools",
+      "consumer_id",
+      "envelope",
+      "envelope_hash",
+      "evidence_digest",
+      "failure_class",
+      "projection_generation",
+      "publication_id",
+      "subject"
+    ],
+    "sha256": "31f5683b3984760cfeeec3b83b673aa2e766c470dae36991f74fce3ef3047b12"
+  },
+  {
+    "id": "delivery/stream.go:StreamWriter.AppendTx:1",
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamWriter.AppendTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "bindings": {
+      "s.Schema": "{{schema:api_stream}}",
+      "function": "append_portfolio"
+    },
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "api_stream.append_portfolio"
+    ],
+    "columns": [],
+    "sha256": "8486ab5c68084cee8cd608f58bfcc1ab852f73d0c5629b35448c68a2d952c834"
+  },
+  {
+    "id": "queue/queue.go:EpochGuard.Assert:1",
+    "file": "sdk/launchpad/shared/queue/queue.go",
+    "function": "EpochGuard.Assert",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "bindings": {
+      "g.schema": "{{identifier:recovery}}"
+    },
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "recovery.assert_epoch"
+    ],
+    "columns": [],
+    "sha256": "85490038657d00e048a8a4292a3c4648b4e081b65e740c4f0f533dc4c3241339"
+  },
+  {
+    "id": "internal/app/app.go:pnlJourneys.settleOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/app/app.go",
+    "function": "pnlJourneys.settleOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_payout_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "award_id",
+      "state"
+    ],
+    "sha256": "8a2f4d0995366e08c7dbd353a3390a1c4993e0593afc9358173d1207fd2b9e8a"
+  },
+  {
+    "id": "internal/app/reward_schema.go:checkRewardRequestSchema:1:l18_requests",
+    "file": "services/launchpad/pnl-tracker/internal/app/reward_schema.go",
+    "function": "checkRewardRequestSchema",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "l18_requests",
+    "bindings": {
+      "columns": "\"actor\",\"request_key\",\"digest\",\"method\",\"path\",\"response\",\"expires_at\",\"release_digest\",\"interface_digest\"",
+      "qualified": "\"pnl\".\"l18_requests\""
+    },
+    "tables": [
+      "pnl.l18_requests"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "actor",
+      "digest",
+      "expires_at",
+      "interface_digest",
+      "method",
+      "path",
+      "release_digest",
+      "request_key",
+      "response"
+    ],
+    "sha256": "6fc600ea1b95e6d0e04564e21c9eeb39c614fe153cd1f209e730abf12bedd7f3"
+  },
+  {
+    "id": "internal/app/reward_schema.go:checkRewardRequestSchema:1:l18_audit",
+    "file": "services/launchpad/pnl-tracker/internal/app/reward_schema.go",
+    "function": "checkRewardRequestSchema",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "l18_audit",
+    "bindings": {
+      "columns": "\"identity\",\"actor\",\"action\",\"reason\",\"payload\"",
+      "qualified": "\"pnl\".\"l18_audit\""
+    },
+    "tables": [
+      "pnl.l18_audit"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "action",
+      "actor",
+      "identity",
+      "payload",
+      "reason"
+    ],
+    "sha256": "88306bb627a23a78fb6d9616a979f5a9eb68335dca6dc17ce28d974b2ea0161b"
+  },
+  {
+    "id": "internal/app/reward_schema.go:checkRewardRequestSchema:2",
+    "file": "services/launchpad/pnl-tracker/internal/app/reward_schema.go",
+    "function": "checkRewardRequestSchema",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_index"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_table_privilege",
+      "pg_catalog.unnest"
+    ],
+    "columns": [
+      "a.attname",
+      "a.attnum",
+      "a.attrelid",
+      "i.indisprimary",
+      "i.indisvalid",
+      "i.indkey",
+      "i.indnkeyatts",
+      "i.indrelid",
+      "k.attnum",
+      "k.position"
+    ],
+    "sha256": "557dae230682f0d8a1d21f25bfc172d9ab578fb65a3e289f04b2e3521e455776"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.sourceLease:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.sourceLease",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_ingest_leases_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "chain_id",
+      "expires_at",
+      "fence_token",
+      "owner_instance",
+      "stream_id"
+    ],
+    "sha256": "e0a9e0fe4d545bbb2c2b0914f379264e75af9d95384bfc2a6988bd06c6d12363"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.coverage:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.coverage",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_ingest_watermarks_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "chain_id",
+      "raw_complete_height",
+      "stream_id",
+      "typed_complete_height"
+    ],
+    "sha256": "afa5f8cb4fdb2bed16522fb2ccbfd31c7a9afba525f1352bd5a5b8adc2fe38dc"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.coverage:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.coverage",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_raw_logs_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "c.block_hash",
+      "c.chain_id",
+      "c.fetch_complete",
+      "c.height",
+      "c.raw_count",
+      "c.required_decode_complete",
+      "c.stream_id",
+      "r.chain_id",
+      "r.height"
+    ],
+    "sha256": "8c48866597edd9e8294347476747875650554d51e05032adace92aae9e5cbecf"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.verifiedMovements:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.verifiedMovements",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_raw_logs_v1",
+      "indexer.indexer_token_transfers_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "r.chain_id",
+      "r.data",
+      "r.emitter",
+      "r.log_index",
+      "r.topics",
+      "r.transaction_hash",
+      "t.amount_raw",
+      "t.block_hash",
+      "t.chain_id",
+      "t.from_address",
+      "t.height",
+      "t.log_index",
+      "t.to_address",
+      "t.token",
+      "t.transaction_hash",
+      "t.transaction_index"
+    ],
+    "sha256": "e94d362b87cb87d59d25c2259e365073d843d0f3eac9f8daba8da53984e0b4bc"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.Capture:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.Capture",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "height",
+      "pool",
+      "token",
+      "transaction_hash"
+    ],
+    "sha256": "0a328dcf80777719ea1ef83272e32efda30353d7617325f6e5785c45ae97b36a"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.Capture:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.Capture",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_baselines"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attestation",
+      "baseline_digest",
+      "consumer_id",
+      "creation_block_hash",
+      "creation_height",
+      "movement_digest",
+      "observed_balance_raw",
+      "partition",
+      "projection_generation",
+      "source_epoch",
+      "source_owner",
+      "source_stream",
+      "token",
+      "wallet"
+    ],
+    "sha256": "feabf42edd31f2bffac4b34f6774326134097168b131a2aab92e3404f03a0b2d"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.Capture:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.Capture",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_baselines"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attestation",
+      "baseline_digest"
+    ],
+    "sha256": "7e7a23a066b760b05b4e1a16f80b1d171c7a54a9f990d3b675be2915e5da7b8c"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.readBaseline:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.readBaseline",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_baselines"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attestation",
+      "baseline_digest",
+      "consumer_id",
+      "partition",
+      "projection_generation",
+      "source_epoch",
+      "source_owner",
+      "source_stream"
+    ],
+    "sha256": "162a5f78722b68c2f7cd31da92c9eadd21a9b6c6386d10555fc1e1e995064358"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.readNamedBaselines:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.readNamedBaselines",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_baselines"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attestation",
+      "baseline_digest",
+      "consumer_id",
+      "partition",
+      "projection_generation",
+      "source_epoch",
+      "source_owner",
+      "source_stream"
+    ],
+    "sha256": "27c8c99f3a2c59d9990dff7328877bceb4f7f87253355a0f7a58d5d13385aaa2"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.qualifyFreshTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.qualifyFreshTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_publications_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload"
+    ],
+    "sha256": "93661939988cd3f29ea813b87ca4eeb0eea5c98490b8a62effdd507292c52dec"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.qualifyFreshTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.qualifyFreshTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "source_fact_digest"
+    ],
+    "sha256": "c6d27a7ff7c7604f3e58d2181d94698fa6b366654cdcada61b0ea696873f3c49"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.qualifyFreshTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.qualifyFreshTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_token_transfers_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "from_address",
+      "height",
+      "log_index",
+      "payload",
+      "to_address",
+      "token",
+      "transaction_index"
+    ],
+    "sha256": "a95e1d48138043db1f76bb70a613b8610f4c730dd8a1a562d8cb85f94438deca"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.qualifyFreshTx:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.qualifyFreshTx",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.delivery_partition_leases"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "consumer_id",
+      "epoch",
+      "expires_at",
+      "owner",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "611117a78451f2048d8f11a9389d445c8356248b4106a3e8dc9a02504ddcfdfa"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.persistFreshUseTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.persistFreshUseTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_baseline_uses"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attestation",
+      "attestation_digest",
+      "baseline_digest",
+      "checkpoint_hash",
+      "checkpoint_height",
+      "effect_identity",
+      "movement_digest",
+      "owner_epoch",
+      "partition",
+      "projection_generation",
+      "replayed_balance_raw"
+    ],
+    "sha256": "c4df74187bdd007b49d05ab2252679c76014348c612c7950054b15e28146869a"
+  },
+  {
+    "id": "internal/production/l16/baseline.go:BaselineAuthority.persistFreshUseTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline.go",
+    "function": "BaselineAuthority.persistFreshUseTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_baseline_uses"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attestation",
+      "attestation_digest",
+      "effect_identity",
+      "owner_epoch",
+      "partition",
+      "projection_generation"
+    ],
+    "sha256": "ecd26f2197dab5617fac70ad8a261123037bba8426cfb71787312303b12f96e4"
+  },
+  {
+    "id": "internal/production/l16/baseline_ahead.go:BaselineAhead.candidates:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/baseline_ahead.go",
+    "function": "BaselineAhead.candidates",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "bindings": {
+      "baselinePriorityPendingFill": "0",
+      "baselinePriorityOpenPartition": "1",
+      "baselinePriorityCreation": "2",
+      "baselinePriorityEnrollee": "3"
+    },
+    "tables": [
+      "indexer.indexer_accounting_fills_v1",
+      "indexer.indexer_accounting_publications_v1",
+      "indexer.indexer_canonical_creations_v1",
+      "indexer.indexer_ingest_leases_v1",
+      "indexer.indexer_ingest_watermarks_v1",
+      "indexer.indexer_raw_logs_v1",
+      "indexer.indexer_token_transfers_v1",
+      "pnl.delivery_partition_offsets",
+      "pnl.inventory_l16_baselines",
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.max",
+      "pg_catalog.min",
+      "pg_catalog.split_part"
+    ],
+    "columns": [
+      "b.consumer_id",
+      "b.projection_generation",
+      "b.source_stream",
+      "b.token",
+      "b.wallet",
+      "c.creator",
+      "c.exempt",
+      "c.height",
+      "c.priority",
+      "c.token",
+      "c.urgent",
+      "c.wallet",
+      "chain_id",
+      "exempt",
+      "expires_at",
+      "f.chain_id",
+      "f.log_index",
+      "f.payload",
+      "f.source_fill_id",
+      "f.transaction_hash",
+      "fence_token",
+      "h",
+      "head.h",
+      "height",
+      "lease.fence_token",
+      "lease.owner_instance",
+      "o.cancelled_at",
+      "o.consumer_id",
+      "o.expires_at",
+      "o.partition_key",
+      "o.partition_kind",
+      "o.projection_generation",
+      "o.wallet",
+      "owner_instance",
+      "p.height",
+      "p.payload",
+      "p.token",
+      "p.wallet",
+      "priority",
+      "r.chain_id",
+      "r.creator",
+      "r.height",
+      "r.log_index",
+      "r.token",
+      "r.transaction_hash",
+      "raw_complete_height",
+      "stream_id",
+      "t.chain_id",
+      "t.from_address",
+      "t.to_address",
+      "t.token",
+      "token",
+      "typed_complete_height",
+      "urgent",
+      "wallet",
+      "x.consumer_id",
+      "x.partition",
+      "x.projection_generation",
+      "x.source_epoch",
+      "x.source_owner",
+      "x.source_stream"
+    ],
+    "sha256": "73a3baf6e27b05f5cde60dbb45a3553cad732a5ca755693671ffd3d15489d42a"
+  },
+  {
+    "id": "internal/production/l16/consumer.go:ReadSourceFillTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/consumer.go",
+    "function": "ReadSourceFillTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "source_fact_digest",
+      "source_fill_id"
+    ],
+    "sha256": "a65b9a5bdf9705808b5ef839e4e5cf6f2c97cb1545018ee9dd9d342efbe1d0d9"
+  },
+  {
+    "id": "internal/production/l16/consumer.go:AccountingConsumer.Consume:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/consumer.go",
+    "function": "AccountingConsumer.Consume",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SET",
+    "bindings": {
+      "c.schema": "{{identifier:pnl}}"
+    },
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "7e4312136720a82796344fe97a863e5ad7df299f7db66c4dc9b6631a95a4f749"
+  },
+  {
+    "id": "internal/production/l16/consumer.go:AccountingConsumer.Consume:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/consumer.go",
+    "function": "AccountingConsumer.Consume",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l16/consumer.go:AccountingConsumer.PrepareAndConsume:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/consumer.go",
+    "function": "AccountingConsumer.PrepareAndConsume",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "bindings": {
+      "c.schema": "{{identifier:pnl}}"
+    },
+    "tables": [
+      "pnl.delivery_partition_offsets"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_id",
+      "partition_key",
+      "partition_kind",
+      "projection_generation"
+    ],
+    "sha256": "d3a44a95d026cb2dc26a306ec3f1fc9670a2423183e8ce29c34112dcb94755ac"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:applyVersionedTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "applyVersionedTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:applyVersionedTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "applyVersionedTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumer_version",
+      "identity",
+      "partition",
+      "payload_hash"
+    ],
+    "sha256": "6e0444724402bbf1ed7e8f4345e56e32a2b076aafc52a63fe18daa8051895b99"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:applyVersionedTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "applyVersionedTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "partition",
+      "state"
+    ],
+    "sha256": "fef35689de71e87fa5f82b87c841772ce766ad855b1e5ed6e601fd699d47efb5"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:applyVersionedTx:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "applyVersionedTx",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "height",
+      "last_identity",
+      "log_index",
+      "partition",
+      "revision",
+      "state",
+      "tx_index"
+    ],
+    "sha256": "f03c3a7c9abc911be1ef9ff07a411075c587ca9bb16e347ecdf52d8662404470"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:applyVersionedTx:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "applyVersionedTx",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "f1c281dbfc6781bcd7bf5df62a71db158f67ac9ab5bb4df7ecd183c78de7abb9"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:applyVersionedTx:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "applyVersionedTx",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "excluded.height",
+      "excluded.last_identity",
+      "excluded.log_index",
+      "excluded.state",
+      "excluded.tx_index",
+      "height",
+      "inventory_l16.revision",
+      "last_identity",
+      "log_index",
+      "revision",
+      "state",
+      "tx_index"
+    ],
+    "sha256": "85d9cb0cafad2ae04abfb5139c82dde5f5a8950227fa5a2688561e00a8292a40"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:applyVersionedTx:7",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "applyVersionedTx",
+    "call": 7,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "b080fdfbe08526b3ca86598036c8eddeaf4978fa25db5907d3d2b4ab53b38f90"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:ApplyOwnedLegTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "ApplyOwnedLegTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:ApplyOwnedLegTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "ApplyOwnedLegTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_effects"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "effect_identity",
+      "leg_identity",
+      "mapping_digest",
+      "partition",
+      "position",
+      "projection_generation"
+    ],
+    "sha256": "5598f8a3e9856bcd29f07360213166b54ad5202cd14848c91eb9c792747e44b8"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:ApplyOwnedLegTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "ApplyOwnedLegTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_effects"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "effect_identity",
+      "leg_identity",
+      "mapping_digest",
+      "partition",
+      "position",
+      "projection_generation"
+    ],
+    "sha256": "1876b3911d9d00de69a666f95ac9033b582267a74ecfc56024eb75ab329dd90c"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:ApplyOwnedLegTx:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "ApplyOwnedLegTx",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_effects"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "effect_identity",
+      "leg_identity",
+      "mapping_digest",
+      "partition",
+      "position",
+      "projection_generation"
+    ],
+    "sha256": "5598f8a3e9856bcd29f07360213166b54ad5202cd14848c91eb9c792747e44b8"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:AccountingConsumer.appendPortfolioTx:1:full",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "AccountingConsumer.appendPortfolioTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "full",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1",
+      "pnl.inventory_l16",
+      "pnl.inventory_l16_effects"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.convert_from",
+      "pg_catalog.left",
+      "pg_catalog.length"
+    ],
+    "columns": [
+      "e.leg_identity",
+      "e.partition",
+      "e.position",
+      "e.projection_generation",
+      "f.payload",
+      "f.source_fact_digest",
+      "f.source_fill_id",
+      "s.last_identity",
+      "s.partition",
+      "s.revision",
+      "s.state"
+    ],
+    "sha256": "488f28b6ca47789aea34b1163fd7c32b0d1df8a2c3ef28a416c6db236b547eca"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:AccountingConsumer.appendPortfolioTx:1:bounded",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "AccountingConsumer.appendPortfolioTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "bounded",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1",
+      "pnl.inventory_l16",
+      "pnl.inventory_l16_effects"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.convert_from",
+      "pg_catalog.left",
+      "pg_catalog.length"
+    ],
+    "columns": [
+      "e.leg_identity",
+      "e.partition",
+      "e.position",
+      "e.projection_generation",
+      "f.payload",
+      "f.source_fact_digest",
+      "f.source_fill_id",
+      "s.last_identity",
+      "s.partition",
+      "s.revision",
+      "s.state"
+    ],
+    "sha256": "603513913cf7ce5b101656a8400977f194db68f9278d87a7fffeac42e4bff8c3"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:AccountingConsumer.appendPortfolioTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "AccountingConsumer.appendPortfolioTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_stream_proof_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attestation_digest",
+      "effect_identity",
+      "mapping_digest",
+      "owner_epoch",
+      "partition",
+      "projection_generation"
+    ],
+    "sha256": "0b093e49d5809edabe6c05de5e3294f7e023a27a820027adffc3ed167471ccac"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:AccountingConsumer.commitFullPortfolioTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "AccountingConsumer.commitFullPortfolioTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_active_v2",
+      "pnl.inventory_l16_snapshots_v2"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.left",
+      "pg_catalog.length"
+    ],
+    "columns": [
+      "a.generation",
+      "a.partition",
+      "p.payload",
+      "p.snapshot_digest"
+    ],
+    "sha256": "fb077943a964a1e8dca111c923d5df4b6ec2453f1943be62c7c795ed07044b30"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:AccountingConsumer.commitFullPortfolioTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "AccountingConsumer.commitFullPortfolioTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.max"
+    ],
+    "columns": [
+      "revision",
+      "wallet"
+    ],
+    "sha256": "ca569417223618e1036564421a6a1dcfb33ab7bd50fd1c13a23c648388936e93"
+  },
+  {
+    "id": "internal/production/l16/ledger.go:AccountingConsumer.commitPortfolioHistoryTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "AccountingConsumer.commitPortfolioHistoryTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1",
+      "pnl.inventory_l16_effects",
+      "pnl.inventory_l16_inbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.convert_from",
+      "pg_catalog.left",
+      "pg_catalog.length"
+    ],
+    "columns": [
+      "e.leg_identity",
+      "e.partition",
+      "e.position",
+      "e.projection_generation",
+      "f.payload",
+      "f.source_fact_digest",
+      "f.source_fill_id",
+      "i.consumer_version",
+      "i.identity",
+      "i.partition",
+      "i.payload"
+    ],
+    "sha256": "ce7002c54d40fc06ca44836e438a413a81245387ade432ee5fb983752d172d2d"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveRebuildTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveRebuildTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveRebuildTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveRebuildTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveRebuildTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveRebuildTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "height",
+      "pool",
+      "token",
+      "transaction_hash"
+    ],
+    "sha256": "0a328dcf80777719ea1ef83272e32efda30353d7617325f6e5785c45ae97b36a"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveRebuildTx:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveRebuildTx",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "source_fact_digest"
+    ],
+    "sha256": "03fd607402db79fa52afd48b224d05003a5f887bb15059c145e14395972bc001"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.liveRebuildTx:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.liveRebuildTx",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_quarantine_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "partition",
+      "payload",
+      "reason"
+    ],
+    "sha256": "884fc81e418fef3f649dffd74496455edbb3cc60c78a5e4a357479b582c72f8e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:BaselineAuthority.liveMovementPages:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "BaselineAuthority.liveMovementPages",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_raw_logs_v1",
+      "indexer.indexer_token_transfers_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "r.chain_id",
+      "r.data",
+      "r.emitter",
+      "r.log_index",
+      "r.topics",
+      "r.transaction_hash",
+      "t.amount_raw",
+      "t.block_hash",
+      "t.chain_id",
+      "t.from_address",
+      "t.height",
+      "t.log_index",
+      "t.to_address",
+      "t.token",
+      "t.transaction_hash",
+      "t.transaction_index"
+    ],
+    "sha256": "2497fd0df3f345a91ba44fb5c57f1e371195aff770bc74a2b8f9677643c5db3a"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:BaselineAuthority.liveReceiptSettlement:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "BaselineAuthority.liveReceiptSettlement",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "source_fact_digest"
+    ],
+    "sha256": "2cd4a963559b9776f93f548c81786c5f4853fd6cf5effe7713a440f202846f6b"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.EnqueueOwned:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.EnqueueOwned",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "account_id",
+      "auth_epoch",
+      "cancelled_at",
+      "excluded.account_id",
+      "excluded.auth_epoch",
+      "excluded.expires_at",
+      "excluded.proof_at",
+      "excluded.session_id",
+      "expires_at",
+      "proof_at",
+      "session_id",
+      "updated_at",
+      "wallet"
+    ],
+    "sha256": "f801edd0bcd067f146980789a1d8d69a6dd9ec06e7f5c1abcd34ece00978f110"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.CancelOwned:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.CancelOwned",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "account_id",
+      "cancelled_at",
+      "wallet"
+    ],
+    "sha256": "4ed8c00e50c2168772e5ec558beaf899777f70302f2dbee29cf082ef9571e1b3"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SET",
+    "bindings": {
+      "a.schema": "{{identifier:pnl}}"
+    },
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "f51d6acdf3d7b8bed5983b40e245694c80924dcc0b15964f175d333626c8aa1e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "accepted_hash",
+      "accepted_height",
+      "account_id",
+      "auth_epoch",
+      "cancelled_at",
+      "expires_at",
+      "last_attempt_at",
+      "proof_at",
+      "session_id",
+      "wallet"
+    ],
+    "sha256": "9db01db4a08f1a19c408a734dea0eb32e8cf2e47317651e0dba3991d78a5b194"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "last_attempt_at",
+      "wallet"
+    ],
+    "sha256": "03b028e2fb94c196ab73e67cc923fcb8db3fb3c6674098bebf5b2d5353a2d3a0"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_quarantine_v2"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.left",
+      "pg_catalog.length"
+    ],
+    "columns": [
+      "generation",
+      "height",
+      "partition"
+    ],
+    "sha256": "c771321eb525732fbe04c5cee9f1e25a27c891e2c92beadd99ce36f0a65d20ff"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "SAVEPOINT",
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "94ef0a5604d79526addcea2e53ffb639cd451b314f81dc725e1db853ba960132"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:7",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 7,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1",
+      "indexer.indexer_token_transfers_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.token",
+      "t.chain_id",
+      "t.from_address",
+      "t.height",
+      "t.to_address",
+      "t.token"
+    ],
+    "sha256": "78dd03f9cd5829f6cb010cc259f71cb6e2c07083698f98c22ccf5b95d26022c1"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:8",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 8,
+    "role": "pnl_runtime",
+    "kind": "ROLLBACK",
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "276f445019692bcb6d01ca54516dd7e1802531a7fe2aa1ce2318e9324e77b630"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:9",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 9,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_quarantine_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "partition",
+      "payload",
+      "reason"
+    ],
+    "sha256": "6b351d886df50ade5fbf1409631b6356fff48a1e2872d948d33e5b1b7270a5be"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:10",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 10,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "last_attempt_at",
+      "wallet"
+    ],
+    "sha256": "03b028e2fb94c196ab73e67cc923fcb8db3fb3c6674098bebf5b2d5353a2d3a0"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:11",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 11,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_committed_heads_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "chain_id",
+      "height",
+      "integrity",
+      "stream_id"
+    ],
+    "sha256": "f5f22d49cc28985a6fb6cbccbe866b587f807ea828ea328d763300ebde5bcdcf"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:12",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 12,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_live_commits_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "input_digest",
+      "release_digest",
+      "snapshot_id",
+      "source_epoch",
+      "source_owner",
+      "source_stream",
+      "wallet"
+    ],
+    "sha256": "64c2d865da2281677ff54fa8ea0d5827450da54c89f735b463f60840ffaf05ac"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.processWallet:13",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.processWallet",
+    "call": 13,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "accepted_hash",
+      "accepted_height",
+      "accepted_snapshot",
+      "account_id",
+      "cancelled_at",
+      "expires_at",
+      "last_attempt_at",
+      "session_id",
+      "source_digest",
+      "wallet"
+    ],
+    "sha256": "63d2214f332f992a3465da3877d160e16b54d336657cf3534dd0cb02160e9674"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.acceptedHeadTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.acceptedHeadTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_committed_heads_v1",
+      "indexer.indexer_ingest_watermarks_v1",
+      "indexer.indexer_raw_logs_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "c.block_hash",
+      "c.chain_id",
+      "c.fetch_complete",
+      "c.height",
+      "c.raw_count",
+      "c.required_decode_complete",
+      "c.stream_id",
+      "h.block_hash",
+      "h.chain_id",
+      "h.height",
+      "h.integrity",
+      "h.stream_id",
+      "r.chain_id",
+      "r.height",
+      "w.chain_id",
+      "w.raw_complete_height",
+      "w.stream_id",
+      "w.typed_complete_height"
+    ],
+    "sha256": "e977b9b628edc1d222035298634c7a00eae66486446284a1d03814bde9b633ac"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.commitWalletTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.commitWalletTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.max"
+    ],
+    "columns": [
+      "revision",
+      "wallet"
+    ],
+    "sha256": "ca569417223618e1036564421a6a1dcfb33ab7bd50fd1c13a23c648388936e93"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.livePersistReplayTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_archive_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "generation",
+      "identity",
+      "partition",
+      "payload",
+      "payload_hash"
+    ],
+    "sha256": "80cf71702bac49c122dedd739e6130de52d912511c8029fc498dd873ac0aae0e"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.livePersistReplayTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_archive_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "generation",
+      "identity",
+      "partition",
+      "payload_hash"
+    ],
+    "sha256": "b9ab41290536cbd0dac096e25ba671173b77b4086c0a626ed35bd91ca25f5958"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.livePersistReplayTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_snapshots_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "generation",
+      "height",
+      "partition",
+      "payload",
+      "release_digest",
+      "snapshot_digest"
+    ],
+    "sha256": "a1bf0786b3d4dd8a5404473ba3c48d8b527b4485a8b927b5b8078fc2edbe9589"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.livePersistReplayTx",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_checkpoints_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "checkpoint_digest",
+      "day",
+      "generation",
+      "partition",
+      "payload",
+      "snapshot_digest"
+    ],
+    "sha256": "e91eacb5462de51394679245462ad20192b885fbe78ee62b1ce5172888fb2998"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.livePersistReplayTx",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_active_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "generation",
+      "height",
+      "partition",
+      "snapshot_digest"
+    ],
+    "sha256": "8a7167138608c284c422522ade3e9c800c065180337021e35d98f2888368ea5b"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.livePersistReplayTx",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_snapshots_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "generation",
+      "partition",
+      "payload",
+      "snapshot_digest"
+    ],
+    "sha256": "c012adc5d94b6dd8900de16f21ff8c8e0d1329de5c7fe5d1817799095dc12244"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:Service.livePersistReplayTx:7",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "Service.livePersistReplayTx",
+    "call": 7,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_active_v2"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "excluded.generation",
+      "excluded.height",
+      "excluded.snapshot_digest",
+      "generation",
+      "height",
+      "partition",
+      "snapshot_digest"
+    ],
+    "sha256": "bafa1c0ba02b8b491c7da814a447997424b3a4e3a3620bce7b6670233c3783f4"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.RebuildOwned:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.RebuildOwned",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1",
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "o.accepted_snapshot",
+      "o.account_id",
+      "o.cancelled_at",
+      "o.expires_at",
+      "o.wallet",
+      "s.id",
+      "s.summary"
+    ],
+    "sha256": "e8a86aeb659454855a1100e3dd30f3e627d618f9d161e84df7b93175b8a00948"
+  },
+  {
+    "id": "internal/production/l16/mark_price.go:BaselineAuthority.markPriceTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/mark_price.go",
+    "function": "BaselineAuthority.markPriceTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "source_fact_digest"
+    ],
+    "sha256": "06f433f4f04cda0feb23999dc3a29e3eb3dbf6cc57d4db9af0f28bb6e66328eb"
+  },
+  {
+    "id": "internal/production/l16/normalization.go:BaselineAuthority.receiptSettlement:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/normalization.go",
+    "function": "BaselineAuthority.receiptSettlement",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "payload"
+    ],
+    "sha256": "80c93000d4eabc2323fc294fa3dfc80eed1cc476657be6649dc7114f108d6062"
+  },
+  {
+    "id": "internal/production/l16/service.go:Service.commitRebuiltHistoryTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.commitRebuiltHistoryTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "summary",
+      "wallet"
+    ],
+    "sha256": "150e6f35a556ff33ac4cd86d6739229fd659ba9f32a295c37469b834856e0e8c"
+  },
+  {
+    "id": "internal/production/l16/service.go:Service.commitRebuiltHistoryTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.commitRebuiltHistoryTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.inventory_l16_wallet_ranges_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "4370c17aa3e7695a1b892f4f308be7ddc3c03e66c70f79b8576b6016fdba26e2"
+  },
+  {
+    "id": "internal/production/l16/service.go:Service.commitRebuiltHistoryTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.commitRebuiltHistoryTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "COPY",
+    "tables": [
+      "pnl.inventory_l16_wallet_intervals_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "bucket",
+      "interval",
+      "payload",
+      "snapshot_id"
+    ],
+    "sha256": "6a1bfc73c5c31e5b0130d2d22a7717a4f21f8cfe35703165bc0e4465cfa1a5ca"
+  },
+  {
+    "id": "internal/production/l16/service.go:Service.IntervalHistory:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.IntervalHistory",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SET",
+    "bindings": {
+      "s.authority.schema": "{{identifier:pnl}}"
+    },
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "f51d6acdf3d7b8bed5983b40e245694c80924dcc0b15964f175d333626c8aa1e"
+  },
+  {
+    "id": "internal/production/l16/service.go:Service.IntervalHistory:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.IntervalHistory",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SET",
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "4b5830d44f40cf0845a5d15cdcf2052a11ec3d47b10ffe520fc06c684e000c7e"
+  },
+  {
+    "id": "internal/production/l16/service.go:Service.IntervalHistory:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.IntervalHistory",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_wallet_ranges_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "end_at",
+      "generation",
+      "input_digest",
+      "release_digest",
+      "snapshot_id",
+      "start_at",
+      "wallet",
+      "watermark"
+    ],
+    "sha256": "9da269193497e2553bc5fe832d68fd57296b0ba7a1ccc7bcaa08b01db0e3945f"
+  },
+  {
+    "id": "internal/production/l16/service.go:Service.IntervalHistory:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.IntervalHistory",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_wallet_intervals_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.generate_series"
+    ],
+    "columns": [
+      "buckets.bucket",
+      "i.bucket",
+      "i.interval",
+      "i.payload",
+      "i.snapshot_id"
+    ],
+    "sha256": "19788235fb24c8080d8139ee2858195ba9dfca005494fc14732b58d1a2c18ab1"
+  },
+  {
+    "id": "internal/production/l16/service.go:Service.readReplayArchiveTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.readReplayArchiveTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_archive_v2"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.convert_from"
+    ],
+    "columns": [
+      "generation",
+      "partition",
+      "payload",
+      "payload_hash"
+    ],
+    "sha256": "df6b9d80e7abf6d4200af60b9dbf55fb6dc4a7e7ea607e4baa8bc4f2d99579c4"
+  },
+  {
+    "id": "internal/production/l17/card_worker.go:CardWorker.RunOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go",
+    "function": "CardWorker.RunOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_card_outbox",
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "c.attempts",
+      "c.event_id",
+      "c.id",
+      "c.state",
+      "fence",
+      "lease_owner",
+      "lease_until",
+      "o.card_id",
+      "o.event_id",
+      "o.fence",
+      "o.kind",
+      "o.lease_until",
+      "o.next_attempt",
+      "o.published_at"
+    ],
+    "sha256": "b40cbc56dd1bad9ddec0133563da2162d5cfe87cdf35bcc6d83e5c80b7eb9286"
+  },
+  {
+    "id": "internal/production/l17/card_worker.go:CardWorker.RunOnce:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go",
+    "function": "CardWorker.RunOnce",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attempts",
+      "id",
+      "state"
+    ],
+    "sha256": "901df138a22cc262a1d4a2cd2df4242c3777627ead98e3e3cb0a57ecd8044840"
+  },
+  {
+    "id": "internal/production/l17/card_worker.go:CardWorker.RunOnce:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go",
+    "function": "CardWorker.RunOnce",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "snapshot"
+    ],
+    "sha256": "8192fc768a10d7305cd57735ae3a796a5deeff4350e107148022110018e5ba89"
+  },
+  {
+    "id": "internal/production/l17/card_worker.go:CardWorker.RunOnce:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go",
+    "function": "CardWorker.RunOnce",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_card_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "event_id",
+      "fence",
+      "last_error",
+      "lease_owner",
+      "lease_until",
+      "next_attempt"
+    ],
+    "sha256": "c9e88063ca9babfaebde1f8e757a027d2f547ac2da6ab2d20d31dc248f852dfc"
+  },
+  {
+    "id": "internal/production/l17/card_worker.go:CardWorker.RunOnce:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go",
+    "function": "CardWorker.RunOnce",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_card_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "event_id",
+      "fence",
+      "lease_owner",
+      "lease_until"
+    ],
+    "sha256": "ea5f08e1d3be76c90099b3bf7098b4ea28f1b013d18efe5b98365c21d68aa8e0"
+  },
+  {
+    "id": "internal/production/l17/card_worker.go:CardWorker.RunOnce:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go",
+    "function": "CardWorker.RunOnce",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "id",
+      "purged_at",
+      "state"
+    ],
+    "sha256": "8533814a1a00810ad2e65a68df05ab12fe09828fd7ac3d2d2b9e3b565420c6d2"
+  },
+  {
+    "id": "internal/production/l17/card_worker.go:CardWorker.RunOnce:7",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go",
+    "function": "CardWorker.RunOnce",
+    "call": 7,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "image",
+      "state"
+    ],
+    "sha256": "4a3c00f35f160a7d41034057bcfcf7a2ee2d52e0d2407a0974813b9e02c317ee"
+  },
+  {
+    "id": "internal/production/l17/card_worker.go:CardWorker.RunOnce:8",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/card_worker.go",
+    "function": "CardWorker.RunOnce",
+    "call": 8,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_card_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "event_id",
+      "fence",
+      "last_error",
+      "lease_owner",
+      "lease_until",
+      "published_at"
+    ],
+    "sha256": "f0de0c418b53c286042e4a4e606e3230424637fd6b3ed1280d53c3445f5eb05a"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.createCard:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.createCard",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.createCard:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.createCard",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "snapshot",
+      "snapshot_id",
+      "source_event",
+      "state",
+      "wallet"
+    ],
+    "sha256": "d237e3663cdae812ae679daaf5ce8ee310044d055d801b45391d15259aa1e5fb"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.createCard:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.createCard",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.createCard:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.createCard",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "created_at",
+      "wallet"
+    ],
+    "sha256": "7d135ada6103fc8624c2695c608ed0eaa994db8601a4656949568c848f8cc5ce"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.createCard:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.createCard",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "created_at",
+      "id",
+      "snapshot",
+      "snapshot_id",
+      "source_event",
+      "state",
+      "wallet"
+    ],
+    "sha256": "d78b2a925a8275e80f84de384b6cc4b18018cf5eb8d57830cdabb5d8ade43d38"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.createCard:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.createCard",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_card_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "card_id",
+      "event_id",
+      "kind"
+    ],
+    "sha256": "42acdc26bad9f4be36ee2e343f201d0931d74b63635c542cf79e5d1662936d22"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.PublicCard:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.PublicCard",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "image",
+      "snapshot",
+      "state"
+    ],
+    "sha256": "8e86a60c072039fe1c8b4d052462347d15a7ac15b9499affb43451278e2d4bcf"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.RevokeCard:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.RevokeCard",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "image",
+      "purge_requested_at",
+      "state",
+      "wallet"
+    ],
+    "sha256": "d166fc86c0fb544bc910aa0f0207de054755bdf8c86dd0d4a49ab90ba94a4a61"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.RevokeCard:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.RevokeCard",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_card_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "card_id",
+      "kind",
+      "published_at"
+    ],
+    "sha256": "b32b476525b4504ad3b183ddd9165d4646387e26757993b9b688b583ba51b986"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.RevokeCard:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.RevokeCard",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_card_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "card_id",
+      "event_id",
+      "kind"
+    ],
+    "sha256": "a698b062863a25a0a4c8e3cb7fc5aac52239881c5bda092a984b593c2116a437"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.OwnerCard:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.OwnerCard",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "purge_requested_at",
+      "purged_at",
+      "state",
+      "wallet"
+    ],
+    "sha256": "ca580ddf85332420d9c3fd8de3c6f7529f295cefadd676d8614cbc168386448e"
+  },
+  {
+    "id": "internal/production/l17/cards.go:Repository.OwnerCardV2:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.OwnerCardV2",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_card_outbox",
+      "pnl.portfolio_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.attempts",
+      "c.id",
+      "c.purge_requested_at",
+      "o.card_id",
+      "o.kind",
+      "o.last_error"
+    ],
+    "sha256": "15473bfbbe1ab4f99ac1f731ecbab73357c9a88032fb672817b587b005c4a144"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CreateExportJob:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CreateExportJob",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CreateExportJob:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CreateExportJob",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "format",
+      "id",
+      "snapshot_id",
+      "source_event",
+      "state",
+      "wallet"
+    ],
+    "sha256": "76b7263163ed43a4bbc576d2c1f739dc98aed42ba8d8f06817d27e57c7054152"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CreateExportJob:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CreateExportJob",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_history_snapshots",
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "expires_at",
+      "h.id",
+      "s.id",
+      "wallet"
+    ],
+    "sha256": "c17d567b7f7b6d1e99bc552e4793a9788a3fb5c43a99fb8072cb2d1a61030938"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CreateExportJob:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CreateExportJob",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CreateExportJob:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CreateExportJob",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "state",
+      "wallet"
+    ],
+    "sha256": "8bfdf51e175d6a1b524ea2641c9b36bca933a6d40aaf1d5639bd4eb388dcb8f0"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CreateExportJob:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CreateExportJob",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "format",
+      "id",
+      "snapshot_id",
+      "source_event",
+      "state",
+      "wallet"
+    ],
+    "sha256": "e00140be3fc627bd2af22f12b6af175586c36658545a126b211cb62bbd84c095"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CreateExportJob:7",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CreateExportJob",
+    "call": 7,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_export_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "34559df67c2092c49dc85bd5122043e21d90e183b58bf82e680ea5f9138ea2a0"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.ExportJob:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.ExportJob",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "expires_at",
+      "format",
+      "id",
+      "manifest",
+      "snapshot_id",
+      "state",
+      "wallet"
+    ],
+    "sha256": "030dd8b6c3ede873da6156f30b234fd223db6deec655392c4cb832725feaf9ce"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CancelExport:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CancelExport",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "fence",
+      "id",
+      "lease_owner",
+      "lease_until",
+      "state",
+      "wallet"
+    ],
+    "sha256": "9fd9331fb80f2baf11345319fda4ddc1f27cea7465c18752042edbe91a3f00f0"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.CancelExport:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.CancelExport",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_export_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "8635a6b6dae30a3495601457c9182c1598d9fce0f2f40924500120d4e034004f"
+  },
+  {
+    "id": "internal/production/l17/export_jobs.go:Repository.OpenExport:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_jobs.go",
+    "function": "Repository.OpenExport",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "expires_at",
+      "fence",
+      "format",
+      "id",
+      "manifest",
+      "snapshot_id",
+      "state",
+      "wallet"
+    ],
+    "sha256": "0cdf9fce684014770e32eaf4bf39f729da3c00c152d6d97069547ba6cfb0f7d2"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.RunOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.RunOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "created_at",
+      "e.id",
+      "fence",
+      "id",
+      "j.id",
+      "last_error",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sha256": "6e57fb27621d930173d608395cac89230fcccb7d98b85dee7f2ae2aa218c753c"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.RunOnce:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.RunOnce",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "c.id",
+      "created_at",
+      "fence",
+      "id",
+      "j.fence",
+      "j.format",
+      "j.id",
+      "j.snapshot_id",
+      "j.wallet",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sha256": "d81cdc1540f214be4abe4834a5fb9061854a03d1a129873c1ccf04e65622166e"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.RunOnce:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.RunOnce",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "fence",
+      "id",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sha256": "38d1bb9dd178348e0e7016ab2a4fe506813cb29414bfb83679ffdda37fe559e2"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.RunOnce:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.RunOnce",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "fence",
+      "id",
+      "last_error",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sha256": "a4b82f3b2d72941b236626f75a9194e22442394ab2880699b7e83054a90ce6a0"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.RunOnce:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.RunOnce",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "completed_at",
+      "expires_at",
+      "fence",
+      "id",
+      "lease_owner",
+      "lease_until",
+      "manifest",
+      "state"
+    ],
+    "sha256": "cb4b484142085a525403b8e06ebdbbcc9a363223f7ed805d02cdc8bea4de4adb"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.RunOnce:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.RunOnce",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_export_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "event_id",
+      "published_at"
+    ],
+    "sha256": "6584cbc302bd5270937c19dd4c154d488821797fc03516c1468d2976cf674e00"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.CleanupOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.CleanupOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "cleaned_at",
+      "created_at",
+      "expires_at",
+      "format",
+      "id",
+      "state"
+    ],
+    "sha256": "12767236f370a7f53de3a31563111a0924096ddf4dbeeebde1b8a1ab07012f80"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.CleanupOnce:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.CleanupOnce",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_export_jobs"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "cleaned_at",
+      "id",
+      "state"
+    ],
+    "sha256": "7bc76247d43a8a272ccb5118cf021628e24de64baf3e5b46e2e72ca68b135259"
+  },
+  {
+    "id": "internal/production/l17/export_worker.go:ExportWorker.CleanupOnce:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/export_worker.go",
+    "function": "ExportWorker.CleanupOnce",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_export_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "event_id",
+      "published_at"
+    ],
+    "sha256": "6584cbc302bd5270937c19dd4c154d488821797fc03516c1468d2976cf674e00"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.CommitHistoryTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.CommitHistoryTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.CommitHistoryTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.CommitHistoryTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_history_snapshots",
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "h.digest",
+      "h.id",
+      "h.source_event",
+      "s.id",
+      "s.wallet"
+    ],
+    "sha256": "6d183df00bc9c29c68fc86369a3310ba204e0f3cf728cbb3d6ee8aba61895c80"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.CommitHistoryTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.CommitHistoryTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "summary",
+      "wallet"
+    ],
+    "sha256": "150e6f35a556ff33ac4cd86d6739229fd659ba9f32a295c37469b834856e0e8c"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.CommitHistoryTx:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.CommitHistoryTx",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_history_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "15c3d5645ac8b8451d1b8a1ac1f0b5f931f77cf78bc023b4d01b370816bb4450"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.CommitHistoryTx:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.CommitHistoryTx",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "COPY",
+    "tables": [
+      "pnl.portfolio_history_rows"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "ordinal",
+      "payload",
+      "snapshot_id"
+    ],
+    "sha256": "f2ecd6e61f62a127fb1c61deac0cd4ff9ba75580026f469c2e17a1ff47010711"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.CommitHistoryTx:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.CommitHistoryTx",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_history_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "event_id",
+      "payload"
+    ],
+    "sha256": "ff21e6f4a95ff5933432ce1634d1cc44eec59e4566573614bec18390b583fa82"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.HistoryPage:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.HistoryPage",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_history_snapshots",
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "h.id",
+      "h.row_count",
+      "s.expires_at",
+      "s.id",
+      "s.wallet"
+    ],
+    "sha256": "9991134719878c79aa9aa195c947e42fb71b0dbe3fc0bb18628857cd26fed88a"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.HistoryPage:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.HistoryPage",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_history_rows"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "ordinal",
+      "payload",
+      "snapshot_id"
+    ],
+    "sha256": "32c37bc5652637432176ca1489341a9bea8d8fafb09349ec92aa2c698f3251bb"
+  },
+  {
+    "id": "internal/production/l17/history.go:Repository.HistorySeries:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/history.go",
+    "function": "Repository.HistorySeries",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.generate_series"
+    ],
+    "columns": [
+      "bucket",
+      "chosen.summary",
+      "observed_at",
+      "revision",
+      "summary",
+      "wallet"
+    ],
+    "sha256": "6177420ea5b8b17e9451d57a1deacfca89af1a8f688b19f1c11b95d84da7ec33"
+  },
+  {
+    "id": "internal/production/l17/returns.go:Repository.HistoricalReturn:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/returns.go",
+    "function": "Repository.HistoricalReturn",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshot_history_metadata",
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "m.payload",
+      "m.snapshot_id",
+      "s.id",
+      "s.wallet"
+    ],
+    "sha256": "2686bd97bb7dca6d861231cc2a14710ba33fd217975e3a48c84bcde75a392f92"
+  },
+  {
+    "id": "internal/production/l17/service.go:Repository.Latest:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/service.go",
+    "function": "Repository.Latest",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "expires_at",
+      "id",
+      "revision",
+      "wallet"
+    ],
+    "sha256": "82219f5cb9c3457be0c8c93fd27e280ea1b4a2fdfe68e7560c559840489c6e9b"
+  },
+  {
+    "id": "internal/production/l17/share_export.go:Repository.CommitHistoryMetadataTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/share_export.go",
+    "function": "Repository.CommitHistoryMetadataTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "wallet"
+    ],
+    "sha256": "a9cb7f33f5d15b0c90b3bd0e22dccacc07c0817ba1dbda45413979e4c1924752"
+  },
+  {
+    "id": "internal/production/l17/share_export.go:Repository.CommitHistoryMetadataTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/share_export.go",
+    "function": "Repository.CommitHistoryMetadataTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_snapshot_history_metadata"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "portfolio_snapshot_history_metadata.payload",
+      "portfolio_snapshot_history_metadata.source_event"
+    ],
+    "sha256": "e4636016020097e20bde1aba7515c22dbe5bee83740249dafff3e18738f45920"
+  },
+  {
+    "id": "internal/production/l17/share_export.go:Repository.ShareV2:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/share_export.go",
+    "function": "Repository.ShareV2",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshot_history_metadata",
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "m.payload",
+      "m.snapshot_id",
+      "s.id",
+      "s.wallet"
+    ],
+    "sha256": "2686bd97bb7dca6d861231cc2a14710ba33fd217975e3a48c84bcde75a392f92"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Preview:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Preview",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Preview:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Preview",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "created_at",
+      "wallet"
+    ],
+    "sha256": "5fe3def1aae75a2db660d87cbca40eb1b284e3deadf4cae2a5cef58d503439e3"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Preview:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Preview",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "auth_epoch",
+      "created_at",
+      "expires_at",
+      "id",
+      "intent",
+      "interface_digest",
+      "preview_until",
+      "public_snapshot",
+      "realm",
+      "release_digest",
+      "session_id",
+      "snapshot_digest",
+      "snapshot_id",
+      "state",
+      "wallet"
+    ],
+    "sha256": "e905f95761400d036ab2eecee90a18faacb39057537eceac0e17925b367f7213"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Publish:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Publish",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Publish:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Publish",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "auth_epoch",
+      "expires_at",
+      "id",
+      "intent",
+      "interface_digest",
+      "preview_until",
+      "public_snapshot",
+      "publish_key",
+      "realm",
+      "release_digest",
+      "session_id",
+      "snapshot_digest",
+      "state",
+      "wallet"
+    ],
+    "sha256": "2a691fb81340a4802d8e911f3c2eb7879e0d1a614848500c39c25692daefa60d"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Publish:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Publish",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "publish_key",
+      "wallet"
+    ],
+    "sha256": "74a589fe945b0c1a8af4388b3e2f06e199134a1eb0d441a705b62cc9e79c6ccd"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Publish:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Publish",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "publish_key",
+      "state"
+    ],
+    "sha256": "9a9dfd48218007930d0fb63ecd3043d003aabac9710c244b8569a934591c5897"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Publish:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Publish",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_share_outbox_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "event_id",
+      "kind",
+      "share_id"
+    ],
+    "sha256": "e88c7bf3322e65100479b2e327ea402d83d207635df966b58a47f8b1ebc42656"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Owner:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Owner",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_share_outbox_v3",
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.account_id",
+      "c.attempts",
+      "c.id",
+      "c.public_snapshot",
+      "c.purge_requested_at",
+      "c.purged_at",
+      "c.realm",
+      "c.state",
+      "c.wallet",
+      "o.kind",
+      "o.last_error",
+      "o.share_id"
+    ],
+    "sha256": "93c8982db4c0ee00d447cf5066c696be0d01dee78c04f96d0a4edcc9aedcf733"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Revoke:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Revoke",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "id",
+      "image",
+      "publish_key",
+      "purge_requested_at",
+      "realm",
+      "state",
+      "wallet"
+    ],
+    "sha256": "571c26f2b3622ba12afdc1649a5de64a915247bb5be8b9828c58b96d97a84ad2"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Revoke:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Revoke",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_share_outbox_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "event_id",
+      "kind",
+      "share_id"
+    ],
+    "sha256": "5be7bc207745ffdf35980bac3e65b0dade7bccc2901794e729f7bce05611e92c"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:SharesV3.Public:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "SharesV3.Public",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "expires_at",
+      "id",
+      "image",
+      "public_snapshot",
+      "publish_key",
+      "snapshot_digest",
+      "state"
+    ],
+    "sha256": "046788e67ca23d99f4fa6df15718099fcd1a3906f4479dd1f5dea2da5ab92155"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.ExpireOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.ExpireOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_share_outbox_v3",
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "e.id",
+      "event_id",
+      "expires_at",
+      "id",
+      "image",
+      "kind",
+      "publish_key",
+      "purge_requested_at",
+      "s.id",
+      "s.publish_key",
+      "share_id",
+      "state"
+    ],
+    "sha256": "d48b935825d67fcee6bf3cb040bc6c508006d33bada49dc8dc89d81eb22c1baa"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.RunOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.RunOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_share_outbox_v3",
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "c.event_id",
+      "fence",
+      "lease_owner",
+      "lease_until",
+      "o.event_id",
+      "o.fence",
+      "o.kind",
+      "o.lease_until",
+      "o.next_attempt",
+      "o.published_at",
+      "o.share_id",
+      "s.attempts",
+      "s.expires_at",
+      "s.id",
+      "s.state"
+    ],
+    "sha256": "20eba8443a6b3bc0dcf2e88ca4a7a8530a6619a55a0412e263443720ced35a79"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.RunOnce:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.RunOnce",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "expires_at",
+      "id",
+      "state"
+    ],
+    "sha256": "08e2089b3508932d54759aea6f8d48e4c6d3c506a246d1fedac50923266f6afe"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.RunOnce:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.RunOnce",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "public_snapshot"
+    ],
+    "sha256": "aef28a304a81101c097111a0734f372aa1d36ff001d55af7d1b3306556755628"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.RunOnce:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.RunOnce",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_share_outbox_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "event_id",
+      "fence",
+      "last_error",
+      "lease_owner",
+      "lease_until",
+      "next_attempt"
+    ],
+    "sha256": "649bd7115b3744c23155adc1b5c1b65e71b516a5ccf2b36b078e676edc2583bb"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.RunOnce:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.RunOnce",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_share_outbox_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "event_id",
+      "fence",
+      "lease_owner",
+      "lease_until"
+    ],
+    "sha256": "83033a2bcc512b71dba2879dbd37b7ee91372b82b1ce48d1c12a2465486c77ee"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.RunOnce:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.RunOnce",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "expires_at",
+      "id",
+      "image",
+      "state"
+    ],
+    "sha256": "0d5692136386c7760614048ba8b8552b1402d68a403313445af5da40c9124f34"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.RunOnce:7",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.RunOnce",
+    "call": 7,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_shares_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "id",
+      "purged_at",
+      "state"
+    ],
+    "sha256": "53dab9f03a1915b24ef6bc1d506d62291800bd609290ddbbe50f4b33dc734c17"
+  },
+  {
+    "id": "internal/production/l17/shares_v3.go:ShareWorkerV3.RunOnce:8",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/shares_v3.go",
+    "function": "ShareWorkerV3.RunOnce",
+    "call": 8,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.portfolio_share_outbox_v3"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "event_id",
+      "fence",
+      "last_error",
+      "lease_owner",
+      "lease_until",
+      "published_at"
+    ],
+    "sha256": "3ad92b4bb000ee45eabeb06011c0141fd75139668988d84b57454991f25fd453"
+  },
+  {
+    "id": "internal/production/l17/storage.go:Repository.CommitSnapshotTx:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.CommitSnapshotTx",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l17/storage.go:Repository.CommitSnapshotTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.CommitSnapshotTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "digest",
+      "source_event",
+      "summary"
+    ],
+    "sha256": "1f84d97dd202be59183825f7980215b86b0ed6d5a519ac962aab689a4026ad19"
+  },
+  {
+    "id": "internal/production/l17/storage.go:Repository.CommitSnapshotTx:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.CommitSnapshotTx",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "digest",
+      "expires_at",
+      "id",
+      "observed_at",
+      "revision",
+      "source_event",
+      "summary",
+      "wallet"
+    ],
+    "sha256": "dc63902dc8044df52c339b1995e08f02c534b2f3d952be656949dd7581e55839"
+  },
+  {
+    "id": "internal/production/l17/storage.go:Repository.CommitSnapshotTx:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.CommitSnapshotTx",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_snapshot_rows"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "b23fa806c8c8d3cf146c9752e1637c423962384fc3db4f341ec9aaf18d272328"
+  },
+  {
+    "id": "internal/production/l17/storage.go:Repository.CommitSnapshotTx:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.CommitSnapshotTx",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.portfolio_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "event_id",
+      "payload"
+    ],
+    "sha256": "41675f0578183197d9c25638da19913d48e95cce38397b4c34e2f1f85f09cc65"
+  },
+  {
+    "id": "internal/production/l17/storage.go:Repository.Page:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.Page",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshots"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "expires_at",
+      "id",
+      "summary",
+      "wallet"
+    ],
+    "sha256": "5b3d339851d712c233730f5553f209d565ea436711b53204f8b7706dd7c51bf4"
+  },
+  {
+    "id": "internal/production/l17/storage.go:Repository.Page:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.Page",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.portfolio_snapshot_rows"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "ordinal",
+      "payload",
+      "snapshot_id"
+    ],
+    "sha256": "2ff0fbd0f1b3425c1ed7c4148d856f9c9756fbefcfcb29f7b5fb004912440af0"
+  },
+  {
+    "id": "internal/production/l18/attribution.go:Attribution.Binding:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/attribution.go",
+    "function": "Attribution.Binding",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_bindings"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attribution",
+      "beneficiary",
+      "campaign",
+      "consent_at",
+      "issued_at",
+      "policy_version",
+      "referrer",
+      "token_nonce"
+    ],
+    "sha256": "81a747badcc66fefb7947ac1f5a4b95452a7178e7b8d74721bc66612dd98aa36"
+  },
+  {
+    "id": "internal/production/l18/authority.go:CanonicalAuthority.Fill:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "CanonicalAuthority.Fill",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "source_fact_digest"
+    ],
+    "sha256": "cec78a671a97b32779a0e8216f37cdde47ed292c259efe3d1dc95c5a0238ea59"
+  },
+  {
+    "id": "internal/production/l18/authority.go:CanonicalAuthority.VerifyAward:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "CanonicalAuthority.VerifyAward",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "bindings": {
+      "a.schema": "{{schema:pnl}}"
+    },
+    "tables": [
+      "pnl.l18_bindings"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attribution",
+      "beneficiary",
+      "campaign",
+      "consent_at",
+      "policy_version",
+      "referrer"
+    ],
+    "sha256": "562d8bf3596ae67a16d8e621932fc517811538a5cc22e0640e1a1b6be190d843"
+  },
+  {
+    "id": "internal/production/l18/authority.go:CanonicalAuthority.VerifyAward:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "CanonicalAuthority.VerifyAward",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "bindings": {
+      "a.schema": "{{schema:pnl}}"
+    },
+    "tables": [
+      "pnl.l18_referral_consents"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "beneficiary",
+      "campaign",
+      "consent",
+      "revision"
+    ],
+    "sha256": "3b8cb2f19caf4831afb9ed8df89e02f2cfa7f8183d79b321ec650cfef1a96ffb"
+  },
+  {
+    "id": "internal/production/l18/authority.go:NewIndexedCreator:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "NewIndexedCreator",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_ingest_watermarks_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "b.block_hash",
+      "b.chain_id",
+      "b.fetch_complete",
+      "b.height",
+      "b.required_decode_complete",
+      "b.stream_id",
+      "w.chain_id",
+      "w.raw_complete_height",
+      "w.stream_id",
+      "w.typed_complete_height"
+    ],
+    "sha256": "b2b3abc12d990744288559178172277e0d8bc609bbc80d7aa61abc50c7e231da"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.command:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.command",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.command:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.command",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.command:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.command",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_referral_requests"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "actor",
+      "digest",
+      "operation",
+      "request_id",
+      "response"
+    ],
+    "sha256": "09599c0dd6214d54606de7ac13ad415096e878b573fe1451186994d5ade3a0db"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.command:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.command",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_referral_requests"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "actor",
+      "digest",
+      "operation",
+      "request_id",
+      "response"
+    ],
+    "sha256": "f868c2a0eb4603eaec89772fc7c933cc1819023401e44d0137ac43d56700a9b1"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.IssueCode:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.IssueCode",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_referral_codes"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "beneficiary",
+      "campaign",
+      "short_code"
+    ],
+    "sha256": "02889efb5899c4a8b8b6f1a5fd73ced9c69f04e3a298020200caaaaa7b796166"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.IssueCode:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.IssueCode",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_referral_codes"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "beneficiary",
+      "campaign",
+      "created_at",
+      "short_code"
+    ],
+    "sha256": "8ef46cd14def282c53e0568cfbd0afd076d8592657a3c7fde90301a34b0d7f5e"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.consent:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.consent",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_referral_consents"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "beneficiary",
+      "campaign",
+      "consent",
+      "recorded_at",
+      "revision"
+    ],
+    "sha256": "2096737a05322017d04fcab0429f53dba7cd3acd49a53302b45a010e92208364"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.recordConsent:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.recordConsent",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_referral_consents"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "beneficiary",
+      "campaign",
+      "consent",
+      "recorded_at",
+      "request_id"
+    ],
+    "sha256": "5a77b17cac608d4531b39c88d3981fb6788fda618592c94ac2754bed6288a493"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.ClickCode:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.ClickCode",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_referral_codes",
+      "pnl.referrals"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "beneficiary",
+      "campaign",
+      "sharer_address",
+      "short_code"
+    ],
+    "sha256": "ecffc3956e937f23218aa6186d317b0c759a2610bc43db65a699ed83f6727b4d"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.ClickCode:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.ClickCode",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_analytics"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "actor",
+      "campaign",
+      "day"
+    ],
+    "sha256": "1e00aa343b59cdb8e93eded5569a8891c51fe5d059555eee2571d32ceb02cf0c"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.ClickCode:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.ClickCode",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_analytics"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "actor",
+      "campaign",
+      "day",
+      "identity",
+      "kind",
+      "short_code"
+    ],
+    "sha256": "a5113fd30e5912c2a298104922e6cd5383ae3d7cc7bba96c283e48246887d8cc"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.Dashboard:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.Dashboard",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_referral_codes"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "beneficiary",
+      "campaign",
+      "short_code"
+    ],
+    "sha256": "02889efb5899c4a8b8b6f1a5fd73ced9c69f04e3a298020200caaaaa7b796166"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.Dashboard:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.Dashboard",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_bindings"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attribution",
+      "beneficiary",
+      "campaign",
+      "consent_at",
+      "issued_at",
+      "policy_version",
+      "referrer",
+      "token_nonce"
+    ],
+    "sha256": "81a747badcc66fefb7947ac1f5a4b95452a7178e7b8d74721bc66612dd98aa36"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.Dashboard:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.Dashboard",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_analytics",
+      "pnl.l18_referral_codes",
+      "pnl.referrals"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count",
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "beneficiary",
+      "campaign",
+      "kind",
+      "sharer_address",
+      "short_code"
+    ],
+    "sha256": "1aa4be1f62851110a5cf0dfb503c8eabdb937bb8c3bd0195649fe3f32c201019"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.Dashboard:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.Dashboard",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_bindings"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "attribution",
+      "campaign",
+      "referrer"
+    ],
+    "sha256": "98d2dd8a1257faca377e15b184f50d26df74475021bbe273046f6d234aa0ced5"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.Dashboard:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.Dashboard",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count",
+      "pg_catalog.sum"
+    ],
+    "columns": [
+      "beneficiary",
+      "eligible",
+      "kind",
+      "payable",
+      "program",
+      "status"
+    ],
+    "sha256": "38a661dbbade80af904fb188de073b6bab18ecc02a6a49f238326ace00e3ead6"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.BindIssued:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.BindIssued",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_bindings"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attribution",
+      "beneficiary",
+      "campaign",
+      "consent_at",
+      "issued_at",
+      "policy_version",
+      "referrer",
+      "token_nonce"
+    ],
+    "sha256": "81a747badcc66fefb7947ac1f5a4b95452a7178e7b8d74721bc66612dd98aa36"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.BindIssued:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.BindIssued",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_referral_requests"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "actor",
+      "created_at",
+      "operation",
+      "request_id",
+      "response"
+    ],
+    "sha256": "b6d755f1cc7c6c9a7ec3e1c0ca5d6722a8c379b4e5c3689b87a429d9f15fedae"
+  },
+  {
+    "id": "internal/production/l18/authority.go:Attribution.BindIssued:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "Attribution.BindIssued",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_bindings"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attribution",
+      "beneficiary",
+      "campaign",
+      "consent_at",
+      "issued_at",
+      "policy_version",
+      "referrer",
+      "token_nonce"
+    ],
+    "sha256": "17d605a86aac814ab6190825ac485da1c9b46932010e49bc5aed19e4a38e9fb0"
+  },
+  {
+    "id": "internal/production/l18/epoch.go:Ledger.EpochEntitlement:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/epoch.go",
+    "function": "Ledger.EpochEntitlement",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_epochs"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "eligible_supply",
+      "epoch",
+      "funded",
+      "pool",
+      "snapshot_block"
+    ],
+    "sha256": "fd7e729cd0264da24923700358e9f55bcf509ff2ea0cfd174601a66035e4676b"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.market:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.market",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "creator",
+      "height",
+      "log_index",
+      "nft_id",
+      "pool",
+      "transaction_hash",
+      "transaction_index"
+    ],
+    "sha256": "6f58f0aad1b86cc931255b705887c4dad5d28d8a02130def0a0e91725050fd32"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.claimedHistory:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.claimedHistory",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_raw_logs_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "b.block_hash",
+      "b.chain_id",
+      "b.fetch_complete",
+      "b.height",
+      "b.required_decode_complete",
+      "b.stream_id",
+      "l.block_hash",
+      "l.chain_id",
+      "l.data",
+      "l.emitter",
+      "l.height",
+      "l.log_index",
+      "l.topics",
+      "l.transaction_index"
+    ],
+    "sha256": "254acaaa37ff5022e269c5fe5d0798660867bf41cbab627fcfc98157195e1831"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.indexedOwner:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.indexedOwner",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_raw_logs_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.jsonb_array_length"
+    ],
+    "columns": [
+      "b.block_hash",
+      "b.chain_id",
+      "b.fetch_complete",
+      "b.height",
+      "b.required_decode_complete",
+      "b.stream_id",
+      "l.block_hash",
+      "l.chain_id",
+      "l.emitter",
+      "l.height",
+      "l.log_index",
+      "l.topics",
+      "l.transaction_index"
+    ],
+    "sha256": "18f68f96951ceca85e2dda561a3256ae5d042a9a95d405cb6066e6bf52597adc"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.Rewards:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.Rewards",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "creator",
+      "height",
+      "log_index",
+      "nft_id",
+      "pool",
+      "transaction_hash",
+      "transaction_index"
+    ],
+    "sha256": "eb6a6edef08f69fb3feb2520b2378b01de47c491dd34bca5c52341c424020d97"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.Prepare:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.Prepare",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.Prepare:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.Prepare",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_requests"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "actor",
+      "digest",
+      "expires_at",
+      "interface_digest",
+      "release_digest",
+      "request_key",
+      "response"
+    ],
+    "sha256": "016a0fcdef97a7b02bf9c691ce25f109a3dcd8babac01bcc7333bf8e4dbb2aa0"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.Prepare:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.Prepare",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "creator",
+      "nft_id",
+      "pool"
+    ],
+    "sha256": "863140b3ca869db438e04225c8bcf92655234cf20f935c7a89a29c744d6d77dc"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.Prepare:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.Prepare",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "creator",
+      "height",
+      "log_index",
+      "nft_id",
+      "pool",
+      "transaction_hash",
+      "transaction_index"
+    ],
+    "sha256": "6f58f0aad1b86cc931255b705887c4dad5d28d8a02130def0a0e91725050fd32"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.Prepare:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.Prepare",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_requests"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "actor",
+      "digest",
+      "expires_at",
+      "interface_digest",
+      "method",
+      "path",
+      "release_digest",
+      "request_key",
+      "response"
+    ],
+    "sha256": "78b3c59bdb59cb191b7a0fd289528582bac90cbe9c3a997d25c91d91d531347a"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.Prepare:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.Prepare",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_audit"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "action",
+      "actor",
+      "identity",
+      "payload",
+      "reason"
+    ],
+    "sha256": "df18b4d5a7d2cfdf89410ad03d7153dc5bac6940882136243db4936fe956d4e7"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.sourceCheckpoint:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.sourceCheckpoint",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_ingest_watermarks_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "chain_id",
+      "raw_complete_height",
+      "stream_id",
+      "typed_complete_height"
+    ],
+    "sha256": "829d27ae95026f634ead8ddfe629e814c34d73f4d02882e95199774e2a69369b"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:JourneyService.sourceCheckpoint:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "JourneyService.sourceCheckpoint",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_block_completeness_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "chain_id",
+      "fetch_complete",
+      "height",
+      "required_decode_complete",
+      "stream_id"
+    ],
+    "sha256": "256519d269327d0219c8312783dd9daa9005cb1e54b25fb3581d1777397db638"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:CommunityWatcher.Observe:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "CommunityWatcher.Observe",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_community_history"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "payload",
+      "request_id"
+    ],
+    "sha256": "91a65402de6c51c4f07d2e49a9537a0b6d23ef494ded5640ed3fdf6c1bb144dc"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:CommunityWatcher.Observe:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "CommunityWatcher.Observe",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:CommunityWatcher.Observe:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "CommunityWatcher.Observe",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "creator",
+      "nft_id",
+      "pool"
+    ],
+    "sha256": "863140b3ca869db438e04225c8bcf92655234cf20f935c7a89a29c744d6d77dc"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:CommunityWatcher.Observe:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "CommunityWatcher.Observe",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_community_history"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "nft_id",
+      "state"
+    ],
+    "sha256": "5fa686a433805de857c0190b520f4757f28874b4659a39e00a7ec9915d3fedbd"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:CommunityWatcher.Observe:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "CommunityWatcher.Observe",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_community_history"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "block_number",
+      "nft_id",
+      "owner",
+      "payload",
+      "policy_digest",
+      "request_id",
+      "service_identity",
+      "state"
+    ],
+    "sha256": "255b05d1d4919951c8f06ea62e334e2bd9b9dc386d24d46191461aede14505c9"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:CommunityWatcher.RunOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "CommunityWatcher.RunOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1",
+      "pnl.l18_community_scan"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "c.creator",
+      "c.nft_id",
+      "c.pool",
+      "s.checked_at",
+      "s.nft_id"
+    ],
+    "sha256": "0314b6179570d676ce6f843142427b756dc1c2670d02206e7e5c0fdef2837c4e"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:CommunityWatcher.RunOnce:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "CommunityWatcher.RunOnce",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_community_history"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "nft_id",
+      "owner",
+      "policy_digest",
+      "revision"
+    ],
+    "sha256": "8d35dc2a2c6de88ec6987f287d9e7dcea7c5a04a3a6a5e6d301762c7d713d40d"
+  },
+  {
+    "id": "internal/production/l18/journeys.go:CommunityWatcher.RunOnce:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
+    "function": "CommunityWatcher.RunOnce",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_community_scan"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "checked_at",
+      "nft_id"
+    ],
+    "sha256": "0c23305bd5b39641f5edf42699916c374c16a49d9b95c350ea037ef84e3b2d7b"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:Ledger.begin:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.begin",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SET",
+    "bindings": {
+      "l.schema": "{{schema:pnl}}"
+    },
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sha256": "f14c17daf49917979128160726f67cf465e47abe607b61f1102e056afa433091"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:inbox:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "inbox",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "digest",
+      "identity"
+    ],
+    "sha256": "7ba8b27576a64a18f35010f360b28a07e16e637c99865951c45b1455f8c4464f"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:inbox:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "inbox",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "digest",
+      "identity"
+    ],
+    "sha256": "b361570d2a0589f57d5791576e0322b7fb7a59d7c1cf7fdf4bedacb7c30cfbb1"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:emit:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "emit",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "identity",
+      "payload",
+      "topic"
+    ],
+    "sha256": "a691439d683df16a222d08d4c7138a4eafdac3f3286a96b31daf7f26e1934a00"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:Ledger.Accrue:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.Accrue",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sha256": "1a6751ba70ff65d15e989d0a11b3d8d51cabe9cfb325027136238a3b25d84f8e"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:Ledger.Accrue:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.Accrue",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_funding"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "asset",
+      "beneficiary_cap",
+      "daily_cap",
+      "day",
+      "funded",
+      "program",
+      "reserved",
+      "treasury",
+      "version"
+    ],
+    "sha256": "575acc72d595f55d1fc40dc15a6ae08bde0be4dd01074ac43e83a57bdffe1696"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:Ledger.Accrue:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.Accrue",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.sum"
+    ],
+    "columns": [
+      "asset",
+      "beneficiary",
+      "day",
+      "payable",
+      "program",
+      "version"
+    ],
+    "sha256": "91f92fcee331dab124ea3d75ddfbdc014380ec0275b33454b1eead3a7aa44b38"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:Ledger.Accrue:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.Accrue",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.l18_funding"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "asset",
+      "day",
+      "program",
+      "reserved",
+      "version"
+    ],
+    "sha256": "594aa6dd520acd09023cb2a8a7a4ba0cda3065d723da0c058363a704aef07ddc"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:Ledger.Accrue:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.Accrue",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "asset",
+      "beneficiary",
+      "day",
+      "eligible",
+      "identity",
+      "kind",
+      "payable",
+      "program",
+      "provenance",
+      "referred",
+      "status",
+      "version"
+    ],
+    "sha256": "60a192b8b42a55e70fdd443bc1d45b2c4b9c159fa4226bcd5e8dec5fadacd72a"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:Ledger.Accrue:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.Accrue",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_entries"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "asset",
+      "credit_account",
+      "debit_account",
+      "identity",
+      "provenance",
+      "raw",
+      "rule_version",
+      "service_identity"
+    ],
+    "sha256": "f4155e09f0f42b29620796130d545ce5522f73cc70299b76b7d533ebb834a0b6"
+  },
+  {
+    "id": "internal/production/l18/ledger.go:readLiability:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "readLiability",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "appeal_status",
+      "asset",
+      "beneficiary",
+      "day",
+      "eligible",
+      "hold_reason",
+      "identity",
+      "kind",
+      "payable",
+      "program",
+      "provenance",
+      "referred",
+      "status",
+      "version"
+    ],
+    "sha256": "cfdb87420a13d92f9accdceb362f0f70642588ce6cc4b77ee2e23fcfa98fdcd9"
+  },
+  {
+    "id": "internal/production/l18/outbox.go:NewOutboxBridge:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/outbox.go",
+    "function": "NewOutboxBridge",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_column_privilege"
+    ],
+    "columns": [],
+    "sha256": "fd0911c1b512b863abbb36216978d7ca50b981db9b5c666381035433acb26719"
+  },
+  {
+    "id": "internal/production/l18/outbox.go:OutboxBridge.RunOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/outbox.go",
+    "function": "OutboxBridge.RunOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "identity",
+      "payload",
+      "published_at",
+      "sequence",
+      "topic"
+    ],
+    "sha256": "66f05c03077e5ae158d8df82d83555066e5d1e98855eaceb5f220c4e782f3d17"
+  },
+  {
+    "id": "internal/production/l18/outbox.go:OutboxBridge.RunOnce:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/outbox.go",
+    "function": "OutboxBridge.RunOnce",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.l18_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "published_at",
+      "sequence"
+    ],
+    "sha256": "8d38f93083df5d6ccd784fbfa1de0d3629db2fdaeae5271016875cb05e4afe87"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.Reconcile:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.Reconcile",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_awards",
+      "pnl.l18_payout_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.identity",
+      "a.program",
+      "a.version",
+      "p.attempt",
+      "p.award_id",
+      "p.beneficiary",
+      "p.raw",
+      "p.state",
+      "p.tx_hash"
+    ],
+    "sha256": "7e0452219a15556edf88e2d20919447848e927f435f7c53592d1ef0b8f6f13f5"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.Reconcile:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.Reconcile",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "identity",
+      "status"
+    ],
+    "sha256": "657a9465ba8bb1320a20ffbf9b9c562414537f06a056cc3804c1201164af885c"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.Reconcile:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.Reconcile",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_payout_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attempt",
+      "award_id",
+      "state",
+      "tx_hash"
+    ],
+    "sha256": "00793d6a0f589da6954246f04bcfa3418cb59d1cca6d6badac9ef217e323e2f4"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.Reconcile:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.Reconcile",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "identity",
+      "payable",
+      "status"
+    ],
+    "sha256": "a7293b14160144734cab08ef38d8b379e3a169d7d265221e93fb28afcb766b76"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.Reconcile:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.Reconcile",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "pnl.l18_entries"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "asset",
+      "credit_account",
+      "debit_account",
+      "identity",
+      "provenance",
+      "raw",
+      "rule_version",
+      "service_identity"
+    ],
+    "sha256": "f4155e09f0f42b29620796130d545ce5522f73cc70299b76b7d533ebb834a0b6"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.Reconcile:6",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.Reconcile",
+    "call": 6,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.l18_payout_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attempt",
+      "award_id",
+      "receipt_identity",
+      "state"
+    ],
+    "sha256": "f527efa8666a32f1d4b88dd75b09fd86487f7b641319870982397b1a1a0e337e"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.markAttempt:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.markAttempt",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "identity",
+      "status"
+    ],
+    "sha256": "657a9465ba8bb1320a20ffbf9b9c562414537f06a056cc3804c1201164af885c"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.markAttempt:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.markAttempt",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.l18_payout_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attempt",
+      "award_id",
+      "state",
+      "tx_hash"
+    ],
+    "sha256": "2dceed2bc9c6d02285269070278ed78ea473b6cbb5ade254652e621521d17ac2"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.markAttempt:3",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.markAttempt",
+    "call": 3,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.l18_payout_attempts"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "attempt",
+      "award_id",
+      "state",
+      "tx_hash"
+    ],
+    "sha256": "5f179975ab16d92ab2cdd25a2e7614e497d9a1a5b2f7aecabe95dc8b7f955431"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.markAttempt:4",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.markAttempt",
+    "call": 4,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "identity",
+      "status"
+    ],
+    "sha256": "9db3cf9150e2897b846b9f7a280e44b9fe75c3902144ff615717f5f8ff82e398"
+  },
+  {
+    "id": "internal/production/l18/settlement.go:SettlementService.markAttempt:5",
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.markAttempt",
+    "call": 5,
+    "role": "pnl_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "identity",
+      "status"
+    ],
+    "sha256": "78f4502438ccf2f2e5f265960980e1c1f95a9557a3306e507907fc0642acb90f"
+  },
+  {
+    "id": "internal/referral/production.go:ProductionService.RunOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/referral/production.go",
+    "function": "ProductionService.RunOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1",
+      "pnl.l18_awards",
+      "pnl.l18_bindings",
+      "pnl.l18_referral_consents"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.kind",
+      "a.program",
+      "a.referred",
+      "a.version",
+      "b.attribution",
+      "b.beneficiary",
+      "b.campaign",
+      "b.consent_at",
+      "b.policy_version",
+      "c.beneficiary",
+      "c.campaign",
+      "consent",
+      "f.payload",
+      "payload",
+      "revision"
+    ],
+    "sha256": "266aa8445405a7f26f676b471de320da440af85e79e11e232334805fe53f714e"
+  },
+  {
+    "id": "internal/referral/production.go:ProductionService.CashbackRunOnce:1",
+    "file": "services/launchpad/pnl-tracker/internal/referral/production.go",
+    "function": "ProductionService.CashbackRunOnce",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_accounting_fills_v1",
+      "pnl.l18_awards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.kind",
+      "a.program",
+      "a.provenance",
+      "a.version",
+      "f.payload",
+      "payload"
+    ],
+    "sha256": "993ec719109b4b6befe8d1c7c8a76680b01b08db94be6a6027d276b507bf318b"
+  },
+  {
+    "id": "internal/store/cards.go:Store.GetCard:1",
+    "file": "services/launchpad/pnl-tracker/internal/store/cards.go",
+    "function": "Store.GetCard",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.pnl_cards"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "card_id",
+      "created_at",
+      "owner_address",
+      "pool_address",
+      "short_code",
+      "snapshot",
+      "token_address"
+    ],
+    "sha256": "948973502991ff43fcb592c8fa070be7d157e76189d7babde72d55e6056de926"
+  },
+  {
+    "id": "internal/store/portfolio.go:Store.Portfolio:1",
+    "file": "services/launchpad/pnl-tracker/internal/store/portfolio.go",
+    "function": "Store.Portfolio",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "metadata.token_metadata",
+      "pnl.user_positions",
+      "stats.pool_stats"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "m.name",
+      "m.symbol",
+      "m.token_address",
+      "p.avg_cost_basis",
+      "p.current_holdings",
+      "p.first_buy_ts",
+      "p.last_trade_ts",
+      "p.pool_address",
+      "p.realized_pnl_usdl",
+      "p.token_address",
+      "p.total_tokens_bought",
+      "p.total_tokens_sold",
+      "p.total_usdl_received",
+      "p.total_usdl_spent",
+      "p.trade_count",
+      "p.user_address",
+      "ps.market_cap",
+      "ps.pool_address",
+      "ps.price"
+    ],
+    "sha256": "fbef9825cbd1d3f6a9407dc6b80e9956869b6a408836e1f84c1384c43d046fde"
+  },
+  {
+    "id": "internal/store/positions.go:Store.GetPosition:1",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.GetPosition",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.user_positions"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "avg_cost_basis",
+      "current_holdings",
+      "first_buy_ts",
+      "last_trade_ts",
+      "pool_address",
+      "realized_pnl_usdl",
+      "token_address",
+      "total_tokens_bought",
+      "total_tokens_sold",
+      "total_usdl_received",
+      "total_usdl_spent",
+      "trade_count",
+      "user_address"
+    ],
+    "sha256": "824cd432b566fe80666bc351065141127927fb5dcc59e897c86bff72a4ac0cdd"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListPositions:1",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListPositions",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.user_positions"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "avg_cost_basis",
+      "current_holdings",
+      "first_buy_ts",
+      "last_trade_ts",
+      "pool_address",
+      "realized_pnl_usdl",
+      "token_address",
+      "total_tokens_bought",
+      "total_tokens_sold",
+      "total_usdl_received",
+      "total_usdl_spent",
+      "trade_count",
+      "user_address"
+    ],
+    "sha256": "442df151187e63299770cbe73986df4b2b3a06121bdcf47334363b4e45b849af"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListTrades:1:filters_0",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListTrades",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "filters_0",
+    "bindings": {
+      "strings.Join(conds, \" AND \")": "user_address = $1",
+      "limitPos": "2",
+      "offsetPos": "3"
+    },
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "block_timestamp",
+      "fee",
+      "id",
+      "is_buy",
+      "pool_address",
+      "price",
+      "token_address",
+      "token_amount",
+      "tx_hash",
+      "usdl_amount",
+      "user_address"
+    ],
+    "sha256": "6e024d1888f7b322241a51e3162ad6619b69685912e8e79d7113c35553a12429"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListTrades:1:filters_1",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListTrades",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "filters_1",
+    "bindings": {
+      "strings.Join(conds, \" AND \")": "user_address = $1 AND pool_address = $2",
+      "limitPos": "3",
+      "offsetPos": "4"
+    },
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "block_timestamp",
+      "fee",
+      "id",
+      "is_buy",
+      "pool_address",
+      "price",
+      "token_address",
+      "token_amount",
+      "tx_hash",
+      "usdl_amount",
+      "user_address"
+    ],
+    "sha256": "e08e22e5f3e2d2b49079e07c7748dd4220085d06aba26c1198163cef45396fe8"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListTrades:1:filters_2",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListTrades",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "filters_2",
+    "bindings": {
+      "strings.Join(conds, \" AND \")": "user_address = $1 AND block_timestamp >= $2",
+      "limitPos": "3",
+      "offsetPos": "4"
+    },
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "block_timestamp",
+      "fee",
+      "id",
+      "is_buy",
+      "pool_address",
+      "price",
+      "token_address",
+      "token_amount",
+      "tx_hash",
+      "usdl_amount",
+      "user_address"
+    ],
+    "sha256": "7b3b786d949cbdba4b3378a13954d7337953ae4862c62492863b1b810582416e"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListTrades:1:filters_3",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListTrades",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "filters_3",
+    "bindings": {
+      "strings.Join(conds, \" AND \")": "user_address = $1 AND pool_address = $2 AND block_timestamp >= $3",
+      "limitPos": "4",
+      "offsetPos": "5"
+    },
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "block_timestamp",
+      "fee",
+      "id",
+      "is_buy",
+      "pool_address",
+      "price",
+      "token_address",
+      "token_amount",
+      "tx_hash",
+      "usdl_amount",
+      "user_address"
+    ],
+    "sha256": "6271fc77d3fb306b19dc2eb916504577f73b51bd34909ac538a079c53bfe04fc"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListTrades:1:filters_4",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListTrades",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "filters_4",
+    "bindings": {
+      "strings.Join(conds, \" AND \")": "user_address = $1 AND block_timestamp <= $2",
+      "limitPos": "3",
+      "offsetPos": "4"
+    },
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "block_timestamp",
+      "fee",
+      "id",
+      "is_buy",
+      "pool_address",
+      "price",
+      "token_address",
+      "token_amount",
+      "tx_hash",
+      "usdl_amount",
+      "user_address"
+    ],
+    "sha256": "e256ff818ec83f95bf35e47fcb3a56872193a8ba7be330d0f9359c6dcf79c4b5"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListTrades:1:filters_5",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListTrades",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "filters_5",
+    "bindings": {
+      "strings.Join(conds, \" AND \")": "user_address = $1 AND pool_address = $2 AND block_timestamp <= $3",
+      "limitPos": "4",
+      "offsetPos": "5"
+    },
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "block_timestamp",
+      "fee",
+      "id",
+      "is_buy",
+      "pool_address",
+      "price",
+      "token_address",
+      "token_amount",
+      "tx_hash",
+      "usdl_amount",
+      "user_address"
+    ],
+    "sha256": "656a674e6edcef105136c246b1d61c4ec41b275541c6d217941784aef8b1724e"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListTrades:1:filters_6",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListTrades",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "filters_6",
+    "bindings": {
+      "strings.Join(conds, \" AND \")": "user_address = $1 AND block_timestamp >= $2 AND block_timestamp <= $3",
+      "limitPos": "4",
+      "offsetPos": "5"
+    },
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "block_timestamp",
+      "fee",
+      "id",
+      "is_buy",
+      "pool_address",
+      "price",
+      "token_address",
+      "token_amount",
+      "tx_hash",
+      "usdl_amount",
+      "user_address"
+    ],
+    "sha256": "650f4b2d21ddb8087d536f7dc44961373d5ef00d3b4d0f04b2fed846af35037b"
+  },
+  {
+    "id": "internal/store/positions.go:Store.ListTrades:1:filters_7",
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.ListTrades",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "variant": "filters_7",
+    "bindings": {
+      "strings.Join(conds, \" AND \")": "user_address = $1 AND pool_address = $2 AND block_timestamp >= $3 AND block_timestamp <= $4",
+      "limitPos": "5",
+      "offsetPos": "6"
+    },
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_number",
+      "block_timestamp",
+      "fee",
+      "id",
+      "is_buy",
+      "pool_address",
+      "price",
+      "token_address",
+      "token_amount",
+      "tx_hash",
+      "usdl_amount",
+      "user_address"
+    ],
+    "sha256": "5747825658dafeb98f0cdde1a4ddba7d0a79420c0fa5a09fb54dbe48b74cfe3b"
+  },
+  {
+    "id": "internal/store/reconcile.go:Store.GetCursor:1",
+    "file": "services/launchpad/pnl-tracker/internal/store/reconcile.go",
+    "function": "Store.GetCursor",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.reconciler_cursor"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "id",
+      "last_block",
+      "last_log_index",
+      "updated_at"
+    ],
+    "sha256": "b36388b9ec751e3a9762d37116cd06e96b0b2665fbc3fa90d19cb1a6571974e3"
+  },
+  {
+    "id": "internal/store/reconcile.go:Store.IndexerHead:1",
+    "file": "services/launchpad/pnl-tracker/internal/store/reconcile.go",
+    "function": "Store.IndexerHead",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.swaps"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.max"
+    ],
+    "columns": [
+      "block_number"
+    ],
+    "sha256": "2cddfb1f3537086ee516bd301dbbb1ef9834057fafbbda02c0b71b1f1d906b1e"
+  },
+  {
+    "id": "internal/store/reconcile.go:Store.ConsumerBlock:1",
+    "file": "services/launchpad/pnl-tracker/internal/store/reconcile.go",
+    "function": "Store.ConsumerBlock",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.user_trades"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.max"
+    ],
+    "columns": [
+      "block_number"
+    ],
+    "sha256": "9b1e9b2a2533328e84e88dc6b997e6d8107a31613a4d13a0a31887587c257592"
+  }
+]

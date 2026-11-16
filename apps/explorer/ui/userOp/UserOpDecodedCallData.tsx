@@ -4,8 +4,8 @@ import React from 'react';
 import type { UserOp } from 'types/api/userOps';
 
 import useIsMobile from 'lib/hooks/useIsMobile';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import LogDecodedInputData from 'ui/shared/logs/LogDecodedInputData';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import UserOpCallDataSwitch from './UserOpCallDataSwitch';
 
@@ -50,7 +50,7 @@ const UserOpDecodedCallData = ({ data }: Props) => {
         flexDir={{ base: 'column', lg: 'row' }}
         alignItems={{ base: 'flex-start', lg: 'center' }}
         flexWrap="wrap"
-        mt={{ base: '5px', lg: '4px' }}
+        mt={{ base: 'var(--chakra-spacing-1\\.25)', lg: 'var(--chakra-spacing-1)' }}
       >
         <LogDecodedInputData data={ callData } rightSlot={ !isMobile && toggler }/>
       </DetailedInfo.ItemValue>

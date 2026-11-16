@@ -54,7 +54,7 @@ const TxsHeaderMobile = ({ filterComponent, sorting, setSorting, paginationProps
         { /* <FilterInput
           // eslint-disable-next-line react/jsx-no-bind
           onChange={ () => {} }
-          maxW="360px"
+          maxW="var(--chakra-spacing-96)"
           size="xs"
           placeholder="Search by addresses, hash, method..."
         /> */ }

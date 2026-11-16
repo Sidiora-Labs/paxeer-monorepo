@@ -19,7 +19,7 @@ const TxDetailsActionsRaw = ({ actions, isLoading }: Props) => {
       id={ TX_ACTIONS_BLOCK_ID }
       data-tx-action-card
       bg="bg.surface"
-      borderWidth="1px"
+      borderWidth="var(--chakra-border-widths-1)"
       borderStyle="solid"
       borderColor="border.divider"
       borderRadius="md"
@@ -33,14 +33,24 @@ const TxDetailsActionsRaw = ({ actions, isLoading }: Props) => {
           <chakra.span
             display="block"
             textStyle="xs"
-            fontWeight="600"
+            fontWeight="semibold"
             textTransform="uppercase"
             color="text.secondary"
             data-label
           >
             Transaction action
           </chakra.span>
-          <Flex flexDir="column" rowGap={ 2 } mt={ 1 } maxH="200px" overflowY="auto" data-content>
+          <Flex
+            flexDir="column"
+            rowGap={ 2 }
+            mt={ 1 }
+            maxH="var(--chakra-spacing-48)"
+            overflowY="auto"
+            tabIndex={ 0 }
+            role="region"
+            aria-label="Transaction actions"
+            data-content
+          >
             { actions.map((action, index: number) => <TxDetailsAction key={ index } action={ action }/>) }
           </Flex>
         </Box>

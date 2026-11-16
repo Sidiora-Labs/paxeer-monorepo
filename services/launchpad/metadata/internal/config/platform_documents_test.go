@@ -38,7 +38,7 @@ func platformDocumentValues(t *testing.T) (string, string) {
 	}
 	sum := fmt.Sprintf("%x", sha256.Sum256([]byte("metadata-schema")))
 	schema := dbproduction.ExpectedSchema{
-		Service: "metadata", RuntimeRole: "metadatad", RegistryDigest: sum, InterfaceDigest: sum,
+		Service: "media/metadata", RuntimeRole: "metadatad", RegistryDigest: sum, InterfaceDigest: sum,
 		ReaderVersion: 1, Migrations: map[int64]string{1: sum}, Schemas: map[string]string{"metadata": sum},
 		Epoch: 1, Region: "mainnet-beta",
 		Privileges: []dbproduction.Grant{{Schema: "metadata", Object: "assets", Privileges: []string{"SELECT"}}},
@@ -125,14 +125,16 @@ func setPlatformDocumentEnvironment(t *testing.T, root string, composed map[stri
 		"CLAMAV_HOST":  "clamav.railway.internal",
 		"DATABASE_URL": "postgres://metadatad_user:test-password@postgres:5432/launchpad",
 		"DB_POOL_ID":   "metadatad_pool", "INSTANCE_ID": "metadata_1", "ZONE": "mainnet-beta",
-		"IDENTITY_AUDIENCE": "metadata", "IDENTITY_SERVICE_URL": "http://gateway.railway.internal:8080",
-		"IDENTITY_SERVICE_TOKEN":         "test-only-metadata-identity-service-token",
+		"IDENTITY_AUDIENCE": "metadata", "IDENTITY_ENDPOINT": "https://gateway.example:9443",
 		"METADATA_PUBLICATION_AUDIT_KEY": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte("k"), 32)),
 		"PUBLIC_URL":                     "https://metadata.example", "REDIS_URL": "redis://redis:6379",
 		"RPC_URL":          "https://rpc.example",
 		"S3_ACCESS_KEY_ID": "test-only-access-key", "S3_SECRET_ACCESS_KEY": "test-only-secret-key",
 		"S3_APPROVED_BUCKET": "metadata-approved", "S3_QUARANTINE_BUCKET": "metadata-quarantine",
 		"S3_BUCKET": "metadata-approved", "S3_ENDPOINT": "https://objects.example",
+	}
+	for name, value := range mutualIngressMaterials(t) {
+		values[name] = value
 	}
 	for name, value := range entry.Fixed {
 		t.Setenv(name, value)
@@ -219,7 +221,7 @@ func TestPlatformDocuments(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw = bytes.Replace(raw, []byte(`"service":"metadata"`), []byte(`"service":"social"`), 1)
+		raw = bytes.Replace(raw, []byte(`"service":"media/metadata"`), []byte(`"service":"media/social"`), 1)
 		t.Setenv("EXPECTED_SCHEMA_DOCUMENT", base64.StdEncoding.EncodeToString(raw))
 		t.Setenv("EXPECTED_SCHEMA_SHA256", fmt.Sprintf("%x", sha256.Sum256(raw)))
 		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "runtime_schema_service_mismatch") {

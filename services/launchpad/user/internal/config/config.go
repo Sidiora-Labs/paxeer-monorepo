@@ -19,8 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -93,6 +95,7 @@ type Config struct {
 
 	RuntimeProfile         string `env:"RUNTIME_PROFILE"`
 	BindAddress            string `env:"BIND_ADDRESS"`
+	PrivateListenAddress   string `env:"USER_PRIVATE_LISTEN_ADDRESS"`
 	RuntimeBudgetFile      string `env:"DB_BUDGET_FILE"`
 	RuntimeBudgetSHA256    string `env:"DB_BUDGET_SHA256"`
 	RuntimeBudgetDocument  string `env:"DB_BUDGET_DOCUMENT"`
@@ -157,6 +160,9 @@ func Load() (Config, error) {
 // Validate enforces field-level rules beyond presence.
 func (c *Config) Validate() error {
 	var errs []error
+	if c.NodeEnv == nodeEnvProduction && c.RuntimeProfile != "" {
+		errs = append(errs, c.validatePrivateListenAddress())
+	}
 	for _, d := range c.boundDocuments() {
 		if d[0] != "" && d[1] != "" {
 			errs = append(errs, fmt.Errorf("runtime_document_source_ambiguous: %s_FILE and %s_DOCUMENT are both set", d[3], d[3]))
@@ -195,6 +201,18 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (c *Config) validatePrivateListenAddress() error {
+	host, port, err := net.SplitHostPort(c.PrivateListenAddress)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("USER_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	privatePort, err := strconv.Atoi(port)
+	if err != nil || privatePort < 1 || privatePort > 65535 || privatePort == c.Port {
+		return fmt.Errorf("USER_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	return nil
 }
 
 func requireURL(name, raw string) error {

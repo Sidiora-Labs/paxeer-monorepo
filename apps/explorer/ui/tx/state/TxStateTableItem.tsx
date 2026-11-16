@@ -19,7 +19,7 @@ const TxStateTableItem = ({ data, isLoading }: Props) => {
   return (
     <TableRow>
       <TableCell>
-        <Box py="3px">
+        <Box py="var(--chakra-spacing-0\.5)">
           { tag }
         </Box>
       </TableCell>
@@ -28,12 +28,12 @@ const TxStateTableItem = ({ data, isLoading }: Props) => {
           address={ data.address }
           isLoading={ isLoading }
           truncation="constant"
-          my="7px"
+          my="var(--chakra-spacing-1\.5)"
         />
       </TableCell>
-      <TableCell isNumeric><Box py="7px">{ before }</Box></TableCell>
-      <TableCell isNumeric><Box py="7px">{ after }</Box></TableCell>
-      <TableCell isNumeric><Box py="7px">{ change }</Box></TableCell>
+      <TableCell isNumeric><Box py="var(--chakra-spacing-1\.5)">{ before }</Box></TableCell>
+      <TableCell isNumeric><Box py="var(--chakra-spacing-1\.5)">{ after }</Box></TableCell>
+      <TableCell isNumeric><Box py="var(--chakra-spacing-1\.5)">{ change }</Box></TableCell>
       <TableCell>{ tokenId }</TableCell>
     </TableRow>
   );

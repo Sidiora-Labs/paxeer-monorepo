@@ -56,6 +56,10 @@ defmodule BlockScoutWeb.ContractVerifyPage do
     has_text?(session, message)
   end
 
+  def assert_message(session, message) do
+    assert_has(session, Wallaby.Query.text(message))
+  end
+
   def verify_and_publish(session) do
     click(session, button("Verify & publish"))
   end

@@ -82,7 +82,7 @@ type App struct {
 	holder *consumer.HolderTracker
 }
 
-// New runs migrations and builds every component.
+// New checks the runtime schema and builds every component.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
 	return newWithRuntimePool(ctx, cfg, logger, func(ctx context.Context, c *config.Config, options shareddb.PoolOptions) (*pgxpool.Pool, error) {
 		return c.OpenRuntimePool(ctx, "statsd", options)
@@ -152,7 +152,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 		}
 	}()
 	st := store.New(pool)
-	if err = st.EnsureHolderBalanceIndex(ctx); err != nil {
+	if err = st.CheckHolderBalanceIndex(ctx); err != nil {
 		return nil, err
 	}
 

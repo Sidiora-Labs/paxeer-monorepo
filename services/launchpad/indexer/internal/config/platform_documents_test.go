@@ -1,11 +1,15 @@
 package config
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -50,7 +54,7 @@ func platformValues(t *testing.T, root, values string) {
 	}
 	digest := strings.Repeat("0", 64)
 	schema := map[string]any{
-		"service":          "indexer",
+		"service":          "core/indexer",
 		"runtime_role":     "indexerd",
 		"registry_digest":  digest,
 		"interface_digest": digest,
@@ -70,7 +74,7 @@ func platformValues(t *testing.T, root, values string) {
 	}
 }
 
-func composePlatformDocuments(t *testing.T, root, values, out string) map[string]platformDocument {
+func composePlatformEnvironment(t *testing.T, root, values, out string) map[string]string {
 	t.Helper()
 	command := exec.Command("python3", filepath.Join(root, "deploy", "launchpad", "documents", "compose.py"), "--values", values, "--out", out, "--service", "indexer")
 	if output, err := command.CombinedOutput(); err != nil {
@@ -84,6 +88,12 @@ func composePlatformDocuments(t *testing.T, root, values, out string) map[string
 	if err = json.Unmarshal(data, &encoded); err != nil {
 		t.Fatal(err)
 	}
+	return encoded
+}
+
+func composePlatformDocuments(t *testing.T, root, values, out string) map[string]platformDocument {
+	t.Helper()
+	encoded := composePlatformEnvironment(t, root, values, out)
 	documents := make(map[string]platformDocument)
 	for _, variable := range []string{
 		"DB_BUDGET_DOCUMENT",
@@ -172,6 +182,113 @@ func TestPlatformDocumentsRejectChangedDocument(t *testing.T) {
 			setPlatformEnvironment(t, documents, variable)
 			if _, err := Load(); err == nil {
 				t.Fatalf("Load accepted changed %s", variable)
+			}
+		})
+	}
+}
+
+func TestPlatformDocumentsFileFormComposeAndRead(t *testing.T) {
+	root := platformRepositoryRoot(t)
+	values := t.TempDir()
+	platformValues(t, root, values)
+	documents := composePlatformDocuments(t, root, values, t.TempDir())
+	valuesPath := filepath.Join(values, "indexer.example.json")
+	raw, err := os.ReadFile(valuesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var inputs map[string]any
+	if err = json.Unmarshal(raw, &inputs); err != nil {
+		t.Fatal(err)
+	}
+	runtimeDirectory := t.TempDir()
+	fileBytes := map[string][]byte{}
+	for _, name := range []string{"receipt", "lifecycle"} {
+		prefix := "INDEXER_" + strings.ToUpper(name) + "_CONFIG"
+		var rendered bytes.Buffer
+		if err = json.Indent(&rendered, documents[prefix+"_DOCUMENT"].data, "", "  "); err != nil {
+			t.Fatal(err)
+		}
+		rendered.WriteByte('\n')
+		fileBytes[name] = append([]byte(nil), rendered.Bytes()...)
+		if err = os.WriteFile(filepath.Join(values, name+".json"), fileBytes[name], 0o600); err != nil {
+			t.Fatal(err)
+		}
+		inputs[name+"_rendered_file"] = name + ".json"
+		inputs[name+"_runtime_path"] = filepath.Join(runtimeDirectory, name+".json")
+	}
+	raw, err = json.Marshal(inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(valuesPath, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	composed := composePlatformEnvironment(t, root, values, t.TempDir())
+	setPlatformEnvironment(t, documents, "")
+	for _, name := range []string{"receipt", "lifecycle"} {
+		prefix := "INDEXER_" + strings.ToUpper(name) + "_CONFIG"
+		if _, exists := composed[prefix+"_DOCUMENT"]; exists {
+			t.Fatalf("file form includes %s_DOCUMENT", prefix)
+		}
+		path := composed[prefix+"_FILE"]
+		if path != inputs[name+"_runtime_path"] {
+			t.Fatalf("%s_FILE differs from the runtime path", prefix)
+		}
+		if composed[prefix+"_SHA256"] != fmt.Sprintf("%x", sha256.Sum256(fileBytes[name])) {
+			t.Fatalf("%s_SHA256 differs from rendered file bytes", prefix)
+		}
+		if err = os.WriteFile(path, fileBytes[name], 0o600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv(prefix+"_DOCUMENT", "")
+		t.Setenv(prefix+"_FILE", path)
+		t.Setenv(prefix+"_SHA256", composed[prefix+"_SHA256"])
+	}
+	for load := 0; load < 2; load++ {
+		cfg, loadErr := Load()
+		if loadErr != nil {
+			t.Fatalf("Load composed file documents: %v", loadErr)
+		}
+		if cfg.ReceiptConfigDocument != "" || cfg.LifecycleConfigDocument != "" {
+			t.Fatal("file documents loaded as inline documents")
+		}
+		for _, binding := range []struct{ name, path, digest string }{
+			{"receipt", cfg.ReceiptConfigFile, cfg.ReceiptConfigSHA256},
+			{"lifecycle", cfg.LifecycleConfigFile, cfg.LifecycleConfigSHA256},
+		} {
+			var got, want map[string]any
+			if err = json.Unmarshal(fileBytes[binding.name], &want); err != nil {
+				t.Fatal(err)
+			}
+			if err = ReadBoundDocument(binding.path, binding.digest, &got); err != nil {
+				t.Fatalf("ReadBoundDocument %s: %v", binding.name, err)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("%s bound file differs from the rendered document", binding.name)
+			}
+		}
+	}
+	for _, name := range []string{"receipt", "lifecycle"} {
+		prefix := "INDEXER_" + strings.ToUpper(name) + "_CONFIG"
+		t.Run(name+"ChangedFile", func(t *testing.T) {
+			path := composed[prefix+"_FILE"]
+			changed := append(append([]byte(nil), fileBytes[name]...), '\n')
+			if err := os.WriteFile(path, changed, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if err := ReadBoundDocument(path, composed[prefix+"_SHA256"], &got); err == nil || err.Error() != "runtime_document_binding_mismatch" {
+				t.Fatalf("changed %s file: %v", name, err)
+			}
+			if err := os.WriteFile(path, fileBytes[name], 0o600); err != nil {
+				t.Fatal(err)
+			}
+		})
+		t.Run(name+"BothForms", func(t *testing.T) {
+			t.Setenv(prefix+"_DOCUMENT", base64.StdEncoding.EncodeToString(fileBytes[name]))
+			if _, err := Load(); err == nil || !strings.Contains(err.Error(), prefix+"_FILE and "+prefix+"_DOCUMENT are both set") {
+				t.Fatalf("both %s forms: %v", name, err)
 			}
 		})
 	}

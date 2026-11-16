@@ -51,7 +51,9 @@ want="$tmp/want"
 		for n in $runtime; do echo "$s $n"; done
 	done
 	for s in api api-sockets social livestream metadata user; do for n in $db; do echo "$s $n"; done; done
-	for n in $identity ACCOUNTING_READ_CONFIG_DOCUMENT ACCOUNTING_READ_CONFIG_SHA256 STATS_SERVICE_URL; do echo "api $n"; done
+	for n in $identity ACCOUNTING_READ_CONFIG_DOCUMENT ACCOUNTING_READ_CONFIG_SHA256 STATS_SERVICE_URL \
+		DISCOVERY_RUNTIME_CONFIG_DOCUMENT DISCOVERY_RUNTIME_CONFIG_SHA256 STREAM_RELAY_CONFIG_DOCUMENT STREAM_RELAY_CONFIG_SHA256 \
+		NETWORK_AUTHORITY_CONFIG_DOCUMENT NETWORK_AUTHORITY_CONFIG_SHA256 NATS_CREDENTIALS NATS_URL; do echo "api $n"; done
 	for n in $identity NATS_CREDENTIALS NATS_URL STREAM_CONSUMER_CONFIG_DOCUMENT STREAM_CONSUMER_CONFIG_SHA256; do
 		echo "api-sockets $n"
 	done
@@ -74,8 +76,10 @@ want="$tmp/want"
 		IDENTITY_CERT_SHA256 IDENTITY_SERVICE_URL METADATA_CERT_SHA256 METADATA_SERVICE_URL NOTIFICATION_CERT_SHA256 \
 		NOTIFICATION_D11_TOKEN NOTIFICATION_SERVICE_TOKEN NOTIFICATION_SERVICE_URL; do echo "user $n"; done
 	for n in SOCIAL_RUNTIME_DOCUMENT SOCIAL_RUNTIME_SHA256; do echo "social $n"; done
-	for n in $s3 S3_BUCKET S3_APPROVED_BUCKET S3_QUARANTINE_BUCKET CLAMAV_HOST IDENTITY_AUDIENCE IDENTITY_SERVICE_TOKEN \
-		IDENTITY_SERVICE_URL METADATA_PUBLICATION_AUDIT_KEY METADATA_PUBLICATION_CONFIG_DOCUMENT \
+	for n in $s3 S3_BUCKET S3_APPROVED_BUCKET S3_QUARANTINE_BUCKET CLAMAV_HOST IDENTITY_AUDIENCE \
+		GATEWAY_ASSERTION_PUBLIC_KEY_HEX GATEWAY_PEER_CERT_SHA256 IDENTITY_ENDPOINT IDENTITY_PEER_CERT_SHA256 \
+		METADATA_ASSERTION_PRIVATE_KEY_HEX USER_ASSERTION_PUBLIC_KEY_HEX USER_PEER_CERT_SHA256 \
+		METADATA_TLS_CERT_PEM METADATA_TLS_KEY_PEM METADATA_TLS_CLIENT_CA_PEM METADATA_PUBLICATION_AUDIT_KEY METADATA_PUBLICATION_CONFIG_DOCUMENT \
 		METADATA_PUBLICATION_CONFIG_SHA256 PUBLIC_URL; do echo "metadata $n"; done
 	for n in IDENTITY_SERVICE_TOKEN LIVEPEER_API_KEY LIVEPEER_WEBHOOK_SECRET; do echo "livestream $n"; done
 	for n in SUPABASE_PUBLISHABLE_KEY SUPABASE_URL WALLETCONNECT_PROJECT_ID WALLET_IFRAME_ORIGIN; do echo "web NEXT_PUBLIC_$n"; done
@@ -85,9 +89,10 @@ diff -u "$want" "$tmp/got" || fail "unresolved names differ from the reported op
 
 grep -q 'not in project' "$tmp/plan.out" && fail "a manifest service is missing from the replay"
 grep -q '^  missing RPC_URL = https://api5.mainnet-beta.paxeer.network$' "$tmp/plan.out" || fail "RPC_URL not taken from the values file"
+grep -q '^  missing NETWORK_RPC_URL = https://api5.mainnet-beta.paxeer.network$' "$tmp/plan.out" || fail "NETWORK_RPC_URL not taken from the values file"
 grep -q '^  missing LIVEPEER_API_URL = https://livepeer.studio/api$' "$tmp/plan.out" || fail "LIVEPEER_API_URL not taken"
-grep -q '^  missing METADATA_INGRESS = edge$' "$tmp/plan.out" || fail "metadata ingress is not edge"
-grep -q '^  missing MODERATION_SOURCE = database$' "$tmp/plan.out" || fail "edge metadata does not read moderation from the database"
+grep -q '^  missing METADATA_INGRESS = mtls$' "$tmp/plan.out" || fail "metadata ingress is not mtls"
+grep -q '^  missing MODERATION_SOURCE = database$' "$tmp/plan.out" || fail "metadata does not read moderation from the database"
 [ "$(grep -c '^  missing PORT = 8080$' "$tmp/plan.out")" -eq 12 ] || fail "not every Go service binds the container port 8080"
 grep -q '^  missing NEXT_PUBLIC_EXPLORER_API = https://api.paxscan.io/api/v2$' "$tmp/plan.out" || fail "explorer API not taken"
 for kv in DATA_API_URL=https://api.sidiora.fun GATEWAY_URL=https://gateway.sidiora.fun \

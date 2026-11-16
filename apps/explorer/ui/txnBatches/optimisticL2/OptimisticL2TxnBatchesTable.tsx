@@ -3,8 +3,9 @@ import React from 'react';
 import type { OptimisticL2TxnBatchesItem } from 'types/api/optimisticL2';
 
 import { layerLabels } from 'lib/rollups/utils';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import OptimisticL2TxnBatchesTableItem from './OptimisticL2TxnBatchesTableItem';
 
@@ -16,10 +17,10 @@ type Props = {
 
 const OptimisticL2TxnBatchesTable = ({ items, top, isLoading }: Props) => {
   return (
-    <TableRoot tableLayout="auto" minW="850px">
+    <ActivityTable label="Transaction batches" tableLayout="auto" minW="var(--chakra-sizes-4xl)">
       <TableHeaderSticky top={ top }>
         <TableRow>
-          <TableColumnHeader>Batch ID</TableColumnHeader>
+          <TableColumnHeader isNumeric>Batch ID</TableColumnHeader>
           <TableColumnHeader>Storage</TableColumnHeader>
           <TableColumnHeader>
             Timestamp
@@ -39,7 +40,7 @@ const OptimisticL2TxnBatchesTable = ({ items, top, isLoading }: Props) => {
           />
         )) }
       </TableBody>
-    </TableRoot>
+    </ActivityTable>
   );
 };
 

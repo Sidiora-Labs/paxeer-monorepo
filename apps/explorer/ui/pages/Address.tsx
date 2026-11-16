@@ -246,7 +246,7 @@ const AddressPageContent = () => {
             return (
               <>
                 <span>{ tabName }</span>
-                <IconSvg name="status/success" boxSize="14px" color="green.500"/>
+                <IconSvg name="status/success" boxSize={ 'var(--chakra-spacing-3\\.5)' } color="positive"/>
               </>
             );
           }
@@ -391,8 +391,8 @@ const AddressPageContent = () => {
         tagType: 'custom' as const,
         ordinal: PREDEFINED_TAG_PRIORITY,
         meta: {
-          bgColor: 'yellow.200',
-          textColor: 'black',
+          bgColor: 'warningSoft',
+          textColor: 'warning',
         },
       } : undefined,
       !addressQuery.data?.is_contract ? { slug: 'eoa', name: 'EOA', tagType: 'custom' as const, ordinal: PREDEFINED_TAG_PRIORITY } : undefined,
@@ -484,7 +484,7 @@ const AddressPageContent = () => {
           domain={ addressQuery.data?.ens_domain_name }
           protocol={ !addressEnsDomainsQuery.isPending ? addressMainDomain?.protocol : null }
           variant="subheading"
-          maxW="300px"
+          maxW="var(--chakra-spacing-75)"
         />
       ) }
       <AddressEntity
@@ -528,7 +528,7 @@ const AddressPageContent = () => {
           alignItems="center"
           columnGap={ 1 }
           textStyle="sm"
-          fontWeight="500"
+          fontWeight="medium"
         >
           <IconSvg name="API" boxSize={ 5 }/>
           API

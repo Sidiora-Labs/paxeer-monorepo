@@ -25,14 +25,14 @@ type Props = ({
 const BeaconChainWithdrawalsTableItem = ({ item, view, isLoading }: Props) => {
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">{ item.index }</Skeleton>
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">{ item.validator_index }</Skeleton>
       </TableCell>
       { view !== 'block' && (
-        <TableCell verticalAlign="middle">
+        <TableCell verticalAlign="middle" isNumeric>
           <BlockEntity
             number={ item.block_number }
             isLoading={ isLoading }
@@ -60,7 +60,7 @@ const BeaconChainWithdrawalsTableItem = ({ item, view, isLoading }: Props) => {
           />
         </TableCell>
       ) }
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <NativeCoinValue amount={ item.amount } loading={ isLoading } noSymbol/>
       </TableCell>
     </TableRow>

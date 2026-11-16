@@ -74,11 +74,11 @@ const TxsTableItem = ({
       </TableCell>
       { chainData && (
         <TableCell>
-          <ChainIcon data={ chainData } isLoading={ isLoading } my="2px"/>
+          <ChainIcon data={ chainData } isLoading={ isLoading } my="var(--chakra-spacing-0\.5)"/>
         </TableCell>
       ) }
       <TableCell pr={ 4 }>
-        <Flex alignItems="center" columnGap={ 2 } lineHeight="24px">
+        <Flex alignItems="center" columnGap={ 2 } lineHeight="var(--chakra-spacing-6)">
           { tx.status !== undefined && tx.status !== 'ok' && (
             <StatusTag
               type={ tx.status === 'error' ? 'error' : 'pending' }
@@ -132,7 +132,7 @@ const TxsTableItem = ({
                 number={ tx.block_number }
                 noIcon
                 textStyle="sm"
-                fontWeight={ 500 }
+                fontWeight="medium"
               />
             ) }
             { evmTx?.is_pending_update && <BlockPendingUpdateHint view="tx"/> }
@@ -149,14 +149,14 @@ const TxsTableItem = ({
       </TableCell>
       <TableCell>
         { priceUpdate ? (
-          <PriceUpdateFromTo tx={ tx } current={ currentAddress } isLoading={ isLoading } mt="2px"/>
+          <PriceUpdateFromTo tx={ tx } current={ currentAddress } isLoading={ isLoading } mt="var(--chakra-spacing-0\.5)"/>
         ) : (
           <AddressFromTo
             from={ tx.from }
             to={ dataTo }
             current={ currentAddress }
             isLoading={ isLoading }
-            mt="2px"
+            mt="var(--chakra-spacing-0\.5)"
             mode="long"
           />
         ) }
@@ -177,7 +177,7 @@ const TxsTableItem = ({
         </TableCell>
       ) }
       { !config.UI.views.tx.hiddenFields?.tx_fee && (
-        <TableCell isNumeric maxW="220px" pr={ 5 }>
+        <TableCell isNumeric maxW="var(--chakra-spacing-56)" pr={ 5 }>
           { priceUpdate ? '-' : (
             <TxFee
               tx={ tx }

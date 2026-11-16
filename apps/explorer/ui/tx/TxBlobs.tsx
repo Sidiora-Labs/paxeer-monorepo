@@ -1,4 +1,3 @@
-import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import { TX_BLOB } from 'stubs/blobs';
@@ -7,6 +6,7 @@ import ActionBar, { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import Pagination from 'ui/shared/pagination/Pagination';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
+import ActivityViews from 'ui/txs/ActivityViews';
 
 import TxBlobsList from './blobs/TxBlobsList';
 import TxBlobsTable from './blobs/TxBlobsTable';
@@ -33,14 +33,14 @@ const TxBlobs = ({ txQuery }: Props) => {
   }
 
   const content = data ? (
-    <>
-      <Box hideBelow="lg">
-        <TxBlobsTable data={ data.items } isLoading={ isPlaceholderData } top={ pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }/>
-      </Box>
-      <Box hideFrom="lg">
+    <ActivityViews
+      list={
         <TxBlobsList data={ data.items } isLoading={ isPlaceholderData }/>
-      </Box>
-    </>
+      }
+      table={
+        <TxBlobsTable data={ data.items } isLoading={ isPlaceholderData } top={ pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }/>
+      }
+    />
   ) : null;
 
   const actionBar = pagination.isVisible ? (

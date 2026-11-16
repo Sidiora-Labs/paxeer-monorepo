@@ -30,7 +30,7 @@ const BeaconChainDepositsTableItem = ({ item, view, isLoading }: Props) => {
         />
       </TableCell>
       { view !== 'block' && (
-        <TableCell verticalAlign="middle">
+        <TableCell verticalAlign="middle" isNumeric>
           <BlockEntity
             number={ item.block_number }
             hash={ item.block_hash }
@@ -50,7 +50,7 @@ const BeaconChainDepositsTableItem = ({ item, view, isLoading }: Props) => {
           />
         </TableCell>
       ) }
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <NativeCoinValue amount={ item.amount } loading={ isLoading } noSymbol/>
       </TableCell>
       { view !== 'address' && (
@@ -62,10 +62,10 @@ const BeaconChainDepositsTableItem = ({ item, view, isLoading }: Props) => {
           />
         </TableCell>
       ) }
-      <TableCell verticalAlign="middle" maxW="200px" overflow="hidden">
+      <TableCell verticalAlign="middle" maxW="var(--chakra-spacing-48)" overflow="hidden">
         <BeaconChainValidatorLink pubkey={ item.pubkey } isLoading={ isLoading }/>
       </TableCell>
-      <TableCell verticalAlign="middle" maxW="200px" overflow="hidden">
+      <TableCell verticalAlign="middle" maxW="var(--chakra-spacing-48)" overflow="hidden">
         <BeaconChainDepositSignature signature={ item.signature } isLoading={ Boolean(isLoading) }/>
       </TableCell>
       <TableCell verticalAlign="middle">
