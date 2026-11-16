@@ -216,9 +216,10 @@ The connected API, ranking, user, metadata and social services keep their health
 listener on `PORT=8080` and serve their private mTLS routes on
 `API_PRIVATE_LISTEN_ADDRESS`, `RANKING_PRIVATE_LISTEN_ADDRESS`,
 `USER_PRIVATE_LISTEN_ADDRESS`, `METADATA_PRIVATE_LISTEN_ADDRESS` and
-`SOCIAL_PRIVATE_LISTEN_ADDRESS`, each set to `0.0.0.0:8443` in the Railway
-contract. The user and social services reach the API's internal notification
-routes at that private API address. Gateway upstreams for user, metadata and
+`SOCIAL_PRIVATE_LISTEN_ADDRESS`, each set to `[::]:8443` in the Railway
+contract to accept both IPv4 and IPv6 connections. The Compose file keeps
+`0.0.0.0:8443` for its IPv4 network. The user and social services reach the
+API's internal notification routes at that private API address. Gateway upstreams for user, metadata and
 social use their corresponding HTTPS `:8443` origins; the ranking runtime's
 social visibility endpoint does the same.
 
