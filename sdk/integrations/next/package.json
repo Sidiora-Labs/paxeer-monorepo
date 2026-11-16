@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "@noble/hashes": "2.4.0",
-    "typescript": "5.9.2"
+    "typescript": "7.0.2"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts"

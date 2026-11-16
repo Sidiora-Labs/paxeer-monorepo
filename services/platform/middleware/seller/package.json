@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "express": "5.2.1",
-    "typescript": "5.9.2"
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=22"
