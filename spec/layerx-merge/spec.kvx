@@ -15124,6 +15124,12 @@ value = "The build of the surface file of the wallet application runs the script
 basis = "Gotcha 4585. Decisions 3667, 3591 and 3588."
 affects = []
 
+[decision.3669]
+title = "The builder tool of the explorer backend takes an option that runs a second time the cases that did not pass"
+value = "The tool takes the option --retry-failed before the mix command, and the option holds for the test command alone. With it, a run that ends with cases that did not pass is followed once, in the same container and against the same database, by a run of those cases alone through the option --failed of mix with the arguments of the first run, and the tool ends with the exit code of that second run. A first run that passes is followed by no second run. A first run that ends with another code than zero while the record names no case, such as a run that does not compile, ends the tool with the code of the first run. The tool states on its error stream that the second run took place. Without the option the tool behaves as before. The verification of task 22.39.695 runs the suite of the web app with the option."
+basis = "Gotcha 4586. Decisions 3046 and 3052."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -464936,7 +464942,7 @@ touches = ["services/explorer/deploy/tools/mix-in-builder.sh", "services/explore
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh --retry-failed test apps/block_scout_web/test"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -464948,6 +464954,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3669, gotcha 4586. The work of the earlier candidate stays as it is. Give the tool services/explorer/deploy/tools/mix-in-builder.sh the option --retry-failed in the form decision 3669 states, read with the other options of the tool, named in its usage text and in the part of services/explorer/backend/README.md that describes the tool. The two runs take place inside the one container of the call, so that the record of the first run and its database are those the second run reads. Cases under services/explorer/deploy/tools/tests hold the option: a case runs the part of the tool that holds the two runs with a stand-in for mix and asserts the four courses, a first run that passes, a first run with cases that did not pass followed by a second run that passes, a second run that does not pass, and a first run that ends with another code than zero while the record names no case; a case asserts that the option is refused with a message for a mix command other than test. Run these cases by hand. The verification now runs with the option. The tool, its cases and the document are inside the paths of this task and no approval is needed to change them. Run the command of the verification by hand once and read its last lines, then run the build once and the counted verification once at the final revision. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.688]
 title = "Let the suite of the explorer backend pass whole with no path in the builder"

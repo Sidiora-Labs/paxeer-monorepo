@@ -22750,3 +22750,8 @@ fix = "Decision 3667. Task 22.44.60."
 title = "The surface file of the wallet application names the script of the offline files as its build"
 symptom = "The surface file tools/ui-check/surfaces/wallet.json names as its build the script build:pwa of apps/wallet/package.json, which writes the files of the offline form into the directory public, and as its start the command next start, which serves the production build in the directory .next of the application. The script build of the package runs the script of the offline files and then the production compile with the option webpack. The start command of the surface file names the public addresses of the answers the check serves, in variables whose names start with NEXT_PUBLIC, and the production compile reads variables of that kind when it runs."
 fix = "Decision 3668. Task 22.44.61."
+
+[gotcha.4586]
+title = "The builder tool of the explorer backend runs one mix command for each call"
+symptom = "The tool services/explorer/deploy/tools/mix-in-builder.sh reads its own options, such as --reuse-db and --check, before the mix command, starts the builder container beside a database made for the call and ends with the exit code of the one mix command it ran. The test command of mix writes under the build path a record of the cases that did not pass, and its option --failed runs the cases that record names and no other case. The build path and the database of a call belong to the container of that call."
+fix = "Decision 3669. Task 22.39.695."
