@@ -11,12 +11,14 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"math"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"regexp"
 	"strings"
@@ -652,7 +654,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	secretOwned = true
 	return &App{workers: workers, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
 		runtimeRPC: runtimeRPC, runtimeRPCClose: runtimeRPCClose, nats: nc, relay: relay,
-		Router:    runtimeHandler(tracker, router, metrics),
+		Router:    runtimeHandlerWithIngestionState(tracker, router, metrics, proc.LeaseState),
 		Processor: proc,
 		Backfill:  backfill,
 		Publisher: pub,
@@ -845,6 +847,10 @@ func firstNonShutdownErr(serveErr <-chan error) error {
 }
 
 func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {
+	return runtimeHandlerWithIngestionState(tracker, next, metrics, nil)
+}
+
+func runtimeHandlerWithIngestionState(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics, ingestionState func() string) http.Handler {
 	observed := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if metrics == nil || r.Method != http.MethodGet || r.URL.Path == "/metrics" {
 			next.ServeHTTP(w, r)
@@ -869,11 +875,47 @@ func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *teleme
 	tracked := tracker.Middleware(observed)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == "/metrics" {
+			if r.URL.Path == "/health/ready" && r.Method == http.MethodGet && ingestionState != nil {
+				writeReadinessWithIngestionState(w, r, next, ingestionState)
+				return
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
 		tracked.ServeHTTP(w, r)
 	})
+}
+
+func writeReadinessWithIngestionState(w http.ResponseWriter, r *http.Request, next http.Handler, ingestionState func() string) {
+	recorded := httptest.NewRecorder()
+	next.ServeHTTP(recorded, r)
+	state := ingestionState()
+	if state == "standby" {
+		var body struct {
+			Status string            `json:"status"`
+			Checks map[string]string `json:"checks"`
+		}
+		if err := json.Unmarshal(recorded.Body.Bytes(), &body); err == nil && body.Checks != nil {
+			if body.Checks["ingestion"] == "ok" {
+				body.Checks["ingestion"] = "standby"
+			}
+			payload, err := json.Marshal(body)
+			if err == nil {
+				for key, values := range recorded.Header() {
+					w.Header()[key] = values
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(recorded.Code)
+				_, _ = w.Write(payload)
+				return
+			}
+		}
+	}
+	for key, values := range recorded.Header() {
+		w.Header()[key] = values
+	}
+	w.WriteHeader(recorded.Code)
+	_, _ = w.Write(recorded.Body.Bytes())
 }
 
 type receiptRuntimeDocument struct {
