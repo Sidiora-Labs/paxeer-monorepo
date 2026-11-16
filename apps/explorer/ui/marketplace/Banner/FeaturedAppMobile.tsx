@@ -4,11 +4,12 @@ import React from 'react';
 
 import type { MarketplaceApp } from 'types/client/marketplace';
 
+import { Button } from 'toolkit/chakra/button';
 import { useColorModeValue } from 'toolkit/chakra/color-mode';
 import { Heading } from 'toolkit/chakra/heading';
 import { IconButton } from 'toolkit/chakra/icon-button';
 import { Image } from 'toolkit/chakra/image';
-import { Link, LinkBox } from 'toolkit/chakra/link';
+import { LinkBox } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 
 import FavoriteIcon from '../FavoriteIcon';
@@ -45,10 +46,12 @@ const FeaturedAppMobile = ({
 
   return (
     <LinkBox
+      as="article"
+      minW={ 0 }
       borderRadius="md"
-      padding={{ base: 3, sm: '20px' }}
+      padding={{ base: 3, sm: 'var(--chakra-spacing-5)' }}
       role="group"
-      background={{ _light: 'purple.50', _dark: 'whiteAlpha.100' }}
+      background="accent.soft"
     >
       <Flex
         flexDirection="row"
@@ -63,8 +66,8 @@ const FeaturedAppMobile = ({
         >
           <Skeleton
             loading={ isLoading }
-            w={{ base: '64px', sm: '96px' }}
-            h={{ base: '64px', sm: '96px' }}
+            w={{ base: 'var(--chakra-spacing-16)', sm: 'var(--chakra-spacing-24)' }}
+            h={{ base: 'var(--chakra-spacing-16)', sm: 'var(--chakra-spacing-24)' }}
             display="flex"
             alignItems="center"
             justifyContent="center"
@@ -72,25 +75,27 @@ const FeaturedAppMobile = ({
             <Image
               src={ isLoading ? undefined : logoUrl }
               alt={ `${ title } app icon` }
-              borderRadius="8px"
+              borderRadius="card"
+              boxSize="full"
+              objectFit="contain"
             />
           </Skeleton>
 
           { !isLoading && (
             <Flex
               position={{ base: 'relative', sm: 'absolute' }}
-              right={{ base: 0, sm: '50px' }}
-              top={{ base: 0, sm: '24px' }}
+              right={{ base: 0, sm: 'calc(var(--chakra-spacing-1) * 12.5)' }}
+              top={{ base: 0, sm: 'var(--chakra-spacing-6)' }}
             >
-              <Link
+              <Button
+                variant="link"
                 fontSize={{ base: 'xs', sm: 'sm' }}
-                fontWeight="500"
+                fontWeight="medium"
                 paddingRight={{ sm: 2 }}
-                href="#"
                 onClick={ onInfoClick }
               >
                 More info
-              </Link>
+              </Button>
             </Flex>
           ) }
         </Flex>
@@ -98,7 +103,7 @@ const FeaturedAppMobile = ({
         <Flex flexDirection="column" gap={ 2 }>
           <Skeleton
             loading={ isLoading }
-            paddingRight={{ base: '25px', sm: '110px' }}
+            paddingRight={{ base: 'calc(var(--chakra-spacing-1) * 6.25)', sm: 'calc(var(--chakra-spacing-1) * 27.5)' }}
             display="flex"
             alignItems="center"
           >
@@ -138,9 +143,10 @@ const FeaturedAppMobile = ({
             alignItems="center"
             justifyContent="center"
             position="absolute"
-            right={{ base: 1, sm: '10px' }}
-            top={{ base: 1, sm: '18px' }}
-            aria-label="Mark as favorite"
+            right={{ base: 1, sm: 'calc(var(--chakra-spacing-1) * 2.5)' }}
+            top={{ base: 1, sm: 'calc(var(--chakra-spacing-1) * 4.5)' }}
+            aria-label={ `Mark ${ title } as favorite` }
+            aria-pressed={ isFavorite }
             title="Mark as favorite"
             variant="icon_background"
             size="md"

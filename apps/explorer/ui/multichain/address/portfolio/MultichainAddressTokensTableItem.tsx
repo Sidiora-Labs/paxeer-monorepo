@@ -50,7 +50,7 @@ const MultichainAddressTokensTableItem = ({ data, isLoading }: Props) => {
             isLoading={ isLoading }
             noCopy
             jointSymbol
-            fontWeight="700"
+            fontWeight="bold"
             width="auto"
             noLink={ data.token.type === 'NATIVE' }
           />

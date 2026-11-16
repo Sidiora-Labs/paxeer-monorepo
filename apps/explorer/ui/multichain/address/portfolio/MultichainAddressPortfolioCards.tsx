@@ -16,7 +16,7 @@ import MultichainAddressPortfolioCard from './MultichainAddressPortfolioCard';
 const TRIGGER_PROPS: LinkProps = {
   variant: 'secondary',
   textStyle: { base: 'xs', lg: 'sm' },
-  py: { base: 1, lg: '2px' },
+  py: { base: 1, lg: 'calc(var(--chakra-spacing-1) * 0.5)' },
 };
 
 interface Props {
@@ -90,11 +90,11 @@ const MultichainAddressPortfolioCards = ({ isLoading, selectedChainId, onChange,
 
   const text: [React.ReactNode, React.ReactNode] = [
     <>
-      <IconSvg name="plus" boxSize={{ base: '8px', lg: '10px' }} mr={ 0.5 }/>
+      <IconSvg name="plus" boxSize={{ base: 'var(--chakra-spacing-2)', lg: 'calc(var(--chakra-spacing-1) * 2.5)' }} mr={ 0.5 }/>
       <span>show more</span>
     </>,
     <>
-      <IconSvg name="minus" boxSize={{ base: '8px', lg: '10px' }} mr={ 0.5 }/>
+      <IconSvg name="minus" boxSize={{ base: 'var(--chakra-spacing-2)', lg: 'calc(var(--chakra-spacing-1) * 2.5)' }} mr={ 0.5 }/>
       <span>show less</span>
     </>,
   ];

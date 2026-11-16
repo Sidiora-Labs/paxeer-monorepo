@@ -16,13 +16,13 @@ type Props = {
 
 const PoolsTable = ({ items, page, isLoading, top }: Props) => {
   return (
-    <TableRoot minWidth="900px">
+    <TableRoot minWidth="calc(var(--chakra-spacing-1) * 225)">
       <TableHeaderSticky top={ top ?? ACTION_BAR_HEIGHT_DESKTOP }>
         <TableRow>
           <TableColumnHeader width="70%">Pool</TableColumnHeader>
           <TableColumnHeader width="30%">DEX </TableColumnHeader>
-          <TableColumnHeader width="130px" isNumeric>Liquidity</TableColumnHeader>
-          <TableColumnHeader width="75px" isNumeric>View in</TableColumnHeader>
+          <TableColumnHeader width="calc(var(--chakra-spacing-1) * 32.5)" isNumeric>Liquidity</TableColumnHeader>
+          <TableColumnHeader width="calc(var(--chakra-spacing-1) * 18.75)" isNumeric>View in</TableColumnHeader>
         </TableRow>
       </TableHeaderSticky>
       <TableBody>

@@ -54,38 +54,40 @@ const TableShowcase = () => {
         <SectionHeader>Variant</SectionHeader>
         <SamplesStack >
           <Sample label="variant: line">
-            <TableRoot>
-              <TableHeaderSticky>
-                <TableRow>
-                  <TableColumnHeader>Product</TableColumnHeader>
-                  <TableColumnHeaderSortable
-                    sortField="category"
-                    sortValue={ sort }
-                    onSortToggle={ handleSortToggle }
-                  >
-                    Category
-                  </TableColumnHeaderSortable>
-                  <TableColumnHeaderSortable
-                    sortField="price"
-                    sortValue={ sort }
-                    onSortToggle={ handleSortToggle }
-                    isNumeric
-                  >
-                    Price
-                  </TableColumnHeaderSortable>
-                </TableRow>
-              </TableHeaderSticky>
-              <TableBody>
-                { ITEMS.slice().sort(sortFn).map((item) => (
-                  <TableRow key={ item.id }>
-                    <TableCell>{ item.name }</TableCell>
-                    <TableCell>{ item.category }</TableCell>
-                    <TableCell isNumeric>{ item.price }</TableCell>
+            <Box w="full" minW={ 0 } overflowX="auto" tabIndex={ 0 } role="region" aria-label="Data table">
+              <TableRoot>
+                <TableHeaderSticky>
+                  <TableRow>
+                    <TableColumnHeader>Product</TableColumnHeader>
+                    <TableColumnHeaderSortable
+                      sortField="category"
+                      sortValue={ sort }
+                      onSortToggle={ handleSortToggle }
+                    >
+                      Category
+                    </TableColumnHeaderSortable>
+                    <TableColumnHeaderSortable
+                      sortField="price"
+                      sortValue={ sort }
+                      onSortToggle={ handleSortToggle }
+                      isNumeric
+                    >
+                      Price
+                    </TableColumnHeaderSortable>
                   </TableRow>
-                )) }
-              </TableBody>
-            </TableRoot>
-            <Box h="1000px"/>
+                </TableHeaderSticky>
+                <TableBody>
+                  { ITEMS.slice().sort(sortFn).map((item) => (
+                    <TableRow key={ item.id }>
+                      <TableCell>{ item.name }</TableCell>
+                      <TableCell>{ item.category }</TableCell>
+                      <TableCell isNumeric>{ item.price }</TableCell>
+                    </TableRow>
+                  )) }
+                </TableBody>
+              </TableRoot>
+            </Box>
+            <Box h="calc(var(--chakra-spacing-1) * 250)"/>
           </Sample>
         </SamplesStack>
       </Section>

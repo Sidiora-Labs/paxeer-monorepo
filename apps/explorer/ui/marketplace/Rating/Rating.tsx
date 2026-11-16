@@ -3,10 +3,10 @@ import React from 'react';
 
 import config from 'configs/app';
 import type { EventTypes, EventPayload } from 'lib/mixpanel/index';
-import type { PopoverContentProps } from 'toolkit/chakra/popover';
-import { PopoverBody, PopoverContent, PopoverRoot } from 'toolkit/chakra/popover';
 import { Rating as RatingComponent } from 'toolkit/chakra/rating';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import type { PopoverContentProps } from 'ui/marketplace/NativePopover';
+import { PopoverBody, PopoverContent, PopoverRoot } from 'ui/marketplace/NativePopover';
 import useIsAuth from 'ui/snippets/auth/useIsAuth';
 
 import Content from './PopoverContent';
@@ -41,7 +41,7 @@ const Rating = ({
       display="flex"
       alignItems="center"
       loading={ isLoading }
-      w={ (isLoading && !fullView) ? '40px' : 'auto' }
+      w={ (isLoading && !fullView) ? 'var(--chakra-spacing-10)' : 'auto' }
     >
       { fullView && (
         <>
@@ -59,7 +59,12 @@ const Rating = ({
           canRate={ isAuth }
         />
         { isAuth ? (
-          <PopoverContent w="250px" { ...popoverContentProps }>
+          <PopoverContent
+            maxW="calc(100dvw - var(--chakra-spacing-8))"
+            overscrollBehavior="contain"
+            w="calc(var(--chakra-spacing-1) * 62.5)"
+            { ...popoverContentProps }
+          >
             <PopoverBody>
               <Content
                 appId={ appId }

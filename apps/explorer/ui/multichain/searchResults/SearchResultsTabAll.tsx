@@ -31,12 +31,12 @@ const SearchResultsTabAll = ({ queries, searchTerm, chainId }: Props) => {
 
           return (
             <Box key={ queryType }>
-              <Text color="text.secondary" fontWeight={ 600 } textStyle="sm" mb={ 2 }>{ SEARCH_TABS_NAMES[queryType] }</Text>
+              <Text color="text.secondary" fontWeight="semibold" textStyle="sm" mb={ 2 }>{ SEARCH_TABS_NAMES[queryType] }</Text>
               <SearchResultsList queryType={ queryType } query={ query } maxItems={ MAX_ITEMS_IN_GROUP }/>
               { hasMore && (
                 <Link
                   pt={ 2 }
-                  borderTopWidth="1px"
+                  borderTopWidth="1"
                   borderTopStyle="solid"
                   borderTopColor="border.divider"
                   textStyle="sm"

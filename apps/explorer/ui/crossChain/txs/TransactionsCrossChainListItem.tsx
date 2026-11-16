@@ -10,6 +10,7 @@ import config from 'configs/app';
 import dayjs from 'lib/date/dayjs';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { spacing } from 'toolkit/theme/foundations/spacing';
 import { mdash } from 'toolkit/utils/htmlEntities';
 import CrossChainBridgeLink from 'ui/shared/crossChain/CrossChainBridgeLink';
 import CrossChainFromToTag from 'ui/shared/crossChain/CrossChainFromToTag';
@@ -48,8 +49,8 @@ const TransactionsCrossChainListItem = ({ data, isLoading, rowGap = 3, currentAd
   const dashElement = <chakra.span color="text.secondary">{ mdash }</chakra.span>;
 
   return (
-    <ListItemMobile rowGap={ rowGap } { ...rest }>
-      <HStack>
+    <ListItemMobile fontSize="small" lineHeight="small" rowGap={ rowGap } containerType="inline-size" { ...rest }>
+      <HStack flexWrap="wrap">
         <CrossChainTxsStatusTag status={ data.status } loading={ isLoading } mode="full"/>
         { currentAddress && (
           <CrossChainFromToTag
@@ -58,20 +59,28 @@ const TransactionsCrossChainListItem = ({ data, isLoading, rowGap = 3, currentAd
           />
         ) }
       </HStack>
-      <CrossChainMessageEntity id={ data.message_id } isLoading={ isLoading } fontWeight={ 600 } noIcon={ false } truncation="dynamic" w="100%"/>
+      <CrossChainMessageEntity id={ data.message_id } isLoading={ isLoading } fontWeight="semibold" noIcon={ false } truncation="tail" w="100%"/>
       { timestamp && (
-        <Skeleton loading={ isLoading } display="flex" alignItems="center" color="text.secondary">
+        <Skeleton loading={ isLoading } display="flex" flexWrap="wrap" alignItems="center" color="text.secondary">
           <div>{ dayjs(timestamp).fromNow() }</div>
           <TextSeparator/>
           <Time timestamp={ timestamp } format="lll_s"/>
         </Skeleton>
       ) }
-      <Grid templateColumns="120px minmax(0, 1fr)" columnGap={ 2 } rowGap={ rowGap }>
+      <Grid
+        w="full"
+        minW={ 0 }
+        templateColumns="minmax(0, 1fr)"
+        columnGap={ 2 }
+        rowGap={ rowGap }
+        css={{ [ `@container (min-width: ${ spacing['80'].value })` ]: { gridTemplateColumns: 'var(--chakra-spacing-30) minmax(0, 1fr)' } }}
+      >
         <Skeleton loading={ isLoading }>
           Source tx
         </Skeleton>
         { data.source_transaction_hash ? (
           <TxEntityInterchain
+            truncation="tail"
             chain={ data.source_chain }
             hash={ data.source_transaction_hash }
             isLoading={ isLoading }
@@ -82,6 +91,7 @@ const TransactionsCrossChainListItem = ({ data, isLoading, rowGap = 3, currentAd
         </Skeleton>
         { data.destination_transaction_hash ? (
           <TxEntityInterchain
+            truncation="tail"
             chain={ data.destination_chain }
             hash={ data.destination_transaction_hash }
             isLoading={ isLoading }
@@ -92,6 +102,7 @@ const TransactionsCrossChainListItem = ({ data, isLoading, rowGap = 3, currentAd
         </Skeleton>
         { data.sender ? (
           <AddressEntityInterchain
+            truncation="tail"
             chain={ data.source_chain }
             address={ data.sender }
             isLoading={ isLoading }
@@ -117,6 +128,7 @@ const TransactionsCrossChainListItem = ({ data, isLoading, rowGap = 3, currentAd
         </Skeleton>
         { firstTransfer?.sender ? (
           <AddressEntityInterchain
+            truncation="tail"
             chain={ data.source_chain }
             address={ firstTransfer.sender }
             isLoading={ isLoading }
@@ -140,6 +152,7 @@ const TransactionsCrossChainListItem = ({ data, isLoading, rowGap = 3, currentAd
         </Skeleton>
         { firstTransfer?.recipient ? (
           <AddressEntityInterchain
+            truncation="tail"
             chain={ data.destination_chain }
             address={ firstTransfer.recipient }
             isLoading={ isLoading }

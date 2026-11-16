@@ -110,7 +110,7 @@ const MultichainAddress = () => {
           variant="subheading"
           noLink
           mr={ 1 }
-          maxW="300px"
+          maxW="var(--chakra-spacing-75)"
         />
       ) }
       <AddressEntity

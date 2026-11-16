@@ -23,7 +23,7 @@ const SearchResultItemDomain = ({ data }: Props) => {
         protocol={ data.protocol as bens.ProtocolInfo }
         noLink
         noCopy
-        fontWeight={{ base: '600', lg: '700' }}
+        fontWeight={{ base: 'semibold', lg: 'bold' }}
         w="100%"
       />
     </SearchResultListItem>

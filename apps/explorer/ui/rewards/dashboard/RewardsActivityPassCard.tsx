@@ -18,9 +18,10 @@ export default function RewardsActivityPassCard() {
 
   return (
     <Flex
+      minW={ 0 }
       p={{ base: 1.5, md: 2 }}
-      border="1px solid"
-      borderColor={{ _light: 'gray.200', _dark: 'whiteAlpha.200' }}
+      border="var(--chakra-border-widths-1) solid"
+      borderColor="hairline"
       borderRadius="lg"
       gap={{ base: 1, md: 10 }}
       flexDirection={{ base: 'column', md: 'row' }}
@@ -45,9 +46,9 @@ export default function RewardsActivityPassCard() {
         flexDirection={{ base: 'column', md: 'row' }}
         justifyContent="space-between"
         alignItems="center"
-        h={{ base: '160px', md: '120px' }}
+        minH={{ base: 'var(--chakra-spacing-40)', md: 'var(--chakra-spacing-30)' }}
         pr={{ base: 0, md: 8 }}
-        pl={{ base: 0, md: '86px' }}
+        pl={{ base: 0, md: 'calc(var(--chakra-spacing-1) * 21.5)' }}
         pt={{ base: 4, md: 0 }}
         pb={{ base: 3, md: 0 }}
         borderRadius="base"
@@ -58,24 +59,24 @@ export default function RewardsActivityPassCard() {
         <Image
           src={ backgroundImage }
           alt="Background"
-          width="268px"
-          height="184px"
+          width="calc(var(--chakra-spacing-1) * 67)"
+          height="calc(var(--chakra-spacing-1) * 46)"
           position="absolute"
-          top="-20px"
-          left={{ base: 'calc(50% - 134px)', md: '-8px' }}
+          top="calc(var(--chakra-spacing-5) * -1)"
+          left={{ base: 'calc(50% - calc(var(--chakra-spacing-1) * 33.5))', md: 'calc(var(--chakra-spacing-2) * -1)' }}
         />
         <Image
           src="/explorer/static/merits/activity_pass.svg"
           alt="Activity pass"
-          width="79px"
-          height="86px"
+          width="calc(var(--chakra-spacing-1) * 19.75)"
+          height="calc(var(--chakra-spacing-1) * 21.5)"
           zIndex={ 1 }
         />
         <Link
           external
           href={ activityPassUrl }
           variant="underlaid"
-          fontWeight="500"
+          fontWeight="medium"
           backgroundColor="rewards.pass.badge"
           color="rewards.pass.fg"
           iconColor="rewards.pass.icon"

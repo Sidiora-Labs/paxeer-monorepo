@@ -5,7 +5,9 @@ import type { AdvancedFilterAge } from 'types/api/advancedFilter';
 import type { TokenInfo } from 'types/api/token';
 import { ZETA_CHAIN_CCTX_COIN_TYPE_FILTER, type ZetaChainCCTXFilterParams } from 'types/client/zetaChain';
 
-import TableColumnFilterWrapper from 'ui/shared/filters/TableColumnFilterWrapper';
+import { Button } from 'toolkit/chakra/button';
+import { PopoverBody, PopoverContent, PopoverRoot, PopoverTrigger } from 'ui/marketplace/NativePopover';
+import IconSvg from 'ui/shared/IconSvg';
 
 import ZetaChainAgeFilter from './ZetaChainAgeFilter';
 import ZetaChainAssetFilter, { ZETA_NATIVE_TOKEN } from './ZetaChainAssetFilter';
@@ -23,6 +25,38 @@ type Props = {
   isLoading?: boolean;
 };
 
+type FilterPopoverProps = React.ComponentProps<typeof PopoverContent> & {
+  columnName: string;
+  isLoading?: boolean;
+  selected?: boolean;
+};
+
+function ZetaChainFilterPopover({ columnName, isLoading, selected, children, ...contentProps }: FilterPopoverProps) {
+  return (
+    <PopoverRoot>
+      <PopoverTrigger>
+        <Button
+          aria-label={ `filter by ${ columnName }` }
+          variant="icon_secondary"
+          size="sm"
+          disabled={ isLoading }
+          selected={ selected }
+          minW="touchTarget"
+          minH="touchTarget"
+          p={ 0 }
+        >
+          <IconSvg name="filter" boxSize={ 5 }/>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent maxH="80dvh" overflowY="auto" overscrollBehavior="contain" { ...contentProps }>
+        <PopoverBody display="flex" flexDir="column" rowGap={ 3 }>
+          { children }
+        </PopoverBody>
+      </PopoverContent>
+    </PopoverRoot>
+  );
+}
+
 const ZetaChainFilterByColumn = ({ column, filters, columnName, handleFilterChange, isLoading }: Props) => {
   const commonProps = { columnName, handleFilterChange, isLoading };
 
@@ -30,55 +64,59 @@ const ZetaChainFilterByColumn = ({ column, filters, columnName, handleFilterChan
     case 'age': {
       const value = { age: (filters.age || '') as AdvancedFilterAge | '', from: filters.start_timestamp || '', to: filters.end_timestamp || '' };
       return (
-        <TableColumnFilterWrapper
+        <ZetaChainFilterPopover
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
           columnName="Age"
           isLoading={ isLoading }
           selected={ Boolean(value.age || value.from || value.to) }
-          w="382px"
+          w="calc(var(--chakra-spacing-1) * 95.5)"
         >
           <ZetaChainAgeFilter { ...commonProps } value={ value }/>
-        </TableColumnFilterWrapper>
+        </ZetaChainFilterPopover>
       );
     }
     case 'status': {
       const value = filters.status_reduced ? castArray(filters.status_reduced) : [];
       return (
-        <TableColumnFilterWrapper
+        <ZetaChainFilterPopover
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
           columnName="Status"
           isLoading={ isLoading }
           selected={ Boolean(value && value.length) }
-          w="200px"
+          w="calc(var(--chakra-spacing-1) * 50)"
         >
           <ZetaChainStatusFilter { ...commonProps } value={ value }/>
-        </TableColumnFilterWrapper>
+        </ZetaChainFilterPopover>
       );
     }
     case 'sender': {
       const value = filters.sender_address ? castArray(filters.sender_address) : [];
       const chainValue = filters.source_chain_id ? castArray(filters.source_chain_id) : [];
       return (
-        <TableColumnFilterWrapper
+        <ZetaChainFilterPopover
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
           columnName="Sender"
           isLoading={ isLoading }
           selected={ Boolean(value && value.length) || Boolean(chainValue && chainValue.length) }
-          w="480px"
+          w="calc(var(--chakra-spacing-1) * 120)"
         >
           <ZetaChainSenderFilter { ...commonProps } value={ value } chainValue={ chainValue }/>
-        </TableColumnFilterWrapper>
+        </ZetaChainFilterPopover>
       );
     }
     case 'receiver': {
       const value = filters.receiver_address ? castArray(filters.receiver_address) : [];
       const chainValue = filters.target_chain_id ? castArray(filters.target_chain_id) : [];
       return (
-        <TableColumnFilterWrapper
+        <ZetaChainFilterPopover
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
           columnName="Receiver"
           isLoading={ isLoading }
           selected={ Boolean(value && value.length) || Boolean(chainValue && chainValue.length) }
-          w="480px"
+          w="calc(var(--chakra-spacing-1) * 120)"
         >
           <ZetaChainReceiverFilter { ...commonProps } value={ value } chainValue={ chainValue }/>
-        </TableColumnFilterWrapper>
+        </ZetaChainFilterPopover>
       );
     }
     case 'asset': {
@@ -103,14 +141,15 @@ const ZetaChainFilterByColumn = ({ column, filters, columnName, handleFilterChan
       }
 
       return (
-        <TableColumnFilterWrapper
+        <ZetaChainFilterPopover
+          maxW="calc(100dvw - var(--chakra-spacing-8))"
           columnName="Asset"
           isLoading={ isLoading }
           selected={ Boolean(value) }
-          w="350px"
+          w="calc(var(--chakra-spacing-1) * 87.5)"
         >
           <ZetaChainAssetFilter { ...commonProps } value={ value }/>
-        </TableColumnFilterWrapper>
+        </ZetaChainFilterPopover>
       );
     }
     default:

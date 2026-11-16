@@ -1,0 +1,937 @@
+[manifest]
+task = "22.44.10"
+surface = "Paxscan marketplace, rewards and chain views"
+patterns = ["intrinsic grids", "responsive tables and lists", "dialogs", "popovers", "menus", "tooltips", "tabs", "accordions", "forms and validation", "selects and comboboxes", "notifications", "loading states", "scroll areas", "sticky headers", "colour schemes", "theme switch", "icons", "images", "typography", "motion"]
+paths = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/rewards/login", "apps/explorer/ui/marketplace/essentialDapps/revoke", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain/filters"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/games", "apps/explorer/ui/marketplace"]
+
+[guide.card]
+id = "card"
+directories = ["apps/explorer/ui/marketplace", "apps/explorer/ui/rewards/dashboard", "apps/explorer/ui/multichain"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/interopMessages", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pools", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/ui/marketplace", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/ui/showcases"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/explorer/ui/showcases"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/ui/showcases", "apps/explorer/ui/operation"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/ui/crossChain", "apps/explorer/ui/disputeGames", "apps/explorer/ui/games", "apps/explorer/ui/interopMessages", "apps/explorer/ui/marketplace", "apps/explorer/ui/megaEth", "apps/explorer/ui/messages", "apps/explorer/ui/mudWorlds", "apps/explorer/ui/multichain", "apps/explorer/ui/operation", "apps/explorer/ui/operations", "apps/explorer/ui/outputRoots", "apps/explorer/ui/pool", "apps/explorer/ui/pools", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/marketplace", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases"]
+
+[guide.validation]
+id = "validate-input-after-interaction"
+directories = ["apps/explorer/ui/rewards/login", "apps/explorer/ui/marketplace/essentialDapps/revoke", "apps/explorer/ui/showcases"]
+
+[guide.tooltips]
+id = "interest-triggered-tooltips"
+directories = ["apps/explorer/ui/showcases", "apps/explorer/ui/marketplace", "apps/explorer/ui/multichain", "apps/explorer/ui/rewards", "apps/explorer/ui/pools"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/explorer/ui/marketplace", "apps/explorer/ui/zetaChain", "apps/explorer/ui/showcases"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/ui/marketplace", "apps/explorer/ui/multichain", "apps/explorer/ui/crossChain", "apps/explorer/ui/zetaChain"]
+
+[guide.deferred_content]
+id = "defer-rendering-heavy-content"
+directories = ["apps/explorer/ui/crossChain"]
+
+[guide.images]
+id = "images"
+directories = ["apps/explorer/ui/marketplace", "apps/explorer/ui/rewards", "apps/explorer/ui/multichain", "apps/explorer/ui/games", "apps/explorer/ui/pools", "apps/explorer/ui/showcases"]
+
+[guide.combobox]
+id = "combobox"
+directories = ["apps/explorer/ui/showcases", "apps/explorer/ui/zetaChain/filters"]
+
+[guide.skeleton]
+id = "skeleton"
+directories = ["apps/explorer/ui/marketplace", "apps/explorer/ui/rewards", "apps/explorer/ui/showcases"]
+
+[guide.error_announcement]
+id = "accessible-error-announcement"
+directories = ["apps/explorer/ui/rewards/login", "apps/explorer/ui/marketplace/essentialDapps/revoke", "apps/explorer/ui/showcases"]
+
+[view.app]
+route = "/explorer/apps/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.arbitrum-messages]
+route = "/explorer/deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.cross-chain]
+route = "/explorer/cross-chain-tx/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.cross-chain-transactions]
+route = "/explorer/txs?tab=txs_cross_chain"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.cross-chain-transfers]
+route = "/explorer/token-transfers?tab=cross_chain"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.deposits]
+route = "/explorer/deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.disputes]
+route = "/explorer/dispute-games"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.interop]
+route = "/explorer/interop-messages"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.interop-payload]
+route = "/explorer/interop-messages"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.interop-payload-open]
+route = "/explorer/interop-messages"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.marketplace]
+route = "/explorer/apps"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.marketplace-dialog-0]
+route = "/explorer/apps"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.mud]
+route = "/explorer/mud-worlds"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-0]
+route = "/explorer/"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-1]
+route = "/explorer/ecosystems"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-10]
+route = "/explorer/token-transfers"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-11]
+route = "/explorer/search-results?q=[query]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-12]
+route = "/explorer/stats"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-2]
+route = "/explorer/address/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-3]
+route = "/explorer/address/[hash]?tab=portfolio"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-4]
+route = "/explorer/address/[hash]?tab=token_transfers"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-5]
+route = "/explorer/tokens"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-6]
+route = "/explorer/accounts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-7]
+route = "/explorer/txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-8]
+route = "/explorer/blocks"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-9]
+route = "/explorer/internal-txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-address-coin_balance_history]
+route = "/explorer/address/[hash]?tab=coin_balance_history"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-address-contract]
+route = "/explorer/address/[hash]?tab=contract"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-address-internal_txs]
+route = "/explorer/address/[hash]?tab=internal_txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-address-logs]
+route = "/explorer/address/[hash]?tab=logs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-address-nft]
+route = "/explorer/address/[hash]?tab=nft"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-address-token_transfers_local]
+route = "/explorer/address/[hash]?tab=token_transfers_local"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-address-txs]
+route = "/explorer/address/[hash]?tab=txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-address-txs_local]
+route = "/explorer/address/[hash]?tab=txs_local"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-block]
+route = "/explorer/chain/[chain_slug]/block/[height_or_hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-contracts]
+route = "/explorer/verified-contracts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-token]
+route = "/explorer/chain/[chain_slug]/token/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-token-instance]
+route = "/explorer/chain/[chain_slug]/token/[hash]/instance/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-tx]
+route = "/explorer/chain/[chain_slug]/tx/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multichain-user-ops]
+route = "/explorer/ops"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.multisend]
+route = "/explorer/essential-dapps/multisend"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.operation]
+route = "/explorer/operation/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.operations]
+route = "/explorer/operations"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.pool]
+route = "/explorer/pools/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.pools]
+route = "/explorer/pools"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.puzzle]
+component = "apps/explorer/ui/games/Puzzle15.tsx"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.revoke]
+route = "/explorer/essential-dapps/revoke"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.rewards-achievements]
+route = "/explorer/account/merits?tab=activity"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.rewards-activity]
+route = "/explorer/account/merits?tab=activity"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.rewards-explorers]
+route = "/explorer/account/merits?tab=activity"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.rewards-login]
+route = "/explorer/apps?ref=[code]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.rewards-referrals]
+route = "/explorer/account/merits?tab=referrals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.rewards-resources]
+route = "/explorer/account/merits?tab=resources"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.rewards-task]
+route = "/explorer/account/merits?tab=activity"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.roots]
+route = "/explorer/output-roots"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.runner]
+route = "/explorer/block/countdown/[height]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-accordion]
+route = "/explorer/chakra"
+example = "accordion"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-alert]
+route = "/explorer/chakra"
+example = "alert"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-badge]
+route = "/explorer/chakra"
+example = "badge"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-button]
+route = "/explorer/chakra"
+example = "button"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-checkbox]
+route = "/explorer/chakra"
+example = "checkbox"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-clipboard]
+route = "/explorer/chakra"
+example = "clipboard"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-close-button]
+route = "/explorer/chakra"
+example = "close-button"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-collapsible]
+route = "/explorer/chakra"
+example = "collapsible"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-content-loader]
+route = "/explorer/chakra"
+example = "content-loader"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-dialog]
+route = "/explorer/chakra"
+example = "dialog"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-dialog-dialog-0]
+route = "/explorer/chakra"
+example = "Small dialog"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.showcase-dialog-dialog-1]
+route = "/explorer/chakra"
+example = "Medium dialog"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.showcase-dialog-dialog-2]
+route = "/explorer/chakra"
+example = "Full dialog"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.showcase-empty-state]
+route = "/explorer/chakra"
+example = "empty-state"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-field]
+route = "/explorer/chakra"
+example = "field"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-icon-button]
+route = "/explorer/chakra"
+example = "icon-button"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-input]
+route = "/explorer/chakra"
+example = "input"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-link]
+route = "/explorer/chakra"
+example = "link"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-menu]
+route = "/explorer/chakra"
+example = "menu"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-pagination]
+route = "/explorer/chakra"
+example = "pagination"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-pin-input]
+route = "/explorer/chakra"
+example = "pin-input"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-popover]
+route = "/explorer/chakra"
+example = "popover"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-popover-open]
+route = "/explorer/chakra"
+example = "popover-open"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.showcase-progress]
+route = "/explorer/chakra"
+example = "progress"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-progress-circle]
+route = "/explorer/chakra"
+example = "progress-circle"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-radio]
+route = "/explorer/chakra"
+example = "radio"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-rating]
+route = "/explorer/chakra"
+example = "rating"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-select]
+route = "/explorer/chakra"
+example = "select"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-skeleton]
+route = "/explorer/chakra"
+example = "skeleton"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-spinner]
+route = "/explorer/chakra"
+example = "spinner"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-switch]
+route = "/explorer/chakra"
+example = "switch"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-table]
+route = "/explorer/chakra"
+example = "table"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-tabs]
+route = "/explorer/chakra"
+example = "tabs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-tag]
+route = "/explorer/chakra"
+example = "tag"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-textarea]
+route = "/explorer/chakra"
+example = "textarea"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-toast]
+route = "/explorer/chakra"
+example = "toast"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-tooltip]
+route = "/explorer/chakra"
+example = "tooltip"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.showcase-values]
+route = "/explorer/chakra"
+example = "values"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.swap]
+route = "/explorer/essential-dapps/swap"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.uptime]
+route = "/explorer/uptime"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.withdrawals]
+route = "/explorer/withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.zeta]
+route = "/explorer/cc/tx/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.zeta-pending]
+route = "/explorer/txs?tab=cctx_pending"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
+
+[view.zeta-transactions]
+route = "/explorer/txs?tab=cctx_mined"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+preferences = ["reduced motion", "text size 200%", "keyboard"]
+preferences_width = 360
+preferences_scheme = "light"
