@@ -174260,7 +174260,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.715]
 title = "Name the perps data gateway in the production build arguments of the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177021,7 +177021,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.573]
 title = "Bring the documentation site data in line with the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.572"]
@@ -248474,7 +248474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.711]
 title = "Give the hosted authority a row in the roster of service certificates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
