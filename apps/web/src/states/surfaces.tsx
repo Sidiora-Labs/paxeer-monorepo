@@ -7,13 +7,14 @@ import { formatCopy } from "../../copy/format.ts";
 import { KitButton } from "../kit/control";
 import { StateEmpty, StateFrame, StateSkeleton } from "../kit/surface";
 
-export function LoadingSurface({ rows = 3 }: Readonly<{ rows?: number }>) {
+export function LoadingSurface({ rows = 3, className }: Readonly<{ rows?: number; className?: string }>) {
   return (
     <StateFrame
       title={copyEntry("state.loading").message}
       description={copyEntry("state.loading.body").message}
       busy
       role="status"
+      {...(className === undefined ? {} : { className })}
     >
       <StateSkeleton rows={rows} />
     </StateFrame>

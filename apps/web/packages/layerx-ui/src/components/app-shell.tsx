@@ -1,7 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Home, Bot, Activity, Grid2x2, Search, Bell, Settings, Compass, Plus } from "lucide-react";
+import {
+  Home,
+  Bot,
+  Activity,
+  Grid2x2,
+  Search,
+  Bell,
+  Settings,
+  Compass,
+  Plus,
+} from "lucide-react";
 import { cn } from "../lib/utils";
 import { usePlatform, type PlatformSetting } from "../lib/platform";
 import { Avatar } from "./avatar";
@@ -39,16 +49,23 @@ function BottomTab({
       onClick={() => onNavigate?.(item.id)}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex min-w-16 flex-1 shrink-0 flex-col items-center gap-0.5 rounded-md py-1",
+        "relative flex min-w-max flex-1 shrink-0 flex-col items-center gap-0.5 rounded-md px-3 py-1",
         active ? "bg-accent text-accent-foreground" : undefined,
       )}
     >
-      <span className={cn("transition-colors", active ? "text-accent-foreground" : "text-faint-foreground")}>
-        {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-icon-md" />}
+      <span
+        className={cn(
+          "transition-colors",
+          active ? "text-accent-foreground" : "text-faint-foreground",
+        )}
+      >
+        {item.icon ?? DEFAULT_ICONS[item.id] ?? (
+          <Grid2x2 className="size-icon-md" />
+        )}
       </span>
       <span
         className={cn(
-          "text-micro font-semibold transition-colors",
+          "whitespace-nowrap text-micro font-semibold transition-colors",
           active ? "text-accent-foreground" : "text-faint-foreground",
         )}
       >
@@ -95,7 +112,12 @@ export function BottomTabBar({
       )}
     >
       {left.map((item) => (
-        <BottomTab key={item.id} item={item} active={item.id === activeId} onNavigate={onNavigate} />
+        <BottomTab
+          key={item.id}
+          item={item}
+          active={item.id === activeId}
+          onNavigate={onNavigate}
+        />
       ))}
       <div className="flex min-w-16 flex-1 shrink-0 justify-center">
         <button
@@ -108,7 +130,12 @@ export function BottomTabBar({
         </button>
       </div>
       {right.map((item) => (
-        <BottomTab key={item.id} item={item} active={item.id === activeId} onNavigate={onNavigate} />
+        <BottomTab
+          key={item.id}
+          item={item}
+          active={item.id === activeId}
+          onNavigate={onNavigate}
+        />
       ))}
     </nav>
   );
@@ -161,7 +188,10 @@ export function Sidebar({
         )}
       </div>
 
-      <nav aria-label="Primary" className="flex flex-1 flex-col gap-1 px-3 py-2">
+      <nav
+        aria-label="Primary"
+        className="flex flex-1 flex-col gap-1 px-3 py-2"
+      >
         {items.map((item) => {
           const active = item.id === activeId;
           return (
@@ -171,14 +201,21 @@ export function Sidebar({
               onClick={() => onNavigate?.(item.id)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-strong",
                 active
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-surface-sunken/60 hover:text-foreground",
               )}
             >
-              <span className={cn("[&_svg]:size-5", active ? "text-accent-foreground" : "text-faint-foreground")}>
-                {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-5" />}
+              <span
+                className={cn(
+                  "[&_svg]:size-5",
+                  active ? "text-accent-foreground" : "text-faint-foreground",
+                )}
+              >
+                {item.icon ?? DEFAULT_ICONS[item.id] ?? (
+                  <Grid2x2 className="size-5" />
+                )}
               </span>
               <span className="flex-1 text-left">{item.label}</span>
               {!!item.badge && (
@@ -211,11 +248,20 @@ export function Sidebar({
         </button>
         {user && (
           <div className="mt-1 flex items-center gap-3 rounded-md px-3 py-2">
-            <Avatar alt={user.name} src={user.avatarSrc} size="sm" tone="primary" />
+            <Avatar
+              alt={user.name}
+              src={user.avatarSrc}
+              size="sm"
+              tone="primary"
+            />
             <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold text-foreground">{user.name}</span>
+              <span className="truncate text-sm font-semibold text-foreground">
+                {user.name}
+              </span>
               {user.subtitle && (
-                <span className="truncate text-xs text-muted-foreground">{user.subtitle}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {user.subtitle}
+                </span>
               )}
             </div>
           </div>
@@ -286,19 +332,30 @@ export function AppShell({
   if (resolved === "mobile") {
     return (
       <div className={cn("flex h-dvh flex-col bg-background", className)}>
-        <header className="flex items-center gap-3 border-b border-border bg-surface px-4 lx-safe-top-min pb-3">
-          <Avatar alt={user?.name ?? "Account"} src={user?.avatarSrc} initials={user?.initials} size="sm" tone="primary" />
+        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-surface px-4 lx-safe-top-min pb-3">
+          <Avatar
+            alt={user?.name ?? "Account"}
+            src={user?.avatarSrc}
+            initials={user?.initials}
+            size="sm"
+            tone="primary"
+          />
           <button
             type="button"
             onClick={onSearch}
-            className="flex min-h-10 flex-1 items-center gap-2.5 rounded-full border border-accent bg-surface px-4 py-2 text-body-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
+            className="flex min-h-11 min-w-max flex-1 items-center gap-2.5 whitespace-nowrap rounded-full border border-accent bg-surface px-4 py-2 text-body-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
           >
-            <Search className="size-4" aria-hidden />
+            <Search className="size-4 shrink-0" aria-hidden />
             Search
           </button>
           {notificationControl ?? (
             <div className="relative">
-              <IconButton variant="outline" size="sm" onClick={onNotifications} aria-label="Notifications">
+              <IconButton
+                variant="outline"
+                size="sm"
+                onClick={onNotifications}
+                aria-label="Notifications"
+              >
                 <Bell />
               </IconButton>
               {!!notificationCount && (
@@ -310,7 +367,9 @@ export function AppShell({
           )}
         </header>
 
-        <main className="lx-scroll flex-1 overflow-y-auto">{children}</main>
+        <main className="lx-scroll min-w-0 flex-1 overflow-y-auto">
+          {children}
+        </main>
 
         <BottomTabBar
           items={nav}
@@ -334,28 +393,37 @@ export function AppShell({
         onSettings={onSettings}
         user={
           user
-            ? { name: user.name, subtitle: "LayerX account", avatarSrc: user.avatarSrc }
+            ? {
+                name: user.name,
+                subtitle: "LayerX account",
+                avatarSrc: user.avatarSrc,
+              }
             : undefined
         }
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-6">
+        <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-4 py-3 border-b border-border bg-surface px-6">
           <h1 className="text-lg font-bold text-foreground">{title}</h1>
           <div className="flex-1" />
           <button
             type="button"
             onClick={onSearch}
-            className="flex min-h-10 w-64 items-center gap-2.5 rounded-full border border-accent bg-surface px-4 py-2 text-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
+            className="flex min-h-11 w-64 max-w-full items-center gap-2.5 rounded-full border border-accent bg-surface px-4 py-2 text-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
           >
-            <Search className="size-4" aria-hidden />
+            <Search className="size-4 shrink-0" aria-hidden />
             <span className="flex-1 text-left">Search</span>
-            <kbd className="rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-micro font-semibold text-muted-foreground">
+            <kbd className="rounded border border-border-strong bg-surface-sunken px-1.5 py-0.5 text-micro font-semibold text-muted-foreground">
               ⌘K
             </kbd>
           </button>
           {notificationControl ?? (
             <div className="relative">
-              <IconButton variant="outline" size="sm" onClick={onNotifications} aria-label="Notifications">
+              <IconButton
+                variant="outline"
+                size="sm"
+                onClick={onNotifications}
+                aria-label="Notifications"
+              >
                 <Bell />
               </IconButton>
               {!!notificationCount && (
@@ -367,7 +435,9 @@ export function AppShell({
           )}
           {headerActions}
         </header>
-        <main className="lx-scroll flex-1 overflow-y-auto">{children}</main>
+        <main className="lx-scroll min-w-0 flex-1 overflow-y-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

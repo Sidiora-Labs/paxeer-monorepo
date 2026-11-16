@@ -17,20 +17,54 @@ export interface ModalProps {
  * Desktop confirmation modal: centered, bounded, rounded, Esc + overlay
  * dismiss, focus-trapped (Radix Dialog).
  */
-export function Modal({ open, onOpenChange, children, portalContainer, className }: ModalProps) {
+export function Modal({
+  open,
+  onOpenChange,
+  children,
+  portalContainer,
+  className,
+}: ModalProps) {
+  const contentRef = React.useRef<HTMLDialogElement>(null);
+  React.useEffect(() => {
+    const content = contentRef.current;
+    if (content === null) return;
+    if (open) {
+      if (content.matches(":modal")) return;
+      if (content.open) content.close();
+      content.showModal();
+    } else if (content.open) {
+      content.close();
+    }
+  }, [open]);
+  const setContentRef = React.useCallback(
+    (content: HTMLDialogElement | null) => {
+      contentRef.current = content;
+      if (content !== null && open && !content.matches(":modal")) {
+        content.showModal();
+      }
+    },
+    [open],
+  );
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal container={portalContainer ?? undefined}>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
-        <Dialog.Content
+        <Dialog.Content asChild>
+          <dialog
+            ref={setContentRef}
+            onCancel={(event) => {
+              event.preventDefault();
+              onOpenChange(false);
+            }}
           className={cn(
             "fixed top-1/2 left-1/2 z-50 flex lx-modal-content -translate-x-1/2 -translate-y-1/2 flex-col overscroll-contain",
             "rounded-xl bg-surface p-6 shadow-overlay outline-none",
             "data-[state=open]:animate-modal-in data-[state=closed]:animate-modal-out",
             className,
           )}
-        >
-          {children}
+          >
+            {children}
+          </dialog>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -51,10 +85,14 @@ export function ModalHeader({
   return (
     <div className={cn("flex items-start justify-between gap-4", className)}>
       <div className="flex flex-col gap-1.5">
-        <Dialog.Title className="text-lg font-bold text-foreground">{title}</Dialog.Title>
+        <Dialog.Title className="text-lg font-bold text-foreground">
+          {title}
+        </Dialog.Title>
         {description && (
           <Dialog.Description asChild>
-            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {description}
+            </p>
           </Dialog.Description>
         )}
       </div>
@@ -72,10 +110,29 @@ export function ModalHeader({
   );
 }
 
-export function ModalBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("lx-scroll mt-4 flex-1 overflow-y-auto", className)} {...props} />;
+export function ModalBody({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn("lx-scroll mt-4 flex-1 overflow-y-auto", className)}
+      {...props}
+    />
+  );
 }
 
-export function ModalFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("mt-6 flex items-center justify-end gap-3", className)} {...props} />;
+export function ModalFooter({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "mt-6 flex flex-wrap items-center justify-end gap-3",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
