@@ -64,13 +64,17 @@
     "yaml": "2.9.0"
   },
   "overrides": {
-    "@types/minimatch": "5.1.2"
+    "@types/minimatch": "5.1.2",
+    "elliptic": "npm:@mapped/elliptic@6.6.10",
+    "deepmerge": "npm:@stackline/deepmerge@1.1.0"
   },
   "pnpm": {
     "overrides": {
       "react": "18.3.1",
       "react-dom": "18.3.1",
-      "@types/minimatch": "5.1.2"
+      "@types/minimatch": "5.1.2",
+      "elliptic": "npm:@mapped/elliptic@6.6.10",
+      "deepmerge": "npm:@stackline/deepmerge@1.1.0"
     }
   }
 }
