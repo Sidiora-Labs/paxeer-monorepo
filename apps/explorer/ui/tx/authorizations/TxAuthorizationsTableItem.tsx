@@ -31,7 +31,7 @@ const TxAuthorizationsItem = ({ address_hash: addressHash, authority, chain_id: 
           { chainId === Number(config.chain.id) ? 'this' : 'any' }
         </Skeleton>
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">
           { nonce }
         </Skeleton>

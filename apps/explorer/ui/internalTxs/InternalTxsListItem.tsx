@@ -47,7 +47,7 @@ const InternalTxsListItem = ({
         <TxEntity
           hash={ txnHash }
           isLoading={ isLoading }
-          fontWeight={ 700 }
+          fontWeight="bold"
           truncation="constant_long"
           chain={ chainData }
         />
@@ -55,13 +55,13 @@ const InternalTxsListItem = ({
           timestamp={ timestamp }
           isLoading={ isLoading }
           color="text.secondary"
-          fontWeight="400"
+          fontWeight="normal"
           fontSize="sm"
         />
       </Flex>
       { showBlockInfo && (
         <HStack gap={ 1 }>
-          <Skeleton loading={ isLoading } fontSize="sm" fontWeight={ 500 }>Block</Skeleton>
+          <Skeleton loading={ isLoading } fontSize="sm" fontWeight="medium">Block</Skeleton>
           <BlockEntity
             isLoading={ isLoading }
             number={ blockNumber }
@@ -78,7 +78,7 @@ const InternalTxsListItem = ({
         w="100%"
       />
       <HStack gap={ 3 }>
-        <Skeleton loading={ isLoading } fontSize="sm" fontWeight={ 500 }>Value { currencyUnits.ether }</Skeleton>
+        <Skeleton loading={ isLoading } fontSize="sm" fontWeight="medium">Value { currencyUnits.ether }</Skeleton>
         <NativeCoinValue
           amount={ value }
           noSymbol

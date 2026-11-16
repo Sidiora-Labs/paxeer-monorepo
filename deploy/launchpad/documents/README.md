@@ -57,3 +57,46 @@ The broker stream and durable example is `values/broker.example.json`. Apply it
 with the shared module's `brokerprovision` command before starting consumers.
 Its `check` action compares the broker with the reviewed document without writes.
 Consumer durations are nanoseconds, matching the composed delivery documents.
+
+For `--service gateway`, `gateway.json` (or `gateway.example.json`) supplies
+`runtime`, `identity` and credential references. Routes use `method`, `template`
+and the boolean flags `authenticate`, `optional` and `upload`; omitted flags
+are false. The runtime reads these as `proxy.ConnectedRoute` fields. A bound
+route must have the flags admitted for its upstream by `allowedConnectedRoute`
+in `services/launchpad/gateway/internal/proxy/connected.go`. That file holds
+`UserConnectedRoutes`, `MetadataConnectedRoutes`, `SocialConnectedRoutes`,
+`LivestreamConnectedRoutes` and `FrozenConnectedSurface`. The app joins each
+bound set with its upstream's route list before admission; the bound entry
+wins for an existing method and template. The composer checks route structure,
+flag consistency and duplicates; route membership belongs to the gateway.
+
+`runtime.approvedBucket` is a logical key returned by `config.Config.Buckets`
+in `services/launchpad/gateway/internal/config/config.go`: `token`, `user` or
+`og`, with its corresponding bucket configured. The example uses `token`,
+whose `METADATA_BUCKET` value is the physical bucket `media-approved`.
+`runtime.objectWorkers[].bucket` is a physical bucket name. Each worker's
+`kind` selects its exact prefix: `variant` uses `approved/`, `original` uses
+`quarantine/`, `temporary` uses `temporary/`, and `recording` uses `private/`.
+The first three kinds are required. `configureObjects` in
+`services/launchpad/gateway/internal/app/app.go` holds these bindings and
+requires distinct delete and inventory credential references across all
+workers, separate from the serving credentials. Their provisioned access
+keys must also differ from each other and from the serving access key.
+
+`runtime.recoverySchema` names the schema containing `assert_epoch`, installed
+from `deploy/launchpad/production/recovery/epoch.sql`. The gateway, ranking and
+social examples use `recovery`; the identity delivery schema remains `users`.
+The gateway constructs `queue.NewEpochGuard` with that schema, a positive
+`recoveryEpoch` and a `recoveryRegion` containing lowercase letters, digits
+and hyphens. The shared example budget gives `mediagatewayd_pool` a direct
+`identity_runtime` allocation of 12 connections, covering the identity and
+control limits of 8 and 4. The app checks the split against this bound budget
+before opening either pool.
+
+Example certificate digests and identity peer pins are illustrative. Supply
+real certificate files, their digests, matching private keys and independently
+provisioned credentials for deployment. The composer validates fields it can
+check locally, including exact authority URLs, control schemas, object role
+references, numeric bounds, epoch syntax and identity key dates and overlap.
+The gateway validates certificate contents, resolved keys, configured buckets
+and route admission at startup.

@@ -1,0 +1,594 @@
+[manifest]
+task = "22.44.8"
+surface = "Explorer transactions, batches, withdrawals, deposits, transfers, blobs and user operations"
+paths = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/tx", "apps/explorer/ui/txs", "apps/explorer/ui/userOps", "apps/explorer/ui/deposits", "apps/explorer/ui/withdrawals"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/ui/tx", "apps/explorer/ui/txs", "apps/explorer/ui/blob", "apps/explorer/ui/deposits", "apps/explorer/ui/withdrawals"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/csvExport", "apps/explorer/ui/withdrawals"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/ui/txs", "apps/explorer/ui/tx", "apps/explorer/ui/deposits", "apps/explorer/ui/withdrawals", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/userOps"]
+
+[guide.sortable_table]
+id = "sortable-table"
+directories = ["apps/explorer/ui/txs", "apps/explorer/ui/tx"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/ui/txs", "apps/explorer/ui/withdrawals"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/txs"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/explorer/ui/txs", "apps/explorer/ui/tx", "apps/explorer/ui/userOp"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/ui/tx", "apps/explorer/ui/txnBatches"]
+
+[guide.validate_input_after_interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/csvExport", "apps/explorer/ui/withdrawals"]
+
+[guide.select_menu_interaction]
+id = "select-menu-interaction"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/txs", "apps/explorer/ui/withdrawals"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.size_aware_styling]
+id = "size-aware-styling"
+directories = ["apps/explorer/ui/tx", "apps/explorer/ui/txs", "apps/explorer/ui/userOps", "apps/explorer/ui/tokenTransfers"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/ui/advancedFilter", "apps/explorer/ui/blob", "apps/explorer/ui/csvExport", "apps/explorer/ui/deposits", "apps/explorer/ui/internalTxs", "apps/explorer/ui/tokenTransfers", "apps/explorer/ui/tx", "apps/explorer/ui/txnBatches", "apps/explorer/ui/txnWithdrawals", "apps/explorer/ui/txs", "apps/explorer/ui/userOp", "apps/explorer/ui/userOps", "apps/explorer/ui/withdrawals"]
+
+[guide.interest_triggered_tooltips]
+id = "interest-triggered-tooltips"
+directories = ["apps/explorer/ui/tx", "apps/explorer/ui/txs", "apps/explorer/ui/deposits", "apps/explorer/ui/withdrawals"]
+
+[guide.hovercard]
+id = "hovercard"
+directories = ["apps/explorer/ui/tx", "apps/explorer/ui/txs"]
+
+[view.transactions]
+route = "/explorer/txs"
+state = "Validated transaction list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.transactions_long_list]
+route = "/explorer/txs"
+state = "Scrollable transaction table with 75 transactions"
+widths = [1440]
+schemes = ["light", "dark"]
+
+[view.pending_transactions]
+route = "/explorer/txs?tab=pending"
+state = "Pending transaction list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_overview]
+route = "/explorer/tx/[hash]"
+state = "Transaction summary"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.transaction_more_details]
+route = "/explorer/tx/[hash]"
+state = "Expanded transaction details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_actions]
+route = "/explorer/tx/[hash]"
+state = "Transaction actions"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_revert]
+route = "/explorer/tx/[hash]"
+state = "Transaction revert reason"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_internal]
+route = "/explorer/tx/[hash]?tab=internal"
+state = "Transaction internal calls"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.transaction_transfers]
+route = "/explorer/tx/[hash]?tab=token_transfers"
+state = "Transaction token transfers"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_state]
+route = "/explorer/tx/[hash]?tab=state"
+state = "Transaction state changes"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_raw]
+route = "/explorer/tx/[hash]?tab=raw_trace"
+state = "Transaction raw trace"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.transaction_blobs]
+route = "/explorer/tx/[hash]?tab=blobs"
+state = "Transaction blobs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_authorizations]
+route = "/explorer/tx/[hash]?tab=authorizations"
+state = "Transaction authorizations"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_fhe]
+route = "/explorer/tx/[hash]?tab=fhe_operations"
+state = "Transaction FHE operations"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.internal_transactions]
+route = "/explorer/internal-txs"
+state = "Internal transaction list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.optimistic_claim]
+route = "/explorer/withdrawals"
+state = "Withdrawal claim dialog"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.token_transfers]
+route = "/explorer/token-transfers"
+state = "Token transfer list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.user_operations]
+route = "/explorer/ops"
+state = "User operation list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.user_operation_details]
+route = "/explorer/op/[hash]"
+state = "User operation details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.user_operation_raw]
+route = "/explorer/op/[hash]?tab=raw"
+state = "User operation raw call data"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.beacon_deposits]
+route = "/explorer/deposits"
+state = "Beacon chain deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.beacon_withdrawals]
+route = "/explorer/withdrawals"
+state = "Beacon chain withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.arbitrum_batches]
+route = "/explorer/batches"
+state = "Arbitrum transaction batches"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.arbitrum_batch_details]
+route = "/explorer/batches/[number]"
+state = "Arbitrum transaction batch details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.arbitrum_anytrust_details]
+route = "/explorer/batches/[number]"
+state = "AnyTrust data availability and signers"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.arbitrum_celestia_details]
+route = "/explorer/batches/[number]"
+state = "Arbitrum Celestia data availability"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.arbitrum_transaction_withdrawals]
+route = "/explorer/txn-withdrawals?q=[transaction_hash]"
+state = "Arbitrum transaction withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.optimistic_batches]
+route = "/explorer/batches"
+state = "Optimistic rollup transaction batches"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.optimistic_batch_details]
+route = "/explorer/batches/[number]"
+state = "Optimistic rollup transaction batch details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.optimistic_celestia_details]
+route = "/explorer/batches/[number]"
+state = "Optimistic Celestia batch details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.optimistic_eip4844_details]
+route = "/explorer/batches/[number]"
+state = "Optimistic EIP-4844 batch details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.optimistic_eigenda_details]
+route = "/explorer/batches/[number]"
+state = "Optimistic EigenDA batch details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.optimistic_deposits]
+route = "/explorer/deposits"
+state = "Optimistic rollup deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.optimistic_withdrawals]
+route = "/explorer/withdrawals"
+state = "Optimistic rollup withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.zkevm_batches]
+route = "/explorer/batches"
+state = "zkEVM transaction batches"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.zkevm_batch_details]
+route = "/explorer/batches/[number]"
+state = "zkEVM transaction batch details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.zkevm_deposits]
+route = "/explorer/deposits"
+state = "zkEVM deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.zkevm_withdrawals]
+route = "/explorer/withdrawals"
+state = "zkEVM withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.zksync_batches]
+route = "/explorer/batches"
+state = "zkSync transaction batches"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.zksync_batch_details]
+route = "/explorer/batches/[number]"
+state = "zkSync transaction batch details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.scroll_batches]
+route = "/explorer/batches"
+state = "Scroll transaction batches"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.scroll_batch_details]
+route = "/explorer/batches/[number]"
+state = "Scroll transaction batch details"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.scroll_deposits]
+route = "/explorer/deposits"
+state = "Scroll deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.scroll_withdrawals]
+route = "/explorer/withdrawals"
+state = "Scroll withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.shibarium_deposits]
+route = "/explorer/deposits"
+state = "Shibarium deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.shibarium_withdrawals]
+route = "/explorer/withdrawals"
+state = "Shibarium withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.blob_transactions]
+route = "/explorer/txs?tab=blob_txs"
+state = "Blob transaction list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.blob_details]
+route = "/explorer/blobs/[hash]"
+state = "Blob details and hexadecimal data"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.blob_utf8]
+route = "/explorer/blobs/[hash]"
+state = "Blob data in UTF-8"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.blob_base64]
+route = "/explorer/blobs/[hash]"
+state = "Blob data in Base64"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.blob_image]
+route = "/explorer/blobs/[hash]"
+state = "Blob image representation"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.advanced_filter]
+route = "/explorer/advanced-filter"
+state = "Advanced transaction filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.transaction_info_dialog]
+route = "/explorer/txs"
+state = "Additional transaction information in a modal dialog"
+widths = [360]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.transaction_info_popover]
+route = "/explorer/"
+state = "Additional transaction information in a popover"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_type]
+route = "/explorer/advanced-filter"
+state = "Transaction type filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.filter_method]
+route = "/explorer/advanced-filter"
+state = "Method filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_age]
+route = "/explorer/advanced-filter"
+state = "Date range filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.filter_address_from]
+route = "/explorer/advanced-filter"
+state = "Sender address filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_address_to]
+route = "/explorer/advanced-filter"
+state = "Recipient address filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_and_or]
+route = "/explorer/advanced-filter"
+state = "Address relationship filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_amount]
+route = "/explorer/advanced-filter"
+state = "Amount range filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_asset]
+route = "/explorer/advanced-filter"
+state = "Asset filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_age_validation]
+route = "/explorer/advanced-filter"
+state = "Date range validation"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_amount_validation]
+route = "/explorer/advanced-filter"
+state = "Amount range validation"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.filter_columns]
+route = "/explorer/advanced-filter"
+state = "Visible column selection"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_asset_flows]
+route = "/explorer/tx/[hash]?tab=asset_flows"
+state = "Transaction asset flows"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction_external]
+route = "/explorer/tx/[hash]"
+state = "External transaction popover"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.csv_export_validation]
+route = "/explorer/csv-export?address=[address]&type=transactions"
+state = "Transaction export date-range validation"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.csv_export]
+route = "/explorer/csv-export?address=[address]&type=transactions"
+state = "Transaction CSV export dates"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]
+
+[view.transaction_loading]
+route = "/explorer/tx/[hash]"
+state = "Transaction details loading state"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+accessibility_schemes = ["light", "dark"]
+modes = ["reduced-motion", "200-percent-text", "keyboard"]

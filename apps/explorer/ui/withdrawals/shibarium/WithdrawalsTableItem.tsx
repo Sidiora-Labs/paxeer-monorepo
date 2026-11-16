@@ -21,12 +21,12 @@ const WithdrawalsTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BlockEntity
           number={ item.l2_block_number }
           isLoading={ isLoading }
           textStyle="sm"
-          fontWeight={ 600 }
+          fontWeight="semibold"
         />
       </TableCell>
       <TableCell verticalAlign="middle">

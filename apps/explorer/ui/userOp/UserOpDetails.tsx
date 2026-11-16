@@ -12,7 +12,6 @@ import { CollapsibleDetails } from 'toolkit/chakra/collapsible';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import isCustomAppError from 'ui/shared/AppError/isCustomAppError';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoNativeCoinValue from 'ui/shared/DetailedInfo/DetailedInfoNativeCoinValue';
 import DetailedInfoTimestamp from 'ui/shared/DetailedInfo/DetailedInfoTimestamp';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
@@ -24,6 +23,7 @@ import UserOpSponsorType from 'ui/shared/userOps/UserOpSponsorType';
 import UserOpStatus from 'ui/shared/userOps/UserOpStatus';
 import Utilization from 'ui/shared/Utilization/Utilization';
 import GasPriceValue from 'ui/shared/value/GasPriceValue';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import UserOpCallData from './UserOpCallData';
 import UserOpDecodedCallData from './UserOpDecodedCallData';
@@ -50,7 +50,6 @@ const UserOpDetails = ({ query }: Props) => {
 
   return (
     <DetailedInfo.Container
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(min-content, 220px) minmax(0, 1fr)' }}
     >
       <DetailedInfo.ItemLabel
         hint="Unique character string assigned to every User operation"

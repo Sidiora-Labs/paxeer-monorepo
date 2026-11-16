@@ -136,6 +136,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
   const findings = [];
   const addLoad = (values) => { if (active) findings.push({ kind: "load", selector: "document", values }); };
   const expects = state.expects ?? [];
+  const answers = [...(state.answers ?? []), ...(view.answers ?? []), ...surface.answers];
   const matchedExpectations = new Set();
   const expectedResponses = new WeakSet();
   const failedResponses = [];
@@ -175,7 +176,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
               const redirected = new URL(location, url);
               if (redirected.origin !== surface.address) {
                 const method = [307, 308].includes(response.status()) ? request.method() : "GET";
-                const answer = surface.answers.find((entry) => entry.method === method && entry.pattern.test(redirected.href));
+                const answer = answers.find((entry) => entry.method === method && entry.pattern.test(redirected.href));
                 if (answer) { await route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body }); return; }
                 addLoad({ source: "unanswered-request", method, address: redirected.href, resource: request.resourceType() });
                 await route.abort("blockedbyclient");
@@ -185,7 +186,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
             await route.fulfill({ response });
             return;
           }
-          const answer = surface.answers.find((entry) => entry.method === request.method() && entry.pattern.test(url.href));
+          const answer = answers.find((entry) => entry.method === request.method() && entry.pattern.test(url.href));
           if (answer) { await route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body }); return; }
           addLoad({ source: "unanswered-request", method: request.method(), address: url.href, resource: request.resourceType() });
           await route.abort("blockedbyclient");
@@ -321,7 +322,12 @@ export async function checkSurface({ surface: filename, out: destination, view: 
   const views = selected ? surface.views.filter((view) => view.name === selected) : surface.views;
   if (!views.length) throw new Error(`Unknown view: ${selected}`);
   await mkdir(out, { recursive: true });
-  const summaries = views.map((view) => ({ name: view.name, modes: view.modes, states: (view.states ?? []).map((state) => ({ name: state.name, modes: state.modes })) }));
+  const summaries = views.map((view) => ({
+    name: view.name,
+    modes: view.modes,
+    answers: view.answers.length,
+    states: (view.states ?? []).map((state) => ({ name: state.name, modes: state.modes, answers: state.answers.length })),
+  }));
   const reducedModeCount = summaries.reduce((total, view) => total + Number(view.modes.length < MODES.length) + view.states.filter((state) => state.modes.length < MODES.length).length, 0);
   const result = { surface: surface.name, buildMs: surface.buildMs ?? LIMITS.buildMs, outputs: [], devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, renders: [], findings: [], passed: false };
   const tasks = views.flatMap((view) => [{ name: "default", steps: [], expects: view.expects, modes: view.modes }, ...(view.states ?? [])].flatMap((state) => renderMatrix(state.modes).map((configuration) => ({ view, state, configuration }))));

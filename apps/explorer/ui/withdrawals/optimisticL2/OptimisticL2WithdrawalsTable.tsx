@@ -4,8 +4,9 @@ import type { OptimisticL2WithdrawalsItem } from 'types/api/optimisticL2';
 
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
 import { layerLabels } from 'lib/rollups/utils';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import OptimisticL2WithdrawalsTableItem from './OptimisticL2WithdrawalsTableItem';
 
@@ -18,10 +19,10 @@ type Props = {
 const OptimisticL2WithdrawalsTable = ({ items, top, isLoading }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot tableLayout="auto" minW="950px">
+      <ActivityTable label="Withdrawals" tableLayout="auto" minW="var(--chakra-sizes-4xl)">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            <TableColumnHeader>Msg nonce</TableColumnHeader>
+            <TableColumnHeader isNumeric>Msg nonce</TableColumnHeader>
             <TableColumnHeader>From</TableColumnHeader>
             <TableColumnHeader>{ layerLabels.current } txn hash</TableColumnHeader>
             <TableColumnHeader>
@@ -42,7 +43,7 @@ const OptimisticL2WithdrawalsTable = ({ items, top, isLoading }: Props) => {
             />
           )) }
         </TableBody>
-      </TableRoot>
+      </ActivityTable>
     </AddressHighlightProvider>
   );
 };
