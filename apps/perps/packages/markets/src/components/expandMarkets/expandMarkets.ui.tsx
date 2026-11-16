@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import React from "react";
 import { Box, cn, TabPanel, Tabs } from "@paxeer-network/ui";
 import { createCommunityBrokerFilter } from "../../hooks/useCommunityTabs";
@@ -198,6 +199,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
   return (
     <Box
       className={cn(
+        styles.surface,
         "oui-markets-expandMarkets",
         /** Search row + tabs/list: second row minmax(0,1fr) passes a bounded height into Tabs. */
         "oui-grid oui-size-full oui-min-h-0 oui-min-w-0 oui-grid-rows-[auto_minmax(0,1fr)] oui-overflow-hidden oui-font-semibold",
@@ -205,7 +207,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
       height="100%"
     >
       <Box
-        className="oui-expandMarkets-header oui-flex oui-min-w-0 oui-items-center oui-gap-x-3 oui-pt-px"
+        className="oui-expandMarkets-header oui-flex oui-min-w-0 oui-items-center oui-flex-wrap oui-gap-3 oui-pt-px"
         px={3}
         pb={2}
       >
@@ -226,7 +228,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
         classNames={{
           /** Keep tab row from shrinking when Tabs root is a column flex container. */
           tabsListContainer: "oui-shrink-0",
-          tabsList: cn("oui-my-[6px]"),
+          tabsList: cn("oui-my-1.5"),
           /** Occupy remaining height under triggers; inner ExpandMarketsListPanel supplies flex column. */
           tabsContent:
             "oui-min-h-0 oui-min-w-0 oui-w-full oui-flex-1 oui-overflow-hidden",

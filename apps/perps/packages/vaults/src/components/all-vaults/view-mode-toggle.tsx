@@ -15,8 +15,9 @@ export const ViewModeToggle: FC<ViewModeToggleProps> = ({ mode, onChange }) => {
 
   return (
     <button
+      type="button"
       onClick={toggleMode}
-      className="oui-flex oui-h-8 oui-w-8 oui-items-center oui-justify-center oui-rounded oui-transition-colors hover:oui-bg-base-6"
+      className="oui-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded oui-transition-colors hover:oui-bg-base-6"
       aria-label={
         mode === "grid" ? "Switch to list view" : "Switch to grid view"
       }

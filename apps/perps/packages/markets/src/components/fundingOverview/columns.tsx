@@ -47,14 +47,14 @@ export const useFundingOverviewColumns = (
         title: t("markets.column.market"),
         dataIndex: "symbol",
         onSort: true,
-        width: 180,
+
         className: isMobile ? "oui-ps-0" : undefined,
         render: (value, record) => {
           if (isMobile) {
             return (
               <Flex direction="column" itemAlign="start" gapY={1}>
                 <Flex gapX={1} itemAlign="center">
-                  <TokenIcon symbol={value} className="oui-size-[18px]" />
+                  <TokenIcon symbol={value} className="oui-size-4" />
                   <SymbolDisplay formatString="base" size="2xs">
                     {value}
                   </SymbolDisplay>
@@ -86,7 +86,7 @@ export const useFundingOverviewColumns = (
       {
         title: t("markets.funding.column.estFunding"),
         dataIndex: "estFunding",
-        width: 120,
+
         onSort: true,
         render: (value, record) => (
           <div>
@@ -99,7 +99,7 @@ export const useFundingOverviewColumns = (
             >
               {value}
             </Text.numeral>
-            <span className="oui-text-base-contrast-54">
+            <span className="oui-text-base-contrast-80">
               {`/ ${record.fundingInterval}h`}
             </span>
           </div>
@@ -108,49 +108,49 @@ export const useFundingOverviewColumns = (
       {
         title: t("markets.funding.column.lastFunding"),
         dataIndex: "lastFunding",
-        width: 90,
+
         onSort: true,
         render: createFundingRenderer(),
       },
       {
         title: t("markets.funding.column.1dAvg"),
         dataIndex: "funding1d",
-        width: 90,
+
         onSort: true,
         render: createFundingRenderer(),
       },
       {
         title: t("markets.funding.column.3dAvg"),
         dataIndex: "funding3d",
-        width: 90,
+
         onSort: true,
         render: createFundingRenderer(),
       },
       {
         title: t("markets.funding.column.7dAvg"),
         dataIndex: "funding7d",
-        width: 90,
+
         onSort: true,
         render: createFundingRenderer(),
       },
       {
         title: t("markets.funding.column.14dAvg"),
         dataIndex: "funding14d",
-        width: 90,
+
         onSort: true,
         render: createFundingRenderer(),
       },
       {
         title: t("markets.funding.column.30dAvg"),
         dataIndex: "funding30d",
-        width: 90,
+
         onSort: true,
         render: createFundingRenderer(),
       },
       {
         title: t("markets.funding.column.90dAvg"),
         dataIndex: "funding90d",
-        width: 90,
+
         onSort: true,
         render: createFundingRenderer(),
       },
@@ -161,11 +161,13 @@ export const useFundingOverviewColumns = (
               value={selectedPeriod}
               onValueChange={setSelectedPeriod}
             />
-            <span>{t("markets.funding.column.positiveRate")}</span>
+            <button type="button">
+              {t("markets.funding.column.positiveRate")}
+            </button>
           </div>
         ),
         dataIndex: selectedPeriod,
-        width: 130,
+
         align: "right",
         onSort: true,
         render: createFundingRenderer(2),

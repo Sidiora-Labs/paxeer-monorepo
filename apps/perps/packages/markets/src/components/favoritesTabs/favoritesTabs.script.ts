@@ -87,12 +87,8 @@ export function useFavoritesTabScript(options: UseFavoritesTabScriptOptions) {
 
   const scrollView = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const spanRef = useRef<HTMLSpanElement>(null);
-
-  const [inputWidth, setInputWidth] = useState(50);
 
   const updateScrollLayout = () => {
-    const addIconWidth = size === "sm" ? 28 : 36;
     setTimeout(() => {
       const { scrollWidth, clientWidth } = scrollView.current || {};
 
@@ -168,14 +164,6 @@ export function useFavoritesTabScript(options: UseFavoritesTabScriptOptions) {
   };
 
   useEffect(() => {
-    if (value) {
-      const rect = spanRef.current?.getBoundingClientRect();
-      const offset = size === "sm" ? 0 : 14;
-      setInputWidth(Math.max((rect?.width || 0) + offset, 50));
-    }
-  }, [value]);
-
-  useEffect(() => {
     updateScrollLayout();
   }, []);
 
@@ -185,8 +173,6 @@ export function useFavoritesTabScript(options: UseFavoritesTabScriptOptions) {
     setOpen,
     container: scrollView,
     inputRef,
-    inputWidth,
-    spanRef,
     editing,
     value,
     onValueChange: setValue,

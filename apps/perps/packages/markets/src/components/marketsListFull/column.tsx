@@ -24,7 +24,7 @@ export const useMarketsListFullColumns = (
         title: <UnFavoritesIcon className="oui-mt-1" />,
         dataIndex: "isFavorite",
         align: "center",
-        width: 30,
+
         render: (value, record) => {
           const onDelSymbol: MouseEventHandler = (e) => {
             favorite.updateSymbolFavoriteState(
@@ -37,15 +37,22 @@ export const useMarketsListFullColumns = (
 
           const button = (
             <Flex
+              asChild
               width="100%"
               height="100%"
               mr={3}
               justify="center"
               itemAlign="center"
-              onClick={isFavoriteList ? onDelSymbol : undefined}
               data-testid="oui-testid-markets-table-row-favorite-icon"
             >
-              {value ? <FavoritesIcon /> : <UnFavoritesIcon />}
+              <button
+                type="button"
+                aria-label={t("markets.favorites")}
+                onClick={onDelSymbol}
+                className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+              >
+                {value ? <FavoritesIcon /> : <UnFavoritesIcon />}
+              </button>
             </Flex>
           );
 
@@ -55,7 +62,9 @@ export const useMarketsListFullColumns = (
 
           return (
             <FavoritesDropdownMenuWidget row={record} favorite={favorite}>
-              {button}
+              <span data-testid="oui-testid-markets-table-row-favorite-icon">
+                {value ? <FavoritesIcon /> : <UnFavoritesIcon />}
+              </span>
             </FavoritesDropdownMenuWidget>
           );
         },
@@ -63,7 +72,7 @@ export const useMarketsListFullColumns = (
       {
         title: t("markets.column.market"),
         dataIndex: "symbol",
-        width: 120,
+
         onSort: true,
         render: (value, record) => {
           return (
@@ -83,7 +92,7 @@ export const useMarketsListFullColumns = (
       {
         title: t("markets.column.last"),
         dataIndex: "24h_close",
-        width: 100,
+
         align: "right",
         onSort: true,
         render: (value, record) => {
@@ -97,7 +106,7 @@ export const useMarketsListFullColumns = (
       {
         title: t("markets.column.24hChange"),
         dataIndex: "change",
-        width: 100,
+
         align: "right",
         onSort: true,
         render: (value) => {
@@ -115,12 +124,14 @@ export const useMarketsListFullColumns = (
       },
       {
         title: (
-          <Flex gapX={1}>
-            <PaxeerNetworkIcon /> {t("markets.column.24hVolume")}
-          </Flex>
+          <button type="button">
+            <Flex gapX={1}>
+              <PaxeerNetworkIcon /> {t("markets.column.24hVolume")}
+            </Flex>
+          </button>
         ),
         dataIndex: "24h_amount",
-        width: 100,
+
         align: "right",
         onSort: true,
         render: (value) => {
@@ -133,12 +144,14 @@ export const useMarketsListFullColumns = (
       },
       {
         title: (
-          <Flex gapX={1}>
-            <PaxeerNetworkIcon /> {t("markets.openInterest")}
-          </Flex>
+          <button type="button">
+            <Flex gapX={1}>
+              <PaxeerNetworkIcon /> {t("markets.openInterest")}
+            </Flex>
+          </button>
         ),
         dataIndex: "openInterest",
-        width: 100,
+
         align: "right",
         onSort: true,
         render: (value) => {
@@ -152,7 +165,7 @@ export const useMarketsListFullColumns = (
       {
         title: t("markets.dataList.column.8hFunding"),
         dataIndex: "8h_funding",
-        width: 100,
+
         align: "right",
         onSort: true,
         render: (value) => {
@@ -175,7 +188,7 @@ export const useMarketsListFullColumns = (
       {
         dataIndex: "action",
         type: "action",
-        width: 40,
+
         render: (value, record) => {
           if (isFavoriteList) {
             return (
@@ -186,14 +199,21 @@ export const useMarketsListFullColumns = (
                   delayDuration={0}
                 >
                   <Box
-                    className="oui-hidden oui-cursor-pointer group-hover:oui-block"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      favorite.pinToTop(record);
-                    }}
+                    asChild
+                    className="oui-cursor-pointer"
                     data-testid="oui-markets-favorites-pinned-icon"
                   >
-                    <MoveToTopIcon className="oui-text-base-contrast-20 hover:oui-text-base-contrast" />
+                    <button
+                      type="button"
+                      aria-label={t("markets.dataList.column.moveTop")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        favorite.pinToTop(record);
+                      }}
+                      className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+                    >
+                      <MoveToTopIcon className="oui-text-base-contrast-80 hover:oui-text-base-contrast" />
+                    </button>
                   </Box>
                 </Tooltip>
               </Flex>

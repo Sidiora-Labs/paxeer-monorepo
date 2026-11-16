@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import React, { ReactNode } from "react";
 import {
   useBadgeBySymbol,
@@ -88,7 +89,9 @@ export const SymbolInfoBarRiskNotice: React.FC<{
         itemAlign="center"
         gap={2}
         className={
-          autoHeight ? "oui-min-h-0 oui-py-2 oui-px-2" : "oui-h-[46px] oui-px-3"
+          autoHeight
+            ? "oui-min-h-12 oui-py-2 oui-px-2"
+            : "oui-min-h-12 oui-py-2 oui-px-3"
         }
       >
         <WarningIcon className="oui-shrink-0 oui-size-4 oui-text-warning-darken" />
@@ -140,28 +143,27 @@ const SymbolInfoBarDesktop: React.FC<SymbolInfoBarDesktopProps> = ({
       "oui-py-2",
       className,
     )}
-    style={{
-      transform: "translateZ(0)",
-      willChange: "transform",
-    }}
   >
-    <Flex gapX={6} className="oui-h-full oui-flex-1 oui-overflow-hidden">
+    <div className={styles.symbolSections}>
       <Flex gapX={1} className="oui-flex-none oui-shrink-0">
         {leftSection}
       </Flex>
-      <Divider className="oui-h-[26px]" direction="vertical" intensity={8} />
+      <Divider className="oui-h-6" direction="vertical" intensity={8} />
       {priceSection}
       <div className="oui-relative oui-h-full oui-overflow-hidden">
         <div
           ref={containerRef}
-          className="oui-hide-scrollbar oui-h-full oui-overflow-x-auto"
+          className="oui-custom-scrollbar oui-h-full oui-overflow-x-auto"
+          role="region"
+          aria-label="Market details"
+          tabIndex={0}
         >
           {scrollableContent}
         </div>
         <ScrollIndicator leading onClick={onScroll} visible={leadingVisible} />
         <ScrollIndicator tailing onClick={onScroll} visible={tailingVisible} />
       </div>
-    </Flex>
+    </div>
     {trailing}
   </Flex>
 );
@@ -220,8 +222,8 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
     <React.Suspense fallback={null}>
       <LazyFavoritesDropdownMenuWidget row={{ symbol }} favorite={favorite}>
         <Flex
-          width={12}
-          height={12}
+          width="var(--oui-space-3)"
+          height="var(--oui-space-3)"
           justify="center"
           itemAlign="center"
           className="oui-me-1 oui-cursor-pointer"
@@ -229,7 +231,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
           {isFavorite ? (
             <FavoritesIcon2 className="oui-size-3 oui-text-warning-darken" />
           ) : (
-            <UnFavoritesIcon2 className="oui-size-3 oui-text-base-contrast-36 hover:oui-text-warning-darken" />
+            <UnFavoritesIcon2 className="oui-size-3 oui-text-base-contrast-80 hover:oui-text-warning-darken" />
           )}
         </Flex>
       </LazyFavoritesDropdownMenuWidget>
@@ -241,10 +243,10 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
       <Flex
         direction="column"
         itemAlign="start"
-        className="oui-shrink-0 oui-gap-y-[2px]"
+        className="oui-shrink-0 oui-gap-y-0.5"
       >
         <LazyDropDownMarketsWidget
-          contentClassName="oui-w-[620px] oui-h-[496px]"
+          contentClassName="oui-w-full oui-max-w-2xl oui-h-[calc(var(--oui-space-24)*5)]"
           symbol={props.symbol}
           onSymbolChange={props.onSymbolChange}
         >
@@ -259,7 +261,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
               >
                 {symbol}
               </SymbolDisplay>
-              <TriangleDownIcon className="oui-text-base-contrast-54" />
+              <TriangleDownIcon className="oui-text-base-contrast-80" />
             </Flex>
           </Flex>
         </LazyDropDownMarketsWidget>
@@ -295,7 +297,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
       <Text.numeral coloring rm={Decimal.ROUND_DOWN} showIdentifier>
         {data?.["24h_change"]!}
       </Text.numeral>
-      <Text intensity={36}>/</Text>
+      <Text intensity={80}>/</Text>
       <Text.numeral
         rule="percentages"
         coloring
@@ -317,7 +319,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
   const priceSection = (
     <Tooltip
       content={t("markets.symbolInfoBar.lastPrice.tooltip")}
-      className="oui-max-w-[240px]"
+      className="oui-max-w-60"
     >
       <span className="oui-cursor-pointer oui-border-b oui-border-dashed oui-border-line-12 oui-inline-block">
         {price}
@@ -382,7 +384,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
                 <Text.numeral rule="human" dp={2}>
                   {openInterest}
                 </Text.numeral>
-                <Text intensity={36}>{` USDC`}</Text>
+                <Text intensity={80}>{` USDC`}</Text>
               </>
             }
             hint={t("markets.openInterest.tooltip")}
@@ -393,7 +395,11 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
   );
 
   return (
-    <Flex direction="column" className="oui-h-full oui-w-full" gapY={1}>
+    <Flex
+      direction="column"
+      className={`${styles.surface} oui-h-full oui-w-full`}
+      gapY={1}
+    >
       {/* autoHeight: banner text can wrap — fixed 46px row spilled over the chart in compact hosts */}
       <SymbolInfoBarRiskNotice
         visible={isCommunityListed}
@@ -441,6 +447,10 @@ const ScrollIndicator: React.FC<ScrollIndicatorProps> = (props) => {
 
   return (
     <button
+      type="button"
+      aria-label={
+        leading ? "Scroll market details left" : "Scroll market details right"
+      }
       onClick={() => {
         onClick?.(leading ? "left" : "right");
       }}
@@ -449,13 +459,13 @@ const ScrollIndicator: React.FC<ScrollIndicatorProps> = (props) => {
           "linear-gradient(90deg, rgb(var(--oui-color-base-10)) 0%, rgb(var(--oui-color-base-10) / 0.60) 65%, rgb(var(--oui-color-base-10) / 0.00) 100%)",
       }}
       className={cn(
-        "oui-flex oui-w-[80px] oui-items-center",
+        "oui-flex oui-w-20 oui-items-center",
         "oui-absolute oui-inset-y-0 oui-rounded-s",
         leading && "oui-start-0 oui-ps-1",
         tailing && "oui-end-0 oui-rotate-180 oui-pe-1",
       )}
     >
-      <ArrowLeftIcon className="oui-text-base-contrast-54 hover:oui-text-base-contrast-80" />
+      <ArrowLeftIcon className="oui-text-base-contrast-80 hover:oui-text-base-contrast-80" />
     </button>
   );
 };
@@ -472,7 +482,7 @@ const FundingRate: React.FC<{ symbol: string }> = ({ symbol }) => {
       <Text.numeral unit="%" dp={4} intensity={98}>
         {data.est_funding_rate!}
       </Text.numeral>
-      <Text intensity={36} className="oui-tabular-nums">
+      <Text intensity={80} className="oui-tabular-nums">
         {/* not need to translate  */}
         {` in ${data.countDown}`}
       </Text>
@@ -515,10 +525,10 @@ const RwaCountdown: React.FC<{
         <NewsFillIcon className="oui-text-warning-darken" size={16} />
         <Flex>
           {t("trading.rwa.countdown.title")}
-          <Flex className="oui-text-base-contrast-54 oui-text-xs oui-font-normal">
+          <Flex className="oui-text-base-contrast-80 oui-text-xs oui-font-normal">
             <Box
               ml={2}
-              className="oui-bg-base-7 oui-px-1 oui-rounded-md oui-text-base-contrast oui-min-w-[22px] oui-text-center oui-text-xs"
+              className="oui-bg-base-7 oui-px-1 oui-rounded-md oui-text-base-contrast oui-min-w-5 oui-text-center oui-text-xs"
             >
               {minutesStr}
             </Box>
@@ -526,7 +536,7 @@ const RwaCountdown: React.FC<{
             {" : "}
             <Box
               ml={1}
-              className="oui-bg-base-7 oui-px-1 oui-rounded-md oui-text-base-contrast oui-min-w-[22px] oui-text-center oui-text-xs"
+              className="oui-bg-base-7 oui-px-1 oui-rounded-md oui-text-base-contrast oui-min-w-5 oui-text-center oui-text-xs"
             >
               {secondsStr}
             </Box>
@@ -535,7 +545,12 @@ const RwaCountdown: React.FC<{
         </Flex>
       </Flex>
 
-      <button className="oui-cursor-pointer" onClick={closeCountdown}>
+      <button
+        type="button"
+        className="oui-cursor-pointer"
+        aria-label={t("common.close")}
+        onClick={closeCountdown}
+      >
         <CloseIcon className="oui-text-base-contrast" size={16} opacity={1} />
       </button>
     </Flex>

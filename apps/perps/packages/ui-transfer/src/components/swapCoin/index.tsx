@@ -23,7 +23,7 @@ export const SwapCoin: FC<SwapCoinProps> = (props) => {
     <Flex
       itemAlign="center"
       gap={1}
-      className={cn(props.className, "oui-text-2xs oui-text-base-contrast-36")}
+      className={cn(props.className, "oui-text-2xs oui-text-base-contrast-80")}
     >
       <Text intensity={80}>1</Text>
       <span>{sourceSymbol}</span>

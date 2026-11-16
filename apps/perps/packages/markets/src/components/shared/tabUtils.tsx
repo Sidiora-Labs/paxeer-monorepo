@@ -25,7 +25,7 @@ export function tabKey(tab: MarketTabConfig, index: number): string {
   return isBuiltInMarketTab(tab) ? tab.type : tab.id || `category_${index}`;
 }
 
-/** Convert string URL to <img>, pass ReactNode through */
+/** Convert string URL to <img width={24} height={24} alt="">, pass ReactNode through */
 export function resolveIcon(
   icon: string | React.ReactNode | undefined,
 ): React.ReactNode | undefined {
@@ -33,7 +33,9 @@ export function resolveIcon(
     return createElement("img", {
       src: icon,
       alt: "",
-      style: { width: 16, height: 16 },
+      width: 16,
+      height: 16,
+      className: "oui-size-4",
     });
   }
   return icon as React.ReactNode | undefined;
