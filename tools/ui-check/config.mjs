@@ -115,9 +115,9 @@ export async function outputDirectory(path) {
   return destination;
 }
 
-export function addressPattern(pattern) {
-  text(pattern, "answer.pattern");
-  if (!/^https?:\/\//.test(pattern)) throw new Error("answer.pattern must be an HTTP address pattern");
+export function addressPattern(pattern, label = "answer.pattern") {
+  text(pattern, label);
+  if (!/^https?:\/\//.test(pattern)) throw new Error(`${label} must be an HTTP address pattern`);
   return new RegExp(`^${pattern.split("*").map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);
 }
 
@@ -143,6 +143,38 @@ function readModes(value, inherited, label) {
     throw new Error(`${label} must contain default and unique names from ${MODES.join(", ")}`);
   }
   return MODES.filter((mode) => value.includes(mode));
+}
+
+async function readAnswers(value, label, base, required = false) {
+  if (value === undefined) {
+    if (required) array(value, label);
+    return [];
+  }
+  array(value, label);
+  const answers = [];
+  for (const answer of value) {
+    const fieldLabel = label === "surface.answers" ? "answer" : `${label} entry`;
+    object(answer, ["method", "pattern", "file", "status", "headers"], fieldLabel);
+    text(answer.method, `${fieldLabel}.method`);
+    if (!/^[A-Z]+$/.test(answer.method)) throw new Error(`${fieldLabel}.method must be uppercase`);
+    const pattern = addressPattern(answer.pattern, `${fieldLabel}.pattern`);
+    text(answer.file, `${fieldLabel}.file`);
+    const path = await realpath(resolve(base, answer.file));
+    if (!within(base, path)) {
+      const message = "Answer files must be beside the surface file or in its subdirectories";
+      throw new Error(label === "surface.answers" ? message : `${label}: ${message}`);
+    }
+    if (answer.status !== undefined && (!Number.isInteger(answer.status) || answer.status < 200 || answer.status > 599)) {
+      throw new Error(`${fieldLabel}.status must be an HTTP status from 200 to 599`);
+    }
+    if (answer.headers !== undefined) {
+      if (!answer.headers || typeof answer.headers !== "object" || Array.isArray(answer.headers) || Object.values(answer.headers).some((v) => typeof v !== "string")) {
+        throw new Error(`${fieldLabel}.headers must contain string values`);
+      }
+    }
+    answers.push({ ...answer, pattern, body: await readFile(path) });
+  }
+  return answers;
 }
 
 export async function readSurface(filename) {
@@ -179,19 +211,21 @@ export async function readSurface(filename) {
   localPath(value.readyPath, "surface.readyPath");
   array(value.views, "surface.views", true);
   for (const view of value.views) {
-    object(view, ["name", "path", "states", "expects", "modes"], "view");
+    object(view, ["name", "path", "states", "expects", "answers", "modes"], "view");
     text(view.name, "view.name");
     localPath(view.path, "view.path");
     view.modes = readModes(view.modes, MODES, `View ${view.name} modes`);
     view.expects = expectations(view.expects, "view.expects");
+    view.answers = await readAnswers(view.answers, `View ${view.name} answers`, base);
     if (view.states !== undefined) {
       array(view.states, "view.states");
       for (const state of view.states) {
-        object(state, ["name", "steps", "expects", "modes"], "state");
+        object(state, ["name", "steps", "expects", "answers", "modes"], "state");
         text(state.name, "state.name");
         state.modes = readModes(state.modes, view.modes, `View ${view.name} state ${state.name} modes`);
         if (state.name === "default") throw new Error("State name default is reserved");
         state.expects = expectations(state.expects, "state.expects");
+        state.answers = await readAnswers(state.answers, `View ${view.name} state ${state.name} answers`, base);
         array(state.steps, "state.steps", true);
         for (const step of state.steps) {
           const keys = {
@@ -218,25 +252,6 @@ export async function readSurface(filename) {
       throw new Error("A fluid type step requires positive min and max CSS pixels");
     }
   }
-  array(value.answers, "surface.answers");
-  const answers = [];
-  for (const answer of value.answers) {
-    object(answer, ["method", "pattern", "file", "status", "headers"], "answer");
-    text(answer.method, "answer.method");
-    if (!/^[A-Z]+$/.test(answer.method)) throw new Error("answer.method must be uppercase");
-    const pattern = addressPattern(answer.pattern);
-    text(answer.file, "answer.file");
-    const path = await realpath(resolve(base, answer.file));
-    if (!within(base, path)) throw new Error("Answer files must be beside the surface file or in its subdirectories");
-    if (answer.status !== undefined && (!Number.isInteger(answer.status) || answer.status < 200 || answer.status > 599)) {
-      throw new Error("answer.status must be an HTTP status from 200 to 599");
-    }
-    if (answer.headers !== undefined) {
-      if (!answer.headers || typeof answer.headers !== "object" || Array.isArray(answer.headers) || Object.values(answer.headers).some((v) => typeof v !== "string")) {
-        throw new Error("answer.headers must contain string values");
-      }
-    }
-    answers.push({ ...answer, pattern, body: await readFile(path) });
-  }
+  const answers = await readAnswers(value.answers, "surface.answers", base, true);
   return { ...value, directory, address: address.origin, answers };
 }

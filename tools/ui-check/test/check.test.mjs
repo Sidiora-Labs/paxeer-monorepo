@@ -415,6 +415,66 @@ async function fixedAnswersStayInTheBrowser() {
 }
 test(fixedAnswersStayInTheBrowser);
 
+async function fixedAnswersUseStateViewAndSurfaceOrder() {
+  const pattern = `${externalAddress}/ordered`;
+  const filesByLevel = {
+    surface: join(root, "surface-answer.json"),
+    view: join(root, "view-answer.json"),
+    state: join(root, "state-answer.json"),
+  };
+  for (const [level, filename] of Object.entries(filesByLevel)) {
+    await writeFile(filename, JSON.stringify({ message: `${level} answer` }));
+  }
+  const answer = (file) => ({ method: "GET", pattern, file: file.slice(root.length + 1), headers: { "content-type": "application/json" } });
+  const page = `/answers.html?address=${encodeURIComponent(pattern)}`;
+  const surface = await surfaceFor("ordered", {
+    answers: [answer(filesByLevel.surface)],
+    views: [
+      { name: "surface", path: page, modes: ["default"], states: [{ name: "surface", modes: ["default"], steps: [{ action: "wait", text: "surface answer" }] }] },
+      { name: "view", path: page, modes: ["default"], answers: [answer(filesByLevel.view)], states: [{ name: "view", modes: ["default"], steps: [{ action: "wait", text: "view answer" }] }] },
+      { name: "state", path: page, modes: ["default"], states: [{ name: "state", modes: ["default"], steps: [{ action: "wait", text: "state answer" }], answers: [answer(filesByLevel.state)] }] },
+    ],
+  });
+  const result = await checkSurface({ surface, out: join(root, "ordered") }, () => {});
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 132);
+  assert.deepEqual(result.views, [
+    { name: "surface", modes: ["default"], answers: 0, states: [{ name: "surface", modes: ["default"], answers: 0 }] },
+    { name: "view", modes: ["default"], answers: 1, states: [{ name: "view", modes: ["default"], answers: 0 }] },
+    { name: "state", modes: ["default"], answers: 0, states: [{ name: "state", modes: ["default"], answers: 1 }] },
+  ]);
+  assert.equal(externalRequests, 0);
+}
+test(fixedAnswersUseStateViewAndSurfaceOrder);
+
+async function fixedAnswersStayWithinTheirStateAndView() {
+  const pattern = `${externalAddress}/isolated`;
+  const stateFile = join(root, "isolated-state-answer.json");
+  const viewFile = join(root, "isolated-view-answer.json");
+  await writeFile(stateFile, JSON.stringify({ message: "state only" }));
+  await writeFile(viewFile, JSON.stringify({ message: "view only" }));
+  const entry = (file) => ({ method: "GET", pattern, file: file.slice(root.length + 1), headers: { "content-type": "application/json" } });
+  const path = `/answers.html?address=${encodeURIComponent(pattern)}`;
+  const surface = await surfaceFor("isolated", {
+    views: [
+      { name: "states", path, modes: ["default"], states: [
+        { name: "first", modes: ["default"], steps: [{ action: "wait", text: "state only" }], answers: [entry(stateFile)] },
+        { name: "second", modes: ["default"], steps: [{ action: "wait", text: "state only" }] },
+      ] },
+      { name: "scoped", path, modes: ["default"], answers: [entry(viewFile)] },
+      { name: "other", path, modes: ["default"], answers: [] },
+    ],
+  });
+  const result = await checkSurface({ surface, out: join(root, "isolated") }, () => {});
+  assert.equal(result.renders.filter((render) => render.view === "states" && render.state === "first").every((render) => render.findings.length === 0), true);
+  assert.ok(result.renders.filter((render) => render.view === "states" && render.state === "second").every((render) => render.findings.some((finding) => finding.values.source === "unanswered-request")));
+  assert.ok(result.renders.filter((render) => render.view === "scoped").every((render) => render.findings.length === 0));
+  assert.ok(result.renders.filter((render) => render.view === "other").every((render) => render.findings.some((finding) => finding.values.source === "unanswered-request")));
+  assert.equal(result.passed, false);
+  assert.equal(externalRequests, 0);
+}
+test(fixedAnswersStayWithinTheirStateAndView);
+
 async function lateRequestsKeepReportsAndExitStatus() {
   assert.ok(lateResponseMs > LIMITS.settleMs);
   await writeFile(join(root, "late-answer.txt"), "Fixed answer");
@@ -957,6 +1017,35 @@ async function expectationFieldsAreStrict() {
 }
 test(expectationFieldsAreStrict);
 
+async function viewAndStateAnswersUseTheSurfaceValidationRules() {
+  const answer = join(root, "validation-answer.json");
+  await writeFile(answer, JSON.stringify({ message: "Answer" }));
+  const valid = { method: "GET", pattern: `${externalAddress}/validation`, file: "validation-answer.json" };
+  const invalid = [
+    { ...valid, unknown: true },
+    { ...valid, method: "get" },
+    { ...valid, pattern: "/validation" },
+    { ...valid, file: "../" },
+    ...[199, 600, 404.5, "404"].map((status) => ({ ...valid, status })),
+    { ...valid, headers: { "content-type": 4 } },
+  ];
+  const emptyView = await surfaceFor("clean", { views: [{ name: "view-answers", path: "/clean.html", answers: [] }] });
+  assert.deepEqual((await readSurface(emptyView)).views[0].answers, []);
+  const emptyState = await surfaceFor("clean", { views: [{ name: "view-answers", path: "/clean.html", states: [{ name: "state-answers", steps: [{ action: "wait", text: "Surface" }], answers: [] }] }] });
+  assert.deepEqual((await readSurface(emptyState)).views[0].states[0].answers, []);
+  for (const level of ["view", "state"]) {
+    for (const entry of invalid) {
+      const view = level === "view"
+        ? { name: "view-answers", path: "/clean.html", answers: [entry] }
+        : { name: "view-answers", path: "/clean.html", states: [{ name: "state-answers", steps: [{ action: "wait", text: "Surface" }], answers: [entry] }] };
+      const surface = await surfaceFor("clean", { views: [view] });
+      const label = level === "view" ? "View view-answers answers" : "View view-answers state state-answers answers";
+      await assert.rejects(readSurface(surface), new RegExp(`${label}.*(?:unknown field|must|Answer files)`));
+    }
+  }
+}
+test(viewAndStateAnswersUseTheSurfaceValidationRules);
+
 async function clipboardWritesSucceedWithoutReadPermission() {
   const { result } = await execute("clipboard", { views: [{
     name: "clipboard", path: "/clipboard.html", states: [{ name: "copied", steps: [
@@ -1035,7 +1124,7 @@ async function modesRestrictTheMatrixAndStatesInheritThem() {
     assert.ok(renders.every((render) => render.mode === "default" && render.rendered));
     assert.deepEqual(renders.map(({ size, scheme, mode }) => ({ ...size, scheme, mode })), renderMatrix(["default"]));
   }
-  assert.deepEqual(result.views, [{ name: "states", modes: ["default"], states: [{ name: "waiting", modes: ["default"] }] }]);
+  assert.deepEqual(result.views, [{ name: "states", modes: ["default"], answers: 0, states: [{ name: "waiting", modes: ["default"], answers: 0 }] }]);
   assert.equal(result.reducedModeCount, 2);
   assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, pass, 2 views and states with fewer than all modes");
   const surface = await surfaceFor("states", { views: [{
