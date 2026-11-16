@@ -86,6 +86,7 @@ export function ApprovalsJourneyScreen({
   const notificationCenter = useNotificationCenter();
   const router = useRouter();
   const loadGeneration = useRef(0);
+  const notificationRevision = useRef(notificationCenter.revision);
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [at, setAt] = useState(() => new Date());
   const [outcome, setOutcome] = useState<ApprovalOutcome | undefined>(undefined);
@@ -93,9 +94,11 @@ export function ApprovalsJourneyScreen({
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (background = false) => {
     const generation = ++loadGeneration.current;
-    setLoadState({ status: "loading" });
+    setLoadState((current) => background && current.status === "ready"
+      ? current
+      : { status: "loading" });
     try {
       const [inbox, programApprovals, detail, programDetail] = await Promise.all([
         approvals.inbox(), approvals.programInbox(),
@@ -124,6 +127,13 @@ export function ApprovalsJourneyScreen({
     setOutcome(undefined);
     void load();
     return () => { loadGeneration.current += 1; };
+  }, [load]);
+
+  useEffect(() => {
+    if (notificationRevision.current === notificationCenter.revision) return;
+    notificationRevision.current = notificationCenter.revision;
+    setOutcome(undefined);
+    void load(true);
   }, [load, notificationCenter.revision]);
 
   useEffect(() => {
