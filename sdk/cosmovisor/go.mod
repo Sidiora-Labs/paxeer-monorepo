@@ -4,7 +4,7 @@ go 1.25.8
 
 require (
 	github.com/hashicorp/go-getter v1.8.6
-	github.com/hashicorp/go-version v1.8.0
+	github.com/hashicorp/go-version v1.9.0
 	github.com/otiai10/copy v1.2.0
 	github.com/stretchr/testify v1.11.1
 )
