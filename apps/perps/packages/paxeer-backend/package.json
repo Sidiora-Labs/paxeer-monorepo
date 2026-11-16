@@ -279,7 +279,7 @@
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "three": "^0.184.0",
+    "three": "^0.187.0",
     "use-debounce": "^10.0.4",
     "viem": "^2.26.3",
     "wagmi": "^2.19.5",
