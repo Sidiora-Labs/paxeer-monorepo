@@ -46,7 +46,7 @@ type RoleManifest struct {
 func (m RoleManifest) capabilitySchemas() (map[string]string, error) {
 	schemas := map[string]string{m.Schema: m.OwnerRole}
 	allowed := map[string]map[string][2]string{
-		"stats_runtime":    {"core/stats-workers/holdings": {"stats_transfer_holdings", "stats_transfer_holdings_owner"}},
+		"stats_runtime":    {"core/stats-workers/holdings": {"stats_transfer_holdings", "stats_transfer_holdings_owner"}, "core/stats-workers/search": {"stats_search", "stats_search_owner"}},
 		"api_rest_runtime": {valueCoreApiCache: {valueApiLimits, "api_limits_owner"}, valueCoreDiscovery: {valueNarrativeDiscovery, "narrative_discovery_owner"}, valueCoreNotifications: {valueDiscoveryNotifications, "discovery_notifications_owner"}},
 		"api_runtime":      {valueCoreApiCache: {valueApiLimits, "api_limits_owner"}, valueCoreDiscovery: {valueNarrativeDiscovery, "narrative_discovery_owner"}, valueCoreNotifications: {valueDiscoveryNotifications, "discovery_notifications_owner"}},
 		"identity_runtime": {"media/gateway/audit-source": {"gateway_audit_source", "gateway_audit_source_owner"}, "media/gateway/audit-sink": {"gateway_audit_sink", "gateway_audit_sink_owner"}, "media/gateway/storage": {"gateway", "gateway_owner"}, "security/policy": {"security", "security_owner"}},

@@ -273,7 +273,7 @@ func RegisterDurableReactions(r chi.Router, d DurableReactionDeps) error {
 			}
 			return d.Verifier.Verify(ctx, wallet, message, signature)
 		}
-		response, duplicate, err := d.Ledger.ExecuteValidated(request.Context(), op, verify, func(ctx context.Context, tx pgx.Tx, _ []byte) ([]byte, error) {
+		response, duplicate, err := d.executeValidated(request.Context(), op, verify, func(ctx context.Context, tx pgx.Tx, _ []byte) ([]byte, error) {
 			result, err := d.Authority.ApplyOperationTx(ctx, tx, intent, op, d.Ledger.Environment, verify)
 			if err != nil {
 				return nil, err
@@ -291,4 +291,26 @@ func RegisterDurableReactions(r chi.Router, d DurableReactionDeps) error {
 		sharedhttp.WriteJSON(w, 200, json.RawMessage(response))
 	})
 	return nil
+}
+
+func (d DurableReactionDeps) executeValidated(ctx context.Context, op auth.OperationRequest, verify func(context.Context, string, string, string) error, mutate auth.Mutation) ([]byte, bool, error) {
+	if d.Ledger.Pool == nil || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(d.Authority.Schema) {
+		return nil, false, analytics.ErrDependencyUnavailable
+	}
+	tx, err := d.Ledger.Pool.Begin(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if _, err = tx.Exec(ctx, "SET LOCAL search_path = pg_catalog, "+pgx.Identifier{d.Authority.Schema}.Sanitize()); err != nil {
+		return nil, false, err
+	}
+	response, duplicate, err := d.Ledger.ExecuteValidatedTx(ctx, tx, op, verify, mutate)
+	if err != nil {
+		return nil, false, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, false, err
+	}
+	return response, duplicate, nil
 }

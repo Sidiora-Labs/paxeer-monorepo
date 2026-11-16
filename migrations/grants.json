@@ -2854,6 +2854,894 @@
           "columns": [],
           "argument_types": [],
           "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "analytics_progress",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "analytics_progress",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "height",
+            "transaction_index",
+            "log_index",
+            "block_hash",
+            "revision",
+            "observed_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "analytics_trades",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "analytics_outbox",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "analytics_outbox_id_seq",
+          "object_kind": "sequence",
+          "privileges": [
+            "USAGE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "analytics_risk_inputs",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "analytics_risk_inputs",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "height",
+            "block_hash",
+            "payload"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "indexer",
+          "object": "indexer_accounting_fills_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "chain_id",
+            "log_index",
+            "pool_address",
+            "transaction_hash"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "indexer",
+          "object": "indexer_swap_outbox_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "chain_id",
+            "event_kind",
+            "log_index",
+            "payload",
+            "transaction_hash"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "metadata",
+          "object": "token_search_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "created_at",
+            "created_by",
+            "description",
+            "name",
+            "pool_address",
+            "symbol",
+            "token_address"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "stats",
+          "object": "canonical_multihop_checkpoints",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "block_hash",
+            "height",
+            "log_index",
+            "source_sha256",
+            "source_stream",
+            "swap_id",
+            "transaction_hash",
+            "transaction_index"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "canonical_multihop_checkpoints",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "delivery_consumer_watermarks",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "delivery_consumer_watermarks",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "broker_sequence",
+            "committed_at",
+            "envelope_hash",
+            "event_id",
+            "position_sequence",
+            "source_order"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "delivery_consumer_watermarks",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "broker_stream",
+            "position_sequence"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "inbox",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "revision"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "operation_ledger",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "action",
+            "actor",
+            "body_digest",
+            "envelope_digest",
+            "nonce",
+            "response",
+            "response_digest"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "operation_ledger",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "outbox",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "attempts",
+            "published"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "phase2_read_snapshots",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "id"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "public_stats_sync_baselines",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "checkpoint_key",
+            "events",
+            "pool",
+            "projection_version"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "public_stats_sync_baselines",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "public_stats_sync_baselines",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "checkpoint_key",
+            "events"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "security_audit_outbox",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "active_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "generation",
+            "privacy_revision",
+            "revision",
+            "singleton"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "active_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "generation",
+            "privacy_revision",
+            "revision"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "authority_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_address",
+            "public",
+            "tombstone",
+            "visibility_revision"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "authority_v2",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "authority_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "public",
+            "tombstone",
+            "visibility_revision"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "created_at",
+            "creator",
+            "generation",
+            "liquidity_raw",
+            "metrics_at",
+            "name_key",
+            "payload",
+            "pool_address",
+            "pool_status",
+            "revision",
+            "risk_flags",
+            "ticker_key",
+            "token_address",
+            "verified_quote",
+            "visibility_revision",
+            "volume_1h",
+            "volume_24h",
+            "volume_7d"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "liquidity_raw",
+            "metrics_at",
+            "name_key",
+            "payload",
+            "pool_status",
+            "revision",
+            "risk_flags",
+            "ticker_key",
+            "verified_quote",
+            "visibility_revision",
+            "volume_1h",
+            "volume_24h",
+            "volume_7d"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "generations_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "generation",
+            "source_observed_at",
+            "source_watermark",
+            "state",
+            "validated_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "generations_v2",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "generations_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "activated_at",
+            "digest",
+            "row_count",
+            "source_observed_at",
+            "source_watermark",
+            "state",
+            "validated_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "preferences_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "payload",
+            "wallet"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "preferences_v2",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "preferences_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "payload",
+            "revision"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "display_name",
+            "revision",
+            "wallet"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "DELETE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "display_name",
+            "name_key",
+            "revision",
+            "updated_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_tombstones_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "wallet"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_tombstones_v2",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_tombstones_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "revision"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "revision_v2",
+          "object_kind": "sequence",
+          "privileges": [
+            "USAGE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "source_documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "payload",
+            "pool_address"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "source_documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "payload"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "source_documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_transfer_holdings",
+          "object": "classifications",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "category",
+            "evidence",
+            "version"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_transfer_holdings",
+          "object": "legacy_rows",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "normalized_address",
+            "numeric_balance",
+            "raw",
+            "reason"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_transfer_holdings",
+          "object": "transfers",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "identity"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "users",
+          "object": "account_public_search_v2",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "deleted",
+            "display_name",
+            "public",
+            "revision"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "users",
+          "object": "account_search_events_v2",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "deleted",
+            "display_name",
+            "event_id",
+            "kind",
+            "payload",
+            "public",
+            "revision",
+            "source_revision",
+            "updated_at",
+            "wallet"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "stats",
+          "object": "security_audit_outbox_id_seq",
+          "object_kind": "sequence",
+          "privileges": [
+            "USAGE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats",
+          "object": "delivery_consumer_watermarks",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "broker_sequence",
+            "envelope_hash",
+            "event_id",
+            "source_order"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "preferences_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "revision"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_documents_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "name_key",
+            "updated_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "stats_search",
+          "object": "profile_tombstones_v2",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "revision"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "users",
+          "object": "account_public_search_v2",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "wallet"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "stats",
+          "object": "delivery_consumer_watermarks",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "consumer_id",
+            "generation",
+            "partition_key",
+            "partition_kind"
+          ],
+          "argument_types": [],
+          "grant_option": false
         }
       ],
       "schema_capabilities": [
@@ -2861,6 +3749,11 @@
           "service": "core/stats-workers/holdings",
           "schema": "stats_transfer_holdings",
           "owner_role": "stats_transfer_holdings_owner"
+        },
+        {
+          "service": "core/stats-workers/search",
+          "schema": "stats_search",
+          "owner_role": "stats_search_owner"
         }
       ]
     },
