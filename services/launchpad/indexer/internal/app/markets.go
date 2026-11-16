@@ -289,12 +289,6 @@ func (s *recoveringQualifiedSource) readMarketHeight(ctx context.Context, height
 		}
 		transactions[i] = &tx
 	}
-	// An empty transaction list cannot contain a market log. The receipt-root
-	// and bloom checks below still run on an empty list, so no receipt RPC is
-	// needed in either block-identity mode.
-	if len(transactions) == 0 {
-		return marketHeightRead{header: header, hash: body.Hash, transactions: transactions, receipts: types.Receipts{}, rawTxs: body.Transactions}, nil
-	}
 	receipts, err := s.client.BlockReceipts(ctx, rpc.BlockNumberOrHashWithHash(body.Hash, true))
 	if err != nil {
 		var rpcErr rpc.Error
