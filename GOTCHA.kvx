@@ -22915,3 +22915,8 @@ fix = "Decision 3697. Task 22.39.767."
 title = "The verification form of the explorer backend subscribes with the address as its field holds it"
 symptom = "The page script pages/verification_form.js under services/explorer/backend/apps/block_scout_web/assets/js reads the address from the field of the form and builds the topic of the address channel from that value as it stands. The notifier under services/explorer/backend/apps/block_scout_web/lib publishes the result of a contract verification on the topic of the address in its lower case form. A form opened with an address written with capitals therefore listens on a topic on which no result is published, and the form shows neither the result nor the messages of the compiler."
 fix = "Decision 3698. Task 22.39.688."
+
+[gotcha.4619]
+title = "The function that appends a ranking head to the public stream reads its head without the category"
+symptom = "The function api_stream.append_ranking of the registered migration 190003 under migrations reads the committed head by the run, by the sequence of its category and by the output digest, and admits one row. The heads of several categories of one run can share that sequence and that digest; every category of a run over an empty set of markets does. The read then finds several rows, the function ends with an error, and the publication of that run does not complete."
+fix = "Decision 3699. Task 22.39.766."
