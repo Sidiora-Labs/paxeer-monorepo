@@ -15178,6 +15178,12 @@ value = "A command under services/launchpad/api/cmd writes the network authority
 basis = "Gotcha 4595. Decisions 3663 and 3046."
 affects = []
 
+[decision.3678]
+title = "The launchpad indexer compares the bloom and the root of a header with the receipts the header of the node covers"
+value = "Where receipts of the shell type are set aside, the comparison of the bloom of a header, and of the receipt root where the identity of the block is not reported, covers the receipts that the node puts into the header of the eth namespace. The form is read from the node: which receipts the bloom of that header holds and what its receipt root is made of, for a block without listed transactions and for a block with receipts of both kinds. A receipt set aside keeps every check of its own: block hash and height, its transaction hash, the indexes of its logs and its own bloom over its own logs. The receipts of the listed transactions keep every check they have now. The two functions and every caller follow one rule, and the cases make their headers in the form of the node."
+basis = "Gotcha 4596. Decisions 3656 and 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44838,6 +44844,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.749]
+title = "Compare the bloom and the root of a header in the launchpad indexer with the receipts the header of the node covers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/receipt/... && go test -count=1 -timeout 30m -run '^TestShellReceipt' ./internal/source/ ./internal/processor/"
+do_1 = "do_1 Gotcha 4596, decision 3678. Read the function SeparateShellReceipts of services/launchpad/indexer/internal/receipt/shell.go and its three callers in services/launchpad/indexer/internal/app/markets.go, services/launchpad/indexer/internal/receipt/rpc.go and services/launchpad/indexer/internal/receipt/archive.go, the function separateShellReceipts of services/launchpad/indexer/internal/source/shell.go with its callers, and the cases of services/launchpad/indexer/internal/receipt/shell_test.go, services/launchpad/indexer/internal/source/shell_test.go and services/launchpad/indexer/internal/processor/shell_receipt_test.go. Read in the node which bloom and which receipt root the header of the eth namespace carries: the two blooms of a block in modules/evm/keeper/abci.go with their readers in modules/evm/keeper/log.go, the function EncodeTmBlock of rpc/block.go with the bloom and the receipt root it writes, and the listing of the receipts of a block under rpc. State in the final message, for a block without listed transactions that holds one receipt of the shell type with logs and for a block with receipts of both kinds, which receipts the bloom of the header holds, what the receipt root of the header is made of, and how the transaction index and the log index of each receipt are numbered."
+symbols = []
 
 [capability.22.39.748]
 title = "Write the network authority document of the api with a command of the repository"
@@ -249054,6 +249069,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.749]
+title = "Compare the bloom and the root of a header in the launchpad indexer with the receipts the header of the node covers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.749"]
+interfaces = []
+do_1 = "do_1 Gotcha 4596, decision 3678. Read the function SeparateShellReceipts of services/launchpad/indexer/internal/receipt/shell.go and its three callers in services/launchpad/indexer/internal/app/markets.go, services/launchpad/indexer/internal/receipt/rpc.go and services/launchpad/indexer/internal/receipt/archive.go, the function separateShellReceipts of services/launchpad/indexer/internal/source/shell.go with its callers, and the cases of services/launchpad/indexer/internal/receipt/shell_test.go, services/launchpad/indexer/internal/source/shell_test.go and services/launchpad/indexer/internal/processor/shell_receipt_test.go. Read in the node which bloom and which receipt root the header of the eth namespace carries: the two blooms of a block in modules/evm/keeper/abci.go with their readers in modules/evm/keeper/log.go, the function EncodeTmBlock of rpc/block.go with the bloom and the receipt root it writes, and the listing of the receipts of a block under rpc. State in the final message, for a block without listed transactions that holds one receipt of the shell type with logs and for a block with receipts of both kinds, which receipts the bloom of the header holds, what the receipt root of the header is made of, and how the transaction index and the log index of each receipt are numbered."
+do_2 = "do_2 The function SeparateShellReceipts compares the bloom of the header with the merged bloom of the receipts the header of the node covers, in the form read in do_1, and where the identity of the block is not reported it compares the receipt root in the form the node gives it. A receipt set aside keeps every check of its own: the hash and the height of the block, a transaction hash that differs from the hash of every listed transaction and occurs once, the indexes of its logs, the bounds on count and size, and its own bloom over its own logs. The receipts of the listed transactions keep every check they have now, the index of each transaction, the index of each log and the bloom of each receipt included. State the form in a comment at the comparison."
+do_3 = "do_3 The function separateShellReceipts of services/launchpad/indexer/internal/source/shell.go follows the same rule, and so does every other place of services/launchpad/indexer that compares a bloom or a receipt root of a header with receipts where receipts of the shell type can occur. List these places in the final message with what each compares after the change."
+do_4 = "do_4 Cases, with names that start with TestShellReceipt: a block without listed transactions and with one receipt of the shell type that holds logs, whose header carries a bloom without any log, is admitted, by the function, by the walk of services/launchpad/indexer/internal/app with recorded answers of a node, by the receipt authority and by the qualified source; a block with one listed transaction and one receipt of the shell type, whose header carries the bloom of the receipt of the listed transaction alone, is admitted and the receipt of the listed transaction qualifies as now; a header whose bloom lacks a log of a listed transaction is refused; a header whose bloom holds a log that no receipt the header covers holds is refused; a receipt set aside whose own bloom differs from its logs is refused. The present cases of the three test files take the form of the node for the headers they make, and each keeps what it refuses and what it admits. No other case is weakened. Run by hand the cases of services/launchpad/indexer/internal/app, of services/launchpad/indexer/internal/receipt, and the cases named TestShellReceipt of services/launchpad/indexer/internal/source and services/launchpad/indexer/internal/processor, and read each message."
+do_5 = "do_5 The files of services/launchpad/indexer are inside the paths of this task, and it makes no difference whether a case of these packages passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. The files of the node under modules and rpc are read only. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/receipt/... && go test -count=1 -timeout 30m -run '^TestShellReceipt' ./internal/source/ ./internal/processor/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.748]
 title = "Write the network authority document of the api with a command of the repository"
