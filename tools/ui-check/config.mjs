@@ -25,6 +25,8 @@ export const DEVICES = Object.freeze([
 export const REPOSITORY = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 export const MODES = Object.freeze(["default", "reduced-motion", "double-text", "keyboard"]);
+export const FINDING_KINDS = Object.freeze(["load", "sideways", "cut", "contrast", "touch", "focus", "shift", "motion", "scale", "geometry"]);
+export const GEOMETRY_WIDTHS = Object.freeze([390, 1280, 1440, 1920, 2560]);
 
 export function renderMatrix(modes = MODES) {
   return DEVICES.flatMap((size) =>
@@ -181,8 +183,29 @@ export async function readSurface(filename) {
   const file = await realpath(resolve(filename));
   const base = dirname(file);
   const value = JSON.parse(await readFile(file, "utf8"));
-  object(value, ["name", "directory", "build", "buildMs", "outputs", "start", "address", "readyPath", "views", "answers", "typeScale"], "surface");
+  object(value, ["name", "directory", "build", "buildMs", "outputs", "start", "address", "readyPath", "views", "answers", "typeScale", "geometry", "reportedKinds"], "surface");
   text(value.name, "surface.name");
+  if (value.reportedKinds !== undefined) {
+    array(value.reportedKinds, "surface.reportedKinds");
+    if (new Set(value.reportedKinds).size !== value.reportedKinds.length || value.reportedKinds.some((kind) => !FINDING_KINDS.includes(kind) || ["load", "geometry"].includes(kind))) {
+      throw new Error("surface.reportedKinds must contain unique known kinds other than load and geometry");
+    }
+  }
+  if (value.geometry !== undefined) {
+    object(value.geometry, ["file", "widths"], "surface.geometry");
+    text(value.geometry.file, "surface.geometry.file");
+    if (isAbsolute(value.geometry.file) || win32.isAbsolute(value.geometry.file)) {
+      throw new Error("surface.geometry.file must be relative to the surface file");
+    }
+    const destination = await canonicalDestination(resolve(base, value.geometry.file));
+    if (destination === file) throw new Error("surface.geometry.file must differ from the surface file");
+    const widths = value.geometry.widths === undefined ? [...GEOMETRY_WIDTHS] : value.geometry.widths;
+    array(widths, "surface.geometry.widths", true);
+    if (new Set(widths).size !== widths.length || widths.some((width) => !Number.isSafeInteger(width) || width <= 0)) {
+      throw new Error("surface.geometry.widths must contain unique positive whole pixel widths");
+    }
+    value.geometry = { file: destination, widths: [...widths].sort((a, b) => a - b) };
+  }
   text(value.directory, "surface.directory");
   const directory = await realpath(resolve(base, value.directory));
   if (!(await stat(directory)).isDirectory()) throw new Error("surface.directory must be a directory");
@@ -211,8 +234,17 @@ export async function readSurface(filename) {
   localPath(value.readyPath, "surface.readyPath");
   array(value.views, "surface.views", true);
   for (const view of value.views) {
-    object(view, ["name", "path", "states", "expects", "answers", "modes"], "view");
+    object(view, ["name", "path", "states", "expects", "answers", "modes", "parts"], "view");
     text(view.name, "view.name");
+    if (view.parts !== undefined) {
+      array(view.parts, `View ${view.name} parts`);
+      for (const part of view.parts) {
+        object(part, ["name", "selector"], `View ${view.name} part`);
+        text(part.name, `View ${view.name} part.name`);
+        text(part.selector, `View ${view.name} part.selector`);
+      }
+      uniqueNames(view.parts, `View ${view.name} part`);
+    }
     localPath(view.path, "view.path");
     view.modes = readModes(view.modes, MODES, `View ${view.name} modes`);
     view.expects = expectations(view.expects, "view.expects");
