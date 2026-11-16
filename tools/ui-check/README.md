@@ -159,14 +159,46 @@ A fixed answer entry has these fields:
 
 `method`, `pattern` and `file` are required. Patterns match the entire HTTP(S)
 address; `*` matches any sequence of characters, and all other characters are
-literal. The first matching method and pattern wins. Status defaults to 200.
-The file must be beside the surface file or in one of its subdirectories.
-Headers and status are optional. Supply the response's content type and CORS
-headers when the page needs them. Match preflight OPTIONS requests separately
-where applicable. Fixed answers replace requests to other origins inside the
-browser. Unmatched requests are blocked and reported. External WebSockets are
-blocked and reported; same-origin WebSockets are connected. Service workers are
-blocked so requests remain observable.
+literal. The file must be beside the surface file or in one of its subdirectories.
+Status defaults to 200. Headers and status are optional. Supply the response's
+content type and CORS headers when the page needs them. Match preflight OPTIONS
+requests separately where applicable. Fixed answers replace requests to other
+origins inside the browser. Unmatched requests are blocked and reported.
+External WebSockets are blocked and reported; same-origin WebSockets are
+connected. Service workers are blocked so requests remain observable.
+
+Views and named states may also contain an `answers` list with the same fields
+and file rules. During a named-state render, the first matching answer is chosen
+from state answers, then view answers, then surface answers. The initial state
+uses view answers before surface answers. Each view and state keeps only its own
+list, so an answer does not carry into another view or state. The report gives
+each view and state the count of entries in its own list. For example, a sign-in
+view can refuse one session request while signed out and admit that same address
+after a signed-in state supplies two answers:
+
+```json
+{
+  "name": "sign-in",
+  "path": "/sign-in.html",
+  "answers": [],
+  "states": [
+    {
+      "name": "signed-out",
+      "steps": [],
+      "answers": [
+        { "method": "GET", "pattern": "https://api.example.test/session", "file": "answers/refused.json", "status": 401 }
+      ]
+    },
+    {
+      "name": "signed-in",
+      "steps": [],
+      "answers": [
+        { "method": "GET", "pattern": "https://api.example.test/session", "file": "answers/session.json" }
+      ]
+    }
+  ]
+}
+```
 
 A view may declare `expects` for its initial state, and each named state may
 declare its own `expects` list. Every entry requires an uppercase `method`, a
