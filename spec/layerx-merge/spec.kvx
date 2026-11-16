@@ -176422,7 +176422,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.1]
 title = "Bring the explorer theme, its base components and its global style to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.8"]
@@ -212904,7 +212904,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.713]
 title = "Give the health answers of the dashboard API and of the hosted webhooks service a network and a version"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.709"]
@@ -385495,7 +385495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.572]
 title = "Describe the trading workspace in its readme and in the documents that name the application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.564"]
