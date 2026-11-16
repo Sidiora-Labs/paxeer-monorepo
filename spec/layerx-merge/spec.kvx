@@ -174711,7 +174711,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.62]
 title = "Let a view and a state of a surface file of the render check name fixed answers of their own"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.60"]
@@ -174843,7 +174843,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.718]
 title = "Bring the lockfile of the trading workspace to its floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.571", "22.39.716"]
@@ -249409,7 +249409,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.740]
 title = "List the statements of the indexer service under its runtime role and hold their plans with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
