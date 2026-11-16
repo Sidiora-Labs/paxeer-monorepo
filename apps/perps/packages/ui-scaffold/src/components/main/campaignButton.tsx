@@ -16,7 +16,7 @@ export const CampaignButton = (props: CampaignProps) => {
         item={props.item}
         onClick={props.onItemClick}
         classNames={{
-          navItem: cn("oui-text-base-contrast-54 -oui-ms-2", props.className),
+          navItem: cn("oui-text-base-contrast-80 -oui-ms-2", props.className),
         }}
       />
     </>

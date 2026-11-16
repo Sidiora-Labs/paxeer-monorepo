@@ -3,7 +3,13 @@ import { ErrorBoundary } from "react-error-boundary";
 
 /** Default fallback when plugin has no onFallback */
 const DEFAULT_FALLBACK = (pluginId: string) => (
-  <div style={{ color: "#ef4444", fontSize: "12px" }}>
+  <div
+    role="alert"
+    style={{
+      color: "rgb(var(--oui-color-danger))",
+      fontSize: "var(--oui-font-size-2xs)",
+    }}
+  >
     [Plugin {pluginId} error]
   </div>
 );

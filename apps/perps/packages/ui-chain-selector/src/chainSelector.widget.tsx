@@ -1,4 +1,8 @@
-import { registerSimpleDialog, registerSimpleSheet } from "@paxeer-network/ui";
+import {
+  registerSimpleDialog,
+  registerSimpleSheet,
+} from "../../ui-connector/src/platformOverlays";
+
 import {
   useChainSelectorScript,
   UseChainSelectorScriptOptions,
