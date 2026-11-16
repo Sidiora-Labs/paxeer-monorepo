@@ -14890,6 +14890,12 @@ value = "A render of the render check ends within a deadline the tool holds amon
 basis = "Gotcha 4546. Decisions 3620, 3622 and 3624."
 affects = []
 
+[decision.3630]
+title = "Task 22.39.569 follows task 22.39.704, and the blank measurement and the proofs of the large surfaces follow task 22.44.58"
+value = "Task 22.39.569 names task 22.39.704 among its requirements. The tasks of the render check run in the order 22.44.53, 22.44.58, 22.44.54. The proofs of the explorer, of the trading workspace and of the documentation site name task 22.44.58 among their requirements and apply the rule of decision 3629 for the modes of a view: every route is a view, every view renders in the mode default on every device in both schemes, and each template and each kind of state keeps at least one view in every mode."
+basis = "Gotcha 4547. Decisions 3628 and 3629."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -174123,7 +174129,7 @@ title = "Let the render check report a render that shows nothing"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.53"]
+requires = ["22.44.53", "22.44.58"]
 reqs = ["22998.1"]
 capabilities = ["22.44.54"]
 interfaces = []
@@ -174151,10 +174157,11 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "do_8 Decision 3630. Task 22.44.58 comes before this task: read the form it gives to tools/ui-check/check.mjs, tools/ui-check/config.mjs, the README and the cases before any change. The measurement of a render that shows nothing runs inside the deadline of a render, and its findings and counts are the same for every count of renders at once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.53]
 title = "Let the keyboard measurement of the render check follow an open modal dialog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174518,7 +174525,7 @@ title = "Close the documentation site on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.36", "22.44.37", "22.44.52", "22.44.54"]
+requires = ["22.44.36", "22.44.37", "22.44.52", "22.44.58"]
 reqs = ["22998.1"]
 capabilities = ["22.44.48"]
 interfaces = []
@@ -174819,7 +174826,7 @@ title = "Close the trading workspace on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.18", "22.44.37", "22.44.52"]
+requires = ["22.44.18", "22.44.37", "22.44.52", "22.44.58"]
 reqs = ["22998.1"]
 capabilities = ["22.44.39"]
 interfaces = []
@@ -174847,13 +174854,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "do_7 Decision 3624, gotcha 4541. The device list of a proof task is the list of sizes of the render check and not a page of the application. The views of the surface file are every route the application serves: one view at least for each page file of its router, a route with a parameter under a stand-in value, and each view with the states worth a render. Give in the final message the count of page files and the count of routes that have a view; the two are equal. Measure each screenshot of the last run for content, the count of distinct colours and the text drawn; a screenshot of a single colour is a view that draws nothing and is corrected at its cause. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_8 = "do_8 Decisions 3629 and 3630. The surface file holds every route of the application as a view, and every view renders in the mode default on every device in both schemes. Where the surface holds more than twenty-four views, give the key modes with the value default alone to views that share a template with a view that renders in every mode, so that each template and each kind of state keeps at least one view in every mode, and name these views and states in the record. Run the check by hand before the counted verification and measure its time: the whole check ends within forty minutes with the default count of renders at once. Give the time, the count of renders and the count of findings in the final message. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.38]
 title = "Close the explorer on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.11", "22.44.37", "22.44.52"]
+requires = ["22.44.11", "22.44.37", "22.44.52", "22.44.58"]
 reqs = ["22998.1"]
 capabilities = ["22.44.38"]
 interfaces = []
@@ -174881,6 +174889,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "do_7 Decision 3624, gotcha 4541. The device list of a proof task is the list of sizes of the render check and not a page of the application. The views of the surface file are every route the application serves: one view at least for each page file of its router, a route with a parameter under a stand-in value, and each view with the states worth a render. Give in the final message the count of page files and the count of routes that have a view; the two are equal. Measure each screenshot of the last run for content, the count of distinct colours and the text drawn; a screenshot of a single colour is a view that draws nothing and is corrected at its cause. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_8 = "do_8 Decisions 3629 and 3630. The surface file holds every route of the application as a view, and every view renders in the mode default on every device in both schemes. Where the surface holds more than twenty-four views, give the key modes with the value default alone to views that share a template with a view that renders in every mode, so that each template and each kind of state keeps at least one view in every mode, and name these views and states in the record. Run the check by hand before the counted verification and measure its time: the whole check ends within forty minutes with the default count of renders at once. Give the time, the count of renders and the count of findings in the final message. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.37]
 title = "Add the render check that closes a surface on the device list"
@@ -175721,7 +175730,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.14]
 title = "Bring the trading views and the chart frame of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
@@ -202213,7 +202222,7 @@ title = "Point the Go readers of the trading client at the workspace"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563", "22.39.674"]
+requires = ["22.39.563", "22.39.674", "22.39.704"]
 reqs = ["22998.1"]
 capabilities = ["22.39.569"]
 interfaces = []
@@ -202238,6 +202247,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3630, gotcha 4547. The case of the trading workspace that the parity case starts loads the error widgets of the workspace, and task 22.39.704 gives their modules. The work of the earlier candidate stays as it is. Run the three cases of the verification by hand first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.568]
 title = "Make the reviewed Go builder of the launchpad images and the Go directives of the launchpad modules agree"
