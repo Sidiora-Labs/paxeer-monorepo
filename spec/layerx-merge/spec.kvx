@@ -175782,7 +175782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.16]
 title = "Bring the markets, portfolio, transfer and vault views of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
