@@ -174576,7 +174576,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.60]
 title = "Let a surface file of the render check name the bound of its build and the outputs its build makes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
