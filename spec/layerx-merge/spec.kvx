@@ -15214,6 +15214,18 @@ value = "The contract treats the expected schema document as it treats the two r
 basis = "Gotcha 4601. Decision 3663."
 affects = []
 
+[decision.3684]
+title = "The social service resolves the schema chat first in every profile"
+value = "The service sets the search path of its pool itself, in every profile, by the one function it already has for it. The start of the service applies RuntimeDSN to the database URL before it opens the pool, in production with the profile container as outside production and in the profile platform. A search path the URL carries stays after the schema chat, as the function does now. Nothing else of the URL changes, and the checks of the runtime pool, of the budget document and of the expected schema document stay as they are. A deployment need not add a parameter to DATABASE_URL, and one that carries the parameter keeps working. No statement of the service changes."
+basis = "Gotcha 4602."
+affects = []
+
+[decision.3685]
+title = "The api serves the internal notification routes on a private listener with mutual TLS"
+value = "The api in the role rest gains a second listener, named by API_PRIVATE_LISTEN_ADDRESS, in the form decision 3676 gave ranking, user, metadata and social: an IP and port distinct from PORT, fixed in the contract as 0.0.0.0:8443. The listener serves only the handler for internal callers of the notification runtime and nothing of the public router; the plain listener on PORT keeps the public routes and the health routes and never serves an internal route. The listener requires and verifies a client certificate. It presents the certificate and key the api already holds for its calls to the identity authority, and verifies clients against the same authority certificate: the inputs IDENTITY_CLIENT_CERT, IDENTITY_CLIENT_KEY and IDENTITY_CA in their file or inline form. No new secret and no new certificate input is added; TLS 1.3 is the minimum. The listener exists exactly where the discovery runtime document is bound. With the document bound and no private listen address the api refuses to start in production with a message that names the variable; an address equal to the plain listener is refused the same way; with no document bound the address is ignored and no second listener is opened. The policy of the library stays the single authorization of the two routes: peer name by route and bearer token. The role sockets has no such listener. The entry of the api in the contract gains the fixed name, and the README and the compose file of deploy/launchpad name it beside the four others."
+basis = "Gotcha 4603. Decision 3676."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44874,6 +44886,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.755]
+title = "Serve the internal notification routes of the api on a private listener with mutual TLS"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad/api", "services/launchpad/notifications", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PrivateNotification ./internal/app/ ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 4603, decision 3685. Read in services/launchpad/notifications the handler for internal callers, its policy and the runtime that builds both; in services/launchpad/api/internal/app/app.go the registration of the discovery runtime, the place where the server is built and started and the shutdown; in services/launchpad/api/internal/config the identity inputs in their file and inline form and how the api builds its client TLS configuration from them; and in the user service and the ranking service under services/launchpad how the second listener is configured, checked, started and shut down since task 22.39.747. Read the entry of the api in the variables file in the platform directory under deploy/launchpad, the README and the compose file of deploy/launchpad where they name the private listen addresses, and the cases that compare the fixed names of an entry. State in the final message which files compare the fixed names of the api entry with another list."
+symbols = []
+
+[capability.22.39.754]
+title = "Resolve the schema chat first on the pool of the social service in the container profile"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "(cd services/launchpad/social && go test -count=1 -timeout 20m -run ContainerProfilePool ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 4602, decision 3684. Read in services/launchpad/social/internal/app/app.go the start of the service from the place where it reads the profile to the place where it opens the runtime pool, in services/launchpad/social/internal/devsocial/runtime.go the function RuntimeDSN, in services/launchpad/social/internal/config how the runtime pool is opened and what it compares with the budget document, and the cases of services/launchpad/social/internal/app and services/launchpad/social/internal/rolecheck that set a search path on their own connections. State in the final message whether the runtime pool compares the database URL with any bound value."
+symbols = []
 
 [capability.22.39.753]
 title = "Give the expected schema document of the launchpad services its file form in the contract and the composer"
@@ -249383,6 +249413,70 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.755]
+title = "Serve the internal notification routes of the api on a private listener with mutual TLS"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.747", "22.39.751", "22.39.753"]
+reqs = ["22998.1"]
+capabilities = ["22.39.755"]
+interfaces = []
+do_1 = "do_1 Gotcha 4603, decision 3685. Read in services/launchpad/notifications the handler for internal callers, its policy and the runtime that builds both; in services/launchpad/api/internal/app/app.go the registration of the discovery runtime, the place where the server is built and started and the shutdown; in services/launchpad/api/internal/config the identity inputs in their file and inline form and how the api builds its client TLS configuration from them; and in the user service and the ranking service under services/launchpad how the second listener is configured, checked, started and shut down since task 22.39.747. Read the entry of the api in the variables file in the platform directory under deploy/launchpad, the README and the compose file of deploy/launchpad where they name the private listen addresses, and the cases that compare the fixed names of an entry. State in the final message which files compare the fixed names of the api entry with another list."
+do_2 = "do_2 The configuration of the api reads API_PRIVATE_LISTEN_ADDRESS. In production in the role rest with a discovery runtime document bound it demands an IP and port distinct from PORT and refuses to start otherwise, with a message that names the variable. With no document bound, and in the role sockets, the value is ignored. The checks follow the form of the four services that hold such an address."
+do_3 = "do_3 Where the discovery runtime is built, the api opens the second listener on the address. It serves only the handler for internal callers of the runtime. Its TLS configuration requires and verifies a client certificate against the authority certificate of the identity inputs, presents the certificate and key of the same inputs, and sets TLS 1.3 as the minimum. The public router does not serve a path under /internal, and the second listener answers no public route and no health route. The listener starts and shuts down with the server, and a failure to bind ends the start with an error. The policy of the library is the authorization of both routes and does not change."
+do_4 = "do_4 The entry of the api in the variables file in the platform directory under deploy/launchpad gains the fixed name API_PRIVATE_LISTEN_ADDRESS with the value 0.0.0.0:8443; the entry of the role sockets does not. Every file do_1 found that compares the fixed names follows the contract: the values file of the launchpad under deploy/launchpad, the fixtures and recordings of the cases under deploy/launchpad/tests and tools/deploy/tests, and the cases of the api. The README and the compose file of deploy/launchpad name the address beside the four others, and the README states that the user service and the social service reach the internal notification routes of the api there."
+do_5 = "do_5 Cases in services/launchpad/api/internal/app whose names start with TestPrivateNotification, with certificates made in the case and listeners on loopback: a connection without a client certificate is refused; a client whose certificate names the delete peer and that sends the token is admitted to the removal route and refused on the chat route; a client whose certificate names the chat peer is admitted to the chat route and refused on the removal route; a right peer with a wrong token is refused; a certificate of another authority is refused; the plain listener answers no path under /internal and the second listener answers no public route. Cases in services/launchpad/api/internal/config: the three refusals and the ignored forms of do_2. Where a case can show the authorization without a store it needs no database; a case that needs one uses the helper the package already has. The present cases stay and none is weakened."
+do_6 = "do_6 Run by hand the new cases, the cases named PlatformDocuments of services/launchpad/api/internal/config, the case TestRuntimeRoleStatements of services/launchpad/api/internal/rolecheck, the cases of deploy/launchpad/documents/test_compose.py and the two shell cases of the verification, one after another, and read each message. The files of deploy/launchpad, services/launchpad/api, services/launchpad/notifications and tools/deploy with its tests and fixtures are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Where the inventory of the statement case names a position in a changed file, bring the inventory in line; its list of waiting statements stays as it is. No case is removed or weakened. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad/api", "services/launchpad/notifications", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/api.py && (cd services/launchpad/api && go build ./... && go vet ./internal/app/ ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PrivateNotification ./internal/app/ ./internal/config/ && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.754]
+title = "Resolve the schema chat first on the pool of the social service in the container profile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.747"]
+reqs = ["22998.1"]
+capabilities = ["22.39.754"]
+interfaces = []
+do_1 = "do_1 Gotcha 4602, decision 3684. Read in services/launchpad/social/internal/app/app.go the start of the service from the place where it reads the profile to the place where it opens the runtime pool, in services/launchpad/social/internal/devsocial/runtime.go the function RuntimeDSN, in services/launchpad/social/internal/config how the runtime pool is opened and what it compares with the budget document, and the cases of services/launchpad/social/internal/app and services/launchpad/social/internal/rolecheck that set a search path on their own connections. State in the final message whether the runtime pool compares the database URL with any bound value."
+do_2 = "do_2 The start of the service applies RuntimeDSN to the database URL in every profile before the runtime pool is opened. The step that decides the URL of the pool is one function of the package that a case can call without a database. The comment at the place states the rule in one sentence. No statement, no migration and no other service changes."
+do_3 = "do_3 Cases in services/launchpad/social/internal/app whose names start with TestContainerProfilePool: for production with the profile container the URL of the pool carries the schema chat first where the given URL carries no search path, keeps a given search path after the schema chat, and leaves host, database, user and every other parameter as given; the same holds for the profile platform and outside production. The cases need no database, no broker and no node. The present cases stay and none is weakened."
+do_4 = "do_4 Run by hand the new cases, the cases of services/launchpad/social/internal/app and the case TestRuntimeRoleStatements of services/launchpad/social/internal/rolecheck, one after another, and read each message. The files of services/launchpad/social are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Where the inventory of the statement case names a position in a changed file, bring the inventory in line; its list of waiting statements stays as it is. No case is removed or weakened. Start the build and the counted verification early. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/social && go build ./... && go vet ./internal/app/)"
+verify_cmd = "(cd services/launchpad/social && go test -count=1 -timeout 20m -run ContainerProfilePool ./internal/app/ && go test -count=1 -timeout 20m -run RuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.753]
 title = "Give the expected schema document of the launchpad services its file form in the contract and the composer"
 status = "pending"
@@ -249417,7 +249511,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.752]
 title = "Fix the metadata service of the launchpad to the mutual TLS form and admit its listener materials inline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.747"]
@@ -249449,7 +249543,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.751]
 title = "Name in the contract and the composer of the launchpad api every document its readiness reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.750"]
