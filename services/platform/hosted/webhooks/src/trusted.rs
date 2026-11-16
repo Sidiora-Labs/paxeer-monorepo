@@ -960,7 +960,7 @@ impl ReceiptVerifier {
             policy,
         })
     }
-    fn ready_until(&self, deadline: Instant) -> bool {
+    pub fn ready_until(&self, deadline: Instant) -> bool {
         [(&self.node, "eth_chainId"), (&self.comet, "status")]
             .into_iter()
             .all(|(endpoint, method)| {
@@ -972,7 +972,7 @@ impl ReceiptVerifier {
                         &OutboundRequest {
                             endpoint,
                             method: "POST",
-                            path: "/",
+                            path: "",
                             bearer: Some(self.token.as_str()),
                             idempotency: None,
                             headers: &[],
@@ -1009,7 +1009,7 @@ impl ReceiptVerifier {
             .request(&OutboundRequest {
                 endpoint,
                 method: "POST",
-                path: "/",
+                path: "",
                 bearer: Some(self.token.as_str()),
                 idempotency: None,
                 headers: &[],
