@@ -1,0 +1,14 @@
+*
+!apps/
+!apps/bridge/
+!apps/bridge/package.json
+!apps/bridge/pnpm-lock.yaml
+!apps/bridge/pnpm-workspace.yaml
+!apps/bridge/.pnpmfile.cjs
+!apps/bridge/next.config.ts
+!apps/bridge/next-env.d.ts
+!apps/bridge/tsconfig.json
+!apps/bridge/src/
+!apps/bridge/src/**
+!apps/bridge/public/
+!apps/bridge/public/**
