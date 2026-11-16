@@ -1,26 +1,4 @@
-"""Repair 22.31.455: inspect real npm/pnpm resolutions without network at gate time.
-
-Advisories were read with gh api /advisories/<GHSA> during implementation.
-Public reads used GH_TOKEN=unauthenticated and -H 'Authorization: anonymous';
-the header avoids gh's authentication requirement without using a credential.
-None of the three original packages has an upstream patched version. Do not
-invent an upstream minimum or treat a high alias version as an upstream fix.
-
-Legacy Truffle/OpenZeppelin and WalletConnect consumers use APIs incompatible
-with Web3 4. Their remaining dependency paths are removed by installing real,
-API-compatible maintained forks under aliases. @mapped/elliptic includes the
-RFC6979 leading-zero fix for GHSA-848j-6mx2-7j84; @cypress/request has the 3.0.0
-advisory fix. @stackline/deepmerge drops __proto__ by default and preserves the
-deepmerge 4 API, including merge.all. These are published implementations, not
-local shims. CosmJS 0.39 removes elliptic through noble-curves. Hardhat toolbox
-6 and gas-reporter 2 remove the old gas reporter's ethers 5/Web3 dependency path.
-
-Frozen installation commands below run during implementation, with lifecycle
-scripts disabled so installing dependencies does not run extra builds or gates.
-The declared Python gate parses only the committed manifests and lockfiles.
-hf-build and hf-done bind qualification to the final content-derived revision;
-their final JSON/private ledger is the verified-revision repair record.
-"""
+"""Check npm and pnpm resolutions, advisory identities and maintained forks."""
 
 import json
 from pathlib import Path
@@ -31,7 +9,6 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[3]
-BASE_REVISION = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
 EXPLORER = "services/explorer/backend/apps/block_scout_web/assets"
 
 # Exact npm entries returned by GitHub, including the patched request fork.
@@ -85,8 +62,6 @@ REPLACEMENTS = {
 NPM_INSTALL = "npm ci --ignore-scripts --no-audit --no-fund --workspaces=false"
 PNPM_INSTALL = "CI=true pnpm install --frozen-lockfile --ignore-scripts"
 REPAIR_RECORD = {
-    "base_revision": BASE_REVISION,
-    "qualification": "hf-done JSON: revision, command, exit, private log",
     "directories": {
         "contracts": ("package-lock.json", NPM_INSTALL, ("elliptic", "request")),
         "contracts/launchpad": ("pnpm-lock.yaml", PNPM_INSTALL, ("elliptic",)),
@@ -97,7 +72,7 @@ REPAIR_RECORD = {
             ("elliptic", "request", "deepmerge"),
         ),
         "apps/launchpad": ("pnpm-lock.yaml", PNPM_INSTALL, ("deepmerge",)),
-        "apps/perps": ("pnpm-lock.yaml", PNPM_INSTALL, ("deepmerge",)),
+        "apps/perps": ("pnpm-lock.yaml", PNPM_INSTALL, ("elliptic", "deepmerge")),
     },
     "alerts": {
         29: ("contracts/package-lock.json", "remove upstream elliptic path via fork"),
@@ -136,15 +111,11 @@ REPAIR_RECORD = {
         "sdk/js": "@cosmjs/proto-signing -> @cosmjs/crypto -> elliptic",
         EXPLORER: "WalletConnect/provider-engine, crypto-browserify, Jest/deepmerge",
         "apps/launchpad": "React Native community CLI -> deepmerge",
-        "apps/perps": "@svgr/plugin-svgo and @rollup/plugin-node-resolve -> deepmerge",
+        "apps/perps": {
+            "deepmerge": "svelte-i18n -> deepmerge@4.3.1",
+            "elliptic": "@ethersproject/signing-key and secp256k1 -> elliptic@6.6.1",
+        },
     },
-    "gotchas": (
-        "All original advisory minima are null; require absence of original identities.",
-        "Aliases retain import names: inspect package identity and tarball integrity.",
-        "pnpm 9 why matches the replacement identity; query @stackline/deepmerge.",
-        "Root npm install targets the root; use each directory with workspaces=false.",
-        "Preserve runner changes; do not edit out-of-scope GOTCHA.kvx or spec files.",
-    ),
 }
 DIRECTORIES = tuple(REPAIR_RECORD["directories"])
 
@@ -252,10 +223,33 @@ def test_lockfile_importers_match_manifests_and_frozen_install_record(directory)
             owner = json.loads(
                 (ROOT / directory / relative / "package.json").read_text()
             )
-            for group in ("dependencies", "devDependencies", "optionalDependencies"):
-                for name, entry in importer.get(group, {}).items():
-                    expected = document["overrides"].get(name, owner[group][name])
-                    assert entry["specifier"] == expected
+            groups = ("devDependencies", "dependencies", "optionalDependencies")
+            if document["settings"]["autoInstallPeers"]:
+                declared = {name for group in groups for name in owner.get(group, {})}
+                owner["dependencies"] = {
+                    **{
+                        name: specifier
+                        for name, specifier in owner.get("peerDependencies", {}).items()
+                        if name not in declared
+                    },
+                    **owner.get("dependencies", {}),
+                }
+            owners = {
+                name: group for group in groups for name in owner.get(group, {})
+            }
+            for group in groups:
+                expected = {
+                    name: document["overrides"].get(name, specifier)
+                    for name, specifier in owner.get(group, {}).items()
+                    if owners[name] == group
+                }
+                actual = {
+                    name: entry["specifier"]
+                    for name, entry in importer.get(group, {}).items()
+                }
+                assert actual == expected, (
+                    directory, relative, group, actual, expected
+                )
         importer = document["importers"]["."]
     for group in ("dependencies", "devDependencies", "optionalDependencies"):
         assert set(importer.get(group, {})) == set(package.get(group, {}))
@@ -298,6 +292,10 @@ def test_stale_perps_npm_lockfile_is_removed():
     assert manifest("apps/perps")["packageManager"] == "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"
     assert (ROOT / "apps/perps/pnpm-lock.yaml").is_file()
     assert not (ROOT / "apps/perps/package-lock.json").exists()
+    assert not (ROOT / "apps/perps/yarn.lock").exists()
+    for package in (ROOT / "apps/perps").glob("*/*/package.json"):
+        for filename in ("pnpm-lock.yaml", "package-lock.json", "yarn.lock"):
+            assert not (package.parent / filename).exists(), package.parent / filename
 
 
 def test_repair_record_covers_all_alerts_and_original_advisory_minima():
