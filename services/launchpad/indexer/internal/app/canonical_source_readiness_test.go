@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -77,10 +78,9 @@ func canonicalSourceReadinessCase(t *testing.T) (*canonicalSourceReadiness, *ato
 	if err = seedCanonicalWatermark(ctx, pool, stream, doc); err != nil {
 		t.Fatal(err)
 	}
-	head := &canonicalRuntimeHead{source: provider, store: st, stream: stream, height: new(atomic.Uint64)}
 	clock := new(atomic.Int64)
 	clock.Store(time.Now().UnixNano())
-	r := newCanonicalSourceReadiness(head, st, pool, provider, stream, doc, func() time.Time { return time.Unix(0, clock.Load()) })
+	r := newCanonicalSourceReadiness(st, pool, provider, stream, doc, func() time.Time { return time.Unix(0, clock.Load()) }, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	t.Cleanup(r.Close)
 	return r, clock
 }
@@ -356,7 +356,10 @@ func TestCanonicalSourceReadinessCanceledRefreshPreservesCommittedHead(t *testin
 		t.Fatal(err)
 	}
 	r.provider = provider
-	r.head.(*canonicalRuntimeHead).source = provider
+	head := &canonicalRuntimeHead{source: provider, store: r.store, stream: r.stream, height: new(atomic.Uint64)}
+	if _, err := head.Head(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if err := r.refresh(ctx); err != nil {
 		t.Fatal(err)
 	}
