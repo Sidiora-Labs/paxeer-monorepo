@@ -14836,6 +14836,66 @@ value = "While the document holds an open modal dialog, the kind focus expects t
 basis = "Gotcha 4537. Decisions 3591 and 3616."
 affects = []
 
+[decision.3621]
+title = "A proof task declares the designed refusals of its states and leaves answers and framework nodes as they are"
+value = "A state whose page receives an answer of refusal by design declares the answer in the field expects of the surface file with method, pattern and status, in the form tools/ui-check/README.md gives. The files of a surface answer a request with the status the service gives, and they change no node the framework renders. A proof task whose surface opens a modal dialog is verified with the keyboard measurement of task 22.44.53."
+basis = "Gotcha 4538. Decisions 3616 and 3620."
+affects = []
+
+[decision.3622]
+title = "A render that shows nothing is a finding of the kind load"
+value = "A render is a finding of the kind load where the document holds no visible text, image, drawing or control after the state is reached, and where the screenshot of the viewport holds a single colour. The finding names the view, the state and which of the two it met. No field of a surface file leaves the measurement out. A proof of a surface states in its record the count of screenshots that hold content and the count of a single colour, and the second count is zero."
+basis = "Gotcha 4539. Decisions 3591 and 3616."
+affects = []
+
+[decision.3623]
+title = "A task that builds with the type check of the trading workspace follows task 22.39.674"
+value = "A task whose build or verification runs the type check script of apps/perps/package.json names task 22.39.674 among its requirements, directly or through a task that names it. The script itself builds what the check reads, and no task adds that build to its own command."
+basis = "Gotcha 4540. Decision 3562."
+affects = []
+
+[decision.3624]
+title = "A surface file holds a view for every route of its application, and a case of the surface asserts it"
+value = "The views of a surface file cover every route the application serves. A route with a parameter is a view under a stand-in value that the files of the surface answer. A surface whose application keeps a page file for each route holds a case beside its files that reads the page files and the surface file and names each route without a view. The record of a proof task states the count of page files and the count of routes with a view, and the two are equal. Each screenshot of the last run shows content: the record states the count of screenshots with content and the count of a single colour, and the second is zero."
+basis = "Gotcha 4541. Decisions 3587, 3591 and 3622."
+affects = []
+
+[decision.3625]
+title = "A task of one image verifies with the cases of its image, and one task holds the container check whole"
+value = "The verification of task 22.39.564 runs the cases of the workspace image in tools/containers/test_perps_workspace_image.py and no longer the script without a name. Task 22.39.703 brings the script without a name to pass and verifies with it. For that task: a service row whose recipe lies under docker has an ignore file beside the recipe that names what the recipe does not copy; the recipe docker/wallet-inventory/Dockerfile gets a service row; the recipe docs/site/paxeer-docs/Dockerfile stays where it is and is a line of the list of recipes that stay; the script docs/site/docs-assistant/scripts/deploy-release.mjs names the recipe of its own application and is a line of the list of files where the bare word is not the recipe at the root; each recipe of a directory under docker is checked from the context of its own row."
+basis = "Gotcha 4542. Decision 3554."
+affects = []
+
+[decision.3626]
+title = "The webhooks service answers a liveness route, and the definition of the ingress role on the hosting platform names it"
+value = "The webhooks service answers GET /livez with 200 and a JSON body of the fields live and role wherever it answers GET /healthz. The answer makes no call to the store, the signer, the node or an event source. GET /healthz stays the readiness of the role with its body as it is. The definition deploy/projects/platform/webhooks-ingress.kvx names /livez as its health path; the definition of the public role keeps /healthz. A reader that needs the readiness of the ingress role reads /healthz."
+basis = "Gotcha 4543. Decision 3046."
+affects = []
+
+[decision.3627]
+title = "A surface with a proof is rendered again at the head, and each detail gets a task that verifies with the surface file"
+value = "A surface whose proof task is done is rendered again with the render check of the head of the main line, and its images are looked at in both schemes at the smallest, a middle and the largest size. A finding of the check or a detail the look names gets a task of its own in the paths of the application, and that task verifies with the surface file of the application. A mark beside a text is drawn whole at the size of the line: closed forms, round ends and joins, and a stroke that reads at every size of the device list. The link that skips to the content is hidden without focus and with keyboard focus is drawn at the start of the page as a control of the touch target size with the focus indicator of the theme."
+basis = "Gotcha 4544. Decisions 3588 and 3624."
+affects = []
+
+[decision.3628]
+title = "The directory of the error widgets holds every module its files import, and a case of the workspace keeps that true"
+value = "The directory apps/perps/packages/paxeer-backend/src/widgets/errors holds the modules ErrorPanel, ReportFeedbackModal and ToastActionBridge with the names index.ts exports. The toast action is a button of the toast with an accessible name, the report dialog is one dialog of the dialog atom that sends through the report function of the package, and the error panel shows a classified error in place with the same parts the toast shows. The modules use the packages the workspace already declares. A case under apps/perps/tests reads every file of the directory and requires that each relative import and each subpath of the package it names resolves to a file."
+basis = "Gotcha 4545. Decision 3046."
+affects = []
+
+[decision.3629]
+title = "Each render of the render check has a deadline, the check renders several at once, and a surface file names the modes of a view"
+value = "A render of the render check ends within a deadline the tool holds among its limits. A render past the deadline is a finding of the kind load that names the step, and the check goes on with the next render. The check renders several renders at once, by default as many as the process has processors and at most four, and the result is the same for every count. A view and a state of a surface file may hold the key modes with a list of the modes of the matrix. The list holds the mode default, so every view renders on every device in both schemes. A view without the key renders in every mode. A surface file cannot choose devices or schemes and cannot alter a limit. A surface file holds every route by decision 3624. Where a surface holds more than twenty-four views, the views that share a template may render in the mode default alone when at least one view of each template and at least one state of each kind render in every mode, and the record of the proof names these views and states. The check of one surface ends within forty minutes on four processors."
+basis = "Gotcha 4546. Decisions 3620, 3622 and 3624."
+affects = []
+
+[decision.3630]
+title = "Task 22.39.569 follows task 22.39.704, and the blank measurement and the proofs of the large surfaces follow task 22.44.58"
+value = "Task 22.39.569 names task 22.39.704 among its requirements. The tasks of the render check run in the order 22.44.53, 22.44.58, 22.44.54. The proofs of the explorer, of the trading workspace and of the documentation site name task 22.44.58 among their requirements and apply the rule of decision 3629 for the modes of a view: every route is a view, every view renders in the mode default on every device in both schemes, and each template and each kind of state keeps at least one view in every mode."
+basis = "Gotcha 4547. Decisions 3628 and 3629."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44496,6 +44556,78 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.58]
+title = "Let the render check bound each render, render several at once and read the modes of a view"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4546, decision 3629. Read tools/ui-check/README.md, in tools/ui-check/config.mjs the limits, the device list, the function renderMatrix and the fields a surface file may hold, in tools/ui-check/check.mjs the functions renderView, keyboardFindings, checkSurface and main, and the cases of tools/ui-check/test/check.test.mjs with their pages."
+symbols = []
+
+[capability.22.39.704]
+title = "Give the error widgets of the trading workspace the modules their files import"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages/paxeer-backend/src/widgets/errors", "apps/perps/packages/paxeer-backend/src/ui/atoms", "apps/perps/packages/paxeer-backend/package.json", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/error-widgets.test.ts tests/collateral-removal-margin-risk.test.ts"
+do_1 = "do_1 Gotcha 4545, decision 3628. Read apps/perps/packages/paxeer-backend/src/widgets/errors/ErrorToast.tsx and apps/perps/packages/paxeer-backend/src/widgets/errors/index.ts with every name they import, the toast queue in apps/perps/packages/paxeer-backend/src/ui/atoms/use-toast.tsx with the fields of a toast, the atoms apps/perps/packages/paxeer-backend/src/ui/atoms/dialog.tsx and apps/perps/packages/paxeer-backend/src/ui/atoms/button.tsx, the types and functions in apps/perps/packages/paxeer-backend/src/core/errors/types.ts, report.ts and classify.ts beside it, the readers apps/perps/packages/paxeer-backend/src/core/errors/global.ts and apps/perps/packages/paxeer-backend/src/widgets/trading/modals/AdjustCollateralModal.tsx, and apps/perps/tests/collateral-removal-margin-risk.test.ts."
+symbols = []
+
+[capability.22.44.57]
+title = "Give the link that skips to the content of the bridge application a change with focus that the render check reads"
+reqs = ["22998.1"]
+touches = ["apps/bridge/src"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/bridge.json --out /tmp/ui-check/bridge && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+do_1 = "do_1 Gotcha 4544, decision 3627. Read in apps/bridge/src/app/globals.css the rules of the class sr-only and of the link that skips to the content, the layout file that holds the link, in tools/ui-check/browser.mjs the list of properties the keyboard pass compares and in tools/ui-check/check.mjs the function of the keyboard pass, and tools/ui-check/surfaces/bridge.json."
+symbols = []
+
+[capability.22.44.56]
+title = "Draw the status mark of the names shell whole at every size"
+reqs = ["22998.1"]
+touches = ["apps/names/src"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/names.json --out /tmp/ui-check/names && pnpm --dir apps/names run build"
+do_1 = "do_1 Gotcha 4544, decision 3627. Read in apps/names/src/app/page.tsx the status paragraph with its mark and the three states it shows, in apps/names/src/app/globals.css the rules of the status and of its mark with the tokens they use, and tools/ui-check/surfaces/names.json with the state invalid-name."
+symbols = []
+
+[capability.22.39.703]
+title = "Let the container check pass for the whole repository"
+reqs = ["22998.1"]
+touches = ["tools/containers", "docker/bridge-web", "docker/ai-evaluator", "docker/inference-peer-web", "docker/wallet-inventory"]
+tests = []
+verification_contract = "bash tools/containers/check.sh && python3 -m pytest -q tools/containers"
+do_1 = "do_1 Gotcha 4542, decision 3625. Read tools/containers/check.sh whole: the table of services, the table of ignore files, the list of recipes that stay where they are, the two lists of exempt files and the loop that checks the inputs of a recipe from its context. Run bash tools/containers/check.sh once by hand and list every line it reports."
+symbols = []
+
+[capability.22.39.702]
+title = "Let the webhooks service answer a liveness route and name it in the definition of the ingress role"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/webhooks/src", "services/platform/hosted/webhooks/tests", "services/platform/hosted/webhooks/env-init.sh", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedWebhooks.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test liveness_route --test plain_listener && python3 -m pytest -q tools/deploy/tests/projects/test_platform_webhooks_ingress.py"
+do_1 = "do_1 Gotcha 4543, decision 3626. Read in services/platform/hosted/webhooks/src/main.rs the function readiness, the function serve_health and the place where the application listener answers GET /healthz, the file services/platform/hosted/webhooks/env-init.sh, the definition deploy/projects/platform/webhooks-ingress.kvx, the cases of tools/deploy/tests/projects/test_platform_webhooks_ingress.py, services/platform/hosted/webhooks/tests/plain_listener.rs as the form of a case that starts the binary, and the parts of docs/wiki/HostedWebhooks.md on health."
+symbols = []
+
+[capability.22.44.55]
+title = "Render every route of the human web application in its surface file"
+reqs = ["22998.1"]
+touches = ["apps/web/src", "apps/web/packages/layerx-ui", "tools/ui-check/surfaces/human-web.json", "tools/ui-check/surfaces/human-web"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.55.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node --test tools/ui-check/surfaces/human-web/routes.test.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/human-web.json --out /tmp/ui-check/human-web && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation"
+do_1 = "do_1 Gotcha 4541, decisions 3624, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, tools/ui-check/surfaces/human-web.json with tools/ui-check/surfaces/human-web/start.mjs, tools/ui-check/surfaces/human-web/server.mjs and the fixtures beside them, every page file under apps/web/src/app, and the stand-ins the package uses in its tests for the signed-in views."
+symbols = []
+
+[capability.22.44.54]
+title = "Let the render check report a render that shows nothing"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4539, decision 3622. Read tools/ui-check/README.md, the measurement of a page in tools/ui-check/browser.mjs, the place in tools/ui-check/check.mjs where a render takes its screenshot and gathers its findings, and the cases of the kind load in tools/ui-check/test/check.test.mjs with their pages."
+symbols = []
 
 [capability.22.44.53]
 title = "Let the keyboard measurement of the render check follow an open modal dialog"
@@ -173791,9 +173923,245 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.58]
+title = "Let the render check bound each render, render several at once and read the modes of a view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.53"]
+reqs = ["22998.1"]
+capabilities = ["22.44.58"]
+interfaces = []
+do_1 = "do_1 Gotcha 4546, decision 3629. Read tools/ui-check/README.md, in tools/ui-check/config.mjs the limits, the device list, the function renderMatrix and the fields a surface file may hold, in tools/ui-check/check.mjs the functions renderView, keyboardFindings, checkSurface and main, and the cases of tools/ui-check/test/check.test.mjs with their pages."
+do_2 = "do_2 In tools/ui-check/config.mjs the limits hold renderMs with the value 300000. In tools/ui-check/check.mjs every render ends within that time. A render whose steps have not returned by then is recorded as not rendered with a finding of the kind load whose values name the source deadline and the step that had started last: navigation, settle, measurement, contrast, keyboard or screenshot. Its context is closed; where the close does not return within the navigation limit the browser of that render is ended and a new one is started. The check goes on with the next render. A surface file cannot alter the deadline."
+do_3 = "do_3 The function checkSurface renders up to a count of renders at once, each in a context of its own. The option --jobs of the command takes a positive whole number; without the option the count is the count of processors the process may use and at most 4. The index of a render, the name of its screenshot, the order of the renders and of the findings in the result file and the lines printed for the views are the same for every count. With --jobs 1 the renders run one after the other. A render in the keyboard mode gives the same findings for every count."
+do_4 = "do_4 A view and a state of a surface file may hold the key modes: a list of names out of default, reduced-motion, double-text and keyboard, each at most once, that holds default. A state without the key takes the list of its view, and a view without the key renders in every mode. The renders of a view or state are the configurations of the matrix in its modes. The function that reads a surface file refuses a list that is empty, that lacks default, that repeats a name or that holds another name. The result file holds for each view and state the modes it rendered, and the total line states the count of views and states that rendered in fewer than all modes."
+do_5 = "do_5 Add the page tools/ui-check/test/fixtures/stuck.html, whose script keeps the main thread after the load, and cases in tools/ui-check/test/check.test.mjs: the view of that page is recorded as not rendered with the finding of the deadline while the view after it renders and passes, with a short deadline given through an argument of checkSurface that the command does not offer; a surface of at least three views, one of them the focus page, gives equal renders and findings with the counts 1 and 4; a view with the modes default alone renders in twenty-two configurations and a state of it takes that list; each refused list is refused with a message that names the view. Every present case stays and passes."
+do_6 = "do_6 In tools/ui-check/README.md state the option --jobs, the deadline at the row of the kind load, the key modes with its rule, and the new count of the total line. The sentence that a surface file cannot alter a limit or omit a kind stays true and stays in the text."
+do_7 = "do_7 Run the tests by hand before the counted verification and repair what they show. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = ["tools/ui-check/test/fixtures/stuck.html"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.704]
+title = "Give the error widgets of the trading workspace the modules their files import"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.704"]
+interfaces = []
+do_1 = "do_1 Gotcha 4545, decision 3628. Read apps/perps/packages/paxeer-backend/src/widgets/errors/ErrorToast.tsx and apps/perps/packages/paxeer-backend/src/widgets/errors/index.ts with every name they import, the toast queue in apps/perps/packages/paxeer-backend/src/ui/atoms/use-toast.tsx with the fields of a toast, the atoms apps/perps/packages/paxeer-backend/src/ui/atoms/dialog.tsx and apps/perps/packages/paxeer-backend/src/ui/atoms/button.tsx, the types and functions in apps/perps/packages/paxeer-backend/src/core/errors/types.ts, report.ts and classify.ts beside it, the readers apps/perps/packages/paxeer-backend/src/core/errors/global.ts and apps/perps/packages/paxeer-backend/src/widgets/trading/modals/AdjustCollateralModal.tsx, and apps/perps/tests/collateral-removal-margin-risk.test.ts."
+do_2 = "do_2 Add apps/perps/packages/paxeer-backend/src/widgets/errors/ToastActionBridge.tsx. It exports the component ToastAction and the type ToastActionElement in the form ErrorToast.tsx uses them: a button of the toast that takes an accessible name and a handler, and the type of the element the action field of a toast takes. Where the toast queue has no field for an action, give it one in apps/perps/packages/paxeer-backend/src/ui/atoms so that the action is drawn in the toast and reached by keyboard."
+do_3 = "do_3 Add apps/perps/packages/paxeer-backend/src/widgets/errors/ReportFeedbackModal.tsx. It exports ReportFeedbackModalHost, openReportModal and closeReportModal as index.ts names them. The host draws one dialog of the dialog atom with the title and description of the error, a labelled text field for a note, and controls to send and to cancel. openReportModal takes the arguments ErrorToast.tsx passes. Sending goes through the report function of apps/perps/packages/paxeer-backend/src/core/errors/report.ts and names no address of its own. The dialog closes on send, on cancel and on the Escape key, and focus returns to the element that had it."
+do_4 = "do_4 Add apps/perps/packages/paxeer-backend/src/widgets/errors/ErrorPanel.tsx. It exports ErrorPanel, which shows a classified error in place: title, description, the suggestion where one exists, a retry control where the error can be retried and the caller gives a handler, and a report control where the error can be reported. The panel is announced to assistive technology as an alert."
+do_5 = "do_5 Add apps/perps/tests/error-widgets.test.ts in the form of the other cases of that directory: every relative import and every subpath of the package that a file under apps/perps/packages/paxeer-backend/src/widgets/errors names resolves to a file, read from the files and from the exports table of apps/perps/packages/paxeer-backend/package.json; index.ts loads; showErrorToast of a classified error puts one toast with title and description into the queue, with a retry action only where the error can be retried and a handler is given; openReportModal and closeReportModal change the state the host reads. Where a new module needs a row in the exports table of apps/perps/packages/paxeer-backend/package.json add it in the form of the rows beside it."
+do_6 = "do_6 The modules use the packages the workspace already declares and add none. The words shown are plain English in the form of ErrorToast.tsx, and the styles are the classes the atoms use."
+do_7 = "do_7 Run pnpm --dir apps/perps exec node --test --import tsx tests/error-widgets.test.ts tests/collateral-removal-margin-risk.test.ts by hand and repair what it shows before the counted verification. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages/paxeer-backend/src/widgets/errors", "apps/perps/packages/paxeer-backend/src/ui/atoms", "apps/perps/packages/paxeer-backend/package.json", "apps/perps/tests"]
+tests = []
+planned_paths = ["apps/perps/packages/paxeer-backend/src/widgets/errors/ErrorPanel.tsx", "apps/perps/packages/paxeer-backend/src/widgets/errors/ReportFeedbackModal.tsx", "apps/perps/packages/paxeer-backend/src/widgets/errors/ToastActionBridge.tsx", "apps/perps/tests/error-widgets.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/error-widgets.test.ts tests/collateral-removal-margin-risk.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.57]
+title = "Give the link that skips to the content of the bridge application a change with focus that the render check reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.45"]
+reqs = ["22998.1"]
+capabilities = ["22.44.57"]
+interfaces = []
+do_1 = "do_1 Gotcha 4544, decision 3627. Read in apps/bridge/src/app/globals.css the rules of the class sr-only and of the link that skips to the content, the layout file that holds the link, in tools/ui-check/browser.mjs the list of properties the keyboard pass compares and in tools/ui-check/check.mjs the function of the keyboard pass, and tools/ui-check/surfaces/bridge.json."
+do_2 = "do_2 Run node tools/ui-check/check.mjs with the surface file of the bridge application once by hand and list each finding with view, state, size, scheme, mode and selector."
+do_3 = "do_3 The link that skips to the content is hidden without focus and takes no space in the page. With keyboard focus it is drawn at the start of the page above the header as a control of the touch target size, with the ground and text colours of the theme and the focus indicator the other controls of the application show. Its change with focus is a change of properties the keyboard pass compares and of the pixels of the view, in both schemes. Activating it moves focus to the main content."
+do_4 = "do_4 Bring every other finding of do_2 in line in the source of the application. The surface file keeps its views and states."
+do_5 = "do_5 Run the check again until it ends without a finding, look at the image of the first step of the keyboard pass at the widths 390 and 1440 in both schemes, and say in the final message what it shows, with the file names of the images. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/bridge/src"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/bridge install --frozen-lockfile && pnpm --dir apps/bridge run typecheck"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/bridge.json --out /tmp/ui-check/bridge && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.56]
+title = "Draw the status mark of the names shell whole at every size"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.46"]
+reqs = ["22998.1"]
+capabilities = ["22.44.56"]
+interfaces = []
+do_1 = "do_1 Gotcha 4544, decision 3627. Read in apps/names/src/app/page.tsx the status paragraph with its mark and the three states it shows, in apps/names/src/app/globals.css the rules of the status and of its mark with the tokens they use, and tools/ui-check/surfaces/names.json with the state invalid-name."
+do_2 = "do_2 The mark of a result that is not verified and of an error is a closed form: a circle with a vertical stroke and a dot below it. The mark of a verified result is a check inside the same box. Both marks have round ends and round joins, share one box and one stroke width, take the colour of the status text and stay hidden from assistive technology as now. The mark has the block size of one line of the status text, does not shrink when the text wraps and sits on the first line of the text."
+do_3 = "do_3 Run node tools/ui-check/check.mjs with the surface file of the names shell and bring it to end without a finding at every size, in both schemes and in every mode."
+do_4 = "do_4 Look at the images of the state invalid-name at the widths 360, 1440 and 2560 in both schemes and say in the final message what the mark shows in each, with the file names of the images."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/names/src"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/names install --frozen-lockfile"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/names.json --out /tmp/ui-check/names && pnpm --dir apps/names run build"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.703]
+title = "Let the container check pass for the whole repository"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.703"]
+interfaces = []
+do_1 = "do_1 Gotcha 4542, decision 3625. Read tools/containers/check.sh whole: the table of services, the table of ignore files, the list of recipes that stay where they are, the two lists of exempt files and the loop that checks the inputs of a recipe from its context. Run bash tools/containers/check.sh once by hand and list every line it reports."
+do_2 = "do_2 Add the ignore files docker/bridge-web/Dockerfile.dockerignore, docker/ai-evaluator/Dockerfile.dockerignore, docker/inference-peer-web/Dockerfile.dockerignore. Each names what its recipe does not copy from the context of its row, in the form of the ignore files beside the other recipes under docker, and keeps every path the recipe copies."
+do_3 = "do_3 The recipe docker/wallet-inventory/Dockerfile gets a row in the table of services with the context its instructions copy from, and the ignore file docker/wallet-inventory/Dockerfile.dockerignore. The recipe docs/site/paxeer-docs/Dockerfile becomes a line of the list of recipes that stay where they are, under a comment that names the documentation site."
+do_4 = "do_4 The script docs/site/docs-assistant/scripts/deploy-release.mjs becomes a line of the list of files where the bare word is not the recipe at the root. The script itself stays as it is."
+do_5 = "do_5 Each recipe of a directory under docker is checked from the context of its own row: the two recipes of docker/explorer-backend are each read with the context their instructions copy from, and the rows state those contexts. A recipe without a row of its own keeps the context of the first row of its directory."
+do_6 = "do_6 Bring the cases under tools/containers that state rows, ignore files or the lists in line with the tables, and add cases to tools/containers/test_container_inventory.py: every service row whose recipe lies under docker has a tracked ignore file beside it; every tracked recipe outside docker is a line of the list of recipes that stay; the two recipes of docker/explorer-backend are checked from their own contexts. No present case is removed or weakened."
+do_7 = "do_7 Give in the final message the last line of the script and the count of cases. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/containers", "docker/bridge-web", "docker/ai-evaluator", "docker/inference-peer-web", "docker/wallet-inventory"]
+tests = []
+planned_paths = ["docker/bridge-web/Dockerfile.dockerignore", "docker/ai-evaluator/Dockerfile.dockerignore", "docker/inference-peer-web/Dockerfile.dockerignore", "docker/wallet-inventory/Dockerfile.dockerignore"]
+build_cmd = "bash -n tools/containers/check.sh && python3 -m py_compile tools/containers/test_container_inventory.py"
+verify_cmd = "bash tools/containers/check.sh && python3 -m pytest -q tools/containers"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.55]
+title = "Render every route of the human web application in its surface file"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.43"]
+reqs = ["22998.1"]
+capabilities = ["22.44.55"]
+interfaces = []
+do_1 = "do_1 Gotcha 4541, decisions 3624, 3587, 3588, 3589 and 3591. Read tools/ui-check/README.md, tools/ui-check/surfaces/human-web.json with tools/ui-check/surfaces/human-web/start.mjs, tools/ui-check/surfaces/human-web/server.mjs and the fixtures beside them, every page file under apps/web/src/app, and the stand-ins the package uses in its tests for the signed-in views."
+do_2 = "do_2 tools/ui-check/surfaces/human-web.json holds a view for every page file under apps/web/src/app: at present the routes below /app with activity, agents, approvals, move, notifications, security, settings and support, the routes /bridge, /exchange and /launchpad, the routes below /explorer with accounts, programs and receipts, and the first page. A route with a parameter is a view under a stand-in value, and tools/ui-check/surfaces/human-web/server.mjs answers its requests from fixtures beside it, taken from the stand-ins and fixtures the package has for its tests; they hold no key, no account of a person and no value of a live service. A view with states has each state worth a render: empty, loading, filled, error, an open dialog, menu or drawer. The views the file holds now stay."
+do_3 = "do_3 Add tools/ui-check/surfaces/human-web/routes.test.mjs for the test runner of the runtime: it reads the page files under apps/web/src/app and the views of tools/ui-check/surfaces/human-web.json, takes the route of each page file with a parameter segment matching any value, and asserts that every route is the path of a view at least; the message names each route without a view."
+do_4 = "do_4 Run the command for the surface by hand. Correct every finding in the surface, by the guides of decision 3587 and with values from the tokens of the surface, and run again until the command reports nothing at the whole device list. A finding is never removed by taking a view or a state out of the surface file. Where the command is wrong about a case, leave the finding standing and give the view, the kind and the reason in the final message."
+do_5 = "do_5 Measure each screenshot of the last run: the count of distinct colours and whether text is drawn. A screenshot of a single colour is a view that draws nothing: find the cause, such as a stand-in that is absent, a request that stays open or a gate before the view, and correct it. Give the count of screenshots with content and the count of a single colour in the final message; the second is zero."
+do_6 = "do_6 Then look at the screenshots of the last run: every view at 360, 768, 1440 and 2560 in both schemes and the phone held sideways. Distances follow the spacing scale and repeat evenly; edges, baselines and columns align; numbers in columns align at the right with tabular figures; headings and paragraphs wrap without a lone last word; nothing overlaps; an icon sits on the line of its text; every state of a control is drawn; the dark scheme is a scheme of its own. Correct what is off and run the command again. Repeat until a full pass over the screenshots finds nothing; give in the final message the count of screenshots looked at."
+do_7 = "do_7 A test that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened, and routes, data flows and texts stay as decision 3589 says. A value that belongs to the interface package is corrected there."
+do_8 = "do_8 Write the record spec/layerx-merge/programme/records/ui/22.44.55.kvx: the count of page files and of routes with a view, the count of views and states, the sizes and modes rendered, the count of renders of the last run with its result, the counts of do_5 and what the pass over the screenshots corrected. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/web/src", "apps/web/packages/layerx-ui", "tools/ui-check/surfaces/human-web.json", "tools/ui-check/surfaces/human-web"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.55.kvx", "tools/ui-check/surfaces/human-web/routes.test.mjs"]
+build_cmd = "make human-js-install && make agent-sdk-ts-build"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.55.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node --test tools/ui-check/surfaces/human-web/routes.test.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/human-web.json --out /tmp/ui-check/human-web && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.54]
+title = "Let the render check report a render that shows nothing"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.53", "22.44.58"]
+reqs = ["22998.1"]
+capabilities = ["22.44.54"]
+interfaces = []
+do_1 = "do_1 Gotcha 4539, decision 3622. Read tools/ui-check/README.md, the measurement of a page in tools/ui-check/browser.mjs, the place in tools/ui-check/check.mjs where a render takes its screenshot and gathers its findings, and the cases of the kind load in tools/ui-check/test/check.test.mjs with their pages."
+do_2 = "do_2 In tools/ui-check/browser.mjs the measurement of a page reports the kind load where the document holds no visible element with text of its own, no visible image, drawing, canvas, video or embedded frame with an area, and no visible control. Visible has the meaning the other measurements use, so text clipped to nothing does not count as content."
+do_3 = "do_3 In tools/ui-check/check.mjs the screenshot of the viewport of each render is read, and a screenshot whose pixels hold a single colour is a finding of the kind load. The pixels are read with the modules the runtime holds or with one package at a pinned version in tools/ui-check/package.json and its lock file. The finding names the view, the state and which of the two measurements it met, and the result file holds for each render whether it showed content."
+do_4 = "do_4 The summary line of a view and the total line state the count of renders that showed nothing. No field of a surface file leaves the measurement out, and tools/ui-check/config.mjs refuses such a field as it refuses other unknown fields."
+do_5 = "do_5 Add the pages tools/ui-check/test/fixtures/blank.html and tools/ui-check/test/fixtures/covered.html and cases in tools/ui-check/test/check.test.mjs: a page with an empty body reports the kind load at every size; a page whose only text is clipped to nothing reports it; a page whose text lies below a layer of one colour that covers the viewport reports it by the screenshot; a page with one line of text passes; a page that holds only an image with an area passes. Every present case stays and passes."
+do_6 = "do_6 In tools/ui-check/README.md state the measurement at the row of the kind load in the table of measurements and the new counts of the summary. The sentence that a surface file cannot alter a limit or omit a kind stays true and stays in the text."
+do_7 = "do_7 Run the tests by hand before the counted verification and repair what they show. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = ["tools/ui-check/test/fixtures/blank.html", "tools/ui-check/test/fixtures/covered.html"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "do_8 Decision 3630. Task 22.44.58 comes before this task: read the form it gives to tools/ui-check/check.mjs, tools/ui-check/config.mjs, the README and the cases before any change. The measurement of a render that shows nothing runs inside the deadline of a render, and its findings and counts are the same for every count of renders at once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+
 [task.22.44.53]
 title = "Let the keyboard measurement of the render check follow an open modal dialog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174157,7 +174525,7 @@ title = "Close the documentation site on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.36", "22.44.37"]
+requires = ["22.44.36", "22.44.37", "22.44.52", "22.44.58"]
 reqs = ["22998.1"]
 capabilities = ["22.44.48"]
 interfaces = []
@@ -174184,6 +174552,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3629, gotcha 4546. The render check ends each render at a deadline, renders several at once and reads the key modes of a view. The surface file tools/ui-check/surfaces/docs.json keeps every page of the site as a view, and every view renders in the mode default on every device in both schemes. Give the key modes with the value default alone to views that share a template with a view that renders in every mode, so that each template of the site, such as the front page, a guide page, a reference page with tables, a page with code and a module page, keeps at least one view in every mode and each kind of state keeps at least one state in every mode. Name these views and states in the record. The start script of the surface serves the built files and builds nothing on a request. Run the check by hand before the counted verification and measure its time: the whole check ends within forty minutes with the default count of renders at once. Clear every finding the check states, and give the time, the count of renders and the count of findings in the final message. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.47]
 title = "Close the page of the inference peer, the playground pages and the codebase map on the device list with the render check"
@@ -174357,7 +174726,7 @@ title = "Close the wallet demonstration pages on the device list with the render
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.27", "22.44.37"]
+requires = ["22.44.27", "22.44.37", "22.44.53"]
 reqs = ["22998.1"]
 capabilities = ["22.44.42"]
 interfaces = []
@@ -174384,6 +174753,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decisions 3616, 3620 and 3621, gotchas 4533, 4537 and 4538. The render check now leaves out text clipped to nothing, takes the declared answers of a state and reads an open modal dialog. In tools/ui-check/surfaces/wallet-demo.json each state whose page receives an answer of refusal by design declares it in the field expects with method, pattern and status. The files of the surface keep the status of each answer, and the announcer of the framework stays as the framework renders it. The work of the earlier candidate stays as it is. Run the command for the surface by hand first: a finding that remains is corrected in the surface, and a case where the command is wrong is left standing and named with view, kind and reason in the final message. Then run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.41]
 title = "Close the wallet application on the device list with the render check"
@@ -174456,7 +174826,7 @@ title = "Close the trading workspace on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.18", "22.44.37", "22.44.52"]
+requires = ["22.44.18", "22.44.37", "22.44.52", "22.44.58"]
 reqs = ["22998.1"]
 capabilities = ["22.44.39"]
 interfaces = []
@@ -174483,13 +174853,15 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3624, gotcha 4541. The device list of a proof task is the list of sizes of the render check and not a page of the application. The views of the surface file are every route the application serves: one view at least for each page file of its router, a route with a parameter under a stand-in value, and each view with the states worth a render. Give in the final message the count of page files and the count of routes that have a view; the two are equal. Measure each screenshot of the last run for content, the count of distinct colours and the text drawn; a screenshot of a single colour is a view that draws nothing and is corrected at its cause. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_8 = "do_8 Decisions 3629 and 3630. The surface file holds every route of the application as a view, and every view renders in the mode default on every device in both schemes. Where the surface holds more than twenty-four views, give the key modes with the value default alone to views that share a template with a view that renders in every mode, so that each template and each kind of state keeps at least one view in every mode, and name these views and states in the record. Run the check by hand before the counted verification and measure its time: the whole check ends within forty minutes with the default count of renders at once. Give the time, the count of renders and the count of findings in the final message. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.38]
 title = "Close the explorer on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.11", "22.44.37", "22.44.52"]
+requires = ["22.44.11", "22.44.37", "22.44.52", "22.44.58"]
 reqs = ["22998.1"]
 capabilities = ["22.44.38"]
 interfaces = []
@@ -174516,6 +174888,8 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3624, gotcha 4541. The device list of a proof task is the list of sizes of the render check and not a page of the application. The views of the surface file are every route the application serves: one view at least for each page file of its router, a route with a parameter under a stand-in value, and each view with the states worth a render. Give in the final message the count of page files and the count of routes that have a view; the two are equal. Measure each screenshot of the last run for content, the count of distinct colours and the text drawn; a screenshot of a single colour is a view that draws nothing and is corrected at its cause. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_8 = "do_8 Decisions 3629 and 3630. The surface file holds every route of the application as a view, and every view renders in the mode default on every device in both schemes. Where the surface holds more than twenty-four views, give the key modes with the value default alone to views that share a template with a view that renders in every mode, so that each template and each kind of state keeps at least one view in every mode, and name these views and states in the record. Run the check by hand before the counted verification and measure its time: the whole check ends within forty minutes with the default count of renders at once. Give the time, the count of renders and the count of findings in the final message. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.37]
 title = "Add the render check that closes a surface on the device list"
@@ -174554,7 +174928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.674]
 title = "Declare at the root of the trading workspace the packages its root tests import"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175356,7 +175730,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.14]
 title = "Bring the trading views and the chart frame of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
@@ -175426,7 +175800,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.12]
 title = "Bring the interface package and the global style of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.674"]
@@ -176234,10 +176608,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.567]
 title = "Carry the legal pages and the consent notice into the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563"]
+requires = ["22.39.563", "22.39.674"]
 reqs = ["22998.1"]
 capabilities = ["22.39.567"]
 interfaces = []
@@ -176263,6 +176637,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3623, gotcha 4540. The type check script of apps/perps/package.json now builds the packages the web application imports before it checks. The work of the earlier candidate stays as it is. Run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.565]
 title = "Take the trading workspace out of the wallet workspace"
@@ -176315,7 +176690,7 @@ touches = ["apps/perps/apps/web/src/pages", "apps/perps/apps/web/next.config.js"
 tests = []
 planned_paths = ["apps/perps/Dockerfile", "apps/perps/.dockerignore", "apps/perps/railway.json", "apps/perps/deploy/README.md", "apps/perps/deploy/docker-compose.yml", "apps/perps/deploy/.env.production.example", "apps/perps/deploy/build-args.production.env", "apps/perps/apps/web/src/pages/api/build-id.ts", "apps/perps/apps/web/src/pages/api/candle/[...path].ts", "apps/perps/apps/web/src/pages/api/presence.ts", "apps/perps/tests/dockerfile-args.test.ts", "apps/perps/tests/deploy-config.test.ts"]
 build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && PAXEER_NETWORK_BUILD_DIR=.next-production pnpm --dir apps/perps build"
-verify_cmd = "bash tools/deploy/tests/offchain-images.test.sh && bash tools/containers/check.sh && python3 -m pytest -q tools/containers tests/ci/test_package_manager_pins_agree.py tests/ci/test_no_deployment_hosts_in_source.py tools/qualification/audit_repairs/test_perps_compose_lifecycle.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
+verify_cmd = "bash tools/deploy/tests/offchain-images.test.sh && python3 -m pytest -q tools/containers/test_perps_workspace_image.py tests/ci/test_package_manager_pins_agree.py tests/ci/test_no_deployment_hosts_in_source.py tools/qualification/audit_repairs/test_perps_compose_lifecycle.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -176327,6 +176702,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3625, gotcha 4542. The verification now runs the cases of the workspace image in tools/containers/test_perps_workspace_image.py and no longer the container check without a name, which task 22.39.703 holds. The file tools/containers/test_perps_workspace_image.py is inside the paths and holds the cases of the image, the service definition and the lists of tools/containers for the workspace. Change nothing in the rows of other services. The work of the earlier candidate stays as it is: run the cases by hand first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.563]
 title = "Bind the trading workspace to the native markets and the perps data gateway"
@@ -201846,7 +202222,7 @@ title = "Point the Go readers of the trading client at the workspace"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563", "22.39.674"]
+requires = ["22.39.563", "22.39.674", "22.39.704"]
 reqs = ["22998.1"]
 capabilities = ["22.39.569"]
 interfaces = []
@@ -201871,6 +202247,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3630, gotcha 4547. The case of the trading workspace that the parity case starts loads the error widgets of the workspace, and task 22.39.704 gives their modules. The work of the earlier candidate stays as it is. Run the three cases of the verification by hand first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.568]
 title = "Make the reviewed Go builder of the launchpad images and the Go directives of the launchpad modules agree"
@@ -212285,9 +212662,42 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.702]
+title = "Let the webhooks service answer a liveness route and name it in the definition of the ingress role"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.702"]
+interfaces = []
+do_1 = "do_1 Gotcha 4543, decision 3626. Read in services/platform/hosted/webhooks/src/main.rs the function readiness, the function serve_health and the place where the application listener answers GET /healthz, the file services/platform/hosted/webhooks/env-init.sh, the definition deploy/projects/platform/webhooks-ingress.kvx, the cases of tools/deploy/tests/projects/test_platform_webhooks_ingress.py, services/platform/hosted/webhooks/tests/plain_listener.rs as the form of a case that starts the binary, and the parts of docs/wiki/HostedWebhooks.md on health."
+do_2 = "do_2 In services/platform/hosted/webhooks/src/main.rs GET /livez answers 200 with a JSON body of the fields live with the value true and role with the role of the process, on the health listener and on the application listener wherever GET /healthz is answered. The answer needs no bearer, makes no call to the store, the signer, the node or an event source and reads no state of the background children. Another method on /livez is refused as an unknown route is. GET /healthz stays as it is in status and body."
+do_3 = "do_3 The definition deploy/projects/platform/webhooks-ingress.kvx names /livez as its health path. Bring the cases of tools/deploy/tests/projects/test_platform_webhooks_ingress.py in line: they state the health path of the definition and that the source of the service answers that route. The definition of the public role stays as it is."
+do_4 = "do_4 Add services/platform/hosted/webhooks/tests/liveness_route.rs in the form of services/platform/hosted/webhooks/tests/plain_listener.rs: a process whose readiness answers 503 answers GET /livez with 200, live true and its role, and GET /healthz of the same process stays 503; a process that is ready answers both with 200; POST /livez is refused; the answer of /livez holds no field of the readiness body."
+do_5 = "do_5 State the route in the table of routes and in the part on health of docs/wiki/HostedWebhooks.md, with the route each definition names, and in the comment at the head of services/platform/hosted/webhooks/env-init.sh."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/webhooks/src", "services/platform/hosted/webhooks/tests", "services/platform/hosted/webhooks/env-init.sh", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedWebhooks.md"]
+tests = []
+planned_paths = ["services/platform/hosted/webhooks/tests/liveness_route.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test liveness_route --test plain_listener && python3 -m pytest -q tools/deploy/tests/projects/test_platform_webhooks_ingress.py"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.701]
 title = "Send the node and consensus calls of the webhooks ingress to the exact path of their origin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -463045,7 +463455,7 @@ do_7 = "do_7 Decision 3611, gotcha 4528. The verification now runs the suite of 
 
 [task.22.39.685]
 title = "Let the suite of the indexer app of the explorer backend pass whole in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

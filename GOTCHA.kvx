@@ -22510,3 +22510,53 @@ fix = "Decision 3619. Task 22.39.701."
 title = "The keyboard measurement of the render check does not follow an open modal dialog"
 symptom = "A dialog opened as a modal makes every element outside it inert without the inert attribute and moves the focus to a control inside it. The list of elements the kind focus expects in tools/ui-check/browser.mjs leaves out only the elements under the inert attribute, so the controls behind the dialog are expected and the traversal cannot reach them. The appearance before focus is recorded after the focus is moved to the body, and the body of a document with an open modal dialog does not take the focus, so the control that holds the focus is recorded in its focused appearance and shows no change when the traversal comes to it."
 fix = "Decision 3620. Task 22.44.53."
+
+[gotcha.4538]
+title = "A state of a surface that receives a refusal by design is declared in the surface file"
+symptom = "A state of a surface under tools/ui-check/surfaces may show what the page does with an answer of refusal: a failed sign-in, an ended session, an account that is not there. The render check reports each answer with a status from 400 on under the kind load unless the state declares it in the field expects. Files of a surface that answer such a request with another status, or that alter a node the framework renders, change what the render shows."
+fix = "Decision 3621. Task 22.44.42."
+
+[gotcha.4539]
+title = "A view that draws nothing passes every measurement of the render check"
+symptom = "The measurements of tools/ui-check/browser.mjs go over the visible elements of a page. A page that answers with status 200 and draws nothing has no visible element, so no measurement reports it, and a run over such views ends with no finding while every screenshot holds a single colour. A page whose tree is drawn below a layer that covers the viewport gives the same screenshots."
+fix = "Decision 3622. Task 22.44.54."
+
+[gotcha.4540]
+title = "The type check of the trading workspace reads the built output of a package of the workspace"
+symptom = "The web application under apps/perps/apps/web imports the market data client under apps/perps/packages/chainflow through its built output. The type check script of apps/perps/package.json checks the web application, and task 22.39.674 gives that script the build of the packages the web application imports. A task whose build command runs the type check after an install takes the script in the form task 22.39.674 gives it."
+fix = "Decision 3623. Tasks 22.39.567 and 22.39.674."
+
+[gotcha.4541]
+title = "The device list of a proof task is the list of sizes of the render check"
+symptom = "A proof task of the series closes a surface on the device list: the sizes, schemes and modes tools/ui-check/README.md names. The views of a surface file are the routes of its application. The human web application under apps/web/src/app holds a page file for each route, among them routes with a parameter, and the surface file tools/ui-check/surfaces/human-web.json names its views by route."
+fix = "Decision 3624. Tasks 22.44.55, 22.44.38 and 22.44.39."
+
+[gotcha.4542]
+title = "The container check without a service name checks the layout of the whole repository"
+symptom = "The script tools/containers/check.sh takes service names and then checks only the rows of those services. Without a name it checks every row of its table, every tracked recipe outside the directory docker against its list of recipes that stay where they are, every reference to the recipe at the root and the inputs of every recipe from the context of its row. The recipe apps/perps/Dockerfile is a line of that list and has no service name. A task that adds one image and verifies with the script without a name answers for every image of the repository."
+fix = "Decision 3625. Task 22.39.703; the verification of task 22.39.564."
+
+[gotcha.4543]
+title = "The health route of the webhooks service is its readiness"
+symptom = "The webhooks service answers GET /healthz with 200 only when it is ready and with 503 otherwise, on the health listener and on the application listener. The ingress role is ready when its node and consensus calls pass and each of the four event sources answers ready, and an event source without an enrolled principal answers 503 with the state waiting-principals. The service has no route that states only that the process serves. A hosting platform that admits a deployment by one health path reads readiness there."
+fix = "Decision 3626. Task 22.39.702."
+
+[gotcha.4544]
+title = "A look at renders names details that the measurements of the render check do not state"
+symptom = "The render check measures sizes, overflow, contrast, the type scale and, in its keyboard pass, for each element that takes focus a change of its appearance and of the pixels of the view. The form of a small mark, such as the mark beside the status text of the names shell, is seen only in the image: two strokes with square ends read as a tick at the size of a line of text. The link that skips to the content is the first element of a keyboard pass, and its change with focus is read like that of every other control."
+fix = "Decision 3627. Tasks 22.44.56 and 22.44.57."
+
+[gotcha.4545]
+title = "The error widgets of the trading workspace name three modules of their directory"
+symptom = "The files ErrorToast.tsx and index.ts under apps/perps/packages/paxeer-backend/src/widgets/errors import the modules ErrorPanel, ReportFeedbackModal and ToastActionBridge of the same directory. A reader that loads the collateral modal or the global error handling of the package loads the error widgets and with them these modules. A case of another package that starts a case of the workspace, such as the parity case of the perps precompile, loads them too."
+fix = "Decision 3628. Task 22.39.704."
+
+[gotcha.4546]
+title = "The render check renders one render after the other, and its calls to a page have no limit of time"
+symptom = "The function checkSurface of tools/ui-check/check.mjs renders the views of a surface one after the other, each view and each state in the thirty-four configurations of the matrix of tools/ui-check/config.mjs. The calls that measure a page wait for the page without a limit of time, so the time of a check has no bound. Twelve of the configurations are the modes reduced-motion, double-text and keyboard, and the keyboard mode presses Tab through every control of the page. The time of a check grows with the count of views, the configurations and the controls of each page."
+fix = "Decision 3629. Task 22.44.58; task 22.44.48."
+
+[gotcha.4547]
+title = "A case or a proof that reads a shared part follows the task that gives the part"
+symptom = "The parity case of the perps precompile starts a case of the trading workspace, and that case loads the error widgets of the workspace. The measurement of a render that shows nothing and the proofs of the surfaces with many views run inside the loop of the render check that task 22.44.58 changes. A task names the task that gives such a part among its requirements."
+fix = "Decision 3630. Tasks 22.39.569, 22.44.54, 22.44.38, 22.44.39 and 22.44.48."

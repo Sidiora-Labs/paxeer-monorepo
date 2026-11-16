@@ -16,7 +16,7 @@ export default function Home() {
   return (
     <>
       <SiteHeader/>
-      <main className="mx-auto flex min-w-0 w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
+      <main id="main-content" tabIndex={ -1 } className="mx-auto flex min-w-0 w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
         <div className="flex min-w-0 flex-col items-start gap-3">
           <Badge variant={ liveRoutes > 0 ? 'success' : 'warning' }>
             { liveRoutes > 0 ?

@@ -605,7 +605,7 @@
     {
       "path": "packages/ui/src/tailwind.css",
       "sourceSha256": "cfc72c717517a95e8c35856031fbd86758d9ee0d161ae00638ea284b3cb35c0c",
-      "runtimeSha256": "cfc72c717517a95e8c35856031fbd86758d9ee0d161ae00638ea284b3cb35c0c"
+      "runtimeSha256": "3a4ac3e0b580261f73e85cd0faaf22af079b5ae72d9c7d71291f109117909fd1"
     },
     {
       "path": "packages/ui/src/install.tsx",
@@ -1810,7 +1810,7 @@
     {
       "path": "packages/storybook-theme-tool/src/components/style.css",
       "sourceSha256": "cf98b2abaef9a52806e2c4aaf459ecd6259c2be1793667ced01196657c9cc5dc",
-      "runtimeSha256": "cf98b2abaef9a52806e2c4aaf459ecd6259c2be1793667ced01196657c9cc5dc"
+      "runtimeSha256": "49e7db594c23a61d6c3a702df9190039fc78ff5ff4be626a736fca607cf0b65f"
     },
     {
       "path": "packages/affiliate/src/tailwind.css",
@@ -2440,7 +2440,7 @@
     {
       "path": "packages/trading/src/pages/trading/trading.ui.tsx",
       "sourceSha256": "dfa76bf559ecf521346fb337281d9e610b313836f494b078eef77c43631f99cc",
-      "runtimeSha256": "e7c42ca750e5f9637321b92d184d05f82a03ff5e32cdfebc81f60693bc5259af"
+      "runtimeSha256": "9d4d8caeab4624b35f456edc5122c75c06f5e49a65bd89d6db01d26250d69e0a"
     },
     {
       "path": "packages/ui-transfer/src/tailwind.css",
@@ -2510,7 +2510,62 @@
     {
       "path": "packages/ui-tradingview/src/components/tradingview.ui.tsx",
       "sourceSha256": "1c7e580f0d3bb70ca567a00cec247999de3b6b8fa25d6a48c1aaab35ffa6da50",
-      "runtimeSha256": "1d7f5a4cd45bd89185fefe83ecb221e62c64a73e9ba4fc4ba59791180b716159"
+      "runtimeSha256": "b9e3dcbda708b7b3a4543acd4bd2970d1cd9ef6886f9c300b2a4f63ec25cad69"
+    },
+    {
+      "path": "apps/web/src/styles/globals.css",
+      "sourceSha256": "f941d8f5ba0ab6186875fb6f5382bd9151c6ae4e7ba9faac4e2e7b30f480a7e3",
+      "runtimeSha256": "f7f2b825c020b5b759db597dcc4310a3fd79417df137edba971d652ce76ce5e5"
+    },
+    {
+      "path": "packages/chart/src/chart.tsx",
+      "sourceSha256": "2f4a6cb79973311239087e367df5ca0c60d7e226c3a139fd7b8722e2dc471026",
+      "runtimeSha256": "f1cf01d6dddab55c574c9262ae00a593330cf8980bfe5011ad6becea0b4a0905"
+    },
+    {
+      "path": "packages/chart/src/chartRenderer.tsx",
+      "sourceSha256": "97c35f514decf79e5d4400e2c0e60ee6e6567364fdf244d864dc7e8a7aee8cac",
+      "runtimeSha256": "844abbe0c9d06eab9725db0af9c15830ad8aafd0c673bdd39b75826183249a04"
+    },
+    {
+      "path": "packages/trading/src/pages/trading/trading.ui.mobile.tsx",
+      "sourceSha256": "ff7aea19419af05aad4f8c4d55fc647bcd92d9952790a402a1eb91c58c2c9616",
+      "runtimeSha256": "211f05182256c0c4a71b1bf0b8554ad3e1467fb5d7fbb7970ccb90c74076539f"
+    },
+    {
+      "path": "packages/trading-next/src/pages/trading/trading.ui.mobile.tsx",
+      "sourceSha256": "7f5c1830af5c8b18def01982294430c69b824eaab54d31b5284b6e9ef971bce4",
+      "runtimeSha256": "ae3fc0f8b8aedc5fe3f0089154769c6a130591d6359dbb0633c232d9489ee335"
+    },
+    {
+      "path": "packages/ui-tradingview/src/components/displayControl/displayControl.desktop.tsx",
+      "sourceSha256": "f8a3089c9e8110c7b770199ed9cd4467ec030596077834eb14003a48d1d7122e",
+      "runtimeSha256": "aaee8b9bb859bc1b275b3afe10003eb7dcdde3ef70ef3603cad63991d6917b37"
+    },
+    {
+      "path": "packages/ui-tradingview/src/components/displayControl/displayControl.mobile.tsx",
+      "sourceSha256": "d8e4b7a49690b9b1000ba87c21871143cf08454fdd9bc84ecbcb0b6c4eacfcd1",
+      "runtimeSha256": "fca77c64c6dd4b95130c15fc9dd8864b5c0169d187976c280cd12c74d8120711"
+    },
+    {
+      "path": "packages/ui-tradingview/src/components/lineType/index.tsx",
+      "sourceSha256": "58e98f2e7dc1486d11a5e1731a0bd9d0db09b3cc64670dc2a96425e5471d8164",
+      "runtimeSha256": "0ff7af272eb315b746c01d98fb50a29812f1adcade0dd1a72896592f420d893e"
+    },
+    {
+      "path": "packages/ui-tradingview/src/components/noTradingview/index.tsx",
+      "sourceSha256": "31d7223d981ee84a0b3a3ef38a0053fcf87779b91a1f8b97825d63efe0b6cd5b",
+      "runtimeSha256": "f4492b039651a0eb7198d806037b27b3516ac438c10000af5ad362d4ccead950"
+    },
+    {
+      "path": "packages/ui-tradingview/src/components/timeInterval/index.tsx",
+      "sourceSha256": "0b2542be42661d98360014c3c8864570f70a92ed1a401e814ab55a2a30d68b84",
+      "runtimeSha256": "440bc8baa523713a2c462006ec6433523f2aee928fd26478915bf13de948f9bb"
+    },
+    {
+      "path": "packages/ui-tradingview/src/components/topBar/index.tsx",
+      "sourceSha256": "708a7e54b5aa9b4aaf4ff06f9f7ba93efff1cb7a97cea7d3f7cc67c9254f01bd",
+      "runtimeSha256": "59d52060c671bd4a6957812f599398d5513d12bfe2a0065306eb940f40997d59"
     }
   ],
   "nativeBrandArtwork": [

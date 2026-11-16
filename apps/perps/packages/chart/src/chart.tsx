@@ -24,12 +24,22 @@ const Chart = <T,>(props: PropsWithChildren<ChartProps<T>>) => {
 
   // set width and height
   useLayoutEffect(() => {
-    if (!wrapperRef.current || !!size) {
+    const element = wrapperRef.current;
+    if (!element || !!size) {
+      return;
+    }
+    const updateSize = () => {
+      const { width, height } = element.getBoundingClientRect();
+      if (width > 0 && height > 0) {
+        setSize({ width, height });
+      }
+    };
+    if (typeof ResizeObserver === "undefined") {
+      updateSize();
       return;
     }
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        // console.log(entry);
         if (entry.contentRect) {
           setSize({
             width: entry.contentRect.width,
@@ -42,12 +52,9 @@ const Chart = <T,>(props: PropsWithChildren<ChartProps<T>>) => {
     resizeObserver.observe(wrapperRef.current);
 
     return () => {
-      if (!wrapperRef.current || !resizeObserver) {
-        return;
-      }
-      resizeObserver.unobserve(wrapperRef.current);
+      resizeObserver.disconnect();
     };
-  }, []);
+  }, [size]);
 
   const memoizedValue = useMemo<ChartContextState>(() => {
     return {
@@ -60,7 +67,7 @@ const Chart = <T,>(props: PropsWithChildren<ChartProps<T>>) => {
   }, [margin, size, scale, props.data, setScale]);
 
   return (
-    <div ref={wrapperRef}>
+    <div ref={wrapperRef} className="oui-size-full">
       <ChartContext.Provider value={memoizedValue}>
         <ChartRenderer {...rest} />
       </ChartContext.Provider>

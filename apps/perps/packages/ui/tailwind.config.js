@@ -8,6 +8,7 @@ import {
   positionPlugin,
   componentsPlugin,
   scrollBarPlugin,
+  tokensPlugin,
 } from "./src/tailwind";
 
 /** @type {import('tailwindcss').Config} */
@@ -54,18 +55,18 @@ module.exports = withTV({
       "5xl": "1920px",
     },
     fontSize: {
-      "3xs": ["var(--oui-font-size-3xs, 0.625rem)", "0.625rem"], // 10px
-      "2xs": ["var(--oui-font-size-2xs, 0.75rem)", "1.125rem"], // 12px
-      xs: ["var(--oui-font-size-xs, calc(0.875rem - 1px))", "1.25rem"], // 13px
-      sm: ["var(--oui-font-size-sm,0.875rem)", "1.25rem"], // 14px
-      base: ["var(--oui-font-size-base, 1rem)", "1.5rem"], // 16px
-      lg: ["var(--oui-font-size-lg, 1.125rem)", "1.625rem"], // 18px
-      xl: ["var(--oui-font-size-xl, 1.25rem)", "1.75rem"], // 20px
-      "2xl": ["var(--oui-font-size-2xl, 1.5rem)", "2rem"], // 24px
-      "3xl": ["var(--oui-font-size-3xl, 1.75rem)", "2.25rem"], // 28px
-      "4xl": ["var(--oui-font-size-4xl, 1.875rem)", "2.375rem"], // 30px
-      "5xl": ["var(--oui-font-size-5xl, 2.25rem)", "2.75rem"], // 36px
-      "6xl": ["var(--oui-font-size-6xl, 3rem)", "3rem"], // 48px
+      "3xs": ["var(--oui-font-size-3xs, 0.625rem)", "1rem"],
+      "2xs": ["var(--oui-font-size-2xs, 0.75rem)", "1.125rem"],
+      xs: ["var(--oui-font-size-xs, 0.8125rem)", "1.25rem"],
+      sm: ["var(--oui-font-size-sm, 0.875rem)", "1.375rem"],
+      base: ["var(--oui-font-size-base, 1rem)", "1.5rem"],
+      lg: ["var(--oui-font-size-lg, 1.125rem)", "1.625rem"],
+      xl: ["var(--oui-font-size-xl, 1.25rem)", "1.75rem"],
+      "2xl": ["var(--oui-font-size-2xl, 1.5rem)", "2rem"],
+      "3xl": ["var(--oui-font-size-3xl, 1.75rem)", "2.25rem"],
+      "4xl": ["var(--oui-font-size-4xl, 1.875rem)", "2.5rem"],
+      "5xl": ["var(--oui-font-size-5xl, 2.25rem)", "2.875rem"],
+      "6xl": ["var(--oui-font-size-6xl, 3rem)", "1.1"],
     },
     borderRadius: {
       none: "0",
@@ -77,18 +78,28 @@ module.exports = withTV({
       "2xl": "var(--oui-rounded-2xl, 1rem)", // 16px
       full: "var(--oui-rounded-full, 9999px)",
     },
-    // boxShadow: {
-    //   sm: "var(--oui-shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))",
-    //   DEFAULT:
-    //     "var(--oui-shadow, 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1))",
-    //   md: "var(--oui-shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1))",
-    //   lg: "var(--oui-shadow-lg, 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1))",
-    //   xl: "var(--oui-shadow-xl, 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1))",
-    //   "2xl": "var(--oui-shadow-2xl, 0 25px 50px -12px rgb(0 0 0 / 0.25))",
-    // },
+    boxShadow: {
+      sm: "var(--oui-shadow-sm, 0 1px 2px rgb(0 0 0 / 0.12))",
+      md: "var(--oui-shadow-md, 0 4px 12px rgb(0 0 0 / 0.16))",
+      lg: "var(--oui-shadow-lg, 0 12px 32px rgb(0 0 0 / 0.2))",
+      focus: "var(--oui-shadow-focus)",
+    },
     extend: {
       spacing: {
+        0: "var(--oui-space-0, 0rem)",
+        1: "var(--oui-space-1, 0.25rem)",
+        2: "var(--oui-space-2, 0.5rem)",
+        3: "var(--oui-space-3, 0.75rem)",
+        4: "var(--oui-space-4, 1rem)",
+        5: "var(--oui-space-5, 1.25rem)",
+        6: "var(--oui-space-6, 1.5rem)",
+        8: "var(--oui-space-8, 2rem)",
+        10: "var(--oui-space-10, 2.5rem)",
+        12: "var(--oui-space-12, 3rem)",
         13: "3.25rem",
+        16: "var(--oui-space-16, 4rem)",
+        20: "var(--oui-space-20, 5rem)",
+        24: "var(--oui-space-24, 6rem)",
       },
       cursor: {
         "svg-edit":
@@ -206,18 +217,34 @@ module.exports = withTV({
               "rgb(var(--oui-color-trading-profit-contrast) / <alpha-value>)",
           },
         },
+        surface: {
+          canvas: "rgb(var(--oui-color-canvas, 9 6 16) / <alpha-value>)",
+          DEFAULT: "rgb(var(--oui-color-surface, 19 14 29) / <alpha-value>)",
+          raised:
+            "rgb(var(--oui-color-surface-raised, 22 18 32) / <alpha-value>)",
+        },
+        content: {
+          DEFAULT: "rgb(var(--oui-color-text, 255 255 255) / <alpha-value>)",
+          muted:
+            "rgb(var(--oui-color-text-muted, 132 131 136) / <alpha-value>)",
+        },
+        focus: "rgb(var(--oui-color-focus-ring, 156 117 255) / <alpha-value>)",
         // gradient: {
         //   success: 'linear-gradient(var(--oui-linear-degree, 90deg), var(--oui-color-success) 0%, var(--oui-color-success-darken) 100%)',
         // }
       },
       animation: {
-        "rotate-360": "rotate 1s linear infinite",
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-        "collapsible-down": "collapsible-down 0.2s ease-out",
-        "collapsible-up": "collapsible-up 0.2s ease-out",
-        "scan-qr-code": "scan-qr-code 6s infinite linear",
-        pop: "pop 0.2s ease-out",
+        "rotate-360": "rotate var(--oui-duration-slow) linear infinite",
+        "accordion-down":
+          "accordion-down var(--oui-duration-normal) var(--oui-ease-standard)",
+        "accordion-up":
+          "accordion-up var(--oui-duration-normal) var(--oui-ease-standard)",
+        "collapsible-down":
+          "collapsible-down var(--oui-duration-normal) var(--oui-ease-standard)",
+        "collapsible-up":
+          "collapsible-up var(--oui-duration-normal) var(--oui-ease-standard)",
+        "scan-qr-code": "scan-qr-code 6s linear infinite",
+        pop: "pop var(--oui-duration-normal) var(--oui-ease-emphasized)",
       },
       keyframes: {
         rotate: {
@@ -264,6 +291,7 @@ module.exports = withTV({
     },
   },
   plugins: [
+    tokensPlugin(),
     darkThemePlugin(),
     basePlugin(),
     sizePlugin(),
