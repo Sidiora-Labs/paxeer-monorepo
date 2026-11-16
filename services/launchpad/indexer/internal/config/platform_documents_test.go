@@ -50,7 +50,7 @@ func platformValues(t *testing.T, root, values string) {
 	}
 	digest := strings.Repeat("0", 64)
 	schema := map[string]any{
-		"service":          "indexer",
+		"service":          "core/indexer",
 		"runtime_role":     "indexerd",
 		"registry_digest":  digest,
 		"interface_digest": digest,

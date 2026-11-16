@@ -12,6 +12,7 @@ import (
 
 func TestPlatformDocuments(t *testing.T) {
 	services := []string{"api", "api-sockets", "indexer", "charts", "stats", "pnl", "ranking", "gateway", "user", "social", "metadata", "livestream"}
+	registryServices := map[string]string{"api": "core/api", "api-sockets": "core/api", "indexer": "core/indexer", "charts": "core/trading-charts", "stats": "core/stats-workers", "pnl": "core/pnl-tracker", "ranking": "core/ranking-algo", "gateway": "media/gateway", "user": "media/user", "social": "media/social", "metadata": "media/metadata", "livestream": "media/livestream"}
 	roles := map[string]string{"api": "apid_rest", "api-sockets": "apid_sockets", "indexer": "indexerd", "charts": "chartsd", "stats": "statsd", "pnl": "pnld", "ranking": "rankingd", "gateway": "mediagatewayd", "user": "userd", "social": "sociald", "metadata": "metadatad", "livestream": "livestreamd"}
 	root := filepath.Join("..", "..", "..", "..", "..")
 	values := t.TempDir()
@@ -25,10 +26,19 @@ func TestPlatformDocuments(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(values, "common.json"), example, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	for _, service := range services {
+		example, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "documents", "values", service+".example.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(values, service+".example.json"), example, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	digest := "0000000000000000000000000000000000000000000000000000000000000000"
 	for _, service := range services {
 		want := map[string]any{
-			"service": service, "runtime_role": roles[service], "registry_digest": digest, "interface_digest": digest,
+			"service": registryServices[service], "runtime_role": roles[service], "registry_digest": digest, "interface_digest": digest,
 			"reader_version": 1, "migrations": map[string]string{"1": digest}, "schemas": map[string]string{"app": digest},
 			"epoch": 1, "region": "mainnet", "privileges": []map[string]any{{"schema": "app", "object": "items", "privileges": []string{"SELECT"}}},
 		}

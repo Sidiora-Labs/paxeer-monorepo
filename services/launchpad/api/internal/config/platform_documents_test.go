@@ -74,7 +74,7 @@ func platformDocumentsValues(t *testing.T, service string) (string, string) {
 	}
 	digest := production.Checksum([]byte("test-schema"))
 	want := production.ExpectedSchema{
-		Service: service, RuntimeRole: role, RegistryDigest: digest, InterfaceDigest: digest,
+		Service: "core/api", RuntimeRole: role, RegistryDigest: digest, InterfaceDigest: digest,
 		ReaderVersion: 1, Migrations: map[int64]string{1: digest},
 		Schemas: map[string]string{"api_stream": digest}, Epoch: 1, Region: "mainnet-beta",
 		Privileges: []production.Grant{{Schema: "api_stream", Object: "frames", Privileges: []string{"SELECT"}}},
@@ -204,7 +204,7 @@ func TestPlatformDocuments(t *testing.T) {
 					if string(raw) != string(want) {
 						t.Fatal("expected schema bytes changed")
 					}
-					if schema, err := production.LoadExpectedSchema(raw, digest); err != nil || schema.Service != service {
+					if schema, err := production.LoadExpectedSchema(raw, digest); err != nil || schema.Service != "core/api" {
 						t.Fatalf("expected schema for %s: %v", service, err)
 					}
 				}

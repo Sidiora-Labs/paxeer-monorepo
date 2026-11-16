@@ -29,7 +29,7 @@ func TestPlatformDocuments(t *testing.T) {
 	copyFile(filepath.Join(repoRoot, "deploy/launchpad/documents/values/common.example.json"), filepath.Join(values, "common.json"))
 	copyFile(filepath.Join(repoRoot, "deploy/launchpad/documents/values/charts.example.json"), filepath.Join(values, "charts.example.json"))
 	expected := map[string]any{
-		"service": "charts", "runtime_role": "chartsd", "registry_digest": strings.Repeat("0", 64),
+		"service": "core/trading-charts", "runtime_role": "chartsd", "registry_digest": strings.Repeat("0", 64),
 		"interface_digest": strings.Repeat("0", 64), "reader_version": 1, "migrations": map[string]string{"1": strings.Repeat("0", 64)},
 		"schemas": map[string]string{"candles": strings.Repeat("0", 64)}, "epoch": 1, "region": "mainnet-beta",
 		"privileges": []map[string]any{{"schema": "candles", "object": "chart_stream", "privileges": []string{"SELECT"}}},
