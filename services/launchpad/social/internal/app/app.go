@@ -121,7 +121,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 	secretChecks := map[string]sharedhttp.Check{}
 	if secretCheck != nil {
-		secretChecks["secrets"] = secretCheck
+		secretChecks["social_secrets"] = secretCheck
 	}
 
 	platform := cfg.Platform()
@@ -185,7 +185,30 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			_ = sub.Close()
 			return nil, err
 		}
-		secretChecks["social_runtime"] = connected.ready
+		secretChecks["social_runtime"] = connected.runtimeReady
+		if connected.binding.Voice != nil {
+			secretChecks["social_voice"] = connected.voiceReady
+		}
+		if connected.notificationCredentials != nil {
+			secretChecks["social_notification"] = connected.notificationReady
+		}
+		if connected.nc != nil {
+			secretChecks["social_broker"] = connected.brokerReady
+		}
+		if connected.delivery != nil {
+			secretChecks["social_durable"] = connected.durableReady
+		}
+		if connected.provider != nil {
+			previous := secretChecks["social_secrets"]
+			secretChecks["social_secrets"] = func(c context.Context) error {
+				if previous != nil {
+					if e := previous(c); e != nil {
+						return e
+					}
+				}
+				return connected.secretsReady(c)
+			}
+		}
 	}
 	runtimeOwned := false
 	defer func() {
@@ -854,14 +877,16 @@ func newSocialConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgx
 		return nil, e
 	}
 	r.safety = &safety.Store{DB: pool, Targets: safety.VoiceTargets{DB: pool, Next: socialTargetResolver{pool: pool}}}
-	r.voice = &voice.Control{DB: pool, Policy: r.safety, Pools: socialPools{DB: pool, Guard: poolGuard}}
 	if b.Voice != nil {
 		r.voice, e = r.newVoice(ctx, *b.Voice, secret, poolGuard)
 		if e != nil {
 			return nil, e
 		}
 	} else {
-		r.voiceFailure = voice.ErrUnavailable
+		// Keep the voice route catalog mounted while making the dependency
+		// explicitly unavailable. Its handlers answer the established
+		// dependency-unavailable response without calling a provider.
+		r.voice = &voice.Control{}
 	}
 	brokerURL, e := url.Parse(b.NATSURL)
 	if e != nil || brokerURL.Scheme != "tls" || brokerURL.Host == "" || brokerURL.User != nil || brokerURL.RawQuery != "" || brokerURL.Fragment != "" {
@@ -1000,17 +1025,48 @@ func (r *socialConnectedRuntime) fail(e error) {
 	}
 }
 func (r *socialConnectedRuntime) ready(ctx context.Context) error {
+	for _, check := range []func(context.Context) error{
+		r.runtimeReady,
+		r.voiceReady,
+		r.notificationReady,
+		r.brokerReady,
+		r.durableReady,
+		r.secretsReady,
+	} {
+		if e := check(ctx); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) runtimeReady(context.Context) error {
 	if failure := r.failure.Load(); failure != nil {
 		return *failure
 	}
-	if r.voiceFailure != nil {
-		return r.voiceFailure
+	return nil
+}
+
+func (r *socialConnectedRuntime) voiceReady(context.Context) error {
+	if r.binding.Voice == nil {
+		return nil
 	}
+	if r.voice == nil || r.voice.Provider == nil || r.voice.Policy == nil || !r.voice.Gates.Ready() {
+		return voice.ErrUnavailable
+	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) notificationReady(ctx context.Context) error {
 	if r.notificationCredentials != nil {
 		if e := r.notificationCredentials.Ready(ctx); e != nil {
 			return e
 		}
 	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) brokerReady(ctx context.Context) error {
 	if r.nc == nil || !r.nc.IsConnected() {
 		return errors.New("social broker unavailable")
 	}
@@ -1020,8 +1076,22 @@ func (r *socialConnectedRuntime) ready(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("social broker probe: %w", err)
 	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) durableReady(context.Context) error {
 	if failure := r.durableFailure.Load(); failure != nil {
 		return *failure
+	}
+	return nil
+}
+
+func (r *socialConnectedRuntime) secretsReady(ctx context.Context) error {
+	if len(r.secrets) == 0 {
+		return nil
+	}
+	if r.provider == nil {
+		return errors.New("social secret authority unavailable")
 	}
 	for reference, consumed := range r.secrets {
 		value, e := r.provider.GetRequired(ctx, reference)
@@ -1172,7 +1242,7 @@ func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
 	r.worker(func(ctx context.Context) error {
 		return r.policyConsumer.Run(ctx, func(ctx context.Context, m *natsdriver.Message) error { return r.consumePolicy(ctx, m) })
 	})
-	if r.voice.Provider != nil {
+	if r.voice != nil && r.voice.Provider != nil {
 		r.worker(func(ctx context.Context) error {
 			return r.voice.RunReconciler(ctx, func(result voice.ReconcileResult, e error) {
 				if e != nil || result.Orphans > 0 {
@@ -1302,7 +1372,7 @@ func (r *socialConnectedRuntime) consumePolicy(ctx context.Context, m *natsdrive
 			return safety.ErrInvalid
 		}
 		if v.Kind == "policy_changed" {
-			if r.voice.Provider != nil {
+			if r.voice != nil && r.voice.Provider != nil {
 				if e := r.voice.ApplyPolicyUpdate(ctx, v.EntityID, v.Revision); e != nil {
 					return e
 				}
@@ -1339,7 +1409,7 @@ func (r *socialConnectedRuntime) eraseOnce(ctx context.Context) error {
 		return e
 	}
 	for _, v := range jobs {
-		if r.voice.Provider == nil {
+		if r.voice == nil || r.voice.Provider == nil {
 			var needs bool
 			if e = r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM voice_rooms r LEFT JOIN voice_participants p ON p.room_id=r.id WHERE r.state IN ('live','ending') AND (r.host_wallet=$1 OR p.wallet=$1))`, v.wallet).Scan(&needs); e != nil {
 				return e
@@ -1662,7 +1732,7 @@ func (r *socialConnectedRuntime) rankingVisibility(ctx context.Context) (any, er
 	if e = rows.Err(); e != nil {
 		return nil, e
 	}
-	if count == 0 || count > 100000 {
+	if count > 100000 {
 		return nil, safety.ErrUnavailable
 	}
 	return struct {
