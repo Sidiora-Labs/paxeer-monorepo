@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { Transform } from "./transform";
 
 test("multi-field volume sorting keeps invalid values after valid markets", () => {

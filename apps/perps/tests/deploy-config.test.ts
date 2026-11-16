@@ -122,6 +122,27 @@ function deployFilesDeclareGateway() {
 }
 test(deployFilesDeclareGateway);
 
+function productionGatewayIsHttpsOrigin() {
+  const gateway = lines("deploy/build-args.production.env")
+    .find((line) => line.startsWith("NEXT_PUBLIC_PERPS_GATEWAY_URL="))
+    ?.slice("NEXT_PUBLIC_PERPS_GATEWAY_URL=".length);
+  assert.equal(gateway, "https://perps-api.paxeer.app");
+  const origin = new URL(gateway);
+  assert.equal(origin.protocol, "https:");
+  assert.equal(origin.username, "");
+  assert.equal(origin.password, "");
+  assert.equal(origin.pathname, "/");
+  assert.equal(origin.search, "");
+  assert.equal(origin.hash, "");
+  assert.equal(gateway, origin.origin);
+  assert.ok(
+    lines("deploy/.env.production.example").includes(
+      "NEXT_PUBLIC_PERPS_GATEWAY_URL=",
+    ),
+  );
+}
+test(productionGatewayIsHttpsOrigin);
+
 function removedVariablesAbsent() {
   const scanned = [
     "apps/web/.env.example",

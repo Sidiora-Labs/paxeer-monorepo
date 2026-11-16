@@ -48,7 +48,13 @@ On a home with active sequencing, copy the configured receipt and consensus
 keys and set `sequencer.receipt-key-file` in the copy's `config/app.toml` to the
 copied receipt key so the command can sign the block's sequence batch. For a
 copy that has neither key file, pass `--stand-in-receipt-key`; the command uses
-an in-memory key in the temporary forms and does not write it to the copy.
+an in-memory key registered in the pinned key record and parameter record of
+each temporary form's execution state, covering the checked block height,
+and in the signer's pins. It writes the key to no file and includes it in no output.
+
+The fast form enables the fast executor and loads the platform's engine
+library from the node's library location. It also runs when that library is
+absent. Its report member `engine_library` is `loaded` or `absent`.
 
 The report contains the chain ID, height, block time, receipt key mode
 (`registered` or `stand-in`), committed height and hash,

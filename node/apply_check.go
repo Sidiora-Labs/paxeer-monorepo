@@ -70,6 +70,7 @@ type ApplyCheckReport struct {
 
 type ApplyCheckForm struct {
 	Name             string             `json:"name"`
+	EngineLibrary    string             `json:"engine_library,omitempty"`
 	Results          []ApplyCheckResult `json:"results"`
 	AppHash          string             `json:"app_hash"`
 	Panic            string             `json:"panic,omitempty"`
@@ -316,10 +317,6 @@ func openApplyCheckApp(home string, options *viper.Viper, fast bool) (a *App, er
 		tmconfig.DefaultConfig().SetRoot(home), MakeEncodingConfig(), wasm.EnableAllProposals, options, EmptyWasmOpts, nil,
 		baseapp.SetMinGasPrices(options.GetString(server.FlagMinGasPrices)),
 		func(ba *baseapp.BaseApp) { ba.SetOccEnabled(false); ba.SetConcurrencyWorkers(1) })
-	if fast && a.GigaEvmKeeper.EvmoneVM == nil {
-		_ = a.Close()
-		return nil, errors.New("fast executor is unavailable")
-	}
 	return a, nil
 }
 
@@ -397,6 +394,12 @@ func cloneApplyCheckTxs(txs [][]byte) [][]byte {
 
 func runApplyCheckForm(ctx context.Context, a *App, block *abci.RequestFinalizeBlock, txs [][]byte, name string, sequence ApplyCheckSequencer) (form ApplyCheckForm) {
 	form.Name = name
+	if name == "follower_fast" {
+		form.EngineLibrary = "absent"
+		if a.GigaEvmKeeper.EvmoneVM != nil {
+			form.EngineLibrary = "loaded"
+		}
+	}
 	defer func() {
 		if p := recover(); p != nil {
 			form.Panic = fmt.Sprint(p)

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/stretchr/testify/require"
 )
@@ -87,8 +88,24 @@ func TestSetSequencerRPCKeepsOptions(t *testing.T) {
 	app.SetSequencerRPC(opt, rcpt)
 
 	require.True(t, opt == app.sequencerRPC, "sequencer RPC option must retain its original pointers")
-	require.True(t, rcpt == app.sequencerReceipt, "sequencer receipt option must retain its original pointers")
 	require.Same(t, forwardURL, app.sequencerReceipt.ForwardURL)
+	require.Nil(t, rcpt.Keeper, "the caller's receipt option is passed by value")
+	require.Same(t, &app.SequencerKeeper, app.sequencerReceipt.Keeper,
+		"forwarded receipts use the application's sequencer keeper")
+
+	providedKeeper := new(seqkeeper.Keeper)
+	providedURL, err := url.Parse("https://sequencer.example/receipts")
+	require.NoError(t, err)
+	provided := Setup(t, false, false, false)
+	provided.SetSequencerRPC(opt, evmrpc.SequencerReceiptOption{ForwardURL: providedURL, Keeper: providedKeeper})
+	require.Same(t, providedKeeper, provided.sequencerReceipt.Keeper,
+		"an explicitly supplied keeper is retained")
+	require.Same(t, providedURL, provided.sequencerReceipt.ForwardURL)
+
+	withoutForward := Setup(t, false, false, false)
+	withoutForward.SetSequencerRPC(opt, evmrpc.SequencerReceiptOption{})
+	require.Nil(t, withoutForward.sequencerReceipt.Keeper,
+		"a receipt option without forwarding keeps no implicit keeper")
 }
 
 func TestSetCommitListenerKeepsListener(t *testing.T) {

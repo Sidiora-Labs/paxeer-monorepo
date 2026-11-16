@@ -119,12 +119,22 @@ def test_perps_lock_importers_match_members():
         else:
             members.update(matches)
     assert set(lock["importers"]) == members - excluded
-    assert "../../services/wallet/gateway" in members - excluded
-    assert workspace["sharedWorkspaceLockfile"] is True
+    assert workspace["packages"] == ["apps/*", "packages/*"]
+    assert {".", "apps/web", "packages/paxeer-backend"} <= members - excluded
+    for member in members - excluded:
+        assert (PERPS / member).resolve().is_relative_to(PERPS)
+        if member != ".":
+            assert not (PERPS / member / "pnpm-lock.yaml").exists()
+        assert not (PERPS / member / "package-lock.json").exists()
+        assert not (PERPS / member / "yarn.lock").exists()
     assert not (errors := _manifest_errors(lock_path, lock)), "\n".join(errors)
 
-    gateway = "../../services/wallet/gateway"
-    manifest = json.loads((PERPS / gateway / "package.json").read_text())
+
+def test_wallet_gateway_lock_preserves_database_dependencies():
+    wallet = ROOT / "services/wallet"
+    lock = _read_lockfile(wallet / "pnpm-lock.yaml")
+    gateway = "gateway"
+    manifest = json.loads((wallet / gateway / "package.json").read_text())
     for name, version in {
         "@electric-sql/pglite": "0.5.15",
         "@electric-sql/pglite-socket": "0.2.18",

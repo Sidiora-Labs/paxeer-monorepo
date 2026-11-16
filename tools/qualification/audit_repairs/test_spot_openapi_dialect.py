@@ -169,7 +169,7 @@ def test_spot_entire_contract_preserves_baseline_semantics():
 def test_spot_nullable_fields_match_producer_and_consumer_sources():
     document = contract()
     producer = source("services/platform/perps-data/internal/rest/spotusers.go")
-    consumer = source("apps/perps/src/core/spot/api.ts")
+    consumer = source("apps/perps/packages/paxeer-backend/src/core/spot/api.ts")
     holdings = response_schema(document, "holdings")["properties"]["erc20"]["items"]
     positions = response_schema(document, "positions")["properties"]["items"]["items"]
     closed = response_schema(document, "closed-legs")["properties"]["items"]["items"]
@@ -213,7 +213,7 @@ def test_spot_nullable_fields_match_producer_and_consumer_sources():
 
 def test_spot_producer_transport_consumer_source_path():
     producer = source("services/platform/perps-data/internal/rest/spotusers.go")
-    consumer = source("apps/perps/src/core/spot/api.ts")
+    consumer = source("apps/perps/packages/paxeer-backend/src/core/spot/api.ts")
     for route, handler in (("holdings", "holdings"), ("positions", "positions"),
                            ("orders", "orders"), ("closed-legs", "closedLegs"),
                            ("trades/stats", "tradesStats")):
@@ -229,7 +229,9 @@ def test_spot_producer_transport_consumer_source_path():
     assert "return addr.toLowerCase()" in consumer
     assert "Promise<SpotPositionsResponse>" in consumer
     assert "Promise<SpotTradesStats>" in consumer
-    portfolio = source("apps/perps/src/hooks/spot/useSpotPortfolio.ts")
+    portfolio = source(
+        "apps/perps/packages/paxeer-backend/src/hooks/spot/useSpotPortfolio.ts"
+    )
     assert "spotApi.getPositions(account, snapshot.controller.signal)" in portfolio
 
 
