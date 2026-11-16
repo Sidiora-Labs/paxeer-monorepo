@@ -4299,6 +4299,19 @@
         },
         {
           "schema": "ranking",
+          "object": "snapshots",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "completed_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "ranking",
           "object": "publication_outbox",
           "object_kind": "table",
           "privileges": [
@@ -8704,6 +8717,19 @@
         {
           "schema": "gateway",
           "object": "restrictions",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT",
+            "UPDATE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "gateway",
+          "object": "inventory_cursors",
           "object_kind": "table",
           "privileges": [
             "SELECT",
