@@ -15190,6 +15190,12 @@ value = "The example values under deploy/launchpad/documents/values describe one
 basis = "Gotcha 4597. Decisions 3663 and 3046."
 affects = []
 
+[decision.3680]
+title = "The contract and the composer of the launchpad api name every document its readiness reads"
+value = "A service whose definition names its readiness path as health check starts healthy only where every document its readiness reads is given. So the entry of the api in the variables file in the platform directory under deploy/launchpad requires the names of the network authority document, the stream relay document and the discovery runtime document with their digests, and the network RPC address, and the composer writes the stream relay document and the discovery runtime document from the values of the api, with example values the api admits. The network authority document comes from the command services/launchpad/api/cmd/api-runtime-docs and enters in the form the rendered documents of the indexer take: a member of the values names the rendered file, the composer binds its digest, and the service reads it under its file name or as a document. The entry of api-sockets keeps the documents its own role reads. A case holds the rule: every readiness check the api registers in its rest role that reads a document has the names of that document among the required names of the contract. Where the code admits the rest role without one of the documents by a rule of its own, the rule of the code decides and the final message of the task states it."
+basis = "Gotcha 4598. Decisions 3679 and 3677."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44850,6 +44856,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.751]
+title = "Name in the contract and the composer of the launchpad api every document its readiness reads"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad/api", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run 'PlatformDocuments|ReadinessDocuments' ./internal/config/ ./internal/app/)"
+do_1 = "do_1 Gotcha 4598, decision 3680. Read in services/launchpad/api/internal/app/app.go where the readiness checks of both roles of the api are registered, with internal/app/authority.go, internal/app/stream_relay.go and its type streamRelayDocument, the function registerDiscovery and the type discoveryRuntimeDocument, and the function NewHTTPRuntime of services/launchpad/notifications/runtime.go with the options it demands. Read the names the configuration in services/launchpad/api/internal/config/config.go gives the documents, the command services/launchpad/api/cmd/api-runtime-docs with its flags and what it writes, the entries of api and api-sockets in the variables file in the platform directory under deploy/launchpad, the composer modules api.py, api_sockets.py and indexer.py under deploy/launchpad/documents with the form the rendered files of the indexer take, and the README there. State in the final message, per role and readiness check, which documents and plain names the check reads and what it answers without them."
+symbols = []
 
 [capability.22.39.750]
 title = "Make the example values of the launchpad composer one set across the services"
@@ -249085,6 +249100,38 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.751]
+title = "Name in the contract and the composer of the launchpad api every document its readiness reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.750"]
+reqs = ["22998.1"]
+capabilities = ["22.39.751"]
+interfaces = []
+do_1 = "do_1 Gotcha 4598, decision 3680. Read in services/launchpad/api/internal/app/app.go where the readiness checks of both roles of the api are registered, with internal/app/authority.go, internal/app/stream_relay.go and its type streamRelayDocument, the function registerDiscovery and the type discoveryRuntimeDocument, and the function NewHTTPRuntime of services/launchpad/notifications/runtime.go with the options it demands. Read the names the configuration in services/launchpad/api/internal/config/config.go gives the documents, the command services/launchpad/api/cmd/api-runtime-docs with its flags and what it writes, the entries of api and api-sockets in the variables file in the platform directory under deploy/launchpad, the composer modules api.py, api_sockets.py and indexer.py under deploy/launchpad/documents with the form the rendered files of the indexer take, and the README there. State in the final message, per role and readiness check, which documents and plain names the check reads and what it answers without them."
+do_2 = "do_2 The entry of the api in the variables file in the platform directory under deploy/launchpad requires the names of the stream relay document, the discovery runtime document and the network authority document with their digests, in the endings the composer and the service use for the other documents of the api, and the network RPC address. A reference of one of the documents that names a secret enters the list of the secrets of the entry, and no secret value enters a file. Every file the cases compare with the contract follows: the values file of the launchpad under deploy/launchpad, the example of the environment of the api where it lists names, and the recordings of the cases under deploy/launchpad/tests and tools/deploy/tests. The entry of api-sockets changes only where do_1 shows that its role reads a document the entry does not name."
+do_3 = "do_3 The composer module deploy/launchpad/documents/api.py writes the stream relay document and the discovery runtime document from the values of the api and checks each member with the types and the bounds the code of the api and of the notification runtime applies. The example values of the api gain the members of both documents with values the api admits: addresses in the form the code demands, references by name and never a secret value. The network authority document takes the form the rendered documents of the indexer take: a member of the values names the file the command services/launchpad/api/cmd/api-runtime-docs wrote, the composer binds its digest, and the README states the command line and the names. The accounting read document and every other member of the examples stay as they are."
+do_4 = "do_4 Cases in deploy/launchpad/documents/test_compose.py: the composed api holds each of the three documents with its digest, a value outside a bound is refused with the name of the member, and the rendered file of the network authority is bound by its digest and refused where the file changed. The cases named PlatformDocuments of services/launchpad/api/internal/config load the composed documents through the configuration of the api. A case with a name that holds ReadinessDocuments, in services/launchpad/api/internal/config or services/launchpad/api/internal/app, decodes the composed stream relay document and the composed discovery runtime document with the types the api reads them with, applies each check of theirs that needs neither a network nor a database, and asserts that every readiness check the rest role registers that reads a document has the names of that document among the required names of the contract. The case needs no database, no broker and no node."
+do_5 = "do_5 Run by hand the cases of deploy/launchpad/documents/test_compose.py, the two shell cases of the verification and the cases of services/launchpad/api named in it, and read each message. The files of deploy/launchpad, services/launchpad/api and tools/deploy are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad/api", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/api.py && (cd services/launchpad/api && go build ./... && go vet ./internal/config/ ./internal/app/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/api && go test -count=1 -timeout 20m -run 'PlatformDocuments|ReadinessDocuments' ./internal/config/ ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.750]
 title = "Make the example values of the launchpad composer one set across the services"
 status = "pending"
@@ -249508,7 +249555,7 @@ title = "List the statements of the gateway service under its runtime role and h
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.736"]
 reqs = ["22998.1"]
 capabilities = ["22.39.737"]
 interfaces = []
@@ -465768,7 +465815,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.695]
 title = "Let the builder of the explorer backend hold what the cases of the web app call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.686"]

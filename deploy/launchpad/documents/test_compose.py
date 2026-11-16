@@ -31,6 +31,96 @@ REGISTRY_NAMES = {
     "metadata": "media/metadata",
     "livestream": "media/livestream",
 }
+ONE_SET_SERVICES = ("charts", "stats", "api", "indexer", "pnl", "ranking")
+
+
+def _example_set(values: Path) -> dict[str, dict]:
+    examples = {
+        service: json.loads((values / f"{service}.example.json").read_bytes())
+        for service in ONE_SET_SERVICES
+    }
+    examples["charts"] = examples["charts"]["delivery"]
+    return examples
+
+
+def _assert_one_set(documents: dict[str, dict]) -> None:
+    indexer = documents["indexer"]
+    charts, stats, api = (documents[service] for service in ("charts", "stats", "api"))
+    for service in ("charts", "stats", "pnl", "ranking"):
+        assert documents[service]["sourceStream"] == indexer["canonical_stream_id"], f"{service}.sourceStream"
+    assert api["SourceStream"] == indexer["canonical_stream_id"], "api.SourceStream"
+    for service in ("charts", "stats", "ranking"):
+        assert documents[service]["projectionVersion"] == indexer["projection_version"], f"{service}.projectionVersion"
+    assert api["ProjectionVersion"] == indexer["projection_version"], "api.ProjectionVersion"
+    assert documents["pnl"]["projectionVersion"] == indexer["inventory_projection_version"], "pnl.projectionVersion"
+    assert charts["generation"] == stats["generation"] == api["ProjectionGeneration"], "projection generation"
+    assert documents["pnl"]["generation"] == indexer["inventory_generation"], "pnl.generation"
+    assert api["ChartsDeliverySchema"] == charts["schema"], "api.ChartsDeliverySchema"
+    assert api["StatsDeliverySchema"] == stats["schema"], "api.StatsDeliverySchema"
+    assert api["ChartsConsumerID"] == charts["consumerId"], "api.ChartsConsumerID"
+    assert api["StatsConsumerID"] == stats["consumerId"], "api.StatsConsumerID"
+
+
+def test_example_values_one_set() -> None:
+    _assert_one_set(_example_set(ROOT / "values"))
+
+
+def test_compose_examples_one_set(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    result = _run(values, out, *ONE_SET_SERVICES)
+    assert result.returncode == 0, result.stderr
+    documents = {}
+    for service in ONE_SET_SERVICES:
+        record = json.loads((out / f"{service}.json").read_bytes())
+        name = {
+            "api": "ACCOUNTING_READ_CONFIG_DOCUMENT",
+            "ranking": "RANKING_RUNTIME_DOCUMENT",
+        }.get(service, "DELIVERY_CONFIG_DOCUMENT")
+        documents[service] = json.loads(base64.b64decode(record[name]))
+    indexer = documents["indexer"]
+    documents["indexer"] = {
+        "canonical_stream_id": indexer["CanonicalStreamID"],
+        "projection_version": indexer["ProjectionVersion"],
+        "inventory_projection_version": indexer["InventoryProjectionVersion"],
+        "inventory_generation": indexer["Generation"],
+    }
+    _assert_one_set(documents)
+
+
+@pytest.mark.parametrize("service, member, comparison", [
+    ("charts", "sourceStream", "charts.sourceStream"),
+    ("stats", "sourceStream", "stats.sourceStream"),
+    ("pnl", "sourceStream", "pnl.sourceStream"),
+    ("ranking", "sourceStream", "ranking.sourceStream"),
+    ("api", "SourceStream", "api.SourceStream"),
+    ("charts", "projectionVersion", "charts.projectionVersion"),
+    ("stats", "projectionVersion", "stats.projectionVersion"),
+    ("ranking", "projectionVersion", "ranking.projectionVersion"),
+    ("api", "ProjectionVersion", "api.ProjectionVersion"),
+    ("pnl", "projectionVersion", "pnl.projectionVersion"),
+    ("charts", "generation", "projection generation"),
+    ("stats", "generation", "projection generation"),
+    ("api", "ProjectionGeneration", "projection generation"),
+    ("pnl", "generation", "pnl.generation"),
+    ("api", "ChartsDeliverySchema", "api.ChartsDeliverySchema"),
+    ("api", "StatsDeliverySchema", "api.StatsDeliverySchema"),
+    ("api", "ChartsConsumerID", "api.ChartsConsumerID"),
+    ("api", "StatsConsumerID", "api.StatsConsumerID"),
+    ("charts", "schema", "api.ChartsDeliverySchema"),
+    ("stats", "schema", "api.StatsDeliverySchema"),
+    ("charts", "consumerId", "api.ChartsConsumerID"),
+    ("stats", "consumerId", "api.StatsConsumerID"),
+])
+def test_example_values_one_set_refuses_mismatch(tmp_path: Path, service: str, member: str, comparison: str) -> None:
+    values = _values(tmp_path)
+    _assert_one_set(_example_set(values))
+    path = values / f"{service}.example.json"
+    example = json.loads(path.read_bytes())
+    document = example["delivery"] if service == "charts" else example
+    document[member] += "_other"
+    path.write_text(json.dumps(example))
+    with pytest.raises(AssertionError, match=comparison):
+        _assert_one_set(_example_set(values))
 
 
 def _schema(service: str) -> dict:
