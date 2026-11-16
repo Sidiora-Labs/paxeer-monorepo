@@ -7,7 +7,7 @@ const outline = recipe.variants?.variant.outline;
 describe('select recipe, outline variant', () => {
   it('draws the trigger with the same one pixel border as the input', () => {
     expect(outline?.trigger).toMatchObject({
-      borderWidth: '1px',
+      borderWidth: 'var(--chakra-border-widths-1)',
       bg: 'input.bg',
       borderColor: 'input.border.filled',
     });

@@ -34,8 +34,8 @@ export const recipe = defineRecipe({
       underlaid: {
         color: 'link.primary',
         bgColor: 'link.underlaid.bg',
-        px: '8px',
-        py: '6px',
+        px: 'var(--chakra-spacing-2)',
+        py: 'var(--chakra-spacing-1\\.5)',
         borderRadius: 'base',
         textStyle: 'sm',
         _hover: {

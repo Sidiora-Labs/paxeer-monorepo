@@ -13,11 +13,11 @@ export const recipe = defineSlotRecipe({
       h: '100dvh',
       zIndex: 'modal',
       _open: {
-        animationName: 'fade-in',
+        _motionSafe: { animationName: 'fade-in' },
         animationDuration: 'slow',
       },
       _closed: {
-        animationName: 'fade-out',
+        _motionSafe: { animationName: 'fade-out' },
         animationDuration: 'moderate',
       },
     },
@@ -76,7 +76,7 @@ export const recipe = defineSlotRecipe({
       textStyle: 'heading.md',
       pr: '8',
       my: '1',
-      fontWeight: '500',
+      fontWeight: 'medium',
     },
     description: {
       color: 'fg.muted',
@@ -87,7 +87,7 @@ export const recipe = defineSlotRecipe({
     size: {
       md: {
         content: {
-          maxW: '300px',
+          maxW: 'var(--chakra-spacing-75)',
         },
       },
     },
@@ -99,16 +99,16 @@ export const recipe = defineSlotRecipe({
         },
         content: {
           _open: {
-            animationName: {
+            _motionSafe: { animationName: {
               base: 'slide-from-left-full, fade-in',
               _rtl: 'slide-from-right-full, fade-in',
-            },
+            } },
           },
           _closed: {
-            animationName: {
+            _motionSafe: { animationName: {
               base: 'slide-to-left-full, fade-out',
               _rtl: 'slide-to-right-full, fade-out',
-            },
+            } },
           },
         },
       },
@@ -119,16 +119,16 @@ export const recipe = defineSlotRecipe({
         },
         content: {
           _open: {
-            animationName: {
+            _motionSafe: { animationName: {
               base: 'slide-from-right-full, fade-in',
               _rtl: 'slide-from-left-full, fade-in',
-            },
+            } },
           },
           _closed: {
-            animationName: {
+            _motionSafe: { animationName: {
               base: 'slide-to-right-full, fade-out',
               _rtl: 'slide-to-right-full, fade-out',
-            },
+            } },
           },
         },
       },
@@ -139,8 +139,8 @@ export const recipe = defineSlotRecipe({
         },
         content: {
           maxW: '100%',
-          _open: { animationName: 'slide-from-top-full, fade-in' },
-          _closed: { animationName: 'slide-to-top-full, fade-out' },
+          _open: { _motionSafe: { animationName: 'slide-from-top-full, fade-in' } },
+          _closed: { _motionSafe: { animationName: 'slide-to-top-full, fade-out' } },
         },
       },
 
@@ -164,8 +164,8 @@ export const recipe = defineSlotRecipe({
         },
         content: {
           maxW: '100%',
-          _open: { animationName: 'slide-from-bottom-full, fade-in' },
-          _closed: { animationName: 'slide-to-bottom-full, fade-out' },
+          _open: { _motionSafe: { animationName: 'slide-from-bottom-full, fade-in' } },
+          _closed: { _motionSafe: { animationName: 'slide-to-bottom-full, fade-out' } },
           borderTopRadius: 'base',
         },
       },

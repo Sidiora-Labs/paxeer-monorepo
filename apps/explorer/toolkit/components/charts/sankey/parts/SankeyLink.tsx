@@ -4,6 +4,8 @@ import React from 'react';
 
 import type { SankeyLinkExtended } from '../types';
 
+import { motionDuration } from '../../../../theme/motion';
+
 export interface SankeyLinkProps {
   link: SankeyLinkExtended;
 
@@ -40,14 +42,14 @@ export const SankeyLink = React.memo(({
 
   const handleMouseEnter = React.useCallback((event: React.MouseEvent) => {
     if (ref.current) {
-      select(ref.current).transition().duration(200).attr('stroke-opacity', hoverOpacity);
+      select(ref.current).transition().duration(motionDuration('normal')).attr('stroke-opacity', hoverOpacity);
     }
     onMouseEnter?.(link, event);
   }, [ link, hoverOpacity, onMouseEnter ]);
 
   const handleMouseLeave = React.useCallback(() => {
     if (ref.current) {
-      select(ref.current).transition().duration(200).attr('stroke-opacity', opacity);
+      select(ref.current).transition().duration(motionDuration('normal')).attr('stroke-opacity', opacity);
     }
     onMouseLeave?.();
   }, [ opacity, onMouseLeave ]);

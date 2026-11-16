@@ -4,6 +4,9 @@ import React from 'react';
 
 import { useColorModeValue } from '../../../chakra/color-mode';
 
+import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import { motionDuration } from '../../../theme/motion';
+
 export interface ChartAxisProps extends Omit<React.SVGProps<SVGGElement>, 'scale'> {
   type: 'left' | 'bottom';
   scale: d3.ScaleTime<number, number> | d3.ScaleLinear<number, number>;
@@ -14,6 +17,7 @@ export interface ChartAxisProps extends Omit<React.SVGProps<SVGGElement>, 'scale
 }
 
 export const ChartAxis = React.memo(({ type, scale, ticks, tickFormatGenerator, noAnimation, anchorEl, ...props }: ChartAxisProps) => {
+  const reducedMotion = useReducedMotion();
   const ref = React.useRef<SVGGElement>(null);
 
   const textColor = useToken('colors', useColorModeValue('blackAlpha.600', 'whiteAlpha.500'));
@@ -32,18 +36,18 @@ export const ChartAxis = React.memo(({ type, scale, ticks, tickFormatGenerator, 
 
     const axisGroup = d3.select(ref.current);
 
-    if (noAnimation) {
+    if (noAnimation || reducedMotion) {
       axisGroup.call(axis);
     } else {
-      axisGroup.transition().duration(750).ease(d3.easeLinear).call(axis);
+      axisGroup.transition().duration(motionDuration('chart')).ease(d3.easeLinear).call(axis);
     }
     axisGroup.select('.domain').remove();
     axisGroup.selectAll('line').remove();
     axisGroup.selectAll('text')
       .attr('opacity', 1)
       .attr('color', textColor)
-      .style('font-size', '12px');
-  }, [ scale, ticks, tickFormatGenerator, noAnimation, type, textColor ]);
+      .style('font-size', 'var(--chakra-font-sizes-text-xs)');
+  }, [ scale, ticks, tickFormatGenerator, noAnimation, reducedMotion, type, textColor ]);
 
   React.useEffect(() => {
     if (!anchorEl) {

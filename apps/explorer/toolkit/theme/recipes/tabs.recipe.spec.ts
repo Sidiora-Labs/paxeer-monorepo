@@ -13,7 +13,7 @@ describe('tabs recipe, pill variant', () => {
   it('gives every pill a full radius and the divider outline', () => {
     expect(pill?.trigger).toMatchObject({
       borderRadius: 'full',
-      borderWidth: '1px',
+      borderWidth: 'var(--chakra-border-widths-1)',
       borderColor: 'border.divider',
       bg: 'bg.surface',
       color: 'text.secondary',
