@@ -15316,6 +15316,12 @@ value = "The refresh reads the height of the source, the watermark of the stream
 basis = "Gotcha 4620."
 affects = []
 
+[decision.3701]
+title = "A case that renders a whole page states its own time bounds, and a task verifies the directories it owns"
+value = "A case of the explorer that renders a whole page or the whole layout states its bounds itself: thirty seconds for the case and fifteen seconds for a wait for content, written at the case or once for its file. No assertion changes and the configuration of the runner stays as it is, so every other case keeps the default bounds. Task 22.44.72 brings the cases under apps/explorer/ui/shared/Page and apps/explorer/ui/shared/layout to that form. The verification of task 22.44.4 selects the twenty directories of its paths; the cases of the other directories of apps/explorer/ui/shared are verified by the tasks that own them and by the proof task of the surface."
+basis = "Gotcha 4621. Decision 3587."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44976,6 +44982,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.72]
+title = "Give the explorer cases that render a whole page or the whole layout their own time bounds"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/layout"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/shared/Page/ ui/shared/layout/"
+do_1 = "do_1 Gotcha 4621, decision 3701. Read the configuration of the test runner of apps/explorer with its setup file, every spec file under apps/explorer/ui/shared/Page and under apps/explorer/ui/shared/layout, and the helpers they render with. List in the final message every case of the two directories that renders a whole page or the whole layout, with the time each takes in a run of its file alone and in a run of the whole directory apps/explorer/ui/shared."
+symbols = []
 
 [capability.22.39.768]
 title = "Make the readiness refresh of the canonical source a reader that holds on a moving head and names its cause"
@@ -175036,6 +175051,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.72]
+title = "Give the explorer cases that render a whole page or the whole layout their own time bounds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.71"]
+reqs = ["22998.1"]
+capabilities = ["22.44.72"]
+interfaces = []
+do_1 = "do_1 Gotcha 4621, decision 3701. Read the configuration of the test runner of apps/explorer with its setup file, every spec file under apps/explorer/ui/shared/Page and under apps/explorer/ui/shared/layout, and the helpers they render with. List in the final message every case of the two directories that renders a whole page or the whole layout, with the time each takes in a run of its file alone and in a run of the whole directory apps/explorer/ui/shared."
+do_2 = "do_2 Each listed case takes the bounds of decision 3701, thirty seconds for the case and fifteen seconds for each wait for content, written at the case or once at the head of its file. The case of the block details in apps/explorer/ui/shared/Page/entityPageComposition.spec.tsx and the cases of apps/explorer/ui/shared/layout/Layout.spec.tsx are among them. No assertion is changed, removed or weakened, no case is skipped, the components are not changed, and the configuration of the runner and its setup file stay as they are."
+do_3 = "do_3 Where a listed case can reach its content sooner without a change of what it holds, for example by waiting for the one element it reads, do that as well and name it in the final message."
+do_4 = "do_4 Run by hand the whole directory apps/explorer/ui/shared three times in a row and read each summary: every case of apps/explorer/ui/shared/Page and apps/explorer/ui/shared/layout holds in each run. A case of another directory that does not hold in one of the runs is named in the final message with test, file and first message and is not changed. The files of apps/explorer/ui/shared/Page and apps/explorer/ui/shared/layout are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/shared/Page", "apps/explorer/ui/shared/layout"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/shared/Page/ ui/shared/layout/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.71]
 title = "Read the groups of the mobile navigation in the layout case of the search results as the header gives them"
 status = "done"
@@ -177837,7 +177883,7 @@ touches = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/share
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.4.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.4.kvx && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.4.kvx && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/AccountActionsMenu/ ui/shared/DetailedInfo/ ui/shared/TokenTransfer/ ui/shared/TokenTransferSnippet/ ui/shared/address/ ui/shared/batch/ ui/shared/block/ ui/shared/chart/ ui/shared/gas/ ui/shared/logs/ ui/shared/monaco/ ui/shared/nft/ ui/shared/scan/ ui/shared/stats/ ui/shared/tx/ ui/shared/userOps/ ui/shared/web3/ ui/shared/ad/ ui/shared/verificationSteps/ ui/shared/solidityscanReport/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -177850,6 +177896,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decision 3637 in place of the form of do_5. Commit the changes of the task first and run the cases of the verification by hand. Prepare the surface with the steps apps/explorer/tools/scripts/dev.sh takes before it starts its server: the sprite of the icons and the file of runtime settings, with the values of apps/explorer/configs/envs/paxeer-x-dev.env. Build once with NEXT_TELEMETRY_DISABLED=1 yarn build and serve with yarn start as a background process whose output goes to a file outside the repository; do not start the development server. Every command of the step has a time bound, none stays in the foreground, and the server is stopped when the renders end. Answer requests that leave the surface by fixed answers given in the browser session. With one browser and one page render the views of the paths one after another at the widths 360, 768 and 1440 in both schemes, and one view of each template also with reduced motion, with doubled text size and by keyboard alone; close each page after its render. Correct the defects of the list of decision 3588, build once more and render the corrected views once more. Name what then remains with view, width and defect in the final message and in the record. The record names for each view the widths and the schemes that were rendered. The work of an earlier candidate stays as it is. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_10 = "do_10 Decision 3701, gotcha 4621. The work of the earlier candidate stays as it is: the changes of the components, the cases and the record. The verification now selects the twenty directories of the paths of this task. Take main, run the cases of those directories by hand and read each message, then run the build once and the counted verification once. The cases under apps/explorer/ui/shared/Page and apps/explorer/ui/shared/layout belong to task 22.44.72 and are not part of this verification; change nothing there. It makes no difference whether a case passed before the change, and no approval is needed to repair a case or its cause inside the paths. No case is removed or weakened. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.3]
 title = "Bring the shared structure parts of the explorer to the web platform guidance"
