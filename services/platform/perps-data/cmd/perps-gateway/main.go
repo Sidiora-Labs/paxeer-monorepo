@@ -87,6 +87,7 @@ func run(logger *slog.Logger) (resultErr error) {
 		Chain:          cfg.ChainID,
 		AuthSecret:     cfg.AuthSecret,
 		TrustedProxies: cfg.TrustedProxies,
+		AllowedOrigins: cfg.AllowedOrigins,
 		Node:           node,
 		Metrics:        metrics,
 		Logger:         logger,

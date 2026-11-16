@@ -15010,6 +15010,30 @@ value = "The fast form enables the fast executor and loads the engine library wh
 basis = "Gotcha 4566. Decision 3633."
 affects = []
 
+[decision.3650]
+title = "The verification of the browser origins of the perps data gateway runs the cases that need no node"
+value = "The cases on the origins of the gateway server stand in a test function of their own whose name holds the word Origin and that needs no node, no database and no message stream. The verification of task 22.39.714 runs the cases of the definition of the perps project, the cases on the services, the configuration and the trusted proxies, and every case whose name holds the word Origin. It leaves out the function TestGatewayServer, which runs where a node is given, and the case optional_explorer_requires_consumer_wiring of the configuration, which task 22.39.720 brings in line. The build stays as it is."
+basis = "Gotcha 4567. Decisions 3644 and 3651."
+affects = []
+
+[decision.3651]
+title = "The portal configuration admits an absent explorer base as the pages do"
+value = "The setting PERPS_EXPLORER_TX_BASE is optional for the perps portal as it is for the perps explorer. Without it the portal starts and its pages hold no transaction link. A value that is given is an http or https address as now, and a value outside that form refuses the start as now. The row of the setting in docs/release/variables/service-platform.md states it as optional for both services. The rows of the definition of the perps project stay as they are."
+basis = "Gotcha 4568. Decision 3644."
+affects = []
+
+[decision.3652]
+title = "The three cases assert the present form of the product, and the product keeps every decided rule"
+value = "For each of the three cases the side that departs from the decided form is repaired. A case that states a form a later decision or task replaced is brought in line with the product: it keeps asserting on every part it asserts on now, in the form the product gives. Where the product departs from a decided rule the product is repaired and the case stays as written. The final message names for each case the side that was changed and the decision or task that states the form."
+basis = "Gotcha 4569. Decisions 3046 and 3052."
+affects = []
+
+[decision.3653]
+title = "The verification of the explorer base of the portal configuration runs the cases that need no node"
+value = "The verification of task 22.39.720 runs the cases on the configuration and on the trusted proxies, the cases whose name starts with TestExplorerLinks and the function TestPortalChainMarketPage. It leaves out the function TestPortalPages, which runs where a node is given. The build stays as it is."
+basis = "Gotcha 4570. Decisions 3651 and 3650."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44670,6 +44694,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.721]
+title = "Bring three cases of the node package and the parts of the product they read in line"
+reqs = ["22998.1"]
+touches = ["node", "modules/lxphost"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run 'TestSetSequencerRPC|TestMergeUpgrade|TestUpgradesSequencer'"
+do_1 = "do_1 Gotcha 4569, decision 3652. Read the three cases with their fixtures: TestSetSequencerRPCKeepsOptions in node/sequencer_seams_test.go, TestMergeUpgradeInstallsProgramsSchedules in node/upgrades_merge_schedules_test.go and TestUpgradesSequencerSwitchAtActivation in node/upgrades_sequencer_test.go. Read in node/app.go the function SetSequencerRPC and the occupancy step of Programs at the end of a block, in the node package the installation of the fee schedule and of the metering schedule by the merge upgrade, and in modules/lxphost the forms of the schedule rows, the next sequence and the occupancy step with its refusals. The output of git log for each of these files names the tasks that last changed it: read their decisions in spec/layerx-merge/spec.kvx. Run each of the three cases alone by hand and read its message."
+symbols = []
+
+[capability.22.39.720]
+title = "Let the portal configuration of the perps data services admit an absent explorer base"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data/internal/config", "services/platform/perps-data/internal/portal", "services/platform/perps-data/cmd/perps-portal", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 20m -run 'TestConfig|TestLoadTrustedProxies' ./services/platform/perps-data/internal/config/ && go test -count=1 -timeout 20m -run 'TestExplorerLinks|TestPortalPages|TestPortalChainMarketPage' ./services/platform/perps-data/internal/portal/"
+do_1 = "do_1 Gotcha 4568, decision 3651. Read in services/platform/perps-data/internal/config/config.go the settings of the portal and of the explorer and their checks, in services/platform/perps-data/internal/portal/pages.go the function NewPages and where the pages write a transaction hash, the cases of services/platform/perps-data/internal/portal/explorer_links_test.go, the case optional_explorer_requires_consumer_wiring of the function TestConfigGatewaySchemes in services/platform/perps-data/internal/config/endpoint_validation_test.go, the command under services/platform/perps-data/cmd/perps-portal, and the row of the setting in docs/release/variables/service-platform.md."
+symbols = []
 
 [capability.22.39.719]
 title = "Register the stand-in receipt key where every form of applycheck executes, and open the fast form as the node opens it"
@@ -174216,7 +174258,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.717]
 title = "Give the cases of the render check a workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175109,7 +175151,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.44]
 title = "Close the developer dashboard on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.32", "22.44.37", "22.39.683", "22.44.49", "22.44.52"]
@@ -175210,7 +175252,7 @@ do_7 = "do_7 Decisions 3616, 3620 and 3621, gotchas 4533, 4537 and 4538. The ren
 
 [task.22.44.41]
 title = "Close the wallet application on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.26", "22.44.37"]
@@ -248425,9 +248467,75 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.721]
+title = "Bring three cases of the node package and the parts of the product they read in line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.721"]
+interfaces = []
+do_1 = "do_1 Gotcha 4569, decision 3652. Read the three cases with their fixtures: TestSetSequencerRPCKeepsOptions in node/sequencer_seams_test.go, TestMergeUpgradeInstallsProgramsSchedules in node/upgrades_merge_schedules_test.go and TestUpgradesSequencerSwitchAtActivation in node/upgrades_sequencer_test.go. Read in node/app.go the function SetSequencerRPC and the occupancy step of Programs at the end of a block, in the node package the installation of the fee schedule and of the metering schedule by the merge upgrade, and in modules/lxphost the forms of the schedule rows, the next sequence and the occupancy step with its refusals. The output of git log for each of these files names the tasks that last changed it: read their decisions in spec/layerx-merge/spec.kvx. Run each of the three cases alone by hand and read its message."
+do_2 = "do_2 The case TestSetSequencerRPCKeepsOptions asserts the form of the product: the sequencer option is kept as handed in, the forward address of the receipt option is kept as the same pointer, a keeper that is given is kept, a receipt option with a forward address and without a keeper holds the sequencer keeper of the application afterwards, and a receipt option without a forward address holds no keeper it was not given. Where the product departs from the form of task 22.39.551, repair the product."
+do_3 = "do_3 For the case TestMergeUpgradeInstallsProgramsSchedules read which member of the installed fee schedule row differs from the value the case states, and read the decision that states the values of the schedules the merge upgrade installs. Where the installation departs from the decided values, repair the installation. Where the case states a value or a position a later decision replaced, bring the case in line with the decided row. The case keeps asserting on both schedules, on every member of the rows it reads now, and on the views of the two schedules."
+do_4 = "do_4 For the case TestUpgradesSequencerSwitchAtActivation read the refusal the occupancy step of Programs gives at the first sequenced height and the record it reads. A chain that activates the merge upgrade and commits its first sequenced block passes the occupancy step: where the product refuses a state such a chain reaches, repair the product and add a case in the node package that states the rule. Where the fixture of the case lacks a record the product writes on such a chain before that block, give the fixture the record in the way the product writes it. The final message states which of the two held."
+do_5 = "do_5 No present case is removed or weakened. Run by hand every case of the node package whose name starts with TestSetSequencerRPC, TestMergeUpgrade or TestUpgradesSequencer, and the cases of modules/lxphost on the schedules and on the occupancy step where the task changed that package, and read each message."
+do_6 = "do_6 The three test files and the files of the node package and of modules/lxphost they read are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node", "modules/lxphost"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run 'TestSetSequencerRPC|TestMergeUpgrade|TestUpgradesSequencer'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.720]
+title = "Let the portal configuration of the perps data services admit an absent explorer base"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.720"]
+interfaces = []
+do_1 = "do_1 Gotcha 4568, decision 3651. Read in services/platform/perps-data/internal/config/config.go the settings of the portal and of the explorer and their checks, in services/platform/perps-data/internal/portal/pages.go the function NewPages and where the pages write a transaction hash, the cases of services/platform/perps-data/internal/portal/explorer_links_test.go, the case optional_explorer_requires_consumer_wiring of the function TestConfigGatewaySchemes in services/platform/perps-data/internal/config/endpoint_validation_test.go, the command under services/platform/perps-data/cmd/perps-portal, and the row of the setting in docs/release/variables/service-platform.md."
+do_2 = "do_2 The portal configuration loads without the setting PERPS_EXPLORER_TX_BASE and with an empty value, and the loaded base is then empty. A value that is given is checked as now: an http or https address, and a value outside that form refuses the start with the message it has now. The command of the portal starts with the empty base and hands it to the pages as loaded."
+do_3 = "do_3 Bring the case optional_explorer_requires_consumer_wiring in line under a name that states the new form: the portal configuration loads without the setting, the pages are built from the loaded values with an empty base, and the explorer loads without the setting as now. The case keeps asserting on the configuration, on the pages and on the explorer. Add a case that a given value outside the form still refuses the start of the portal. Every case of services/platform/perps-data/internal/portal/explorer_links_test.go passes as written. No present case is removed or weakened."
+do_4 = "do_4 State in the row of the setting in docs/release/variables/service-platform.md that it is optional for the portal and for the explorer and that without it the pages hold no transaction link, in the form the rows of the file take."
+do_5 = "do_5 The files under services/platform/perps-data/internal/config and services/platform/perps-data/internal/portal are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data/internal/config", "services/platform/perps-data/internal/portal", "services/platform/perps-data/cmd/perps-portal", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./services/platform/perps-data/..."
+verify_cmd = "go test -count=1 -timeout 20m -run 'TestConfig|TestLoadTrustedProxies' ./services/platform/perps-data/internal/config/ && go test -count=1 -timeout 20m -run 'TestExplorerLinks|TestPortalChainMarketPage' ./services/platform/perps-data/internal/portal/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3653, gotcha 4570. The verification now runs the cases on the configuration and on the trusted proxies, the cases whose name starts with TestExplorerLinks and the function TestPortalChainMarketPage, and it leaves out the function TestPortalPages, which runs where a node is given: change nothing in that function. The work of the earlier candidate stays as it is. Run the commands of the verification by hand once and correct what they name inside the paths, then run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+
 [task.22.39.719]
 title = "Register the stand-in receipt key where every form of applycheck executes, and open the fast form as the node opens it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.712"]
@@ -248461,7 +248569,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.714]
 title = "Let the perps data gateway admit the browser origins its setting lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -248481,7 +248589,7 @@ touches = ["services/platform/perps-data", "deploy", "tools/deploy/tests", "docs
 tests = []
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "bash tools/deploy/tests/*-perps-project.test.sh && go test -count=1 -timeout 30m -run 'TestServices|TestConfig|TestLoadTrustedProxies|TestGatewayServer|Origin' ./services/platform/perps-data/deploy/ ./services/platform/perps-data/internal/config/ ./services/platform/perps-data/internal/gateway/ ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/graphql/"
+verify_cmd = "bash tools/deploy/tests/*-perps-project.test.sh && go test -count=1 -timeout 30m -run 'TestServices|TestConfig|TestLoadTrustedProxies|Origin' -skip 'TestGatewayServer|TestConfigGatewaySchemes/optional_explorer_requires_consumer_wiring' ./services/platform/perps-data/deploy/ ./services/platform/perps-data/internal/config/ ./services/platform/perps-data/internal/gateway/ ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/graphql/"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -248493,6 +248601,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "do_9 Decision 3650, gotcha 4567. The cases on the origins of the gateway server stand in a test function of their own in services/platform/perps-data/internal/gateway whose name holds the word Origin: it builds the handler in front of the routes with a list of origins, needs no node, no database and no message stream, and holds every case do_6 names for the gateway. The function TestGatewayServer holds the cases it held before the task and no case on origins. The verification now runs the cases of the definition, the cases on the services, the configuration and the trusted proxies and every case whose name holds the word Origin, and it leaves out TestGatewayServer and the case optional_explorer_requires_consumer_wiring, which belongs to task 22.39.720: change nothing in that case. The work of the earlier candidate stays as it is otherwise. Run the commands of the verification by hand once and correct what they name inside the paths, then run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.712]
 title = "Let the command applycheck run on a copy of a home that holds no receipt key"

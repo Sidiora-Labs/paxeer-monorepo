@@ -1,0 +1,39 @@
+{
+  "principal": "developer-fixture",
+  "generated_at": 2,
+  "usage": {
+    "keys": 0,
+    "live_keys": 0,
+    "disabled_keys": 0,
+    "requests_allowed": 0,
+    "requests_used": 0,
+    "requests_remaining": 0,
+    "utilisation_per_mille": 0
+  },
+  "keys": [],
+  "requests": {
+    "records": 1,
+    "pending": 0,
+    "completed": 1,
+    "rate_limited": 0,
+    "refused": 0,
+    "first_at": 1,
+    "last_at": 1
+  },
+  "recent_requests": [],
+  "deliveries": {
+    "endpoints": 0,
+    "suspended_endpoints": 0,
+    "pending": 0,
+    "in_flight": 0,
+    "retrying": 0,
+    "delivered_total": 0,
+    "dead_lettered_total": 0,
+    "delivered_per_mille": 0,
+    "oldest_undelivered_seconds": 0,
+    "next_attempt_at": null
+  },
+  "endpoints": [],
+  "dead_letters": [],
+  "payments": []
+}

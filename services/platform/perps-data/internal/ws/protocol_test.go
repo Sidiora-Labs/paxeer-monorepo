@@ -278,6 +278,47 @@ func (h *harness) fill(t *testing.T, c *client, n int, at time.Duration) time.Du
 	return at
 }
 
+func TestWebSocketOrigin(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		origins []string
+		origin  string
+		status  int
+	}{
+		{name: "listed", origins: []string{"https://app.example"}, origin: "https://app.example", status: http.StatusSwitchingProtocols},
+		{name: "outside", origins: []string{"https://app.example"}, origin: "https://other.example", status: http.StatusForbidden},
+		{name: "without_header", origins: []string{"https://app.example"}, status: http.StatusSwitchingProtocols},
+		{name: "empty_list", origin: "https://other.example", status: http.StatusSwitchingProtocols},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, err := NewServer(testSnapshotID, served, DefaultLimits(), tc.origins)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ts := httptest.NewServer(srv)
+			defer ts.Close()
+			headers := http.Header{}
+			if tc.origin != "" {
+				headers.Set("Origin", tc.origin)
+			}
+			conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(ts.URL, "http"), headers)
+			if tc.status == http.StatusSwitchingProtocols {
+				if err != nil {
+					t.Fatalf("dial: %v", err)
+				}
+				if resp.StatusCode != tc.status {
+					t.Fatalf("status %d, want %d", resp.StatusCode, tc.status)
+				}
+				_ = conn.Close()
+				return
+			}
+			if err == nil || resp == nil || resp.StatusCode != tc.status {
+				t.Fatalf("dial error=%v response=%v, want status %d", err, resp, tc.status)
+			}
+		})
+	}
+}
+
 func TestWSProtocol(t *testing.T) {
 	t.Run("event_subscribe", func(t *testing.T) {
 		h := newHarness(t, false)

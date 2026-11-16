@@ -44,6 +44,7 @@ const (
 	envAuthSecret     = "PERPS_AUTH_SECRET"
 	envExplorerTx     = "PERPS_EXPLORER_TX_BASE"
 	envGatewayURL     = "PERPS_GATEWAY_URL"
+	envAllowedOrigins = "PERPS_ALLOWED_ORIGINS"
 	envStartHeight    = "PERPS_START_HEIGHT"
 	envTrustedProxies = "PERPS_TRUSTED_PROXY_CIDRS"
 	minAuthSecretLen  = 32
@@ -52,12 +53,12 @@ const (
 
 type uses struct {
 	rpc, comet, database, nats, port, auth, explorerTx, gatewayURL, startHeight bool
-	trustedProxies                                                              bool
+	trustedProxies, allowedOrigins                                              bool
 }
 
 var services = map[Service]uses{
 	Indexer:  {rpc: true, comet: true, database: true, nats: true, port: true, startHeight: true},
-	Gateway:  {rpc: true, database: true, nats: true, port: true, auth: true, trustedProxies: true},
+	Gateway:  {rpc: true, database: true, nats: true, port: true, auth: true, trustedProxies: true, allowedOrigins: true},
 	Explorer: {database: true, port: true, explorerTx: true, trustedProxies: true},
 	Portal:   {port: true, explorerTx: true, gatewayURL: true},
 	Replay:   {rpc: true, comet: true, database: true},
@@ -75,6 +76,7 @@ type Config struct {
 	NATSURL        string `json:"-"`
 	Port           uint16
 	AuthSecret     string `json:"-"`
+	AllowedOrigins []string
 	ExplorerTxBase string
 	GatewayURL     string
 	StartHeight    int64
@@ -157,6 +159,13 @@ func Load(service Service) (*Config, error) {
 		}
 		cfg.TrustedProxies = trusted
 	}
+	if u.allowedOrigins {
+		origins, err := parseAllowedOrigins(os.Getenv(envAllowedOrigins))
+		if err != nil {
+			return nil, err
+		}
+		cfg.AllowedOrigins = origins
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -197,6 +206,11 @@ func (c *Config) Validate() error {
 	if u.auth && len(c.AuthSecret) < minAuthSecretLen {
 		return fmt.Errorf("%s must be at least %d bytes", envAuthSecret, minAuthSecretLen)
 	}
+	if u.allowedOrigins {
+		if err := validateAllowedOrigins(c.AllowedOrigins); err != nil {
+			return err
+		}
+	}
 	if c.Service == Portal && c.ExplorerTxBase == "" {
 		return errors.New(envExplorerTx + " is required for portal")
 	}
@@ -223,7 +237,7 @@ func (c *Config) Validate() error {
 // String redacts service secrets and endpoint credentials.
 func (c Config) String() string {
 	c = c.safeEndpoints()
-	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%d %s=%v",
+	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%v",
 		c.Service,
 		envChainID, c.ChainID,
 		envRPCURLs, strings.Join(c.RPCURLs, ","),
@@ -232,11 +246,51 @@ func (c Config) String() string {
 		envNATSURL, redact(c.NATSURL),
 		envPort, c.Port,
 		envAuthSecret, redact(c.AuthSecret),
+		envAllowedOrigins, strings.Join(c.AllowedOrigins, ","),
 		envExplorerTx, c.ExplorerTxBase,
 		envGatewayURL, c.GatewayURL,
 		envStartHeight, c.StartHeight,
 		envTrustedProxies, c.TrustedProxies,
 	)
+}
+
+func parseAllowedOrigins(raw string) ([]string, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	parts := strings.Split(raw, ",")
+	origins := make([]string, 0, len(parts))
+	for _, part := range parts {
+		origin := strings.TrimSpace(part)
+		if !validOrigin(origin) {
+			return nil, fmt.Errorf("%s contains invalid origin %q", envAllowedOrigins, origin)
+		}
+		origins = append(origins, origin)
+	}
+	return origins, nil
+}
+
+func validateAllowedOrigins(origins []string) error {
+	for _, origin := range origins {
+		if !validOrigin(origin) {
+			return fmt.Errorf("%s contains invalid origin %q", envAllowedOrigins, origin)
+		}
+	}
+	return nil
+}
+
+func validOrigin(origin string) bool {
+	if origin == "" || strings.ContainsAny(origin, " \t\r\n") {
+		return false
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Opaque != "" || u.User != nil || u.Host == "" || u.Hostname() == "" || strings.Contains(origin, "#") {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	return u.Path == "" && u.RawPath == "" && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && !strings.HasSuffix(origin, "/")
 }
 
 // GoString keeps %#v redacted.

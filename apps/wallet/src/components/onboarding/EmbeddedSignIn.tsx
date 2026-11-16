@@ -26,6 +26,16 @@ function failure(err: unknown): string {
   return err instanceof Error && err.message ? err.message : 'Sign-in failed';
 }
 
+function showFocusRing(event: React.FocusEvent<HTMLButtonElement>) {
+  event.currentTarget.style.boxShadow = '0 0 0 2px var(--color-action-primary)';
+  event.currentTarget.style.transform = 'scale(1.08)';
+}
+
+function hideFocusRing(event: React.FocusEvent<HTMLButtonElement>) {
+  event.currentTarget.style.boxShadow = '';
+  event.currentTarget.style.transform = '';
+}
+
 export function EmbeddedSignIn({ onBack }: EmbeddedSignInProps) {
   const wallet = useWallet();
   const [email, setEmail] = useState('');
@@ -95,7 +105,7 @@ export function EmbeddedSignIn({ onBack }: EmbeddedSignInProps) {
           <label htmlFor="signin-code" className="w-full text-left text-sm font-semibold">
             Email code
           </label>
-          <div className="pax-signin-field bg-pax-control flex min-h-12 w-full items-center gap-3 rounded-2xl pl-4 pr-1">
+          <div className="pax-signin-field bg-pax-surface flex min-h-12 w-full items-center gap-3 rounded-2xl pl-4 pr-1">
             <input
               id="signin-code"
               aria-label="Email code"
@@ -122,7 +132,7 @@ export function EmbeddedSignIn({ onBack }: EmbeddedSignInProps) {
               aria-label="Verify code"
               onClick={() => void handleVerify()}
               disabled={!codeValid || busy}
-              className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-xl transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-pax-accent ${codeValid ? 'bg-pax-accent text-pax-on-accent' : 'bg-pax-control text-pax-muted cursor-not-allowed'}`}
+              className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-xl transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-pax-accent ${codeValid ? 'bg-pax-accent text-pax-on-accent' : 'bg-pax-mid text-pax-bg cursor-not-allowed'}`}
             >
               {busy ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -137,7 +147,9 @@ export function EmbeddedSignIn({ onBack }: EmbeddedSignInProps) {
               setEmail('');
               setCode('');
             }}
-            className="text-sm text-pax-muted hover:text-pax-light transition-colors press-scale"
+            onFocus={showFocusRing}
+            onBlur={hideFocusRing}
+            className="text-sm text-pax-muted hover:text-pax-light focus-visible:bg-pax-control focus-visible:text-pax-light focus-visible:opacity-70"
           >
             Use a different email
           </button>
@@ -151,7 +163,9 @@ export function EmbeddedSignIn({ onBack }: EmbeddedSignInProps) {
       <div className="pax-signin flex flex-col gap-5 w-full max-w-sm">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-pax-muted press-scale self-start"
+          onFocus={showFocusRing}
+          onBlur={hideFocusRing}
+          className="flex items-center gap-1.5 rounded-lg text-xs text-pax-muted self-start focus-visible:bg-pax-control focus-visible:text-pax-light focus-visible:opacity-70"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back
@@ -177,7 +191,9 @@ export function EmbeddedSignIn({ onBack }: EmbeddedSignInProps) {
               aria-label={label}
               disabled={busy}
               onClick={() => void handleOAuth(id)}
-              className="pax-signin-field bg-pax-control flex min-h-12 flex-1 items-center justify-center rounded-xl transition-all hover:bg-pax-overlay active:scale-95 disabled:opacity-40"
+              onFocus={showFocusRing}
+              onBlur={hideFocusRing}
+              className="pax-signin-field bg-pax-mid text-pax-bg flex min-h-12 flex-1 items-center justify-center rounded-xl hover:bg-pax-overlay focus-visible:bg-pax-overlay focus-visible:ring-2 focus-visible:ring-pax-accent focus-visible:opacity-70 active:scale-95 disabled:opacity-40"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />}
             </button>
@@ -215,7 +231,7 @@ export function EmbeddedSignIn({ onBack }: EmbeddedSignInProps) {
             aria-label="Send code"
             onClick={() => void handleSendCode()}
             disabled={!emailValid || busy}
-            className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-xl transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-pax-accent ${emailValid ? 'bg-pax-accent text-pax-on-accent' : 'bg-pax-control text-pax-muted cursor-not-allowed'}`}
+            className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-xl transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-pax-accent ${emailValid ? 'bg-pax-accent text-pax-on-accent' : 'bg-pax-mid text-pax-bg cursor-not-allowed'}`}
           >
             {busy ? (
               <Loader2 className="size-4 animate-spin" />

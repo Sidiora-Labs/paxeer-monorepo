@@ -13,6 +13,16 @@ interface OnboardingProps {
   initialStep?: 'embedded-signin' | 'embedded-setup';
 }
 
+function showFocusRing(event: React.FocusEvent<HTMLButtonElement>) {
+  event.currentTarget.style.boxShadow = '0 0 0 2px var(--color-action-primary)';
+  event.currentTarget.style.transform = 'scale(1.08)';
+}
+
+function hideFocusRing(event: React.FocusEvent<HTMLButtonElement>) {
+  event.currentTarget.style.boxShadow = '';
+  event.currentTarget.style.transform = '';
+}
+
 export function Onboarding({ initialStep }: OnboardingProps = {}) {
   const wallet = useWallet();
   const [step, setStep] = useState<Step>(initialStep ?? 'welcome');
@@ -77,8 +87,10 @@ export function Onboarding({ initialStep }: OnboardingProps = {}) {
               setStep('embedded-signin');
             }}
             disabled={!embeddedAvailable}
+            onFocus={showFocusRing}
+            onBlur={hideFocusRing}
             className={
-              'pax-wallet-choice w-full text-left bg-pax-surface rounded-2xl px-4 py-3.5 press-scale transition-all  ' +
+              'pax-wallet-choice w-full text-left bg-pax-surface rounded-2xl px-4 py-3.5 focus-visible:bg-pax-control focus-visible:opacity-70 ' +
               (embeddedAvailable ? 'hover:bg-pax-control ' : 'opacity-60 cursor-not-allowed ')
             }
           >
@@ -126,7 +138,9 @@ export function Onboarding({ initialStep }: OnboardingProps = {}) {
               key={detail.info.uuid}
               onClick={() => void connectInjected(detail.info.uuid)}
               disabled={wallet.busy}
-              className="pax-wallet-choice w-full text-left bg-pax-surface rounded-2xl px-4 py-3.5 press-scale transition-all hover:bg-pax-control disabled:opacity-60"
+              onFocus={showFocusRing}
+              onBlur={hideFocusRing}
+              className="pax-wallet-choice w-full text-left bg-pax-surface rounded-2xl px-4 py-3.5 focus-visible:bg-pax-control focus-visible:opacity-70 hover:bg-pax-control disabled:opacity-60"
             >
               <div className="pax-wallet-choice-content flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-pax-control flex items-center justify-center shrink-0 overflow-hidden">
