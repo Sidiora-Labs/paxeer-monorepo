@@ -1,0 +1,564 @@
+[manifest]
+task = "22.44.22"
+surface = "Sidiora Launchpad"
+paths = ["apps/launchpad/web/src"]
+patterns = ["page layouts and grids", "tables and lists", "dialogs", "popovers and menus", "tooltips", "tabs", "accordions", "forms and validation", "selects and comboboxes", "toasts", "skeletons and spinners", "scroll areas and sticky content", "color schemes", "icons", "images", "fonts", "motion", "carousels"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.branded_select_styling]
+id = "branded-select-styling"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/ui"]
+
+[guide.browser_ui_theming]
+id = "browser-ui-theming"
+directories = ["apps/launchpad/web/src/app"]
+
+[guide.card]
+id = "card"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.carousel]
+id = "carousel"
+directories = ["apps/launchpad/web/src/widgets/live"]
+
+[guide.color]
+id = "color"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.css]
+id = "css"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/widgets/swap"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.html]
+id = "html"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/launchpad/web/src/assets", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/widgets"]
+
+[guide.interest_triggered_tooltips]
+id = "interest-triggered-tooltips"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.optimize_image_priority]
+id = "optimize-image-priority"
+directories = ["apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/widgets/live", "apps/launchpad/web/src/features/metadata-media"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.persistent_toast_notifications]
+id = "persistent-toast-notifications"
+directories = ["apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/widgets/trading"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/launchpad/web/src/ui", "apps/launchpad/web/src/widgets/explore", "apps/launchpad/web/src/widgets/profile", "apps/launchpad/web/src/widgets/terminal", "apps/launchpad/web/src/widgets/trading"]
+
+[guide.rich_media_picker]
+id = "rich-media-picker"
+directories = ["apps/launchpad/web/src/widgets/create", "apps/launchpad/web/src/widgets/profile", "apps/launchpad/web/src/features/metadata-media"]
+
+[guide.scrollability_affordance_hints]
+id = "scrollability-affordance-hints"
+directories = ["apps/launchpad/web/src/ui", "apps/launchpad/web/src/widgets/home", "apps/launchpad/web/src/widgets/terminal"]
+
+[guide.sortable_table]
+id = "sortable-table"
+directories = ["apps/launchpad/web/src/ui", "apps/launchpad/web/src/widgets/explore", "apps/launchpad/web/src/widgets/holder-rewards"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.state_aware_sticky_headers]
+id = "state-aware-sticky-headers"
+directories = ["apps/launchpad/web/src/shell", "apps/launchpad/web/src/widgets/leaderboard"]
+
+[guide.switch]
+id = "switch"
+directories = ["apps/launchpad/web/src/ui", "apps/launchpad/web/src/widgets/explore", "apps/launchpad/web/src/widgets/terminal"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/launchpad/web/src/app", "apps/launchpad/web/src/core/app-foundation", "apps/launchpad/web/src/ui", "apps/launchpad/web/src/shell", "apps/launchpad/web/src/page-modules", "apps/launchpad/web/src/widgets", "apps/launchpad/web/src/features"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/launchpad/web/src/app"]
+
+[view.route_1]
+route = "/"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_2]
+route = "/chat"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_3]
+route = "/create"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_4]
+route = "/docs"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_5]
+route = "/explore"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_6]
+route = "/holder-rewards"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_7]
+route = "/leaderboard"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_8]
+route = "/live"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_9]
+route = "/new"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_10]
+route = "/profile"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_11]
+route = "/rewards"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_12]
+route = "/search"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_13]
+route = "/swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_14]
+route = "/terminal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_15]
+route = "/token"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_16]
+route = "/watchlist"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_17]
+route = "/auth/callback"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_18]
+route = "/chat/:conversationId"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_19]
+route = "/coin/:address"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_20]
+route = "/create/chain"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_21]
+route = "/docs/dmca"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_22]
+route = "/docs/do-not-sell"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_23]
+route = "/docs/privacy"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_24]
+route = "/docs/terms"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_25]
+route = "/docs/trademark-guidelines"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_26]
+route = "/live/all"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_27]
+route = "/meta-ag/orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_28]
+route = "/meta-ag/swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_29]
+route = "/pnl/:cardId"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_30]
+route = "/profile/:walletAddress"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_31]
+route = "/terminal/trending"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_32]
+route = "/token/:poolAddress"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_33]
+route = "/tokens/:tokenAddress/metadata"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_34]
+route = "/terminal/portfolio"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_35]
+route = "/terminal/track"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_36]
+route = "/terminal/rewards"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_37]
+route = "/terminal/trenches"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_38]
+route = "/terminal/:slug"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.route_39]
+route = "/*"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.market_proof]
+route = "/coin/:address"
+state = "Coin market"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.terminal_proof]
+route = "/terminal/:slug"
+state = "Coin workspace"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.search]
+route = "/explore"
+state = "Search coins and users"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.menu]
+route = "/explore"
+state = "More explore presets"
+widths = [360, 390, 430, 768, 834, 1024, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.columns]
+route = "/explore"
+state = "Column settings"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.filter]
+route = "/explore"
+state = "Explore filters"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.sign_in]
+route = "/explore"
+state = "Sign in"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]
+
+[view.coin_selector]
+route = "/swap"
+state = "Select a coin"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+keyboard = true
+landscape = [844, 390]

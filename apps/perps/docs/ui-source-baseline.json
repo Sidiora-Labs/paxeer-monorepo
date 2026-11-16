@@ -605,7 +605,7 @@
     {
       "path": "packages/ui/src/tailwind.css",
       "sourceSha256": "cfc72c717517a95e8c35856031fbd86758d9ee0d161ae00638ea284b3cb35c0c",
-      "runtimeSha256": "cfc72c717517a95e8c35856031fbd86758d9ee0d161ae00638ea284b3cb35c0c"
+      "runtimeSha256": "3a4ac3e0b580261f73e85cd0faaf22af079b5ae72d9c7d71291f109117909fd1"
     },
     {
       "path": "packages/ui/src/install.tsx",
@@ -1810,7 +1810,7 @@
     {
       "path": "packages/storybook-theme-tool/src/components/style.css",
       "sourceSha256": "cf98b2abaef9a52806e2c4aaf459ecd6259c2be1793667ced01196657c9cc5dc",
-      "runtimeSha256": "cf98b2abaef9a52806e2c4aaf459ecd6259c2be1793667ced01196657c9cc5dc"
+      "runtimeSha256": "49e7db594c23a61d6c3a702df9190039fc78ff5ff4be626a736fca607cf0b65f"
     },
     {
       "path": "packages/affiliate/src/tailwind.css",
@@ -2511,6 +2511,11 @@
       "path": "packages/ui-tradingview/src/components/tradingview.ui.tsx",
       "sourceSha256": "1c7e580f0d3bb70ca567a00cec247999de3b6b8fa25d6a48c1aaab35ffa6da50",
       "runtimeSha256": "1d7f5a4cd45bd89185fefe83ecb221e62c64a73e9ba4fc4ba59791180b716159"
+    },
+    {
+      "path": "apps/web/src/styles/globals.css",
+      "sourceSha256": "f941d8f5ba0ab6186875fb6f5382bd9151c6ae4e7ba9faac4e2e7b30f480a7e3",
+      "runtimeSha256": "f7f2b825c020b5b759db597dcc4310a3fd79417df137edba971d652ce76ce5e5"
     }
   ],
   "nativeBrandArtwork": [

@@ -158,14 +158,14 @@ export function EmptyState({
     <div
       role={announce ? 'status' : undefined}
       className={cn(
-        'flex flex-col items-center justify-center gap-3 p-8 text-center',
+        '@container/state flex w-full min-w-0 flex-col items-center justify-center gap-3 px-4 py-8 text-center',
         variant === 'table' && 'min-h-40',
         className
       )}
     >
       <Icon aria-hidden="true" className="size-8 text-text-faint" />
       <div className="flex flex-col gap-1">
-        <Heading className="text-md font-bold text-text">{title}</Heading>
+        <Heading className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text">{title}</Heading>
         {body ? <p className="max-w-sm text-sm text-text-muted">{body}</p> : null}
       </div>
       {action || secondaryAction ? (
@@ -332,11 +332,11 @@ export function UnavailableState({
   return (
     <div
       role="status"
-      className={cn('flex flex-col items-center justify-center gap-3 p-8 text-center', className)}
+      className={cn('@container/state flex w-full min-w-0 flex-col items-center justify-center gap-3 px-4 py-8 text-center', className)}
     >
       <Unplug aria-hidden="true" className="size-8 text-text-faint" />
       <div className="flex flex-col gap-1">
-        <Heading className="text-md font-bold text-text">{heading}</Heading>
+        <Heading className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text">{heading}</Heading>
         <p className="max-w-sm text-sm text-text-muted">{body}</p>
       </div>
       {onRetry ? (
@@ -450,7 +450,7 @@ export function StateNotice({
       )}
     >
       <Icon aria-hidden="true" className={cn('size-icon-sm shrink-0', meta.icon)} />
-      <span className={wrap ? 'min-w-0 flex-1 basis-32' : 'min-w-0 flex-1'}>{body}</span>
+      <span className={wrap ? 'min-w-0 flex-1 basis-32' : 'min-w-0 flex-1 basis-24'}>{body}</span>
       {onRetry ? (
         <button
           type="button"
@@ -538,14 +538,14 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className={cn('flex flex-col items-center justify-center gap-3 p-8 text-center', className)}
+      className={cn('@container/state flex w-full min-w-0 flex-col items-center justify-center gap-3 px-4 py-8 text-center', className)}
     >
       <TriangleAlert aria-hidden="true" className="size-8 text-danger" />
       <div className="flex flex-col gap-1">
         <h3
           ref={headingRef}
           tabIndex={autoFocus ? -1 : undefined}
-          className="text-md font-bold text-text outline-none"
+          className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text outline-none"
         >
           {title}
         </h3>
@@ -655,15 +655,15 @@ export function DisclosureRow({
   className,
 }: DisclosureRowProps) {
   const rowClass = cn(
-    'flex min-h-12 w-full items-center py-2 gap-3 rounded-sm px-3 text-left text-sm font-bold text-text transition-colors duration-fast',
+    'flex min-h-12 w-full flex-wrap items-center py-2 gap-2 rounded-sm px-2 text-left text-sm font-bold text-text transition-colors duration-fast',
     disabled ? 'cursor-not-allowed text-text-disabled' : 'hover:bg-surface-hover'
   );
   const content = (
     <>
       {Icon ? <Icon aria-hidden="true" className="size-icon-md shrink-0 text-text-muted" /> : null}
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 basis-40">
         {label}
-        {optional ? <span className="ml-1 font-semibold text-text-faint">(Optional)</span> : null}
+        {optional ? <span className="ml-1 inline-block font-semibold text-text-faint">(Optional)</span> : null}
       </span>
       {trailing}
     </>
@@ -796,7 +796,7 @@ export function NoticeBar({
       {...dataAttributes}
       role={announce ? 'status' : undefined}
       className={cn(
-        'flex items-start gap-3 rounded-md px-4 py-3',
+        'flex flex-wrap items-start gap-3 rounded-md px-4 py-3',
         flush && 'w-full rounded-none',
         tone === 'neutral' ? neutralBg : meta.bg,
         variant === 'bar' && (wrap ? 'min-h-7 py-1.5' : 'min-h-7 items-center py-1.5'),
@@ -819,7 +819,7 @@ export function NoticeBar({
           className={cn('size-icon-md shrink-0', wrap && 'mt-0.5', meta.icon)}
         />
       )}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-24">
         {title ? <p className="text-sm font-bold text-text">{title}</p> : null}
         <div
           className={cn(variant === 'card' ? 'text-xs text-text-muted' : 'text-sm text-text-muted')}
@@ -827,7 +827,7 @@ export function NoticeBar({
           {body}
         </div>
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full shrink-0">{action}</div> : null}
       {onDismiss ? (
         <IconButton
           label="Dismiss"
@@ -864,11 +864,11 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   const Heading = `h${level}` as const;
   return (
-    <div className={cn('flex items-start justify-between gap-3', className)}>
-      <div className="min-w-0">
+    <div className={cn('flex flex-wrap items-start justify-between gap-3', className)}>
+      <div className="min-w-0 flex-1 basis-40">
         <Heading
           className={cn(
-            'flex items-center gap-2 font-bold text-text',
+            'flex flex-wrap items-center gap-2 font-bold text-text',
             level === 1 ? 'text-xl' : level === 2 ? 'text-md' : 'text-base'
           )}
         >
@@ -884,7 +884,7 @@ export function SectionHeader({
         </Heading>
         {description ? <p className="mt-0.5 text-xs text-text-faint">{description}</p> : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full shrink-0">{action}</div> : null}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { launchpadGeometry, launchpadMarkColors } from '@/app/presentation-tokens';
 import { dataApiUrl } from '@/core/sdk-config';
 import { CHART_UDF_ROUTES, chartsOrigin } from '@/core/charts-udf';
 import { unsupportedStatuses } from '@/core/market/unsupported';
@@ -386,7 +387,7 @@ export type TradingViewChartMark = { id: string; time: number; color: { border: 
 export type ChartMarkDecoration = { name: string; label: string; imageUrl: string | null };
 export type ChartMarkPalette = { buy: string; sell: string; label: string };
 export type ChartMarkPresentation = { enabled: boolean; palette?: ChartMarkPalette; decorate?: (marker: ConfirmedChartMarker) => ChartMarkDecoration };
-const defaultMarkPalette: ChartMarkPalette = { buy: '#8BFFC5', sell: '#FF6367', label: '#020611' };
+const defaultMarkPalette: ChartMarkPalette = launchpadMarkColors;
 
 export function exactChartRatio(numerator: string, denominator: string): string {
   if (!/^(0|[1-9][0-9]*)$/.test(numerator) || !/^[1-9][0-9]*$/.test(denominator) || numerator.length > 1024 || denominator.length > 1024) throw new Error('Invalid exact chart ratio');
@@ -448,7 +449,7 @@ export function tradingViewChartMark(marker: ConfirmedChartMarker, presentation:
   const color = marker.side === 'buy' ? palette.buy : palette.sell;
   const label = decoration?.label.slice(0, 2) || (marker.side === 'buy' ? 'B' : 'S');
   const actor = decoration ? `${decoration.name} ${marker.actor}` : marker.actor;
-  const mark: TradingViewChartMark = { id: marker.id, time: marker.time, color: { border: color, background: color }, label, labelFontColor: palette.label, minSize: 18, borderWidth: 0, hoveredBorderWidth: 2, text: `${marker.side} · tokens (raw): ${marker.tokenAmountRaw} · USDL (raw): ${marker.usdlAmountRaw} · execution price: ${marker.executionPrice} · transaction: ${marker.transactionHash} · actor: ${actor} (${marker.actorBasis})` };
+  const mark: TradingViewChartMark = { id: marker.id, time: marker.time, color: { border: color, background: color }, label, labelFontColor: palette.label, ...launchpadGeometry.marker, text: `${marker.side} · tokens (raw): ${marker.tokenAmountRaw} · USDL (raw): ${marker.usdlAmountRaw} · execution price: ${marker.executionPrice} · transaction: ${marker.transactionHash} · actor: ${actor} (${marker.actorBasis})` };
   if (decoration?.imageUrl) { mark.imageUrl = decoration.imageUrl; mark.showLabelWhenImageLoaded = false; }
   return mark;
 }

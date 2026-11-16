@@ -1,5 +1,6 @@
 'use client';
 
+import { launchpadMotion } from '@/app/presentation-tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Share2, X } from 'lucide-react';
 import { Button, IconButton } from '@/ui/primitives';
@@ -34,7 +35,7 @@ interface TradeToastProps {
   shareError?: string | null;
 }
 
-const AUTO_DISMISS_MS = 6000;
+const AUTO_DISMISS_MS = launchpadMotion.toastLifetime;
 
 export default function TradeToast({ data, onDismiss, onShare, sharing = false, shareError }: TradeToastProps) {
   const [visible, setVisible] = useState(false);
@@ -43,7 +44,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
 
   const dismiss = useCallback(() => {
     setExiting(true);
-    setTimeout(onDismiss, 300);
+    setTimeout(onDismiss, launchpadMotion.slow);
   }, [onDismiss]);
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        'fixed bottom-24 left-3 right-3 z-[9999] w-auto transition-all duration-slow ease-out sm:bottom-5 sm:left-auto sm:right-5 sm:w-[360px]',
+        'fixed bottom-24 left-3 right-3 z-[var(--sl-z-toast)] w-auto transition-all duration-slow ease-sl sm:bottom-5 sm:left-auto sm:right-5 sm:w-90',
         visible && !exiting ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
       )}
     >

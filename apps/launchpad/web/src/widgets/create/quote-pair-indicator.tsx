@@ -15,12 +15,12 @@ export function QuotePairIndicator({ className }: { className?: string }) {
   const detail = 'Every coin on Sidiora trades against USDL, so there is nothing to pick here.';
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <p className="flex items-center gap-1 text-sm font-bold text-text">
+      <p className="flex flex-wrap items-center gap-1 text-sm font-bold text-text">
         Pool liquidity pair
         <InfoTip label="About the pair" content={detail} />
       </p>
       <div className="flex flex-wrap items-center gap-3">
-        <span className="inline-flex h-control-height-lg items-center gap-2 rounded-md bg-accent-soft px-3 text-sm font-bold text-text">
+        <span className="inline-flex min-h-control-height-lg items-center gap-2 py-2 rounded-md bg-accent-soft px-3 text-sm font-bold text-text">
           <Coins aria-hidden="true" className="size-icon-md text-accent" />
           {QUOTE_PAIR_LABEL}
         </span>

@@ -322,13 +322,13 @@ describe('column tab rows never clip a control', () => {
     const segmentsGroup = toolbar.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Change window"]')!;
     const segmentsSlot = segmentsGroup.parentElement!;
     expect(segmentsSlot.getAttribute('data-timeframe')).toBe('segments');
-    expect(segmentsSlot.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', '@min-[376px]:flex', 'ml-auto']));
+    expect(segmentsSlot.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', '@min-column-timeframes:flex', 'ml-auto']));
     const segments = Array.from(segmentsGroup.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
     expect(segments.map(segment => segment.textContent)).toEqual(timeframes);
     expect(segments.find(segment => segment.getAttribute('aria-checked') === 'true')?.textContent).toBe('24h');
     expect(segments.filter(segment => segment.getAttribute('aria-label')?.endsWith('coming soon')).map(segment => segment.textContent)).toEqual(['4h', '12h']);
     const trigger = toolbar.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!;
-    expect(trigger.parentElement?.className.split(/\s+/)).toContain('@min-[376px]:hidden');
+    expect(trigger.parentElement?.className.split(/\s+/)).toContain('@min-column-timeframes:hidden');
     // Both forms drive one window: a segment pick shows in the pill, and the unserved notice follows it.
     act(() => { segments[1].click(); });
     expect(trigger.textContent).toBe('4h');
@@ -440,7 +440,7 @@ describe('dashboard board fills the width with its columns and makes overflow us
       expect(3 * width + 2 * 8).toBeCloseTo(list, 5);
     }
     expect(boardVisibleClass).toContain('lg:[--board-visible:3]');
-    expect(boardVisibleClass).toContain('min-[1800px]:[--board-visible:4]');
+    expect(boardVisibleClass).toContain('board-wide:[--board-visible:4]');
     // A board with more columns than fit keeps whole columns of the visible count: at 1920, 4 of 6.
     expect(slotWidth(1920 - 56 - 16 - 40, 4, 6)).toBeCloseTo((1808 - 24) / 4, 5);
     // Below lg home is the callouts feed, not the board.
@@ -456,7 +456,7 @@ describe('dashboard board fills the width with its columns and makes overflow us
     expect(slots.length).toBe(3);
     for (const slot of slots) {
       expect(slot.style.width).toBe(columnSlotStyle.width);
-      expect(slot.className.split(/\s+/)).toContain('min-w-[288px]');
+      expect(slot.className.split(/\s+/)).toContain('min-w-72');
     }
     for (const section of Array.from(list.querySelectorAll('section[data-column-id]'))) expect(section.className.split(/\s+/)).toContain('w-full');
     expect(Array.from(list.querySelectorAll('section[data-column-id]')).map(section => section.getAttribute('aria-label'))).toEqual(['Trending', 'Hot callouts', 'Leaderboard']);
@@ -509,7 +509,7 @@ describe('dashboard board fills the width with its columns and makes overflow us
     expect(live.closest('h2')).toBeNull();
     expect(actions.parentElement?.querySelector('h2')).not.toBeNull();
     // Below 340 px of header the label is visually hidden (still the accessible name); the icon stays.
-    expect(live.querySelector('span')?.className.split(/\s+/)).toEqual(expect.arrayContaining(['sr-only', '@min-[340px]:not-sr-only']));
+    expect(live.querySelector('span')?.className.split(/\s+/)).toEqual(expect.arrayContaining(['sr-only', '@min-column-icon:not-sr-only']));
     expect(Array.from(hotSection.querySelectorAll('button[aria-pressed]')).filter(button => /^(Live|Paused)/.test(button.textContent ?? ''))).toHaveLength(1);
     expect(hotSection.querySelector('[role="region"]')?.firstElementChild?.firstElementChild?.getAttribute('aria-busy')).not.toBeNull();
     act(() => { live.click(); });

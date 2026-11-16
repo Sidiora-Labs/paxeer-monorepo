@@ -44,7 +44,7 @@ export function PnlSummary({ wallet, isOwner, className }: PnlSummaryProps) {
 
   return (
     <section aria-label="Profit and loss summary" className={cn('rounded-lg bg-surface-1 px-4 py-3', className)}>
-      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))] gap-4">
         <StatTile
           label="Realized"
           size="row"

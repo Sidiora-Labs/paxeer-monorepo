@@ -22,7 +22,7 @@ export default function WalletGate({
 
   if (!isConnected) {
     return (
-      <div className="flex min-h-[var(--sl-page-min-height)] items-center justify-center px-4">
+      <div className="flex min-h-[var(--sl-page-min-height)] items-center justify-center">
         <EmptyState
           icon={Wallet}
           title={message}

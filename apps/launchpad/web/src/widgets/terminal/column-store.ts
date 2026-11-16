@@ -1,19 +1,11 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { terminalResetColumnsEvent } from './status-bar/model';
 
 export const terminalColumnsStorageKey = 'sidiora-terminal-columns';
 
-export const columnLimits = Object.freeze({
-  leftMin: 240,
-  leftDefault: 296,
-  rightMin: 280,
-  rightDefault: 312,
-  centerMin: 560,
-  sideMax: 640,
-  collapsed: 24,
-  gutter: 4,
-});
+export const columnLimits = Object.freeze(launchpadGeometry.columns);
 
 export interface TerminalColumnsState {
   leftWidth: number;
@@ -130,10 +122,10 @@ export interface ColumnLayout { left: SideLayout; right: SideLayout }
  * the minimums do not fit, the right column and then the left one collapse
  * to their strips for this render only (the stored preference is untouched).
  */
-export function layoutColumns(container: number, left: SideInput, right: SideInput): ColumnLayout {
+export function layoutColumns(container: number, left: SideInput, right: SideInput, textScale = 1): ColumnLayout {
   const sides: Array<{ key: 'left' | 'right'; input: SideInput }> = [{ key: 'left', input: left }, { key: 'right', input: right }];
   const present = sides.filter(side => side.input.present);
-  const available = Math.max(0, container - columnLimits.gutter * 2 - columnLimits.gutter * present.length);
+  const available = Math.max(0, container - (columnLimits.frameInset * 2 + columnLimits.gutter * present.length) * textScale);
   const mode: Record<'left' | 'right', SideLayout['mode']> = {
     left: left.present ? (left.collapsed ? 'collapsed' : 'open') : 'absent',
     right: right.present ? (right.collapsed ? 'collapsed' : 'open') : 'absent',
@@ -143,7 +135,7 @@ export function layoutColumns(container: number, left: SideInput, right: SideInp
     left: mode.left === 'open' ? Math.max(left.min, left.width) : 0,
     right: mode.right === 'open' ? Math.max(right.min, right.width) : 0,
   };
-  const used = (key: 'left' | 'right') => mode[key] === 'open' ? width[key] : mode[key] === 'collapsed' ? columnLimits.collapsed : 0;
+  const used = (key: 'left' | 'right') => mode[key] === 'open' ? width[key] : mode[key] === 'collapsed' ? columnLimits.collapsed * textScale : 0;
   const overflow = () => used('left') + used('right') + columnLimits.centerMin - available;
 
   for (const key of ['right', 'left'] as const) {
@@ -163,7 +155,7 @@ export function layoutColumns(container: number, left: SideInput, right: SideInp
   const result = (key: 'left' | 'right', input: SideInput): SideLayout => {
     const other = key === 'left' ? used('right') : used('left');
     const max = Math.max(input.min, Math.min(columnLimits.sideMax, available - columnLimits.centerMin - other));
-    return { mode: mode[key], width: mode[key] === 'open' ? width[key] : mode[key] === 'collapsed' ? columnLimits.collapsed : 0, max, autoCollapsed: auto[key] };
+    return { mode: mode[key], width: mode[key] === 'open' ? width[key] : mode[key] === 'collapsed' ? columnLimits.collapsed * textScale : 0, max, autoCollapsed: auto[key] };
   };
   return { left: result('left', left), right: result('right', right) };
 }

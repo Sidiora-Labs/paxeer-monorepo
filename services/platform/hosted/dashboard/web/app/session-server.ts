@@ -39,7 +39,7 @@ function validToken(value: unknown): value is string {
     && /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(value);
 }
 
-async function boundedBody(stream: ReadableStream<Uint8Array> | null, limit: number): Promise<string> {
+export async function boundedBody(stream: ReadableStream<Uint8Array> | null, limit: number): Promise<string> {
   if (!stream) return "";
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
@@ -67,7 +67,7 @@ async function boundedBody(stream: ReadableStream<Uint8Array> | null, limit: num
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
-function acceptsOrigin(request: Request): boolean {
+export function acceptsOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (origin === null) return false;
   try {

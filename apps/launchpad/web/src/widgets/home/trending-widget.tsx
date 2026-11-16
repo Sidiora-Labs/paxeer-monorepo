@@ -120,10 +120,10 @@ export function TrendingWidget({ filter, density }: WidgetProps) {
       <div className={columnToolbarClass}>
         <SegmentedControl label="Ranking" options={trendingCategories} value={category} onChange={setCategory} size="sm" shape="sm" compact />
         {/* One of the two is displayed, by the column's own width (container query), never both. */}
-        <div data-timeframe="segments" className="ml-auto hidden @min-[376px]:flex">
+        <div data-timeframe="segments" className="ml-auto hidden @min-column-timeframes:flex">
           <SegmentedControl label="Change window" options={timeframeSegments} value={timeframe} onChange={setTimeframe} size="sm" shape="sm" compact />
         </div>
-        <SelectPill label="Change window" className="ml-auto @min-[376px]:hidden" options={timeframeOptions} value={timeframe} onChange={setTimeframe} size="sm" compact />
+        <SelectPill label="Change window" className="ml-auto @min-column-timeframes:hidden" options={timeframeOptions} value={timeframe} onChange={setTimeframe} size="sm" compact />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {!timeframeServed ? (

@@ -74,7 +74,7 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
 
   return (
     <section aria-labelledby={headingId} className={cn('flex min-h-0 flex-col bg-surface-1', className)}>
-      <header className="flex h-7 shrink-0 items-center gap-1 px-2">
+      <header className="flex min-h-control-height-sm shrink-0 flex-wrap items-center gap-1 px-2">
         <h2 id={headingId} className="mr-auto truncate text-sm font-bold text-text">{title}</h2>
         <SegmentedControl
           label={`${title} change window`}
@@ -120,7 +120,7 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
         <span>Coin</span>
         <span>Market cap</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
+      <div className="min-h-24 flex-1 overflow-y-auto">{body}</div>
     </section>
   );
 }

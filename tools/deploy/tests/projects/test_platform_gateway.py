@@ -160,7 +160,8 @@ def startup_requirements(sources, variables):
             pairs = {
                 match[1]: (match[2], match[3])
                 for match in re.finditer(
-                    r'let (\w+) = \("([A-Z][A-Z0-9_]*)", "([A-Z][A-Z0-9_]*)"\);',
+                    r'let (\w+) = \(\s*"([A-Z][A-Z0-9_]*)",\s*'
+                    r'"([A-Z][A-Z0-9_]*)",?\s*\);',
                     body,
                 )
             }
@@ -389,6 +390,7 @@ def test_gateway_identity_variables_follow_source_readers():
         ("main", "configured_identity"): {
             "LAYERX_GATEWAY_IDENTITY_URL",
             "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
+            "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
         },
         ("main", "configured_service_identity"): {
             "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
@@ -407,13 +409,13 @@ def test_gateway_identity_variables_follow_source_readers():
     identity = rust_functions(sources["main"])["configured_identity"]
     _, required = environment_reads(identity, constant_environments(sources["main"]))
     assert required == {"LAYERX_GATEWAY_IDENTITY_TOKEN_FILE"}
-    assert "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE" not in variables
     assert variables["LAYERX_ROLE"] == "identity"
     for name in ("LAYERX_GATEWAY_IDENTITY_URL", "LAYERX_GATEWAY_TENANT"):
         assert variables[name] == f"env:PLATFORM_GATEWAY_{name}"
     paths = {
         "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE": "/run/secrets/identity-token",
         "LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE": "/run/secrets/identity-provisioning-token",
+        "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE": "/run/secrets/key-provisioning-key",
         "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12": "/run/secrets/client.p12",
         "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE": "/run/secrets/client-password",
     }
@@ -436,6 +438,13 @@ def test_gateway_identity_inputs_are_categorized_and_documented():
         ),
         "ENDPOINT_IDENTITY_PROVISIONING_TOKEN": (
             "operator", ("base64-encoded token text", "issued by the identity service"),
+        ),
+        "ENDPOINT_KEY_PROVISIONING_KEY": (
+            "generated",
+            (
+                "base64-encoded", "64 hexadecimal characters",
+                "generated once", "equal on every replica",
+            ),
         ),
         "ENDPOINT_CLIENT_P12": (
             "generated", ("Base64-encoded", "PKCS#12", "written by the launcher"),
@@ -481,10 +490,11 @@ def test_gateway_port_listener_and_health_are_served():
 def test_gateway_file_inputs_are_materialized_and_staged():
     variables = definition()["vars"]["gateway"]
     rows = selected_file_rows(variables)
-    assert len(rows) == 8
+    assert len(rows) == 9
     assert {row[0]: row[1] for row in rows if row[3] == "identity"} == {
         "ENDPOINT_IDENTITY_TOKEN": "/run/secrets/identity-token",
         "ENDPOINT_IDENTITY_PROVISIONING_TOKEN": "/run/secrets/identity-provisioning-token",
+        "ENDPOINT_KEY_PROVISIONING_KEY": "/run/secrets/key-provisioning-key",
         "ENDPOINT_CLIENT_P12": "/run/secrets/client.p12",
         "ENDPOINT_CLIENT_PASSWORD": "/run/secrets/client-password",
     }
@@ -505,6 +515,7 @@ def test_gateway_file_inputs_are_materialized_and_staged():
         assert roles == (
             "identity" if name in {
                 "ENDPOINT_IDENTITY_TOKEN", "ENDPOINT_IDENTITY_PROVISIONING_TOKEN",
+                "ENDPOINT_KEY_PROVISIONING_KEY",
                 "ENDPOINT_CLIENT_P12", "ENDPOINT_CLIENT_PASSWORD",
             } else "*"
         )

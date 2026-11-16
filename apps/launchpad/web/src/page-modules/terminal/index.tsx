@@ -28,16 +28,16 @@ const views: Record<TerminalTabView, ComponentType> = {
 /** /terminal (trending), /terminal/<view> and /terminal/<pool>; the app route validates the slug first. */
 export default function TerminalModule({ slug }: { slug?: string }) {
   const target = parseTerminalSlug(slug);
-  if (target.kind === 'pool') return <main className="min-h-dvh min-w-0"><TerminalCoinView key={target.pool} poolAddress={target.pool} /></main>;
+  if (target.kind === 'pool') return <div className="min-h-dvh min-w-0"><TerminalCoinView key={target.pool} poolAddress={target.pool} /></div>;
   const status = <TerminalStatusBar poolAddress={null} />;
   if (target.kind === 'invalid') {
     return (
-      <main className="min-h-dvh min-w-0"><TerminalFrame
+      <div className="min-h-dvh min-w-0"><TerminalFrame
         center={<div className="rounded-md bg-surface-1"><EmptyState variant="panel" title="Page not found" body="Open a coin by its address or pick a view from the tabs above." action={<Button href="/terminal" variant="secondary" size="sm">Back to trending</Button>} /></div>}
         status={status}
-      /></main>
+      /></div>
     );
   }
   const View = views[target.view];
-  return <main className="min-h-dvh min-w-0"><TerminalFrame center={<View />} status={status} /></main>;
+  return <div className="min-h-dvh min-w-0"><TerminalFrame center={<View />} status={status} /></div>;
 }

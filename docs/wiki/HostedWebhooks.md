@@ -38,12 +38,17 @@ binary's SHA-256. The init script maps `LAYERX_ROLE` to the binary's role, selec
 TLS and credential file paths, assigns the instance ID from
 `RAILWAY_REPLICA_ID` or hostname, and runs as UID `65532`.
 
-For Railway, public TLS defaults to `[::]:9444` and ingress TLS to `[::]:9443`.
-`LAYERX_WEBHOOKS_LISTEN` overrides these defaults. The separate plain HTTP health
-listener uses `LAYERX_HEALTH_ADDR`, then `[::]:$PORT`, then `[::]:9442` for public
-or `[::]:8080` for ingress. `PORT` moves only the health listener. When launching
-the binary directly, set `LAYERX_WEBHOOKS_HEALTH_LISTEN` explicitly if needed;
-its application listener default is `0.0.0.0:9444` for either role.
+For Railway, the public role is normally the plain HTTP form behind the hosting
+front: set `LAYERX_WEBHOOKS_LISTENER=plain`, `PORT=9444`, and
+`LAYERX_WEBHOOKS_LISTEN=[::]:9444`; the front reaches the application and its
+`/healthz` route on port `9444`. The public role also supports its TLS form when
+`LAYERX_WEBHOOKS_LISTENER` is absent or `tls`: its application listener defaults
+to `[::]:9444`, and its separate plain health listener uses `LAYERX_HEALTH_ADDR`,
+then `[::]:$PORT`, then `[::]:9442`. Ingress remains TLS on `[::]:9443` with a
+separate health listener that uses `LAYERX_HEALTH_ADDR`, then `[::]:$PORT`, then
+`[::]:8080`. `LAYERX_WEBHOOKS_LISTEN` overrides an application listener in either
+role; the init script derives the plain public listener from it, then `PORT`,
+then `[::]:9444`.
 
 Configure the Redis TLS origin, KMS, identity and all four event-source HTTPS
 origins through the keys below.
@@ -62,8 +67,8 @@ The active `TrustedSources::from_environment` constructs the node-backed
 
 | Key | Meaning |
 | --- | --- |
-| `LAYERX_WEBHOOKS_NODE_URL` | HTTPS node JSON-RPC origin; requests are POSTed to `/` |
-| `LAYERX_WEBHOOKS_COMET_URL` | HTTPS consensus JSON-RPC origin; requests are POSTed to `/` |
+| `LAYERX_WEBHOOKS_NODE_URL` | HTTPS node JSON-RPC origin; calls use the origin path exactly (the root path when none is given). It may name the node front. |
+| `LAYERX_WEBHOOKS_COMET_URL` | HTTPS consensus JSON-RPC origin; calls use the origin path exactly (the node front's consensus route ends in `/comet`). |
 | `LAYERX_WEBHOOKS_NODE_TOKEN_FILE` | Bearer credential used for both origins |
 | `LAYERX_WEBHOOKS_CHAIN_POLICY_FILE` | JSON policy containing `chain_id` and pinned `validators` |
 

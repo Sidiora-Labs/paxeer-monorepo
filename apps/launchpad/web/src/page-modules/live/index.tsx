@@ -78,7 +78,7 @@ export default function LiveModule() {
   const ready = state.state === 'ready' && directory.entries.length > 0;
 
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-content-max-width flex-col gap-10 px-4 pb-8 pt-3 md:px-6">
+    <div className="mx-auto flex w-full min-w-0 max-w-content-max-width flex-col gap-10 px-4 pb-8 pt-3 md:px-6">
       <LiveHeading />
       {state.state === 'loading' ? (
         <div aria-busy="true" className="flex flex-col gap-10">
@@ -118,6 +118,6 @@ export default function LiveModule() {
           ))}
         </>
       )}
-    </main>
+    </div>
   );
 }

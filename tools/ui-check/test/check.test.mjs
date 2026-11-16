@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
 import { checkSurface } from "../check.mjs";
-import { DEVICES, REPOSITORY, renderMatrix } from "../config.mjs";
+import { DEVICES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
 import { serveFiles } from "../server.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -278,3 +278,194 @@ async function commandBuildsAndServesFiles() {
   assert.match(result.stdout, /34 renders, 0 findings, pass/);
 }
 test(commandBuildsAndServesFiles);
+
+async function textClippedToNothingPasses() {
+  const { result } = await execute("hidden-text");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  const { result: visible } = await execute("hidden-text", {
+    views: [{ name: "visible-clip", path: "/hidden-text.html?visible" }],
+  });
+  assertMatrix(visible);
+  assert.equal(visible.passed, false);
+  assert.deepEqual([...new Set(visible.findings.map((finding) => finding.kind))], ["sideways"]);
+  assert.ok(visible.renders.every((render) => render.findings.some((finding) => finding.selector === "#inset")));
+}
+test(textClippedToNothingPasses);
+
+async function scrollRowsContainSidewaysContent() {
+  const { result } = await execute("scroll-row");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  for (const variant of ["unscrolled", "wide"]) {
+    const { result: overflow } = await execute("scroll-row", {
+      views: [{ name: variant, path: `/scroll-row.html?${variant}` }],
+    });
+    assertMatrix(overflow);
+    assert.equal(overflow.passed, false);
+    assert.deepEqual([...new Set(overflow.findings.map((finding) => finding.kind))], ["sideways"]);
+    assert.ok(overflow.renders.every((render) => render.findings.some((finding) => finding.selector === "html" && finding.values.width > finding.values.viewport)));
+    if (variant === "wide") assert.ok(overflow.renders.every((render) => render.findings.some((finding) => finding.selector === "#row")));
+  }
+}
+test(scrollRowsContainSidewaysContent);
+
+async function tallFocusKeepsItsStartingEdgeVisible() {
+  const { result } = await execute("tall-focus");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  for (const render of result.renders.filter((render) => render.mode === "keyboard")) assert.deepEqual(render.focused, ["#panel"]);
+  for (const variant of ["small", "unmarked"]) {
+    const { result: focus } = await execute("tall-focus", {
+      views: [{ name: variant, path: `/tall-focus.html?${variant}` }],
+    });
+    assertMatrix(focus);
+    assert.equal(focus.passed, false);
+    assert.deepEqual([...new Set(focus.findings.map((finding) => finding.kind))], ["focus"]);
+    assert.equal(focus.findings.length, 4);
+    assert.ok(focus.findings.every((finding) => finding.mode === "keyboard"));
+    if (variant === "small") assert.ok(focus.findings.every((finding) => finding.selector === "#control" && finding.values.outside && finding.values.bottom > finding.values.viewportHeight));
+    else assert.ok(focus.findings.every((finding) => finding.selector === "#panel" && !finding.values.visibleChange));
+  }
+}
+test(tallFocusKeepsItsStartingEdgeVisible);
+
+function refusalView(parameters = "", expects) {
+  const refused = `${files.address}/denied?token=a.b`;
+  return {
+    name: "refusal",
+    path: `/expected-answer.html?address=${encodeURIComponent(refused)}${parameters}`,
+    ...(expects === undefined ? {} : { expects }),
+  };
+}
+
+function refusalExpectation() {
+  return { method: "GET", pattern: `${files.address}/denied?token=a.b`, status: 404 };
+}
+
+async function declaredRefusalResponsesPass() {
+  const { result } = await execute("expected-answer", {
+    views: [refusalView("&initial", [refusalExpectation()])],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+}
+test(declaredRefusalResponsesPass);
+
+async function statesDeclareTheirOwnRefusalResponses() {
+  const { result } = await execute("expected-answer", {
+    views: [{
+      ...refusalView(),
+      states: [{ name: "refused", expects: [refusalExpectation()], steps: [
+        { action: "click", selector: "#request" },
+        { action: "wait", text: "Not found" },
+      ] }],
+    }],
+  });
+  assert.equal(result.renders.length, 68);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.ok(result.renders.every((render) => render.rendered));
+  assert.deepEqual([...new Set(result.renders.map((render) => render.state))], ["default", "refused"]);
+}
+test(statesDeclareTheirOwnRefusalResponses);
+
+async function missingRefusalResponsesNameTheirExpectation() {
+  const entry = refusalExpectation();
+  const { result } = await execute("expected-answer", {
+    views: [{ ...refusalView("", [entry]), states: [{ name: "ready", steps: [{ action: "wait", text: "Ready" }] }] }],
+  });
+  assert.equal(result.renders.length, 68);
+  assert.equal(result.passed, false);
+  assert.ok(result.renders.every((render) => render.rendered));
+  assert.equal(result.findings.length, 34);
+  for (const finding of result.findings) {
+    assert.equal(finding.kind, "load");
+    assert.equal(finding.state, "default");
+    assert.deepEqual(finding.values, { source: "unmatched-expectation", ...entry });
+  }
+  assert.ok(result.renders.filter((render) => render.state === "ready").every((render) => render.findings.length === 0));
+}
+test(missingRefusalResponsesNameTheirExpectation);
+
+async function undeclaredRefusalsAndApplicationErrorsRemainFindings() {
+  const second = `${files.address}/another-denial`;
+  const { result } = await execute("expected-answer", {
+    views: [refusalView(`&initial&second=${encodeURIComponent(second)}&console`, [refusalExpectation()])],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.deepEqual([...new Set(result.findings.map((finding) => finding.kind))], ["load"]);
+  for (const render of result.renders) {
+    assert.ok(render.findings.some((finding) => finding.values.source === "response" && finding.values.address === second && finding.values.status === 404));
+    assert.ok(render.findings.some((finding) => finding.values.source === "console" && finding.values.location.url === second));
+    assert.ok(render.findings.some((finding) => finding.values.source === "console" && finding.values.message === "Access was refused"));
+    assert.ok(!render.findings.some((finding) => finding.values.source === "unmatched-expectation" || finding.values.address === refusalExpectation().pattern || finding.values.location?.url === refusalExpectation().pattern));
+  }
+}
+test(undeclaredRefusalsAndApplicationErrorsRemainFindings);
+
+async function refusalExpectationsRequireMethodPatternAndStatus() {
+  for (const entry of [
+    { ...refusalExpectation(), method: "POST" },
+    { ...refusalExpectation(), pattern: `${files.address}/denied?token=a*b/extra` },
+    { ...refusalExpectation(), status: 401 },
+  ]) {
+    const { result } = await execute("expected-answer", {
+      views: [refusalView("&initial", [entry])],
+    });
+    assertMatrix(result);
+    assert.equal(result.passed, false);
+    assert.deepEqual([...new Set(result.findings.map((finding) => finding.kind))], ["load"]);
+    for (const render of result.renders) {
+      assert.ok(render.findings.some((finding) => finding.values.source === "response" && finding.values.status === 404));
+      assert.ok(render.findings.some((finding) => finding.values.source === "console" && finding.values.location.url === refusalExpectation().pattern));
+      assert.ok(render.findings.some((finding) => finding.values.source === "unmatched-expectation" && finding.values.method === entry.method && finding.values.pattern === entry.pattern && finding.values.status === entry.status));
+    }
+  }
+}
+test(refusalExpectationsRequireMethodPatternAndStatus);
+
+async function expectationFieldsAreStrict() {
+  for (const expects of [
+    {}, [null], [{ pattern: "http://localhost/*", status: 404 }],
+    [{ method: "get", pattern: "http://localhost/*", status: 404 }],
+    [{ method: "GET", pattern: "/denied", status: 404 }],
+    [{ method: "GET", pattern: "http://localhost/*" }],
+    ...[399, 600, 404.5, "404"].map((status) => [{ method: "GET", pattern: "http://localhost/*", status }]),
+    [{ method: "GET", pattern: "http://localhost/*", status: 404, optional: true }],
+  ]) {
+    for (const view of [
+      { name: "strict", path: "/clean.html", expects },
+      { name: "strict", path: "/clean.html", states: [{ name: "ready", steps: [{ action: "wait", text: "Surface" }], expects }] },
+    ]) {
+      const surface = await surfaceFor("clean", { views: [view] });
+      await assert.rejects(readSurface(surface), /must be|unknown field/);
+    }
+  }
+  const surface = await surfaceFor("clean", { views: [{
+    name: "strict", path: "/clean.html",
+    expects: [400, 599].map((status) => ({ method: "GET", pattern: "http://localhost/a.b?x=*", status })),
+  }] });
+  const parsed = await readSurface(surface);
+  for (const entry of parsed.views[0].expects) {
+    assert.equal(entry.matcher.test("http://localhost/a.b?x=1"), true);
+    assert.equal(entry.matcher.test("http://localhost/axb?x=1"), false);
+    assert.equal(entry.matcher.test("http://localhost/a.b?x=1/extra"), true);
+    assert.equal(entry.matcher.test("http://localhost/other/a.b?x=1"), false);
+  }
+}
+test(expectationFieldsAreStrict);
+
+async function clipboardWritesSucceedWithoutReadPermission() {
+  const { result } = await execute("clipboard", { views: [{
+    name: "clipboard", path: "/clipboard.html", states: [{ name: "copied", steps: [
+      { action: "click", selector: "#copy" },
+      { action: "wait", text: "Copied; clipboard read ungranted" },
+    ] }],
+  }] });
+  assert.equal(result.renders.length, 68);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.ok(result.renders.every((render) => render.rendered));
+  assert.deepEqual([...new Set(result.renders.map((render) => render.state))], ["default", "copied"]);
+}
+test(clipboardWritesSucceedWithoutReadPermission);

@@ -18,8 +18,8 @@ const ColorNativeInput = styled.input`
   background: none;
   border: 0;
   cursor: pointer;
-  height: 5em;
-  width: 5em;
+  height: var(--oui-space-12, 3rem);
+  width: var(--oui-space-12, 3rem);
   padding: 0;
   &:focus {
     outline: none;
@@ -33,14 +33,14 @@ const ColorNativeInput = styled.input`
 `;
 
 export const StyledLabel = styled.div`
-  font-size: 12px;
-  color: #999;
+  font-size: var(--oui-font-size-2xs, 0.75rem);
+  color: rgb(var(--oui-color-text-muted, 132 131 136));
 `;
 
 export const ColorInputContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--oui-space-1, 0.25rem);
 `;
 
 export const ColorInput = React.memo<{
@@ -74,21 +74,25 @@ const ColorGradientItemInput: React.FC<{
 }> = (props) => {
   const { name, color, onChange } = props;
   return (
-    <ColorInputContainer style={{ width: "5em" }}>
+    <ColorInputContainer style={{ width: "var(--oui-space-12, 3rem)" }}>
       <ColorNativeInput
         type="color"
         value={color}
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        style={{ borderRadius: "100%" }}
+        style={{ borderRadius: "var(--oui-rounded-full, 9999px)" }}
       />
       <div>
         <ColorTextInput
           type="text"
           value={color}
           onChange={onChange as any}
-          style={{ borderRadius: "100%", textAlign: "center", width: "100%" }}
+          style={{
+            borderRadius: "var(--oui-rounded-full, 9999px)",
+            textAlign: "center",
+            width: "100%",
+          }}
         />
       </div>
     </ColorInputContainer>

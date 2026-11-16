@@ -301,13 +301,13 @@ describe('dashboard board', () => {
     expect(html.match(/aria-label="Add column"/g)).toHaveLength(3);
     expect(html).not.toContain('Choose a widget to add it as a new column');
     // Slots divide the board by min(columns that fit, columns on the board), so three columns fill it.
-    expect(html.match(/min-w-\[288px\]" style="width:calc\(\(100% - \(min\(var\(--board-visible\), var\(--board-count\)\) - 1\) \* var\(--sl-dashboard-column-gap\)\) \/ min\(var\(--board-visible\), var\(--board-count\)\)\)"/g)).toHaveLength(3);
+    expect(html.match(/min-w-72" style="width:calc\(\(100% - \(min\(var\(--board-visible\), var\(--board-count\)\) - 1\) \* var\(--sl-dashboard-column-gap\)\) \/ min\(var\(--board-visible\), var\(--board-count\)\)\)"/g)).toHaveLength(3);
     expect(html).toContain('--board-count:3');
     expect(html).toContain('lg:[--board-visible:3]');
-    expect(html).toContain('min-[1800px]:[--board-visible:4]');
+    expect(html).toContain('board-wide:[--board-visible:4]');
     // Flush columns: no board padding, square edges, a 2 px canvas seam (background contrast, not a stroke).
-    expect(html).toContain('[--sl-dashboard-column-gap:2px]');
-    expect(html).toContain('height:calc(100dvh - var(--sl-shell-top-total))');
+    expect(html).toContain('[--sl-dashboard-column-gap:var(--sl-board-seam)]');
+    expect(html).toContain('height:calc(100dvh - var(--shell-top))');
     const sections = html.match(/<section [^>]*class="[^"]*"/g) ?? [];
     expect(sections).toHaveLength(3);
     for (const section of sections) expect(section).not.toMatch(/\brounded(-[a-z0-9]+)?\b/);

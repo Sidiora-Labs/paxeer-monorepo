@@ -108,6 +108,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div
+      onFocusCapture={(event) => {
+        const control = event.target;
+        if (!(control instanceof HTMLElement) || !control.closest('[data-shell-content]') || !control.matches(':focus-visible')) return;
+        if (typeof control.scrollIntoView !== 'function') return;
+        requestAnimationFrame(() => {
+          control.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+          const headerBottom = topRef.current?.getBoundingClientRect().bottom ?? 0;
+          const controlTop = control.getBoundingClientRect().top;
+          if (controlTop < headerBottom) {
+            window.scrollBy({ top: controlTop - headerBottom, behavior: 'instant' });
+          }
+        });
+      }}
       data-shell-pathname={pathname}
       data-shell-route-id={route?.id || 'unknown'}
       style={shellTop}
@@ -115,7 +128,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     >
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only fixed left-0 top-0 z-[var(--sl-z-tooltip)] rounded-sm bg-surface-3 p-3 text-sm text-text"
+        className="fixed left-3 top-3 z-[var(--sl-z-tooltip)] min-h-touch-target-min -translate-y-[calc(100%+var(--sl-space-6))] rounded-sm bg-surface-3 p-3 text-sm text-text focus:translate-y-0"
       >
         Skip to content
       </a>

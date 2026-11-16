@@ -88,6 +88,9 @@ The web serves these routes beside the page:
 | `POST /session/registration` | `signer_public_key` and `registration_signature`; calls `px_register` and returns the confirmed public tenant, subject and signer key                                                                                              |
 | `POST /session`              | `signer_public_key`, canonical decimal `proof_time` and `session_signature`; calls `px_openSession`. Alternatively, `token` alone checks `GET /v1/dashboard/overview` with Bearer authorization. Success returns 204 with no body. |
 | `DELETE /session`            | Empty body or `{}`; returns 204 and clears the cookie                                                                                                                                                                              |
+| `POST /keys`                 | `signer_public_key`, sorted non-empty `scopes`, `quota_requests` (1–1,000,000) and `quota_window_seconds` (1–2,592,000), plus `Idempotency-Key`; returns the gateway key and one-time secret with `Cache-Control: no-store` |
+| `POST /keys/{id}/rotate`     | Empty JSON body plus `Idempotency-Key`; returns the replacement gateway key and one-time secret with `Cache-Control: no-store` |
+| `DELETE /keys/{id}`          | Empty JSON body; revokes the owned key and returns its gateway result |
 
 Requests require an Origin matching either the parsed HTTPS origin of the Host
 header, including its port, or the origin of the request URL for direct access.
@@ -119,3 +122,15 @@ by the API has a twelve-hour cookie lifetime. Sign-out sets an empty cookie with
 the same attributes and `Max-Age=0`. The cookie requires HTTPS. Session and CSRF
 tokens stay out of response bodies and error text; the session token is sent to
 the browser only in the HttpOnly cookie.
+
+The Keys section signs an issue request with the Ed25519 public key held by the
+browser key of the current session, offers all six labelled gateway scopes and
+bounded quota fields, and provides rotate and confirmation-protected revoke
+controls for active keys. When this browser has no developer key, the view
+explains that it cannot sign issuance and keeps the Issue key control disabled.
+Creating a key during sign-in updates the view immediately, without a page
+reload. Refusals are shown in words from the gateway reason so the developer
+can correct the request or try again.
+Each write uses a fresh idempotency key and refreshes the dashboard after
+success. An issued or rotated secret is held only in page memory and shown once
+in a dialog with a copy control; closing the dialog removes it from the page.

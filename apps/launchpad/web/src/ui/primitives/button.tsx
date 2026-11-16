@@ -48,7 +48,7 @@ export function buttonClass(opts: {
 }) {
   const { variant = 'secondary', size = 'md', fullWidth, pill, className } = opts;
   return cn(
-    'inline-flex min-w-0 max-w-full select-none items-center justify-center text-center font-bold transition-colors duration-fast',
+    'inline-flex min-w-0 max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-colors duration-fast',
     'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed aria-busy:cursor-progress',
     pill ? 'rounded-pill' : 'rounded-sm',
     sizeClass[size],
@@ -78,7 +78,7 @@ export function Button({
   ) : icon ? (
     <span
       aria-hidden="true"
-      className="inline-flex size-icon-md items-center justify-center [&>svg]:size-full"
+      className="inline-flex size-icon-md shrink-0 items-center justify-center [&>svg]:size-full"
     >
       {icon}
     </span>
@@ -88,7 +88,7 @@ export function Button({
     return (
       <Link href={href} className={classes} aria-disabled={disabled || undefined}>
         {leading}
-        <span>{children}</span>
+        <span className="min-w-0 max-w-full">{children}</span>
       </Link>
     );
   }
@@ -102,7 +102,7 @@ export function Button({
       {...rest}
     >
       {leading}
-      <span>{children}</span>
+      <span className="min-w-0 max-w-full">{children}</span>
     </button>
   );
 }

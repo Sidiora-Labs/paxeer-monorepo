@@ -64,7 +64,7 @@ export function Column({ column, index, count, dragging, onDragStart, onDragEnd,
       onDrop={event => { event.preventDefault(); setOver(false); const id = draggedColumnId(event) ?? dragging; if (id) onDrop(id, index); }}
       className={cn(
         'relative flex h-full min-w-0 shrink-0 snap-start flex-col bg-surface-1 transition-[margin,background-color,box-shadow] duration-base',
-        fluid ? 'w-full' : 'w-dashboard-column-width max-xl:w-[340px] max-lg:w-[320px]',
+        fluid ? 'w-full' : 'w-dashboard-column-width max-xl:w-85 max-lg:w-80',
         isDragging && 'bg-surface-3 shadow-pop opacity-90',
         dropTarget && 'ml-4',
         className,
