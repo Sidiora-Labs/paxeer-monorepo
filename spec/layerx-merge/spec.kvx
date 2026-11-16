@@ -15298,6 +15298,18 @@ value = "The values of the indexer take an optional member for the first height 
 basis = "Gotcha 4617."
 affects = []
 
+[decision.3698]
+title = "The verification form subscribes to the topic of the address in lower case"
+value = "The page script of the verification form brings the address to lower case before it builds the topic of the address channel, so the topic equals the one on which the notifier publishes for every spelling of the address. Nothing else of the page changes, and the other page scripts under services/explorer/backend/apps/block_scout_web/assets/js stay as they are. Task 22.39.688 makes the change, since the feature cases of that form lie in its paths."
+basis = "Gotcha 4618."
+affects = []
+
+[decision.3699]
+title = "The append of a ranking head reads the committed head with its category"
+value = "A registered migration replaces the function so that the read of the committed head also holds the category, taken from the topic of the frame, and finds one row for every run. Everything else of the function stays as it is: the comparisons of topic, revision, snapshot and items, the rule of the source order, the owner, the security setting and the rights. The file of migration 190003 stays unchanged. Task 22.39.766 makes the change, since its cases hold the publication of a run over an empty set of markets."
+basis = "Gotcha 4619. Decision 3696."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -249723,7 +249735,7 @@ do_3 = "do_3 The refusals stay: an answer with a status other than 200, an answe
 do_4 = "do_4 Cases whose names start with TestEmptyUniverse in the packages the change touches, and at least one in services/launchpad/ranking-algo/internal/app that runs the path from the answer of the route to the published heads and the readiness check with the doubles and the database the present cases of the package use. When the first market appears in the source and in the answer of the route, the next refresh publishes it: one case holds that step."
 do_5 = "do_5 The README of the service states the behaviour for an empty set of markets. Run the new cases by hand and read each message. The files of services/launchpad/ranking-algo are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/launchpad/ranking-algo"]
+touches = ["services/launchpad/ranking-algo", "migrations"]
 tests = []
 planned_paths = []
 build_cmd = "cd services/launchpad/ranking-algo && go vet ./internal/..."
@@ -249739,6 +249751,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3699, gotcha 4619. The directory migrations is now inside the paths of this task: add one registered migration with the next free number of the series of the ranking service that replaces api_stream.append_ranking as decision 3699 states, with the owner, the security setting and the rights of the present function, and enter it in the registry and in the grants document the way the present registered migrations are entered. Change no present migration file. Add to the cases of this task one for a run whose categories share sequence and digest and hold entries, so that each head is appended once under its own topic. Run the cases under sdk/launchpad/shared/db that read the registry and the grants document by hand; where one needs a change outside the paths, change nothing there and give test, file and first message in the final message. The work of the earlier candidate stays as it is. It makes no difference whether a case passed before the change, and no approval is needed to repair a case or its cause inside the paths. No case is removed or weakened. Run the cases of the verification by hand first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.765]
 title = "Answer the readiness path on the private identity listener of the gateway"
@@ -249806,7 +249819,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.763]
 title = "Answer every authority route the notification library reads on the private listener of the social service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.754"]
@@ -249966,7 +249979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.758]
 title = "Write the first search generation of the stats service by a registered migration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.746"]
@@ -466950,7 +466963,7 @@ do_2 = "do_2 A case that passes when its app runs alone and fails in the whole r
 do_3 = "do_3 Run the whole suite once more by hand and repair what it shows."
 do_4 = "do_4 Give in the final message the count of cases of each app in the last whole run and each file changed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test"]
+touches = ["services/explorer/backend/apps/explorer/test", "services/explorer/backend/apps/ethereum_jsonrpc/test", "services/explorer/backend/apps/indexer/test", "services/explorer/backend/apps/block_scout_web/test", "services/explorer/backend/apps/nft_media_handler/test", "services/explorer/backend/apps/utils/test", "services/explorer/backend/apps/block_scout_web/assets/js"]
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -466966,6 +466979,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3698, gotcha 4618. The directory services/explorer/backend/apps/block_scout_web/assets/js is now inside the paths of this task: in pages/verification_form.js bring the address to lower case before the topic of the address channel is built, and change nothing else under that directory. The work of the earlier candidate stays as it is. Run the feature cases of the contract verification form by hand and read each message, then the whole suite with no path once by hand, then the build once and the counted verification once. It makes no difference whether a case passed before the change, and no approval is needed to repair a case inside the paths. No case is removed, skipped or weakened. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.687]
 title = "Let the suite of the media app of the explorer backend pass in the builder"
