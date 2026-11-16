@@ -15070,6 +15070,18 @@ value = "An instance of the indexer that finds the ingestion lease held by anoth
 basis = "Gotcha 4576. Decisions 3658 and 3046."
 affects = []
 
+[decision.3660]
+title = "The verification of the deployment identity of the indexer runs the delivery cases that need no object store"
+value = "The verification of task 22.39.722 runs the cases of the publisher and of the application of the indexer and the cases of the delivery package, and it leaves out the function TestArchiveCapturesCommittedSourceWithActualObjectStore, which runs where an object store is given. The build stays as it is."
+basis = "Gotcha 4577. Decisions 3654 and 3653."
+affects = []
+
+[decision.3661]
+title = "The grants document gives the runtime role of the charts service every right the statements of the service use"
+value = "The runtime role of the charts service holds on the table chart_outbox the rights the relay needs: to take the row lock of its read and to set the publication time. The right is the narrowest that serves both statements. Every other statement the charts service runs on the pool of its runtime role is compared with the grants of that role, and a right a statement needs and the document lacks is added in the narrowest form. The digest of the grants document in the registry follows the document. No right is taken away and no other role changes. A case runs the relay with a connection of the runtime role on a database made by the helper Bootstrap from the registered migrations and the grants document."
+basis = "Gotcha 4578. Decisions 3046 and 3052."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44730,6 +44742,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.728]
+title = "Give the runtime role of the charts service the rights its outbox relay uses and hold them with a case under that role"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad/trading-charts"]
+tests = []
+verification_contract = "cd services/launchpad/trading-charts && go test -count=1 -timeout 30m -run '^(TestRuntimeRoleOutboxRelay|TestCommittedCandleOutboxPublishesOnce)' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestRuntimeGrantsRequireExactObjectAuthority|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/coordinatortest/"
+do_1 = "do_1 Gotcha 4578, decision 3661. Read the function PublishNextCommitted of services/launchpad/trading-charts/internal/store/transactional.go with its two statements, the place in services/launchpad/trading-charts/internal/app/app.go that starts the relay and the pool it runs on, the entry of the charts service in migrations/grants.json, the place in migrations/registry.json that holds the digest of the grants document with the code of sdk/launchpad/shared/db/production that checks it, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the case beside it, the cases of sdk/launchpad/shared/db/production/admission_matrix_coverage_test.go, and services/launchpad/trading-charts/cmd/charts-rebuild/runtime_binding_test.go."
+symbols = []
 
 [capability.22.39.727]
 title = "Let an instance of the launchpad indexer that finds the lease held wait as a standby"
@@ -248590,6 +248611,39 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.728]
+title = "Give the runtime role of the charts service the rights its outbox relay uses and hold them with a case under that role"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.728"]
+interfaces = []
+do_1 = "do_1 Gotcha 4578, decision 3661. Read the function PublishNextCommitted of services/launchpad/trading-charts/internal/store/transactional.go with its two statements, the place in services/launchpad/trading-charts/internal/app/app.go that starts the relay and the pool it runs on, the entry of the charts service in migrations/grants.json, the place in migrations/registry.json that holds the digest of the grants document with the code of sdk/launchpad/shared/db/production that checks it, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the case beside it, the cases of sdk/launchpad/shared/db/production/admission_matrix_coverage_test.go, and services/launchpad/trading-charts/cmd/charts-rebuild/runtime_binding_test.go."
+do_2 = "do_2 The grants document gives the runtime role of the charts service on the table chart_outbox the right the relay needs for the row lock of its read and for setting the publication time, in the narrowest form that serves both statements. Read in the documentation of PostgreSQL which right a read under a row lock needs and state the choice in the final message."
+do_3 = "do_3 List every statement the charts service runs on the pool of its runtime role, in the packages store, engine, consumer and app and in the delivery package of sdk/launchpad/shared as the charts service calls it, with the tables, the columns and the kind of each statement, and compare the list with the grants of the role. Add each right a statement needs and the document lacks, in the narrowest form. Take no right away and change no other role. The final message names each right that was added and the statement that needs it."
+do_4 = "do_4 The digest of the grants document in migrations/registry.json follows the document. Read every file the code of sdk/launchpad/shared/db/production and the command of the schema under sdk/launchpad/shared/db/production/cmd hold equal to the registry or to the grants document, and bring each in line. A file that records an approval of an earlier release stays as it is where the code reads it as history."
+do_5 = "do_5 Cases: a case in services/launchpad/trading-charts/internal/store whose name starts with TestRuntimeRoleOutboxRelay makes a database with the helper Bootstrap for the runtime role of the charts service, where the database of the coordinator is given, inserts one committed row with the connection of the role, runs the relay with that connection against a broker made by the helper of services/launchpad/trading-charts/internal/internaltest, and asserts that the row is published once and holds a publication time, and that a second run finds no row. A case asserts for each statement of the list of do_3 that the grants of the role cover it, by running the statement or its plan with the connection of the role. The present cases stay and none is weakened. Run by hand the cases of services/launchpad/trading-charts/internal/store, the cases of sdk/launchpad/shared/db/production and of sdk/launchpad/shared/db/production/coordinatortest and read each message."
+do_6 = "do_6 The grants document, the registry, the files of sdk/launchpad/shared/db/production and the files of services/launchpad/trading-charts are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad/trading-charts"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/trading-charts && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "cd services/launchpad/trading-charts && go test -count=1 -timeout 30m -run '^(TestRuntimeRoleOutboxRelay|TestCommittedCandleOutboxPublishesOnce)' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestRuntimeGrantsRequireExactObjectAuthority|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/coordinatortest/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.727]
 title = "Let an instance of the launchpad indexer that finds the lease held wait as a standby"
 status = "pending"
@@ -248741,7 +248795,7 @@ touches = ["services/launchpad/indexer", "sdk/launchpad/shared/delivery"]
 tests = []
 planned_paths = []
 build_cmd = "cd services/launchpad/indexer && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./delivery/..."
-verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/publisher/... ./internal/app/... && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 20m ./delivery/..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/publisher/... ./internal/app/... && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 20m -skip 'TestArchiveCapturesCommittedSourceWithActualObjectStore' ./delivery/..."
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -248753,6 +248807,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3660, gotcha 4577. The verification now leaves out the function TestArchiveCapturesCommittedSourceWithActualObjectStore of the delivery package, which runs where an object store is given: change nothing in that function. The work of the earlier candidate stays as it is. Run the commands of the verification by hand once and correct what they name inside the paths, then run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.721]
 title = "Bring three cases of the node package and the parts of the product they read in line"

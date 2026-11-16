@@ -22705,3 +22705,13 @@ fix = "Decision 3658. Task 22.39.726."
 title = "A second instance of the launchpad indexer meets the lease of the first"
 symptom = "The processor of services/launchpad/indexer/internal/processor/processor.go takes the ingestion lease of the stream with the function AcquireLease of services/launchpad/indexer/internal/store/canonical.go under the owner of the delivery document, which services/launchpad/indexer/internal/app/app.go hands on as the canonical owner. While a lease is held and has not expired, the function answers a second instance with the refusal of a fenced or expired lease, and the processor returns that refusal. The readiness answer of the indexer under the path /health/ready reads the state of the processor."
 fix = "Decision 3659. Task 22.39.727."
+
+[gotcha.4577]
+title = "One case of the delivery package runs where an object store is given"
+symptom = "The function TestArchiveCapturesCommittedSourceWithActualObjectStore of sdk/launchpad/shared/delivery/archive_fixture_coverage_test.go reads the endpoint and the two access values of an object store from the environment of the test, makes a bucket there and runs where an object store is given. The other cases of the package run with a database and need no object store."
+fix = "Decision 3660. Task 22.39.722."
+
+[gotcha.4578]
+title = "The outbox relay of the charts service marks the row it published"
+symptom = "The function PublishNextCommitted of services/launchpad/trading-charts/internal/store/transactional.go reads the next row of the table chart_outbox that has no publication time under a row lock, publishes it and sets its publication time. The service runs that function on the pool of its runtime role. The grants document migrations/grants.json gives the runtime role of the charts service the rights to read and to insert on that table, and the registry migrations/registry.json holds the digest of the grants document. The case TestCommittedCandleOutboxPublishesOnce of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go runs the relay on a pool of the role that made the tables. The helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest applies the registered migrations and the grants document to a database and hands out a connection of each runtime role it is asked for."
+fix = "Decision 3661. Task 22.39.728."
