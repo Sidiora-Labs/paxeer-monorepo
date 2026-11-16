@@ -26,6 +26,12 @@ Provide the chain URL, protected receipt-key file, TLS material and service
 credentials listed below. The batch-evidence adapter is optional as a group. The native node deployment
 is described in [Hosted node](HostedNode.md).
 
+The deployment's server certificate and private key come from the
+`hosted-authority` row of the bring-up CA roster. Install the row's `cert.der`
+and `key.der` files as `LAYERX_AUTHORITY_TLS_CERT_DER` and
+`LAYERX_AUTHORITY_TLS_KEY_DER`; the roster defines the server name and its
+`serverAuth` role.
+
 [Hosted identity](HostedIdentity.md) authenticates hosted principals and
 sessions. Authority's general bearer files authenticate calling services;
 they do not replace receipt signatures or the governed receipt-key pins.
