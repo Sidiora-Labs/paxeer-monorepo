@@ -84,6 +84,7 @@ func TestProofConfigurationCommands(t *testing.T) {
 			}
 			if service == config.Indexer {
 				want.StartHeight = 42
+				want.PriceRetentionDays = config.DefaultPriceRetentionDays
 			}
 			if service == config.Gateway {
 				want.AuthSecret = "0123456789abcdef0123456789abcdef"

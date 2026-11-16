@@ -22,6 +22,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
@@ -104,20 +105,24 @@ type Deps struct {
 	Holder string
 	// StartHeight is the first height on an empty cursor (PERPS_START_HEIGHT).
 	StartHeight int64
-	Logger      *slog.Logger
+	// PriceRetentionDays defaults to seven when omitted by an embedded caller.
+	PriceRetentionDays int
+	Logger             *slog.Logger
 }
 
 // Indexer is the perps indexer process loop.
 type Indexer struct {
-	db        *sql.DB
-	outbox    *delivery.Store
-	rpc       *source.RPC
-	follower  *source.Follower
-	registry  *decode.Registry
-	publisher *publish.Publisher
-	holder    string
-	start     uint64
-	logger    *slog.Logger
+	db                 *sql.DB
+	outbox             *delivery.Store
+	rpc                *source.RPC
+	follower           *source.Follower
+	registry           *decode.Registry
+	publisher          *publish.Publisher
+	holder             string
+	start              uint64
+	priceRetentionDays int
+	priceRetention     store.PriceRetention
+	logger             *slog.Logger
 
 	// written holds the rows by table of each block written in the current
 	// step, in block order; the follower commits them in that order.
@@ -153,20 +158,27 @@ func New(ctx context.Context, d Deps) (*Indexer, error) {
 	if d.StartHeight < 0 {
 		return nil, errors.New("indexer: start height must not be below zero")
 	}
+	if d.PriceRetentionDays < 0 {
+		return nil, errors.New("indexer: price retention days must be at least 1")
+	}
+	if d.PriceRetentionDays == 0 {
+		d.PriceRetentionDays = config.DefaultPriceRetentionDays
+	}
 	logger := d.Logger
 	if logger == nil {
 		logger = slog.Default()
 	}
 	ix := &Indexer{
-		db:        d.DB,
-		outbox:    d.Outbox,
-		rpc:       d.RPC,
-		registry:  d.Registry,
-		publisher: d.Publisher,
-		holder:    d.Holder,
-		start:     uint64(d.StartHeight),
-		logger:    logger,
-		lookedUp:  map[string]bool{},
+		db:                 d.DB,
+		outbox:             d.Outbox,
+		rpc:                d.RPC,
+		registry:           d.Registry,
+		publisher:          d.Publisher,
+		holder:             d.Holder,
+		start:              uint64(d.StartHeight),
+		priceRetentionDays: d.PriceRetentionDays,
+		logger:             logger,
+		lookedUp:           map[string]bool{},
 		headHeight: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "perps_indexer_head_height",
 			Help: "Latest node head height seen by the follower.",
@@ -224,7 +236,7 @@ func (ix *Indexer) Run(ctx context.Context) error {
 	}
 	runCtx, cancel := context.WithCancelCause(ctx)
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		defer wg.Done()
 		if err := ix.publisher.Run(runCtx); err != nil && !errors.Is(err, context.Canceled) {
@@ -240,6 +252,12 @@ func (ix *Indexer) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		if err := ix.pruneOutbox(runCtx); errors.Is(err, ErrLeaseLost) {
+			cancel(err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if err := ix.prunePrices(runCtx); errors.Is(err, ErrLeaseLost) {
 			cancel(err)
 		}
 	}()
@@ -270,6 +288,34 @@ func (ix *Indexer) pruneOutbox(ctx context.Context) error {
 		}
 		if err != nil {
 			ix.logger.Warn("perps outbox cleanup failed", slog.Any("err", err))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+// prunePrices bounds each pass by time as well as the store's row and statement
+// limits. The stateful sweep continues on the next maintenance tick.
+func (ix *Indexer) prunePrices(ctx context.Context) error {
+	ticker := time.NewTicker(PruneInterval)
+	defer ticker.Stop()
+	for {
+		passCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		_, err := ix.priceRetention.Pass(passCtx, ix.db,
+			time.Now().UTC().AddDate(0, 0, -ix.priceRetentionDays), leaseName, ix.holder)
+		cancel()
+		if errors.Is(err, store.ErrLeaseHeld) {
+			ix.held.Store(false)
+			return ErrLeaseLost
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
+			ix.logger.Warn("perps price retention failed", slog.Any("err", err))
 		}
 		select {
 		case <-ctx.Done():
