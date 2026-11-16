@@ -22505,3 +22505,8 @@ fix = "Decision 3618. Task 22.44.47."
 title = "The webhooks ingress joins the path of an origin with a slash, and the node front serves its consensus route at one exact path"
 symptom = "The node front in services/platform/hosted/paxeer/src/main.rs answers consensus calls at the path /comet and no other. The webhooks ingress in services/platform/hosted/webhooks/src/trusted.rs posts each node call and each consensus call with the request path of a single slash, and services/platform/hosted/webhooks/src/boundary.rs joins the path of the origin with that request path, so an origin that ends in /comet is addressed at /comet followed by a slash. The case of services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs states the joined path with the slash, and its stand-in answers at any path."
 fix = "Decision 3619. Task 22.39.701."
+
+[gotcha.4537]
+title = "The keyboard measurement of the render check does not follow an open modal dialog"
+symptom = "A dialog opened as a modal makes every element outside it inert without the inert attribute and moves the focus to a control inside it. The list of elements the kind focus expects in tools/ui-check/browser.mjs leaves out only the elements under the inert attribute, so the controls behind the dialog are expected and the traversal cannot reach them. The appearance before focus is recorded after the focus is moved to the body, and the body of a document with an open modal dialog does not take the focus, so the control that holds the focus is recorded in its focused appearance and shows no change when the traversal comes to it."
+fix = "Decision 3620. Task 22.44.53."
