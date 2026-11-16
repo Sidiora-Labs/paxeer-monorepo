@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main id="loading" class="loading">
+    <main id="loading" class="loading" role="status" aria-live="polite">
       <div class="loading-mark" aria-hidden="true">LX</div>
       <div>
         <h1>Building your map</h1>
@@ -228,6 +228,10 @@
       import { initialization } from "./app.js";
 
       const help = document.getElementById("help-dialog");
+      const application = document.getElementById("app");
+      new MutationObserver(() => {
+        application.inert = help.open;
+      }).observe(help, { attributes: true, attributeFilter: ["open"] });
       document.addEventListener(
         "keydown",
         (event) => {
