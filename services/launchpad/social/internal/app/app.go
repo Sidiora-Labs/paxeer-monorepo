@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/notifications"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/devsocial"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
@@ -1375,6 +1376,12 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		sharedhttp.WriteJSON(w, 403, map[string]string{codeField: "SERVICE_AUTHORITY_REQUIRED"})
 		return
 	}
+	r.authorityRoutes(w, req)
+}
+
+// authorityRoutes serves the common social authority surface after the
+// caller has authenticated and admitted the requesting service peer.
+func (r *socialConnectedRuntime) authorityRoutes(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/internal/v2/social/")
 	var value any
 	var e error
@@ -1385,6 +1392,13 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		value, e = r.contentVisibility(req.Context(), req.URL.Query().Get("targetType"), req.URL.Query().Get("targetId"))
 	case req.Method == http.MethodGet && path == "ranking-visibility":
 		value, e = r.rankingVisibility(req.Context())
+	case req.Method == http.MethodGet && strings.HasPrefix(path, "public/"):
+		parts := strings.Split(strings.TrimPrefix(path, "public/"), "/")
+		if len(parts) != 2 {
+			e = safety.ErrInvalid
+		} else {
+			value, e = r.publicResource(req.Context(), parts[0], parts[1])
+		}
 	case req.Method == http.MethodGet && strings.HasPrefix(path, "visibility/"):
 		parts := strings.Split(strings.TrimPrefix(path, "visibility/"), "/")
 		if len(parts) != 2 {
@@ -1433,11 +1447,64 @@ func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.
 		sharedhttp.WriteJSON(w, 404, map[string]string{codeField: notFoundCode})
 		return
 	}
+	if strings.HasPrefix(path, "public/") && errors.Is(e, pgx.ErrNoRows) {
+		sharedhttp.WriteJSON(w, http.StatusNotFound, map[string]string{codeField: notFoundCode})
+		return
+	}
 	if e != nil {
 		sharedhttp.WriteJSON(w, 503, map[string]string{codeField: "SOCIAL_AUTHORITY_UNAVAILABLE"})
 		return
 	}
 	sharedhttp.WriteJSON(w, 200, value)
+}
+
+func (r *socialConnectedRuntime) publicResource(ctx context.Context, kind, id string) (discovery.PublicResource, error) {
+	var result discovery.PublicResource
+	if r.pool == nil || kind != "callout" || id == "" {
+		return result, safety.ErrInvalid
+	}
+	var (
+		calloutID, author, pool, body, disclosure, creator string
+		revision, visibilityRevision                       int64
+		createdAt                                          time.Time
+	)
+	err := r.pool.QueryRow(ctx, `
+		SELECT c.callout_id::text,c.author,c.pool,c.body,c.disclosure,c.revision,c.created_at,
+		       chat.social_account_for_wallet(c.author)::text,
+		       GREATEST(c.revision,COALESCE((SELECT max(v.revision) FROM chat.safety_visibility v
+		         WHERE v.target_type='callout' AND v.target_id=c.callout_id::text),0))
+		FROM chat.v2_callouts c
+		JOIN LATERAL (SELECT p.pool,p.token FROM chat.social_canonical_pools() p WHERE p.pool=c.pool) canonical ON true
+		WHERE c.callout_id::text=$1
+		  AND NOT c.removed
+		  AND chat.interaction_account_active(c.author)
+		  AND NOT EXISTS (SELECT 1 FROM chat.interaction_erased_wallets e WHERE e.wallet=c.author)
+		  AND NOT EXISTS (SELECT 1 FROM chat.safety_visibility v
+		    WHERE v.status='removed' AND ((v.target_type='callout' AND v.target_id=c.callout_id::text)
+		      OR (v.target_type='pool' AND v.target_id=canonical.pool)
+		      OR (v.target_type='token' AND v.target_id=canonical.token)))`, id).
+		Scan(&calloutID, &author, &pool, &body, &disclosure, &revision, &createdAt, &creator, &visibilityRevision)
+	if err != nil {
+		return result, err
+	}
+	if revision < 1 || visibilityRevision < 1 || creator == "" || createdAt.IsZero() {
+		return result, safety.ErrUnavailable
+	}
+	result.Ref = discovery.SourceRef{
+		ID:                 calloutID,
+		EventID:            fmt.Sprintf("callout:%s:%d", calloutID, revision),
+		Kind:               kind,
+		CreatorPublicID:    creator,
+		Pools:              []string{pool},
+		SourceRevision:     uint64(revision),
+		VisibilityRevision: uint64(visibilityRevision),
+		PublishedAt:        createdAt.UTC(),
+		Public:             true,
+		Authorized:         true,
+	}
+	result.Body = body
+	result.PositionDisclosure = disclosure
+	return result, nil
 }
 func (r *socialConnectedRuntime) graphAuthority(ctx context.Context, account string) (any, error) {
 	if _, e := uuid.Parse(account); e != nil {
