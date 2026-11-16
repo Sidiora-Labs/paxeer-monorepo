@@ -13,6 +13,9 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
+The workflow at `.github/workflows/ui-check-test.yml` runs these same commands
+from this directory for changes to the render check and its workflow.
+
 Only `playwright`, `axe-core` and the PNG decoder `pngjs` are dependencies, at
 the exact versions in `package.json`. The browser and its system packages are
 installed separately.

@@ -1,0 +1,5 @@
+{
+  "code": 403,
+  "error_code": "otp_expired",
+  "msg": "Token has expired or is invalid"
+}
