@@ -90,6 +90,11 @@ type App struct {
 	logger *slog.Logger
 }
 
+// runtimePoolDSN resolves chat first in every profile and preserves any supplied search path after it.
+func runtimePoolDSN(cfg config.Config) (string, error) {
+	return devsocial.RuntimeDSN(cfg.DatabaseURL)
+}
+
 // New runs migrations, opens the DB + Redis (publisher + dedicated subscriber)
 // pools, and builds the HTTP+WS router with health endpoints, the rate-limited
 // REST routes, and the realtime /ws endpoint.
@@ -129,15 +134,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, err
 		}
 	}
-	if cfg.NodeEnv != productionEnvironment || platform {
-		// The v2 stores address their tables unqualified in the "chat" schema
-		// (as the bound runtime's pool does), so the pool resolves it first.
-		dsn, err := devsocial.RuntimeDSN(cfg.DatabaseURL)
-		if err != nil {
-			return nil, err
-		}
-		cfg.DatabaseURL = dsn
+	dsn, err := runtimePoolDSN(cfg)
+	if err != nil {
+		return nil, err
 	}
+	cfg.DatabaseURL = dsn
 
 	pool, err := cfg.OpenRuntimePool(ctx, "sociald", shareddb.PoolOptions{})
 	if err != nil {
