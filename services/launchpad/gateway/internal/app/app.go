@@ -393,7 +393,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if err := identity.RegisterV2Routes(mux, auth.IdentityHTTPConfig{ServiceToken: cfg.IdentityServiceToken, ServiceVerifiers: connected.identityVerifiers}); err != nil {
 			return nil, err
 		}
-		privateRouter = privateIdentityHandler(mux)
+		privateRouter = privateIdentityHandler(mux, tracker)
 		connected.start(identity)
 	}
 	if metrics != nil {
@@ -788,14 +788,26 @@ func privateListenerTLS(roots *x509.CertPool, server tls.Certificate) *tls.Confi
 	return &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: roots, Certificates: []tls.Certificate{server}}
 }
 
-// privateIdentityHandler serves the private identity listener: only
-// /internal/v2/identity/*, and only to a verified client chain. The identity
-// routes then authenticate the calling service with the verifiers from
+// privateIdentityHandler serves readiness and identity routes on the private
+// listener, and only to a verified client chain. The identity routes then
+// authenticate the calling service with the verifiers from
 // identityServiceVerifiers; the IDENTITY_SERVICE_TOKEN bearer is never
 // accepted there.
-func privateIdentityHandler(mux http.Handler) http.Handler {
+func privateIdentityHandler(mux http.Handler, tracker *process.Tracker) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/internal/v2/identity/") || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 {
+		if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/health/ready" {
+			if tracker.Ready(r.Context()) == nil {
+				sharedhttp.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+			} else {
+				sharedhttp.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "degraded"})
+			}
+			return
+		}
+		if !strings.HasPrefix(r.URL.Path, "/internal/v2/identity/") {
 			http.NotFound(w, r)
 			return
 		}
