@@ -22580,3 +22580,13 @@ fix = "Decision 3633. Task 22.39.706."
 title = "The receipt authority names a batch evidence origin, and the core service answers that contract as retired"
 symptom = "The receipt authority reads its settings for a loopback origin of batch evidence with an identity, a bearer and a range of batches, and its readiness asks that origin beside the node. The core service answers the route of batch evidence with the refusal of a retired contract, and its readiness names no such origin. A service and the services beside it name the same contracts, and a setting that only a retired contract can fill is not a required setting."
 fix = "Decision 3634. Task 22.39.707."
+
+[gotcha.4552]
+title = "The hosted gateway reads origins and bindings that its definition does not name"
+symptom = "The hosted gateway reads an indexer origin, a consensus route and a document of bindings for the routes of the products, each as an optional setting, and its readiness names a backend without its setting as not configured. The definition of the gateway in deploy/projects/platform/gateway.kvx names none of the three, and the file table the definition selects holds no row for the document of bindings. A setting a service reads and its definition does not name cannot be given through the definition."
+fix = "Decision 3635. Tasks 22.39.708 and 22.39.709."
+
+[gotcha.4553]
+title = "A source file imports a package by its name from a package that declares it"
+symptom = "The consent module of the trading workspace in apps/perps/apps/web/src/legal/useCookieConsent.ts imports the error reporter through a relative path into the module directory of the package apps/perps/packages/paxeer-backend. The web application does not declare that package among its dependencies. An import through such a path does not take the entry the package gives a bundle of the browser, and the production build of the workspace reads the entry the import names. A task that adds a module to the web application builds the workspace in the production form."
+fix = "Decision 3636. Tasks 22.39.710 and 22.39.564."
