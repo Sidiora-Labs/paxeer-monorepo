@@ -37,14 +37,16 @@ function RouteTrigger({
       onClick={ onClick }
       aria-haspopup="dialog"
       aria-label={ `${ label }: ${ option.name }. Change` }
-      className="focus-ring grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-lg px-2 py-1.5 text-left transition-colors duration-(--duration-fast) hover:bg-container-high"
+      className="focus-ring flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors duration-(--duration-fast) hover:bg-container-high"
     >
       <ChainIcon name={ option.name } size="md" className="route-chain-icon"/>
-      <span className="min-w-0 text-sm font-medium">{ option.name }</span>
+      <span className="flex min-w-0 flex-col">
+        <span className="text-sm font-medium">{ option.name }</span>
+        { option.hint ? <span className="text-caption text-muted-foreground">{ option.hint }</span> : null }
+      </span>
       <span aria-hidden="true" className="ml-auto shrink-0 text-xs text-muted-foreground">
         ▾
       </span>
-      { option.hint ? <span className="col-span-3 min-w-0 text-caption text-muted-foreground">{ option.hint }</span> : null }
     </button>
   );
 }
@@ -140,7 +142,7 @@ function DialogTriggerRoute({
     <>
       <RouteTrigger option={ option } label={ label } onClick={ () => setOpen(true) }/>
       <Dialog open={ open } onOpenChange={ (o) => setOpen(o) }>
-        <DialogContent className="gap-4 surface-inset sm:max-w-lg">
+        <DialogContent className="gap-4 p-5 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-title-sm">{ pickerTitle }</DialogTitle>
             <DialogDescription>Every route runs through the attested PaxeerX bridge.</DialogDescription>
@@ -201,8 +203,8 @@ export function AmountInput({
   onMax?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={ id } className="text-label font-medium">Amount</label>
+    <div className="relative flex flex-col gap-1.5">
+      <label htmlFor={ id } className="sr-only">Amount</label>
       <InputGroup className={ cn('min-h-14 flex-wrap rounded-xl bg-background', invalid && 'border-destructive') }>
         <InputGroupInput
           id={ id }
@@ -219,7 +221,7 @@ export function AmountInput({
           aria-describedby={ invalid ? 'bridge-amount-error' : undefined }
           onBlur={ onBlur }
           disabled={ disabled }
-          className="font-mono text-title tabular-nums"
+          className="font-mono text-xl tabular-nums"
         />
         <InputGroupAddon align="inline-end" className="ml-auto min-w-0 max-w-full flex-wrap">
           <span className="flex items-center gap-2 rounded-full bg-container-high py-1 pr-3 pl-1.5">
@@ -261,7 +263,7 @@ export function ReceivePreview({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex min-h-14 flex-wrap items-center gap-3 rounded-xl border border-dashed border-border bg-background/60 px-3.5">
-        <span className="min-w-0 flex-[1_1_8ch] break-all font-mono text-title tabular-nums text-muted-foreground">
+        <span className="min-w-0 flex-[1_1_8ch] break-all font-mono text-xl tabular-nums text-muted-foreground">
           { amountText || '0.0' }
         </span>
         <span className="flex shrink-0 items-center gap-2 rounded-full bg-container-high py-1 pr-3 pl-1.5 text-sm font-medium">
@@ -272,7 +274,7 @@ export function ReceivePreview({
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-caption text-muted-foreground">
         <span>You receive 1:1 — the bridge takes no fee.</span>
         { denom ? (
-          <Badge variant="tonal" className="max-w-44 truncate font-mono text-caption" title={ denom }>
+          <Badge variant="tonal" className="max-w-44 truncate font-mono text-micro" title={ denom }>
             { denom }
           </Badge>
         ) : null }

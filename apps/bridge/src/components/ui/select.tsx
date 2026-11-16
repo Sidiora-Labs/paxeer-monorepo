@@ -18,9 +18,9 @@ function SelectTrigger({ className, size = 'default', children, ...props }: Sele
       data-slot="select-trigger"
       data-size={ size }
       className={ cn(
-        'focus-ring flex w-fit min-w-40 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3.5 text-body whitespace-nowrap transition-[border-color,box-shadow] duration-(--duration-fast) outline-none select-none hover:border-muted-foreground/60 data-popup-open:border-foreground',
-        'data-[size=default]:min-h-11 data-[size=sm]:min-h-11 data-[size=sm]:rounded-sm data-[size=sm]:px-3 data-[size=sm]:text-body-sm',
-        'data-disabled:pointer-events-none data-disabled:opacity-40 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4',
+        'focus-ring flex w-fit min-w-40 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3.5 text-sm whitespace-nowrap transition-[border-color,box-shadow] duration-(--duration-fast) outline-none select-none hover:border-muted-foreground/60 data-popup-open:border-foreground',
+        'data-[size=default]:min-h-10 data-[size=sm]:min-h-8 data-[size=sm]:rounded-sm data-[size=sm]:px-3 data-[size=sm]:text-body-sm',
+        'data-disabled:pointer-events-none data-disabled:opacity-40 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       ) }
       { ...props }
@@ -79,7 +79,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
     <SelectPrimitive.Item
       data-slot="select-item"
       className={ cn(
-        'relative flex min-h-11 w-full cursor-default items-center gap-2 rounded-sm pr-8 pl-2.5 text-body outline-none select-none data-highlighted:bg-container-high data-disabled:pointer-events-none data-disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4',
+        'relative flex min-h-9 w-full cursor-default items-center gap-2 rounded-sm pr-8 pl-2.5 text-sm outline-none select-none data-highlighted:bg-container-high data-disabled:pointer-events-none data-disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       ) }
       { ...props }

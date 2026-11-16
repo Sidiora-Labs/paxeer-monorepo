@@ -93,7 +93,7 @@ function LegacyDialogContent({
         { showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="state-layer focus-ring absolute top-4 right-4 inline-flex size-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-4"
+            className="state-layer focus-ring absolute top-4 right-4 inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-4"
           >
             <XIcon/>
             <span className="sr-only">Close</span>
@@ -121,13 +121,13 @@ function NativeDialogContent({ className, children, showCloseButton = true, ...p
       { ...{ closedby: 'any' } }
       aria-labelledby={ `${ state.id }-title` }
       data-slot="dialog-content"
-      className={ cn('@container/dialog bridge-dialog gap-5 overflow-y-auto rounded-2xl bg-popover surface-inset text-popover-foreground shadow-float', className) }
+      className={ cn('@container/dialog bridge-dialog gap-5 overflow-y-auto rounded-2xl bg-popover p-6 text-popover-foreground shadow-float', className) }
       onClose={ () => state.setOpen(false) }
     >
       { children }
       { showCloseButton ? (
         <form method="dialog" className="absolute top-4 right-4">
-          <button type="submit" autoFocus className="state-layer focus-ring inline-flex size-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground">
+          <button type="submit" autoFocus className="state-layer focus-ring inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:text-foreground">
             <XIcon className="size-4" aria-hidden="true"/>
             <span className="sr-only">Close</span>
           </button>
@@ -160,11 +160,11 @@ function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
 
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   const state = useDialog();
-  if (state.native) return <h2 id={ `${ state.id }-title` } className={ cn('min-h-11 pr-14 text-title font-medium', typeof className === 'string' ? className : undefined) }>{ props.children }</h2>;
+  if (state.native) return <h2 id={ `${ state.id }-title` } className={ cn('min-h-8 pr-10 text-title font-medium', typeof className === 'string' ? className : undefined) }>{ props.children }</h2>;
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={ cn('min-h-11 pr-14 text-title leading-tight font-medium tracking-(--tracking-title)', className) }
+      className={ cn('min-h-8 pr-10 text-title leading-tight font-medium tracking-(--tracking-title)', className) }
       { ...props }
     />
   );
@@ -172,7 +172,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
 
 function DialogDescription({ className, ...props }: DialogPrimitive.Description.Props) {
   const state = useDialog();
-  if (state.native) return <p className={ cn('text-muted-foreground text-body leading-relaxed', typeof className === 'string' ? className : undefined) }>{ props.children }</p>;
+  if (state.native) return <p className={ cn('text-muted-foreground text-sm leading-relaxed', typeof className === 'string' ? className : undefined) }>{ props.children }</p>;
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"

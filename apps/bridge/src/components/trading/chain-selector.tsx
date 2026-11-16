@@ -71,8 +71,8 @@ export function ChainList({ chains, value, onSelect, recent = [], tab, defaultTa
             disabled={ c.disabled }
             onClick={ () => onSelect?.(c) }
             className={ cn(
-              'focus-ring flex min-h-11 items-center gap-2 rounded-lg surface-inset-x text-left text-body-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40',
-              'py-2',
+              'focus-ring flex items-center gap-2 rounded-lg px-3 text-left text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-40',
+              compact ? 'h-11' : 'h-9',
               isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-container-high/70',
             ) }
           >
@@ -98,7 +98,7 @@ export function ChainList({ chains, value, onSelect, recent = [], tab, defaultTa
                 aria-label={ c.name }
                 title={ c.name }
                 onClick={ () => onSelect?.(c) }
-                className="focus-ring grid size-11 place-items-center rounded-lg border border-border hover:border-primary"
+                className="focus-ring grid size-9 place-items-center rounded-lg border border-border hover:border-primary"
               >
                 <ChainIcon name={ c.name } src={ c.iconSrc } size={ compact ? 'sm' : 'xs' }/>
               </button>
@@ -132,7 +132,7 @@ export function ChainList({ chains, value, onSelect, recent = [], tab, defaultTa
         testnetPanel
       ) }
       { wrongNetwork && (
-        <p className="flex items-center justify-center gap-1.5 pt-1 text-center text-body-sm text-warning">
+        <p className="flex items-center justify-center gap-1.5 pt-1 text-center text-xs text-warning">
           <TriangleAlertIcon className="size-3.5 shrink-0"/>
           Please switch to a supported network to continue.
         </p>
@@ -195,7 +195,7 @@ export function ChainSelector({
   };
 
   const triggerClass = cn(
-    'focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-body-sm font-medium transition-colors',
+    'focus-ring inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors',
     wrongNetwork ?
       'border-warning/40 bg-warning-container text-warning hover:bg-warning-container/80' :
       'border-border bg-container hover:bg-container-high data-popup-open:bg-container-high',
@@ -224,7 +224,7 @@ export function ChainSelector({
           { triggerBody }
         </button>
         <Dialog open={ isOpen } onOpenChange={ (o) => setOpen(o) }>
-          <DialogContent className="gap-4 surface-inset sm:max-w-md">
+          <DialogContent className="gap-4 p-5 sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-base">Switch network</DialogTitle>
             </DialogHeader>

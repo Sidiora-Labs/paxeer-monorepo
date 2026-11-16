@@ -24,7 +24,7 @@ function EmptyMedia({ className, variant = 'icon', ...props }: React.ComponentPr
       data-slot="empty-media"
       className={ cn(
         'mb-2 flex shrink-0 items-center justify-center [&_svg]:pointer-events-none [&_svg]:shrink-0',
-        variant === 'icon' && 'size-12 rounded-lg bg-container-high text-foreground [&_svg:not([class*=\'size-\'])]:size-5',
+        variant === 'icon' && 'size-12 rounded-lg bg-container-high text-foreground [&_svg:not([class*=size-])]:size-5',
         className,
       ) }
       { ...props }
@@ -33,7 +33,7 @@ function EmptyMedia({ className, variant = 'icon', ...props }: React.ComponentPr
 }
 
 function EmptyTitle({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="empty-title" className={ cn('text-title-sm font-medium tracking-(--tracking-label)', className) } { ...props }/>;
+  return <div data-slot="empty-title" className={ cn('text-card-title font-medium tracking-(--tracking-label)', className) } { ...props }/>;
 }
 
 function EmptyDescription({ className, ...props }: React.ComponentProps<'p'>) {
