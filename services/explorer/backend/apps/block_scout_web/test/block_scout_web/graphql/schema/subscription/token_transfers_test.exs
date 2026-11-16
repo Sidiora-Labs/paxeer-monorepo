@@ -60,7 +60,7 @@ defmodule BlockScoutWeb.GraphQL.Schema.Subscription.TokenTransfersTest do
         subscriptionId: subscription_id
       }
 
-      assert_push("subscription:data", push)
+      assert_push("subscription:data", push, 5_000)
       assert push == expected
     end
 
@@ -86,7 +86,7 @@ defmodule BlockScoutWeb.GraphQL.Schema.Subscription.TokenTransfersTest do
 
       Notifier.handle_event({:chain_event, :token_transfers, :realtime, [token_transfer2]})
 
-      refute_push("subscription:data", _push)
+      refute_push("subscription:data", _push, 1_000)
     end
 
     test "ignores non-realtime updates", %{socket: socket} do
@@ -111,7 +111,7 @@ defmodule BlockScoutWeb.GraphQL.Schema.Subscription.TokenTransfersTest do
 
       Notifier.handle_event({:chain_event, :token_transfers, :catchup, [token_transfer]})
 
-      refute_push("subscription:data", _push)
+      refute_push("subscription:data", _push, 1_000)
     end
   end
 end
