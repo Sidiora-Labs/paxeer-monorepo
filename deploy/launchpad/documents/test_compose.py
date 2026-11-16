@@ -145,6 +145,7 @@ def _values(tmp_path: Path) -> Path:
     (values / "common.json").write_bytes((ROOT / "values" / "common.example.json").read_bytes())
     for service in SERVICES:
         (values / f"{service}.example.json").write_bytes((ROOT / "values" / f"{service}.example.json").read_bytes())
+    (values / "network-authority.json").write_bytes((ROOT / "values" / "network-authority.json").read_bytes())
     expected = values / "expected-schema"
     expected.mkdir()
     for service in SERVICES:
@@ -236,6 +237,51 @@ def test_compose_refuses_contract_document_from_module(tmp_path: Path) -> None:
             module.unlink(missing_ok=True)
         else:
             module.write_bytes(original)
+
+
+def test_compose_api_readiness_documents_are_bound(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    result = _run(values, out, "api")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "api.json").read_bytes())
+    for name in ("STREAM_RELAY_CONFIG_DOCUMENT", "DISCOVERY_RUNTIME_CONFIG_DOCUMENT"):
+        raw = base64.b64decode(record[name])
+        assert hashlib.sha256(raw).hexdigest() == record[name.removesuffix("_DOCUMENT") + "_SHA256"]
+    authority = (values / "network-authority.json").read_bytes()
+    assert record["NETWORK_AUTHORITY_CONFIG_FILE"] == "/run/launchpad/api/network-authority.json"
+    assert record["NETWORK_AUTHORITY_CONFIG_SHA256"] == hashlib.sha256(authority).hexdigest()
+    relay = json.loads(base64.b64decode(record["STREAM_RELAY_CONFIG_DOCUMENT"]))
+    assert relay["batch"] == 100 and relay["leaseDuration"] == 30_000_000_000
+    discovery = json.loads(base64.b64decode(record["DISCOVERY_RUNTIME_CONFIG_DOCUMENT"]))
+    assert discovery["d11TokenRef"] == "ACCOUNT_SERVICE_TOKEN"
+    assert discovery["push"]["EnableAPNS"] is False
+
+
+@pytest.mark.parametrize(("section", "member", "message"), [
+    ("stream_relay", "batch", "stream_relay.batch"),
+    ("discovery_runtime", "d11_base", "discovery_runtime.d11_base"),
+])
+def test_compose_api_refuses_readiness_values_outside_runtime_bounds(tmp_path: Path, section: str, member: str, message: str) -> None:
+    values = _values(tmp_path)
+    data = json.loads((values / "api.example.json").read_bytes())
+    data[section][member] = 0 if member == "batch" else "http://accounts.example"
+    (values / "api.example.json").write_text(json.dumps(data))
+    result = _run(values, tmp_path / "out", "api")
+    assert result.returncode == 2
+    assert message in result.stderr
+
+
+def test_compose_api_binds_changed_network_authority_file_by_digest(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    out = tmp_path / "out"
+    result = _run(values, out, "api")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "api.json").read_bytes())
+    path = values / "network-authority.json"
+    raw = bytearray(path.read_bytes())
+    raw[-2] ^= 1
+    path.write_bytes(raw)
+    assert hashlib.sha256(raw).hexdigest() != record["NETWORK_AUTHORITY_CONFIG_SHA256"]
 
 
 def _indexer_rendered_values(values: Path, out: Path) -> tuple[dict, dict[str, bytes]]:

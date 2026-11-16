@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/telemetry"
+	"github.com/ethereum/go-ethereum/common"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/nats-io/nats.go"
@@ -610,6 +612,42 @@ type discoveryRuntimeDocument struct {
 	Push              notifications.RuntimeOptions `json:"push"`
 }
 
+func (d discoveryRuntimeDocument) validate() error {
+	if len(d.QuoteTokenAddress) != 42 || !common.IsHexAddress(d.QuoteTokenAddress) || common.HexToAddress(d.QuoteTokenAddress) == (common.Address{}) || d.QuoteTokenAddress != strings.ToLower(d.QuoteTokenAddress) {
+		return errors.New("discovery runtime quote token address invalid")
+	}
+	for name, raw := range map[string]string{"d11Base": d.D11Base, "d12Base": d.D12Base} {
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+			return fmt.Errorf("discovery runtime %s invalid", name)
+		}
+	}
+	for name, value := range map[string]string{"d11TokenRef": d.D11TokenRef, "d12TokenRef": d.D12TokenRef, "cursorKeyRef": d.CursorKeyRef, "internalTokenRef": d.InternalTokenRef, "deletePeerDNS": d.DeletePeerDNS, "chatPeerDNS": d.ChatPeerDNS} {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("discovery runtime %s invalid", name)
+		}
+	}
+	if !d.Push.EnableAPNS && (d.Push.APNSKey != "" || d.Push.APNSKeyID != "" || d.Push.APNSTeamID != "" || d.Push.APNSTopic != "") {
+		return errors.New("discovery runtime disabled APNS has credentials")
+	}
+	if !d.Push.EnableFCM && d.Push.FCMServiceAccount != "" {
+		return errors.New("discovery runtime disabled FCM has credentials")
+	}
+	if !d.Push.EnableWebPush && (d.Push.VAPIDKey != "" || d.Push.VAPIDSubject != "") {
+		return errors.New("discovery runtime disabled web push has credentials")
+	}
+	if d.Push.EnableAPNS || d.Push.EnableFCM || d.Push.EnableWebPush {
+		if d.Push.Owner == "" {
+			return errors.New("discovery runtime push owner invalid")
+		}
+		u, err := url.Parse(d.Push.DeepLinkOrigin)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+			return errors.New("discovery runtime push deep link origin invalid")
+		}
+	}
+	return nil
+}
+
 func (a *App) registerProductionOperations(ctx context.Context, router chi.Router, identity requestIdentity, admission *rest.Admission, checks map[string]sharedhttp.Check) error {
 	if err := a.registerDiscovery(ctx, router, identity, admission, checks); err != nil {
 		return err
@@ -643,6 +681,9 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 	if a.cfg.DiscoveryRuntimeFile != "" || a.cfg.DiscoveryRuntimeDocument != "" {
 		var document discoveryRuntimeDocument
 		if err := config.ReadBoundDocument(a.cfg.DiscoveryRuntimeFile, a.cfg.DiscoveryRuntimeSHA256, &document); err != nil {
+			return err
+		}
+		if err := document.validate(); err != nil {
 			return err
 		}
 		concrete, ok := identity.(sharedauth.MTLSIdentityAuthority)
