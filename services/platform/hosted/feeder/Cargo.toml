@@ -10,7 +10,7 @@ name = "price-sidecar"
 path = "src/bin/price-sidecar/main.rs"
 
 [dependencies]
-base64 = "=0.22.1"
+base64 = "=0.23.1"
 ed25519-dalek.workspace = true
 k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa", "std"] }
 rustls-native-certs.workspace = true
