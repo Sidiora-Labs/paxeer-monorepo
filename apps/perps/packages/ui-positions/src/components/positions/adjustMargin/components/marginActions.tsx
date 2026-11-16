@@ -15,7 +15,7 @@ export const MarginActions: FC<MarginActionsProps> = ({
   const { t } = useTranslation();
 
   const tabBase =
-    "oui-h-7 oui-rounded-[4px] oui-text-xs oui-font-semibold oui-transition-colors";
+    "oui-h-7 oui-rounded oui-text-xs oui-font-semibold oui-transition-colors";
 
   return (
     <Flex className="oui-w-full oui-gap-[6px]">

@@ -136,7 +136,7 @@ export const TPSLAdvancedUI = (props: Props) => {
     formattedOrder.tp_trigger_price || formattedOrder.sl_trigger_price;
 
   return (
-    <div className="oui-flex oui-h-full oui-flex-col oui-justify-between oui-rounded-[16px] oui-py-3">
+    <div className="oui-flex oui-h-full oui-flex-col oui-justify-between oui-rounded-2xl oui-py-3">
       <div className="oui-px-3">
         <Flex
           className="oui-mb-5 oui-cursor-pointer  oui-text-base oui-text-base-contrast-80"
