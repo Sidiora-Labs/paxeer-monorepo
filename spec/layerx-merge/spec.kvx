@@ -14878,6 +14878,18 @@ value = "A surface whose proof task is done is rendered again with the render ch
 basis = "Gotcha 4544. Decisions 3588 and 3624."
 affects = []
 
+[decision.3628]
+title = "The directory of the error widgets holds every module its files import, and a case of the workspace keeps that true"
+value = "The directory apps/perps/packages/paxeer-backend/src/widgets/errors holds the modules ErrorPanel, ReportFeedbackModal and ToastActionBridge with the names index.ts exports. The toast action is a button of the toast with an accessible name, the report dialog is one dialog of the dialog atom that sends through the report function of the package, and the error panel shows a classified error in place with the same parts the toast shows. The modules use the packages the workspace already declares. A case under apps/perps/tests reads every file of the directory and requires that each relative import and each subpath of the package it names resolves to a file."
+basis = "Gotcha 4545. Decision 3046."
+affects = []
+
+[decision.3629]
+title = "Each render of the render check has a deadline, the check renders several at once, and a surface file names the modes of a view"
+value = "A render of the render check ends within a deadline the tool holds among its limits. A render past the deadline is a finding of the kind load that names the step, and the check goes on with the next render. The check renders several renders at once, by default as many as the process has processors and at most four, and the result is the same for every count. A view and a state of a surface file may hold the key modes with a list of the modes of the matrix. The list holds the mode default, so every view renders on every device in both schemes. A view without the key renders in every mode. A surface file cannot choose devices or schemes and cannot alter a limit. A surface file holds every route by decision 3624. Where a surface holds more than twenty-four views, the views that share a template may render in the mode default alone when at least one view of each template and at least one state of each kind render in every mode, and the record of the proof names these views and states. The check of one surface ends within forty minutes on four processors."
+basis = "Gotcha 4546. Decisions 3620, 3622 and 3624."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44538,6 +44550,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.58]
+title = "Let the render check bound each render, render several at once and read the modes of a view"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4546, decision 3629. Read tools/ui-check/README.md, in tools/ui-check/config.mjs the limits, the device list, the function renderMatrix and the fields a surface file may hold, in tools/ui-check/check.mjs the functions renderView, keyboardFindings, checkSurface and main, and the cases of tools/ui-check/test/check.test.mjs with their pages."
+symbols = []
+
+[capability.22.39.704]
+title = "Give the error widgets of the trading workspace the modules their files import"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages/paxeer-backend/src/widgets/errors", "apps/perps/packages/paxeer-backend/src/ui/atoms", "apps/perps/packages/paxeer-backend/package.json", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/error-widgets.test.ts tests/collateral-removal-margin-risk.test.ts"
+do_1 = "do_1 Gotcha 4545, decision 3628. Read apps/perps/packages/paxeer-backend/src/widgets/errors/ErrorToast.tsx and apps/perps/packages/paxeer-backend/src/widgets/errors/index.ts with every name they import, the toast queue in apps/perps/packages/paxeer-backend/src/ui/atoms/use-toast.tsx with the fields of a toast, the atoms apps/perps/packages/paxeer-backend/src/ui/atoms/dialog.tsx and apps/perps/packages/paxeer-backend/src/ui/atoms/button.tsx, the types and functions in apps/perps/packages/paxeer-backend/src/core/errors/types.ts, report.ts and classify.ts beside it, the readers apps/perps/packages/paxeer-backend/src/core/errors/global.ts and apps/perps/packages/paxeer-backend/src/widgets/trading/modals/AdjustCollateralModal.tsx, and apps/perps/tests/collateral-removal-margin-risk.test.ts."
+symbols = []
 
 [capability.22.44.57]
 title = "Give the link that skips to the content of the bridge application a change with focus that the render check reads"
@@ -173887,6 +173917,74 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.58]
+title = "Let the render check bound each render, render several at once and read the modes of a view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.53"]
+reqs = ["22998.1"]
+capabilities = ["22.44.58"]
+interfaces = []
+do_1 = "do_1 Gotcha 4546, decision 3629. Read tools/ui-check/README.md, in tools/ui-check/config.mjs the limits, the device list, the function renderMatrix and the fields a surface file may hold, in tools/ui-check/check.mjs the functions renderView, keyboardFindings, checkSurface and main, and the cases of tools/ui-check/test/check.test.mjs with their pages."
+do_2 = "do_2 In tools/ui-check/config.mjs the limits hold renderMs with the value 300000. In tools/ui-check/check.mjs every render ends within that time. A render whose steps have not returned by then is recorded as not rendered with a finding of the kind load whose values name the source deadline and the step that had started last: navigation, settle, measurement, contrast, keyboard or screenshot. Its context is closed; where the close does not return within the navigation limit the browser of that render is ended and a new one is started. The check goes on with the next render. A surface file cannot alter the deadline."
+do_3 = "do_3 The function checkSurface renders up to a count of renders at once, each in a context of its own. The option --jobs of the command takes a positive whole number; without the option the count is the count of processors the process may use and at most 4. The index of a render, the name of its screenshot, the order of the renders and of the findings in the result file and the lines printed for the views are the same for every count. With --jobs 1 the renders run one after the other. A render in the keyboard mode gives the same findings for every count."
+do_4 = "do_4 A view and a state of a surface file may hold the key modes: a list of names out of default, reduced-motion, double-text and keyboard, each at most once, that holds default. A state without the key takes the list of its view, and a view without the key renders in every mode. The renders of a view or state are the configurations of the matrix in its modes. The function that reads a surface file refuses a list that is empty, that lacks default, that repeats a name or that holds another name. The result file holds for each view and state the modes it rendered, and the total line states the count of views and states that rendered in fewer than all modes."
+do_5 = "do_5 Add the page tools/ui-check/test/fixtures/stuck.html, whose script keeps the main thread after the load, and cases in tools/ui-check/test/check.test.mjs: the view of that page is recorded as not rendered with the finding of the deadline while the view after it renders and passes, with a short deadline given through an argument of checkSurface that the command does not offer; a surface of at least three views, one of them the focus page, gives equal renders and findings with the counts 1 and 4; a view with the modes default alone renders in twenty-two configurations and a state of it takes that list; each refused list is refused with a message that names the view. Every present case stays and passes."
+do_6 = "do_6 In tools/ui-check/README.md state the option --jobs, the deadline at the row of the kind load, the key modes with its rule, and the new count of the total line. The sentence that a surface file cannot alter a limit or omit a kind stays true and stays in the text."
+do_7 = "do_7 Run the tests by hand before the counted verification and repair what they show. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = ["tools/ui-check/test/fixtures/stuck.html"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.704]
+title = "Give the error widgets of the trading workspace the modules their files import"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.704"]
+interfaces = []
+do_1 = "do_1 Gotcha 4545, decision 3628. Read apps/perps/packages/paxeer-backend/src/widgets/errors/ErrorToast.tsx and apps/perps/packages/paxeer-backend/src/widgets/errors/index.ts with every name they import, the toast queue in apps/perps/packages/paxeer-backend/src/ui/atoms/use-toast.tsx with the fields of a toast, the atoms apps/perps/packages/paxeer-backend/src/ui/atoms/dialog.tsx and apps/perps/packages/paxeer-backend/src/ui/atoms/button.tsx, the types and functions in apps/perps/packages/paxeer-backend/src/core/errors/types.ts, report.ts and classify.ts beside it, the readers apps/perps/packages/paxeer-backend/src/core/errors/global.ts and apps/perps/packages/paxeer-backend/src/widgets/trading/modals/AdjustCollateralModal.tsx, and apps/perps/tests/collateral-removal-margin-risk.test.ts."
+do_2 = "do_2 Add apps/perps/packages/paxeer-backend/src/widgets/errors/ToastActionBridge.tsx. It exports the component ToastAction and the type ToastActionElement in the form ErrorToast.tsx uses them: a button of the toast that takes an accessible name and a handler, and the type of the element the action field of a toast takes. Where the toast queue has no field for an action, give it one in apps/perps/packages/paxeer-backend/src/ui/atoms so that the action is drawn in the toast and reached by keyboard."
+do_3 = "do_3 Add apps/perps/packages/paxeer-backend/src/widgets/errors/ReportFeedbackModal.tsx. It exports ReportFeedbackModalHost, openReportModal and closeReportModal as index.ts names them. The host draws one dialog of the dialog atom with the title and description of the error, a labelled text field for a note, and controls to send and to cancel. openReportModal takes the arguments ErrorToast.tsx passes. Sending goes through the report function of apps/perps/packages/paxeer-backend/src/core/errors/report.ts and names no address of its own. The dialog closes on send, on cancel and on the Escape key, and focus returns to the element that had it."
+do_4 = "do_4 Add apps/perps/packages/paxeer-backend/src/widgets/errors/ErrorPanel.tsx. It exports ErrorPanel, which shows a classified error in place: title, description, the suggestion where one exists, a retry control where the error can be retried and the caller gives a handler, and a report control where the error can be reported. The panel is announced to assistive technology as an alert."
+do_5 = "do_5 Add apps/perps/tests/error-widgets.test.ts in the form of the other cases of that directory: every relative import and every subpath of the package that a file under apps/perps/packages/paxeer-backend/src/widgets/errors names resolves to a file, read from the files and from the exports table of apps/perps/packages/paxeer-backend/package.json; index.ts loads; showErrorToast of a classified error puts one toast with title and description into the queue, with a retry action only where the error can be retried and a handler is given; openReportModal and closeReportModal change the state the host reads. Where a new module needs a row in the exports table of apps/perps/packages/paxeer-backend/package.json add it in the form of the rows beside it."
+do_6 = "do_6 The modules use the packages the workspace already declares and add none. The words shown are plain English in the form of ErrorToast.tsx, and the styles are the classes the atoms use."
+do_7 = "do_7 Run pnpm --dir apps/perps exec node --test --import tsx tests/error-widgets.test.ts tests/collateral-removal-margin-risk.test.ts by hand and repair what it shows before the counted verification. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages/paxeer-backend/src/widgets/errors", "apps/perps/packages/paxeer-backend/src/ui/atoms", "apps/perps/packages/paxeer-backend/package.json", "apps/perps/tests"]
+tests = []
+planned_paths = ["apps/perps/packages/paxeer-backend/src/widgets/errors/ErrorPanel.tsx", "apps/perps/packages/paxeer-backend/src/widgets/errors/ReportFeedbackModal.tsx", "apps/perps/packages/paxeer-backend/src/widgets/errors/ToastActionBridge.tsx", "apps/perps/tests/error-widgets.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/error-widgets.test.ts tests/collateral-removal-margin-risk.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.57]
 title = "Give the link that skips to the content of the bridge application a change with focus that the render check reads"
 status = "pending"
@@ -174420,7 +174518,7 @@ title = "Close the documentation site on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.36", "22.44.37"]
+requires = ["22.44.36", "22.44.37", "22.44.52", "22.44.54"]
 reqs = ["22998.1"]
 capabilities = ["22.44.48"]
 interfaces = []
@@ -174447,6 +174545,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3629, gotcha 4546. The render check ends each render at a deadline, renders several at once and reads the key modes of a view. The surface file tools/ui-check/surfaces/docs.json keeps every page of the site as a view, and every view renders in the mode default on every device in both schemes. Give the key modes with the value default alone to views that share a template with a view that renders in every mode, so that each template of the site, such as the front page, a guide page, a reference page with tables, a page with code and a module page, keeps at least one view in every mode and each kind of state keeps at least one state in every mode. Name these views and states in the record. The start script of the surface serves the built files and builds nothing on a request. Run the check by hand before the counted verification and measure its time: the whole check ends within forty minutes with the default count of renders at once. Clear every finding the check states, and give the time, the count of renders and the count of findings in the final message. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.47]
 title = "Close the page of the inference peer, the playground pages and the codebase map on the device list with the render check"

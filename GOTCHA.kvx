@@ -22545,3 +22545,13 @@ fix = "Decision 3626. Task 22.39.702."
 title = "A look at renders names details that the measurements of the render check do not state"
 symptom = "The render check measures sizes, overflow, contrast, the type scale and, in its keyboard pass, for each element that takes focus a change of its appearance and of the pixels of the view. The form of a small mark, such as the mark beside the status text of the names shell, is seen only in the image: two strokes with square ends read as a tick at the size of a line of text. The link that skips to the content is the first element of a keyboard pass, and its change with focus is read like that of every other control."
 fix = "Decision 3627. Tasks 22.44.56 and 22.44.57."
+
+[gotcha.4545]
+title = "The error widgets of the trading workspace name three modules of their directory"
+symptom = "The files ErrorToast.tsx and index.ts under apps/perps/packages/paxeer-backend/src/widgets/errors import the modules ErrorPanel, ReportFeedbackModal and ToastActionBridge of the same directory. A reader that loads the collateral modal or the global error handling of the package loads the error widgets and with them these modules. A case of another package that starts a case of the workspace, such as the parity case of the perps precompile, loads them too."
+fix = "Decision 3628. Task 22.39.704."
+
+[gotcha.4546]
+title = "The render check renders one render after the other, and its calls to a page have no limit of time"
+symptom = "The function checkSurface of tools/ui-check/check.mjs renders the views of a surface one after the other, each view and each state in the thirty-four configurations of the matrix of tools/ui-check/config.mjs. The calls that measure a page wait for the page without a limit of time, so the time of a check has no bound. Twelve of the configurations are the modes reduced-motion, double-text and keyboard, and the keyboard mode presses Tab through every control of the page. The time of a check grows with the count of views, the configurations and the controls of each page."
+fix = "Decision 3629. Task 22.44.58; task 22.44.48."
