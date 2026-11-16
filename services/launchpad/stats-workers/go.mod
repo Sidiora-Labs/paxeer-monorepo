@@ -3,7 +3,7 @@
 // @analytics_microservices/stats. cmd/statsd. [SECTION 7]
 module github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/Sidiora-Technologies/KindleLaunch/protocol v0.0.0-00010101000000-000000000000
@@ -15,7 +15,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/nats-io/nats.go v1.47.0
 	github.com/pressly/goose/v3 v3.24.3
-	github.com/redis/go-redis/v9 v9.20.1
+	github.com/redis/go-redis/v9 v9.23.0
 	go.opentelemetry.io/otel v1.41.0
 	go.opentelemetry.io/otel/metric v1.41.0
 	golang.org/x/text v0.37.0
@@ -87,11 +87,11 @@ require (
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
+	go.uber.org/atomic v1.12.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
