@@ -150,7 +150,7 @@ func platformRankingVisibility(ctx context.Context, pool *pgxpool.Pool) (any, er
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	if len(pools) == 0 || len(pools) > 100000 {
+	if len(pools) > 100000 {
 		return nil, safety.ErrUnavailable
 	}
 	return struct {
