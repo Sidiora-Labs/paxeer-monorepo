@@ -14,10 +14,12 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"math/big"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -359,6 +361,57 @@ func TestPlatformDocumentsValueValidation(t *testing.T) {
 				if err == nil || !bytes.Contains(output, []byte("missing or malformed value "+key)) {
 					t.Fatalf("composer must reject missing/malformed %s with its key: %v: %s", key, err, output)
 				}
+			}
+		})
+	}
+}
+
+func TestPrivateListenAddressContract(t *testing.T) {
+	f := platformValues(t)
+	platformCertificates(t, f.ranking)
+	platformWriteJSON(t, filepath.Join(f.values, "ranking.example.json"), f.ranking)
+	platformEnvironment(t, f, f.compose(t, "--examples"))
+	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	contractRaw, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "railway", "variables.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]struct {
+		Fixed map[string]string `json:"fixed"`
+	}
+	if err := json.Unmarshal(contractRaw, &contract); err != nil {
+		t.Fatal(err)
+	}
+	address := contract["ranking"].Fixed["RANKING_PRIVATE_LISTEN_ADDRESS"]
+	if address != "[::]:8443" {
+		t.Fatalf("private listener contract = %q, want [::]:8443", address)
+	}
+	t.Setenv("RANKING_PRIVATE_LISTEN_ADDRESS", address)
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load production contract: %v", err)
+	}
+	if cfg.NodeEnv != "production" || cfg.RuntimeProfile != "container" || cfg.Port != 8080 || cfg.PrivateListenAddress != address {
+		t.Fatal("private listener must use the production contract")
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate production contract: %v", err)
+	}
+	for name, invalid := range map[string]string{
+		"missing_ip":   ":8443",
+		"hostname":     "localhost:8443",
+		"missing_port": "[::]",
+		"empty_port":   "[::]:",
+		"health_port":  net.JoinHostPort("::", strconv.Itoa(cfg.Port)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := cfg
+			candidate.PrivateListenAddress = invalid
+			if err := candidate.Validate(); err == nil || !strings.Contains(err.Error(), "RANKING_PRIVATE_LISTEN_ADDRESS") {
+				t.Fatalf("Validate accepted private listener %q: %v", invalid, err)
 			}
 		})
 	}

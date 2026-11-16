@@ -302,8 +302,13 @@ def test_compose_api_readiness_documents_are_bound(tmp_path: Path) -> None:
 
 def test_private_listener_fixed_names() -> None:
     contracts = json.loads((ROOT.parent / "railway" / "variables.json").read_bytes())
-    assert contracts["api"]["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "0.0.0.0:8443"
+    assert contracts["api"]["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "[::]:8443"
     assert "API_PRIVATE_LISTEN_ADDRESS" not in contracts["api-sockets"]["fixed"]
+    addresses = {
+        contracts[service]["fixed"][f"{service.upper()}_PRIVATE_LISTEN_ADDRESS"]
+        for service in ("api", "ranking", "user", "social", "metadata")
+    }
+    assert addresses == {"[::]:8443"}
 
 
 @pytest.mark.parametrize(("section", "member", "message"), [
