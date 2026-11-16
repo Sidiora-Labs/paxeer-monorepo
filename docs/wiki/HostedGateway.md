@@ -208,11 +208,24 @@ is deployed or has completed an end-to-end operation.
 | `DELETE /v1/keys/{id}` | Bearer session; revoke an owned key |
 | `POST /v1/keys/{id}/rotate` | Bearer session and `Idempotency-Key`; replace an owned key |
 | `GET /internal/v1/principal` | `LayerX-Key`; durable principal digest |
-| `GET /v1/routes` | `LayerX-Key`; catalogue plus dependency readiness |
+| `GET /v1/routes` | `LayerX-Key`; catalogue plus dependency readiness. Top-level keys: `schema`, `canonical_origin`, `chain_id`, `rpc_records`, `preserve_api1_original_host`, `wallet_authentication`, `wallet_placement`, `services`, `routes`, `denied_surfaces`, `node_signing_methods`, `rpc_paths`, `node_rpc`, `hosted_gateway` and `readiness` |
 | `GET /v1/routes/{service}` | `LayerX-Key`; service routes and health; private services are refused |
 | `GET /v1/receipts/{id}` | `LayerX-Key`, `receipt:read`, configured component; owner-scoped receipt verification |
 | `GET /v1/state` | `LayerX-Key`, `state:read`, configured component; verified current head evidence |
 | `POST /v1/settle` | `LayerX-Key`, `receipt:read`, configured component; JSON merchant evidence checked against chain commitment |
+
+The explorer proxy admits these public backend routes:
+
+- `GET /explorer/backend/api/v2/advanced-filters`
+- `GET /explorer/backend/api/v2/advanced-filters/csv`
+- `GET /explorer/backend/api/v2/advanced-filters/methods`
+- `GET /explorer/backend/api/v2/paxeer-x/feed/markets`
+- `GET /explorer/backend/api/v2/paxeer-x/feed/markets/{market_id}/updates`
+- `GET /explorer/backend/api/v2/paxeer-x/feed/updates`
+- `GET /explorer/backend/api/v2/paxeer-x/feed/updates/{hash}`
+
+Its feed pages are available for `GET` and `HEAD`: `/explorer/feed`,
+`/explorer/feed/market/[id]` and `/explorer/feed/update/[hash]`.
 
 Receipt path identifiers are exactly 64 ASCII hex characters, including
 uppercase. Settlement consumes the seller's existing evidence; it does not
