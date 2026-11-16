@@ -175210,7 +175210,7 @@ do_7 = "do_7 Decisions 3616, 3620 and 3621, gotchas 4533, 4537 and 4538. The ren
 
 [task.22.44.41]
 title = "Close the wallet application on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.26", "22.44.37"]
