@@ -281,6 +281,11 @@ client-identity pairs cannot be configured together.
 
 The [platform gateway definition](../../deploy/projects/platform/gateway.kvx)
 sets `LAYERX_FILES_TABLE=/etc/layerx/native-files.tsv` and `LAYERX_ROLE=identity`.
+It sets `LAYERX_GATEWAY_INDEXER_URL` to the private HTTPS origin of the project
+indexer, using the indexer's listener port. `LAYERX_GATEWAY_CONSENSUS_RPC_URL`
+comes from the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL`, an absolute HTTPS address
+with a DNS host that may hold a path; consensus calls use exactly that path.
 It reads `LAYERX_GATEWAY_IDENTITY_URL` from the operator input
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL`, an absolute HTTPS identity
 service address, and `LAYERX_GATEWAY_TENANT` from the operator input

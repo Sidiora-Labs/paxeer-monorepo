@@ -71,7 +71,10 @@ impl AuthorityProcess {
             .env("LAYERX_AUTHORITY_REPLICA_ID", hex::encode(&[1; 32]))
             .env(
                 "LAYERX_AUTHORITY_CHAIN_RPC_URL",
-                format!("http://{}/evm", harness.config.replica_address),
+                format!(
+                    "http://{}/evm",
+                    harness.config.replica.as_ref().must().address
+                ),
             )
             .env(
                 "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE",
@@ -81,7 +84,15 @@ impl AuthorityProcess {
             .env("LAYERX_AUTHORITY_NETWORK_ID", "chain-receipts-test")
             .env(
                 "LAYERX_AUTHORITY_SEQUENCER_ID",
-                hex::encode(&harness.config.authorization.sequencer_id()),
+                hex::encode(
+                    &harness
+                        .config
+                        .replica
+                        .as_ref()
+                        .must()
+                        .authorization
+                        .sequencer_id(),
+                ),
             )
             .env(
                 "LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY",
@@ -425,7 +436,7 @@ fn make_trust_cases() -> TrustCases {
             case["receiptJson"]["txHash"] =
                 serde_json::json!(format!("0x{}", hex::encode(&activity)));
             case["receiptJson"]["keyId"] = pin["pinnedKey"]["keyId"].clone();
-            case["receiptJson"]["height"] = serde_json::json!(format!("0x{height:x}"));
+            case["receiptJson"]["height"] = serde_json::json!(format!("0x{:x}", height.max(1)));
             cases.push(case);
             let mut header = must(hex::decode(native_fixture["header_hex"].as_str().must()));
             let original_header = must(layerx_wire::receipt::decode_batch_header(&header));
@@ -526,7 +537,10 @@ fn load_trust_keys(
     keys: &[SequencerAuthorization],
 ) -> Result<ChainReceipts, String> {
     let keys_file = harness.directory.join("receipt-keys.json");
-    let chain_url = format!("http://{}/evm", harness.config.replica_address);
+    let chain_url = format!(
+        "http://{}/evm",
+        harness.config.replica.as_ref().must().address
+    );
     let entries: Vec<_> = keys
         .iter()
         .map(|key| {
@@ -626,7 +640,10 @@ fn assert_invalid_trust(
         "editing the file must not rotate the running authority"
     );
     harness.config.chain_receipts = must(ChainReceipts::load(
-        &format!("http://{}/evm", harness.config.replica_address),
+        &format!(
+            "http://{}/evm",
+            harness.config.replica.as_ref().must().address
+        ),
         &keys_file,
     ));
     assert_ne!(must(trust::current(&harness.config)), expected);
@@ -726,8 +743,10 @@ fn authority_starts_without_an_lni_socket() {
         .files()
         .iter()
         .all(|path| !must(fs::metadata(path)).file_type().is_socket()));
-    let authority =
-        AuthorityProcess::start_with_replica(&harness, Some(harness.config.replica_address));
+    let authority = AuthorityProcess::start_with_replica(
+        &harness,
+        Some(harness.config.replica.as_ref().must().address),
+    );
     let (status, body) = authority.get("/readyz");
     assert_eq!(status, 200);
     assert_eq!(
@@ -771,8 +790,10 @@ fn receipt_admission_needs_no_kernel_socket() {
     let document = receipt_vectors();
     let case = vector(&document, "V1-pax-transfer");
     let harness = ReceiptHarness::start(std::slice::from_ref(&case), &case);
-    let authority =
-        AuthorityProcess::start_with_replica(&harness, Some(harness.config.replica_address));
+    let authority = AuthorityProcess::start_with_replica(
+        &harness,
+        Some(harness.config.replica.as_ref().must().address),
+    );
     let (status, body) = authority.get("/readyz");
     assert_eq!(status, 200);
     assert_eq!(
@@ -804,8 +825,10 @@ fn receipt_admission_needs_no_kernel_socket() {
         std::slice::from_ref(&case),
         126,
     );
-    let other_authority =
-        AuthorityProcess::start_with_replica(&other, Some(other.config.replica_address));
+    let other_authority = AuthorityProcess::start_with_replica(
+        &other,
+        Some(other.config.replica.as_ref().must().address),
+    );
     let (status, body) = other_authority.get("/readyz");
     assert_eq!(status, 503);
     assert_eq!(body["ready"], false);

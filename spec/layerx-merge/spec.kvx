@@ -175747,7 +175747,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.17]
 title = "Bring the affiliate, leaderboard, rewards and share views of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
@@ -175782,7 +175782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.16]
 title = "Bring the markets, portfolio, transfer and vault views of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
@@ -175817,7 +175817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.15]
 title = "Bring the order entry, orders, positions and leverage parts of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
@@ -201577,7 +201577,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.675]
 title = "Prove the mounted markets view of the trading workspace against the perps data gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.674"]
@@ -202313,7 +202313,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.570]
 title = "Run the consumer proofs of the perps data gateway against the client in the workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.675"]
@@ -212855,7 +212855,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.705]
 title = "Let the route catalogue hold the keys of the product, and admit the routes of the advanced filters and the pages of the feed in the gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -383807,7 +383807,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.708]
 title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.705"]

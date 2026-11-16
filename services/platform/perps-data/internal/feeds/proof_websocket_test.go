@@ -162,6 +162,10 @@ func TestProofWebsocketProducerTransportConsumer(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		var marketSymbols int
+		if err := db.QueryRowContext(ctx, `SELECT count(DISTINCT symbol) FROM perps.markets`).Scan(&marketSymbols); err != nil {
+			t.Fatal(err)
+		}
 		svc, err := gateway.NewServer(ctx, gateway.Options{DB: db, NATS: nc, Chain: 125, Node: node, AuthSecret: strings.Repeat("p", 32), Metrics: metrics, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 		if err != nil {
 			t.Fatal(err)
@@ -191,11 +195,11 @@ func TestProofWebsocketProducerTransportConsumer(t *testing.T) {
 			}
 			body, err := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(body), feeds.GatewayMarketsMetric+" 18\n") {
+			if err != nil || resp.StatusCode != http.StatusOK || !strings.Contains(string(body), fmt.Sprintf("%s %d\n", feeds.GatewayMarketsMetric, marketSymbols)) {
 				t.Fatalf("gateway market gauge: %s (%v)", body, err)
 			}
 			cmd := exec.CommandContext(ctx, "node", "--input-type=module", "-e", proofWebsocketConsumer)
-			cmd.Dir = root
+			cmd.Dir = filepath.Join(root, "apps/perps")
 			cmd.Env = append(os.Environ(), "NEXT_PUBLIC_PERPS_GATEWAY_URL="+server.URL, "PROOF_ROUND="+fmt.Sprint(round))
 			var stderr strings.Builder
 			cmd.Stderr = &stderr
@@ -219,7 +223,7 @@ func TestProofWebsocketProducerTransportConsumer(t *testing.T) {
 	}
 }
 
-// The loader only resolves the application's @ alias and strips TypeScript;
+// The loader resolves relative client modules and strips TypeScript;
 // every imported runtime dependency and every decoding function is real code.
 const proofWebsocketConsumer = `
 import assert from 'node:assert/strict';
@@ -227,15 +231,15 @@ import { registerHooks, stripTypeScriptTypes, createRequire } from 'node:module'
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-const src = resolve('apps/perps/src');
+const src = resolve('packages/paxeer-backend/src');
+const workspace = createRequire(pathToFileURL(resolve('package.json')));
 const dependencies = createRequire(pathToFileURL(process.env.PERPS_WEBSOCKET_NODE_MODULES
-  ? resolve(process.env.PERPS_WEBSOCKET_NODE_MODULES, '../package.json') : resolve('apps/perps/package.json')));
+  ? resolve(process.env.PERPS_WEBSOCKET_NODE_MODULES, '../package.json') : workspace.resolve('@paxeer-network/paxeer-backend')));
 const runtimeDependencies = new Map(['react','viem'].map(name => [name,pathToFileURL(dependencies.resolve(name)).href]));
 registerHooks({
   resolve(specifier, context, next) {
     let path;
-    if (specifier.startsWith('@/')) path = resolve(src, specifier.slice(2));
-    else if (specifier.startsWith('.') && context.parentURL?.startsWith('file:') && context.parentURL.includes('/apps/perps/src/'))
+    if (specifier.startsWith('.') && context.parentURL?.startsWith(pathToFileURL(src + '/').href))
       path = resolve(dirname(fileURLToPath(context.parentURL)), specifier);
     if (path) {
       for (const candidate of [path, path + '.ts', path + '/index.ts']) {
@@ -250,12 +254,12 @@ registerHooks({
     return next(url,context);
   }
 });
-const venue = await import(pathToFileURL(resolve(src,'core/net/venueStream.ts')));
-const perp = await import(pathToFileURL(resolve(src,'hooks/perps/useSidPaxMarketStream.ts')));
-const spot = await import(pathToFileURL(resolve(src,'hooks/spot/useSpotMarketStream.ts')));
-const markets = await import(pathToFileURL(resolve(src,'hooks/perps/useMarketsStream.ts')));
-const {sequenceGuard} = await import(pathToFileURL(resolve(src,'core/net/realtime.ts')));
-const {gatewayUrls} = await import(pathToFileURL(resolve(src,'core/network/gateway.ts')));
+const venue = await import('@paxeer-network/paxeer-backend/core/net/venueStream');
+const perp = await import('@paxeer-network/paxeer-backend/hooks/perps/useSidPaxMarketStream');
+const spot = await import('@paxeer-network/paxeer-backend/hooks/spot/useSpotMarketStream');
+const markets = await import('@paxeer-network/paxeer-backend/hooks/perps/useMarketsStream');
+const {sequenceGuard} = await import('@paxeer-network/paxeer-backend/core/net/realtime');
+const {gatewayUrls} = await import('@paxeer-network/paxeer-backend/core/network/gateway');
 const round = Number(process.env.PROOF_ROUND), price = 100+round;
 const volume = round === 1 ? 202 : 406;
 const topics = [venue.perpBookTopic('btc'),venue.perpTradeTopic('btc'),'BTC@perp_stats','PAX@stats','BTC@market',venue.spotBookTopic('pax'),venue.spotTradeTopic('pax'),'ETH@perp_trade','markets@all'];
