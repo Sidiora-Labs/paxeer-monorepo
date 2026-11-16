@@ -2,7 +2,8 @@
 // Packages: config, db (pgxpool), redis (pubsub/cache), queue (asynq), chain
 // (ethclient; uses protocol bindings), auth (eip191 + webhook hmac), http
 // (server/health/error/ratelimit/apikey/virusscan), process, log, constants,
-// secrets, util, meshpki (private TLS identities and assertion keys).
+// secrets, util, meshpki (private TLS identities and assertion keys),
+// brokerprovision (file-backed stream and durable configuration).
 // Depends on protocol/ for chain bindings. [L8/L14]
 module github.com/Sidiora-Technologies/KindleLaunch/shared
 
@@ -23,6 +24,7 @@ require (
 	github.com/go-chi/cors v1.2.2
 	github.com/hibiken/asynq v0.26.0
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/nats-io/jwt/v2 v2.8.0
 	github.com/redis/go-redis/v9 v9.20.1
 )
 
@@ -64,7 +66,7 @@ require (
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/mitchellh/pointerstructure v1.2.0 // indirect
-	github.com/nats-io/nkeys v0.4.11 // indirect
+	github.com/nats-io/nkeys v0.4.11
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/pion/dtls/v3 v3.1.4 // indirect
 	github.com/pion/logging v0.2.4 // indirect
