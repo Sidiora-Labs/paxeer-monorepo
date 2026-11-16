@@ -45,10 +45,13 @@ export const SURFACE_CSS_VARS = {
   "--oui-duration-normal": "180ms",
   "--oui-duration-slow": "280ms",
   "--oui-duration-gradient": "5s",
+  "--oui-duration-reduced-motion": "0.001ms",
   "--oui-ease-standard": "cubic-bezier(0.2, 0, 0, 1)",
   "--oui-ease-emphasized": "cubic-bezier(0.2, 0.8, 0.2, 1)",
   "--oui-focus-ring-width": "2px",
   "--oui-focus-ring-offset": "2px",
+  "--oui-border-width": "1px",
+  "--oui-scrollbar-size": "0.375rem",
   "--oui-font-family":
     '"Manrope", "PingFang SC", "Noto Sans CJK SC", "Noto Sans", system-ui, sans-serif',
 } as const;
