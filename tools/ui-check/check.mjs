@@ -151,56 +151,72 @@ async function renderView(worker, surface, view, state, configuration, out, inde
         hasTouch: width <= LIMITS.touchWidth,
       });
       if (!active) { await context.close(); return; }
+      context.on("close", () => { active = false; });
       await context.grantPermissions(["clipboard-write"], { origin: surface.address });
       await context.addInitScript(observePage);
       await context.route("**/*", async (route) => {
         const request = route.request();
         const url = new URL(request.url());
-        if (!["http:", "https:"].includes(url.protocol)) return route.continue();
-        if (url.origin === surface.address) {
-          try {
-            const response = await route.fetch({ maxRedirects: 0, timeout: LIMITS.navigationMs });
+        const requestFailed = (error) => addLoad({ source: "requestfailed", method: request.method(), address: url.href, resource: request.resourceType(), message: error.message });
+        if (!active) return;
+        try {
+          if (!["http:", "https:"].includes(url.protocol)) { await route.continue(); return; }
+          if (url.origin === surface.address) {
+            let response;
+            try {
+              response = await route.fetch({ maxRedirects: 0, timeout: LIMITS.navigationMs });
+            } catch (error) {
+              requestFailed(error);
+              if (active) await route.abort("failed");
+              return;
+            }
             const location = response.headers()["location"];
             if (response.status() >= 300 && response.status() < 400 && location) {
               const redirected = new URL(location, url);
               if (redirected.origin !== surface.address) {
                 const method = [307, 308].includes(response.status()) ? request.method() : "GET";
                 const answer = surface.answers.find((entry) => entry.method === method && entry.pattern.test(redirected.href));
-                if (answer) return route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body });
+                if (answer) { await route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body }); return; }
                 addLoad({ source: "unanswered-request", method, address: redirected.href, resource: request.resourceType() });
-                return route.abort("blockedbyclient");
+                await route.abort("blockedbyclient");
+                return;
               }
             }
-            return route.fulfill({ response });
-          } catch (error) {
-            addLoad({ source: "requestfailed", method: request.method(), address: url.href, resource: request.resourceType(), message: error.message });
-            return route.abort("failed");
+            await route.fulfill({ response });
+            return;
           }
+          const answer = surface.answers.find((entry) => entry.method === request.method() && entry.pattern.test(url.href));
+          if (answer) { await route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body }); return; }
+          addLoad({ source: "unanswered-request", method: request.method(), address: url.href, resource: request.resourceType() });
+          await route.abort("blockedbyclient");
+        } catch (error) {
+          requestFailed(error);
         }
-        const answer = surface.answers.find((entry) => entry.method === request.method() && entry.pattern.test(url.href));
-        if (answer) return route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body });
-        addLoad({ source: "unanswered-request", method: request.method(), address: url.href, resource: request.resourceType() });
-        await route.abort("blockedbyclient");
       });
-      await context.routeWebSocket("**/*", (socket) => {
+      await context.routeWebSocket("**/*", async (socket) => {
         const url = new URL(socket.url());
         const origin = `${url.protocol === "wss:" ? "https:" : "http:"}//${url.host}`;
-        if (origin === surface.address) socket.connectToServer();
-        else {
-          addLoad({ source: "unanswered-request", method: "GET", address: url.href, resource: "websocket" });
-          socket.close({ code: 1008, reason: "No fixed answer" });
+        if (!active) return;
+        try {
+          if (origin === surface.address) socket.connectToServer();
+          else {
+            addLoad({ source: "unanswered-request", method: "GET", address: url.href, resource: "websocket" });
+            await socket.close({ code: 1008, reason: "No fixed answer" });
+          }
+        } catch (error) {
+          addLoad({ source: "requestfailed", method: "GET", address: url.href, resource: "websocket", message: error.message });
         }
       });
       page = await context.newPage();
       page.setDefaultTimeout(LIMITS.navigationMs);
       page.setDefaultNavigationTimeout(LIMITS.navigationMs);
       page.on("console", (message) => {
-        if (message.type() === "error") consoleErrors.push({ source: "console", message: message.text(), location: message.location() });
+        if (active && message.type() === "error") consoleErrors.push({ source: "console", message: message.text(), location: message.location() });
       });
       page.on("pageerror", (error) => addLoad({ source: "pageerror", message: error.message }));
       page.on("requestfailed", (request) => addLoad({ source: "requestfailed", method: request.method(), address: request.url(), resource: request.resourceType(), message: request.failure()?.errorText }));
       page.on("response", (response) => {
-        if (response.status() < 400) return;
+        if (!active || response.status() < 400) return;
         const matches = expects.filter((entry) => entry.method === response.request().method() && entry.matcher.test(response.url()) && entry.status === response.status());
         for (const entry of matches) matchedExpectations.add(entry);
         if (matches.length) expectedResponses.add(response);
