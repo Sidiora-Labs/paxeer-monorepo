@@ -3,20 +3,21 @@ import { styled } from "storybook/theming";
 
 const StyledUl = styled.ul`
   list-style: none;
-  padding: 30px 0;
+  padding: var(--oui-space-6, 1.5rem) 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--oui-space-1, 0.25rem);
   align-items: end;
-  font-size: 13px;
+  font-size: var(--oui-font-size-xs, 0.8125rem);
   position: sticky;
-  top: 30px;
+  top: var(--oui-space-6, 1.5rem);
 `;
 
 const StyledA = styled.a<{ active: boolean }>`
   text-decoration: none;
-  color: ${(props) => (props.active ? "#b084e9" : "inherit")};
+  color: ${(props) =>
+    props.active ? "rgb(var(--oui-color-primary, 176 132 233))" : "inherit"};
   cursor: pointer;
 `;
 

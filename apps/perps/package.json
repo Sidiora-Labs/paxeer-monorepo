@@ -7,13 +7,17 @@
     "dev": "pnpm --filter @sidioralabs/chainflow-data-gateway build && pnpm --filter @paxeer-network/web dev",
     "build": "pnpm --filter @paxeer-network/web build",
     "start": "pnpm --filter @paxeer-network/web start",
-    "typecheck": "tsc --noEmit -p apps/web/tsconfig.json",
+    "typecheck": "pnpm --filter @sidioralabs/chainflow-data-gateway build && tsc --noEmit -p apps/web/tsconfig.json",
     "check:ui": "node scripts/check-ui-source.mjs",
     "test": "node --test --import tsx tests/*.test.ts",
     "test:browser": "playwright test"
   },
   "devDependencies": {
     "@paxeer-network/paxeer-backend": "workspace:*",
+    "@tanstack/react-query": "^5.90.21",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "next": "15.5.27",
     "typescript": "5.6.3",
     "tsx": "^4.19.2",
     "@types/node": "^22.15.21",

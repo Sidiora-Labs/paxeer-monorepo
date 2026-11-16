@@ -32,13 +32,11 @@ export const withThemeBuilder = (StoryFn: any, context: any) => {
       let value = styles.getPropertyValue(property).trim();
 
       if (isColorValue(property)) {
-        value = rgbToHex(value.split(" "));
+        value = rgbToHex(value);
       }
 
       cssVariables[property] = value;
     }
-
-    console.log("++++cssVariables", cssVariables);
 
     emit(EVENTS.THEME_RESTORE, cssVariables);
   }, []);

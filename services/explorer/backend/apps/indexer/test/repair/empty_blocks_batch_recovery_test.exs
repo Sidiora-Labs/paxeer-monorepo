@@ -10,6 +10,11 @@ defmodule Indexer.EmptyBlocksBatchRecoveryTest do
   @moduletag capture_log: true
 
   setup do
+    geth = Application.fetch_env!(:ethereum_jsonrpc, EthereumJSONRPC.Geth)
+    on_exit(fn -> Application.put_env(:ethereum_jsonrpc, EthereumJSONRPC.Geth, geth) end)
+    Application.put_env(:ethereum_jsonrpc, EthereumJSONRPC.Geth, Keyword.put(geth, :block_traceable?, true))
+    assert Explorer.Chain.PendingOperationsHelper.pending_operations_type() == "blocks"
+
     previous = Application.get_env(:indexer, EmptyBlocksSanitizer)
     Application.put_env(:indexer, EmptyBlocksSanitizer, head_offset: 0, batch_size: 10, interval: 60_000)
 
@@ -251,4 +256,3 @@ defmodule Indexer.EmptyBlocksBatchRecoveryTest do
   defp corrupt(block, :invalid_transaction_hash), do: Map.put(block, "transactions", ["0x123"])
   defp corrupt(block, :transaction_object), do: Map.put(block, "transactions", [%{"hash" => block["hash"]}])
 end
-

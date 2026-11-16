@@ -178,12 +178,27 @@ export function measurePage({ limits, typeScale, doubled, reduced }) {
 }
 
 export function focusSnapshot() {
+  const { elements, visible, selector, parentElement } = window.__uiCheck;
+  const all = elements();
+  const modals = all.filter((element) => element.matches(":modal"));
+  const modal = modals.length === 1 ? modals[0] : modals.find((element) => {
+    element.focus({ preventScroll: true });
+    return element.matches(":focus");
+  });
+  const withinModal = (element) => {
+    for (let ancestor = element; ancestor; ancestor = parentElement(ancestor)) {
+      if (ancestor === modal) return true;
+    }
+    return false;
+  };
   const bodyTabindex = document.body.getAttribute("tabindex");
   document.body.tabIndex = -1;
   document.body.focus({ preventScroll: true });
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  active?.blur();
   if (bodyTabindex === null) document.body.removeAttribute("tabindex");
   else document.body.setAttribute("tabindex", bodyTabindex);
-  const { elements, visible, selector } = window.__uiCheck;
   const properties = ["outline-style", "outline-color", "outline-width", "outline-offset", "box-shadow", "background-color", "color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width", "text-decoration", "transform", "opacity", "content"];
   const appearance = (element) => {
     const targets = [element, ...element.querySelectorAll("*")];
@@ -195,9 +210,9 @@ export function focusSnapshot() {
     })));
   };
   window.__uiCheck.appearance = appearance;
-  window.__uiCheck.focusBefore = new Map(elements().filter(visible).map((element) => [element, appearance(element)]));
+  window.__uiCheck.focusBefore = new Map(all.filter(visible).map((element) => [element, appearance(element)]));
   window.__uiCheck.focusSelector = selector;
-  return elements().filter((element) => visible(element) && element.tabIndex >= 0 && !element.matches(":disabled,[inert], [inert] *")).map(selector);
+  return all.filter((element) => (!modal || withinModal(element)) && visible(element) && element.tabIndex >= 0 && !element.matches(":disabled,[inert], [inert] *")).map(selector);
 }
 
 export function focusedElement() {
