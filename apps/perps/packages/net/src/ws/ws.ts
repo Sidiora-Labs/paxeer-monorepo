@@ -55,6 +55,7 @@ const TIME_OUT = 1000 * 60 * 2;
 const CONNECT_LIMIT = 5;
 
 export class WS extends EventEmitter {
+  private closed = false;
   private _publicSocket!: WebSocket;
   private privateSocket?: WebSocket;
 
@@ -134,6 +135,7 @@ export class WS extends EventEmitter {
    * 3. When returning from the background and the network status changes, the following process is followed
    */
   private checkSocketStatus() {
+    if (this.closed) return;
     const now = Date.now();
 
     //
@@ -147,9 +149,13 @@ export class WS extends EventEmitter {
 
     // check the last time
     // If the view is not visible, do not process it
-    if (document.visibilityState !== "visible") return;
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    )
+      return;
     // If the network is not available, do not process it
-    if (!navigator.onLine) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
 
     // public
     if (!this.publicIsReconnecting) {
@@ -204,6 +210,7 @@ export class WS extends EventEmitter {
   }
 
   private createPublicSC(options: WSOptions) {
+    if (this.closed) return;
     if (!options.publicUrl) {
       return;
     }
@@ -231,6 +238,7 @@ export class WS extends EventEmitter {
   }
 
   private createPrivateSC(options: WSOptions) {
+    if (this.closed) return;
     if (
       this.privateSocket &&
       this.privateSocket.readyState === WebSocket.OPEN
@@ -464,6 +472,7 @@ export class WS extends EventEmitter {
   };
 
   close() {
+    this.closed = true;
     this._publicSocket?.close();
     this.privateSocket?.close();
   }
@@ -715,6 +724,7 @@ export class WS extends EventEmitter {
   }
 
   private reconnectPublic() {
+    if (this.closed) return;
     if (this.publicIsReconnecting) return;
     this.publicIsReconnecting = true;
 
@@ -732,6 +742,7 @@ export class WS extends EventEmitter {
   }
 
   private reconnectPrivate() {
+    if (this.closed) return;
     if (!this.options.accountId) return;
     if (this.privateIsReconnecting) return;
     this.privateIsReconnecting = true;
