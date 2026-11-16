@@ -26,7 +26,7 @@
     "lodash.merge": "^4.6.2",
     "@paxeer-network/paxeer-backend": "workspace:*",
     "viem": "^2.26.3",
-    "@wagmi/core": "^2.22.1"
+    "@wagmi/core": "^3.6.9"
   },
   "devDependencies": {
     "tsconfig": "workspace:*"
