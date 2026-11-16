@@ -3,9 +3,9 @@ import React from 'react';
 
 import type { GetInstancesResponse } from '@blockscout/points-types';
 
-import { DialogBody, DialogContent, DialogRoot, DialogHeader } from 'toolkit/chakra/dialog';
 import { Image } from 'toolkit/chakra/image';
 import { Link } from 'toolkit/chakra/link';
+import { DialogBody, DialogContent, DialogRoot, DialogHeader } from 'ui/marketplace/NativeDialog';
 import IconSvg from 'ui/shared/IconSvg';
 
 type Props = {
@@ -48,7 +48,7 @@ const RewardsInstancesModal = ({ isOpen, onClose, items }: Props) => {
                   gap={ 2 }
                   alignItems="center"
                   p={ 2 }
-                  bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.100' }}
+                  bgColor="surface"
                   borderRadius="base"
                 >
                   <Image
@@ -65,7 +65,7 @@ const RewardsInstancesModal = ({ isOpen, onClose, items }: Props) => {
                   />
                   <Text
                     textStyle="sm"
-                    fontWeight="500"
+                    fontWeight="medium"
                     color="text.primary"
                     _groupHover={{ color: 'inherit' }}
                   >

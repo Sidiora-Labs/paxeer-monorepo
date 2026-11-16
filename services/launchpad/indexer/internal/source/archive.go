@@ -13,7 +13,6 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/trie"
 )
 
 // Archive-sourced backfill. Below the primaries' pruning floor every block is
@@ -368,55 +367,31 @@ func (s *CommittedSource) receiptLogs(ctx context.Context, e *committedEndpoint,
 			receipts = append(receipts, &receipt)
 		}
 	}
-	if len(receipts) != len(b.Transactions) {
-		return nil, sourceError(IntegrityError, e.id, nil)
-	}
 	want := map[common.Address]bool{}
 	for _, a := range wanted {
 		want[a] = true
 	}
-	nextIndex := uint(0)
-	used := 0
+	txHashes := make([]common.Hash, len(b.Transactions))
+	for i, tx := range b.Transactions {
+		if !validHash(tx.Hash) {
+			return nil, sourceError(IncompleteError, e.id, nil)
+		}
+		txHashes[i] = common.HexToHash(tx.Hash)
+	}
+	regular, err := separateShellReceipts(ethtypes.Receipts(receipts), txHashes, record.Hash, height, b.LogsBloom, b.ReceiptsRoot, s.opts.BlockIdentity == valueReported)
+	if err != nil {
+		return nil, err
+	}
 	var result []ethtypes.Log
-	for i, receipt := range receipts {
-		tx := b.Transactions[i]
-		iUint, conversionErr := checked.Convert[uint](i)
-		if conversionErr != nil {
-			return nil, conversionErr
-		}
-		if receipt == nil || receipt.BlockHash != record.Hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != height || receipt.TransactionIndex != iUint || receipt.TxHash != common.HexToHash(tx.Hash) {
-			return nil, sourceError(IntegrityError, e.id, nil)
-		}
+	for _, receipt := range regular {
 		for _, l := range receipt.Logs {
 			if l == nil {
 				return nil, sourceError(IncompleteError, e.id, nil)
-			}
-			iUint2, conversionErr := checked.Convert[uint](i)
-			if conversionErr != nil {
-				return nil, conversionErr
-			}
-			if l.BlockHash != record.Hash || l.BlockNumber != height || l.TxHash != receipt.TxHash || l.TxIndex != iUint2 || l.Index != nextIndex || l.Removed || len(l.Topics) > 4 || len(l.Data) > 64<<10 {
-				return nil, sourceError(IntegrityError, e.id, nil)
-			}
-			nextIndex++
-			used += 256 + len(l.Data) + 32*len(l.Topics)
-			if used > 32<<20 {
-				return nil, sourceError(OversizeError, e.id, nil)
 			}
 			if want[l.Address] {
 				result = append(result, *l)
 			}
 		}
-	}
-	if s.opts.BlockIdentity == valueReported {
-		bloom, err := hex.DecodeString(strings.TrimPrefix(b.LogsBloom, "0x"))
-		if err != nil || len(bloom) != ethtypes.BloomByteLength || ethtypes.MergeBloom(receipts) != ethtypes.BytesToBloom(bloom) {
-			return nil, sourceError(IntegrityError, e.id, nil)
-		}
-		return result, nil
-	}
-	if ethtypes.DeriveSha(ethtypes.Receipts(receipts), trie.NewStackTrie(nil)) != common.HexToHash(b.ReceiptsRoot) {
-		return nil, sourceError(IntegrityError, e.id, nil)
 	}
 	return result, nil
 }

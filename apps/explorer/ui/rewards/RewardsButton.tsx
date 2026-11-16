@@ -1,5 +1,5 @@
 import { chakra } from '@chakra-ui/react';
-import React, { useCallback } from 'react';
+import React from 'react';
 
 import { route } from 'nextjs-routes';
 
@@ -7,7 +7,8 @@ import { useRewardsContext } from 'lib/contexts/rewards';
 import useIsMobile from 'lib/hooks/useIsMobile';
 import type { ButtonProps } from 'toolkit/chakra/button';
 import { Button } from 'toolkit/chakra/button';
-import { Tooltip } from 'toolkit/chakra/tooltip';
+import durations from 'toolkit/theme/foundations/durations';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import IconSvg from 'ui/shared/IconSvg';
 
 type Props = {
@@ -20,14 +21,10 @@ const RewardsButton = ({ variant = 'header', size }: Props) => {
   const isMobile = useIsMobile();
   const isLoading = !isInitialized || dailyRewardQuery.isLoading || balancesQuery.isLoading;
 
-  const handleFocus = useCallback((e: React.FocusEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-  }, []);
-
   return (
     <Tooltip
       content="Earn Merits for using Blockscout"
-      openDelay={ 500 }
+      openDelay={ Number.parseInt(durations['ultra-slow'].value, 10) }
       disabled={ isMobile || isLoading || isAuth }
     >
       <Button
@@ -37,9 +34,9 @@ const RewardsButton = ({ variant = 'header', size }: Props) => {
         as={ isAuth ? 'a' : 'button' }
         { ...(isAuth ? { href: route({ pathname: '/account/merits' }) } : {}) }
         onClick={ isAuth ? undefined : openLoginModal }
-        onFocus={ handleFocus }
+        aria-label={ isAuth ? 'Merits dashboard' : 'Earn Merits' }
         size={ size }
-        px={{ base: '10px', lg: 3 }}
+        px={{ base: 'calc(var(--chakra-spacing-1) * 2.5)', lg: 3 }}
         loading={ isLoading }
         _hover={{
           textDecoration: 'none',
@@ -52,7 +49,7 @@ const RewardsButton = ({ variant = 'header', size }: Props) => {
         />
         <chakra.span
           display={{ base: 'none', md: 'inline' }}
-          fontWeight={ isAuth ? '700' : '600' }
+          fontWeight={ isAuth ? 'bold' : 'semibold' }
         >
           { isAuth ? (balancesQuery.data?.total || 'N/A') : 'Merits' }
         </chakra.span>

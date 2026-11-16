@@ -2,7 +2,8 @@
 // Packages: config, db (pgxpool), redis (pubsub/cache), queue (asynq), chain
 // (ethclient; uses protocol bindings), auth (eip191 + webhook hmac), http
 // (server/health/error/ratelimit/apikey/virusscan), process, log, constants,
-// secrets, util. Depends on protocol/ for chain bindings. [L8/L14]
+// secrets, util, meshpki (private TLS identities and assertion keys).
+// Depends on protocol/ for chain bindings. [L8/L14]
 module github.com/Sidiora-Technologies/KindleLaunch/shared
 
 go 1.25.0

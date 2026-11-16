@@ -4,7 +4,6 @@ import React from 'react';
 import type * as multichain from '@blockscout/multichain-aggregator-types';
 import type { ClusterChainConfig } from 'types/multichain';
 
-import useIsMobile from 'lib/hooks/useIsMobile';
 import useAddChainClick from 'lib/web3/useAddChainClick';
 import useProvider from 'lib/web3/useProvider';
 import { WALLETS_INFO } from 'lib/web3/wallets';
@@ -12,7 +11,7 @@ import { Heading } from 'toolkit/chakra/heading';
 import { IconButton } from 'toolkit/chakra/icon-button';
 import { LinkBox, LinkOverlay } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
-import { Tooltip } from 'toolkit/chakra/tooltip';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import ChainIcon from 'ui/shared/externalChains/ChainIcon';
 import IconSvg from 'ui/shared/IconSvg';
@@ -25,13 +24,12 @@ interface Props {
 }
 
 const ChainWidget = ({ data, isLoading, metrics }: Props) => {
-  const isMobile = useIsMobile();
   const { data: { wallet } = {} } = useProvider();
   const walletIcon = wallet ? WALLETS_INFO[wallet].icon : undefined;
   const handleAddToWalletClick = useAddChainClick({ source: 'Chain widget' });
 
   const chainStats = (
-    <VStack gap={ 2 } alignItems="flex-start" fontWeight={ 500 }>
+    <VStack gap={ 2 } alignItems="flex-start" fontWeight="medium">
       <HStack gap={ 2 }>
         <Skeleton loading={ isLoading } color="text.secondary">
           <span>Chain ID</span>
@@ -58,63 +56,36 @@ const ChainWidget = ({ data, isLoading, metrics }: Props) => {
     </VStack>
   );
 
-  if (isMobile) {
-    return (
-      <LinkBox
-        bgColor="surface"
-        borderRadius="xl"
-        border="1px solid"
-        borderColor={{ _light: 'blackAlpha.200', _dark: 'whiteAlpha.200' }}
-        p={ 4 }
-        flexBasis="100%"
-        textStyle="sm"
-        overflow="hidden"
-      >
-        <HStack justifyContent="space-between" mb={ 2 }>
-          <HStack minW="0">
-            <ChainIcon data={ data } boxSize={ 5 } isLoading={ isLoading } noTooltip/>
-            <Heading textStyle="heading.sm" as="h3" minW="0">
-              <LinkOverlay href={ data.explorer_url } external loading={ isLoading } _groupHover={{ color: 'hover' }}>
-                <Box overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
-                  { data.name }
-                </Box>
-              </LinkOverlay>
-            </Heading>
-          </HStack>
-          <RollupStageBadge chainConfig={ data.app_config } isLoading={ isLoading }/>
-        </HStack>
-        { chainStats }
-      </LinkBox>
-    );
-  }
-
   return (
     <LinkBox
+      as="article"
+      minW={ 0 }
+      containerType="inline-size"
       className="group"
-      // as the designer said, for the light theme "there is no gray color that suits well, so we use a custom one"
       bgColor="surface"
       borderRadius="xl"
-      border="1px solid"
-      borderColor={{ _light: 'blackAlpha.200', _dark: 'whiteAlpha.200' }}
+      border="var(--chakra-border-widths-1) solid"
+      borderColor="hairline"
       _hover={ !isLoading ? {
-        bgColor: { _light: 'gray.50', _dark: 'whiteAlpha.100' },
+        bgColor: 'surface',
         borderColor: 'hover',
       } : undefined }
       p={ 6 }
-      flexBasis="calc((100% - 3 * 12px) / 4)"
+      flex="1 1 var(--chakra-spacing-65)"
       textStyle="sm"
       overflow="hidden"
     >
       <HStack justifyContent="space-between">
-        <ChainIcon data={ data } boxSize="30px" isLoading={ isLoading } noTooltip/>
+        <ChainIcon data={ data } boxSize="calc(var(--chakra-spacing-1) * 7.5)" isLoading={ isLoading } noTooltip/>
         { walletIcon && (
           <Tooltip content="Add to wallet">
             <IconButton
+              aria-label={ `Add ${ data.name } to wallet` }
               onClick={ handleAddToWalletClick }
               size="md"
               variant="icon_background"
               zIndex={ 1 }
-              bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+              bgColor="surface"
               loadingSkeleton={ isLoading }
             >
               <IconSvg name={ walletIcon } boxSize={ 5 }/>

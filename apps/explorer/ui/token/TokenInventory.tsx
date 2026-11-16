@@ -111,7 +111,7 @@ const TokenInventory = ({ inventoryQuery, tokenQuery, ownerFilter, shouldRender 
         p={ 4 }
         columnGap={{ base: 3, lg: 6 }}
         rowGap={{ base: 3, lg: 6 }}
-        gridTemplateColumns={{ base: 'repeat(2, calc((100% - 12px)/2))', lg: 'repeat(auto-fill, minmax(210px, 1fr))' }}
+        gridTemplateColumns={{ base: 'repeat(2, calc((100% - var(--chakra-sizes-3))/2))', lg: 'repeat(auto-fill, minmax(var(--chakra-sizes-52), 1fr))' }}
         data-inventory-grid
       >
         { items.map((item, index) => (

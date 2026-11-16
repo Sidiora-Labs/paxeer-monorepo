@@ -27,6 +27,7 @@ const PublicTagsSubmitFieldTagType = ({ index, tagTypes }: Props) => {
     <FormFieldSelect<FormFields, `tags.${ number }.type`>
       name={ `tags.${ index }.type` }
       placeholder="Tag type"
+      triggerProps={{ 'aria-label': 'Tag type' }}
       collection={ collection }
       required
     />

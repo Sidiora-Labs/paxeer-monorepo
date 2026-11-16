@@ -28,7 +28,7 @@ const CongratsStepContent = ({ isReferral, customReferralReward }: Props) => {
   const refLink = referralsQuery.data?.link || 'N/A';
   const shareText = `I joined the @blockscout Merits Program and got my first ${ registrationReward || 'N/A' } #Merits! Use this link for a sign-up bonus and start earning rewards with @blockscout block explorer.\n\n${ refLink }`; // eslint-disable-line max-len
 
-  const textColor = { _light: 'blue.700', _dark: 'blue.100' };
+  const textColor = 'accent';
 
   return (
     <>
@@ -39,17 +39,19 @@ const CongratsStepContent = ({ isReferral, customReferralReward }: Props) => {
         p={ 2 }
         pl={{ base: isReferral ? 4 : 8, md: 8 }}
         mb={ 8 }
-        h="90px"
+        minH="calc(var(--chakra-spacing-1) * 22.5)"
+        flexWrap="wrap"
+        gap={ 3 }
       >
         <MeritsIcon boxSize={{ base: isReferral ? 8 : 12, md: 12 }} mr={{ base: isReferral ? 1 : 2, md: 2 }}/>
         <Skeleton loading={ rewardsConfigQuery.isLoading }>
-          <Text fontSize={{ base: isReferral ? '24px' : '30px', md: '30px' }} fontWeight="700" color={ textColor }>
+          <Text textStyle="statValue" fontWeight="bold" color={ textColor }>
             +{ (isReferral ? registrationWithReferralReward : registrationReward) || 'N/A' }
           </Text>
         </Skeleton>
         { isReferral && (
-          <Flex alignItems="center" h="56px">
-            <Box w="1px" h="full" bgColor={{ _light: 'whiteAlpha.800', _dark: 'whiteAlpha.100' }} mx={{ base: 3, md: 8 }}/>
+          <Flex alignItems="center" h="var(--chakra-spacing-14)">
+            <Box w="calc(var(--chakra-spacing-1) * 0.25)" h="full" bgColor="hairline" mx={{ base: 3, md: 8 }}/>
             <Flex flexDirection="column" justifyContent="space-between" gap={ 2 }>
               { [
                 {
@@ -64,7 +66,7 @@ const CongratsStepContent = ({ isReferral, customReferralReward }: Props) => {
                 <Flex key={ title } alignItems="center" gap={{ base: 1, md: 2 }}>
                   <MeritsIcon boxSize={{ base: 5, md: 6 }}/>
                   <Skeleton loading={ rewardsConfigQuery.isLoading }>
-                    <Text fontSize="sm" fontWeight="700" color={ textColor }>
+                    <Text fontSize="sm" fontWeight="bold" color={ textColor }>
                       +{ value }
                     </Text>
                   </Skeleton>
@@ -81,13 +83,13 @@ const CongratsStepContent = ({ isReferral, customReferralReward }: Props) => {
         <Flex alignItems="center" gap={ 2 }>
           <Center
             boxSize={ 8 }
-            borderRadius="8px"
-            color={{ _light: 'blue.500', _dark: 'blue.100' }}
-            bgColor={{ _light: 'blue.50', _dark: 'blue.800' }}
+            borderRadius="card"
+            color="accent"
+            bgColor="accent.soft"
           >
             <IconSvg name="profile" boxSize={ 5 }/>
           </Center>
-          <Text fontSize="lg" fontWeight="500">
+          <Text fontSize="lg" fontWeight="medium">
             Referral program
           </Text>
         </Flex>
@@ -120,14 +122,14 @@ const CongratsStepContent = ({ isReferral, customReferralReward }: Props) => {
         <Flex alignItems="center" gap={ 2 }>
           <Center
             boxSize={ 8 }
-            borderRadius="8px"
-            color={{ _light: 'blue.500', _dark: 'blue.100' }}
-            bgColor={{ _light: 'blue.50', _dark: 'blue.800' }}
+            borderRadius="card"
+            color="accent"
+            bgColor="accent.soft"
           >
             { /* FIXME use non-navigation icon */ }
             <IconSvg name="navigation/stats" boxSize={ 6 }/>
           </Center>
-          <Text fontSize="lg" fontWeight="500">
+          <Text fontSize="lg" fontWeight="medium">
             Dashboard
           </Text>
         </Flex>

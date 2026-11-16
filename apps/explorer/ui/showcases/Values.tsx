@@ -22,14 +22,14 @@ const ValuesShowcase = () => {
               value={ BigNumber('1000000000000000000000000') }
               startElement="Get your "
               endElement=" DUCK now!"
-              maxW="400px"
+              maxW="var(--chakra-spacing-100)"
             />
           </Sample>
           <Sample label="Small value">
             <SimpleValue
               value={ BigNumber(1).div('1000000000000000000') }
               prefix="$"
-              maxW="400px"
+              maxW="var(--chakra-spacing-100)"
             />
           </Sample>
           <Sample label="No accuracy">
@@ -38,7 +38,7 @@ const ValuesShowcase = () => {
               accuracy={ 0 }
               startElement="Get your "
               endElement=" DUCK now!"
-              maxW="400px"
+              maxW="var(--chakra-spacing-100)"
             />
           </Sample>
         </SamplesStack>
@@ -50,7 +50,7 @@ const ValuesShowcase = () => {
               value={ BigNumber('1000000000000000000000000') }
               endElement="ETH"
               overflowed
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
           <Sample label="Small value">
@@ -58,7 +58,7 @@ const ValuesShowcase = () => {
               value={ BigNumber(1).div('1000000000000000000') }
               prefix="$"
               overflowed
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
         </SamplesStack>
@@ -71,7 +71,7 @@ const ValuesShowcase = () => {
               value={ BigNumber('1000000000000000000000000') }
               startElement="Get your "
               endElement=" DUCK now!"
-              maxW="400px"
+              maxW="var(--chakra-spacing-100)"
             />
           </Sample>
         </SamplesStack>
@@ -86,7 +86,7 @@ const ValuesShowcase = () => {
             <NativeCoinValue
               amount="1000000000000000000000000"
               units="wei"
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
         </SamplesStack>
@@ -95,7 +95,7 @@ const ValuesShowcase = () => {
             <NativeCoinValue
               amount="1000000000000000000000000"
               units="gwei"
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
         </SamplesStack>
@@ -104,7 +104,7 @@ const ValuesShowcase = () => {
             <NativeCoinValue
               amount="1000000000000000000000000"
               units="ether"
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
         </SamplesStack>
@@ -115,7 +115,7 @@ const ValuesShowcase = () => {
             <NativeCoinValue
               amount="100000000000"
               units="wei"
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
           <Sample label="gweiThreshold: 5">
@@ -123,7 +123,7 @@ const ValuesShowcase = () => {
               amount="100000000000"
               units="wei"
               gweiThreshold={ 5 }
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
         </SamplesStack>
@@ -135,7 +135,7 @@ const ValuesShowcase = () => {
               amount="100000000000"
               units="wei"
               unitsTooltip="gwei"
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
         </SamplesStack>
@@ -147,7 +147,7 @@ const ValuesShowcase = () => {
               amount="1000000000000000"
               exchangeRate="4200"
               layout="horizontal"
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
           <Sample label="vertical">
@@ -155,7 +155,7 @@ const ValuesShowcase = () => {
               amount="1000000000000000"
               exchangeRate="4200"
               layout="vertical"
-              maxW="200px"
+              maxW="calc(var(--chakra-spacing-1) * 50)"
             />
           </Sample>
         </SamplesStack>
@@ -166,7 +166,7 @@ const ValuesShowcase = () => {
         <SectionSubHeader>Examples</SectionSubHeader>
         <SamplesStack>
           <Sample label="convertible token">
-            <TokenValue amount="1000000000000000000000000" token={ TOKEN } maxW="400px"/>
+            <TokenValue amount="1000000000000000000000000" token={ TOKEN } maxW="var(--chakra-spacing-100)"/>
           </Sample>
         </SamplesStack>
       </Section>
@@ -181,7 +181,7 @@ const ValuesShowcase = () => {
               asset="DUCK"
               decimals="6"
               exchangeRate="4200"
-              maxW="400px"
+              maxW="var(--chakra-spacing-100)"
             />
           </Sample>
           <Sample label="vertical">
@@ -190,7 +190,7 @@ const ValuesShowcase = () => {
               asset="DUCK"
               decimals="6"
               exchangeRate="4200"
-              maxW="250px"
+              maxW="calc(var(--chakra-spacing-1) * 62.5)"
               layout="vertical"
             />
           </Sample>
@@ -204,7 +204,7 @@ const ValuesShowcase = () => {
               asset="DUCK"
               decimals="6"
               exchangeRate="4200"
-              maxW="400px"
+              maxW="var(--chakra-spacing-100)"
               loading
             />
             <AssetValue
@@ -212,7 +212,7 @@ const ValuesShowcase = () => {
               asset="DUCK"
               decimals="6"
               exchangeRate="4200"
-              maxW="300px"
+              maxW="var(--chakra-spacing-75)"
               layout="vertical"
               loading
             />

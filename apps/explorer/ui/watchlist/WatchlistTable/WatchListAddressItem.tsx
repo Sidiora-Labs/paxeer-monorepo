@@ -35,12 +35,12 @@ const WatchListAddressItem = ({ item, isLoading }: { item: WatchlistAddress; isL
   );
 
   return (
-    <VStack gap={ 3 } align="stretch" fontWeight={ 500 }>
+    <VStack gap={ 3 } align="stretch" fontWeight="medium">
       <AddressEntity
         address={ item.address }
         isLoading={ isLoading }
-        fontWeight="600"
-        py="2px"
+        fontWeight="semibold"
+        py="0.5"
       />
       <Flex fontSize="sm" pl={ 7 } flexWrap="wrap" alignItems="center" rowGap={ 1 }>
         <TokenEntity.Icon

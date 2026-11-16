@@ -24,7 +24,12 @@ const TacOperationLifecycleAccordionItemContent = ({ isLast, data }: Props) => {
 
         { data.timestamp && (
           <ItemRow label="Timestamp">
-            <DetailedInfoTimestamp timestamp={ data.timestamp } isLoading={ false } flexWrap={{ base: 'wrap', lg: 'nowrap' }} py="6px"/>
+            <DetailedInfoTimestamp
+              timestamp={ data.timestamp }
+              isLoading={ false }
+              flexWrap={{ base: 'wrap', lg: 'nowrap' }}
+              py="calc(var(--chakra-spacing-1) * 1.5)"
+            />
           </ItemRow>
         ) }
 
@@ -34,7 +39,7 @@ const TacOperationLifecycleAccordionItemContent = ({ isLast, data }: Props) => {
               display="flex"
               flexDirection="column"
               rowGap={ 3 }
-              py="6px"
+              py="calc(var(--chakra-spacing-1) * 1.5)"
               width="100%"
               overflow="hidden"
             >
@@ -56,7 +61,7 @@ const TacOperationLifecycleAccordionItemContent = ({ isLast, data }: Props) => {
             <Box
               display="inline-flex"
               alignItems="center"
-              py="6px"
+              py="calc(var(--chakra-spacing-1) * 1.5)"
               whiteSpace="pre-wrap"
               wordBreak="break-word"
             >

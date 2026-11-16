@@ -9,7 +9,7 @@ import { Image } from 'toolkit/chakra/image';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
-import { Tooltip } from 'toolkit/chakra/tooltip';
+import { Tooltip } from 'ui/marketplace/NativeTooltip';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import PoolEntity from 'ui/shared/entities/pool/PoolEntity';
@@ -38,7 +38,7 @@ const PoolsTableItem = ({
             <Text px={ 2 }>{ getItemIndex(index, page) }</Text>
           </Skeleton>
           <Box overflow="hidden">
-            <PoolEntity pool={ item } fontWeight={ 700 } mb={ 2 } isLoading={ isLoading }/>
+            <PoolEntity pool={ item } fontWeight="bold" mb={ 2 } isLoading={ isLoading }/>
             { item.is_contract ? (
               <AddressEntity
                 address={{ hash: item.pool_id }}

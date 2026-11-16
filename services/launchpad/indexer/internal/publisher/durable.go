@@ -27,10 +27,10 @@ type DurableStager struct {
 }
 
 var canonicalHash = regexp.MustCompile(`^0x[0-9a-f]{64}$`)
-var deploymentToken = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
+var generationToken = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 
 func NewDurableStager(store *delivery.Store, deployment string, subjects map[string]string) (*DurableStager, error) {
-	if store == nil || !deploymentToken.MatchString(deployment) || len(subjects) == 0 {
+	if store == nil || !delivery.ValidDeploymentVersion(deployment) || len(subjects) == 0 {
 		return nil, errors.New("publisher: invalid durable stager configuration")
 	}
 	copySubjects := map[string]string{}
@@ -140,7 +140,7 @@ func (s *DurableStager) StagePublication(ctx context.Context, tx pgx.Tx, subject
 }
 
 func NewDurableStagerWithWebhook(store *delivery.Store, deployment string, subjects map[string]string, bridge *delivery.WebhookBridge, generation string) (*DurableStager, error) {
-	if bridge == nil || !deploymentToken.MatchString(generation) {
+	if bridge == nil || !generationToken.MatchString(generation) {
 		return nil, errors.New("publisher: durable webhook configuration required")
 	}
 	s, err := NewDurableStager(store, deployment, subjects)

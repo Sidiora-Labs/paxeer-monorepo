@@ -25,7 +25,7 @@ const TokenHoldersListItem = ({ holder, token, isLoading }: Props) => {
         <AddressEntity
           address={ holder.address }
           isLoading={ isLoading }
-          fontWeight="700"
+          fontWeight="bold"
           maxW="100%"
         />
       </ListItemMobileGrid.Value>
