@@ -30,6 +30,9 @@ func TestRuntimeRoleStatements(t *testing.T) {
 	var waiting []WaitingEntry
 	decodeInventory(t, statementsJSON, &statements)
 	decodeInventory(t, waitingJSON, &waiting)
+	if len(waiting) != 0 {
+		t.Fatal("every connected runtime statement requires an asserted plan")
+	}
 	if len(statements) == 0 {
 		t.Fatal("runtime statement inventory is empty")
 	}

@@ -21,6 +21,9 @@ import (
 )
 
 func TestRuntimeRoleStatements(t *testing.T) {
+	if len(Waiting) != 0 {
+		t.Fatal("every connected runtime statement requires an asserted plan")
+	}
 	root := coordinatortest.RepositoryRoot(t)
 	statements, err := Statements(root)
 	if err != nil {
@@ -157,10 +160,11 @@ func assertSourceCoverage(t *testing.T, root string, statements []Statement) {
 		represented[sourceKey(statement.File, statement.Function, statement.Ordinal)] = true
 	}
 	excluded := map[string]string{
-		sourceKey("services/launchpad/social/internal/devsocial/runtime.go", "runtimeKey", 1):         "Development persists a generated cursor key; connected runtimes supply it.",
-		sourceKey("services/launchpad/social/internal/devsocial/runtime.go", "runtimeKey", 2):         "Development reads its persisted cursor key; connected runtimes supply it.",
-		sourceKey("services/launchpad/social/internal/devsocial/policy.go", "Policy.SendChat", 1):     "Canonical direct-message policy delegates to the identity guards.",
-		sourceKey("services/launchpad/social/internal/interactions/policy.go", "PGPolicy.trusted", 2): "Connected runtimes use the registered session guard.",
+		sourceKey("services/launchpad/social/internal/db/sqlcdb/query.sql.go", "Queries.GetPoolCreator", 1): "Connected app.New supplies PoolCreator from indexer_canonical_creations_v1.",
+		sourceKey("services/launchpad/social/internal/devsocial/runtime.go", "runtimeKey", 1):               "Development persists a generated cursor key; connected runtimes supply it.",
+		sourceKey("services/launchpad/social/internal/devsocial/runtime.go", "runtimeKey", 2):               "Development reads its persisted cursor key; connected runtimes supply it.",
+		sourceKey("services/launchpad/social/internal/devsocial/policy.go", "Policy.SendChat", 1):           "Canonical direct-message policy delegates to the identity guards.",
+		sourceKey("services/launchpad/social/internal/interactions/policy.go", "PGPolicy.trusted", 2):       "Connected runtimes use the registered session guard.",
 	}
 	err := filepath.WalkDir(filepath.Join(root, "services/launchpad/social"), func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
