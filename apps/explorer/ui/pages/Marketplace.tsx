@@ -14,7 +14,6 @@ import { IconButton } from 'toolkit/chakra/icon-button';
 import { Link } from 'toolkit/chakra/link';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from 'toolkit/chakra/menu';
 import AdaptiveTabs from 'toolkit/components/AdaptiveTabs/AdaptiveTabs';
-import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import Banner from 'ui/marketplace/Banner';
 import EssentialDappsList from 'ui/marketplace/essentialDapps/EssentialDappsList';
 import MarketplaceAppModal from 'ui/marketplace/MarketplaceAppModal';
@@ -29,6 +28,7 @@ import PageTitle from 'ui/shared/Page/PageTitle';
 import Sort from 'ui/shared/sort/Sort';
 
 import useMarketplace from '../marketplace/useMarketplace';
+import { PageFilterInput } from './PageFilterInput';
 
 const sortCollection = createListCollection({ items: SORT_OPTIONS });
 
@@ -148,6 +148,7 @@ const Marketplace = () => {
           <MenuRoot>
             <MenuTrigger asChild>
               <IconButton
+                aria-label="Marketplace links"
                 variant="icon_background"
                 size="md"
                 ml="auto"
@@ -167,7 +168,7 @@ const Marketplace = () => {
             </MenuContent>
           </MenuRoot>
         ) : (
-          <Flex ml="auto">
+          <Flex ml="auto" flexWrap="wrap" gap={ 2 }>
             { links.map(({ label, href }) => (
               <Link external key={ label } href={ href } variant="underlaid" textStyle="sm" ml={ 2 }>
                 { label }
@@ -199,12 +200,13 @@ const Marketplace = () => {
       ) }
 
       <ActionBar
+        w="100%"
+        mx={ 0 }
+        px={ 0 }
         showShadow
         display="flex"
         flexDirection="column"
         mt={ 0 }
-        mx={{ base: -3, lg: -12 }}
-        px={{ base: 3, lg: 12 }}
         pt={{ base: 4, lg: 6 }}
         pb={{ base: 4, lg: 3 }}
       >
@@ -216,7 +218,7 @@ const Marketplace = () => {
           isLoading={ isCategoriesPlaceholderData }
         />
 
-        <Flex gap={{ base: 2, lg: 3 }}>
+        <Flex gap={{ base: 2, lg: 3 }} flexWrap="wrap" minW={ 0 }>
           { showSort && (
             <Sort
               name="dapps_sorting"
@@ -226,13 +228,13 @@ const Marketplace = () => {
               isLoading={ isPlaceholderData }
             />
           ) }
-          <FilterInput
+          <PageFilterInput
             initialValue={ filterQuery }
             onChange={ onSearchInputChange }
             placeholder="Find app by name or keyword..."
             loading={ isPlaceholderData }
             size="sm"
-            w={{ base: '100%', lg: '350px' }}
+            w={{ base: '100%', lg: 'var(--chakra-spacing-80)' }}
           />
         </Flex>
       </ActionBar>

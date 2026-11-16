@@ -48,7 +48,7 @@ const RewardsDashboard = () => {
 
   return (
     <>
-      <Flex gap={ 3 } justifyContent="space-between" mb={ 6 }>
+      <Flex gap={ 3 } justifyContent="space-between" mb={ 6 } flexWrap="wrap">
         <PageTitle
           title="Dashboard"
           secondRow={ (
@@ -65,12 +65,12 @@ const RewardsDashboard = () => {
       </Flex>
       <Flex flexDirection="column" alignItems="flex-start" w="full" gap={ 6 }>
         { isError && <Alert status="error">Failed to load some data. Please try again later.</Alert> }
-        <Flex gap={ 6 } flexDirection={{ base: 'column', md: 'row' }} w="full">
+        <Flex gap={ 6 } flexWrap="wrap" w="full" css={{ '& > *': { flex: '1 1 var(--chakra-spacing-75)', minW: 0 } }}>
           <RewardsDashboardCard
             title="All Merits"
             description="Claim your daily Merits and any Merits received from referrals."
             contentDirection="column-reverse"
-            cardValueStyle={{ minH: { base: '64px', md: '116px' } }}
+            cardValueStyle={{ minH: { base: 'var(--chakra-spacing-16)', md: 'var(--chakra-spacing-30)' } }}
             contentAfter={ <DailyRewardClaimButton/> }
             hint={ (
               <>
@@ -91,7 +91,7 @@ const RewardsDashboard = () => {
             title="Referrals"
             description="Total number of users who have joined the program using your code or referral link."
             contentDirection="column-reverse"
-            cardValueStyle={{ minH: { base: '64px', md: '116px' } }}
+            cardValueStyle={{ minH: { base: 'var(--chakra-spacing-16)', md: 'var(--chakra-spacing-30)' } }}
           >
             <RewardsDashboardCardValue
               value={ referralsQuery.data?.referrals ?
@@ -114,7 +114,7 @@ const RewardsDashboard = () => {
               </>
             ) }
             contentDirection="column-reverse"
-            cardValueStyle={{ minH: { base: '64px', md: '116px' } }}
+            cardValueStyle={{ minH: { base: 'var(--chakra-spacing-16)', md: 'var(--chakra-spacing-30)' } }}
             contentAfter={ (
               <Button mt={ 3 } onClick={ streakModal.onOpen } loading={ isBadgesLoading }>
                 Check achievements

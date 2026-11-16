@@ -107,6 +107,8 @@ describe('the statistics page', () => {
       expect(marked?.getAttribute('data-section-id')).toBe(sections[1].id);
     });
     expect(scrollIntoView).toHaveBeenCalled();
+    expect(document.activeElement?.id).toBe(sections[1].id);
+    expect(container.querySelector('[aria-current="location"]')?.getAttribute('data-section-id')).toBe(sections[1].id);
   });
 
   it('puts the counters grid in the overview section', async() => {

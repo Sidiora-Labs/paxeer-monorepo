@@ -2,14 +2,15 @@ import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import useIsMobile from 'lib/hooks/useIsMobile';
-import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import InternalTxsList from 'ui/internalTxs/InternalTxsList';
 import InternalTxsTable from 'ui/internalTxs/InternalTxsTable';
 import useInternalTxsQuery from 'ui/internalTxs/useInternalTxsQuery';
 import ActionBar from 'ui/shared/ActionBar';
-import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
+
+import PageDataListDisplay from './PageDataListDisplay';
+import { PageFilterInput } from './PageFilterInput';
 
 const InternalTxs = () => {
 
@@ -19,8 +20,8 @@ const InternalTxs = () => {
   const { isError, isPlaceholderData, data, pagination } = query;
 
   const filterInput = (
-    <FilterInput
-      w={{ base: '100%', lg: '350px' }}
+    <PageFilterInput
+      w={{ base: '100%', lg: 'var(--chakra-spacing-80)' }}
       size="sm"
       onChange={ onSearchTermChange }
       placeholder="Search by transaction hash"
@@ -34,7 +35,7 @@ const InternalTxs = () => {
         { filterInput }
       </Box>
       { (!isMobile || pagination.isVisible) && (
-        <ActionBar mt={ -6 }>
+        <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
           <Box display={{ base: 'none', lg: 'flex' }}>
             { filterInput }
           </Box>
@@ -61,7 +62,7 @@ const InternalTxs = () => {
         title="Internal transactions"
         withTextAd
       />
-      <DataListDisplay
+      <PageDataListDisplay
         isError={ isError }
         itemsNum={ data?.items.length }
         emptyText="There are no internal transactions."
@@ -72,7 +73,7 @@ const InternalTxs = () => {
         actionBar={ actionBar }
       >
         { content }
-      </DataListDisplay>
+      </PageDataListDisplay>
     </>
   );
 };
