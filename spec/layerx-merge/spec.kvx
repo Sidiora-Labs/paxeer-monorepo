@@ -249790,7 +249790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.762]
 title = "Fix the private listen address of the launchpad contract to the wildcard of both address families"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.755"]
@@ -249854,7 +249854,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.760]
 title = "Run the source check of the indexer outside the readiness request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249950,7 +249950,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.757]
 title = "Attest the network authority of the api outside the readiness request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.755"]
