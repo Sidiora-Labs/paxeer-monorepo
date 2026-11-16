@@ -22570,3 +22570,8 @@ fix = "Decision 3631. Task 22.39.705."
 title = "The streams of the trading workspace take their socket from the feed origin, and the reads take theirs from the perps data gateway"
 symptom = "In apps/perps/packages/paxeer-backend/src/core/feeds.ts the address of the reads, MARKET_DATA_URL, comes from NEXT_PUBLIC_PERPS_GATEWAY_URL, and the feed origin FEED_ORIGIN is a path of the application or the public feed. The stream of the markets, the stream of the explorer and the stream of a spot market build their socket address from FEED_ORIGIN; the stream of the SID and PAX market builds its address from the gateway. The perps data gateway serves the sockets /ws, /ws/markets, /ws/explorer and /ws/SYMBOL. A view that is mounted against a gateway reads its stream from the socket of that gateway."
 fix = "Decision 3632. Task 22.39.675."
+
+[gotcha.4550]
+title = "A block is applied in more than one form, and the state of a home differs from the state of a new genesis"
+symptom = "A node with sequencing on executes a transaction when it arrives and builds the block, and a node that follows applies the committed block. The settings of the fast execution path select a second executor beside the ordinary one. A case that starts from a new genesis reads the values that genesis sets, and a home that went through upgrades can hold a parameter without a value or an account in an earlier form. A transaction of a new kind is therefore compared in every form over the state of the home it is meant for."
+fix = "Decision 3633. Task 22.39.706."

@@ -14908,6 +14908,12 @@ value = "One function of apps/perps/packages/paxeer-backend/src/core/feeds.ts gi
 basis = "Gotcha 4549. Decisions 3046 and 3590."
 affects = []
 
+[decision.3633]
+title = "The node tool applies given transactions on a copy of a home in every form and compares the results"
+value = "The node tool gets the command applycheck. It opens a copy of a home, builds one block at the next height from the signed transactions it is given, and applies that block three times over the same committed state: in the form of a node with sequencing on, in the form of a node that follows with the fast execution path, and in the form of a node that follows with the ordinary path. It commits nothing, and the committed state of the copy is the same before and after. The report holds for each form the result of each transaction and the application hash, and names the first field that differs. The command ends with 0 when all forms agree, with 1 when they differ and with 2 when it refuses or fails. It refuses a home that does not hold the marker file applycheck-copy at its root, so that it never opens the home of a running node."
+basis = "Gotcha 4550. Decisions 3596 and 3606."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44568,6 +44574,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.706]
+title = "Give the node tool a command that applies given transactions on a copy of a home in every form and compares the results"
+reqs = ["22998.1"]
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+do_1 = "do_1 Gotcha 4550, decision 3633. Read daemon/paxd/cmd/root.go, daemon/paxd/cmd/ethreplay.go and daemon/paxd/cmd/blocktest.go for how a command opens the application over a home, node/app.go and node/abci.go for the block application and for the settings that select the fast execution path, the directory node/sequencer and node/sequenced_finalize_test.go for how a node with sequencing on admits and executes a transaction and builds the block, node/giga_storage_gas_test.go and node/giga_params_parity_test.go as the form of a case that applies one block through two paths, and node/committed_hash_restart_test.go for a case that opens a home again."
+symbols = []
 
 [capability.22.39.705]
 title = "Let the route catalogue hold the keys of the product, and admit the routes of the advanced filters and the pages of the feed in the gateway"
@@ -247878,6 +247893,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.706]
+title = "Give the node tool a command that applies given transactions on a copy of a home in every form and compares the results"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.706"]
+interfaces = []
+do_1 = "do_1 Gotcha 4550, decision 3633. Read daemon/paxd/cmd/root.go, daemon/paxd/cmd/ethreplay.go and daemon/paxd/cmd/blocktest.go for how a command opens the application over a home, node/app.go and node/abci.go for the block application and for the settings that select the fast execution path, the directory node/sequencer and node/sequenced_finalize_test.go for how a node with sequencing on admits and executes a transaction and builds the block, node/giga_storage_gas_test.go and node/giga_params_parity_test.go as the form of a case that applies one block through two paths, and node/committed_hash_restart_test.go for a case that opens a home again."
+do_2 = "do_2 Add node/apply_check.go with the comparison: over an application opened at the last committed height of a home it builds one block at the next height from a list of signed transactions, with the time of the last block plus one second unless a time is given, and the proposer and the last commit taken from the validators of the committed state. It applies the block in three forms, each from the same committed state and without a commit: the form of a node with sequencing on, with the admission check of each transaction and the execution on arrival that this node runs; the form of a node that follows with the fast execution path on; the form of a node that follows with the ordinary path. For each form it records for each transaction the code, the codespace, the gas wanted, the gas used, the events, and for a transaction of the virtual machine the status, the logs, the contract address and the receipt, and for the block the application hash it would commit. It compares the forms field by field and names the first transaction and field that differ. A panic of one form is recorded as the result of that form with its message and is a difference."
+do_3 = "do_3 Add daemon/paxd/cmd/applycheck.go with the command applycheck and register it in daemon/paxd/cmd/root.go. Flags: the home; a file of transactions with one transaction in each line, either the hex of a signed transaction of the virtual machine or the base64 of the bytes of a signed transaction of the chain; a transaction given directly, repeatable; a block time; the output file of the report. The command refuses a home that does not hold the file applycheck-copy at its root, a home whose stores are held by another process, and an empty list of transactions, each with a plain message and the exit code 2. It prints the report as JSON with the chain id, the height, the forms, the results and the comparison, and ends with 0 when all forms agree and with 1 when they differ. It never commits and never writes into the committed state of the home."
+do_4 = "do_4 Add node/apply_check_test.go with cases named TestApplyCheck over a home the case builds: a transfer of the virtual machine, a contract creation, the first transaction of an address without an account, a transaction of the chain, and a contract creation that writes storage over a state whose storage gas parameter holds no value, each agree in all three forms; a difference planted through a test seam of one form is reported with its transaction and field; a second run over the same home gives the same report, and the committed height and application hash of the home are the same before and after."
+do_5 = "do_5 Add daemon/paxd/cmd/applycheck_test.go with cases named TestApplyCheck: the command is among the commands of the root, it refuses a home without the marker file, it refuses an empty list, and over a home the case builds it writes the report and ends with the stated exit codes. Bring daemon/paxd/cmd/root_commands_test.go in line where it lists the commands."
+do_6 = "do_6 State the command, its flags, the marker file, the three forms, the report and the exit codes in node/README.md and in daemon/README.md, with the steps to make a copy of a home of a stopped node."
+do_7 = "do_7 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+planned_paths = ["daemon/paxd/cmd/applycheck.go", "daemon/paxd/cmd/applycheck_test.go", "node/apply_check.go", "node/apply_check_test.go"]
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.693]
 title = "Let the chain id cases of the fast path state the table of the product"
