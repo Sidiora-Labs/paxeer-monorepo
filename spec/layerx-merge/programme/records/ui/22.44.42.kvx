@@ -1,0 +1,104 @@
+[surface]
+task = "22.44.42"
+name = "Wallet demonstration pages"
+routes = ["/", "/auth/callback"]
+route_count = 2
+view_groups = 12
+view_count = 45
+renders_per_view = 34
+configured_render_count = 1530
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+
+[presentation]
+guides = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "dialog", "form-factor-adaptation"]
+control_boundaries = "Primary controls use the focus colour for their dark-scheme boundary; secondary controls retain a visible border."
+motion = "Reduced motion uses a short colour transition and static progress indicators."
+dialog = "Opening a wallet view places its heading at the start of the scrollable dialog; control focus indicators remain inside its content edge."
+feedback = "Signing results, wallet action errors and email sign-in errors scroll into the visible area of the dialog."
+
+[render_contract]
+result = "Every configured render must load and meet the layout, contrast, target, focus, motion and type scale measurements."
+visual_review = "Each state is reviewed at 360, 768, 1440 and 2560 pixels and 844 by 390 in both schemes."
+
+[capture]
+render_count = 1530
+rendered_count = 1530
+finding_count = 0
+passed = true
+reviewed_screenshot_count = 450
+additional_reviewed_screenshot_count = 40
+result = "Both routes and all 45 states have screenshots across the declared sizes, schemes and modes."
+visual_result = "Control boundaries, form columns, text wrapping and icons align across the required portrait and landscape views. Long wallet forms scroll within the dialog."
+wallet_package = "The demonstration imports the wallet package from its compiled distribution, which is built before the demonstration."
+
+[data]
+gateway_sources = ["sdk/wallet/test/fixtures/gateway/wallet-me.json", "sdk/wallet/test/fixtures/gateway/wallet-me-missing.json", "sdk/wallet/test/fixtures/gateway/wallet-provision.json", "sdk/wallet/test/fixtures/gateway/wallet-send.json", "sdk/wallet/test/fixtures/gateway/wallet-sign-typed-data.json", "sdk/wallet/test/fixtures/gateway/refusal-unauthorized.json", "sdk/wallet/test/fixtures/gateway/rpc-chain-id.json", "sdk/wallet/test/fixtures/gateway/constructions.json"]
+network_source = "sdk/wallet/test/fixtures/endpoint/merged-contract.json"
+identity_source = "sdk/wallet/test/client.test.ts"
+provider_source = "sdk/wallet/test/eip6963.test.ts"
+forms = "The wallet panel on the served home route contains the transaction, typed-data and intent forms."
+
+[view.1]
+name = "home"
+route = "/"
+states = ["default", "wallet-chooser-empty", "email-sign-in", "email-filled", "email-validation", "email-required", "magic-link-sent", "dialog-dismissed"]
+
+[view.2]
+name = "email-sending"
+route = "/?fixture=email-sending"
+states = ["default", "sending"]
+
+[view.3]
+name = "email-error"
+route = "/?fixture=email-error"
+states = ["default", "service-error"]
+
+[view.4]
+name = "injected-wallet"
+route = "/?fixture=injected"
+states = ["default", "chooser-announced", "disconnected", "connected", "transaction-filled", "transaction-validation", "calldata-validation", "typed-data-validation", "intent-validation", "transaction-result", "typed-data-result", "wallet-action-error", "kernel-unavailable"]
+
+[view.5]
+name = "injected-pending"
+route = "/?fixture=injected-pending"
+states = ["default", "transaction-sending"]
+
+[view.6]
+name = "embedded-wallet"
+route = "/?fixture=embedded-wallet"
+states = ["default", "panel", "connected", "kernel-unavailable", "signed-out"]
+
+[view.7]
+name = "embedded-unprovisioned"
+route = "/?fixture=embedded-unprovisioned"
+states = ["default", "provision", "provisioned"]
+
+[view.8]
+name = "embedded-loading"
+route = "/?fixture=embedded-loading"
+states = ["default", "loading"]
+
+[view.9]
+name = "embedded-creating"
+route = "/?fixture=embedded-creating"
+states = ["default", "creating"]
+
+[view.10]
+name = "embedded-error"
+route = "/?fixture=embedded-error"
+states = ["default", "service-error"]
+
+[view.11]
+name = "auth-callback"
+route = "/auth/callback"
+states = ["default", "sign-in-error"]
+
+[view.12]
+name = "auth-callback-signed-in"
+route = "/auth/callback?fixture=callback-signed-in"
+states = ["default", "returned-home"]

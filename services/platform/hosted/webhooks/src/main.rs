@@ -49,6 +49,7 @@ enum Role {
 
 struct Config {
     listen: SocketAddr,
+    network_id: Option<String>,
     health_listen: Option<SocketAddr>,
     listener: Listener,
     service: Arc<HostedService>,
@@ -192,8 +193,26 @@ fn tls_config(client_ca: Option<&str>) -> Result<Arc<ServerConfig>, String> {
         .map_err(|error| error.to_string())
 }
 
+fn network_id() -> Result<Option<String>, String> {
+    match env::var("LAYERX_WEBHOOKS_NETWORK_ID") {
+        Err(env::VarError::NotPresent) => Ok(None),
+        Ok(value)
+            if !value.is_empty()
+                && value.len() <= 64
+                && value.bytes().all(|byte| byte.is_ascii_graphic()) =>
+        {
+            Ok(Some(value))
+        }
+        _ => Err(
+            "LAYERX_WEBHOOKS_NETWORK_ID must be 1-64 printable ASCII bytes without spaces"
+                .to_owned(),
+        ),
+    }
+}
+
 fn config() -> Result<Config, String> {
     let ingress = ingress_role()?;
+    let network_id = network_id()?;
     let listener = listener_config(ingress)?;
     let role = if ingress {
         let source_trigger = SourceTrigger::from_environment()?;
@@ -212,6 +231,7 @@ fn config() -> Result<Config, String> {
         }
     };
     Ok(Config {
+        network_id,
         listen: env::var("LAYERX_WEBHOOKS_LISTEN")
             .unwrap_or_else(|_| "0.0.0.0:9444".to_owned())
             .parse::<SocketAddr>()
@@ -476,16 +496,31 @@ fn internal_path(request: &Request) -> bool {
         .is_some_and(|segment| segment.eq_ignore_ascii_case("internal"))
 }
 
+fn health_reply(config: &Config, status: u16, mut document: serde_json::Value) -> Reply {
+    document["version"] = serde_json::json!(env!("CARGO_PKG_VERSION"));
+    if let Some(network_id) = &config.network_id {
+        document["network_id"] = serde_json::json!(network_id);
+    }
+    encoded(status, &document)
+}
+
 fn readiness(config: &Config) -> Reply {
     let Some(deadline) = Instant::now().checked_add(Duration::from_secs(5)) else {
-        return Reply::refusal(503, "admission_deadline_exceeded", None);
+        return health_reply(
+            config,
+            503,
+            serde_json::json!({
+                "error": { "code": "admission_deadline_exceeded", "retry": "never" }
+            }),
+        );
     };
     let worker = config.service.worker_health();
     let delivery = config.service.ready_until(deadline);
     match &config.role {
-        Role::Public { .. } => encoded(
+        Role::Public { .. } => health_reply(
+            config,
             if delivery { 200 } else { 503 },
-            &serde_json::json!({
+            serde_json::json!({
                 "ready": delivery,
                 "role": "public",
                 "worker_failure_count": worker.failure_count,
@@ -494,9 +529,10 @@ fn readiness(config: &Config) -> Reply {
         ),
         Role::Ingress { sources, .. } => {
             let sources = sources.ready_until(deadline);
-            encoded(
+            health_reply(
+                config,
                 if delivery && sources { 200 } else { 503 },
-                &serde_json::json!({
+                serde_json::json!({
                     "ready": delivery && sources,
                     "role": "ingress",
                     "worker_failure_count": worker.failure_count,

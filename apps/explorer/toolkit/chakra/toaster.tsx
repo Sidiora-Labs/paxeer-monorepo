@@ -17,10 +17,10 @@ export const toaster = createToaster({
   pauseOnPageIdle: true,
   duration: 10 * SECOND,
   offsets: {
-    top: '12px',
-    right: '12px',
-    bottom: '12px',
-    left: '12px',
+    top: 'var(--chakra-spacing-3)',
+    right: 'var(--chakra-spacing-3)',
+    bottom: 'var(--chakra-spacing-3)',
+    left: 'var(--chakra-spacing-3)',
   },
 });
 

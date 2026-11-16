@@ -14956,6 +14956,48 @@ value = "Each call of the routing that passes on a fetched response, gives a fix
 basis = "Gotcha 4557. Decisions 3628 and 3629."
 affects = []
 
+[decision.3641]
+title = "The command applycheck takes a stand-in receipt key for a copy that holds none"
+value = "With the flag stand-in-receipt-key the command generates a receipt key in memory and reads neither a receipt key file nor a consensus key file. Before the block of the check is built, the state each form runs on registers the stand-in key in place of the registered keys, bound as a registered key is bound, so that every form admits the batch of the check as it admits a batch under a registered key. The forms and their comparison stay as they are, the report names the mode of the receipt key, and without the flag the command reads the key of the home and refuses as now. The stand-in key lives only in the process and is written to no file."
+basis = "Gotcha 4558. Decision 3633."
+affects = []
+
+[decision.3642]
+title = "The health answers of the dashboard API and of the hosted webhooks service hold the members network_id and version"
+value = "The member version holds the version of the package and is always present. The member network_id holds the network label of the deployment and is present where the service has the label. The dashboard API reads the label from the optional setting LAYERX_DASHBOARD_NETWORK_ID and the hosted webhooks service from the optional setting LAYERX_WEBHOOKS_NETWORK_ID, in both roles. A label is nonempty printable ASCII without spaces of at most 64 bytes, and a value outside that form refuses the start. The definitions of the three services give the setting from an input of the kind operator, the label the gateway of the project takes. The members the answers hold now, their statuses and the liveness route stay as they are."
+basis = "Gotcha 4559. Decisions 3635 and 3046."
+affects = []
+
+[decision.3643]
+title = "The verification of the roster row reads the roster through the CA tool and runs the Go cases on it"
+value = "The verification of task 22.39.711 prints the roster through the command services of the CA tool, compares the output with the approved roster under tools/bringup/tests/fixtures/service_identities, reads the row hosted-authority and the count of thirty-one rows from it, and runs the Go cases on the roster. The file tools/bringup/tests/ca.test.sh stays as the task leaves it and runs where the tools of the command issue are installed. The build stays as it is."
+basis = "Gotcha 4560. Decisions 3639 and 3577."
+affects = []
+
+[decision.3644]
+title = "The perps data gateway admits the browser origins its setting lists"
+value = "The gateway reads the optional setting PERPS_ALLOWED_ORIGINS: a list of origins separated by commas, each an http or https origin without path, query, fragment or credentials. A value outside that form refuses the start. For a request whose header Origin names a listed origin the answer names that origin in Access-Control-Allow-Origin and holds Vary with Origin, on every route and with every status. A preflight request from a listed origin is answered with status 204, the methods GET, POST, DELETE and OPTIONS, the request headers Authorization, Content-Type and Accept and a maximum age, ahead of the sign-in of the route. The gateway reads no cookie, so no answer allows credentials. A request without the header Origin is served as now, and a request from an origin outside the list is served without these headers. An upgrade to a socket from an origin outside a list that holds an entry is refused with status 403; with an empty list the sockets take an upgrade as now. The definition of the perps project gives the setting from an input."
+basis = "Gotcha 4561."
+affects = []
+
+[decision.3645]
+title = "The production build of the trading workspace names the perps data gateway by its product origin"
+value = "The perps data gateway of the production deployment is reached at https://perps-api.paxeer.app, and apps/perps/deploy/build-args.production.env gives NEXT_PUBLIC_PERPS_GATEWAY_URL that origin. The example of the environment beside it stays without a value, since another deployment names its own gateway. The image plan lists the image perps-web among the images it builds."
+basis = "Gotcha 4562. Decision 3644."
+affects = []
+
+[decision.3646]
+title = "The trading workspace and the render check meet the check of the suites, and task 22.39.571 brings the lockfile to the advisory checks"
+value = "Task 22.39.716 leaves the workspace under apps/perps with the lockfile of the pinned package manager alone, with no test script that runs no suite, and with a workflow that runs the suites of its members. Task 22.39.717 gives the cases of the render check a workflow. Task 22.39.571 names both among its requirements, takes the root manifest and the lockfile of the workspace into its paths, and brings them to the advisories and the replacements its checks name. The floors of the workspace are the work of task 22.39.718."
+basis = "Gotcha 4563. Decisions 3555 and 3577."
+affects = []
+
+[decision.3647]
+title = "The lockfile of the trading workspace meets its floors, and a floor that stands for a later line states where it applies"
+value = "A package is raised to its floor through the manifest that names it or through an override of the workspace, where the packages that use it admit the release. Where the repair a floor stands for concerns releases from a later line onward, the entry takes the form with the release from which it applies, as the record of the repair names it, and copies of earlier lines stay outside it. Where an earlier line carries the defect and has no repaired release, the package that uses it is raised until the lockfile holds no copy of that line. A floor for a package the lockfile does not hold leaves the file. The checker of tools/deps reports no line for the file, and the workspace builds in its production form."
+basis = "Gotcha 4564. Decision 3646."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44616,6 +44658,69 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.718]
+title = "Bring the lockfile of the trading workspace to its floors"
+reqs = ["22998.1"]
+touches = ["apps/perps", "tools/deps/floors/perps-web.json"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && python3 tools/deps/lockfloor.py tools/deps/floors/perps-web.json && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
+do_1 = "do_1 Gotcha 4564, decision 3647. Read tools/deps/README.md with the forms of an entry, tools/deps/lockfloor.py, tools/deps/floors/perps-web.json, the root manifest of apps/perps with its overrides, and the output of the checker over the file: python3 tools/deps/lockfloor.py tools/deps/floors/perps-web.json."
+symbols = []
+
+[capability.22.39.717]
+title = "Give the cases of the render check a workflow"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/README.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_ui_check_workflow.py && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4563, decision 3646. Read tests/ci/test_js_suites_have_runner.py with the forms of a workflow command it follows, tools/ui-check/package.json with its test script, the README of the render check with the commands of its cases, a workflow that runs the suite of one package, such as .github/workflows/wallet-test.yml, and the cases under tests/ci that read every workflow."
+symbols = []
+
+[capability.22.39.716]
+title = "Give the trading workspace one lockfile and a workflow for the suites of its members"
+reqs = ["22998.1"]
+touches = ["apps/perps", "tests/ci/data/js_suite_exclusions.txt"]
+tests = []
+verification_contract = "test ! -e apps/perps/package-lock.json && pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/package-rules.test.ts tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
+do_1 = "do_1 Gotcha 4563, decision 3646. Read tests/ci/test_js_suites_have_runner.py with the forms of a workflow command it follows, tests/ci/data/js_suite_exclusions.txt, tests/ci/test_perps_workspace_lockfile_current.py, the case on the second lockfile of the workspace in tools/qualification/audit_repairs/test_javascript_dependency_advisories.py, the root manifest of apps/perps with its package manager pin, apps/perps/pnpm-workspace.yaml, the manifests of the members with their test scripts, the workflows .github/workflows/launchpad-test.yml and .github/workflows/wallet-test.yml, and the cases under tests/ci that read every workflow."
+symbols = []
+
+[capability.22.39.715]
+title = "Name the perps data gateway in the production build arguments of the trading workspace"
+reqs = ["22998.1"]
+touches = ["apps/perps/deploy", "apps/perps/tests/deploy-config.test.ts", "tools/deploy/tests/offchain-images.test.sh", "docs/release/variables/app-perps.md"]
+tests = []
+verification_contract = "bash tools/deploy/tests/offchain-images.test.sh && bash tools/deploy/offchain-images.sh --plan > /tmp/image-plan.out && grep '^images=' /tmp/image-plan.out | grep -q perps-web && grep '^unbuilt=' /tmp/image-plan.out | grep -vq perps-web && python3 -m pytest -q tests/ci/test_no_deployment_hosts_in_source.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
+do_1 = "do_1 Gotcha 4562, decision 3645. Read apps/perps/deploy/build-args.production.env, the build arguments of apps/perps/Dockerfile, the rows of the image perps-web in tools/deploy/offchain-images.sh with the settings that may stay empty and its cases in tools/deploy/tests/offchain-images.test.sh, apps/perps/tests/deploy-config.test.ts and apps/perps/tests/dockerfile-args.test.ts, tests/ci/test_no_deployment_hosts_in_source.py, apps/perps/deploy/README.md and docs/release/variables/app-perps.md."
+symbols = []
+
+[capability.22.39.714]
+title = "Let the perps data gateway admit the browser origins its setting lists"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data", "deploy", "tools/deploy/tests", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "bash tools/deploy/tests/*-perps-project.test.sh && go test -count=1 -timeout 30m -run 'TestServices|TestConfig|TestLoadTrustedProxies|TestGatewayServer|Origin' ./services/platform/perps-data/deploy/ ./services/platform/perps-data/internal/config/ ./services/platform/perps-data/internal/gateway/ ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/graphql/"
+do_1 = "do_1 Gotcha 4561, decision 3644. Read services/platform/perps-data/internal/config/config.go with the settings of each service and their checks, services/platform/perps-data/internal/gateway/server.go with the routes, the handler in front of them, the limits and the sign-in, the upgrades in services/platform/perps-data/internal/ws and services/platform/perps-data/internal/graphql, services/platform/perps-data/deploy/services.json with its cases in services/platform/perps-data/deploy/services_test.go, the rows of the gateway in the definition of the perps project under deploy with its cases and their recording under tools/deploy/tests, the rows of the perps data services in docs/release/variables/service-platform.md, and in apps/perps/packages/paxeer-backend/src/core the clients of the gateway with the methods and the request headers they send."
+symbols = []
+
+[capability.22.39.713]
+title = "Give the health answers of the dashboard API and of the hosted webhooks service a network and a version"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard", "services/platform/hosted/webhooks", "deploy/projects/platform/dashboard.kvx", "deploy/projects/platform/webhooks-public.kvx", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py", "tools/deploy/tests/projects/test_platform_webhooks_public.py", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedDashboard.md", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedGateway.md", "deploy/projects/README.md"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_webhooks_public.py tools/deploy/tests/projects/test_platform_webhooks_ingress.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard --test plain_listener && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test plain_listener --test liveness_route"
+do_1 = "do_1 Gotcha 4559, decision 3642. Read in services/platform/hosted/gateway/src/routes.rs what a binding of a service holds and how its health answer is read, the section on the bindings in docs/wiki/HostedGateway.md, in services/platform/hosted/dashboard/src/main.rs the reading of the settings and the answer of the health route, in services/platform/hosted/webhooks/src/main.rs the reading of the settings, the answer of the health route in both roles and the liveness route, the cases of services/platform/hosted/dashboard/tests/plain_listener.rs, services/platform/hosted/webhooks/tests/plain_listener.rs and services/platform/hosted/webhooks/tests/liveness_route.rs, the three definitions deploy/projects/platform/dashboard.kvx, deploy/projects/platform/webhooks-public.kvx, deploy/projects/platform/webhooks-ingress.kvx with their cases under tools/deploy/tests/projects, and the sections on the health route of docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md."
+symbols = []
+
+[capability.22.39.712]
+title = "Let the command applycheck run on a copy of a home that holds no receipt key"
+reqs = ["22998.1"]
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+do_1 = "do_1 Gotcha 4558, decision 3641. Read daemon/paxd/cmd/applycheck.go with its flags and exit statuses and its cases, node/apply_check.go with the checks of the home, the forms, the report and the comparison, node/sequencer/apply_check.go with the building of the block and the signing of the batch, node/sequencer/receiptkey.go with the loading of a receipt key and its binding to the consensus key and to the registered keys, the cases of node/apply_check_test.go with the key they register, and the sections on the command in node/README.md and daemon/README.md."
+symbols = []
 
 [capability.22.44.59]
 title = "Let the render check hold a request that ends after its render"
@@ -174055,9 +174160,139 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.718]
+title = "Bring the lockfile of the trading workspace to its floors"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.571", "22.39.716"]
+reqs = ["22998.1"]
+capabilities = ["22.39.718"]
+interfaces = []
+do_1 = "do_1 Gotcha 4564, decision 3647. Read tools/deps/README.md with the forms of an entry, tools/deps/lockfloor.py, tools/deps/floors/perps-web.json, the root manifest of apps/perps with its overrides, and the output of the checker over the file: python3 tools/deps/lockfloor.py tools/deps/floors/perps-web.json."
+do_2 = "do_2 For every line of that output raise the package through the manifest that names it or through an override of the root manifest, where the packages that use it admit the release, and write the lockfile with the pinned package manager. After each group of raises run the frozen install, the production build and the test command of the root manifest by hand, and repair in the workspace what a raise breaks."
+do_3 = "do_3 Where the packages that use a package admit only an earlier line than its floor, read the record of the repair the floor stands for, in the advisory data of the package manager or in the release notes of the package. Where the repair concerns releases from a later line onward, the entry takes the form with the release from which it applies, and the final message gives package, lines held and the record read. Where the earlier line carries the defect, raise it to a repaired release of its line, or raise the package that uses it until the lockfile holds no copy of that line."
+do_4 = "do_4 An entry for a package the lockfile does not hold leaves the file. No floor is lowered, and no entry takes a range without a record that names its start."
+do_5 = "do_5 The advisories and the replacements the checks of task 22.39.571 name stay met: run python3 -m pytest -q tools/qualification/audit_repairs/test_javascript_dependency_advisories.py tests/ci/test_perps_workspace_lockfile_current.py by hand at the final revision and give its last line in the final message."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps", "tools/deps/floors/perps-web.json"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && PAXEER_NETWORK_BUILD_DIR=.next-production pnpm --dir apps/perps build"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && python3 tools/deps/lockfloor.py tools/deps/floors/perps-web.json && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.717]
+title = "Give the cases of the render check a workflow"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.717"]
+interfaces = []
+do_1 = "do_1 Gotcha 4563, decision 3646. Read tests/ci/test_js_suites_have_runner.py with the forms of a workflow command it follows, tools/ui-check/package.json with its test script, the README of the render check with the commands of its cases, a workflow that runs the suite of one package, such as .github/workflows/wallet-test.yml, and the cases under tests/ci that read every workflow."
+do_2 = "do_2 Add the workflow .github/workflows/ui-check-test.yml: on changes under tools/ui-check and of the workflow itself it installs the packages of the render check from its lockfile, installs the browser the check pins with its system packages, and runs the test script, in a form the check of the suites follows and in the form the cases under tests/ci require of a workflow."
+do_3 = "do_3 Add tests/ci/test_ui_check_workflow.py: the workflow exists, runs on changes under tools/ui-check, installs from the lockfile and runs the test script of tools/ui-check/package.json. Where a case under tests/ci lists the files of cases or the workflows of the repository, the new files take their lines there in a later task: give the case and the list in the final message."
+do_4 = "do_4 State the workflow in the README of the render check where it names the commands of its cases."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/README.md"]
+tests = []
+planned_paths = [".github/workflows/ui-check-test.yml", "tests/ci/test_ui_check_workflow.py"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "python3 -m pytest -q tests/ci/test_ui_check_workflow.py && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.716]
+title = "Give the trading workspace one lockfile and a workflow for the suites of its members"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.716"]
+interfaces = []
+do_1 = "do_1 Gotcha 4563, decision 3646. Read tests/ci/test_js_suites_have_runner.py with the forms of a workflow command it follows, tests/ci/data/js_suite_exclusions.txt, tests/ci/test_perps_workspace_lockfile_current.py, the case on the second lockfile of the workspace in tools/qualification/audit_repairs/test_javascript_dependency_advisories.py, the root manifest of apps/perps with its package manager pin, apps/perps/pnpm-workspace.yaml, the manifests of the members with their test scripts, the workflows .github/workflows/launchpad-test.yml and .github/workflows/wallet-test.yml, and the cases under tests/ci that read every workflow."
+do_2 = "do_2 The file apps/perps/package-lock.json leaves the tree with every line of the workspace that names it. apps/perps/pnpm-lock.yaml is the one lockfile, its importers equal the members of the workspace, and a frozen install passes."
+do_3 = "do_3 A member whose test script only reports that no test is given loses the script. Run the suite of every other member by hand. A suite that passes is run by the new workflow .github/workflows/perps-test.yml on changes under apps/perps, in a form the check of the suites follows and in the form the cases under tests/ci require of a workflow. A case that does not pass for a defect of the workspace is repaired in the workspace. A suite that needs a service the job does not hold takes a line with its reason in tests/ci/data/js_suite_exclusions.txt. The lines of that file on the root manifest of the workspace and on other trees stay as they are."
+do_4 = "do_4 Add apps/perps/tests/package-rules.test.ts, run by the test command of the root manifest: the workspace holds one lockfile; no manifest of a member holds a test script that runs no suite; every manifest of a member with a test script is named by the workflow or by a line of the exclusions file."
+do_5 = "do_5 The workspace builds in its production form after the change. The advisories, the replacements and the floors of the lockfile are the work of tasks 22.39.571 and 22.39.718, and the check files under tests/ci and tools/qualification/audit_repairs are the work of task 22.39.571: change none of them here beyond the lines of the exclusions file on the members."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps", "tests/ci/data/js_suite_exclusions.txt"]
+tests = []
+planned_paths = [".github/workflows/perps-test.yml", "apps/perps/tests/package-rules.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && PAXEER_NETWORK_BUILD_DIR=.next-production pnpm --dir apps/perps build"
+verify_cmd = "test ! -e apps/perps/package-lock.json && pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps exec node --test --import tsx tests/package-rules.test.ts tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.715]
+title = "Name the perps data gateway in the production build arguments of the trading workspace"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.715"]
+interfaces = []
+do_1 = "do_1 Gotcha 4562, decision 3645. Read apps/perps/deploy/build-args.production.env, the build arguments of apps/perps/Dockerfile, the rows of the image perps-web in tools/deploy/offchain-images.sh with the settings that may stay empty and its cases in tools/deploy/tests/offchain-images.test.sh, apps/perps/tests/deploy-config.test.ts and apps/perps/tests/dockerfile-args.test.ts, tests/ci/test_no_deployment_hosts_in_source.py, apps/perps/deploy/README.md and docs/release/variables/app-perps.md."
+do_2 = "do_2 In apps/perps/deploy/build-args.production.env the setting NEXT_PUBLIC_PERPS_GATEWAY_URL takes the value https://perps-api.paxeer.app. No other line of the file changes, and the example of the environment beside it stays without a value."
+do_3 = "do_3 Add cases: in tools/deploy/tests/offchain-images.test.sh the plan over the files of the repository lists the image perps-web among the images it builds and not among the rows it leaves out, and the present cases that empty the value in their copy stay as they are; in apps/perps/tests/deploy-config.test.ts the production value of the setting is an https origin without path, query, fragment or credentials. No present case is removed or weakened."
+do_4 = "do_4 State in apps/perps/deploy/README.md and in docs/release/variables/app-perps.md the value the production build takes and that another deployment sets its own gateway origin."
+do_5 = "do_5 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/deploy", "apps/perps/tests/deploy-config.test.ts", "tools/deploy/tests/offchain-images.test.sh", "docs/release/variables/app-perps.md"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile"
+verify_cmd = "bash tools/deploy/tests/offchain-images.test.sh && bash tools/deploy/offchain-images.sh --plan > /tmp/image-plan.out && grep '^images=' /tmp/image-plan.out | grep -q perps-web && grep '^unbuilt=' /tmp/image-plan.out | grep -vq perps-web && python3 -m pytest -q tests/ci/test_no_deployment_hosts_in_source.py && pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts tests/deploy-config.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.59]
 title = "Let the render check hold a request that ends after its render"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174920,7 +175155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.42]
 title = "Close the wallet demonstration pages on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.27", "22.44.37", "22.44.53"]
@@ -175787,7 +176022,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.18]
 title = "Close the trading workspace: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.13", "22.44.14", "22.44.15", "22.44.16", "22.44.17"]
@@ -176392,7 +176627,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.1]
 title = "Bring the explorer theme, its base components and its global style to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.8"]
@@ -176880,7 +177115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.564]
 title = "Add the container image, the deployment folder and the service routes of the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.710"]
@@ -212872,9 +213107,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.713]
+title = "Give the health answers of the dashboard API and of the hosted webhooks service a network and a version"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.709"]
+reqs = ["22998.1"]
+capabilities = ["22.39.713"]
+interfaces = []
+do_1 = "do_1 Gotcha 4559, decision 3642. Read in services/platform/hosted/gateway/src/routes.rs what a binding of a service holds and how its health answer is read, the section on the bindings in docs/wiki/HostedGateway.md, in services/platform/hosted/dashboard/src/main.rs the reading of the settings and the answer of the health route, in services/platform/hosted/webhooks/src/main.rs the reading of the settings, the answer of the health route in both roles and the liveness route, the cases of services/platform/hosted/dashboard/tests/plain_listener.rs, services/platform/hosted/webhooks/tests/plain_listener.rs and services/platform/hosted/webhooks/tests/liveness_route.rs, the three definitions deploy/projects/platform/dashboard.kvx, deploy/projects/platform/webhooks-public.kvx, deploy/projects/platform/webhooks-ingress.kvx with their cases under tools/deploy/tests/projects, and the sections on the health route of docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md."
+do_2 = "do_2 The dashboard API reads the optional setting LAYERX_DASHBOARD_NETWORK_ID: a label of nonempty printable ASCII without spaces of at most 64 bytes, and a value outside that form refuses the start. The answer of its health route holds the member version with the version of the package on every status, and the member network_id with the label where the setting is given. The member ready and the statuses stay as they are, on both listeners."
+do_3 = "do_3 The hosted webhooks service reads the optional setting LAYERX_WEBHOOKS_NETWORK_ID under the same rule, in both roles. The answer of its health route holds the members version and network_id in the same forms beside the members it holds now, which stay as they are. The liveness route stays as it is."
+do_4 = "do_4 In deploy/projects/platform/dashboard.kvx the variable LAYERX_DASHBOARD_NETWORK_ID reads the input PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID, in deploy/projects/platform/webhooks-public.kvx the variable LAYERX_WEBHOOKS_NETWORK_ID reads the input PLATFORM_WEBHOOKS_PUBLIC_LAYERX_WEBHOOKS_NETWORK_ID, and in deploy/projects/platform/webhooks-ingress.kvx it reads the input PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_NETWORK_ID. Each input is of the kind operator with a comment that states its form: the network label the gateway of the project takes. The example of the environment in each of the two packages names the setting with that meaning."
+do_5 = "do_5 Add cases in the three files of cases named in do_1 for the packages: with the setting the answer holds both members, the label as given and the version of the package; without it the answer holds the member version and no member network_id; a label outside the form refuses the start; for the webhooks service in each role its cases start. Add cases in tools/deploy/tests/projects/test_platform_dashboard.py, tools/deploy/tests/projects/test_platform_webhooks_public.py, tools/deploy/tests/projects/test_platform_webhooks_ingress.py: the variable, the input, its kind and its comment. No present case is removed or weakened."
+do_6 = "do_6 State the setting and the two members in docs/wiki/HostedDashboard.md and docs/wiki/HostedWebhooks.md. State in the section on the bindings of docs/wiki/HostedGateway.md the members a binding of each of the two services takes: the health path, the pointer to the member ready with the value true, the pointer to the member network_id with the network label, and the pointer to the member version. Bring deploy/projects/README.md in line where it lists the inputs of the three services."
+do_7 = "do_7 The directory web of the dashboard package is not part of this task: change nothing there. The files of the cases under services/platform/hosted/dashboard/tests and services/platform/hosted/webhooks/tests are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard", "services/platform/hosted/webhooks", "deploy/projects/platform/dashboard.kvx", "deploy/projects/platform/webhooks-public.kvx", "deploy/projects/platform/webhooks-ingress.kvx", "tools/deploy/tests/projects/test_platform_dashboard.py", "tools/deploy/tests/projects/test_platform_webhooks_public.py", "tools/deploy/tests/projects/test_platform_webhooks_ingress.py", "docs/wiki/HostedDashboard.md", "docs/wiki/HostedWebhooks.md", "docs/wiki/HostedGateway.md", "deploy/projects/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard -p layerx-platform-webhooks --tests"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_platform_dashboard.py tools/deploy/tests/projects/test_platform_webhooks_public.py tools/deploy/tests/projects/test_platform_webhooks_ingress.py && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-dashboard --test plain_listener && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test plain_listener --test liveness_route"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.709]
 title = "Let the definition of the hosted gateway carry the bindings of the product routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.708"]
@@ -248135,6 +248404,74 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.714]
+title = "Let the perps data gateway admit the browser origins its setting lists"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.714"]
+interfaces = []
+do_1 = "do_1 Gotcha 4561, decision 3644. Read services/platform/perps-data/internal/config/config.go with the settings of each service and their checks, services/platform/perps-data/internal/gateway/server.go with the routes, the handler in front of them, the limits and the sign-in, the upgrades in services/platform/perps-data/internal/ws and services/platform/perps-data/internal/graphql, services/platform/perps-data/deploy/services.json with its cases in services/platform/perps-data/deploy/services_test.go, the rows of the gateway in the definition of the perps project under deploy with its cases and their recording under tools/deploy/tests, the rows of the perps data services in docs/release/variables/service-platform.md, and in apps/perps/packages/paxeer-backend/src/core the clients of the gateway with the methods and the request headers they send."
+do_2 = "do_2 The gateway reads the optional setting PERPS_ALLOWED_ORIGINS: a list of origins separated by commas, each an http or https origin without path, query, fragment or credentials; spaces around an entry are dropped and an entry is compared as written, without a closing slash. A value outside that form refuses the start with a message that names the setting. Without the setting the list is empty. services/platform/perps-data/deploy/services.json names the setting for the gateway in the form its cases require."
+do_3 = "do_3 For a request whose header Origin names a listed origin the answer holds Access-Control-Allow-Origin with that origin and Vary with Origin, on every route of the gateway and with every status, the refusals of the sign-in and of the limits among them. A request with the method OPTIONS and the header Access-Control-Request-Method from a listed origin is answered with status 204, Access-Control-Allow-Methods with GET, POST, DELETE and OPTIONS, Access-Control-Allow-Headers with Authorization, Content-Type and Accept, and Access-Control-Max-Age, ahead of the sign-in of the route. No answer holds Access-Control-Allow-Credentials. A request without the header Origin is served as now. A request from an origin outside the list is served as now, without these headers."
+do_4 = "do_4 The upgrades of the sockets in services/platform/perps-data/internal/ws and services/platform/perps-data/internal/graphql read the list: with an entry in the list an upgrade whose header Origin names an origin outside it is refused with status 403, and an upgrade without the header or from a listed origin is taken. With an empty list an upgrade is taken as now."
+do_5 = "do_5 In the definition of the perps project under deploy the rows of the gateway give PERPS_ALLOWED_ORIGINS from the input of the same name, in the form the other inputs of the rows take, with a comment that states its form. The recording of the readiness case under tools/deploy/tests states for each service the values its row in the definition gives, the restart policy of the web service among them. The cases of the definition and their recording under tools/deploy/tests are inside the paths of this task."
+do_6 = "do_6 Add cases whose names hold the word Origin: the forms of the setting and the refusal of the start in services/platform/perps-data/internal/config; in services/platform/perps-data/internal/gateway a listed origin, an origin outside the list, a request without the header, the preflight request on a route with sign-in, and a refusal of the sign-in that still names the listed origin; the upgrades in services/platform/perps-data/internal/ws and services/platform/perps-data/internal/graphql with a listed origin, an origin outside the list, no header and an empty list. Bring the cases of services/platform/perps-data/deploy/services_test.go and of the definition in line with the setting. No present case is removed or weakened."
+do_7 = "do_7 State the setting with its form in docs/release/variables/service-platform.md in the form the rows of the file take, and in services/platform/perps-data/deploy/README.md where it names the settings of the gateway."
+do_8 = "do_8 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data", "deploy", "tools/deploy/tests", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./services/platform/perps-data/..."
+verify_cmd = "bash tools/deploy/tests/*-perps-project.test.sh && go test -count=1 -timeout 30m -run 'TestServices|TestConfig|TestLoadTrustedProxies|TestGatewayServer|Origin' ./services/platform/perps-data/deploy/ ./services/platform/perps-data/internal/config/ ./services/platform/perps-data/internal/gateway/ ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/graphql/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.712]
+title = "Let the command applycheck run on a copy of a home that holds no receipt key"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.706"]
+reqs = ["22998.1"]
+capabilities = ["22.39.712"]
+interfaces = []
+do_1 = "do_1 Gotcha 4558, decision 3641. Read daemon/paxd/cmd/applycheck.go with its flags and exit statuses and its cases, node/apply_check.go with the checks of the home, the forms, the report and the comparison, node/sequencer/apply_check.go with the building of the block and the signing of the batch, node/sequencer/receiptkey.go with the loading of a receipt key and its binding to the consensus key and to the registered keys, the cases of node/apply_check_test.go with the key they register, and the sections on the command in node/README.md and daemon/README.md."
+do_2 = "do_2 The command takes the flag stand-in-receipt-key. With the flag a receipt key is generated in memory, and neither the file the setting sequencer.receipt-key-file names nor the consensus key file of the home is read; the setting may be empty and the files may be absent. Before the block of the check is built, the state each form runs on registers the stand-in key in place of the registered keys, with every record the admission of a batch reads for a registered key, so that every form admits the batch of the check as it admits a batch under a registered key. The key is written to no file and appears in no output, and the copy takes no change beyond the changes the check makes now."
+do_3 = "do_3 The report holds a member that names the mode of the receipt key with the values registered and stand-in. Without the flag the command behaves as now, with its refusals and its exit statuses. The forms, the results per transaction and the comparison stay as they are in both modes."
+do_4 = "do_4 Add cases in node/apply_check_test.go: a home whose state registers a receipt key and that holds neither a receipt key file nor a consensus key file is refused without the flag as now; with the flag every form runs over a transfer and over a contract creation, the comparison is equal, and the report names the mode stand-in; a home that holds its registered key gives the mode registered and the results it gives now. Add cases in daemon/paxd/cmd/applycheck_test.go on the flag, its help text and the exit statuses in both modes. No present case is removed or weakened."
+do_5 = "do_5 State the flag, what it replaces and what the report names in node/README.md and daemon/README.md."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run 'TestApplyCheck|TestRootCommand'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.711]
 title = "Give the hosted authority a row in the roster of service certificates"
 status = "pending"
@@ -248154,7 +248491,7 @@ touches = ["tools/bringup", "docs/wiki/HostedAuthority.md"]
 tests = []
 planned_paths = ["tools/bringup/tests/fixtures/service_identities/hosted-authority"]
 build_cmd = "go build ./tools/bringup/..."
-verify_cmd = "bash tools/bringup/tests/ca.test.sh && go test -count=1 -run 'TestCAApprovedRoster|TestCAObsoleteRoster|TestInternalPlatformShape|TestRuntimeCARosterThirdShape|TestRetirementRetainsAuthority' ./tools/bringup/"
+verify_cmd = "bash tools/bringup/ca.sh services > /tmp/ca-services.out && diff -u tools/bringup/tests/fixtures/service_identities/approved-roster.tsv /tmp/ca-services.out && grep -q '^hosted-authority[[:space:]]box:KERNEL_HOST[[:space:]]volume[[:space:]]layerx-hosted-authority[[:space:]]serverAuth[[:space:]]' /tmp/ca-services.out && grep -c . /tmp/ca-services.out | grep -qx 31 && go test -count=1 -run 'TestCAApprovedRoster|TestCAObsoleteRoster|TestInternalPlatformShape|TestRuntimeCARosterThirdShape|TestRetirementRetainsAuthority' ./tools/bringup/"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-tools-ops"
@@ -248166,6 +248503,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3643, gotcha 4560. The verification now prints the roster through the command services of the CA tool, compares it with the approved roster, reads the row hosted-authority and the count of thirty-one rows, and runs the Go cases on the roster. The work of the earlier candidate stays as it is, with its cases in tools/bringup/tests/ca.test.sh. Run the commands of the verification by hand once and correct what they name inside the paths, then run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.706]
 title = "Give the node tool a command that applies given transactions on a copy of a home in every form and compares the results"
@@ -385398,7 +385736,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.572]
 title = "Describe the trading workspace in its readme and in the documents that name the application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.564"]
@@ -385432,7 +385770,7 @@ title = "Point the package, lockfile and advisory checks at the trading workspac
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.563", "22.39.564"]
+requires = ["22.39.563", "22.39.564", "22.39.716", "22.39.717"]
 reqs = ["22998.1"]
 capabilities = ["22.39.571"]
 interfaces = []
@@ -385441,13 +385779,13 @@ do_2 = "do_2 The lockfile check reads the manifests of the workspace root, of it
 do_3 = "do_3 The advisory check reads the lockfile of the workspace, expects the package manager pin of the repository and no second lockfile, and its table of remaining advisories states what the lockfile holds. tools/deps/floors/perps-web.json states floors for packages the lockfile holds. The spot interface check reads apps/perps/swagger_spot.json and the consumer files under apps/perps/packages/paxeer-backend/src. .github/dependabot.yml covers the workspace root."
 do_4 = "do_4 A floor or an advisory the lockfile of the workspace does not meet is not edited away: keep the rule, and give package, version and rule in the final message. Change no file under apps/perps. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["tests/ci/test_perps_workspace_lockfile_current.py", "tests/ci/test_js_suites_have_runner.py", "tools/qualification/audit_repairs/test_javascript_dependency_advisories.py", "tools/qualification/audit_repairs/test_spot_openapi_dialect.py", "tests/ci/data/js_suite_exclusions.txt", "tools/deps/floors/perps-web.json", ".github/dependabot.yml"]
+touches = ["tests/ci/test_perps_workspace_lockfile_current.py", "tests/ci/test_js_suites_have_runner.py", "tools/qualification/audit_repairs/test_javascript_dependency_advisories.py", "tools/qualification/audit_repairs/test_spot_openapi_dialect.py", "tests/ci/data/js_suite_exclusions.txt", "tools/deps/floors/perps-web.json", ".github/dependabot.yml", "apps/perps/package.json", "apps/perps/pnpm-lock.yaml"]
 tests = []
 planned_paths = []
-build_cmd = "python3 -m py_compile tests/ci/test_perps_workspace_lockfile_current.py tests/ci/test_js_suites_have_runner.py tools/qualification/audit_repairs/test_javascript_dependency_advisories.py tools/qualification/audit_repairs/test_spot_openapi_dialect.py"
+build_cmd = "python3 -m py_compile tests/ci/test_perps_workspace_lockfile_current.py tests/ci/test_js_suites_have_runner.py tools/qualification/audit_repairs/test_javascript_dependency_advisories.py tools/qualification/audit_repairs/test_spot_openapi_dialect.py && pnpm --dir apps/perps install --frozen-lockfile"
 verify_cmd = "python3 -m pytest -q tests/ci/test_perps_workspace_lockfile_current.py tests/ci/test_js_suites_have_runner.py tools/qualification/audit_repairs/test_javascript_dependency_advisories.py tools/qualification/audit_repairs/test_spot_openapi_dialect.py"
 gate_kind = "planned"
-sandbox_profile = "python"
+sandbox_profile = "node"
 owner_role = "fm-tools-ops"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -385457,6 +385795,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3646, gotcha 4563. Tasks 22.39.716 and 22.39.717 come before this task: the workspace then holds one lockfile, no test script without a suite, a workflow for the suites of its members, and the render check has its workflow. The work of the earlier candidate stays as it is; where it meets the lines of task 22.39.716 in tests/ci/data/js_suite_exclusions.txt, the lines of that task on the members stay. The root manifest apps/perps/package.json and the lockfile apps/perps/pnpm-lock.yaml are now inside the paths, and for these two files this step takes the place of the sentence of do_4 on files under apps/perps: bring the lockfile to the advisories and the replacements the checks name for the directory, through the override entries of the root manifest in the forms the checks read and a lockfile written by the pinned package manager, with a frozen install that passes. The checks stay as they are and no rule is edited away. An entry of tools/deps/floors/perps-web.json for a package the lockfile does not hold leaves the file; the other floors stay and are the work of task 22.39.718. Run the four files of the verification by hand first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.566]
 title = "Point the asset and hygiene checks at the files of the trading workspace"

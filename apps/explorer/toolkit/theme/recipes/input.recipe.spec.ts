@@ -8,7 +8,7 @@ describe('input recipe, outline variant', () => {
   it('draws a one pixel border from the input tokens', () => {
     expect(outline).toMatchObject({
       bg: 'input.bg',
-      borderWidth: '1px',
+      borderWidth: 'var(--chakra-border-widths-1)',
       borderColor: 'input.border.filled',
     });
   });

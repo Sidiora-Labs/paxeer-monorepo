@@ -19,7 +19,7 @@ export const recipe = defineSlotRecipe({
 
     label: {
       userSelect: 'none',
-      fontWeight: '400',
+      fontWeight: 'normal',
       color: 'text.primary',
       _disabled: {
         opacity: 'control.disabled',
@@ -27,6 +27,7 @@ export const recipe = defineSlotRecipe({
     },
 
     indicator: {
+      _motionReduce: { transitionProperty: 'color, background-color, border-color, opacity' },
       position: 'absolute',
       height: 'var(--switch-height)',
       width: 'var(--switch-height)',
@@ -35,16 +36,16 @@ export const recipe = defineSlotRecipe({
       userSelect: 'none',
       display: 'grid',
       placeContent: 'center',
-      transition: 'inset-inline-start 0.12s ease',
-      insetInlineStart: 'calc(var(--switch-x) - 2px)',
+      transition: 'inset-inline-start var(--chakra-durations-toggle) var(--chakra-easings-standard)',
+      insetInlineStart: 'calc(var(--switch-x) - var(--chakra-spacing-0\\.5))',
       _checked: {
-        insetInlineStart: '2px',
+        insetInlineStart: 'var(--chakra-spacing-0\\.5)',
       },
     },
 
     control: {
       display: 'inline-flex',
-      gap: '0.5rem',
+      gap: 'var(--chakra-spacing-2)',
       flexShrink: 0,
       justifyContent: 'flex-start',
       cursor: 'switch',
@@ -57,13 +58,14 @@ export const recipe = defineSlotRecipe({
         cursor: 'not-allowed',
       },
       _invalid: {
-        outline: '2px solid',
+        outline: 'var(--chakra-border-widths-2) solid',
         outlineColor: 'border.error',
-        outlineOffset: '2px',
+        outlineOffset: 'var(--chakra-spacing-0\\.5)',
       },
     },
 
     thumb: {
+      _motionReduce: { transitionProperty: 'color, background-color, border-color, opacity' },
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -120,7 +122,7 @@ export const recipe = defineSlotRecipe({
     size: {
       sm: {
         root: {
-          '--switch-width': '26px',
+          '--switch-width': 'var(--chakra-spacing-6\\.5)',
           '--switch-height': 'sizes.4',
           '--switch-indicator-font-size': 'fontSizes.sm',
         },
@@ -130,7 +132,7 @@ export const recipe = defineSlotRecipe({
       },
       md: {
         root: {
-          '--switch-width': '34px',
+          '--switch-width': 'var(--chakra-spacing-8\\.5)',
           '--switch-height': 'sizes.5',
           '--switch-indicator-font-size': 'fontSizes.md',
         },
@@ -140,7 +142,7 @@ export const recipe = defineSlotRecipe({
       },
       lg: {
         root: {
-          '--switch-width': '50px',
+          '--switch-width': 'var(--chakra-spacing-12\\.5)',
           '--switch-height': 'sizes.7',
           '--switch-indicator-font-size': 'fontSizes.md',
         },

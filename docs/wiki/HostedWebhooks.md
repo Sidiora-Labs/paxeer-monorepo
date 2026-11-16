@@ -392,6 +392,16 @@ also checks canonical sources and the node receipt verifier. Responses name
 role's dependencies are ready, otherwise `503`, within a shared five-second
 readiness budget (`src/main.rs`).
 
+Both roles include `version`, the `layerx-platform-webhooks` package version,
+in every `/healthz` response. The optional `LAYERX_WEBHOOKS_NETWORK_ID` setting
+adds `network_id` with the exact network label used by the project gateway;
+when unset, `network_id` is omitted. The label must be 1–64 printable ASCII
+bytes without spaces (bytes `0x21`–`0x7e`); empty, non-ASCII, control,
+space-containing or longer values refuse startup in either role. These members
+appear for both `200` and `503`, on the application and dedicated health
+listeners, beside `ready`, `role`, `worker_failure_count` and `components`.
+`/livez` continues to return only `live` and `role`.
+
 Delivery readiness checks Redis `PING`/`PONG` and KMS `/readyz`, including its
 `ready` and `ed25519_non_exportable` response fields. Canonical source readiness
 checks each source `/readyz`; the node verifier checks root JSON-RPC
@@ -417,6 +427,7 @@ contain paths, not inline secrets. Shared settings are read by both roles.
 | `LISTEN` | Application bind; direct binary default `0.0.0.0:9444` |
 | `LISTENER` | Default `tls`; ingress requires TLS |
 | `HEALTH_LISTEN` | Optional separate plain health bind |
+| `NETWORK_ID` | Optional project gateway network label; 1–64 printable ASCII bytes without spaces; exposed as `network_id` in health responses |
 | `TLS_CERT_DER`, `TLS_KEY_DER` | TLS certificate and PKCS#8 server key |
 | `INGRESS_CLIENT_CA_DER` | Required for ingress client authentication; excluded from public role |
 | `INTERNAL_CA_DER`, `PUBLIC_CA_DER` | Trusted dependency/Redis CA and subscriber-delivery CA |
