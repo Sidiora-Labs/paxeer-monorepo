@@ -176687,7 +176687,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.10]
 title = "Bring the marketplace, rewards and remaining chain views of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -248856,7 +248856,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.731]
 title = "Add the command that issues the certificates and assertion keys of the private channels of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249086,7 +249086,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.724]
 title = "Set receipts of the shell type aside in the launchpad indexer before receipts are bound to transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -249119,7 +249119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.722]
 title = "Admit the deployment version of the manifest as the deployment identity of the indexer stager and archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
