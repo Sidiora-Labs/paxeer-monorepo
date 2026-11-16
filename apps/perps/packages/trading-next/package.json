@@ -7,8 +7,7 @@
   "scripts": {
     "dev": "tsup --watch",
     "build": "tsup",
-    "build:css": "tailwindcss build -i src/tailwind.css -o dist/styles.css --minify",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build:css": "tailwindcss build -i src/tailwind.css -o dist/styles.css --minify"
   },
   "keywords": [
     "paxeer-network",

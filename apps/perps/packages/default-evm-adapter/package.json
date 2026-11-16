@@ -4,8 +4,7 @@
   "description": "",
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsup --watch"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",

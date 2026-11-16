@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import "@oddbird/popover-polyfill";
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,7 +13,8 @@ vi.mock("@paxeer-network/i18n", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock("@paxeer-network/ui", () => ({
+vi.mock("@paxeer-network/ui", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@paxeer-network/ui")>()),
   Button: ({ children, onClick }: any) => (
     <button onClick={onClick}>{children}</button>
   ),
