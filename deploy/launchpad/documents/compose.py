@@ -23,6 +23,14 @@ class ComposeError(ValueError):
     """The contract and values directory do not describe the same documents."""
 
 
+def _ensure_module_path() -> None:
+    """Make the document directory importable regardless of the caller's cwd."""
+
+    root = str(ROOT)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+
+
 def _contract() -> dict[str, dict[str, Any]]:
     try:
         contract = json.loads(CONTRACT_PATH.read_bytes())
@@ -37,14 +45,19 @@ def _contract() -> dict[str, dict[str, Any]]:
 
 
 def _load_module(service: str) -> ModuleType | None:
+    _ensure_module_path()
     module_path = ROOT / (service.replace("-", "_") + ".py")
     if not module_path.is_file() or module_path.name == "compose.py":
         return None
-    name = f"launchpad_documents_{service.replace('-', '_')}"
+    name = service.replace("-", "_")
+    loaded = sys.modules.get(name)
+    if loaded is not None and Path(getattr(loaded, "__file__", "")).resolve() == module_path:
+        return loaded
     spec = importlib.util.spec_from_file_location(name, module_path)
     if spec is None or spec.loader is None:
         raise ComposeError(f"{service}: cannot load document module")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -76,6 +89,7 @@ def _as_bytes(service: str, name: str, value: Any) -> bytes:
 
 
 def _compose_service(service: str, values: Path, entry: dict[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
+    _ensure_module_path()
     contract_documents = {name for name in entry.get("required", []) if name.endswith("_DOCUMENT")}
     if not contract_documents:
         raise ComposeError(f"{service}: contract has no document variables")

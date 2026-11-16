@@ -38,7 +38,7 @@ func platformDocumentValues(t *testing.T) (string, string) {
 	}
 	sum := fmt.Sprintf("%x", sha256.Sum256([]byte("metadata-schema")))
 	schema := dbproduction.ExpectedSchema{
-		Service: "metadata", RuntimeRole: "metadatad", RegistryDigest: sum, InterfaceDigest: sum,
+		Service: "media/metadata", RuntimeRole: "metadatad", RegistryDigest: sum, InterfaceDigest: sum,
 		ReaderVersion: 1, Migrations: map[int64]string{1: sum}, Schemas: map[string]string{"metadata": sum},
 		Epoch: 1, Region: "mainnet-beta",
 		Privileges: []dbproduction.Grant{{Schema: "metadata", Object: "assets", Privileges: []string{"SELECT"}}},
@@ -219,7 +219,7 @@ func TestPlatformDocuments(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw = bytes.Replace(raw, []byte(`"service":"metadata"`), []byte(`"service":"social"`), 1)
+		raw = bytes.Replace(raw, []byte(`"service":"media/metadata"`), []byte(`"service":"media/social"`), 1)
 		t.Setenv("EXPECTED_SCHEMA_DOCUMENT", base64.StdEncoding.EncodeToString(raw))
 		t.Setenv("EXPECTED_SCHEMA_SHA256", fmt.Sprintf("%x", sha256.Sum256(raw)))
 		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "runtime_schema_service_mismatch") {

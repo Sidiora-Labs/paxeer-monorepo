@@ -10,19 +10,19 @@ from typing import Any
 DB_BUDGET = "DB_BUDGET_DOCUMENT"
 EXPECTED_SCHEMA = "EXPECTED_SCHEMA_DOCUMENT"
 
-SERVICE_ROLES = {
-    "api": "apid:rest",
-    "api-sockets": "apid:sockets",
-    "indexer": "indexerd",
-    "charts": "chartsd",
-    "stats": "statsd",
-    "pnl": "pnld",
-    "ranking": "rankingd",
-    "gateway": "mediagatewayd",
-    "user": "userd",
-    "social": "sociald",
-    "metadata": "metadatad",
-    "livestream": "livestreamd",
+SERVICE_REGISTRY_NAMES = {
+    "api": "core/api",
+    "api-sockets": "core/api",
+    "indexer": "core/indexer",
+    "charts": "core/trading-charts",
+    "stats": "core/stats-workers",
+    "pnl": "core/pnl-tracker",
+    "ranking": "core/ranking-algo",
+    "gateway": "media/gateway",
+    "user": "media/user",
+    "social": "media/social",
+    "metadata": "media/metadata",
+    "livestream": "media/livestream",
 }
 
 
@@ -53,6 +53,7 @@ def _budget_path(values: Path) -> Path:
 
 
 def _expected_schema(service: str, values: Path) -> bytes:
+    registry_name = SERVICE_REGISTRY_NAMES[service]
     path = values / "expected-schema" / f"{service}.json"
     if not path.is_file():
         raise DocumentError(f"{service}: missing values file expected-schema/{service}.json")
@@ -61,8 +62,8 @@ def _expected_schema(service: str, values: Path) -> bytes:
         value = json.loads(raw)
     except (OSError, json.JSONDecodeError) as exc:
         raise DocumentError(f"{service}: invalid expected-schema/{service}.json") from exc
-    if not isinstance(value, dict) or value.get("service") != service:
-        raise DocumentError(f"{service}: expected schema must be one object naming {service}")
+    if not isinstance(value, dict) or value.get("service") != registry_name:
+        raise DocumentError(f"{service}: expected schema must be one object naming {registry_name}")
     return raw
 
 
@@ -74,7 +75,7 @@ def documents(service: str, values: str | Path) -> dict[str, bytes]:
     source document.
     """
 
-    if service not in SERVICE_ROLES:
+    if service not in SERVICE_REGISTRY_NAMES:
         raise DocumentError(f"unknown service {service}")
     values_path = Path(values)
     budget = _stable_json(_read_json(_budget_path(values_path)))

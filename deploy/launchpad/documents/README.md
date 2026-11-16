@@ -16,6 +16,9 @@ Use `--examples` instead of `--values` for the checked-in example directory.
 The values directory contains `common.json` (or `common.example.json`), an
 `expected-schema/` directory with one `<service>.json` object per service, and
 optional service modules beside `compose.py` for service-specific documents.
+Each expected-schema document is the output of the `launchpad-schema expected`
+command. The composer compares its `service` member with the service registry
+name while retaining the platform service name in the values filename.
 Output files are named `<service>.json`, contain only document and digest
 variables, and are created with mode `0600`.
 
