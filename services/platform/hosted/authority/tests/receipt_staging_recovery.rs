@@ -137,11 +137,19 @@ impl Store {
             tls: Arc::new(tls),
             tokens: vec![],
             human: None,
-            replica_address: address,
-            replica_host: address.to_string(),
-            replica_token: Zeroizing::new("unused-replica-token".to_owned()),
+            replica: Some(ReplicaConfig {
+                address: address,
+                host: address.to_string(),
+                token: Zeroizing::new("unused-replica-token".to_owned()),
+                id: [9; 32],
+                authorization: SequencerAuthorization::new(
+                    Sha256::digest(public).into(),
+                    public,
+                    1,
+                    1000,
+                ),
+            }),
             evidence_read_token: None,
-            replica_id: [9; 32],
             chain_receipts: must(ChainReceipts::load(
                 "http://127.0.0.1:1",
                 &self.root.join("keys.json"),
@@ -150,12 +158,6 @@ impl Store {
             protocol_network_id: 77,
             network_id: "repair-1467".to_owned(),
             wire_version: "3".to_owned(),
-            authorization: SequencerAuthorization::new(
-                Sha256::digest(public).into(),
-                public,
-                1,
-                1000,
-            ),
             sequencer_public_key: public,
         };
         config.fixture_human_policy(&self.policy, &self.root);

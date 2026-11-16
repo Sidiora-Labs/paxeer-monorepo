@@ -19,11 +19,18 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/auth"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/feeds"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/publish"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ratelimit"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ws"
 )
 
 const (
@@ -146,6 +153,31 @@ func request(t *testing.T, ts *httptest.Server, method, path, body string) (*htt
 	return resp, raw
 }
 
+func requestOrigin(t *testing.T, ts *httptest.Server, method, path, body, origin string, preflight string) (*http.Response, []byte) {
+	t.Helper()
+	req, err := http.NewRequest(method, ts.URL+path, strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Origin", origin)
+	if preflight != "" {
+		req.Header.Set("Access-Control-Request-Method", preflight)
+	}
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp, raw
+}
+
 func decodeObject(t *testing.T, raw []byte) map[string]json.RawMessage {
 	t.Helper()
 	var out map[string]json.RawMessage
@@ -173,6 +205,12 @@ func dial(t *testing.T, ts *httptest.Server, path string, subprotocols ...string
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	return conn, resp
+}
+
+func dialOrigin(t *testing.T, ts *httptest.Server, path, origin string, subprotocols ...string) (*websocket.Conn, *http.Response, error) {
+	t.Helper()
+	d := websocket.Dialer{Subprotocols: subprotocols, HandshakeTimeout: 10 * time.Second}
+	return d.Dial("ws"+strings.TrimPrefix(ts.URL, "http")+path, http.Header{"Origin": []string{origin}})
 }
 
 func readFrame(t *testing.T, conn *websocket.Conn) map[string]json.RawMessage {
@@ -268,6 +306,121 @@ func expectRetryAfter(t *testing.T, ts *httptest.Server, path string) {
 	if !ok || err != nil || n < 5 || n > 30 {
 		t.Fatalf("%s: close reason %q, want retry-after=<5..30>", path, closeErr.Text)
 	}
+}
+
+func TestGatewayOrigin(t *testing.T) {
+	metrics, err := telemetry.New(config.Gateway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A closed pool provides the auth service's database handle without a
+	// database connection; these requests are decided before database reads.
+	db, err := sql.Open("postgres", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	signIn, err := auth.NewService(db, testSecret, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := rest.NewAccountV2(db, signIn, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origins := []string{"https://app.example"}
+	providers := &feeds.Providers{}
+	socket, err := ws.NewServer("0123456789abcdef", providers.Served, ws.DefaultLimits(), origins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &Server{
+		allowedOrigins: origins,
+		metrics:        metrics,
+		mux:            http.NewServeMux(),
+		limiter:        &windowLimiter{max: clientRequests, window: clientWindow, entries: map[string]windowEntry{}},
+		socketRoutes:   map[string]bool{"GET /ws": true},
+		sockets:        prometheus.NewGauge(prometheus.GaugeOpts{Name: "perps_gateway_sockets", Help: "Open sockets."}),
+	}
+	srv.api = ratelimit.NewLimiter(maxInFlight).Middleware(http.HandlerFunc(srv.limited))
+	httpx.RegisterHealth(srv.mux, httpx.HealthDeps{})
+	account.Register(srv.mux)
+	srv.mux.HandleFunc("POST /v2/auth/refresh", signIn.Refresh)
+	srv.mux.Handle("GET /ws", socket)
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp, _ := requestOrigin(t, ts, http.MethodGet, "/v1/leaderboards/bogus", "", "https://app.example", "")
+	if resp.StatusCode != http.StatusNotFound || resp.Header.Get("Access-Control-Allow-Origin") != "https://app.example" || resp.Header.Get("Vary") != "Origin" {
+		t.Fatalf("listed origin response status=%d allow=%q vary=%q", resp.StatusCode, resp.Header.Get("Access-Control-Allow-Origin"), resp.Header.Get("Vary"))
+	}
+	if resp.Header.Get("Access-Control-Allow-Credentials") != "" {
+		t.Fatal("listed origin response allows credentials")
+	}
+	resp, _ = requestOrigin(t, ts, http.MethodPost, "/v2/auth/refresh", "", "https://app.example", "")
+	if resp.StatusCode != http.StatusUnauthorized || resp.Header.Get("Access-Control-Allow-Origin") != "https://app.example" {
+		t.Fatalf("sign-in refusal status=%d allow=%q", resp.StatusCode, resp.Header.Get("Access-Control-Allow-Origin"))
+	}
+	resp, raw := requestOrigin(t, ts, http.MethodOptions, "/v2/auth/refresh", "", "https://app.example", http.MethodPost)
+	if resp.StatusCode != http.StatusNoContent || len(raw) != 0 {
+		t.Fatalf("preflight status=%d body=%q", resp.StatusCode, raw)
+	}
+	for header, want := range map[string]string{
+		"Access-Control-Allow-Origin":  "https://app.example",
+		"Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+		"Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+		"Access-Control-Max-Age":       "600",
+		"Vary":                         "Origin",
+	} {
+		if got := resp.Header.Get(header); got != want {
+			t.Fatalf("preflight %s=%q, want %q", header, got, want)
+		}
+	}
+	resp, _ = requestOrigin(t, ts, http.MethodGet, "/healthz/live", "", "https://other.example", "")
+	if resp.Header.Get("Access-Control-Allow-Origin") != "" || resp.Header.Get("Vary") != "" {
+		t.Fatalf("outside origin response carries CORS headers: %v", resp.Header)
+	}
+	resp, _ = request(t, ts, http.MethodGet, "/healthz/live", "")
+	if resp.Header.Get("Access-Control-Allow-Origin") != "" || resp.Header.Get("Vary") != "" {
+		t.Fatalf("request without Origin carries CORS headers: %v", resp.Header)
+	}
+	_, outside, err := dialOrigin(t, ts, "/ws", "https://other.example")
+	if err == nil || outside == nil || outside.StatusCode != http.StatusForbidden {
+		t.Fatalf("outside websocket error=%v response=%v, want 403", err, outside)
+	}
+	conn, listed, err := dialOrigin(t, ts, "/ws", "https://app.example")
+	if err != nil || listed.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("listed websocket error=%v response=%v", err, listed)
+	}
+	_ = conn.Close()
+
+	t.Run("authenticated_route_preflight", func(t *testing.T) {
+		resp, raw := requestOrigin(t, ts, http.MethodOptions, "/v2/alerts", "", "https://app.example", http.MethodPost)
+		if resp.StatusCode != http.StatusNoContent || len(raw) != 0 || resp.Header.Get("Access-Control-Allow-Origin") != "https://app.example" {
+			t.Fatalf("authenticated preflight status=%d headers=%v body=%q", resp.StatusCode, resp.Header, raw)
+		}
+		resp, _ = requestOrigin(t, ts, http.MethodPost, "/v2/alerts", "", "https://app.example", "")
+		if resp.StatusCode != http.StatusUnauthorized || resp.Header.Get("Access-Control-Allow-Origin") != "https://app.example" {
+			t.Fatalf("authenticated refusal status=%d headers=%v", resp.StatusCode, resp.Header)
+		}
+	})
+	t.Run("rate_limit_refusal", func(t *testing.T) {
+		srv.limiter = &windowLimiter{max: 1, window: clientWindow, entries: map[string]windowEntry{}}
+		resp, _ := requestOrigin(t, ts, http.MethodPost, "/v2/auth/refresh", "", "https://app.example", "")
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("first request status=%d, want 401", resp.StatusCode)
+		}
+		resp, _ = requestOrigin(t, ts, http.MethodPost, "/v2/auth/refresh", "", "https://app.example", "")
+		if resp.StatusCode != http.StatusTooManyRequests || resp.Header.Get("Access-Control-Allow-Origin") != "https://app.example" || resp.Header.Get("Vary") != "Origin" || resp.Header.Get("Retry-After") == "" {
+			t.Fatalf("rate limit refusal status=%d headers=%v", resp.StatusCode, resp.Header)
+		}
+		resp, _ = requestOrigin(t, ts, http.MethodOptions, "/v2/alerts", "", "https://app.example", http.MethodPost)
+		if resp.StatusCode != http.StatusNoContent {
+			t.Fatalf("preflight with exhausted budget status=%d, want 204", resp.StatusCode)
+		}
+	})
 }
 
 func TestGatewayServer(t *testing.T) {

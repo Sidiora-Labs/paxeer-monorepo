@@ -3,6 +3,10 @@ WORKDIR /src
 RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
 COPY services/ services/
 COPY programs/ programs/
+COPY include/layerx/ include/layerx/
+COPY spec/layerx-merge/contracts/address-table.md spec/layerx-merge/contracts/address-table.md
+COPY tools/platform/cli/src/wallet_gateway.rs tools/platform/cli/src/wallet_gateway.rs
+COPY tools/paxeer-x/route-catalogue.json tools/paxeer-x/route-catalogue.json
 RUN cargo build --locked --release --manifest-path services/platform/Cargo.toml -p layerx-platform-core
 
 FROM alpine:3.22

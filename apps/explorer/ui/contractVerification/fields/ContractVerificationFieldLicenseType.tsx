@@ -20,6 +20,7 @@ const ContractVerificationFieldLicenseType = () => {
       <FormFieldSelect<FormFields, 'license_type'>
         name="license_type"
         placeholder="Contract license"
+        triggerProps={{ 'aria-label': 'Contract license' }}
         collection={ collection }
       />
       <span>

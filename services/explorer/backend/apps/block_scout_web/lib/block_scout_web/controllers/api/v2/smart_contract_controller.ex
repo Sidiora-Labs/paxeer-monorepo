@@ -50,6 +50,23 @@ defmodule BlockScoutWeb.API.V2.SmartContractController do
       "Retrieves detailed information about a specific verified smart contract, including source code, ABI, and deployment details.",
     parameters: [address_hash_param() | base_params()],
     responses: [
+      unprocessable_entity: JsonErrorResponse.response(),
+      not_found:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"Detailed information about the specified verified smart contract.", "application/json", Schemas.SmartContract}
     ]
@@ -184,6 +201,14 @@ defmodule BlockScoutWeb.API.V2.SmartContractController do
     description: "Returns audit reports for a given smart contract address.",
     parameters: [address_hash_param() | base_params()],
     responses: [
+      forbidden:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"Audit reports.", "application/json",
          %Schema{

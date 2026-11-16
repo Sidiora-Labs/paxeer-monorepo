@@ -27,9 +27,9 @@ const PrevNext = ({ className, onClick, prevLabel, nextLabel, isPrevDisabled, is
 
   if (isLoading) {
     return (
-      <Flex columnGap="10px" className={ className }>
-        <Skeleton loading boxSize={ 6 } borderRadius="sm"/>
-        <Skeleton loading boxSize={ 6 } borderRadius="sm"/>
+      <Flex columnGap={ 1 } className={ className }>
+        <Skeleton loading boxSize="touchTarget" borderRadius="sm"/>
+        <Skeleton loading boxSize="touchTarget" borderRadius="sm"/>
       </Flex>
     );
   }
@@ -41,7 +41,9 @@ const PrevNext = ({ className, onClick, prevLabel, nextLabel, isPrevDisabled, is
           aria-label="prev"
           borderRadius="sm"
           variant="scan_control"
-          boxSize={ 6 }
+          boxSize="touchTarget"
+          minW="touchTarget"
+          minH="touchTarget"
           onClick={ handelPrevClick }
           disabled={ isPrevDisabled }
           data-control="prev"
@@ -54,7 +56,9 @@ const PrevNext = ({ className, onClick, prevLabel, nextLabel, isPrevDisabled, is
           aria-label="next"
           borderRadius="sm"
           variant="scan_control"
-          boxSize={ 6 }
+          boxSize="touchTarget"
+          minW="touchTarget"
+          minH="touchTarget"
           ml={ 1 }
           onClick={ handelNextClick }
           disabled={ isNextDisabled }

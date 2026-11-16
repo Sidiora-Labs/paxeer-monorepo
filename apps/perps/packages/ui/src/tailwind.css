@@ -8,27 +8,34 @@
     inherits: false;
     initial-value: 0deg;
   }
+
   @keyframes angleRotateChange {
-    0% {
+    from {
       --gradientAngle: 0deg;
     }
-    100% {
+    to {
       --gradientAngle: 360deg;
     }
   }
+
   .oui-gradient-button::before {
-    transition: var(--gradientAngle) 0.3s linear;
-    animation-name: angleRotateChange;
-    animation-timing-function: cubic-bezier(0, 0, 1, 1);
-    animation-iteration-count: infinite;
-    animation-duration: 5s;
+    animation: angleRotateChange var(--oui-duration-gradient) linear infinite;
     background-image: linear-gradient(
       var(--gradientAngle),
-      #f36fff 10%,
-      #268aff 20%,
-      #52eaea 30%,
+      rgb(var(--oui-color-primary-light)) 10%,
+      rgb(var(--oui-color-primary)) 30%,
       rgb(var(--oui-color-base-9)) 50%,
       rgb(var(--oui-color-base-9)) 100%
     );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: var(--oui-duration-reduced-motion) !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--oui-duration-reduced-motion) !important;
   }
 }

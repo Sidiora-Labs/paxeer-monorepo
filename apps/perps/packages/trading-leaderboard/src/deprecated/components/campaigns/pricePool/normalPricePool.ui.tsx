@@ -1,3 +1,4 @@
+import surface from "../../../../surface.module.css";
 import { FC, useMemo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -50,12 +51,12 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
     }
 
     return (
-      <div className="oui-flex oui-min-w-[240px] oui-flex-col oui-gap-1">
+      <div className="oui-flex oui-min-w-[calc(var(--oui-space-24)*2)] oui-flex-col oui-gap-1">
         {campaign?.prize_pools?.map((pool) => {
           return (
             <div
               key={pool.pool_id}
-              className="oui-flex oui-h-[18px] oui-items-center oui-justify-between"
+              className="oui-flex oui-h-4 oui-items-center oui-justify-between"
             >
               <Text
                 size="2xs"
@@ -91,7 +92,8 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
     <div className="oui-overflow-hidden oui-rounded-2xl oui-border oui-border-solid oui-border-base-contrast/[0.08]">
       <div
         className={cn([
-          "oui-flex oui-items-center oui-gap-4 oui-px-4 oui-py-3 oui-backdrop-blur-[10px]",
+          surface.campaignStatistics,
+          "oui-items-center oui-gap-4 oui-px-4 oui-py-3 oui-backdrop-blur-md",
           isCampaignStarted ? "" : "oui-hidden",
         ])}
       >
@@ -133,7 +135,7 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
       </div>
       <div
         className={cn([
-          "oui-rounded-2xl oui-border oui-border-solid oui-border-base-contrast/[0.08] oui-bg-primary/[0.08] oui-p-4 oui-backdrop-blur-[10px]",
+          "oui-rounded-2xl oui-border oui-border-solid oui-border-base-contrast/[0.08] oui-bg-primary/[0.08] oui-p-4 oui-backdrop-blur-md",
           "oui-flex oui-flex-col oui-gap-4",
           isCampaignStarted ? "" : "oui-border-transparent",
         ])}
@@ -153,14 +155,16 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
                 // @ts-ignore
                 content={tooltipContent}
                 {...tooltipProps}
-                className="oui-max-w-[260px] oui-bg-base-5 oui-px-2 oui-py-1"
+                className="oui-max-w-[calc(var(--oui-space-24)*3)] oui-bg-base-5 oui-px-2 oui-py-1"
               >
-                <div
+                <button
+                  type="button"
+                  aria-label="Prize pool details"
                   className="oui-flex oui-size-4 oui-items-center oui-justify-center"
                   onClick={() => tooltipProps.onOpenChange(true)}
                 >
                   <InfoCircleIcon className="oui-cursor-pointer" />
-                </div>
+                </button>
               </Tooltip>
             </div>
             <div>
@@ -170,8 +174,8 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
                 className={cn([
                   "oui-trading-leaderboard-title",
                   isMobile
-                    ? "oui-text-[20px] oui-leading-[24px]"
-                    : "oui-text-[24px] oui-leading-[28px]",
+                    ? "oui-text-xl oui-leading-normal"
+                    : "oui-text-2xl oui-leading-normal",
                 ])}
               >
                 {totalPrizePool
@@ -202,8 +206,8 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
                   className={cn([
                     "oui-trading-leaderboard-title",
                     isMobile
-                      ? "oui-text-[20px] oui-leading-[24px]"
-                      : "oui-text-[24px] oui-leading-[28px]",
+                      ? "oui-text-xl oui-leading-normal"
+                      : "oui-text-2xl oui-leading-normal",
                   ])}
                 >
                   {formatPrizeAmount(
@@ -218,13 +222,14 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
           )}
         </div>
         {isMobile && campaign?.rule_url && (
-          <div
-            className="-oui-mb-1 -oui-mt-2 oui-flex oui-items-center oui-gap-0.5 oui-text-2xs oui-leading-[15px] oui-text-base-contrast-36"
+          <button
+            type="button"
+            className="-oui-mb-1 -oui-mt-2 oui-flex oui-items-center oui-gap-0.5 oui-text-2xs oui-leading-normal oui-text-base-contrast-36"
             onClick={onLearnMore}
           >
             {t("tradingLeaderboard.viewRules")}
             <ChevronRightIcon size={16} className="oui-text-base-contrast-36" />
-          </div>
+          </button>
         )}
         <div
           className={cn(
@@ -236,11 +241,11 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
             <Button
               size="md"
               variant="outlined"
-              className="oui-flex-1 
-        oui-border-[rgb(var(--oui-gradient-brand-start))] 
-        oui-text-[rgb(var(--oui-gradient-brand-start))] 
-        hover:oui-bg-[rgb(var(--oui-gradient-brand-start))]/[0.08]
-        active:oui-bg-[rgb(var(--oui-gradient-brand-start))]/[0.08]
+              className="oui-flex-1
+        oui-border-primary
+        oui-text-primary
+        hover:oui-bg-primary/[0.08]
+        active:oui-bg-primary/[0.08]
         "
               onClick={onLearnMore}
               fullWidth

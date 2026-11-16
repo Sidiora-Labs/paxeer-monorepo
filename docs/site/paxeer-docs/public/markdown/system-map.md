@@ -1935,10 +1935,10 @@ Site pages: [/sdk](https://docs.paxeer.app/sdk)
 
 Repository references: docs/system/sdk.md
 
-### Perpetuals application
+### Paxeer Xtrades application
 
 Identifier: perps
-Change in 7.0.0: unchanged
+Change in 7.0.0: changed
 
 Directory: apps/perps
 
@@ -1948,19 +1948,19 @@ Build command:
 pnpm --dir apps/perps build
 ```
 
-Build output: apps/perps/.next
+Build output: apps/perps/apps/web/.next-production
 
-Configuration: apps/perps/deploy and package.json
+Configuration: apps/perps/apps/web/next.config.js, apps/perps/deploy and package.json
 
 Ports: 3000
 
-Health check: GET /
+Health check: GET /api/build-id
 
 Depends on: [Paxeer chain node](https://docs.paxeer.app/system-map#system-chain-node)
 
 Site pages: [/perpetuals](https://docs.paxeer.app/perpetuals)
 
-Repository references: docs/site/paxeer-docs/src/app/perpetuals/page.tsx, docs/perps/data-api.md
+Repository references: apps/perps/README.md, docs/site/paxeer-docs/src/app/perpetuals/page.tsx, docs/perps/data-api.md
 
 ### Wallet application
 
@@ -2206,32 +2206,6 @@ Site pages: See repository references.
 Repository references: docs/system/sdk.md
 
 Additional inventory reference: /names (no published site page)
-### Perpetuals application
-
-Identifier: app-perps
-Change in 7.0.0: unchanged
-
-Directory: apps/perps
-
-Build command:
-
-```sh
-pnpm --dir apps/perps build
-```
-
-Build output: apps/perps/.next
-
-Configuration: apps/perps/deploy and package.json
-
-Ports: 3000
-
-Health check: GET /
-
-Depends on: [Paxeer chain node](https://docs.paxeer.app/system-map#system-chain-node)
-
-Site pages: [/perpetuals](https://docs.paxeer.app/perpetuals)
-
-Repository references: docs/perps/data-api.md, docs/site/paxeer-docs/src/app/perpetuals/page.tsx
 
 ## sdk
 

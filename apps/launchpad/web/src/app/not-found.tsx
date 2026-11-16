@@ -2,9 +2,9 @@ import Link from 'next/link';
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 p-8">
+    <div className="flex min-h-[var(--sl-page-min-height)] flex-col items-center justify-center gap-6 p-8">
       <div className="relative">
-        <div className="text-[120px] font-extrabold leading-none text-surface-3 select-none">
+        <div className="text-display font-extrabold leading-none text-surface-3 select-none">
           404
         </div>
         <div className="absolute inset-0 flex items-center justify-center">
@@ -19,7 +19,7 @@ export default function NotFound() {
       </div>
 
       <div className="text-center space-y-2">
-        <h2 className="text-md font-bold text-text">Page not found</h2>
+        <h1 className="text-md font-bold text-text">Page not found</h1>
         <p className="text-xs text-text-faint max-w-xs">
           We couldn't find that page
         </p>
@@ -27,7 +27,7 @@ export default function NotFound() {
 
       <Link
         href="/"
-        className="px-6 py-2.5 rounded-xl bg-accent-soft text-accent font-bold text-sm hover:bg-accent-soft-strong transition-all active:scale-[0.97]"
+        className="inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center px-6 py-2.5 rounded-xl bg-accent-soft text-accent font-bold text-sm hover:bg-accent-soft-strong transition-all active:scale-[0.97]"
       >
         Go home
       </Link>

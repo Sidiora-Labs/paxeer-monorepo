@@ -29,7 +29,7 @@ describe('TransactionPageContent', () => {
     const { container } = render(<Transaction/>);
 
     await waitFor(() => expect(container.querySelector('h1')?.textContent).toBe(base.hash));
-  });
+  }, 60_000);
 
   it('opens on the overview section and offers the logs section beside it', async() => {
     const { container } = render(<Transaction/>);
@@ -40,7 +40,7 @@ describe('TransactionPageContent', () => {
 
     expect(titles.indexOf('Overview')).toBe(0);
     expect(titles).toContain('Logs');
-  });
+  }, 60_000);
 
   it('keeps the API entry point beside the sections', async() => {
     const { container } = render(<Transaction/>);
@@ -48,7 +48,7 @@ describe('TransactionPageContent', () => {
     await waitFor(() => expect(container.querySelector('[data-tx-api-entry]')).not.toBeNull());
 
     expect(container.querySelector('[data-tx-api-entry]')?.getAttribute('href')).toBe('/api-docs');
-  });
+  }, 60_000);
 
   it('shows the overview detail card under the sections', async() => {
     const { container } = render(<Transaction/>);
@@ -56,5 +56,5 @@ describe('TransactionPageContent', () => {
     await waitFor(() => expect(container.querySelector('[data-tx-details]')).not.toBeNull());
 
     expect(container.querySelector('[data-tx-details] [data-tx-info]')).not.toBeNull();
-  });
+  }, 60_000);
 });

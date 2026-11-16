@@ -86,7 +86,15 @@ pub(super) fn replica(
         .find(|key| key.public_key() == public_key)
         .copied()
         .ok_or(EvidenceRefusal::SequencerKey)?;
-    let evidence = parse_replica_evidence(document, config.replica_id, authorization.public_key())?;
+    let evidence = parse_replica_evidence(
+        document,
+        config
+            .replica
+            .as_ref()
+            .ok_or(EvidenceRefusal::ReplicaIdentity)?
+            .id,
+        authorization.public_key(),
+    )?;
     let header = layerx_wire::receipt::decode_batch_header(&evidence.header)
         .map_err(|_| EvidenceRefusal::SequencerKey)?;
     if header.network_id() != config.protocol_network_id

@@ -31,7 +31,7 @@ const AddressTagListItem = ({ item, onEditClick, onDeleteClick, isLoading }: Pro
         <AddressEntity
           address={ item.address }
           isLoading={ isLoading }
-          fontWeight="600"
+          fontWeight="semibold"
           w="100%"
         />
         <HStack gap={ 3 } mt={ 4 }>

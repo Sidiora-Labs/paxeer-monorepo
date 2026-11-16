@@ -2,9 +2,11 @@ defmodule BlockScoutWeb.TestApiSchemaAssertions do
   @moduledoc """
   Validates API JSON responses against their OpenAPI operation and response schema.
 
-  Non-API web routes are outside this contract. The exact `/api` and `/api/`
+  Non-API web routes and the separately typed GraphQL endpoint are outside this contract.
+  The exact `/api`, `/api/`, `/api/v1` and `/api/v1/`
   legacy RPC entry points intentionally use the RPC tests' action-specific schemas;
-  they have no single OpenAPI response shape. No v2 or account route is exempt.
+  they have no single OpenAPI response shape. Router catch-all rejections have no declared operation.
+  Every declared REST operation is checked.
   Missing declarations and ambiguous route templates fail the calling test.
   """
 
@@ -16,7 +18,7 @@ defmodule BlockScoutWeb.TestApiSchemaAssertions do
   def json_response(%Plug.Conn{} = conn, status_code) when is_integer(status_code) do
     json = Phoenix.ConnTest.json_response(conn, status_code)
 
-    if covered_path?(conn.request_path) do
+    if covered_path?(conn.request_path) and declared_route?(conn) do
       assert_response_schema(conn, status_code, json, [
         BlockScoutWeb.Specs.Public.spec(),
         BlockScoutWeb.Specs.Private.spec()
@@ -46,6 +48,22 @@ defmodule BlockScoutWeb.TestApiSchemaAssertions do
     OpenApiSpex.TestAssertions.assert_raw_schema(json, schema, spec)
   end
 
+  defp declared_route?(%Plug.Conn{private: %{phoenix_router: router}} = conn) do
+    {prefix, _forwards} = Map.fetch!(conn.private, router)
+    path = "/" <> Enum.join(Enum.drop(conn.path_info, length(prefix)), "/")
+
+    case Phoenix.Router.route_info(router, conn.method, path, conn.host) do
+      %{plug: BlockScoutWeb.API.V2.FallbackController} -> false
+      _ -> true
+    end
+  end
+
+  defp declared_route?(_conn), do: true
+
+  defp covered_path?("/api/v1"), do: false
+  defp covered_path?("/api/v1/"), do: false
+  defp covered_path?("/api/v1/graphql"), do: false
+  defp covered_path?("/api/v1/graphql/" <> _), do: false
   defp covered_path?(path), do: String.starts_with?(path, "/api/") and path != "/api/"
 
   defp strip_api_prefix("/api/" <> rest), do: "/" <> rest

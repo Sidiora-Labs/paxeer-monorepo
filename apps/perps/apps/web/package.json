@@ -8,7 +8,7 @@
     "start": "PAXEER_NETWORK_BUILD_DIR=.next-production next start -p 3000"
   },
   "dependencies": {
-    "next": "15.5.27",
+    "next": "15.5.28",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "wagmi": "2.19.5",
@@ -32,6 +32,7 @@
     "react-resizable": "3.1.3",
     "@paxeer-network/default-evm-adapter": "workspace:*",
     "@wagmi/core": "^2.22.1",
+    "@sentry/nextjs": "11.12.0",
     "@sidioralabs/chainflow-data-gateway": "workspace:*"
   }
 }

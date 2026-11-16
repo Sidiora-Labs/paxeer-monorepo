@@ -26,7 +26,7 @@ const emptyBody: Record<BountyTab, string> = {
   mine: 'Bounties you create show up here',
 };
 
-const gridClass = 'grid grid-cols-1 gap-4 min-[900px]:grid-cols-2 xl:grid-cols-3';
+const gridClass = 'grid grid-cols-1 gap-4 mmd:grid-cols-2 xl:grid-cols-3';
 
 function SkeletonGrid({ count = 6 }: { count?: number }) {
   return (

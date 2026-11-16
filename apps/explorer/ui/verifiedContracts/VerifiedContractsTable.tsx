@@ -9,6 +9,7 @@ import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeaderSti
 import { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
 import getNextSortValue from 'ui/shared/sort/getNextSortValue';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import { ResponsiveTableRegion } from 'ui/token/ResponsiveTableRegion';
 import { SORT_SEQUENCE } from 'ui/verifiedContracts/utils';
 
 import VerifiedContractsTableItem from './VerifiedContractsTableItem';
@@ -30,51 +31,53 @@ const VerifiedContractsTable = ({ data, sort, setSorting, isLoading }: Props) =>
   }, [ sort, setSorting ]);
 
   return (
-    <TableRoot minW="1100px">
-      <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP }>
-        <TableRow>
-          { chainData && <TableColumnHeader width="38px"/> }
-          <TableColumnHeader width="50%">Contract</TableColumnHeader>
-          <TableColumnHeaderSortable
-            width="130px"
-            isNumeric
-            sortField="balance"
-            sortValue={ sort }
-            onSortToggle={ onSortToggle }
-            disabled={ isLoading }
-          >
-            Balance { currencyUnits.ether }
-          </TableColumnHeaderSortable>
-          <TableColumnHeaderSortable
-            width="130px"
-            isNumeric
-            sortField="transactions_count"
-            sortValue={ sort }
-            onSortToggle={ onSortToggle }
-            disabled={ isLoading }
-          >
-            Txs
-          </TableColumnHeaderSortable>
-          <TableColumnHeader width="50%">Language / Compiler version</TableColumnHeader>
-          <TableColumnHeader width="80px">Settings</TableColumnHeader>
-          <TableColumnHeader width="200px">
-            Verified
-            <TimeFormatToggle/>
-          </TableColumnHeader>
-          <TableColumnHeader width="130px">License</TableColumnHeader>
-        </TableRow>
-      </TableHeaderSticky>
-      <TableBody>
-        { data.map((item, index) => (
-          <VerifiedContractsTableItem
-            key={ item.address.hash + (isLoading ? index : '') }
-            data={ item }
-            isLoading={ isLoading }
-            chainData={ chainData }
-          />
-        )) }
-      </TableBody>
-    </TableRoot>
+    <ResponsiveTableRegion label="Verified contracts" minWidth="6xl">
+      <TableRoot minW="6xl">
+        <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP }>
+          <TableRow>
+            { chainData && <TableColumnHeader width="9"/> }
+            <TableColumnHeader width="50%">Contract</TableColumnHeader>
+            <TableColumnHeaderSortable
+              width="32"
+              isNumeric
+              sortField="balance"
+              sortValue={ sort }
+              onSortToggle={ onSortToggle }
+              disabled={ isLoading }
+            >
+              Balance { currencyUnits.ether }
+            </TableColumnHeaderSortable>
+            <TableColumnHeaderSortable
+              width="32"
+              isNumeric
+              sortField="transactions_count"
+              sortValue={ sort }
+              onSortToggle={ onSortToggle }
+              disabled={ isLoading }
+            >
+              Txs
+            </TableColumnHeaderSortable>
+            <TableColumnHeader width="50%">Language / Compiler version</TableColumnHeader>
+            <TableColumnHeader width="20">Settings</TableColumnHeader>
+            <TableColumnHeader width="48">
+              Verified
+              <TimeFormatToggle/>
+            </TableColumnHeader>
+            <TableColumnHeader width="32">License</TableColumnHeader>
+          </TableRow>
+        </TableHeaderSticky>
+        <TableBody>
+          { data.map((item, index) => (
+            <VerifiedContractsTableItem
+              key={ item.address.hash + (isLoading ? index : '') }
+              data={ item }
+              isLoading={ isLoading }
+              chainData={ chainData }
+            />
+          )) }
+        </TableBody>
+      </TableRoot>
+    </ResponsiveTableRegion>
   );
 };
 

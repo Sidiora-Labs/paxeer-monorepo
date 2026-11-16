@@ -33,8 +33,8 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
 
   setup do
     Explorer.TestHelper.start_migration_owner!()
-    assert :ok = Ecto.Migrator.down(Repo, @version, RelaxPaxeerXPriceObservationAccepted, log: false)
-    assert :ok = Ecto.Migrator.down(Repo, @queue_version, BackfillPaxeerXPriceAcceptance, log: false)
+    down_migration(@version, RelaxPaxeerXPriceObservationAccepted)
+    down_migration(@queue_version, BackfillPaxeerXPriceAcceptance)
 
     body = fixture("block_txs.json")
     results = refuse_market(fixture("block_results.json")["txs_results"], 2)
@@ -50,8 +50,9 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
       Repo.delete_all(from(b in Block, where: b.hash == ^block.hash))
       Repo.delete_all(from(s in PriceFeedScannedBlock, where: s.block_number == @height))
       LastFetchedCounter.delete("paxeer_x_price_update_total")
-      Ecto.Migrator.up(Repo, @version, RelaxPaxeerXPriceObservationAccepted, log: false)
-      Ecto.Migrator.up(Repo, @queue_version, BackfillPaxeerXPriceAcceptance, log: false)
+      up_migration(@queue_version, BackfillPaxeerXPriceAcceptance)
+      up_migration(@version, RelaxPaxeerXPriceObservationAccepted)
+      Ecto.Adapters.SQL.Sandbox.mode(Repo, :auto)
     end)
 
     %{block: block, transactions: transactions, results: results, update: update}
@@ -105,6 +106,14 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
                """,
                [@height]
              )
+  end
+
+  defp down_migration(version, migration) do
+    assert Ecto.Migrator.down(Repo, version, migration, log: false) in [:ok, :already_down]
+  end
+
+  defp up_migration(version, migration) do
+    assert Ecto.Migrator.up(Repo, version, migration, log: false) in [:ok, :already_up]
   end
 
   defp accepted_column do

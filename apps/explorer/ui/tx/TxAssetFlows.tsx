@@ -7,11 +7,12 @@ import type { PaginationParams } from 'ui/shared/pagination/types';
 import useApiQuery from 'lib/api/useApiQuery';
 import { NOVES_TRANSLATE } from 'stubs/noves/NovesTranslate';
 import { Skeleton } from 'toolkit/chakra/skeleton';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import ActionBar from 'ui/shared/ActionBar';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import Pagination from 'ui/shared/pagination/Pagination';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import TxAssetFlowsListItem from './assetFlows/TxAssetFlowsListItem';
 import TxAssetFlowsTableItem from './assetFlows/TxAssetFlowsTableItem';
@@ -52,17 +53,23 @@ export default function TxAssetFlows(props: FlowViewProps) {
 
   const actionBar = (
     <ActionBar mt={ -6 } pb={{ base: 6, md: 5 }} flexDir={{ base: 'column', md: 'initial' }} gap={{ base: '2', md: 'initial' }} >
-      <Box display="flex" alignItems="center" gap={ 1 }>
+      <Box display="flex" alignItems="center" flexWrap="wrap" minW={ 0 } maxW="full" gap={ 1 }>
         <Skeleton borderRadius="sm" loading={ isPlaceholderData } >
-          <Text fontWeight="400" mr={ 1 }>
+          <Text fontWeight="normal" mr={ 1 }>
             Wallet
           </Text>
         </Skeleton>
 
         <AddressEntity
           address={{ hash: queryData?.accountAddress || '' }}
-          fontWeight="400"
+          fontWeight="normal"
           truncation="dynamic"
+          minW={ 0 }
+          maxW="full"
+          css={{
+            '& [data-entity-content]': { minW: 0, whiteSpace: 'normal', overflowWrap: 'anywhere' },
+            '& button': { minW: 'touchTarget', minH: 'touchTarget' },
+          }}
           isLoading={ isPlaceholderData }
         />
       </Box>
@@ -83,13 +90,13 @@ export default function TxAssetFlows(props: FlowViewProps) {
       </Box>
 
       <Box hideBelow="lg">
-        <TableRoot>
-          <TableHeaderSticky top={ 75 }>
+        <ActivityTable label="Asset flows">
+          <TableHeaderSticky>
             <TableRow>
               <TableColumnHeader>
                 Actions
               </TableColumnHeader>
-              <TableColumnHeader width="450px">
+              <TableColumnHeader width="var(--chakra-spacing-100)">
                 From/To
               </TableColumnHeader>
             </TableRow>
@@ -103,7 +110,7 @@ export default function TxAssetFlows(props: FlowViewProps) {
               />
             )) }
           </TableBody>
-        </TableRoot>
+        </ActivityTable>
       </Box>
     </>
   );

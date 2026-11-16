@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useState } from 'react';
 import { Hexagon, Wallet } from 'lucide-react';
 import { CountPill, DisclosureRow, ShortAddress, Skeleton, UnavailableState } from '@/ui/primitives';
@@ -47,7 +48,7 @@ export default function WalletsExpander({ wallet, isOwner, className }: WalletsE
               <Hexagon aria-hidden="true" className="size-icon-sm text-accent" />
               <span className="sr-only">Paxeer network</span>
             </span>
-            {owner && links.isPending ? <Skeleton variant="pill" width={28} height={20} /> : <CountPill count={wallets.length} label={wallets.length === 1 ? 'wallet' : 'wallets'} />}
+            {owner && links.isPending ? <Skeleton variant="pill" width={surfaceSpacing(7)} height={surfaceSpacing(5)} /> : <CountPill count={wallets.length} label={wallets.length === 1 ? 'wallet' : 'wallets'} />}
           </span>
         )}
       >

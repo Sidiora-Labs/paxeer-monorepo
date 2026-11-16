@@ -43,7 +43,7 @@ export default function AuthCallbackPage() {
     : auto.error || timedOut || paxeer.authError ? "Couldn't finish signing in. Request a new link and try again" : null;
 
   return (
-    <div className="flex min-h-[60vh] items-center justify-center px-4">
+    <div className="flex min-h-[var(--sl-page-min-height)] items-center justify-center px-4">
       <div className="w-full max-w-modal-width-sm rounded-lg bg-surface-1 p-6 text-center" role="status" aria-live="polite">
         <h1 className="text-sm font-bold text-text">{failed ? "Couldn't sign you in" : 'Finishing sign-in'}</h1>
         <p className="mt-2 text-xs text-text-muted">{message ?? (auto.connecting ? 'Connecting your wallet...' : 'Signing you in...')}</p>

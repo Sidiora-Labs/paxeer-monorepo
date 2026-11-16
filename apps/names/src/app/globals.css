@@ -270,7 +270,6 @@
   }
 
   .shell {
-    container-type: inline-size;
     min-block-size: 100dvh;
     display: grid;
     grid-template-rows: auto 1fr auto;
@@ -382,7 +381,7 @@
     min-inline-size: 0;
     display: grid;
     gap: var(--space-5);
-    padding: clamp(var(--space-6), 4cqi, var(--space-9));
+    padding: clamp(var(--space-6), 4vw, var(--space-9));
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
@@ -477,6 +476,7 @@
   .status {
     display: flex;
     align-items: flex-start;
+    min-block-size: calc(1lh + (var(--space-4) * 2) + (var(--border-width) * 2));
     gap: var(--space-3);
     padding: var(--space-4);
     border: var(--border-width) solid var(--color-border);
@@ -501,8 +501,8 @@
 
   .status-icon {
     flex: 0 0 auto;
-    inline-size: var(--space-5);
-    block-size: var(--space-5);
+    inline-size: 1lh;
+    block-size: 1lh;
   }
 
   .facts {
@@ -563,7 +563,7 @@
     display: none !important;
   }
 
-  @container (min-width: 42rem) {
+  @media (min-width: 42rem) {
     .surface-grid {
       grid-template-columns: minmax(0, 1.15fr) minmax(16rem, 0.85fr);
       align-items: start;

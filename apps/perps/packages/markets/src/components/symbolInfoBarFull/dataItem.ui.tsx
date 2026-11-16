@@ -1,5 +1,12 @@
 import React from "react";
-import { cn, Flex, Tooltip, Text } from "@paxeer-network/ui";
+import {
+  Flex,
+  PopoverRoot,
+  PopoverTrigger,
+  PopoverContent,
+  Text,
+} from "@paxeer-network/ui";
+import styles from "../../presentation.module.css";
 
 interface DataItemProps {
   label: string;
@@ -7,40 +14,39 @@ interface DataItemProps {
   hint?: React.ReactNode;
 }
 
-export const DataItem: React.FC<DataItemProps> = (props) => {
-  const { label, value, hint } = props;
-  return (
-    <Flex direction="column" itemAlign="start">
-      <Tooltip
-        open={hint ? undefined : false}
-        content={hint}
-        className="oui-max-w-[330px] oui-bg-base-6 "
-        arrow={{ className: "oui-fill-base-6" }}
-        delayDuration={300}
-      >
-        <Text
-          size="2xs"
-          intensity={36}
-          className={cn(
-            "oui-data-label",
-            "oui-whitespace-nowrap oui-break-normal",
-            hint &&
-              "oui-cursor-pointer oui-border-b oui-border-dashed oui-border-line-12",
-          )}
+export const DataItem: React.FC<DataItemProps> = ({ label, value, hint }) => (
+  <Flex direction="column" itemAlign="start">
+    {hint ? (
+      <PopoverRoot>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="oui-data-label oui-border-b oui-border-dashed oui-border-line-12 oui-text-2xs oui-text-base-contrast-80 oui-whitespace-nowrap"
+          >
+            {label}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          className={`${styles.surface} oui-w-80 oui-max-w-[calc(100vw-var(--oui-space-6))] oui-max-h-[var(--radix-popover-content-available-height)] oui-overflow-auto oui-bg-base-6`}
         >
-          {label}
-        </Text>
-      </Tooltip>
+          {hint}
+        </PopoverContent>
+      </PopoverRoot>
+    ) : (
       <Text
         size="2xs"
-        intensity={98}
-        className={cn(
-          "oui-data-value",
-          "oui-whitespace-nowrap oui-break-normal oui-leading-[20px]",
-        )}
+        intensity={80}
+        className="oui-data-label oui-whitespace-nowrap"
       >
-        {value}
+        {label}
       </Text>
-    </Flex>
-  );
-};
+    )}
+    <Text
+      size="2xs"
+      intensity={98}
+      className="oui-data-value oui-whitespace-nowrap oui-break-normal oui-leading-normal"
+    >
+      {value}
+    </Text>
+  </Flex>
+);

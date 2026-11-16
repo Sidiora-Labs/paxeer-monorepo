@@ -73,6 +73,7 @@ function SpendSection({ agent }: Readonly<{ agent: Agent }>) {
 
 type AgentDetailProps = Readonly<{
   agentId: string;
+  initialAgent?: Agent;
   ownerAccount?: string;
   embedded?: boolean;
   onChanged?: () => void;
@@ -92,6 +93,7 @@ export function AgentDetailScreen(props: AgentDetailProps) {
 
 function AgentDetailContent({
   agentId,
+  initialAgent,
   ownerAccount: accountId,
   embedded = false,
   onChanged,
@@ -100,15 +102,17 @@ function AgentDetailContent({
   const shell = useAgentsShell();
   const agents = useMemo(() => new Agents(), []);
   const request = useRef(0);
-  const [agent, setAgent] = useState<Agent | undefined>(undefined);
+  const [agent, setAgent] = useState<Agent | undefined>(initialAgent);
   const [creation, setCreation] = useState<JourneyProgress | undefined>(undefined);
   const [loadError, setLoadError] = useState<unknown>(undefined);
   const [offline, setOffline] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialAgent === undefined);
 
   const load = useCallback(async () => {
     const current = ++request.current;
-    setLoading(true);
+    if (initialAgent === undefined) {
+      setLoading(true);
+    }
     setLoadError(undefined);
     setOffline(false);
     try {
@@ -138,7 +142,7 @@ function AgentDetailContent({
         setLoading(false);
       }
     }
-  }, [agentId, agents]);
+  }, [agentId, agents, initialAgent]);
 
   useEffect(() => {
     void load();
@@ -160,7 +164,7 @@ function AgentDetailContent({
   }, [creation, load]);
 
   if (loading && agent === undefined) {
-    return <LoadingSurface />;
+    return <LoadingSurface className="human-agent-loading" />;
   }
   if (agent === undefined && offline) {
     return <OfflineSurface onRetry={() => { void load(); }} />;
@@ -179,7 +183,7 @@ function AgentDetailContent({
 
   const presentation = agentPresentation(agent);
   return (
-    <ScreenCard landmark="section" title={agent.name}>
+    <ScreenCard landmark="section" title={agent.name} className="human-agent-loading">
       <div className="flex items-center gap-3">
         <Badge variant={presentation.tone}>{presentation.label}</Badge>
       </div>

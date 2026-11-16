@@ -83,6 +83,9 @@ const TransactionsZetaChain = () => {
 
     return (
       <ActionBar
+        w="100%"
+        mx={ 0 }
+        px={ 0 }
         mt={ -6 }
         display={{ base: pagination?.isVisible ? 'flex' : 'none', lg: 'flex' }}
         justifyContent="end"

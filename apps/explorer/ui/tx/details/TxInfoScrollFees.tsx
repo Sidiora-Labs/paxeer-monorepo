@@ -5,10 +5,10 @@ import type { Transaction } from 'types/api/transaction';
 
 import { layerLabels } from 'lib/rollups/utils';
 import { Skeleton } from 'toolkit/chakra/skeleton';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoNativeCoinValue from 'ui/shared/DetailedInfo/DetailedInfoNativeCoinValue';
 import TextSeparator from 'ui/shared/TextSeparator';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 type Props = {
   data: Transaction;
@@ -101,26 +101,26 @@ export const TxInfoScrollFees = ({ data, isLoading }: Props) => {
           <DetailedInfo.ItemValue>
             { data.scroll?.l1_base_fee !== undefined && (
               <Skeleton loading={ isLoading }>
-                <Text as="span" fontWeight="500">Base: </Text>
+                <Text as="span" fontWeight="medium">Base: </Text>
                 <NativeCoinValue
                   amount={ String(data.scroll?.l1_base_fee || 0) }
                   units="gwei"
                   unitsTooltip="wei"
                   noSymbol
-                  fontWeight="600"
+                  fontWeight="semibold"
                 />
               </Skeleton>
             ) }
             { data.scroll?.l1_fee_scalar !== undefined && (
               <Skeleton loading={ isLoading }>
                 <TextSeparator/>
-                <Text as="span" fontWeight="500">Scalar: </Text>
+                <Text as="span" fontWeight="medium">Scalar: </Text>
                 <NativeCoinValue
                   amount={ String(data.scroll?.l1_fee_scalar || 0) }
                   units="gwei"
                   unitsTooltip="wei"
                   noSymbol
-                  fontWeight="600"
+                  fontWeight="semibold"
                 />
               </Skeleton>
             ) }
@@ -138,26 +138,26 @@ export const TxInfoScrollFees = ({ data, isLoading }: Props) => {
           <DetailedInfo.ItemValue>
             { data.scroll?.l1_blob_base_fee !== undefined && (
               <Skeleton loading={ isLoading }>
-                <Text as="span" fontWeight="500">Base: </Text>
+                <Text as="span" fontWeight="medium">Base: </Text>
                 <NativeCoinValue
                   amount={ String(data.scroll?.l1_blob_base_fee || 0) }
                   units="gwei"
                   unitsTooltip="wei"
                   noSymbol
-                  fontWeight="600"
+                  fontWeight="semibold"
                 />
               </Skeleton>
             ) }
             { data.scroll?.l1_fee_blob_scalar !== undefined && (
               <Skeleton loading={ isLoading }>
                 <TextSeparator/>
-                <Text as="span" fontWeight="500">Scalar: </Text>
+                <Text as="span" fontWeight="medium">Scalar: </Text>
                 <NativeCoinValue
                   amount={ String(data.scroll?.l1_fee_blob_scalar || 0) }
                   units="gwei"
                   unitsTooltip="wei"
                   noSymbol
-                  fontWeight="600"
+                  fontWeight="semibold"
                 />
               </Skeleton>
             ) }

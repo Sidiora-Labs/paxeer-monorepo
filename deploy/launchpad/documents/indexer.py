@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from common import FileDocument
+
 
 class DocumentError(ValueError):
     """The indexer values do not describe a complete startup document set."""
@@ -226,18 +228,44 @@ def _lifecycle(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _rendered_document(data: dict[str, Any], values: Path, name: str) -> FileDocument | None:
+    file_key = f"{name}_rendered_file"
+    path_key = f"{name}_runtime_path"
+    if file_key not in data and path_key not in data:
+        return None
+    source = _field(data, file_key, str)
+    runtime_path = _field(data, path_key, str)
+    try:
+        raw = (values / source).read_bytes()
+        document = json.loads(raw)
+    except (OSError, ValueError) as exc:
+        raise DocumentError(f"indexer: {file_key} must name a rendered JSON object") from exc
+    if not isinstance(document, dict):
+        raise DocumentError(f"indexer: {file_key} must name a rendered JSON object")
+    return FileDocument(raw, runtime_path)
+
+
 def documents(service: str, values: str | Path) -> dict[str, Any]:
     """Return the indexer's delivery, lifecycle and receipt documents."""
 
     if service != "indexer":
         raise DocumentError(f"{service}: indexer document module received the wrong service")
-    data = _read_values(Path(values))
-    addresses = _roles(data)
-    return {
+    values = Path(values)
+    data = _read_values(values)
+    receipt = _rendered_document(data, values, "receipt")
+    lifecycle = _rendered_document(data, values, "lifecycle")
+    result = {
         "DELIVERY_CONFIG_DOCUMENT": _delivery(data),
-        "INDEXER_LIFECYCLE_CONFIG_DOCUMENT": _lifecycle(data),
-        "INDEXER_RECEIPT_CONFIG_DOCUMENT": _receipt(data, addresses),
     }
+    if receipt is None:
+        result["INDEXER_RECEIPT_CONFIG_DOCUMENT"] = _receipt(data, _roles(data))
+    else:
+        result["INDEXER_RECEIPT_CONFIG_FILE"] = receipt
+    if lifecycle is None:
+        result["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"] = _lifecycle(data)
+    else:
+        result["INDEXER_LIFECYCLE_CONFIG_FILE"] = lifecycle
+    return result
 
 
 compose = documents

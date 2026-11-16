@@ -1,4 +1,4 @@
-import { chakra, Code, createListCollection } from '@chakra-ui/react';
+import { Box, chakra, Code, createListCollection, VisuallyHidden } from '@chakra-ui/react';
 import React from 'react';
 import { useFormContext } from 'react-hook-form';
 
@@ -19,6 +19,7 @@ interface Props {
 }
 
 const ContractVerificationFieldCompiler = ({ isVyper, isStylus, config }: Props) => {
+  const compilerLabelId = React.useId();
   const [ isNightly, setIsNightly ] = React.useState(false);
   const { formState, getValues, resetField } = useFormContext<FormFields>();
 
@@ -76,13 +77,17 @@ const ContractVerificationFieldCompiler = ({ isVyper, isStylus, config }: Props)
 
   return (
     <ContractVerificationFormRow>
-      <FormFieldSelectAsync<FormFields, 'compiler'>
-        name="compiler"
-        placeholder="Compiler"
-        loadOptions={ loadOptions }
-        extraControls={ extraControls }
-        required
-      />
+      <Box minW={ 0 }>
+        <VisuallyHidden id={ compilerLabelId }>Compiler</VisuallyHidden>
+        <FormFieldSelectAsync<FormFields, 'compiler'>
+          name="compiler"
+          placeholder="Compiler"
+          ids={{ label: compilerLabelId }}
+          loadOptions={ loadOptions }
+          extraControls={ extraControls }
+          required
+        />
+      </Box>
       { isVyper || isStylus ? null : (
         <chakra.div>
           <span >The compiler version is specified in </span>

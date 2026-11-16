@@ -18,6 +18,7 @@ export function AdditionalConfigButton(props: AdditionalInfoProps) {
           onClick={() => {
             setOpen(true);
           }}
+          type="button"
         >
           <svg
             width="16"

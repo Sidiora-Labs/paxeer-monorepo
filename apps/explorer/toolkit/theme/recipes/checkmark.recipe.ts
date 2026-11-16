@@ -8,7 +8,7 @@ export const recipe = defineRecipe({
     justifyContent: 'center',
     flexShrink: '0',
     color: 'white',
-    borderWidth: '2px',
+    borderWidth: 'var(--chakra-border-widths-2)',
     borderColor: 'transparent',
     focusVisibleRing: 'outside',
     _icon: {
@@ -22,11 +22,11 @@ export const recipe = defineRecipe({
     size: {
       xs: {
         boxSize: '3',
-        borderRadius: '2px',
+        borderRadius: 'var(--chakra-radii-indicator)',
       },
       sm: {
         boxSize: '4',
-        borderRadius: '2px',
+        borderRadius: 'var(--chakra-radii-indicator)',
       },
       md: {
         boxSize: '5',

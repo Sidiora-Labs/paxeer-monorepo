@@ -4,6 +4,7 @@ import React from 'react';
 import getNetworkUtilizationParams from 'lib/networks/getNetworkUtilizationParams';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { mdash } from 'toolkit/utils/htmlEntities';
+import { getNetworkUtilizationColor } from 'ui/blocks/networkUtilizationColors';
 
 interface Props {
   percentage: number;
@@ -11,12 +12,12 @@ interface Props {
 }
 
 const GasTrackerNetworkUtilization = ({ percentage, isLoading }: Props) => {
-  const { load, color } = getNetworkUtilizationParams(percentage);
+  const { load } = getNetworkUtilizationParams(percentage);
 
   return (
     <Skeleton loading={ isLoading } whiteSpace="pre-wrap">
       <span>Network utilization </span>
-      <chakra.span color={ color }>{ percentage.toFixed(2) }% { mdash } { load } load</chakra.span>
+      <chakra.span color={ getNetworkUtilizationColor(load) }>{ percentage.toFixed(2) }% { mdash } { load } load</chakra.span>
     </Skeleton>
   );
 };

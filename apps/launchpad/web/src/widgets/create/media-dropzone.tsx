@@ -64,7 +64,7 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
           id={id}
           type="file"
           accept={MEDIA_TYPES.join(',')}
-          className="sr-only"
+          hidden
           disabled={disabled || busy}
           aria-describedby={error ? errorId : hintId}
           aria-invalid={error ? true : undefined}

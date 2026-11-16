@@ -56,7 +56,7 @@ const ContractVerificationFieldSources = ({ fileTypes, multiple, required, title
   const renderUploadButton = React.useCallback(() => {
     return (
       <VStack gap={ 3 }>
-        <Text fontWeight={ 500 }>{ title }</Text>
+        <Text fontWeight="medium">{ title }</Text>
         <Button size="sm" variant="outline">
           Drop file{ multiple ? 's' : '' } or click here
         </Button>

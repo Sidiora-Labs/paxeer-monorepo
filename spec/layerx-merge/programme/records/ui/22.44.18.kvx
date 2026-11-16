@@ -1,0 +1,950 @@
+[manifest]
+task = "22.44.18"
+surface = "Trading workspace routes, shared controls and responsive presentation"
+
+[guide.css]
+id = "css"
+directories = ["apps/perps/packages/ui/src/tailwind", "apps/perps/apps/web/src/styles"]
+
+[guide.html]
+id = "html"
+directories = ["apps/perps/apps/web/src", "apps/perps/packages/ui"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/perps/packages/ui", "apps/perps/packages/ui-order-entry", "apps/perps/packages/ui-transfer", "apps/perps/packages/portfolio"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/perps/apps/web/src", "apps/perps/packages"]
+
+[guide.color]
+id = "color"
+directories = ["apps/perps/packages/ui/src/tailwind", "apps/perps/apps/web/src/styles", "apps/perps/apps/web/src/theme"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/perps/packages/ui/src/tailwind", "apps/perps/apps/web/src/styles", "apps/perps/packages"]
+
+[guide.dark-mode]
+id = "dark-mode"
+directories = ["apps/perps/apps/web/src/theme", "apps/perps/apps/web/src/styles", "apps/perps/packages/ui/src/tailwind/theme"]
+
+[guide.responsive-design]
+id = "responsive-design"
+directories = ["apps/perps/apps/web/src", "apps/perps/packages"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/perps/packages/ui/src/tailwind", "apps/perps/apps/web/src/styles", "apps/perps/packages"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/perps/apps/web/src", "apps/perps/packages"]
+
+[guide.css-layout]
+id = "css-layout"
+directories = ["apps/perps/packages/ui/src/tailwind", "apps/perps/packages/layout-core", "apps/perps/packages/layout-grid", "apps/perps/packages/layout-split"]
+
+[guide.responsive-table]
+id = "responsive-table"
+directories = ["apps/perps/packages/markets", "apps/perps/packages/portfolio", "apps/perps/packages/ui-orders", "apps/perps/packages/ui-positions"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/perps/packages/ui", "apps/perps/packages/ui-connector", "apps/perps/packages/portfolio", "apps/perps/packages/ui-transfer"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/perps/packages/ui", "apps/perps/packages/ui-scaffold", "apps/perps/packages/markets", "apps/perps/packages/portfolio"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/perps/packages/ui", "apps/perps/packages/markets", "apps/perps/packages/portfolio"]
+
+[guide.scrollability]
+id = "customize-scrollbar-color-and-thickness"
+directories = ["apps/perps/packages/ui/src/tailwind", "apps/perps/apps/web/src/styles"]
+
+
+[view.trade]
+route = "/trade"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.trade-grid]
+route = "/trade/grid"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.trade-orders]
+route = "/trade/orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.trade-positions]
+route = "/trade/positions"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.markets]
+route = "/markets"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio]
+route = "/portfolio"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-positions]
+route = "/portfolio/positions"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-orders]
+route = "/portfolio/orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-assets]
+route = "/portfolio/assets"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-history]
+route = "/portfolio/history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-setting]
+route = "/portfolio/setting"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-fee-tier]
+route = "/portfolio/feeTier"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-api-key]
+route = "/portfolio/apiKey"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.privacy]
+route = "/privacy"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.terms]
+route = "/terms"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.cookies]
+route = "/cookies"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-convert]
+route = "/transfer/convert"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-deposit]
+route = "/transfer/deposit"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-exclusive]
+route = "/transfer/exclusive"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-internal]
+route = "/transfer/internal"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-progress-completed]
+route = "/transfer/progress/completed"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-progress-failed]
+route = "/transfer/progress/failed"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-progress-pending]
+route = "/transfer/progress/pending"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-reverse]
+route = "/transfer/reverse"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-slippage]
+route = "/transfer/slippage"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-swap]
+route = "/transfer/swap"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-wallet]
+route = "/transfer/wallet"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-withdraw]
+route = "/transfer/withdraw"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.transfer-withdraw-account]
+route = "/transfer/withdraw/account"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.vaults]
+route = "/vaults"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.vaults-activity]
+route = "/vaults/activity"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.vaults-deposit]
+route = "/vaults/deposit"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.vaults-list]
+route = "/vaults/list"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.vaults-withdraw]
+route = "/vaults/withdraw"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.affiliate-landing]
+route = "/?view=affiliate-landing"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.affiliate-home]
+route = "/?view=affiliate-home"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.affiliate]
+route = "/?view=affiliate"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.trader]
+route = "/?view=trader"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.multi-affiliate]
+route = "/?view=multi-affiliate"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.multi-affiliate-tab-referees]
+route = "/?view=multi-affiliate&tab=referees"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.multi-affiliate-tab-codes]
+route = "/?view=multi-affiliate&tab=codes"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.multi-trader]
+route = "/?view=multi-trader"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.leaderboard]
+route = "/?view=leaderboard"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.leaderboard-campaign]
+route = "/?view=leaderboard-campaign"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.leaderboard-legacy]
+route = "/?view=leaderboard-legacy"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.rewards]
+route = "/?view=rewards"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.rewards-paused]
+route = "/?view=rewards&epoch=Paused"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.rewards-ended]
+route = "/?view=rewards&epoch=Ended"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.share-desktop]
+route = "/?view=share-desktop"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.share-mobile]
+route = "/?view=share-mobile"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.dialog-create]
+route = "/?view=dialog-create"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.dialog-bind]
+route = "/?view=dialog-bind"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.dialog-fee]
+route = "/?view=dialog-fee"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.dialog-note]
+route = "/?view=dialog-note"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.dialog-edit-code]
+route = "/?view=dialog-edit-code"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.dialog-edit-rate]
+route = "/?view=dialog-edit-rate"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.dialog-share-desktop]
+route = "/?view=dialog-share-desktop"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.dialog-share-mobile]
+route = "/?view=dialog-share-mobile"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.wallet-menu]
+route = "/trade"
+state = "Wallet commands"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.announcements]
+route = "/trade"
+state = "Expanded announcement list"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.chain-selector]
+route = "/trade"
+state = "Network selection"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.language-selector]
+route = "/trade"
+state = "Language selection"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.create-account]
+route = "/trade"
+state = "Create sub-account"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.edit-account]
+route = "/trade"
+state = "Edit sub-account nickname"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.account-summary]
+route = "/trade"
+state = "Account summary settings"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.onboarding]
+route = "/trade"
+state = "Connection and referral form"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.notification]
+route = "/trade"
+state = "Expanded notification"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.home-screen]
+route = "/trade"
+state = "Home screen instructions"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.wallet-picker]
+route = "/trade"
+state = "Wallet connection choices"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.layout-picker]
+route = "/trade"
+state = "Trading panel layout choices"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.qr-scanner]
+route = "/trade"
+state = "QR scanner with camera permission message"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.order-entry]
+route = "/trade"
+state = "Order entry"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.orders-canceled]
+route = "/trade/orders"
+state = "Canceled orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.orders-filled]
+route = "/trade/orders"
+state = "Filled orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.orders-pending]
+route = "/trade/orders"
+state = "Pending orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.orders-rejected]
+route = "/trade/orders"
+state = "Rejected orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.orders-tp-sl]
+route = "/trade/orders"
+state = "TP/SL orders"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.positions-liquidation]
+route = "/trade/positions"
+state = "Liquidation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.positions-history]
+route = "/trade/positions"
+state = "Position history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.leverage-dialog]
+route = "/trade/leverage"
+state = "Leverage dialog"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.tpsl-dialog]
+route = "/trade/tpsl"
+state = "Take profit and stop loss dialog"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-positions-liquidation]
+route = "/portfolio/positions"
+state = "Liquidation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-positions-history]
+route = "/portfolio/positions"
+state = "Position history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-orders-canceled]
+route = "/portfolio/orders"
+state = "Canceled"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-orders-filled]
+route = "/portfolio/orders"
+state = "Filled"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-orders-pending]
+route = "/portfolio/orders"
+state = "Pending"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-orders-rejected]
+route = "/portfolio/orders"
+state = "Rejected"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-orders-tp-sl]
+route = "/portfolio/orders"
+state = "TP/SL"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-history-convert]
+route = "/portfolio/history"
+state = "Convert history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-history-distribution]
+route = "/portfolio/history"
+state = "Distribution"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-history-funding]
+route = "/portfolio/history"
+state = "Funding"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-history-transfer]
+route = "/portfolio/history"
+state = "Transfer history"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-history-vaults]
+route = "/portfolio/history"
+state = "Vaults"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"
+
+[view.portfolio-history-withdrawals]
+route = "/portfolio/history"
+state = "Withdrawals"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, 844]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+text_scales = [1, 2]
+reduced_motion = true
+navigation = "keyboard"

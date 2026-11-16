@@ -1,0 +1,452 @@
+[
+  {
+    "file": "sdk/launchpad/shared/db/client.go",
+    "function": "WithTransaction",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "postgresLease.Release",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "PostgresCoordinatorLock.TryLock",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "ApplyRegisteredMigration",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CaptureRecoverySnapshot",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "ImportLegacyBaseline",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "RecordRuntimeReadiness",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/db/production/numeric.go",
+    "function": "SortRawBalances",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/archive.go",
+    "function": "Archive.Capture",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/archive.go",
+    "function": "Archive.Load",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/archive.go",
+    "function": "Archive.sourceBlock",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/natsdriver/epoch_journal.go",
+    "function": "postgresEpochFenceStore.run",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/ordered_batch.go",
+    "function": "Store.ConsumeOrderedBatch",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/partition.go",
+    "function": "PartitionStore.AppendTx",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/replay.go",
+    "function": "ReplayEngine.Promote",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/replay.go",
+    "function": "ReplayEngine.RollbackAlias",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/replay.go",
+    "function": "ReplayEngine.RunBlock",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/replay.go",
+    "function": "ReplayEngine.Start",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/replay.go",
+    "function": "ReplayEngine.Status",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/replay.go",
+    "function": "ReplayEngine.validateRecoveryTx",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/replay.go",
+    "function": "ReplayEngine.verify",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/replay.go",
+    "function": "Store.ConsumerReplayStatus",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/shadow.go",
+    "function": "Store.BindGenerationPathTx",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/shadow.go",
+    "function": "Store.RecordShadowTx",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/shadow.go",
+    "function": "Store.compareShadowRange",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/shadow.go",
+    "function": "Store.compareShadowTx",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.CheckIngestAdmissionTx",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Consume",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.ConsumeOrderedWithWatermark",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.OriginalEnvelopeTx",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Stats",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.quarantineConsumer",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.Stats",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.claim",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.fail",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/stream.go",
+    "function": "StreamOutboxRelay.markPublished",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/webhook.go",
+    "function": "WebhookBridge.Inspect",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/webhook.go",
+    "function": "WebhookBridge.Retry",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/webhook.go",
+    "function": "WebhookBridge.RunOnce",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/webhook.go",
+    "function": "WebhookBridge.StageTx",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/webhook.go",
+    "function": "WebhookBridge.Stats",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/webhook.go",
+    "function": "WebhookBridge.claim",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "sdk/launchpad/shared/delivery/webhook.go",
+    "function": "WebhookBridge.finish",
+    "reason": "The connected pnl runtime uses ordered inventory consumption, partition fences, portfolio stream appends, outbox relay and schema readiness; this operation belongs to another caller."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/devreads/history.go",
+    "function": "loadTrades",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/devreads/snapshot.go",
+    "function": "indexerCursor",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/devreads/snapshot.go",
+    "function": "loadPositions",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/internaltest/containers.go",
+    "function": "EnsureIndexerSchema",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/internaltest/containers.go",
+    "function": "EnsureMetadataSchema",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/internaltest/containers.go",
+    "function": "EnsureStatsSchema",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/internaltest/containers.go",
+    "function": "newExternalPostgres",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/ledger.go",
+    "function": "ApplyTransferTx",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/measurement.go",
+    "function": "captureInventoryMeasurement",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/measurement.go",
+    "function": "captureInventoryQuarantine",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.Active",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.PublishRebuiltWallet",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.RebuildWallet",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.persistReplayTx",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/service.go",
+    "function": "Service.rebuild",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.AckCardPurge",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.PendingCardEffects",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/cards.go",
+    "function": "Repository.RenderCard",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.Ack",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l17/storage.go",
+    "function": "Repository.Pending",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/attribution.go",
+    "function": "Attribution.Bind",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/authority.go",
+    "function": "PostgresEpochGuard",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/epoch.go",
+    "function": "Ledger.RecordEpochClaim",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/epoch.go",
+    "function": "Ledger.RegisterEpoch",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.Fund",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.Hold",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/ledger.go",
+    "function": "Ledger.RecordCreatorClaim",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "Ledger.Correction",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "Ledger.Liabilities",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "Ledger.RecordAnalytics",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "Ledger.ReviewHold",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/production/l18/settlement.go",
+    "function": "SettlementService.RegisterIntent",
+    "reason": "This standalone storage operation has no caller among the connected pnl routes, workers and startup paths."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/cards.go",
+    "function": "Store.GetCardByShortCode",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/cards.go",
+    "function": "Store.InsertCard",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "Store.FoldTrade",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/positions.go",
+    "function": "upsertPosition",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/reconcile.go",
+    "function": "Store.AdvanceCursor",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/reconcile.go",
+    "function": "Store.ListUnreconciledSwaps",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/referrals.go",
+    "function": "Store.GetSharerStats",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/referrals.go",
+    "function": "Store.LogReferralEvent",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/referrals.go",
+    "function": "Store.ShortCodeExists",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/referrals.go",
+    "function": "Store.ShortCodeForCard",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/referrals.go",
+    "function": "Store.UserHasAnyPosition",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/store.go",
+    "function": "Store.GetMarket",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/store.go",
+    "function": "Store.GetPoolToken",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/store.go",
+    "function": "Store.GetTokenMeta",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  },
+  {
+    "file": "services/launchpad/pnl-tracker/internal/store/store.go",
+    "function": "Store.withXactLock",
+    "reason": "The connected runtime consumes accounting publications and serves production portfolio and reward routes; this operation belongs to development reads, legacy mutation routes or standalone callers."
+  }
+]

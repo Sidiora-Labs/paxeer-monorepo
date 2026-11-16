@@ -1,0 +1,7 @@
+{
+  "activity_id": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+  "event": "payment-1",
+  "receipt_digest": "8198b27f33ea0e13f95ded8da1be3eb4aadb9fa7087c9113ffc88b8e92e3b39b",
+  "verification": "receipt-verified",
+  "settled": true
+}

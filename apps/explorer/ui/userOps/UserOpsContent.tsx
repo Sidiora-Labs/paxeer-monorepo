@@ -1,4 +1,3 @@
-import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import ActionBar, { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
@@ -6,6 +5,7 @@ import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import Pagination from 'ui/shared/pagination/Pagination';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
+import ActivityViews from 'ui/txs/ActivityViews';
 import UserOpsListItem from 'ui/userOps/UserOpsListItem';
 import UserOpsTable from 'ui/userOps/UserOpsTable';
 
@@ -22,8 +22,17 @@ const UserOpsContent = ({ query, showTx = true, showSender = true }: Props) => {
   }
 
   const content = query.data?.items ? (
-    <>
-      <Box hideBelow="lg">
+    <ActivityViews
+      list={ query.data.items.map((item, index) => (
+        <UserOpsListItem
+          key={ item.hash + (query.isPlaceholderData ? String(index) : '') }
+          item={ item }
+          isLoading={ query.isPlaceholderData }
+          showTx={ showTx }
+          showSender={ showSender }
+        />
+      )) }
+      table={ (
         <UserOpsTable
           items={ query.data.items }
           top={ query.pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }
@@ -31,19 +40,8 @@ const UserOpsContent = ({ query, showTx = true, showSender = true }: Props) => {
           showTx={ showTx }
           showSender={ showSender }
         />
-      </Box>
-      <Box hideFrom="lg">
-        { query.data.items.map((item, index) => (
-          <UserOpsListItem
-            key={ item.hash + (query.isPlaceholderData ? String(index) : '') }
-            item={ item }
-            isLoading={ query.isPlaceholderData }
-            showTx={ showTx }
-            showSender={ showSender }
-          />
-        )) }
-      </Box>
-    </>
+      ) }
+    />
   ) : null;
 
   const actionBar = query.pagination.isVisible ? (

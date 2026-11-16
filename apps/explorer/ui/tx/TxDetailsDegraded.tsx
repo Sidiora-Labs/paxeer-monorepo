@@ -8,7 +8,7 @@ import type { Transaction } from 'types/api/transaction';
 import throwOnResourceLoadError from 'lib/errors/throwOnResourceLoadError';
 import { publicClient } from 'lib/web3/client';
 import formatTxData from 'lib/web3/rpc/formatTxData';
-import { GET_BLOCK, GET_TRANSACTION, GET_TRANSACTION_RECEIPT, GET_TRANSACTION_CONFIRMATIONS } from 'stubs/RPC';
+import { GET_TRANSACTION } from 'stubs/RPC';
 import { SECOND } from 'toolkit/utils/consts';
 import ServiceDegradationWarning from 'ui/shared/alerts/ServiceDegradationWarning';
 import TestnetWarning from 'ui/shared/alerts/TestnetWarning';
@@ -64,14 +64,9 @@ const TxDetailsDegraded = ({ hash, txQuery }: Props) => {
 
       return formatTxData(tx, txReceipt, txConfirmations, block);
     },
-    placeholderData: [
-      GET_TRANSACTION,
-      GET_TRANSACTION_RECEIPT,
-      GET_TRANSACTION_CONFIRMATIONS,
-      GET_BLOCK,
-    ],
+    placeholderData: [ GET_TRANSACTION, null, null, null ],
     refetchOnMount: false,
-    enabled: txQuery.isFetchedAfterMount,
+    enabled: Boolean(hash),
     retry: 2,
     retryDelay: 5 * SECOND,
   });
@@ -104,7 +99,7 @@ const TxDetailsDegraded = ({ hash, txQuery }: Props) => {
         <TestnetWarning isLoading={ query.isPlaceholderData }/>
         { originalError?.status !== 404 && <ServiceDegradationWarning isLoading={ query.isPlaceholderData }/> }
       </Flex>
-      <TxInfo data={ query.data } isLoading={ query.isPlaceholderData }/>
+      <TxInfo data={ query.data } isLoading={ query.isPlaceholderData && query.data.status !== null }/>
     </>
   );
 };

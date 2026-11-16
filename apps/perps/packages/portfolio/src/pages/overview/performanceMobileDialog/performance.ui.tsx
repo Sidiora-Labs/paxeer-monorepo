@@ -112,7 +112,7 @@ export const PerformanceMobileUI: React.FC<
           itemAlign="start"
           className="oui-w-1/3 oui-rounded-lg oui-bg-base-7 oui-px-2 oui-py-1.5"
         >
-          <Text className="oui-truncate" intensity={36} size="2xs">
+          <Text className="oui-truncate" intensity={80} size="2xs">
             {t("portfolio.overview.performance.roi", { period: curPeriod })}
           </Text>
           <Text.numeral size="sm" visible={visible} rule="percentages" coloring>
@@ -125,7 +125,7 @@ export const PerformanceMobileUI: React.FC<
           itemAlign="start"
           className="oui-w-1/3 oui-rounded-lg oui-bg-base-7 oui-px-2 oui-py-1.5"
         >
-          <Text className="oui-truncate" intensity={36} size="2xs">
+          <Text className="oui-truncate" intensity={80} size="2xs">
             {t("portfolio.overview.performance.pnl", { period: curPeriod })}
           </Text>
           <Text.numeral size="sm" visible={visible} coloring showIdentifier>
@@ -138,7 +138,7 @@ export const PerformanceMobileUI: React.FC<
           itemAlign="start"
           className="oui-w-1/3 oui-rounded-lg oui-bg-base-7 oui-px-2 oui-py-1.5"
         >
-          <Text className="oui-truncate" intensity={36} size="2xs">
+          <Text className="oui-truncate" intensity={80} size="2xs">
             {t("portfolio.overview.performance.volume", { period: curPeriod })}
           </Text>
           <Text.numeral size="sm" visible={visible} coloring={false}>

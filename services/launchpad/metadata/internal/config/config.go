@@ -16,11 +16,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +49,9 @@ type Config struct {
 	TLSCertFile                    string `env:"METADATA_TLS_CERT_FILE"`
 	TLSKeyFile                     string `env:"METADATA_TLS_KEY_FILE"`
 	TLSClientCAFile                string `env:"METADATA_TLS_CLIENT_CA_FILE"`
+	TLSCertPEM                     string `env:"METADATA_TLS_CERT_PEM"`
+	TLSKeyPEM                      string `env:"METADATA_TLS_KEY_PEM"`
+	TLSClientCAPEM                 string `env:"METADATA_TLS_CLIENT_CA_PEM"`
 	GatewayPublicKeyHex            string `env:"GATEWAY_ASSERTION_PUBLIC_KEY_HEX"`
 	GatewayPeerCertSHA256          string `env:"GATEWAY_PEER_CERT_SHA256"`
 	MetadataSchema                 string `env:"METADATA_SCHEMA" envDefault:"metadata"`
@@ -98,6 +103,7 @@ type Config struct {
 	RuntimeMetricsEnvironment string `env:"METRICS_ENVIRONMENT" envDefault:"production"`
 	RuntimeProfile            string `env:"RUNTIME_PROFILE"`
 	BindAddress               string `env:"BIND_ADDRESS"`
+	PrivateListenAddress      string `env:"METADATA_PRIVATE_LISTEN_ADDRESS"`
 	RuntimeBudgetFile         string `env:"DB_BUDGET_FILE"`
 	RuntimeBudgetSHA256       string `env:"DB_BUDGET_SHA256"`
 	RuntimePoolID             string `env:"DB_POOL_ID"`
@@ -190,6 +196,9 @@ func (c Config) validateStartupDocuments() error {
 // Validate enforces field-level rules beyond presence.
 func (c *Config) Validate() error {
 	var errs []error
+	if c.NodeEnv == productionEnv && c.RuntimeProfile != "" && c.Ingress == IngressMTLS {
+		errs = append(errs, c.validatePrivateListenAddress())
+	}
 
 	if err := requireURL("DATABASE_URL", c.DatabaseURL); err != nil {
 		errs = append(errs, err)
@@ -223,6 +232,18 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (c *Config) validatePrivateListenAddress() error {
+	host, port, err := net.SplitHostPort(c.PrivateListenAddress)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("METADATA_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	privatePort, err := strconv.Atoi(port)
+	if err != nil || privatePort < 1 || privatePort > 65535 || privatePort == c.Port {
+		return fmt.Errorf("METADATA_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	return nil
 }
 
 func requireURL(name, raw string) error {
@@ -261,6 +282,9 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 		bindings["IDENTITY_SERVICE_TOKEN"] = &c.IdentityServiceToken
 	} else {
 		bindings["METADATA_ASSERTION_PRIVATE_KEY_HEX"] = &c.MetadataAssertionPrivateKeyHex
+		if c.TLSKeyFile == "" || c.TLSKeyPEM != "" {
+			bindings["METADATA_TLS_KEY_PEM"] = &c.TLSKeyPEM
+		}
 	}
 	consumed := map[string]string{}
 	for key, target := range bindings {
@@ -529,10 +553,8 @@ func (c Config) ValidateMediaRuntime() error {
 		return fmt.Errorf("metadata_moderation_source_invalid")
 	}
 	if c.Ingress == IngressMTLS {
-		for _, path := range []string{c.TLSCertFile, c.TLSKeyFile, c.TLSClientCAFile} {
-			if !filepath.IsAbs(path) {
-				return fmt.Errorf("metadata_mtls_configuration_missing")
-			}
+		if err := c.ValidateTLSMaterials(); err != nil {
+			return err
 		}
 		if !hex64.MatchString(c.GatewayPublicKeyHex) || !hex64.MatchString(c.GatewayPeerCertSHA256) {
 			return fmt.Errorf("metadata_gateway_authority_missing")
@@ -598,6 +620,30 @@ func (c Config) ValidateMediaRuntime() error {
 		return fmt.Errorf("metadata_media_worker_configuration_invalid")
 	}
 	return nil
+}
+
+// ValidateTLSMaterials requires exactly one source for each listener material.
+func (c Config) ValidateTLSMaterials() error {
+	for _, m := range c.tlsMaterials() {
+		if (m[2] == "") == (m[3] == "") {
+			return fmt.Errorf("metadata_mtls_configuration_missing: exactly one of %s and %s is required", m[0], m[1])
+		}
+		if m[2] != "" && !filepath.IsAbs(m[2]) {
+			return fmt.Errorf("%s must be an absolute path", m[0])
+		}
+		if len(m[3]) > 1<<20 {
+			return fmt.Errorf("%s exceeds the material size limit", m[1])
+		}
+	}
+	return nil
+}
+
+func (c Config) tlsMaterials() [][4]string {
+	return [][4]string{
+		{"METADATA_TLS_CERT_FILE", "METADATA_TLS_CERT_PEM", c.TLSCertFile, c.TLSCertPEM},
+		{"METADATA_TLS_KEY_FILE", "METADATA_TLS_KEY_PEM", c.TLSKeyFile, c.TLSKeyPEM},
+		{"METADATA_TLS_CLIENT_CA_FILE", "METADATA_TLS_CLIENT_CA_PEM", c.TLSClientCAFile, c.TLSClientCAPEM},
+	}
 }
 
 // TrustedProxies parses TRUSTED_PROXY_CIDRS (comma-separated prefixes).

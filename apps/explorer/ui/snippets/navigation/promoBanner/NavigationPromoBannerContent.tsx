@@ -25,18 +25,22 @@ const NavigationPromoBannerContent = ({ isCollapsed, isHorizontalNavigation }: P
       { ...navLinkStyleProps.itemProps }
       minW={ isHorizontalNavigation ? 'auto' : 'full' }
       maxW={ isHorizontalNavigation ? 'auto' : 'full' }
-      w={ isHorizontalNavigation ? 'auto' : '180px' }
+      w={ isHorizontalNavigation ? 'auto' : 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-5))' }
       gap={ 2 }
       overflow="hidden"
       whiteSpace="nowrap"
       py={ isHorizontalNavigation ? 1.5 : 2 }
-      px={ isHorizontalNavigation ? 1.5 : { base: 3, lg: isExpanded ? 3 : '15px', xl: isCollapsed ? '15px' : 3 } }
+      px={ isHorizontalNavigation ? 1.5 : {
+        base: 3,
+        lg: isExpanded ? 3 : 'var(--chakra-spacing-3\\.75)',
+        xl: isCollapsed ? 'var(--chakra-spacing-3\\.75)' : 3,
+      } }
       bgColor={{ _light: promoBanner.bg_color.light, _dark: promoBanner.bg_color.dark }}
     >
       <Image
         src={ promoBanner.img_url }
         alt="Promo banner icon"
-        boxSize={ isHorizontalNavigation ? '20px' : '30px' }
+        boxSize={ isHorizontalNavigation ? 'var(--chakra-spacing-5)' : 'var(--chakra-spacing-7\\.5)' }
       />
       { !isHorizontalNavigation && (
         <Text
@@ -52,19 +56,19 @@ const NavigationPromoBannerContent = ({ isCollapsed, isHorizontalNavigation }: P
   ) : (
     <Box
       position="relative"
-      minH={ isHorizontalNavigation ? 'auto' : '60px' }
+      minH={ isHorizontalNavigation ? 'auto' : 'var(--chakra-spacing-15)' }
     >
       <Image
         src={ promoBanner.img_url.small }
         alt="Promo banner small"
-        boxSize={ isHorizontalNavigation ? '32px' : '60px' }
+        boxSize={ isHorizontalNavigation ? 'var(--chakra-spacing-8)' : 'var(--chakra-spacing-15)' }
         borderRadius={ isHorizontalNavigation ? 'sm' : 'base' }
         position={ isHorizontalNavigation ? undefined : 'absolute' }
-        top={ isHorizontalNavigation ? undefined : 'calc(50% - 30px)' }
-        left={ isHorizontalNavigation ? undefined : 'calc(50% - 30px)' }
+        top={ isHorizontalNavigation ? undefined : 'calc(50% - var(--chakra-spacing-7) - var(--chakra-spacing-1) / 2)' }
+        left={ isHorizontalNavigation ? undefined : 'calc(50% - var(--chakra-spacing-7) - var(--chakra-spacing-1) / 2)' }
         opacity={ isHorizontalNavigation ? 1 : { base: 0, lg: isExpanded ? 0 : 1, xl: isCollapsed ? 1 : 0 } }
         transitionProperty="opacity"
-        transitionDuration="normal"
+        _motionSafe={{ transitionDuration: 'normal' }}
         transitionTimingFunction="ease"
       />
       <Image
@@ -72,12 +76,12 @@ const NavigationPromoBannerContent = ({ isCollapsed, isHorizontalNavigation }: P
         src={ promoBanner.img_url.large }
         alt="Promo banner large"
         w="full"
-        maxW={{ base: 'full', lg: '180px' }}
+        maxW={{ base: 'full', lg: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-5))' }}
         borderRadius="base"
         aspectRatio={ 2 / 1 }
         opacity={{ base: 1, lg: isExpanded ? 1 : 0, xl: isCollapsed ? 0 : 1 }}
         transitionProperty="opacity"
-        transitionDuration="normal"
+        _motionSafe={{ transitionDuration: 'normal' }}
         transitionTimingFunction="ease"
       />
     </Box>

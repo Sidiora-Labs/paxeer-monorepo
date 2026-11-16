@@ -107,6 +107,7 @@ describe('Stats', () => {
 
     expect(container.querySelector('[data-stat="total_blocks"] h2')?.textContent).toBe('Total blocks');
     expect(totalBlocksCounter(container)).toBe('30,215,608');
+    expect(container.querySelector('[data-label="home-stat-tiles"] [data-loading]')).toBeNull();
     expect(container.querySelector('[data-stat="wallet_addresses"] [data-value]')?.textContent).toBe('19,667,249');
     expect(container.querySelector('[data-stat="gas_tracker"] [data-value]')?.textContent).toBe('23.75 Gwei');
   });

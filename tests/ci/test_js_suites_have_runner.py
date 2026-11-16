@@ -494,3 +494,43 @@ def test_js_exclusion_list_entries_exist():
     assert "apps/perps/package.json" in recorded
     assert "tests/integration/rpc_tests/package.json" in recorded
     assert "test:portable" in manifests["tools/codebase-map/package.json"]["scripts"]
+
+
+def test_js_perps_workspace_root_and_local_node_suites():
+    manifests = tracked_manifests()
+    package = "apps/perps/package.json"
+    command = "node --test --import tsx tests/*.test.ts"
+    assert manifests[package]["scripts"]["test"] == command
+    assert command_packages("pnpm test", "apps/perps", manifests) == {package}
+    assert not command_packages("pnpm run build", "apps/perps", manifests)
+    recorded = exclusions()
+    reason = recorded[package]
+    assert command in reason
+    local_suites = {
+        "local-market-config.test.ts": ("LOCAL_NODE_RPC",),
+        "local-spot-token-state.test.ts": ("LOCAL_NODE_RPC",),
+        "local-order-tick.test.ts": (
+            "LOCAL_NODE_RPC",
+            "LOCAL_NODE_KEY",
+            "NEXT_PUBLIC_PERPS_GATEWAY_URL",
+        ),
+        "local-fee-tier.test.ts": (
+            "LOCAL_NODE_RPC",
+            "LOCAL_NODE_KEY",
+            "NEXT_PUBLIC_PERPS_GATEWAY_URL",
+        ),
+    }
+    for filename, variables in local_suites.items():
+        assert filename in reason
+        source = (ROOT / "apps/perps/tests" / filename).read_text()
+        declaration = re.search(r"const ENV_NAMES = \[(.*?)\] as const;", source, re.S)
+        assert declaration, filename
+        assert tuple(re.findall(r'"([^"]+)"', declaration[1])) == variables
+        assert "if (!value) throw new Error(`${name} is not set`)" in source
+        for variable in variables:
+            assert variable in reason
+    wallet_workspace = yaml.safe_load(
+        (ROOT / "services/wallet/pnpm-workspace.yaml").read_text()
+    )
+    assert wallet_workspace["packages"] == ["gateway", "../../sdk/wallet", "demo"]
+    assert "apps/perps" not in recorded["services/wallet/package.json"]

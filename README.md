@@ -90,6 +90,7 @@ make paxeer-test
 
 - [Documentation overview](docs/README.md)
 - [Network reference](docs/readme/NETWORK.md)
+- [Paxeer Xtrades trading workspace](apps/perps/README.md)
 - [Documentation site](docs/site/)
 - [System documentation index](docs/system/INDEX.md), including [chain modules](docs/system/chain-modules.md), [kernel modules](docs/system/kernel-modules.md), [precompiles](docs/system/precompiles.md), [RPC](docs/system/rpc.md), [routes](docs/system/routes.md), [SDK](docs/system/sdk.md), [CLI](docs/system/cli.md), and [governance](docs/system/governance.md)
 

@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import React from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -75,7 +76,9 @@ export const ConvertFormUI: React.FC<ConvertFormProps> = (props) => {
   }
 
   return (
-    <Box className={textVariants({ weight: "semibold" })}>
+    <Box
+      className={`${styles.surface} ${textVariants({ weight: "semibold" })}`}
+    >
       <Box className="oui-mb-6 lg:oui-mb-8">
         <Box mt={3} mb={1}>
           <QuantityInput
@@ -163,7 +166,7 @@ export const ConvertFormUI: React.FC<ConvertFormProps> = (props) => {
         >
           <Flex itemAlign="center" gap={2}>
             <ExclamationFillIcon className="oui-size-4 oui-shrink-0 oui-text-warning-darken" />
-            <Text size="xs" intensity={54}>
+            <Text size="xs" intensity={80}>
               {t("transfer.convert.statusCheckFailed")}
             </Text>
           </Flex>
@@ -246,7 +249,7 @@ export const ConvertProgressStatus: React.FC<{
       direction="column"
       itemAlign="center"
       gap={6}
-      className="oui-w-full oui-px-4 oui-py-6"
+      className={`${styles.surface} oui-w-full oui-px-4 oui-py-6`}
     >
       <Flex itemAlign="center" justify="center" gap={3} className="oui-w-full">
         {isCompleted && (
@@ -277,7 +280,7 @@ export const ConvertProgressStatus: React.FC<{
       <Text
         as="div"
         size="xs"
-        intensity={54}
+        intensity={80}
         className="oui-w-full oui-text-center"
       >
         {description}

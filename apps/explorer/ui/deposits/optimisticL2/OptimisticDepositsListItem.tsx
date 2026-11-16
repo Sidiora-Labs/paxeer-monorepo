@@ -10,8 +10,8 @@ import AddressEntityL1 from 'ui/shared/entities/address/AddressEntityL1';
 import BlockEntityL1 from 'ui/shared/entities/block/BlockEntityL1';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 const rollupFeature = config.features.rollup;
 
@@ -30,7 +30,7 @@ const OptimisticDepositsListItem = ({ item, isLoading }: Props) => {
         <BlockEntityL1
           number={ item.l1_block_number }
           isLoading={ isLoading }
-          fontWeight={ 600 }
+          fontWeight="semibold"
         />
       </ListItemMobileGrid.Value>
 

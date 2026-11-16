@@ -23,7 +23,7 @@ const CloseButtonShowcase = () => {
         <SectionHeader>Size</SectionHeader>
         <SamplesStack>
           <Sample label="size: md">
-            <CloseButton size="md" outline="1px dashed lightpink"/>
+            <CloseButton size="md" outline="var(--chakra-border-widths-1) dashed var(--chakra-colors-hairline)"/>
           </Sample>
         </SamplesStack>
       </Section>

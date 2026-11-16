@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { gatewayOriginConfigured, readGatewayTenant } from "../app/runtime-config.ts";
+import {
+  gatewayOriginConfigured,
+  readGatewayTenant,
+} from "../app/runtime-config.ts";
 
 assert.equal(readGatewayTenant("tenant-01.example"), "tenant-01.example");
 assert.equal(readGatewayTenant(undefined), undefined);
@@ -69,12 +72,103 @@ for (const control of [
   "Sign in with a session token",
   "Sign out",
   "Copy public key",
+  "Issue key",
+  "Rotate",
+  "Revoke",
+  "Copy secret",
+  "This secret is shown once",
+  "No active key holds a request quota.",
 ]) {
   assert.ok(
     source.includes(control),
     `dashboard session control is present: ${control}`,
   );
 }
+for (const scope of [
+  "activity:write",
+  "program:call",
+  "program:read",
+  "program:simulate",
+  "receipt:read",
+  "state:read",
+]) {
+  assert.ok(source.includes(scope), `dashboard key scope is present: ${scope}`);
+}
+assert.match(
+  source,
+  /quota_requests|key-quota-requests/,
+  "key issuance exposes request quota",
+);
+assert.match(
+  source,
+  /quota_window_seconds|key-quota-window/,
+  "key issuance exposes quota window",
+);
+assert.match(
+  source,
+  /<DashboardDialog[\s\S]*title="Revoke this key\?"/,
+  "revoke requires confirmation",
+);
+assert.match(
+  source,
+  /<DashboardDialog[\s\S]*title="Your new key secret"/,
+  "key secret is shown in a dialog",
+);
+const dialogSource = await readFile(
+  new URL("../app/dashboard-dialog.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(
+  dialogSource,
+  /<dialog[\s\S]*aria-labelledby=\{titleId\}/,
+  "key dialogs have native modal semantics and a name",
+);
+assert.match(
+  dialogSource,
+  /element\.showModal\(\)/,
+  "key dialogs open with native focus containment",
+);
+assert.match(
+  dialogSource,
+  /onCancel=[\s\S]*onOpenChange\(false\)/,
+  "Escape requests dialog dismissal",
+);
+assert.match(
+  source,
+  /autoFocus[\s\S]*>\s*Keep key\s*<\/Button>/,
+  "revocation starts on the safe action",
+);
+assert.match(
+  source,
+  /trailingCaption=\{\s*key.disabled\s*\?\s*undefined\s*:/,
+  "revoked keys omit the remaining count",
+);
+assert.match(
+  source,
+  /operationKey\(\)/,
+  "key writes use fresh idempotency keys",
+);
+assert.match(source, /onRefresh\(\)/, "key writes refresh the dashboard");
+assert.match(
+  source,
+  /const readHeldBrowserKey = useCallback\(async \(\) =>[\s\S]*browserKeyState\(\)[\s\S]*setHeldBrowserKey\(\{ ed25519: false, hasKey: false \}\)/,
+  "the shell rereads browser-key state and treats reader failures as no key",
+);
+assert.match(
+  source,
+  /onSignedIn=\{onSignedIn\}[\s\S]*KeysPanel\s+keys=\{overview\.keys\}\s+browserKey=\{heldBrowserKey\}/,
+  "the post-sign-in browser key state reaches the Keys view",
+);
+assert.match(
+  source,
+  /createDeveloperKey\(\)[\s\S]*setKeyState\(\{ ed25519: true, hasKey: true, publicKey \}\)[\s\S]*onSignedIn\(\)/,
+  "a key created during sign-in is used by the dashboard without a reload",
+);
+assert.match(
+  source,
+  /disabled=\{busy !== undefined \|\| !browserKey\?\.publicKey\}/,
+  "issuance stays disabled until a browser public key is held",
+);
 assert.match(
   source,
   /needsSession\s*\?\s*(?:\(\s*)?<SignInView/,
@@ -184,17 +278,26 @@ assert.doesNotMatch(
 );
 
 const tokenSheet = await readFile(
-  new URL("../../../../../../apps/web/packages/layerx-ui/src/styles/tokens.css", import.meta.url),
+  new URL(
+    "../../../../../../apps/web/packages/layerx-ui/src/styles/tokens.css",
+    import.meta.url,
+  ),
   "utf8",
 );
 function tokenPair(name) {
-  const match = tokenSheet.match(new RegExp(`--${name}:\\s*light-dark\\((#[0-9a-f]+),\\s*(#[0-9a-f]+)\\)`));
+  const match = tokenSheet.match(
+    new RegExp(`--${name}:\\s*light-dark\\((#[0-9a-f]+),\\s*(#[0-9a-f]+)\\)`),
+  );
   assert.ok(match, `token has light and dark values: ${name}`);
   return [match[1], match[2]];
 }
 function luminance(hex) {
-  const channels = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset + 1, offset + 3), 16) / 255);
-  const linear = channels.map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4));
+  const channels = [0, 2, 4].map(
+    (offset) => Number.parseInt(hex.slice(offset + 1, offset + 3), 16) / 255,
+  );
+  const linear = channels.map((channel) =>
+    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  );
   return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
 }
 function contrast(foreground, background) {
@@ -203,12 +306,16 @@ function contrast(foreground, background) {
   return (Math.max(light, dark) + 0.05) / (Math.min(light, dark) + 0.05);
 }
 const [primaryLight, primaryDark] = tokenPair("primary");
-const [primaryForegroundLight, primaryForegroundDark] = tokenPair("primary-foreground");
+const [primaryForegroundLight, primaryForegroundDark] =
+  tokenPair("primary-foreground");
 for (const [foreground, background, scheme] of [
   [primaryForegroundLight, primaryLight, "light"],
   [primaryForegroundDark, primaryDark, "dark"],
 ]) {
-  assert.ok(contrast(foreground, background) >= 4.5, `busy control contrast holds in ${scheme} scheme`);
+  assert.ok(
+    contrast(foreground, background) >= 4.5,
+    `busy control contrast holds in ${scheme} scheme`,
+  );
 }
 assert.match(
   globals,

@@ -1,3 +1,5 @@
+import { InfoPopover } from "../../../components/infoPopover";
+import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { Trans, useTranslation } from "@paxeer-network/i18n";
 import {
@@ -22,7 +24,7 @@ export const ReferralLink: FC<ReferralLinkReturns> = (props) => {
       width={"100%"}
       gap={4}
       direction={"column"}
-      className="oui-bg-base-9"
+      className={`${surface.surface} oui-bg-base-9`}
     >
       <Title {...props} />
       <Flex
@@ -141,6 +143,7 @@ const Input: FC<
   }
 > = (props) => {
   const { title, value = "-" } = props;
+  const { t } = useTranslation();
   return (
     <Flex
       r="xl"
@@ -161,6 +164,8 @@ const Input: FC<
       >
         <AutoHideText text={value} />
         <button
+          type="button"
+          aria-label={`${t("common.copy")} ${value}`}
           className="oui-cursor-pointer oui-text-sm oui-flex-shrink"
           onClick={() => {
             navigator.clipboard.writeText(value);
@@ -170,7 +175,7 @@ const Input: FC<
           <CopyIcon
             size={12}
             color="white"
-            className="oui-w-[13px] oui-h-[13px] md:oui-w-[14px] md:oui-h-[14px] xl:oui-w-4 xl:oui-h-4"
+            className="oui-w-3 oui-h-3 md:oui-w-3 md:oui-h-3 xl:oui-w-4 xl:oui-h-4"
           />
         </button>
       </Flex>
@@ -183,29 +188,10 @@ const Alert: FC<{
   tooltip: any;
 }> = (props) => {
   return (
-    <Tooltip content={props.tooltip} className="oui-max-w-[200px]">
-      <div
-        onClick={() => {
-          modal.alert({
-            title: props.title,
-            message: (
-              <div className="oui-text-base-contrast/30 oui-space-y-3 oui-text-xs desktop:oui-text-xs">
-                {props.tooltip}
-              </div>
-            ),
-          });
-        }}
-      >
-        <Flex direction={"column"}>
-          <Text
-            intensity={54}
-            className="oui-text-2xs md:oui-text-xs xl:oui-text-sm"
-          >
-            {props.title}
-          </Text>
-          <Divider className="oui-w-full" lineStyle="dotted" intensity={16} />
-        </Flex>
-      </div>
-    </Tooltip>
+    <InfoPopover content={props.tooltip} title={props.title}>
+      <span className="oui-text-2xs md:oui-text-xs xl:oui-text-sm">
+        {props.title}
+      </span>
+    </InfoPopover>
   );
 };

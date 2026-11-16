@@ -35,75 +35,97 @@ export const PortfolioHandleMobile: FC<Props> = (props) => {
     <Flex
       direction={"row"}
       width={"100%"}
-      height={"71px"}
-      className="oui-gap-3 oui-bg-transparent"
+      className="oui-flex-wrap oui-gap-3 oui-bg-transparent"
     >
       {props.isMainAccount && (
         <Flex
+          asChild
           direction="column"
           gapY={2}
           itemAlign={"center"}
-          className="oui-flex-1 oui-cursor-pointer"
-          onClick={props?.onDeposit}
+          className="oui-min-w-24 oui-flex-1 oui-cursor-pointer"
         >
-          <div className="oui-flex oui-size-[48px] oui-items-center oui-justify-center oui-rounded-xl oui-bg-base-9">
-            <ArrowDownSquareFillIcon size={28} color="white" opacity={1} />
-          </div>
-          <Text className="oui-text-base-80 oui-text-2xs">
-            {t("common.deposit")}
-          </Text>
+          <button
+            type="button"
+            onClick={props?.onDeposit}
+            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+          >
+            <div className="oui-flex oui-size-12 oui-items-center oui-justify-center oui-rounded-xl oui-bg-base-9">
+              <ArrowDownSquareFillIcon size={28} color="inherit" opacity={1} />
+            </div>
+            <Text className="oui-text-base-80 oui-text-2xs">
+              {t("common.deposit")}
+            </Text>
+          </button>
         </Flex>
       )}
       {props.hasSubAccount && (
         <Flex
+          asChild
           direction="column"
           gapY={2}
           itemAlign={"center"}
-          className="oui-flex-1 oui-cursor-pointer"
-          onClick={props?.onTransfer}
+          className="oui-min-w-24 oui-flex-1 oui-cursor-pointer"
         >
-          <div className="oui-flex oui-size-[48px] oui-items-center oui-justify-center oui-rounded-xl oui-bg-base-9">
-            <ArrowLeftRightIcon size={28} color="white" opacity={1} />
-          </div>
-          <Text className="oui-text-base-80 oui-text-2xs">
-            {t("common.transfer")}
-          </Text>
+          <button
+            type="button"
+            onClick={props?.onTransfer}
+            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+          >
+            <div className="oui-flex oui-size-12 oui-items-center oui-justify-center oui-rounded-xl oui-bg-base-9">
+              <ArrowLeftRightIcon size={28} color="inherit" opacity={1} />
+            </div>
+            <Text className="oui-text-base-80 oui-text-2xs">
+              {t("common.transfer")}
+            </Text>
+          </button>
         </Flex>
       )}
       {props.isMainAccount && (
         <Flex
+          asChild
           direction="column"
           gapY={2}
           itemAlign={"center"}
-          className="oui-flex-1 oui-cursor-pointer"
-          onClick={props?.onWithdraw}
+          className="oui-min-w-24 oui-flex-1 oui-cursor-pointer"
         >
-          <div className="oui-flex oui-size-[48px] oui-items-center oui-justify-center oui-rounded-xl oui-bg-base-9">
-            <ArrowUpSquareFillIcon size={28} color="white" opacity={1} />
-          </div>
-          <Text className="oui-text-base-80 oui-text-2xs">
-            {t("common.withdraw")}
-          </Text>
+          <button
+            type="button"
+            onClick={props?.onWithdraw}
+            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+          >
+            <div className="oui-flex oui-size-12 oui-items-center oui-justify-center oui-rounded-xl oui-bg-base-9">
+              <ArrowUpSquareFillIcon size={28} color="inherit" opacity={1} />
+            </div>
+            <Text className="oui-text-base-80 oui-text-2xs">
+              {t("common.withdraw")}
+            </Text>
+          </button>
         </Flex>
       )}
       <Flex
         direction="column"
         gapY={2}
         itemAlign={"center"}
-        className="oui-flex-1 oui-cursor-pointer"
+        className="oui-min-w-24 oui-flex-1 oui-cursor-pointer"
       >
-        <div
-          className="oui-flex oui-size-[48px] oui-items-center oui-justify-center oui-rounded-xl oui-bg-base-9"
+        <button
+          type="button"
           onClick={onGotoHistory}
+          aria-label={t("trading.history")}
+          className={[
+            "oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed",
+            "oui-flex oui-size-12 oui-items-center oui-justify-center oui-rounded-xl oui-bg-base-9",
+          ].join(" ")}
         >
           <CalendarMinusIcon
             size={28}
-            color="white"
+            color="inherit"
             opacity={1}
             viewBox="0 0 28 28"
-            className="oui-w-[28px] oui-h-[28px]"
+            className="oui-w-7 oui-h-7"
           />
-        </div>
+        </button>
         <Text className="oui-text-base-80 oui-text-2xs">
           {t("trading.history")}
         </Text>

@@ -129,6 +129,14 @@ defmodule BlockScoutWeb.API.V2.MainPageController do
     description: "Retrieves a list of last 6 transactions from the current user's watchlist.",
     parameters: base_params(),
     responses: [
+      unauthorized:
+        {"Request error", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{message: %OpenApiSpex.Schema{type: :string}},
+           required: [:message],
+           additionalProperties: false
+         }},
       ok:
         {"List of watchlist transactions", "application/json",
          %Schema{

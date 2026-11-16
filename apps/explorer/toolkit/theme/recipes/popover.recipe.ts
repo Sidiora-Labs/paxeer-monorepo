@@ -12,11 +12,11 @@ export const recipe = defineSlotRecipe({
       bg: 'var(--popover-bg)',
       boxShadow: 'popover',
       boxShadowColor: 'colors.popover.shadow',
-      '--popover-mobile-size': 'calc(100dvw - 1rem)',
+      '--popover-mobile-size': 'calc(100dvw - var(--chakra-spacing-4))',
       width: 'fit-content',
       maxW: {
-        base: 'calc(100vw - 8px)',
-        lg: '800px',
+        base: 'calc(100vw - var(--chakra-spacing-2))',
+        lg: 'var(--chakra-spacing-200)',
       },
       borderWidth: '0',
       borderRadius: 'md',
@@ -25,11 +25,11 @@ export const recipe = defineSlotRecipe({
       outline: '0',
       transformOrigin: 'var(--transform-origin)',
       _open: {
-        animationStyle: 'scale-fade-in',
+        _motionSafe: { animationStyle: 'scale-fade-in' },
         animationDuration: 'fast',
       },
       _closed: {
-        animationStyle: 'scale-fade-out',
+        _motionSafe: { animationStyle: 'scale-fade-out' },
         animationDuration: 'faster',
       },
     },
@@ -52,8 +52,8 @@ export const recipe = defineSlotRecipe({
       '--arrow-background': 'var(--popover-bg)',
     },
     arrowTip: {
-      borderTopWidth: '1px',
-      borderInlineStartWidth: '1px',
+      borderTopWidth: 'var(--chakra-border-widths-1)',
+      borderInlineStartWidth: 'var(--chakra-border-widths-1)',
     },
   },
   variants: {

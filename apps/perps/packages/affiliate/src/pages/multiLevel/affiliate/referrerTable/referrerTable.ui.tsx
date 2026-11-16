@@ -1,3 +1,4 @@
+import surface from "../../../../surface.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Tabs, TabPanel, Flex } from "@paxeer-network/ui";
@@ -15,7 +16,7 @@ export const ReferrerTableUI: FC<ReferrerTableScriptReturns> = (props) => {
   return (
     <Flex
       direction="column"
-      className="oui-affiliate-referrerTable oui-rounded-2xl oui-bg-base-9 [&_td]:oui-font-medium [&_td]:oui-tracking-[0.03em] [&_th]:oui-font-semibold"
+      className={`${surface.surface} oui-affiliate-referrerTable oui-rounded-2xl oui-bg-base-9 [&_td]:oui-font-medium [&_td]:oui-tracking-normal [&_th]:oui-font-semibold`}
       px={3}
       pt={4}
       gap={4}
@@ -28,7 +29,7 @@ export const ReferrerTableUI: FC<ReferrerTableScriptReturns> = (props) => {
         variant="text"
         classNames={{
           tabsListContainer: "oui-px-3",
-          trigger: "oui-pb-[9px] oui-tracking-[0.01em]",
+          trigger: "oui-pb-2 oui-tracking-normal",
           scrollIndicator:
             "[&_.oui-scroll-indicator-leading]:oui-hidden [&_.oui-scroll-indicator-tailing]:oui-hidden",
         }}

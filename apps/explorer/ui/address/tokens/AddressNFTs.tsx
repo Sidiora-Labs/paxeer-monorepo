@@ -39,7 +39,7 @@ const AddressNFTs = ({ tokensQuery, tokenTypes, onTokenTypesChange }: Props) => 
       w="100%"
       columnGap={{ base: 3, lg: 6 }}
       rowGap={{ base: 3, lg: 6 }}
-      gridTemplateColumns={{ base: 'repeat(2, calc((100% - 12px)/2))', lg: 'repeat(auto-fill, minmax(210px, 1fr))' }}
+      gridTemplateColumns="repeat(auto-fill, minmax(min(100%, calc({spacing.100} / 2 + {spacing.2.5})), 1fr))"
     >
       { data.items.map((item, index) => {
         const key = item.token.address_hash + '_' + (item.id && !isPlaceholderData ? `id_${ item.id }` : `index_${ index }`);

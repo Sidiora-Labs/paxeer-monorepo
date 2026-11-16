@@ -9,8 +9,8 @@ import { Skeleton } from 'toolkit/chakra/skeleton';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 import OptimisticL2WithdrawalsItemStatus from './OptimisticL2WithdrawalsItemStatus';
 

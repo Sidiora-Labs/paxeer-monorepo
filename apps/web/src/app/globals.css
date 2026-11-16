@@ -66,10 +66,19 @@
 
 @layer components {
   .human-table-scroll {
+    position: relative;
+    inline-size: 100%;
+    min-inline-size: 0;
     max-inline-size: 100%;
+    contain: inline-size;
     overflow: auto;
     overscroll-behavior-inline: contain;
     scrollbar-gutter: stable;
+    max-block-size: min(70dvh, 32rem);
+  }
+
+  body:has(dialog:modal) {
+    overflow-y: auto !important;
   }
 
   .human-table-scroll:focus-visible {
@@ -80,6 +89,11 @@
   .human-data-table {
     inline-size: 100%;
     min-inline-size: max-content;
+  }
+
+  .human-activity-table {
+    min-inline-size: var(--table-activity-min-width);
+    table-layout: fixed;
   }
 
   .human-data-table th,
@@ -104,6 +118,14 @@
     max-block-size: calc(100dvh - var(--space-20));
     max-inline-size: calc(100vw - var(--space-12));
     flex-direction: column;
+  }
+
+  .human-support-card {
+    min-block-size: clamp(20rem, 60dvh, 36rem);
+  }
+
+  .human-agent-loading {
+    min-block-size: 55.5rem;
   }
 
   .human-support-bubble {

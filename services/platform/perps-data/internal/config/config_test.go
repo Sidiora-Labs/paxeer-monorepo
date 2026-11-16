@@ -18,16 +18,17 @@ import (
 )
 
 const (
-	envChainID     = "PERPS_CHAIN_ID"
-	envRPCURLs     = "PERPS_RPC_URLS"
-	envCometURLs   = "PERPS_COMET_URLS"
-	envDatabaseURL = "DATABASE_URL"
-	envNATSURL     = "NATS_URL"
-	envPort        = "PORT"
-	envAuthSecret  = "PERPS_AUTH_SECRET"
-	envExplorerTx  = "PERPS_EXPLORER_TX_BASE"
-	envGatewayURL  = "PERPS_GATEWAY_URL"
-	envStartHeight = "PERPS_START_HEIGHT"
+	envChainID        = "PERPS_CHAIN_ID"
+	envRPCURLs        = "PERPS_RPC_URLS"
+	envCometURLs      = "PERPS_COMET_URLS"
+	envDatabaseURL    = "DATABASE_URL"
+	envNATSURL        = "NATS_URL"
+	envPort           = "PORT"
+	envAuthSecret     = "PERPS_AUTH_SECRET"
+	envAllowedOrigins = "PERPS_ALLOWED_ORIGINS"
+	envExplorerTx     = "PERPS_EXPLORER_TX_BASE"
+	envGatewayURL     = "PERPS_GATEWAY_URL"
+	envStartHeight    = "PERPS_START_HEIGHT"
 
 	testDatabaseURL = "postgres://perps:p4ss@db/perps"
 	testNATSURL     = "nats://indexer:n4ts@nats:4222"
@@ -36,8 +37,40 @@ const (
 
 var allVars = []string{
 	envChainID, envRPCURLs, envCometURLs, envDatabaseURL, envNATSURL, envPort,
-	envAuthSecret, envExplorerTx, envGatewayURL, envStartHeight,
+	envAuthSecret, envAllowedOrigins, envExplorerTx, envGatewayURL, envStartHeight,
 	ratelimit.EnvTrustedProxies,
+}
+
+func TestConfigOrigin(t *testing.T) {
+	setEnv(t, with(baseEnv(), envAllowedOrigins, " https://app.example, http://localhost:3000 "))
+	cfg, err := config.Load(config.Gateway)
+	if err != nil {
+		t.Fatalf("config.Load(gateway): %v", err)
+	}
+	want := []string{"https://app.example", "http://localhost:3000"}
+	if !slices.Equal(cfg.AllowedOrigins, want) {
+		t.Fatalf("AllowedOrigins = %v, want %v", cfg.AllowedOrigins, want)
+	}
+	if !strings.Contains(cfg.String(), "PERPS_ALLOWED_ORIGINS=https://app.example,http://localhost:3000") {
+		t.Fatalf("String() = %q, missing origins", cfg.String())
+	}
+	for _, tc := range []struct{ raw, bad string }{
+		{"ftp://app.example", "ftp://app.example"}, {"https://app.example/path", "https://app.example/path"}, {"https://app.example?x=1", "https://app.example?x=1"},
+		{"https://app.example#fragment", "https://app.example#fragment"}, {"https://user:pass@app.example", "https://user:pass@app.example"}, {"https://app.example/", "https://app.example/"},
+		{"https://app.example,,https://other.example", ""}, {"https://", "https://"},
+	} {
+		setEnv(t, with(baseEnv(), envAllowedOrigins, tc.raw))
+		refuse(t, config.Gateway, fmt.Sprintf("PERPS_ALLOWED_ORIGINS contains invalid origin %q", tc.bad))
+	}
+	setEnv(t, with(baseEnv(), envAllowedOrigins, ""))
+	cfg, err = config.Load(config.Gateway)
+	if err != nil || len(cfg.AllowedOrigins) != 0 {
+		t.Fatalf("empty PERPS_ALLOWED_ORIGINS = %v, %v; want empty list", cfg, err)
+	}
+	setEnv(t, with(baseEnv(), envAllowedOrigins, "https://app.example/"))
+	if _, err := config.Load(config.Indexer); err != nil {
+		t.Fatalf("indexer read unused PERPS_ALLOWED_ORIGINS: %v", err)
+	}
 }
 
 func setEnv(t *testing.T, vars map[string]string) {

@@ -483,13 +483,13 @@ function SearchPalette({
           )}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-text-faint">
-          <label className="flex items-center gap-2">
+          <label className="flex min-h-touch-target-min cursor-pointer items-center gap-2">
             <input
               type="checkbox"
               checked={remember && !privateMode}
               disabled={privateMode}
               onChange={(event) => setRemember(event.target.checked)}
-              className="accent-[var(--sl-accent)]"
+              className="size-5 shrink-0 accent-[var(--sl-accent)]"
             />
             Remember recent views on this device
           </label>

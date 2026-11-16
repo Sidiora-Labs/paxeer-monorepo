@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import { KeyboardEventHandler } from "react";
 import { FavoriteTab } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -7,6 +8,9 @@ import {
   Flex,
   Text,
   Tooltip,
+  PopoverRoot,
+  PopoverTrigger,
+  PopoverContent,
   Input,
   modal,
 } from "@paxeer-network/ui";
@@ -27,8 +31,6 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
     setOpen,
     container,
     inputRef,
-    inputWidth,
-    spanRef,
     editing,
     value,
     onValueChange,
@@ -45,8 +47,8 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
   const { selectedFavoriteTab, favoriteTabs, updateSelectedFavoriteTab } =
     props.favorite;
 
-  const addIconWidth = size === "sm" ? 28 : 36;
-  const tabHeight = size === "sm" ? 18 : 24;
+  const addIconWidth = "var(--oui-space-12)";
+  const tabHeight = "var(--oui-space-12)";
   const overLen = value?.length > 15;
 
   const gradientColor =
@@ -78,18 +80,24 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
   const renderActions = (item: any) => {
     return (
       <Flex gapX={2} itemAlign="center" px={2} py={1}>
-        <EditIcon
-          className="oui-cursor-pointer oui-text-base-contrast-36 hover:oui-text-base-contrast"
+        <button
+          type="button"
           onClick={() => {
             onEdit(item);
           }}
-        />
-        <TrashIcon
-          className="oui-cursor-pointer oui-text-base-contrast-36 hover:oui-text-base-contrast"
-          onClick={() => {
-            onDel(item);
-          }}
-        />
+          aria-label="Edit"
+          className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+        >
+          <EditIcon className="oui-cursor-pointer oui-text-base-contrast-80 hover:oui-text-base-contrast" />
+        </button>
+        <button
+          type="button"
+          aria-label={t("common.delete")}
+          onClick={() => onDel(item)}
+          className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-12"
+        >
+          <TrashIcon className="oui-text-base-contrast-80" />
+        </button>
       </Flex>
     );
   };
@@ -99,6 +107,7 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
 
     const icon = (
       <Flex
+        asChild
         className={cn(
           "oui-inline-flex",
           overTabs ? "oui-cursor-not-allowed" : "oui-cursor-pointer",
@@ -109,13 +118,20 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
         r="base"
         justify="center"
         itemAlign="center"
-        onClick={overTabs ? undefined : addTab}
       >
-        {overTabs ? (
-          <AddIcon className="oui-z-[1] oui-size-3 oui-text-base-contrast-54" />
-        ) : (
-          <ActiveAddIcon className="oui-size-3" />
-        )}
+        <button
+          type="button"
+          aria-label={t("markets.favorites") + " +"}
+          aria-disabled={overTabs}
+          onClick={overTabs ? undefined : addTab}
+          className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+        >
+          {overTabs ? (
+            <AddIcon className="oui-z-10 oui-size-3 oui-text-base-contrast-80" />
+          ) : (
+            <ActiveAddIcon className="oui-size-3" />
+          )}
+        </button>
       </Flex>
     );
 
@@ -156,23 +172,26 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
       >
         <Input
           ref={inputRef}
+          aria-label={t("markets.favorites")}
+          name="watchlist-name"
+          aria-invalid={overLen}
           style={
             overLen
-              ? { width: inputWidth }
+              ? undefined
               : {
                   // @ts-ignore
                   "--oui-gradient-angle": "270deg",
                   backgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   WebkitBackgroundClip: "text",
-                  width: inputWidth,
                 }
           }
           classNames={{
             root: cn(
+              styles.watchlistInput,
               "oui-my-px oui-rounded oui-p-0 oui-px-2",
               "focus-within:oui-outline-transparent focus-visible:oui-outline-none",
-              size === "sm" ? "oui-h-[18px]" : "oui-h-[24px]",
+              size === "sm" ? "oui-h-4" : "oui-h-6",
               isActive && cn(overLen ? "oui-bg-danger/15" : gradientColor),
             ),
             input: cn(
@@ -203,7 +222,7 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
     const textProps = {
       weight: "semibold",
       size: size === "sm" ? "2xs" : "sm",
-      className: size === "sm" ? "oui-leading-[18px]" : "oui-leading-[24px]",
+      className: size === "sm" ? "oui-leading-normal" : "oui-leading-normal",
       as: "div",
     } as any;
 
@@ -217,6 +236,7 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
 
     return (
       <Box
+        asChild
         r="base"
         px={2}
         height={tabHeight}
@@ -227,22 +247,27 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
             : "oui-markets-favorites-tab-item",
           isActive
             ? gradientColor
-            : "oui-bg-line-6 oui-text-base-contrast-36 hover:oui-text-base-contrast",
+            : "oui-bg-line-6 oui-text-base-contrast-80 hover:oui-text-base-contrast",
         )}
-        onClick={() => {
-          updateSelectedFavoriteTab(item);
-          if (isActive) {
-            setOpen(true);
-          }
-        }}
       >
-        {content}
+        <button
+          type="button"
+          onClick={() => {
+            updateSelectedFavoriteTab(item);
+            if (isActive) {
+              setOpen(true);
+            }
+          }}
+          className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+        >
+          {content}
+        </button>
       </Box>
     );
   };
 
   return (
-    <Flex width="100%" gapX={3} className={props.className}>
+    <Flex width="100%" gapX={3} className={cn(styles.surface, props.className)}>
       <Flex
         ref={container}
         id="oui-markets-favorites-tabs-container"
@@ -257,32 +282,34 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = (props) => {
         {favoriteTabs?.slice(0, 10)?.map((item: any) => {
           const isActive = selectedFavoriteTab.id === item.id;
           return (
-            <Tooltip
+            <PopoverRoot
               key={item.id}
               open={isActive && !editing ? open : false}
               onOpenChange={(open) => {
-                if (isActive) {
-                  setOpen(open);
-                }
-              }}
-              // @ts-ignore
-              content={renderActions(item)}
-              delayDuration={0}
-              className={cn("oui-bg-base-5")}
-              arrow={{
-                className: "oui-fill-base-5",
+                if (isActive) setOpen(open);
               }}
             >
-              {renderContent(item, isActive)}
-            </Tooltip>
+              {editing && isActive ? (
+                renderInput(isActive)
+              ) : (
+                <PopoverTrigger asChild>
+                  {renderContent(item, isActive)}
+                </PopoverTrigger>
+              )}
+              <PopoverContent
+                aria-label={item.name}
+                className={cn(
+                  styles.surface,
+                  "oui-w-auto oui-max-w-[calc(100vw-var(--oui-space-6))] oui-bg-base-5 oui-p-1",
+                )}
+              >
+                {renderActions(item)}
+              </PopoverContent>
+            </PopoverRoot>
           );
         })}
 
         {!scrollable && renderAdd()}
-
-        <Text size="xs" ref={spanRef} className="oui-invisible">
-          {value}
-        </Text>
       </Flex>
       {scrollable && renderAdd()}
     </Flex>

@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useState, type ReactNode } from 'react';
 import { ArrowLeftRight, AtSign, Coins, Globe, Link as LinkIcon, MessageCircle, Send, Share2, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -52,7 +53,7 @@ export interface TokenHeaderProps {
   notice?: ReactNode;
 }
 
-const headerClass = 'flex flex-col gap-3 rounded-md bg-surface-1 p-3 lg:flex-row lg:items-center lg:gap-4';
+const headerClass = 'flex flex-col gap-3 rounded-md bg-surface-1 p-3';
 
 function explorerHref(address: string): string | null {
   return safeExternalDestination(`https://paxscan.paxeer.app/address/${address}`);
@@ -74,7 +75,7 @@ function HeaderStat({ label, value, unit }: { label: string; value: string | nul
 function ValuationCluster({ headline, onToggle, value, reason, secondary, change, volume24h, holders }: { headline: Headline; onToggle: () => void; value: string | null; reason: string | null; secondary?: string | null; change: StatValue<number> | null; volume24h: string | null; holders: string | null }) {
   const label = headline === 'mcap' ? 'Market cap' : 'Price';
   return (
-    <div className="flex flex-wrap items-end gap-x-5 gap-y-2 lg:justify-end">
+    <div className="flex min-w-0 flex-wrap items-end gap-x-5 gap-y-2">
       <div className="flex items-end gap-2">
         <button
           type="button"
@@ -88,7 +89,7 @@ function ValuationCluster({ headline, onToggle, value, reason, secondary, change
         </button>
         {change ? <span data-change="24h" className="pb-1"><StatChange change={change} variant="text" size="sm" align="start" decimals={2} /></span> : null}
       </div>
-      <dl className="flex items-end gap-5">
+      <dl className="flex flex-wrap items-end gap-5">
         <HeaderStat label="24h vol" value={volume24h} unit="USDL" />
         <HeaderStat label="Holders" value={holders} />
       </dl>
@@ -109,8 +110,8 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
   if (snapshot.isPending) {
     return (
       <header data-coin-header="loading" aria-busy="true" className="flex min-h-control-height-lg items-center gap-3 rounded-md bg-surface-1 p-3">
-        <Skeleton variant="block" width={64} height={64} label="coin image" />
-        <div className="flex flex-1 flex-col gap-2"><Skeleton variant="text" width={160} /><Skeleton variant="text" width={240} /></div>
+        <Skeleton variant="block" width={surfaceSpacing(16)} height={surfaceSpacing(16)} label="coin image" />
+        <div className="flex flex-1 flex-col gap-2"><Skeleton variant="text" width={surfaceSpacing(40)} /><Skeleton variant="text" width={surfaceSpacing(60)} /></div>
       </header>
     );
   }
@@ -121,16 +122,16 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
     const starredByUrl = watchlist.check(poolAddress);
     return (
       <header data-coin-header="degraded" aria-label="Coin header" className={headerClass}>
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
           <span aria-hidden="true" className="flex size-avatar-2xl shrink-0 items-center justify-center rounded-md bg-surface-2 text-text-faint"><Coins className="size-6" /></span>
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <h1 className="truncate text-lg font-extrabold text-text"><span className="sr-only">Coin </span>{shortAddress(poolAddress)}</h1>
               {notice}
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <ShortAddress address={poolAddress} explorerHref={explorerHref(poolAddress)} onCopied={() => toast.success('Address copied')} />
-              <div className="flex items-center gap-0.5">
+              <div className="flex max-w-full flex-wrap items-center gap-0.5">
                 <IconButton label={starredByUrl ? 'Remove from watchlist' : 'Add to watchlist'} pressed={starredByUrl} icon={<Star className={starredByUrl ? 'fill-current text-accent' : undefined} />} size="sm" onClick={() => watchlist.toggle(poolAddress)} />
                 <IconButton label="Share coin link" icon={<Share2 />} size="sm" onClick={() => { void shareCurrentPage('Coin on Sidiora'); }} />
               </div>
@@ -164,9 +165,9 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
 
   return (
     <header data-coin-header="ready" aria-label={`${symbol} header`} className={headerClass}>
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
         <Avatar src={logo} name={symbol} size="2xl" shape="square" decorative />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <h1 className="truncate text-lg font-extrabold text-text">{symbol}</h1>
             {name ? <span className="truncate text-sm text-text-muted">{name}</span> : null}
@@ -198,7 +199,7 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
                 })}
               </ul>
             ) : null}
-            <div className="flex items-center gap-0.5">
+            <div className="flex max-w-full flex-wrap items-center gap-0.5">
               <IconButton label={starred ? 'Remove from watchlist' : 'Add to watchlist'} pressed={starred} icon={<Star className={starred ? 'fill-current text-accent' : undefined} />} size="sm" onClick={() => watchlist.toggle(pool)} />
               <IconButton label="Share coin link" icon={<Share2 />} size="sm" onClick={() => { void shareCurrentPage(`${symbol} on Sidiora`); }} />
               <ReportMenu subject={{ targetType: 'token', targetId: data.pool.tokenAddress, label: symbol }} size="sm" />

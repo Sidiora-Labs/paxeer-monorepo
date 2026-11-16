@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { readFile, realpath, stat } from "node:fs/promises";
+import { lstat, readFile, realpath, rm, stat } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { LIMITS, within } from "./config.mjs";
+import { LIMITS, surfaceOutput, within } from "./config.mjs";
 
 const CONTENT_TYPES = Object.freeze({
   ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript",
@@ -68,12 +68,26 @@ function commandProcess(command, cwd) {
   };
 }
 
-export async function startSurface(surface) {
+export async function startSurface(surface, removedOutputs = []) {
   if (surface.build) {
+    const outputs = await Promise.all((surface.outputs ?? []).map(async (path) => ({
+      path, destination: await surfaceOutput(surface.directory, path, surface.name),
+    })));
+    for (const { path, destination } of outputs) {
+      try {
+        await lstat(destination);
+      } catch (error) {
+        if (error.code === "ENOENT") continue;
+        throw error;
+      }
+      await rm(destination, { recursive: true, force: true });
+      removedOutputs.push(path);
+    }
+    const buildMs = surface.buildMs ?? LIMITS.buildMs;
     const build = commandProcess(surface.build, surface.directory);
     try {
-      const result = await Promise.race([build.ended, delay(LIMITS.buildMs, undefined, { ref: false }).then(() => ({ timeout: true }))]);
-      if (result.timeout || result.code !== 0) throw new Error(`Surface build did not succeed: ${result.timeout ? "timed out" : result.code}\n${build.description()}`);
+      const result = await Promise.race([build.ended, delay(buildMs, undefined, { ref: false }).then(() => ({ timeout: true }))]);
+      if (result.timeout || result.code !== 0) throw new Error(`Surface ${surface.name} build did not succeed: ${result.timeout ? `timed out after ${buildMs} ms` : result.code}\n${build.description()}`);
     } finally { await build.close(); }
   }
   let service;

@@ -31,24 +31,41 @@ const NetworkMenuContent = ({ items, tabs }: Props) => {
       return (
         <>
           <Flex alignItems="center">
-            <Flex h="32px" w="105px" bgColor={{ base: 'blackAlpha.50', _dark: 'whiteAlpha.50' }} borderRadius="base" px={ 4 } py={ 2 }>
-              <Skeleton loading h="16px" w="100%"/>
+            <Flex
+              h="var(--chakra-spacing-8)"
+              w="calc(var(--chakra-spacing-24) + var(--chakra-spacing-2) + var(--chakra-spacing-1) / 4)"
+              bgColor="surface"
+              borderRadius="base"
+              px={ 4 }
+              py={ 2 }
+            >
+              <Skeleton loading h="var(--chakra-spacing-4)" w="100%"/>
             </Flex>
-            <Skeleton loading h="16px" w="68px" mx={ 4 }/>
-            <Skeleton loading h="16px" w="45px" mx={ 4 }/>
+            <Skeleton
+              loading
+              h="var(--chakra-spacing-4)"
+              w="calc(calc(var(--chakra-spacing-8) + var(--chakra-spacing-1) / 2) * 2)"
+              mx={ 4 }
+            />
+            <Skeleton
+              loading
+              h="var(--chakra-spacing-4)"
+              w="calc(var(--chakra-spacing-11) + var(--chakra-spacing-1) / 4)"
+              mx={ 4 }
+            />
           </Flex>
           <Flex mt={ 3 } flexDir="column" rowGap={ 2 }>
             <Flex mx={ 3 } my={ 2 } alignItems="center">
-              <Skeleton loading h="30px" w="30px" borderRadius="full"/>
-              <Skeleton loading h="16px" w="120px" ml={ 3 }/>
+              <Skeleton loading h={ 'var(--chakra-spacing-7\\.5)' } w={ 'var(--chakra-spacing-7\\.5)' } borderRadius="full"/>
+              <Skeleton loading h="var(--chakra-spacing-4)" w="var(--chakra-spacing-30)" ml={ 3 }/>
             </Flex>
             <Flex mx={ 3 } my={ 2 } alignItems="center">
-              <Skeleton loading h="30px" w="30px" borderRadius="full"/>
-              <Skeleton loading h="16px" w="180px" ml={ 3 }/>
+              <Skeleton loading h={ 'var(--chakra-spacing-7\\.5)' } w={ 'var(--chakra-spacing-7\\.5)' } borderRadius="full"/>
+              <Skeleton loading h="var(--chakra-spacing-4)" w="calc(var(--chakra-spacing-40) + var(--chakra-spacing-5))" ml={ 3 }/>
             </Flex>
             <Flex mx={ 3 } my={ 2 } alignItems="center">
-              <Skeleton loading h="30px" w="30px" borderRadius="full"/>
-              <Skeleton loading h="16px" w="150px" ml={ 3 }/>
+              <Skeleton loading h={ 'var(--chakra-spacing-7\\.5)' } w={ 'var(--chakra-spacing-7\\.5)' } borderRadius="full"/>
+              <Skeleton loading h="var(--chakra-spacing-4)" w={ 'var(--chakra-spacing-37\\.5)' } ml={ 3 }/>
             </Flex>
           </Flex>
         </>
@@ -71,7 +88,7 @@ const NetworkMenuContent = ({ items, tabs }: Props) => {
 
     if (tabs.length === 1) {
       return (
-        <VStack as="ul" gap={ 1 } alignItems="stretch" overflowY="scroll" maxH="516px">
+        <VStack as="ul" gap={ 1 } alignItems="stretch" overflowY="auto" maxH="var(--available-height)">
           { items
             .filter((network) => network.group === tabs[0])
             .map((network) => (
@@ -87,11 +104,11 @@ const NetworkMenuContent = ({ items, tabs }: Props) => {
 
     if (config.UI.featuredNetworks.mode === 'list') {
       return (
-        <VStack overflowY="scroll" maxH="516px" alignItems="stretch" gap={ 3 }>
+        <VStack overflowY="auto" maxH="var(--available-height)" alignItems="stretch" gap={ 3 }>
           { tabs.map((tab, index) => {
             return (
               <Box key={ tab }>
-                <Text fontSize="sm" fontWeight={ 600 } mb={ 2 }>{ tab }</Text>
+                <Text fontSize="sm" fontWeight="semibold" mb={ 2 }>{ tab }</Text>
                 <VStack key={ tab } as="ul" gap={ 1 } alignItems="stretch">
                   { items
                     .filter((network) => network.group === tab)
@@ -136,7 +153,7 @@ const NetworkMenuContent = ({ items, tabs }: Props) => {
         <Box>
           { tabs.map((tab) => (
             <TabsContent key={ tab } value={ tab } p={ 0 }>
-              <VStack as="ul" gap={ 1 } alignItems="stretch" overflowY="scroll" maxH="516px">
+              <VStack as="ul" gap={ 1 } alignItems="stretch" overflowY="auto" maxH="var(--available-height)">
                 { items
                   .filter((network) => network.group === tab)
                   .map((network) => (
@@ -155,7 +172,11 @@ const NetworkMenuContent = ({ items, tabs }: Props) => {
   })();
 
   return (
-    <PopoverContent w="290px" maxH="unset">
+    <PopoverContent
+      w="calc(var(--chakra-spacing-65) + var(--chakra-spacing-7) + var(--chakra-spacing-1) / 2)"
+      maxH="var(--available-height)"
+      overflowY="auto"
+    >
       <PopoverBody>
         { content }
       </PopoverBody>

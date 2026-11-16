@@ -31,9 +31,14 @@ interface Props {
 }
 
 const SwaggerUI = ({ url, requestInterceptor }: Props) => {
-  const mainColor = { _light: 'blackAlpha.800', _dark: 'whiteAlpha.800' };
-  const borderColor = useToken('colors', 'border.divider');
-  const mainBgColor = { _light: 'blackAlpha.100', _dark: 'whiteAlpha.200' };
+  const [ mainColor, borderColor, mainBgColor, raisedColor, accentColor, errorColor ] = useToken('colors', [
+    'text.primary',
+    'border.divider',
+    'bg.surface',
+    'bg.raised',
+    'accent',
+    'text.error',
+  ]);
 
   const swaggerStyle: SystemStyleObject = {
     '& .swagger-ui .scheme-container, & .opblock-tag': {
@@ -50,10 +55,10 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
       color: 'unset',
     },
     '& .swagger-ui input': {
-      color: 'blackAlpha.800',
+      color: mainColor,
     },
     '& .swagger-ui .opblock .opblock-section-header': {
-      background: { _light: 'whiteAlpha.800', _dark: 'blackAlpha.800' },
+      background: raisedColor,
     },
     '& .swagger-ui .response-col_description__inner p, & .swagger-ui .parameters-col_description p': {
       margin: 0,
@@ -62,7 +67,7 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
       padding: 0,
     },
     '& .swagger-ui .prop-type': {
-      color: { _light: 'blue.600', _dark: 'blue.400' },
+      color: accentColor,
     },
     '& .swagger-ui .btn.try-out__btn': {
       borderColor: useToken('colors', 'link.primary'),
@@ -75,12 +80,12 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
       color: useToken('colors', 'link.primary.hover'),
     },
     '& .swagger-ui .btn.try-out__btn.cancel': {
-      borderColor: useToken('colors', 'text.error'),
-      color: useToken('colors', 'text.error'),
+      borderColor: errorColor,
+      color: errorColor,
     },
     '& .swagger-ui .btn.try-out__btn.cancel:hover': {
-      borderColor: { _light: 'red.600', _dark: 'red.500' },
-      color: { _light: 'red.500', _dark: 'red.400' },
+      borderColor: errorColor,
+      color: errorColor,
     },
 
     // MODELS
@@ -104,11 +109,11 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
       outline: 'none',
     },
     '& .swagger-ui .model-toggle': {
-      bgColor: { _light: 'transparent', _dark: 'whiteAlpha.700' },
+      bgColor: 'transparent',
       borderRadius: 'sm',
     },
     '& .swagger-ui .model .property.primitive': {
-      color: useToken('colors', 'text_.secondary'),
+      color: useToken('colors', 'text.secondary'),
       wordBreak: 'break-all',
     },
   };

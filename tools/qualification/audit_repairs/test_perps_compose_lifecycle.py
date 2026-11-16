@@ -108,22 +108,23 @@ def test_compose_app_build_context_and_public_inputs():
     declared = set(re.findall(r"^ARG (NEXT_PUBLIC_\w+)=", dockerfile, re.M))
     assert declared and set(build["args"]) == declared
     for name, value in build["args"].items():
-        if name == "NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA":
-            assert binding(value, "BUILD_COMMIT_SHA", ":?")
-        elif name == "NEXT_PUBLIC_PERPS_GATEWAY_URL":
+        if name == "NEXT_PUBLIC_PERPS_GATEWAY_URL":
             assert binding(value, name, ":?")
         else:
             assert binding(value, name, ":-") == ""
         assert f"{name}=${name}" in dockerfile
     assert "MARKET_PROXY_ORIGIN" not in build["args"]
-    assert "MARKET_PROXY_HOST" not in build["args"]
+    assert "PRICE_FEED_ORIGIN" not in build["args"]
     assert "COPY package.json pnpm-lock.yaml ./" in dockerfile
+    assert "COPY tsconfig.json ./" in dockerfile
+    assert dockerfile.index("COPY tsconfig.json ./") < dockerfile.index("RUN pnpm install --frozen-lockfile")
     assert "RUN pnpm install --frozen-lockfile" in dockerfile
     assert "pnpm build" in dockerfile
     ignore = (context / ".dockerignore").read_text().splitlines()
     assert ".env" in ignore and ".env.*" in ignore
     identity = app["environment"]["VERCEL_GIT_COMMIT_SHA"]
-    assert identity == build["args"]["NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA"]
+    assert binding(identity, "BUILD_COMMIT_SHA", ":?")
+    assert "NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA" not in build["args"]
     assert app["image"] == "perps-ui:" + identity
     assert "latest" not in app["image"]
 
@@ -131,9 +132,13 @@ def test_compose_app_build_context_and_public_inputs():
 def test_compose_runtime_origin_reaches_production_candle_headers():
     env = compose()["services"]["app"]["environment"]
     assert binding(env["MARKET_PROXY_ORIGIN"], "MARKET_PROXY_ORIGIN", ":?")
-    assert binding(env["MARKET_PROXY_HOST"], "MARKET_PROXY_HOST", ":-") == (
-        "data.feed.chainflowtrading.com"
+    assert binding(env["PRICE_FEED_ORIGIN"], "PRICE_FEED_ORIGIN", ":-") == (
+        "https://data.feed.chainflowtrading.com"
     )
+    for name in ("PRICE_FEED_REST_API_KEY", "PRICE_FEED_WS_API_KEY",
+                 "CANDLE_TRUSTED_PROXY_IPS", "PRESENCE_TRUSTED_PROXY_IPS"):
+        assert binding(env[name], name, ":-") == ""
+        assert name not in compose()["services"]["app"]["build"]["args"]
     assert env["NODE_ENV"] == "production"
     assert env["PORT"] == "3000" and env["HOSTNAME"] == "0.0.0.0"
     assert not any(key.startswith("NEXT_PUBLIC_") for key in env)
@@ -141,37 +146,33 @@ def test_compose_runtime_origin_reaches_production_candle_headers():
     dockerfile = source("apps/perps/Dockerfile")
     runner = dockerfile.split(" AS runner\n", 1)[1]
     assert "MARKET_PROXY_ORIGIN" not in runner
-    assert "MARKET_PROXY_HOST" not in runner
+    assert "PRICE_FEED_ORIGIN" not in runner
     assert 'ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0' in runner
     command = re.search(r"^CMD (.*)$", runner, re.M)
-    assert json.loads(command[1]) == ["node", "server.js"]
-    route = source("apps/perps/src/pages/api/candle/[...path].ts")
-    parser = route.split("export function parseMarketProxyOrigin(", 1)[1].split(
-        "\n// A set but malformed", 1
-    )[0]
-    assert 'if (!raw) throw new Error(`${ORIGIN_ENV} is not set`)' in parser
-    assert 'url.protocol !== "http:" && url.protocol !== "https:"' in parser
-    assert "if (url.origin !== raw) throw new Error(" in parser
-    assert "return raw;" in parser
-    origin = route.split("function upstreamOrigin()", 1)[1].split(
-        "\n// Rolling", 1
-    )[0]
-    assert "return { origin: parseMarketProxyOrigin(process.env.MARKET_PROXY_ORIGIN) };" in origin
-    handler = route.split("export default async function handler(", 1)[1]
-    assert "const proxyOrigin = upstreamOrigin();" in handler
-    assert 'if (!("origin" in proxyOrigin))' in handler
-    assert 'return res.status(503).json({ error: "MARKET_PROXY_ORIGIN is not configured" });' in handler
-    assert "const origin = proxyOrigin.origin;" in handler
-    fetch = handler.split("const upstreamRes = await fetch(upstream, {", 1)[1].split(
-        "\n    });", 1
-    )[0]
-    assert re.search(r"headers:\s*\{\s*Accept: \"application/json\",\s*Origin: origin,\s*\}", fetch)
-    assert "method," in fetch
+    assert json.loads(command[1]) == ["node", "apps/web/server.js"]
+    route = source("apps/perps/apps/web/src/pages/api/candle/[...path].ts")
+    compact = re.sub(r"\s+", "", route)
+    for fragment in (
+        'if (!raw) throw new Error(`${ORIGIN_ENV} is not set`)',
+        'url.protocol !== "http:" && url.protocol !== "https:"',
+        'if (url.origin !== raw) throw new Error(',
+        'return raw;',
+        'return { origin: parseMarketProxyOrigin(process.env.MARKET_PROXY_ORIGIN) };',
+        'const proxyOrigin = upstreamOrigin();',
+        'if (!("origin" in proxyOrigin))',
+        'return res.status(503).json({ error: "MARKET_PROXY_ORIGIN is not configured" });',
+        'const origin = proxyOrigin.origin;',
+        'const upstreamRes = await fetch(upstream, { method, headers: { Accept: "application/json", Origin: origin, }, signal: abort.signal, });',
+        'const base = getUpstream(symbolParam);',
+        'return res.status(upstreamRes.status).json(data);',
+    ):
+        assert re.sub(r"\s+", "", fragment) in compact
     assert '"config",' in route
-    assert 'process.env.MARKET_PROXY_HOST || "data.feed.chainflowtrading.com"' in route
-    assert "const base = getUpstream(symbolParam);" in handler
-    assert "const upstream = `${base}/${endpoint}" in handler
-    assert "return res.status(upstreamRes.status).json(data);" in handler
+    assert 'import { gatewayUrls } from "@paxeer-network/paxeer-backend/core/network/gateway";' in route
+    assert '`${gatewayUrls().origin}/api/${normalized.toLowerCase()}`' in route
+    assert 'const upstream = `${base}/${endpoint}' in route
+    assert "MARKET_PROXY_HOST" not in route
+    assert "data.feed." not in route
 
 
 def test_compose_private_ingress_and_inherited_image_health():
@@ -198,7 +199,7 @@ def test_compose_private_ingress_and_inherited_image_health():
         "CMD", "wget", "-q", "-O", "/dev/null",
         "http://127.0.0.1:${PORT}/api/build-id", "||", "exit", "1",
     ]
-    identity = source("apps/perps/src/pages/api/build-id.ts")
+    identity = source("apps/perps/apps/web/src/pages/api/build-id.ts")
     assert "process.env.VERCEL_GIT_COMMIT_SHA" in identity
     assert "res.status(200).json({ buildId });" in identity
     architecture = section("Architecture", 2)
@@ -211,6 +212,7 @@ def test_compose_private_ingress_and_inherited_image_health():
     assert ["proxy_set_header", "Host", "$host"] in directives
     assert ["proxy_set_header", "X-Forwarded-Proto", "$scheme"] in directives
     assert ["proxy_set_header", "X-Forwarded-For", "$proxy_add_x_forwarded_for"] in directives
+    assert ["proxy_set_header", "X-Real-IP", "$remote_addr"] in directives
     assert "./nginx/nginx.conf:/etc/nginx/nginx.conf:ro" in nginx["volumes"]
     assert "./nginx/conf.d:/etc/nginx/conf.d:ro" in nginx["volumes"]
     assert "operator-supplied TLS\nserver's" in readme()
@@ -225,7 +227,7 @@ def test_readme_start_upgrade_rollback_and_service_commands():
     rollback = section("Roll back")
     assert commands(rollback) == [COMPOSE_PREFIX + RECREATE]
     for fact in ("Restore the retained environment file", "BUILD_COMMIT_SHA",
-                 "MARKET_PROXY_ORIGIN", "MARKET_PROXY_HOST", "do not rebuild",
+                 "MARKET_PROXY_ORIGIN", "PRICE_FEED_ORIGIN", "do not rebuild",
                  "build-identity, proxy-origin and HTTPS checks"):
         assert fact in rollback
     assert commands(section("Tail logs")) == [COMPOSE_PREFIX + ["logs", "-f", "--tail", "100", "app"]]
@@ -244,7 +246,7 @@ def test_readme_start_upgrade_rollback_and_service_commands():
 def test_runtime_env_update_recreates_same_image_and_checks_proxy_origin():
     updates = section("Apply server-only environment changes")
     assert commands(updates) == [COMPOSE_PREFIX + RECREATE]
-    for fact in ("MARKET_PROXY_ORIGIN", "MARKET_PROXY_HOST", "BUILD_COMMIT_SHA",
+    for fact in ("MARKET_PROXY_ORIGIN", "PRICE_FEED_ORIGIN", "BUILD_COMMIT_SHA",
                  "unchanged", "**same image**", "new expected origin",
                  "restart", "retains the existing container environment",
                  "NEXT_PUBLIC_*", "require a rebuild"):
@@ -283,11 +285,11 @@ def test_environment_template_matches_compose_lifecycle():
         line.split("=", 1) for line in template.splitlines()
         if line and not line.startswith("#")
     )
-    for name in ("MARKET_PROXY_ORIGIN", "MARKET_PROXY_HOST", "BUILD_COMMIT_SHA",
+    for name in ("MARKET_PROXY_ORIGIN", "PRICE_FEED_ORIGIN", "BUILD_COMMIT_SHA",
                  "NEXT_PUBLIC_PERPS_GATEWAY_URL"):
         assert name in values
     assert values["MARKET_PROXY_ORIGIN"] == values["BUILD_COMMIT_SHA"] == ""
-    assert values["MARKET_PROXY_HOST"] == "data.feed.chainflowtrading.com"
+    assert values["PRICE_FEED_ORIGIN"] == "https://data.feed.chainflowtrading.com"
     assert "Copy to apps/perps/.env.production" in template
     assert "NEXT_PUBLIC_* values are client-visible and require an image rebuild" in template
     assert "Compose forwards only its declared build arguments and runtime environment" in template

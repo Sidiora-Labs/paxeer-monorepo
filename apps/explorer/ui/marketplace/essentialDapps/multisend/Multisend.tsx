@@ -15,12 +15,12 @@ const dappConfig = feature?.essentialDapps?.multisend;
 const Container = ({ children }: { children: React.ReactNode }) => (
   <Box
     w="full"
-    maxW="670px"
+    maxW="calc(var(--chakra-spacing-1) * 167.5)"
     mx="auto"
     css={{
       '& > .multisenderTheme': {
-        '--mw-color-brand': { _light: 'colors.blue.600', _dark: 'colors.blue.500' },
-        '--mw-color-brand-stroke': { _light: 'colors.gray.200', _dark: 'colors.whiteAlpha.100' },
+        '--mw-color-brand': 'colors.accent',
+        '--mw-color-brand-stroke': 'colors.hairline',
         '--mw-color-brand-text-secondary': 'colors.text.secondary',
         '--mw-color-brand-fill': 'colors.dialog.bg', // modal background
         fontFamily: 'body',
@@ -33,7 +33,7 @@ const Container = ({ children }: { children: React.ReactNode }) => (
             color: 'text.secondary',
           },
           '& [class*="_stepIcon_"]': {
-            backgroundColor: { _light: 'gray.100', _dark: 'whiteAlpha.100' },
+            backgroundColor: 'raised',
           },
           '& [class*="_stepCompletedIcon_"]': {
             color: 'text.secondary',
@@ -41,20 +41,20 @@ const Container = ({ children }: { children: React.ReactNode }) => (
         },
         '& [class*="_stepIcon_"]': {
           fontSize: 'xs',
-          width: '24px',
-          height: '24px',
-          minWidth: '24px',
-          minHeight: '24px',
+          width: 'var(--chakra-spacing-6)',
+          height: 'var(--chakra-spacing-6)',
+          minWidth: 'var(--chakra-spacing-6)',
+          minHeight: 'var(--chakra-spacing-6)',
         },
         '& [class*="_stepSeparator_"]': {
-          height: '1px',
+          height: 'calc(var(--chakra-spacing-1) * 0.25)',
         },
         '& [class*="_stepperRoot_"] > :nth-child(1)': {
-          padding: '0 12px',
+          padding: '0 var(--chakra-spacing-3)',
         },
         '& [class*="_fieldsetRoot_"]:not([class*="_itemRoot_"])': {
           borderRadius: 'md',
-          padding: '24px',
+          padding: 'var(--chakra-spacing-6)',
           '& button': {
             fontSize: 'xs',
             '& label': {
@@ -62,18 +62,18 @@ const Container = ({ children }: { children: React.ReactNode }) => (
             },
           },
           '& > *:first-child': {
-            gap: '12px',
+            gap: 'var(--chakra-spacing-3)',
             '& > :nth-child(4) > button': {
-              marginBottom: '12px',
-              border: '2px solid',
+              marginBottom: 'var(--chakra-spacing-3)',
+              border: 'var(--chakra-border-widths-2) solid',
               borderColor: 'button.outline.fg',
               borderRadius: 'base',
               color: 'button.outline.fg',
-              height: '32px',
-              padding: '0 12px',
+              height: 'var(--chakra-spacing-8)',
+              padding: '0 var(--chakra-spacing-3)',
               fontSize: 'sm',
               transitionProperty: 'all',
-              transitionDuration: 'moderate',
+              transitionDuration: 'normal',
               '&:hover': {
                 background: 'none',
                 color: 'hover',
@@ -98,13 +98,13 @@ const Container = ({ children }: { children: React.ReactNode }) => (
           },
           '& p[data-size="xl"], & h5': {
             fontFamily: 'heading',
-            fontSize: '18px',
+            fontSize: 'headingMd',
             fontWeight: 'medium !important',
           },
           '& [class*="_tableTr_"]': {
             fontWeight: 'medium',
             '& td': {
-              padding: '12px 0',
+              padding: 'var(--chakra-spacing-3) 0',
             },
             '& a': {
               color: 'link.primary',
@@ -117,14 +117,14 @@ const Container = ({ children }: { children: React.ReactNode }) => (
           },
           '& [class*="SummaryList-module__root__"]': {
             '& + div': {
-              gap: '4px',
+              gap: 'var(--chakra-spacing-1)',
               '& > div:last-child': {
                 '& button': {
                   background: 'none',
                   border: 'none',
                   color: 'button.outline.fg',
                   transitionProperty: 'all',
-                  transitionDuration: 'moderate',
+                  transitionDuration: 'normal',
                   '&:hover': {
                     color: 'hover',
                   },
@@ -139,7 +139,7 @@ const Container = ({ children }: { children: React.ReactNode }) => (
               },
             },
             '& + button': {
-              marginTop: '12px',
+              marginTop: 'var(--chakra-spacing-3)',
             },
             '& span': {
               '--loader-color': 'var(--chakra-colors-text-primary) !important',
@@ -149,18 +149,18 @@ const Container = ({ children }: { children: React.ReactNode }) => (
         '& [class*="_itemRoot_"]': {
           border: 'none',
           borderRadius: 'base',
-          backgroundColor: { _light: 'gray.50', _dark: 'whiteAlpha.100' },
+          backgroundColor: 'surface',
           '& > div': {
-            gap: '8px',
+            gap: 'var(--chakra-spacing-2)',
           },
         },
         '& [class*="_inputWrapper_"]': {
           '& [class*="_input_"]': {
             borderRadius: 'base',
-            border: '2px solid',
+            border: 'var(--chakra-border-widths-2) solid',
             borderColor: 'input.border.filled',
-            height: '32px',
-            minHeight: '32px',
+            height: 'var(--chakra-spacing-8)',
+            minHeight: 'var(--chakra-spacing-8)',
             fontSize: 'sm',
             fontWeight: 'medium',
             color: 'input.fg',
@@ -170,18 +170,18 @@ const Container = ({ children }: { children: React.ReactNode }) => (
           },
           '&[data-size="xl"]': {
             '& [class*="_input_"]': {
-              height: '60px',
-              minHeight: '60px',
+              height: 'var(--chakra-spacing-15)',
+              minHeight: 'var(--chakra-spacing-15)',
               fontSize: 'md',
             },
             '& button': {
-              height: '40px',
+              height: 'var(--chakra-spacing-10)',
               fontSize: 'md',
               backgroundColor: 'button.solid.bg',
               borderRadius: 'base',
               transitionProperty: 'all',
-              transitionDuration: 'moderate',
-              color: 'white',
+              transitionDuration: 'normal',
+              color: 'onAccent',
               '&:hover': {
                 backgroundColor: 'hover',
               },
@@ -196,7 +196,7 @@ const Container = ({ children }: { children: React.ReactNode }) => (
         },
         '& [class*="RecipientsEditor-module__head_"]': {
           fontSize: 'xs',
-          marginTop: '12px',
+          marginTop: 'var(--chakra-spacing-3)',
           '& p': {
             fontWeight: 'medium',
           },
@@ -205,9 +205,9 @@ const Container = ({ children }: { children: React.ReactNode }) => (
             color: 'link.primary',
             fontWeight: 'medium',
             padding: 0,
-            height: '18px',
+            height: 'calc(var(--chakra-spacing-1) * 4.5)',
             transitionProperty: 'all',
-            transitionDuration: 'moderate',
+            transitionDuration: 'normal',
             borderRadius: 0,
             '&:hover': {
               color: 'link.primary.hover',
@@ -218,18 +218,18 @@ const Container = ({ children }: { children: React.ReactNode }) => (
           },
         },
         '& [class*="CodeMirror"]': {
-          fontSize: '15px',
+          fontSize: 'body',
           '& .cm-scroller': {
             borderRadius: 'base',
-            borderWidth: '2px',
+            borderWidth: '2',
             borderColor: 'input.border.filled',
           },
           '& .cm-gutters': {
             borderTopLeftRadius: '0',
             borderBottomLeftRadius: '0',
-            borderRightWidth: '2px',
+            borderRightWidth: 'calc(var(--chakra-spacing-1) * 0.5)',
             borderColor: 'input.border.filled',
-            backgroundColor: { _light: 'gray.50', _dark: 'whiteAlpha.50' },
+            backgroundColor: 'surface',
             backdropFilter: 'none',
             '&:before': {
               background: 'none',
@@ -247,19 +247,19 @@ const Container = ({ children }: { children: React.ReactNode }) => (
             borderRadius: 'xl',
           },
           '& [class*="_modalHeader_"]': {
-            minHeight: '64px',
-            height: '64px !important',
-            padding: '24px !important',
+            minHeight: 'var(--chakra-spacing-16)',
+            height: 'var(--chakra-spacing-16) !important',
+            padding: 'var(--chakra-spacing-6) !important',
             paddingBottom: '0 !important',
-            marginBottom: '8px',
+            marginBottom: 'var(--chakra-spacing-2)',
             '& [class*="_modalTitle_"]': {
               fontFamily: 'heading',
               fontWeight: 'medium !important',
-              fontSize: '24px !important',
+              fontSize: 'headingLg !important',
             },
           },
           '& [class*="_modalHeader_"] + div': {
-            padding: '24px !important',
+            padding: 'var(--chakra-spacing-6) !important',
             paddingTop: '0 !important',
             '& > div': {
               padding: '0 !important',
@@ -278,19 +278,19 @@ const Container = ({ children }: { children: React.ReactNode }) => (
         },
         '& div[role="alert"]': {
           borderRadius: 'base',
-          padding: '8px 12px',
+          padding: 'var(--chakra-spacing-2) var(--chakra-spacing-3)',
           margin: '0 !important',
           '& p, & div': {
             fontSize: 'md',
             color: 'text.primary !important',
           },
           '& [class*="_alertIcon_"]': {
-            marginTop: '2px',
-            marginRight: '8px',
+            marginTop: 'calc(var(--chakra-spacing-1) * 0.5)',
+            marginRight: 'var(--chakra-spacing-2)',
             '& svg': {
               fill: 'text.primary',
-              width: '20px',
-              height: '20px',
+              width: 'var(--chakra-spacing-5)',
+              height: 'var(--chakra-spacing-5)',
             },
           },
           '&:not([data-variant="filled"]) [class*="_alertIcon_"]': {
@@ -304,7 +304,7 @@ const Container = ({ children }: { children: React.ReactNode }) => (
           backgroundColor: 'tooltip.bg',
           color: 'tooltip.fg',
           borderRadius: 'sm',
-          padding: '4px 8px !important',
+          padding: 'var(--chakra-spacing-1) var(--chakra-spacing-2) !important',
           '& p': {
             fontSize: 'sm',
             fontWeight: 'medium',
@@ -312,11 +312,11 @@ const Container = ({ children }: { children: React.ReactNode }) => (
         },
         '& [class*="_button_"][data-size="lg"], [class*="_button_"][data-size="md"]': {
           borderRadius: 'base',
-          color: 'white',
-          height: '40px',
+          color: 'onAccent',
+          height: 'var(--chakra-spacing-10)',
           backgroundColor: 'button.solid.bg',
           transitionProperty: 'background-color',
-          transitionDuration: 'moderate',
+          transitionDuration: 'normal',
           '&:disabled': {
             opacity: '0.2',
           },
@@ -327,25 +327,25 @@ const Container = ({ children }: { children: React.ReactNode }) => (
             transform: 'none',
           },
           '& > span[aria-hidden="true"]': {
-            width: '20px',
-            height: '20px',
+            width: 'var(--chakra-spacing-5)',
+            height: 'var(--chakra-spacing-5)',
             '& > span::after': {
-              width: '20px',
-              height: '20px',
+              width: 'var(--chakra-spacing-5)',
+              height: 'var(--chakra-spacing-5)',
             },
           },
         },
         '& [class*="Summary-module__upgradeBtn__"]': {
           borderRadius: 'base',
           border: 'none',
-          height: '32px',
-          padding: '0 12px',
+          height: 'var(--chakra-spacing-8)',
+          padding: '0 var(--chakra-spacing-3)',
           fontSize: 'sm !important',
           fontWeight: 'semibold',
           transitionProperty: 'all',
-          transitionDuration: 'moderate',
+          transitionDuration: 'normal',
           '&[class*="_crown_"]': {
-            color: 'white',
+            color: 'onAccent',
             backgroundColor: 'button.solid.bg',
             '&:hover': {
               backgroundColor: 'hover',
@@ -353,9 +353,9 @@ const Container = ({ children }: { children: React.ReactNode }) => (
           },
           '&[class*="_gift_"]': {
             color: 'button.outline.fg',
-            border: '2px solid',
+            border: 'var(--chakra-border-widths-2) solid',
             borderColor: 'button.outline.fg',
-            marginRight: '-4px',
+            marginRight: 'calc(var(--chakra-spacing-1) * -1)',
             background: 'none',
             '&:hover': {
               color: 'hover',
@@ -370,11 +370,11 @@ const Container = ({ children }: { children: React.ReactNode }) => (
           border: 'none',
           background: 'none',
           '& svg': {
-            width: '16px',
-            height: '16px',
+            width: 'var(--chakra-spacing-4)',
+            height: 'var(--chakra-spacing-4)',
             color: 'link.primary',
             transitionProperty: 'all',
-            transitionDuration: 'moderate',
+            transitionDuration: 'normal',
           },
           '&:hover svg': {
             color: 'link.primary.hover',
@@ -385,7 +385,7 @@ const Container = ({ children }: { children: React.ReactNode }) => (
         },
         '& div[role="radiogroup"]': {
           '& > div': {
-            gap: '8px',
+            gap: 'var(--chakra-spacing-2)',
           },
           '& [class*="LargeRadio-module__root_"]': {
             '& svg': {
@@ -402,36 +402,36 @@ const Container = ({ children }: { children: React.ReactNode }) => (
             '& > div[class*="LargeRadio-module__body_"]': {
               border: 'none',
               borderRadius: 'base',
-              backgroundColor: { _light: 'gray.50', _dark: 'whiteAlpha.100' },
+              backgroundColor: 'surface',
             },
             '&:not([data-checked="true"]) input': {
               backgroundColor: 'transparent',
-              border: '2px solid',
+              border: 'var(--chakra-border-widths-2) solid',
               borderColor: 'input.border.filled',
             },
             '& > div > div:not([class*="_labelWrapper_"])': {
-              marginTop: '2px',
+              marginTop: 'calc(var(--chakra-spacing-1) * 0.5)',
             },
             '& .tabler-icon-info-circle': {
               stroke: 'text.primary',
-              width: '20px',
-              height: '20px',
+              width: 'var(--chakra-spacing-5)',
+              height: 'var(--chakra-spacing-5)',
             },
           },
         },
         '& [class*="TokenSelect-module__grid_"]': {
           display: 'flex',
           justifyContent: 'flex-start',
-          gap: '12px',
+          gap: 'var(--chakra-spacing-3)',
           flexWrap: 'wrap',
         },
         '& [class*="TokenSelect-module__chainsList_"]': {
           gap: 0,
-          marginTop: '24px',
+          marginTop: 'var(--chakra-spacing-6)',
           '& > div': {
             display: 'flex',
-            padding: '8px',
-            margin: '0 -8px',
+            padding: 'var(--chakra-spacing-2)',
+            margin: '0 calc(var(--chakra-spacing-2) * -1)',
             borderRadius: 'base',
             cursor: 'pointer',
             '&:hover': {
@@ -444,18 +444,18 @@ const Container = ({ children }: { children: React.ReactNode }) => (
               },
             },
             '& > svg': {
-              width: '18px',
+              width: 'calc(var(--chakra-spacing-1) * 4.5)',
             },
           },
         },
         '& [class*="TokenSelect-module__stickySection_"]': {
-          top: '16px',
+          top: 'var(--chakra-spacing-4)',
           '& > div:last-child': {
-            gap: '8px !important',
+            gap: 'var(--chakra-spacing-2) !important',
           },
         },
         '& [class*="TokenSelect-module__searchInput_"]': {
-          marginTop: '8px',
+          marginTop: 'var(--chakra-spacing-2)',
         },
         '& [class*="TokenSelect-module__tokensList_"]': {
           gap: 0,
@@ -464,15 +464,15 @@ const Container = ({ children }: { children: React.ReactNode }) => (
           },
         },
         '& [class*="TokenSelect-module__tokenRow_"]': {
-          padding: '8px',
-          margin: '0 -8px',
+          padding: 'var(--chakra-spacing-2)',
+          margin: '0 calc(var(--chakra-spacing-2) * -1)',
           borderRadius: 'base',
           '&:hover': {
             backgroundColor: 'selected.control.bg',
           },
           '& [class*="_tokenIcon_"]': {
-            width: '40px',
-            height: '40px',
+            width: 'var(--chakra-spacing-10)',
+            height: 'var(--chakra-spacing-10)',
           },
         },
         '& > .multisenderMantineProvider': {

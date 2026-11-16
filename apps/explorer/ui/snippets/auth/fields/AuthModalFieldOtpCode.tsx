@@ -28,18 +28,24 @@ const AuthModalFieldOtpCode = ({ isDisabled: isDisabledProp }: Props) => {
 
   return (
     <>
-      <HStack>
+      <HStack as="fieldset" minW={ 0 }>
+        <Text as="legend" mb={ 2 }>Confirmation code</Text>
         <PinInput
           otp
+          aria-label="Confirmation code"
+          inputProps={{ autoComplete: 'one-time-code', inputMode: 'numeric' }}
+          onBlur={ field.onBlur }
           name={ field.name }
           value={ field.value }
           onValueChange={ handleChange }
           disabled={ isDisabled }
           invalid={ Boolean(fieldState.error) }
           bgColor="dialog.bg"
+          maxW="100%"
+          css={{ '& [data-part=control] > *': { flexWrap: 'wrap' } }}
         />
       </HStack>
-      { fieldState.error?.message && <Text color="text.error" textStyle="sm" mt={ 1 }>{ fieldState.error.message }</Text> }
+      { fieldState.error?.message && <Text role="alert" color="text.error" textStyle="sm" mt={ 1 }>{ fieldState.error.message }</Text> }
     </>
   );
 };

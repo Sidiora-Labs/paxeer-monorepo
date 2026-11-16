@@ -6,8 +6,7 @@
   "module": "./src/index.ts",
   "scripts": {
     "build": "tsup",
-    "build:css": "tailwindcss build -i src/tailwind.css -o dist/styles.css",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build:css": "tailwindcss build -i src/tailwind.css -o dist/styles.css"
   },
   "keywords": [],
   "files": [

@@ -1,15 +1,18 @@
-import { Grid, Text, Flex, Box, VStack } from '@chakra-ui/react';
+import { Text, Flex, Box, VStack } from '@chakra-ui/react';
 import React from 'react';
 
 import type { ArbitrumL2TxnBatchDAAnytrust } from 'types/api/arbitrumL2';
 
 import dayjs from 'lib/date/dayjs';
+import { TableBody, TableCell, TableColumnHeader, TableHeader, TableRow } from 'toolkit/chakra/table';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailsTimestamp from 'ui/shared/DetailedInfo/DetailedInfoTimestamp';
 import HashStringShorten from 'ui/shared/HashStringShorten';
 import IconSvg from 'ui/shared/IconSvg';
 import TextSeparator from 'ui/shared/TextSeparator';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
+import ActivityTable from 'ui/txs/ActivityTable';
+import ActivityViews from 'ui/txs/ActivityViews';
 
 type Props = {
   data: ArbitrumL2TxnBatchDAAnytrust;
@@ -44,7 +47,7 @@ const ArbitrumL2TxnBatchDetailsAnyTrustDA = ({ data }: Props) => {
             <>
               <DetailsTimestamp timestamp={ data.timeout } noRelativeTime/>
               <TextSeparator/>
-              <Text color="red.500">{ dayjs(data.timeout).diff(dayjs(), 'day') } days left</Text>
+              <Text color="negative">{ dayjs(data.timeout).diff(dayjs(), 'day') } days left</Text>
             </>
           ) }
       </DetailedInfo.ItemValue>
@@ -53,64 +56,72 @@ const ArbitrumL2TxnBatchDetailsAnyTrustDA = ({ data }: Props) => {
       >
         Signers
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue overflowX="scroll" fontSize="sm">
-        <Grid
-          hideBelow="lg"
-          templateColumns="1fr auto auto"
-          gap={ 5 }
-          backgroundColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
-          padding={ 4 }
-          borderRadius="md"
-          minW="600px"
-        >
-          <Text fontWeight={ 600 }>Key</Text>
-          <Text fontWeight={ 600 }>Trusted</Text>
-          <Text fontWeight={ 600 }>Proof</Text>
-          { data.signers.map(signer => (
-            <>
-              <Flex justifyContent="space-between">
-                <Text wordBreak="break-all" whiteSpace="break-spaces">{ signer.key }</Text>
-                <CopyToClipboard text={ signer.key } ml={ 2 }/>
-              </Flex>
-              <Box justifySelf="center">
-                { signer.trusted ? <IconSvg name="check" boxSize={ 6 }/> : <IconSvg name="cross" boxSize={ 6 }/> }
-              </Box>
-              { signer.proof ? (
-                <Flex>
-                  <HashStringShorten hash={ signer.proof }/>
-                  <CopyToClipboard text={ signer.proof } ml={ 2 }/>
-                </Flex>
-              ) : '-' }
-            </>
-          )) }
-        </Grid>
-
-        <Box hideFrom="lg" backgroundColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }} borderRadius="md">
-          { data.signers.map(signer => (
-            <VStack padding={ 4 } key={ signer.key } gap={ 2 }>
-              <Flex w="100%" justifyContent="space-between">
-                <Text fontWeight={ 600 }>Key</Text>
-                <CopyToClipboard text={ signer.key }/>
-              </Flex>
-              <Text wordBreak="break-all" whiteSpace="break-spaces">{ signer.key }</Text>
-              <Flex w="100%" alignItems="center">
-                <Flex alignItems="center" w="50%">
-                  <Text fontWeight={ 600 } mr={ 2 }>Trusted</Text>
-                  { signer.trusted ? <IconSvg name="check" boxSize={ 6 }/> : <IconSvg name="cross" boxSize={ 6 }/> }
-                </Flex>
-                <Flex alignItems="center" w="50%">
-                  <Text fontWeight={ 600 } mr={ 2 }>Proof</Text>
-                  { signer.proof ? (
-                    <Flex>
-                      <HashStringShorten hash={ signer.proof }/>
-                      <CopyToClipboard text={ signer.proof } ml={ 2 }/>
+      <DetailedInfo.ItemValue fontSize="sm">
+        <ActivityViews
+          tableBreakpoint="sm"
+          table={ (
+            <ActivityTable label="AnyTrust signers" minW="xl">
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader>Key</TableColumnHeader>
+                  <TableColumnHeader w="var(--chakra-spacing-24)">Trusted</TableColumnHeader>
+                  <TableColumnHeader w="var(--chakra-spacing-40)">Proof</TableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                { data.signers.map(signer => (
+                  <TableRow key={ signer.key }>
+                    <TableCell>
+                      <Flex minW={ 0 } alignItems="flex-start">
+                        <Text wordBreak="break-all" whiteSpace="break-spaces">{ signer.key }</Text>
+                        <CopyToClipboard text={ signer.key } ml={ 2 }/>
+                      </Flex>
+                    </TableCell>
+                    <TableCell>
+                      <IconSvg name={ signer.trusted ? 'check' : 'cross' } boxSize={ 6 } role="img" aria-label={ signer.trusted ? 'Trusted' : 'Not trusted' }/>
+                    </TableCell>
+                    <TableCell>
+                      { signer.proof ? (
+                        <Flex minW={ 0 } maxW="full" flexWrap="wrap" alignItems="center" gap={ 2 }>
+                          <HashStringShorten hash={ signer.proof }/>
+                          <CopyToClipboard text={ signer.proof }/>
+                        </Flex>
+                      ) : '-' }
+                    </TableCell>
+                  </TableRow>
+                )) }
+              </TableBody>
+            </ActivityTable>
+          ) }
+          list={ (
+            <Box backgroundColor="bg.surface" borderRadius="md" minW={ 0 }>
+              { data.signers.map(signer => (
+                <VStack padding={ 4 } key={ signer.key } gap={ 2 } alignItems="stretch">
+                  <Flex w="full" justifyContent="space-between" alignItems="center">
+                    <Text fontWeight="semibold">Key</Text>
+                    <CopyToClipboard text={ signer.key }/>
+                  </Flex>
+                  <Text wordBreak="break-all" whiteSpace="break-spaces">{ signer.key }</Text>
+                  <Flex w="full" flexWrap="wrap" gap={ 4 }>
+                    <Flex alignItems="center" gap={ 2 }>
+                      <Text fontWeight="semibold">Trusted</Text>
+                      <IconSvg name={ signer.trusted ? 'check' : 'cross' } boxSize={ 6 } role="img" aria-label={ signer.trusted ? 'Trusted' : 'Not trusted' }/>
                     </Flex>
-                  ) : '-' }
-                </Flex>
-              </Flex>
-            </VStack>
-          )) }
-        </Box>
+                    <Flex alignItems="center" minW={ 0 } maxW="full" flexWrap="wrap" gap={ 2 }>
+                      <Text fontWeight="semibold">Proof</Text>
+                      { signer.proof ? (
+                        <Flex minW={ 0 } maxW="full" flexWrap="wrap" alignItems="center" gap={ 2 }>
+                          <HashStringShorten hash={ signer.proof }/>
+                          <CopyToClipboard text={ signer.proof }/>
+                        </Flex>
+                      ) : '-' }
+                    </Flex>
+                  </Flex>
+                </VStack>
+              )) }
+            </Box>
+          ) }
+        />
       </DetailedInfo.ItemValue>
     </>
   );

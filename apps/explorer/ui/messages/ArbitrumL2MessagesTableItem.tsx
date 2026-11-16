@@ -38,7 +38,7 @@ const ArbitrumL2MessagesTableItem = ({ item, direction, isLoading }: Props) => {
             <BlockEntityL1
               number={ item.origination_transaction_block_number }
               isLoading={ isLoading }
-              fontWeight={ 600 }
+              fontWeight="semibold"
               noIcon
             />
           ) : <chakra.span color="text.secondary">N/A</chakra.span> }
@@ -50,7 +50,7 @@ const ArbitrumL2MessagesTableItem = ({ item, direction, isLoading }: Props) => {
             address={{ hash: item.origination_address_hash }}
             truncation="constant"
             isLoading={ isLoading }
-            fontWeight={ 600 }
+            fontWeight="semibold"
           />
         </TableCell>
       ) }

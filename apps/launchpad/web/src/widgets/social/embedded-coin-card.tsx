@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -48,8 +49,8 @@ export function EmbeddedCoinCard({ poolAddress, stats, positionDisclosure, posit
       <span className="min-w-0 flex-1">
         {pending ? (
           <>
-            <Skeleton width={72} className="h-3.5" />
-            <Skeleton width={120} className="mt-1.5 h-3" />
+            <Skeleton width={surfaceSpacing(18)} className="h-3.5" />
+            <Skeleton width={surfaceSpacing(30)} className="mt-1.5 h-3" />
           </>
         ) : (
           <>
@@ -59,7 +60,7 @@ export function EmbeddedCoinCard({ poolAddress, stats, positionDisclosure, posit
         )}
       </span>
       <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">
-        <span className="inline-flex items-center gap-1 text-2xs font-semibold uppercase tracking-[.04em] text-text-faint">
+        <span className="inline-flex items-center gap-1 text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
           Position
           {positionVerified ? (
             <Tooltip content="Verified position">
@@ -70,9 +71,9 @@ export function EmbeddedCoinCard({ poolAddress, stats, positionDisclosure, posit
         <span className="max-w-32 truncate text-num-sm font-bold text-text" title={positionDisclosure ?? undefined}>{positionDisclosure ?? 'Not shared'}</span>
       </span>
       <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">
-        <span className="text-2xs font-semibold uppercase tracking-[.04em] text-text-faint">MC</span>
+        <span className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">MC</span>
         {stats.state === 'loading' ? (
-          <Skeleton width={56} className="h-3.5" />
+          <Skeleton width={surfaceSpacing(14)} className="h-3.5" />
         ) : (
           <span data-numeric className={cn('text-num-sm font-bold tabular-nums', mcap ? 'text-text' : 'text-text-faint')} title={stats.state === 'unsupported' ? 'Market cap is not available yet' : stats.state === 'error' ? "Can't load market cap right now" : undefined} data-operation={stats.state === 'unsupported' ? technicalDetail(stats.operation, stats.status) ?? undefined : undefined}>
             {mcap ? formatUsdl(mcap, { compact: true }) : '—'}

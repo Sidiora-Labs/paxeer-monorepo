@@ -304,7 +304,7 @@ export const SymbolInfo = (props: {
         width={4}
         height={38}
         className={cn(
-          "oui-shrink-0 oui-rounded-[1px]",
+          "oui-shrink-0 oui-rounded-sm",
           record.side === "LONG" ? "oui-bg-trade-profit" : "oui-bg-trade-loss",
         )}
       />

@@ -4,8 +4,8 @@ import type { Screen } from 'ui/snippets/auth/types';
 
 import { useRewardsContext } from 'lib/contexts/rewards';
 import useWallet from 'lib/web3/useWallet';
-import { DialogBody, DialogContent, DialogRoot, DialogHeader } from 'toolkit/chakra/dialog';
 import { useDisclosure } from 'toolkit/hooks/useDisclosure';
+import { DialogBody, DialogContent, DialogRoot, DialogHeader } from 'ui/marketplace/NativeDialog';
 import AuthModal from 'ui/snippets/auth/AuthModal';
 
 import CongratsStepContent from './steps/CongratsStepContent';

@@ -23,17 +23,17 @@ const TableColumnFilterWrapper = ({ columnName, className, children, isLoading, 
           aria-label={ `filter by ${ columnName }` }
           variant="icon_secondary"
           borderWidth="0"
-          h="20px"
-          minW="auto"
+          minH="touchTarget"
+          minW="touchTarget"
           disabled={ isLoading }
           selected={ selected }
-          borderRadius="4px"
+          borderRadius="sm"
           size="sm"
           textStyle="sm"
-          fontWeight={ 500 }
+          fontWeight="medium"
           padding={ 0 }
         >
-          <IconSvg name="filter" w="19px" h="19px"/>
+          <IconSvg name="filter" boxSize={ 5 }/>
           { Boolean(value) && <chakra.span>{ value }</chakra.span> }
         </Button>
       </PopoverTrigger>

@@ -18,11 +18,48 @@ export function observePage() {
     return parts.join(" > ").replace(" >>> > ", " >>> ");
   };
   const elements = (root = document) => [...root.querySelectorAll("*")].flatMap((element) => [element, ...(element.shadowRoot ? elements(element.shadowRoot) : [])]);
+  const parentElement = (element) => element.parentElement ?? element.getRootNode().host;
+  const clippedToNothing = (element) => {
+    for (let box = element; box; box = parentElement(box)) {
+      const style = getComputedStyle(box);
+      const rect = box.getBoundingClientRect();
+      if (rect.width <= 1 && rect.height <= 1 && ["hidden", "clip"].includes(style.overflowX) && ["hidden", "clip"].includes(style.overflowY)) return true;
+      const length = (value, size) => value.endsWith("%") ? parseFloat(value) * size / 100 : parseFloat(value);
+      const clip = style.clip.match(/^rect\((.*)\)$/);
+      if (clip && ["absolute", "fixed"].includes(style.position)) {
+        const edges = clip[1].split(/[,\s]+/).filter(Boolean);
+        const [top, right, bottom, left] = edges.map((edge, index) => edge === "auto" ? [0, rect.width, rect.height, 0][index] : parseFloat(edge));
+        if (right <= left || bottom <= top) return true;
+      }
+      const inset = style.clipPath.match(/^inset\(([^)]*)\)/);
+      if (inset) {
+        const edges = inset[1].split(/\s+round\s+/)[0].trim().split(/\s+/);
+        const [top, right = top, bottom = top, left = right] = edges;
+        if (length(top, rect.height) + length(bottom, rect.height) >= rect.height || length(left, rect.width) + length(right, rect.width) >= rect.width) return true;
+      }
+      const radius = style.clipPath.match(/^(circle|ellipse)\(([^)]*)\)/);
+      if (radius) {
+        const radii = radius[2].split(/\s+at\s+/)[0].trim().split(/\s+/);
+        if (radii.some((value) => parseFloat(value) === 0)) return true;
+      }
+      const polygon = style.clipPath.match(/^polygon\((.*)\)$/);
+      if (polygon) {
+        const points = polygon[1].replace(/^(nonzero|evenodd),\s*/, "").split(",").map((point) => {
+          const [x, y] = point.trim().split(/\s+/);
+          return [length(x, rect.width), length(y, rect.height)];
+        });
+        const first = points[0];
+        const second = points.find(([x, y]) => x !== first[0] || y !== first[1]);
+        if (points.every((point) => point.every(Number.isFinite)) && (!second || points.every(([x, y]) => (x - first[0]) * (second[1] - first[1]) === (y - first[1]) * (second[0] - first[0])))) return true;
+      }
+    }
+    return false;
+  };
   const visible = (element) => {
     const style = getComputedStyle(element);
-    return element.getClientRects().length > 0 && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && style.visibility === "visible" && style.display !== "none";
+    return element.getClientRects().length > 0 && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && style.visibility === "visible" && style.display !== "none" && !clippedToNothing(element);
   };
-  const measurements = { shifts: [], motions: [], selector, elements, visible };
+  const measurements = { shifts: [], motions: [], selector, elements, visible, parentElement };
   Object.defineProperty(window, "__uiCheck", { value: measurements });
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
@@ -68,18 +105,27 @@ export function doubleText() {
 }
 
 export function measurePage({ limits, typeScale, doubled, reduced }) {
-  const { elements, visible, selector, shifts, motions } = window.__uiCheck;
+  const { elements, visible, selector, shifts, motions, parentElement } = window.__uiCheck;
   const findings = [];
   const add = (kind, element, values) => findings.push({ kind, selector: typeof element === "string" ? element : selector(element), values });
   const width = window.innerWidth;
+  let hasContent = false;
   if (document.documentElement.scrollWidth > width) add("sideways", "html", { width: document.documentElement.scrollWidth, viewport: width });
   const hasText = (element) => [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim()) || (element.matches("input,textarea,select") && (element.value || element.placeholder));
   for (const element of elements()) {
     if (!visible(element)) continue;
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    if (rect.width > width + 0.5 || rect.right > width + 0.5 || rect.left < -0.5) {
-      add("sideways", element, { left: rect.left, right: rect.right, width: rect.width, viewport: width });
+    let left = rect.left;
+    let right = rect.right;
+    for (let ancestor = parentElement(element); ancestor; ancestor = parentElement(ancestor)) {
+      if (!["auto", "scroll"].includes(getComputedStyle(ancestor).overflowX)) continue;
+      const box = ancestor.getBoundingClientRect();
+      left = Math.max(left, box.left);
+      right = Math.min(right, box.right);
+    }
+    if (right > left && (right - left > width + 0.5 || right > width + 0.5 || left < -0.5)) {
+      add("sideways", element, { left, right, width: right - left, viewport: width });
     }
     if (element.textContent.trim() && style.textOverflow !== "ellipsis") {
       const clipsX = ["hidden", "clip"].includes(style.overflowX);
@@ -104,11 +150,13 @@ export function measurePage({ limits, typeScale, doubled, reduced }) {
       }
     }
     const interactive = element.matches("button,a[href],input:not([type=hidden]),textarea,select,summary,[role=button],[role=link],[role=checkbox],[role=radio],[role=switch],[role=slider],[role=tab],[role=menuitem],[onclick],[tabindex]:not([tabindex='-1']),[contenteditable=true]");
+    if (hasText(element) || (rect.width > 0 && rect.height > 0 && (interactive || element.matches("img,svg,canvas,video,iframe,object,embed")))) hasContent = true;
     const inlineLink = element.matches("a[href]") && style.display === "inline" && element.parentElement && [...element.parentElement.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
     if (width <= limits.touchWidth && interactive && !element.matches(":disabled,[aria-disabled=true]") && !inlineLink && (rect.width < limits.touch || rect.height < limits.touch)) {
       add("touch", element, { width: rect.width, height: rect.height, minimum: limits.touch });
     }
   }
+  if (!hasContent) add("load", "document", { source: "empty-document", message: "Document has no visible text, media or controls" });
   const shift = shifts.reduce((total, entry) => total + entry.value, 0);
   if (shift > limits.shift) add("shift", shifts.flatMap((entry) => entry.sources)[0] ?? "html", { score: shift, maximum: limits.shift, entries: shifts });
   if (reduced) {
@@ -133,12 +181,27 @@ export function measurePage({ limits, typeScale, doubled, reduced }) {
 }
 
 export function focusSnapshot() {
+  const { elements, visible, selector, parentElement } = window.__uiCheck;
+  const all = elements();
+  const modals = all.filter((element) => element.matches(":modal"));
+  const modal = modals.length === 1 ? modals[0] : modals.find((element) => {
+    element.focus({ preventScroll: true });
+    return element.matches(":focus");
+  });
+  const withinModal = (element) => {
+    for (let ancestor = element; ancestor; ancestor = parentElement(ancestor)) {
+      if (ancestor === modal) return true;
+    }
+    return false;
+  };
   const bodyTabindex = document.body.getAttribute("tabindex");
   document.body.tabIndex = -1;
   document.body.focus({ preventScroll: true });
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  active?.blur();
   if (bodyTabindex === null) document.body.removeAttribute("tabindex");
   else document.body.setAttribute("tabindex", bodyTabindex);
-  const { elements, visible, selector } = window.__uiCheck;
   const properties = ["outline-style", "outline-color", "outline-width", "outline-offset", "box-shadow", "background-color", "color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width", "text-decoration", "transform", "opacity", "content"];
   const appearance = (element) => {
     const targets = [element, ...element.querySelectorAll("*")];
@@ -150,9 +213,9 @@ export function focusSnapshot() {
     })));
   };
   window.__uiCheck.appearance = appearance;
-  window.__uiCheck.focusBefore = new Map(elements().filter(visible).map((element) => [element, appearance(element)]));
+  window.__uiCheck.focusBefore = new Map(all.filter(visible).map((element) => [element, appearance(element)]));
   window.__uiCheck.focusSelector = selector;
-  return elements().filter((element) => visible(element) && element.tabIndex >= 0 && !element.matches(":disabled,[inert], [inert] *")).map(selector);
+  return all.filter((element) => (!modal || withinModal(element)) && visible(element) && element.tabIndex >= 0 && !element.matches(":disabled,[inert], [inert] *")).map(selector);
 }
 
 export function focusedElement() {
@@ -166,7 +229,7 @@ export function focusedElement() {
   return {
     selector: selector(active),
     changed: baseline !== undefined && baseline !== appearance(active),
-    outside: rect.left < -0.5 || rect.top < -0.5 || rect.right > innerWidth + 0.5 || rect.bottom > innerHeight + 0.5,
+    outside: rect.left < -0.5 || rect.top < -0.5 || rect.left > innerWidth + 0.5 || rect.top > innerHeight + 0.5 || (rect.width <= innerWidth && rect.right > innerWidth + 0.5) || (rect.height <= innerHeight && rect.bottom > innerHeight + 0.5),
     values: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight },
   };
 }

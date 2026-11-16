@@ -16,7 +16,7 @@ type Props = {
 
 const OptimisticL2DisputeGamesTable = ({ items, top, isLoading }: Props) => {
   return (
-    <TableRoot tableLayout="auto" minW="950px">
+    <TableRoot tableLayout="auto" minW="calc(var(--chakra-spacing-1) * 237.5)">
       <TableHeaderSticky top={ top }>
         <TableRow>
           <TableColumnHeader>Index</TableColumnHeader>

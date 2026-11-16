@@ -526,7 +526,16 @@ fn read_response(stream: &mut impl Read) -> Result<Response, String> {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-    use super::public_ip;
+    use super::{public_ip, Endpoint};
+
+    #[test]
+    fn endpoint_path_uses_the_origin_path_for_an_empty_request_path() {
+        let root = Endpoint::parse("https://example.com").unwrap();
+        assert_eq!(root.path(""), Ok("/".to_owned()));
+
+        let comet = Endpoint::parse("https://example.com/comet/").unwrap();
+        assert_eq!(comet.path(""), Ok("/comet".to_owned()));
+    }
 
     #[test]
     fn public_destination_guard_rejects_translation_and_tunnel_ranges() {

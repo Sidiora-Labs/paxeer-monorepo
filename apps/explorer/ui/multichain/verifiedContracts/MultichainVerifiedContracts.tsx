@@ -37,7 +37,11 @@ const MultichainVerifiedContracts = () => {
 
   const filterInput = (
     <FilterInput
-      w={{ base: '100%', lg: '350px' }}
+      name="contract"
+      type="search"
+      minW={ 0 }
+      inputProps={{ 'aria-label': 'Search contracts by name or address', autoComplete: 'off' }}
+      w={{ base: '100%', lg: 'calc(var(--chakra-spacing-1) * 87.5)' }}
       size="sm"
       onChange={ onSearchTermChange }
       placeholder="Search by contract name or address"
@@ -57,7 +61,7 @@ const MultichainVerifiedContracts = () => {
 
   const actionBar = (
     <>
-      <HStack gap={ 3 } mb={ 6 } display={{ base: 'flex', lg: 'none' }}>
+      <HStack gap={ 3 } mb={ 6 } minW={ 0 } flexWrap="wrap" display={{ base: 'flex', lg: 'none' }}>
         { typeFilter }
         { sortButton }
         { filterInput }

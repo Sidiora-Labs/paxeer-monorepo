@@ -18,7 +18,15 @@ export const MainLogo: FC<MainLogoProps> = (props) => {
   const { main } = appIcons || {};
 
   if (main?.img) {
-    return <img src={main?.img} />;
+    return (
+      <img
+        src={main.img}
+        alt={props.alt ?? "Paxeer Xtrades"}
+        width={160}
+        height={32}
+        className="oui-max-w-full oui-object-contain"
+      />
+    );
   }
 
   if (main?.component) {

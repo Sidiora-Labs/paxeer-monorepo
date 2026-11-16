@@ -15,7 +15,7 @@ export const MinimumReceived: React.FC<MinimumReceivedProps> = (props) => {
   return (
     <Flex width="100%" itemAlign="center" justify="between">
       <Flex itemAlign="center" justify="start">
-        <Text size="2xs" intensity={36}>
+        <Text size="2xs" intensity={80}>
           {t("transfer.swapDeposit.minimumReceived")}
         </Text>
       </Flex>
@@ -28,7 +28,7 @@ export const MinimumReceived: React.FC<MinimumReceivedProps> = (props) => {
         >
           {value}
         </Text.numeral>
-        <Text size="2xs" className="oui-select-none" intensity={36}>
+        <Text size="2xs" className="oui-select-none" intensity={80}>
           {symbol}
         </Text>
       </Flex>

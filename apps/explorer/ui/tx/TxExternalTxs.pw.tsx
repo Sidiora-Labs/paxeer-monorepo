@@ -12,10 +12,15 @@ test('base view', async({ page, render, mockEnvs, mockAssetResponse }) => {
   await mockEnvs(ENVS_MAP.externalTxs);
   await mockAssetResponse('http://example.url', './playwright/mocks/image_s.jpg');
   await render(<TxExternalTxs data={ [ EXT_TX_HASH_1, EXT_TX_HASH_2 ] }/>);
-  await page.getByText('2 Solana txns').hover();
-  const popover = page.getByText('Solana transactions');
+  const trigger = page.getByRole('button', { name: '2 Solana txns' });
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  const popover = page.getByRole('dialog', { name: 'Solana transactions' });
   await expect(popover).toBeVisible();
   await expect(page.getByText('1uwpB95K9ae8yrpxxVXJ27ivvHXqrmy82jsamgNtd...3LW8')).toBeVisible();
   await expect(page.getByText('2uwpB95K9ae8yrpxxVXJ27ivvHXqrmy82jsamgNtd...3LW8')).toBeVisible();
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 500, height: 300 } });
+  await page.keyboard.press('Escape');
+  await expect(popover).toBeHidden();
+  await expect(trigger).toBeFocused();
 });

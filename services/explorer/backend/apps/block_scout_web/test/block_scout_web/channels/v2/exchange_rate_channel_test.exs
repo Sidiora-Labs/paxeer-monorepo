@@ -44,7 +44,8 @@ defmodule BlockScoutWeb.V2.ExchangeRateChannelTest do
 
   describe "new_rate" do
     test "subscribed user is notified", %{token: token} do
-      Coin.handle_info({nil, {{:ok, token}, false}}, %{})
+      ref = make_ref()
+      Coin.handle_info({ref, {{:ok, token}, false}}, %Coin{tasks: %{ref => false}})
       Supervisor.terminate_child(Explorer.Supervisor, {ConCache, Explorer.Market.MarketHistoryCache.cache_name()})
       Supervisor.restart_child(Explorer.Supervisor, {ConCache, Explorer.Market.MarketHistoryCache.cache_name()})
 
@@ -88,7 +89,8 @@ defmodule BlockScoutWeb.V2.ExchangeRateChannelTest do
       end)
 
       {:ok, state} = Coin.init([])
-      Coin.handle_info({nil, {{:ok, token}, false}}, state)
+      ref = make_ref()
+      Coin.handle_info({ref, {{:ok, token}, false}}, %{state | tasks: %{ref => false}})
       Supervisor.terminate_child(Explorer.Supervisor, {ConCache, Explorer.Market.MarketHistoryCache.cache_name()})
       Supervisor.restart_child(Explorer.Supervisor, {ConCache, Explorer.Market.MarketHistoryCache.cache_name()})
 
@@ -106,6 +108,8 @@ defmodule BlockScoutWeb.V2.ExchangeRateChannelTest do
 
       MarketHistory.bulk_insert(records)
 
+      Supervisor.terminate_child(Explorer.Supervisor, {ConCache, MarketHistoryCache.cache_name()})
+      Supervisor.restart_child(Explorer.Supervisor, {ConCache, MarketHistoryCache.cache_name()})
       Market.fetch_recent_history()
 
       topic = "exchange_rate:new_rate"

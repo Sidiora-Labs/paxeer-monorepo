@@ -18,12 +18,14 @@ const PRICE_ORDER: Array<keyof GasPrices> = [ 'fast', 'average', 'slow' ];
 
 const GasTrackerPrices = ({ prices, isLoading }: Props) => (
   <Box>
-    <Grid as="ul" templateColumns={{ base: '1fr', lg: 'repeat(3, minmax(0, 1fr))' }} gap={ 4 } mb={ 8 }>
+    <Grid as="ul" role="list" templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-62\.5)), 1fr))" gap={ 4 } mb={ 8 }>
       { PRICE_ORDER.map((type) => prices[type] && <GasTrackerPriceSnippet key={ type } type={ type } data={ prices[type] } isLoading={ isLoading }/>) }
     </Grid>
     <DetailedInfo.Section label="Gas fee estimates">
-      <Box overflowX="auto">
-        <TableRoot variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }} minW="480px">
+      <Box overflowX="auto" role="region" aria-label="Gas fee estimates" tabIndex={ 0 }>
+        <TableRoot variant="scan"
+          css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}
+          minW="var(--chakra-spacing-100)">
           <TableHeader><TableRow>
             <TableColumnHeader>Speed</TableColumnHeader>
             <TableColumnHeader isNumeric>Base fee (Gwei)</TableColumnHeader>
@@ -39,9 +41,17 @@ const GasTrackerPrices = ({ prices, isLoading }: Props) => (
               return (
                 <TableRow key={ type }>
                   <TableCell><Skeleton loading={ isLoading }>{ GAS_PRICE_TITLES[type] }</Skeleton></TableCell>
-                  <TableCell isNumeric><Skeleton loading={ isLoading }>{ price.base_fee?.toLocaleString(undefined, { maximumFractionDigits: 3 }) ?? '—' }</Skeleton></TableCell>
-                  <TableCell isNumeric><Skeleton loading={ isLoading }>{ price.priority_fee?.toLocaleString(undefined, { maximumFractionDigits: 3 }) ?? '—' }</Skeleton></TableCell>
-                  <TableCell isNumeric><Skeleton loading={ isLoading }>{ price.time === null ? '—' : (price.time / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) }</Skeleton></TableCell>
+                  <TableCell isNumeric>
+                    <Skeleton loading={ isLoading }>{ price.base_fee?.toLocaleString(undefined, { maximumFractionDigits: 3 }) ?? '—' }</Skeleton>
+                  </TableCell>
+                  <TableCell isNumeric>
+                    <Skeleton loading={ isLoading }>{ price.priority_fee?.toLocaleString(undefined, { maximumFractionDigits: 3 }) ?? '—' }</Skeleton>
+                  </TableCell>
+                  <TableCell isNumeric>
+                    <Skeleton loading={ isLoading }>
+                      { price.time === null ? '—' : (price.time / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) }
+                    </Skeleton>
+                  </TableCell>
                 </TableRow>
               );
             }) }

@@ -13,6 +13,15 @@ defmodule Explorer.Repair.PriceBlockEntriesTest do
   @backend Path.expand("../../../..", __DIR__)
 
   setup do
+    previous_bucket_folder = System.get_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER")
+    System.put_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER", "test")
+
+    on_exit(fn ->
+      if previous_bucket_folder,
+        do: System.put_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER", previous_bucket_folder),
+        else: System.delete_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER")
+    end)
+
     node_context()
   end
 

@@ -10,16 +10,16 @@ const UserWalletAutoConnectAlert = () => {
       p={ 3 }
       mb={ 3 }
       alignItems="center"
-      bgColor={{ _light: 'orange.100', _dark: 'orange.900' }}
+      bgColor="warningSoft"
     >
-      <IconSvg
+      <IconSvg aria-hidden={ true }
         name="integration/partial"
         color="text.primary"
         boxSize={ 5 }
         flexShrink={ 0 }
         mr={ 2 }
       />
-      <Text fontSize="xs" lineHeight="16px">
+      <Text fontSize="xs" lineHeight="label">
         Connect your wallet in the app below
       </Text>
     </Flex>

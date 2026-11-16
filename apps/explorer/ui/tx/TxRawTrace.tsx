@@ -73,7 +73,7 @@ const TxRawTrace = ({ txQuery }: Props) => {
   return (
     <ScanTableCard title="Raw trace">
       <Box p={ 4 }>
-        <RawDataSnippet data={ text } isLoading={ isPlaceholderData } textareaMaxHeight={{ base: '400px', lg: '600px' }}/>
+        <RawDataSnippet data={ text } isLoading={ isPlaceholderData } textareaMaxHeight={{ base: 'var(--chakra-spacing-100)', lg: 'var(--chakra-sizes-xl)' }}/>
       </Box>
     </ScanTableCard>
   );

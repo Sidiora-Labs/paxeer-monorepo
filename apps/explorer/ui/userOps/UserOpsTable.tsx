@@ -5,8 +5,9 @@ import type { UserOpsItem } from 'types/api/userOps';
 import config from 'configs/app';
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
 import { useMultichainContext } from 'lib/contexts/multichain';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import UserOpsTableItem from './UserOpsTableItem';
 
@@ -25,21 +26,21 @@ const UserOpsTable = ({ items, isLoading, top, showTx, showSender }: Props) => {
 
   return (
     <AddressHighlightProvider>
-      <TableRoot minW="1000px">
+      <ActivityTable label="User operations" minW="var(--chakra-sizes-5xl)">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            { chainData && <TableColumnHeader width="38px"></TableColumnHeader> }
+            { chainData && <TableColumnHeader width="var(--chakra-spacing-9)"></TableColumnHeader> }
             <TableColumnHeader w="60%">User op hash</TableColumnHeader>
-            <TableColumnHeader w="180px">
+            <TableColumnHeader w="var(--chakra-spacing-44)">
               Timestamp
               <TimeFormatToggle/>
             </TableColumnHeader>
-            <TableColumnHeader w="140px">Status</TableColumnHeader>
-            { showSender && <TableColumnHeader w="160px">Sender</TableColumnHeader> }
-            { showTx && <TableColumnHeader w="160px">Tx hash</TableColumnHeader> }
-            <TableColumnHeader w="40%">Block</TableColumnHeader>
+            <TableColumnHeader w="var(--chakra-spacing-36)">Status</TableColumnHeader>
+            { showSender && <TableColumnHeader w="var(--chakra-spacing-40)">Sender</TableColumnHeader> }
+            { showTx && <TableColumnHeader w="var(--chakra-spacing-40)">Tx hash</TableColumnHeader> }
+            <TableColumnHeader w="40%" isNumeric>Block</TableColumnHeader>
             { !chainConfig.UI.views.tx.hiddenFields?.tx_fee &&
-          <TableColumnHeader w="120px" isNumeric>{ `Fee ${ chainConfig.chain.currency.symbol }` }</TableColumnHeader> }
+          <TableColumnHeader w="var(--chakra-spacing-30)" isNumeric>{ `Fee ${ chainConfig.chain.currency.symbol }` }</TableColumnHeader> }
           </TableRow>
         </TableHeaderSticky>
         <TableBody>
@@ -56,7 +57,7 @@ const UserOpsTable = ({ items, isLoading, top, showTx, showSender }: Props) => {
             );
           }) }
         </TableBody>
-      </TableRoot>
+      </ActivityTable>
     </AddressHighlightProvider>
   );
 };

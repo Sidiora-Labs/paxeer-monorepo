@@ -53,7 +53,7 @@ const TokenSelectMenu = ({ getSort, filteredData, onInputChange, onSortClick, se
           return (
             <Box key={ type }>
               <Flex justifyContent="space-between">
-                <Text mb={ 3 } color="gray.500" fontWeight={ 600 } fontSize="sm">
+                <Text mb={ 3 } color="text.secondary" fontWeight="semibold" fontSize="sm">
                   { getTokenTypeName(type) } tokens ({ numPrefix }{ tokenInfo.items.length })
                 </Text>
                 { hasSort && (

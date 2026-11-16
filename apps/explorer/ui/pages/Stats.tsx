@@ -57,7 +57,7 @@ const Stats = () => {
       if (visible) {
         setSectionInView(visible.target.id);
       }
-    }, { rootMargin: '-96px 0px -55% 0px' });
+    }, { rootMargin: '0px 0px -55% 0px' });
 
     anchors.forEach((anchor) => observer.observe(anchor));
 
@@ -72,7 +72,15 @@ const Stats = () => {
     }
 
     setSectionInView(sectionId);
-    window.document.getElementById(getStatsSectionAnchorId(sectionId))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const section = window.document.getElementById(getStatsSectionAnchorId(sectionId));
+    if (section) {
+      section.tabIndex = -1;
+      section.focus({ preventScroll: true });
+      section.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+        block: 'start',
+      });
+    }
   }, []);
 
   return (
@@ -105,7 +113,7 @@ const Stats = () => {
           top={{ lg: 6 }}
           alignSelf="flex-start"
           flexShrink={ 0 }
-          w={{ base: '100%', lg: '200px' }}
+          w={{ base: '100%', lg: 'var(--chakra-spacing-40\\.5)' }}
           maxW="100%"
           mb={{ base: 4, lg: 0 }}
           overflowX={{ base: 'auto', lg: 'visible' }}
@@ -124,15 +132,17 @@ const Stats = () => {
                   type="button"
                   data-section-id={ item.id }
                   data-section-active={ item.id === sectionInView || undefined }
+                  aria-current={ item.id === sectionInView ? 'location' : undefined }
                   onClick={ handleNavItemClick }
                   w="100%"
                   textAlign="left"
-                  whiteSpace="nowrap"
+                  whiteSpace={{ base: 'nowrap', lg: 'normal' }}
                   textStyle="sm"
-                  fontWeight="500"
+                  fontWeight="medium"
                   borderRadius="md"
                   px={ 3 }
                   py={ 2 }
+                  minH="touchTarget"
                   color="link.navigation.fg"
                   _hover={{ color: 'link.navigation.fg.hover' }}
                   css={{

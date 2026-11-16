@@ -104,7 +104,7 @@ const CustomAbiForm: React.FC<Props> = ({ data, onOpenChange, onSuccess, setAler
 
   return (
     <FormProvider { ...formApi }>
-      <form noValidate onSubmit={ formApi.handleSubmit(onSubmit) }>
+      <form noValidate autoComplete="off" onSubmit={ formApi.handleSubmit(onSubmit) }>
         <FormFieldAddress<Inputs>
           name="contract_address_hash"
           placeholder="Smart contract address (0x...)"
@@ -130,7 +130,7 @@ const CustomAbiForm: React.FC<Props> = ({ data, onOpenChange, onSuccess, setAler
           asComponent="Textarea"
           bgColor="dialog.bg"
           size="2xl"
-          minH="300px"
+          minH="72"
           mb={ 8 }
         />
         <Box>

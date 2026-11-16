@@ -3,12 +3,11 @@
 
 import React from 'react';
 
+import * as cookies from 'lib/cookies';
+import { COLOR_THEMES, getThemeHexWithOverrides } from 'lib/settings/colorTheme';
 import { render } from 'ui/shared/layout/testWrapper';
 import { expect, test, beforeEach } from 'vitest';
 import { fireEvent, screen, waitFor } from 'vitest/lib';
-
-import * as cookies from 'lib/cookies';
-import { COLOR_THEMES, getThemeHexWithOverrides } from 'lib/settings/colorTheme';
 
 import ColorModeToggle from '../ColorModeToggle';
 import Settings from './Settings';
@@ -36,7 +35,11 @@ async function assertTheme(id: typeof COLOR_THEMES[number]['id']) {
 
   await waitFor(() => {
     expect(screen.getByText(theme.label)).toBeTruthy();
-    expect(document.querySelector('[data-value][aria-current="true"]')?.getAttribute('data-value')).toBe(id);
+    const selected = document.querySelector('[data-value][aria-current="true"]');
+    expect(selected?.getAttribute('data-value')).toBe(id);
+    expect(selected?.tagName).toBe('BUTTON');
+    expect(selected?.getAttribute('type')).toBe('button');
+    expect(selected?.getAttribute('aria-pressed')).toBe('true');
     expect(document.querySelectorAll('[data-value][aria-current="true"]')).toHaveLength(2);
     // The other selected sample is the address identicon, not a second theme.
     expect(document.querySelectorAll('[data-value="light"][aria-current="true"], [data-value="dim"][aria-current="true"], ' +
@@ -97,4 +100,4 @@ async function themeSettingsStaleTracksTopBarAndReload() {
   await assertTheme('midnight');
 }
 
-test(themeSettingsStaleTracksTopBarAndReload);
+test(themeSettingsStaleTracksTopBarAndReload, themeSettingsStaleTracksTopBarAndReload);

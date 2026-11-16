@@ -100,7 +100,7 @@ function BoundAgentControls({
   const [errorSentence, setErrorSentence] = useState<string | undefined>(undefined);
   const [lastJourney, setLastJourney] = useState<JourneyProgress | undefined>(undefined);
   const [challenge, setChallenge] = useState<KeyChallengePresentation | undefined>(undefined);
-  const [reopening, setReopening] = useState(true);
+  const [reopening, setReopening] = useState(false);
   const [unknownControl, setUnknownControl] = useState<OpenControl | undefined>(undefined);
 
   const controls = controlsFor(agent, ownerAccount === undefined ? {} : { ownerAccount });
@@ -181,6 +181,22 @@ function BoundAgentControls({
       if (generation === lifecycle.current) setBusy(false);
     }
   }, [agent.agent_id, agents, onAgent, onChanged]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void agents.recoverPending(agent.agent_id).then((recovered) => {
+      if (!cancelled && recovered !== undefined) {
+        setReopening(true);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setReopening(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.agent_id, agents]);
 
   const unknownOutcomeResolved = useCallback(() => {
     setUnknownControl(undefined);

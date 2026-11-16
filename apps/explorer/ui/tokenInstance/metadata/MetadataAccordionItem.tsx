@@ -26,10 +26,10 @@ const MetadataAccordionItem = ({ children, className, level, isFlat, value }: Pr
       wordBreak="break-all"
       rowGap={ 1 }
       _first={{
-        borderTopWidth: level === 0 ? '1px' : '0px',
+        borderTopWidth: level === 0 ? '1' : '0',
       }}
       _last={{
-        borderBottomWidth: level === 0 ? '1px' : '0px',
+        borderBottomWidth: level === 0 ? '1' : '0',
       }}
     >
       { children }

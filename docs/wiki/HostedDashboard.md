@@ -66,7 +66,14 @@ connections are live. The `tls` listener uses
 ## Authentication
 
 `GET /healthz` is unauthenticated and returns
-`{"ready": <bool>}` with HTTP 200 when ready and 503 otherwise.
+`{"ready": <bool>, "version": "<package version>"}` with HTTP 200 when ready
+and 503 otherwise, on both the plain and TLS listeners. `version` is always
+the `layerx-platform-dashboard` package version. When the optional
+`LAYERX_DASHBOARD_NETWORK_ID` setting is present, the response also includes
+`"network_id": "<network label>"`; otherwise that member is omitted.
+The setting must match the project gateway's network label: 1–64 printable
+ASCII bytes without spaces (bytes `0x21`–`0x7e`). Empty, non-ASCII, control,
+space-containing or longer values refuse startup.
 
 Every `/v1/dashboard/*` route calls the same developer identity
 introspector as webhooks: `Authorization: Bearer` or cookie
@@ -93,6 +100,21 @@ that runtime tenant. Invalid or absent tenant values are treated as unset. The A
 Without the gateway origin or a valid tenant, key registration and proof sign-in
 return 503 with `sign_in_not_configured`; token sign-in remains available. The
 page explains this refusal.
+
+The Keys view signs an issue request with the Ed25519 public key held by the
+browser key of the current session. It offers the six gateway scopes
+(`activity:write`, `program:call`,
+`program:read`, `program:simulate`, `receipt:read` and `state:read`) and a
+quota of 1–1,000,000 requests over 1–2,592,000 seconds. Active keys can be
+rotated or revoked after confirmation. Each write uses a fresh idempotency key.
+An issued or rotated secret is shown once with a copy control and stays only in
+page memory until its dialog closes; it is never written to browser storage.
+If this browser has no developer key, the view explains that it cannot sign
+issuance and keeps the Issue key control disabled. Creating a key during
+sign-in updates the view without a page reload; gateway refusals are shown in
+words from their reason so the developer can correct the request or try again.
+When no active key exists, the overview replaces its request counters with a
+no-quota message and a control that opens Keys.
 
 A successful sign-in returns 204 and sets `__Host-layerx-session` with `Secure`,
 `HttpOnly`, `SameSite=Strict`, `Path=/` and no Domain. Its `Max-Age` ends at the
@@ -137,6 +159,24 @@ owned routes are `404 not_found`.
 `rate-limited`, and `refused`. A request line never presents above
 `unverified` because the gateway audit trail records digests rather
 than receipts (`services/platform/hosted/dashboard/src/model.rs`).
+
+The gateway writes the principal request index in the same script as each
+common audit entry and recovers retained entries in the background at startup.
+`DIGEST` is the principal's audit digest, before the first colon in the event.
+
+| Store key | Writer and dashboard reading |
+| --- | --- |
+| `gateway:principal:DIGEST:audit` | Gateway stream containing the common audit IDs and fields for this principal |
+| `gateway:principal:DIGEST:audit:version` | Gateway sets `1`; the dashboard accepts version `1` and refuses other values or entries without a version |
+
+A principal with neither a version nor index entries has an empty request list.
+Its overview has empty key and recent-request lists when it has no keys.
+
+Receipt lookups read `webhooks:principal:DIGEST:activities` and its
+`webhooks:principal:DIGEST:activities:version` key. Webhooks writes both as one
+index update; version `1` is the supported format. A principal with neither a
+version nor the requested activity field receives `receipt_not_found`, while an
+activity field without version metadata is refused as unavailable.
 
 A payment's `settled` flag is true only when the `state` fact equals
 `settled`, that fact is at least `receipt-verified`, and a receipt

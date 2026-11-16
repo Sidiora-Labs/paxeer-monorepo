@@ -18,76 +18,105 @@ export const fonts: ExcludeUndefined<ThemingConfig['tokens']>['fonts'] = {
   mono: { value: MONO_TYPEFACE },
 };
 
+export const fontSizes = {
+  fluidDisplay: { value: 'clamp(2rem, 1.833333rem + 0.740741vw, 2.5rem)' },
+  fluidH1: { value: 'clamp(1.5rem, 1.416667rem + 0.37037vw, 1.75rem)' },
+  fluidH2: { value: 'clamp(1.125rem, 1.083333rem + 0.185185vw, 1.25rem)' },
+  body: { value: '0.875rem' },
+  small: { value: '0.8125rem' },
+  label: { value: '0.6875rem' },
+  number: { value: '0.8125rem' },
+  statValue: { value: '1.5rem' },
+  headingXl: { value: '2rem' },
+  headingLg: { value: '1.5rem' },
+  headingMd: { value: '1.125rem' },
+  headingSm: { value: '1rem' },
+  textXl: { value: '1.25rem' },
+  textMd: { value: '1rem' },
+  textXs: { value: '0.75rem' },
+} as const;
+
+export const lineHeights = {
+  display: { value: '2.75rem' },
+  h1: { value: '2rem' },
+  h2: { value: '1.5rem' },
+  body: { value: '1.25rem' },
+  small: { value: '1.125rem' },
+  label: { value: '1rem' },
+  statValue: { value: '1.75rem' },
+  headingXl: { value: '2.25rem' },
+} as const;
+
 export const textStyles: ThemingConfig['textStyles'] = {
   display: {
-    value: { fontSize: '40px', lineHeight: '44px', fontWeight: '600', letterSpacing: '-0.02em', fontFamily: 'body' },
+    value: { fontSize: fontSizes.fluidDisplay.value, lineHeight: lineHeights.display.value, fontWeight: 'semibold', letterSpacing: '-0.02em', fontFamily: 'body' },
   },
   h1: {
-    value: { fontSize: '28px', lineHeight: '32px', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: 'body' },
+    value: { fontSize: fontSizes.fluidH1.value, lineHeight: lineHeights.h1.value, fontWeight: 'semibold', letterSpacing: '-0.01em', fontFamily: 'body' },
   },
   h2: {
-    value: { fontSize: '20px', lineHeight: '24px', fontWeight: '600', fontFamily: 'body' },
+    value: { fontSize: fontSizes.fluidH2.value, lineHeight: lineHeights.h2.value, fontWeight: 'semibold', fontFamily: 'body' },
   },
   body: {
-    value: { fontSize: '14px', lineHeight: '20px', fontWeight: '400', fontFamily: 'body' },
+    value: { fontSize: fontSizes.body.value, lineHeight: lineHeights.body.value, fontWeight: 'normal', fontFamily: 'body' },
   },
   small: {
-    value: { fontSize: '13px', lineHeight: '18px', fontWeight: '400', fontFamily: 'body' },
+    value: { fontSize: fontSizes.small.value, lineHeight: lineHeights.small.value, fontWeight: 'normal', fontFamily: 'body' },
   },
   label: {
     value: {
-      fontSize: '11px', lineHeight: '16px', fontWeight: '600', fontFamily: 'body',
+      fontSize: fontSizes.label.value, lineHeight: lineHeights.label.value, fontWeight: 'semibold', fontFamily: 'body',
       textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.muted',
     },
   },
   number: {
-    value: { fontSize: '13px', lineHeight: '18px', fontWeight: '500', fontFamily: 'mono', fontVariantNumeric: 'tabular-nums' },
+    value: { fontSize: fontSizes.small.value, lineHeight: lineHeights.small.value, fontWeight: 'medium', fontFamily: 'mono', fontVariantNumeric: 'tabular-nums' },
   },
   statValue: {
-    value: { fontSize: '24px', lineHeight: '28px', fontWeight: '600', fontFamily: 'mono', fontVariantNumeric: 'tabular-nums' },
+    value: { fontSize: fontSizes.statValue.value, lineHeight: lineHeights.statValue.value, fontWeight: 'semibold', fontFamily: 'mono', fontVariantNumeric: 'tabular-nums' },
   },
   heading: {
     xl: {
       value: {
-        fontSize: '32px',
-        lineHeight: '36px',
-        fontWeight: '500',
+        fontSize: fontSizes.headingXl.value,
+        lineHeight: lineHeights.headingXl.value,
+        fontWeight: 'medium',
         letterSpacing: '-0.01067em',
         fontFamily: 'heading',
       },
     },
     lg: {
       value: {
-        fontSize: '24px',
-        lineHeight: '28px',
-        fontWeight: '500',
+        fontSize: fontSizes.headingLg.value,
+        lineHeight: lineHeights.statValue.value,
+        fontWeight: 'medium',
         letterSpacing: '-0.00583em',
         fontFamily: 'heading',
       },
     },
     md: {
       value: {
-        fontSize: '18px',
-        lineHeight: '24px',
-        fontWeight: '500',
+        fontSize: fontSizes.headingMd.value,
+        lineHeight: lineHeights.h2.value,
+        fontWeight: 'medium',
         letterSpacing: '-0.00389em',
         fontFamily: 'heading',
       },
     },
     sm: {
       value: {
-        fontSize: '16px',
-        lineHeight: '24px',
-        fontWeight: '500',
+        fontSize: fontSizes.textMd.value,
+        lineHeight: lineHeights.h2.value,
+        fontWeight: 'medium',
         letterSpacing: '-0.00389em',
         fontFamily: 'heading',
       },
     },
     xs: {
       value: {
-        fontSize: '14px',
-        lineHeight: '20px',
-        fontWeight: '500',
+        fontSize: fontSizes.body.value,
+        lineHeight: lineHeights.body.value,
+        fontWeight: 'medium',
         letterSpacing: '0.01143em',
         fontFamily: 'heading',
       },
@@ -96,36 +125,36 @@ export const textStyles: ThemingConfig['textStyles'] = {
   text: {
     xl: {
       value: {
-        fontSize: '20px',
-        lineHeight: '28px',
-        fontWeight: '400',
+        fontSize: fontSizes.textXl.value,
+        lineHeight: lineHeights.statValue.value,
+        fontWeight: 'normal',
         letterSpacing: '-0.00444em',
         fontFamily: 'body',
       },
     },
     md: {
       value: {
-        fontSize: '16px',
-        lineHeight: '24px',
-        fontWeight: '400',
+        fontSize: fontSizes.textMd.value,
+        lineHeight: lineHeights.h2.value,
+        fontWeight: 'normal',
         letterSpacing: '0.01188em',
         fontFamily: 'body',
       },
     },
     sm: {
       value: {
-        fontSize: '14px',
-        lineHeight: '20px',
-        fontWeight: '400',
+        fontSize: fontSizes.body.value,
+        lineHeight: lineHeights.body.value,
+        fontWeight: 'normal',
         letterSpacing: '0.01143em',
         fontFamily: 'body',
       },
     },
     xs: {
       value: {
-        fontSize: '12px',
-        lineHeight: '16px',
-        fontWeight: '400',
+        fontSize: fontSizes.textXs.value,
+        lineHeight: lineHeights.label.value,
+        fontWeight: 'normal',
         letterSpacing: '0.00917em',
         fontFamily: 'body',
       },

@@ -1,3 +1,4 @@
+import styles from "../../presentation.module.css";
 import React from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { API } from "@paxeer-network/types";
@@ -7,6 +8,7 @@ import {
   cn,
   Flex,
   Spinner,
+  SelectItem,
   Text,
   TokenIcon,
   useDocumentDirection,
@@ -54,40 +56,47 @@ export const TokenOption: React.FC<TokenOptionProps> = (props) => {
 
   if (displayType === "vaultBalance" && insufficientBalance) {
     return (
-      <Flex
-        key={symbol}
-        direction={isRTL ? "rowReverse" : "row"}
-        itemAlign={"center"}
-        justify="between"
-        px={2}
-        r="base"
-        className={cn(
-          "group",
-          "oui-h-[30px]",
-          "oui-text-2xs oui-font-semibold",
-          isActive && "oui-bg-base-5",
-          props.index !== 0 && "oui-mt-[2px]",
-          "oui-cursor-not-allowed",
-        )}
+      <SelectItem
+        value={token.value}
+        textValue={token.label}
+        disabled
+        className={styles.option}
       >
         <Flex
+          key={symbol}
           direction={isRTL ? "rowReverse" : "row"}
-          itemAlign="center"
-          gapX={1}
+          itemAlign={"center"}
+          justify="between"
+          px={2}
+          r="base"
+          className={cn(
+            "group",
+            "oui-h-7",
+            "oui-text-2xs oui-font-semibold",
+            isActive && "oui-bg-base-5",
+            props.index !== 0 && "oui-mt-0.5",
+            "oui-cursor-not-allowed",
+          )}
         >
-          <TokenIcon
-            url={(token as any).logo_uri}
-            name={symbol}
-            className="oui-size-[16px] oui-opacity-50"
-          />
-          <Text intensity={36} className="oui-max-w-[200px] oui-truncate">
-            {token.label}
-          </Text>
-          <Badge color="neutral" size="xs">
-            {t("transfer.withdraw.InsufficientVaultBalance")}
-          </Badge>
+          <Flex
+            direction={isRTL ? "rowReverse" : "row"}
+            itemAlign="center"
+            gapX={1}
+          >
+            <TokenIcon
+              url={(token as any).logo_uri}
+              name={symbol}
+              className="oui-size-4 oui-opacity-50"
+            />
+            <Text intensity={80} className="oui-max-w-48 oui-truncate">
+              {token.label}
+            </Text>
+            <Badge color="neutral" size="xs">
+              {t("transfer.withdraw.InsufficientVaultBalance")}
+            </Badge>
+          </Flex>
         </Flex>
-      </Flex>
+      </SelectItem>
     );
   }
 
@@ -107,8 +116,8 @@ export const TokenOption: React.FC<TokenOptionProps> = (props) => {
         rm={Decimal.ROUND_DOWN}
         ignoreDP
         className={cn(
-          "oui-text-base-contrast-80 group-hover:oui-text-base-contrast-54",
-          isActive && "oui-text-base-contrast-54",
+          "oui-text-base-contrast-80 group-hover:oui-text-base-contrast-80",
+          isActive && "oui-text-base-contrast-80",
         )}
       >
         {token.amount!}
@@ -117,57 +126,60 @@ export const TokenOption: React.FC<TokenOptionProps> = (props) => {
   };
 
   return (
-    <Flex
-      key={symbol}
-      direction={isRTL ? "rowReverse" : "row"}
-      justify="between"
-      px={2}
-      r="base"
-      className={cn(
-        "group",
-        "oui-h-[30px] hover:oui-bg-base-5",
-        "oui-text-2xs oui-font-semibold",
-        "oui-cursor-pointer",
-        isActive && "oui-bg-base-5",
-        props.index !== 0 && "oui-mt-[2px]",
-      )}
-      onClick={() => {
-        onTokenChange?.(token);
-      }}
+    <SelectItem
+      value={token.value}
+      textValue={token.label}
+      className={styles.option}
     >
       <Flex
+        key={symbol}
         direction={isRTL ? "rowReverse" : "row"}
-        gapX={1}
-        itemAlign="center"
-      >
-        <TokenIcon
-          name={symbol}
-          url={(token as any).logo_uri}
-          className="oui-size-[16px]"
-        />
-        <Text
-          className={cn(
-            "oui-text-base-contrast-54 group-hover:oui-text-base-contrast-80",
-            isActive && "oui-text-base-contrast-80",
-            "oui-max-w-[200px] oui-truncate",
-          )}
-        >
-          {token.label}
-        </Text>
-        {showAPY && (
-          <Box
-            height={18}
-            px={2}
-            r="sm"
-            className="oui-rounded-[4px] oui-bg-success/[0.15]"
-          >
-            <Text size="2xs" className="oui-text-success">
-              {apy!.toFixed(1)}% APY
-            </Text>
-          </Box>
+        justify="between"
+        px={2}
+        r="base"
+        className={cn(
+          "group",
+          "oui-h-7 hover:oui-bg-base-5",
+          "oui-text-2xs oui-font-semibold",
+          "oui-cursor-pointer",
+          isActive && "oui-bg-base-5",
+          props.index !== 0 && "oui-mt-0.5",
         )}
+      >
+        <Flex
+          direction={isRTL ? "rowReverse" : "row"}
+          gapX={1}
+          itemAlign="center"
+        >
+          <TokenIcon
+            name={symbol}
+            url={(token as any).logo_uri}
+            className="oui-size-4"
+          />
+          <Text
+            className={cn(
+              "oui-text-base-contrast-80 group-hover:oui-text-base-contrast-80",
+              isActive && "oui-text-base-contrast-80",
+              "oui-max-w-48 oui-truncate",
+            )}
+          >
+            {token.label}
+          </Text>
+          {showAPY && (
+            <Box
+              height="var(--oui-space-4)"
+              px={2}
+              r="sm"
+              className="oui-rounded oui-bg-success/[0.15]"
+            >
+              <Text size="2xs" className="oui-text-success">
+                {apy!.toFixed(1)}% APY
+              </Text>
+            </Box>
+          )}
+        </Flex>
+        {renderValue()}
       </Flex>
-      {renderValue()}
-    </Flex>
+    </SelectItem>
   );
 };
