@@ -249837,7 +249837,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.736]
 title = "Add the restriction column and the inventory cursor table of the gateway by a registered migration and give the ranking role the lock right of its prune"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.733"]
