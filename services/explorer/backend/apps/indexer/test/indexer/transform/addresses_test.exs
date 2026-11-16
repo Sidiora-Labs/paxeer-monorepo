@@ -1,5 +1,5 @@
 defmodule Indexer.Transform.AddressesTest do
-  use Explorer.DataCase, async: true
+  use Explorer.DataCase, async: false
 
   alias Indexer.Transform.Addresses
 

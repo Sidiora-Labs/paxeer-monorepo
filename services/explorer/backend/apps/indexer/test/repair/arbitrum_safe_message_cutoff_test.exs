@@ -15,6 +15,13 @@ defmodule Indexer.ArbitrumSafeMessageCutoffTest do
   @moduletag :capture_log
 
   setup do
+    original_repo = Repo.get_dynamic_repo()
+    repo = start_supervised!({Repo, name: nil, pool_size: 1})
+    Repo.put_dynamic_repo(repo)
+    on_exit(fn -> Repo.put_dynamic_repo(original_repo) end)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.mode(repo, {:shared, self()})
+
     config = Application.get_env(:indexer, Arbitrum)
     Application.put_env(:indexer, Arbitrum, Keyword.put(config, :l1_finalization_threshold, 10))
     on_exit(fn -> Application.put_env(:indexer, Arbitrum, config) end)
@@ -160,4 +167,3 @@ defmodule Indexer.ArbitrumSafeMessageCutoffTest do
     assert_receive {:block_tag, "latest"}
   end
 end
-

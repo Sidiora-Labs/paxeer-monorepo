@@ -68,7 +68,11 @@ defmodule Indexer.Fetcher.OnDemand.TokenInstanceMetadataRefetchTest do
 
       assert TokenInstanceMetadataRefetchOnDemand.trigger_refetch(token_instance) == :ok
 
-      :timer.sleep(100)
+      assert_receive(
+        {:chain_event, :fetched_token_instance_metadata, :on_demand,
+         [^token_contract_address_hash_string, ^token_id, ^metadata]},
+        5_000
+      )
 
       token_instance_from_db =
         Repo.get_by(TokenInstance, token_id: token_id, token_contract_address_hash: token.contract_address_hash)
@@ -83,11 +87,6 @@ defmodule Indexer.Fetcher.OnDemand.TokenInstanceMetadataRefetchTest do
                  token_id: token_id
                )
              )
-
-      assert_receive(
-        {:chain_event, :fetched_token_instance_metadata, :on_demand,
-         [^token_contract_address_hash_string, ^token_id, ^metadata]}
-      )
     end
 
     test "run the update on the token instance with no metadata fetched initially" do
@@ -121,7 +120,11 @@ defmodule Indexer.Fetcher.OnDemand.TokenInstanceMetadataRefetchTest do
 
       assert TokenInstanceMetadataRefetchOnDemand.trigger_refetch(token_instance) == :ok
 
-      :timer.sleep(100)
+      assert_receive(
+        {:chain_event, :fetched_token_instance_metadata, :on_demand,
+         [^token_contract_address_hash_string, ^token_id, ^metadata]},
+        5_000
+      )
 
       token_instance_from_db =
         Repo.get_by(TokenInstance, token_id: token_id, token_contract_address_hash: token.contract_address_hash)
@@ -135,11 +138,6 @@ defmodule Indexer.Fetcher.OnDemand.TokenInstanceMetadataRefetchTest do
                  token_id: token_id
                )
              )
-
-      assert_receive(
-        {:chain_event, :fetched_token_instance_metadata, :on_demand,
-         [^token_contract_address_hash_string, ^token_id, ^metadata]}
-      )
     end
 
     test "updates token_instance_metadata_refetch_attempts table" do
@@ -172,7 +170,11 @@ defmodule Indexer.Fetcher.OnDemand.TokenInstanceMetadataRefetchTest do
 
       assert TokenInstanceMetadataRefetchOnDemand.trigger_refetch(token_instance) == :ok
 
-      :timer.sleep(100)
+      assert_receive(
+        {:chain_event, :not_fetched_token_instance_metadata, :on_demand,
+         [^token_contract_address_hash_string, ^token_id, "error"]},
+        5_000
+      )
 
       token_instance_from_db =
         Repo.get_by(TokenInstance, token_id: token_id, token_contract_address_hash: token.contract_address_hash)
@@ -193,11 +195,6 @@ defmodule Indexer.Fetcher.OnDemand.TokenInstanceMetadataRefetchTest do
       refute_receive(
         {:chain_event, :fetched_token_instance_metadata, :on_demand,
          [^token_contract_address_hash_string, ^token_id, _raw_metadata]}
-      )
-
-      assert_receive(
-        {:chain_event, :not_fetched_token_instance_metadata, :on_demand,
-         [^token_contract_address_hash_string, ^token_id, "error"]}
       )
     end
   end

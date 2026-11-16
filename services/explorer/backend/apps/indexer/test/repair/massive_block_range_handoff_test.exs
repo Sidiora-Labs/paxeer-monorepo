@@ -236,6 +236,7 @@ defmodule Indexer.MassiveBlockRangeHandoffTest do
       Process.exit(pid, :shutdown)
       assert_receive {:DOWN, ^monitor, :process, ^pid, :shutdown}, 2_000
       refute Process.alive?(pid)
+      eventually(fn -> assert Task.Supervisor.children(TaskSupervisor) == [] end)
       assert Repo.get!(MassiveBlock, @first)
 
       {:ok, supervisor} = ExUnit.fetch_test_supervisor()
@@ -362,4 +363,3 @@ defmodule Indexer.MassiveBlockRangeHandoffTest do
     end)
   end
 end
-
