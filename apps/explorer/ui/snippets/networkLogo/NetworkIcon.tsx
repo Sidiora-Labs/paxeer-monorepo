@@ -14,9 +14,9 @@ const IconFallback = () => {
   return (
     <IconSvg
       name="networks/icon-placeholder"
-      w="30px"
-      h="30px"
-      color={{ base: 'blue.600', _dark: 'white' }}
+      w={ 'var(--chakra-spacing-7\\.5)' }
+      h={ 'var(--chakra-spacing-7\\.5)' }
+      color="accent"
       aria-label="Network icon placeholder"
     />
   );
@@ -35,10 +35,15 @@ const NetworkIcon = ({ className }: Props) => {
       className={ className }
       href={ route({ pathname: '/' }) }
       aria-label="Link to main page"
+      display="inline-flex"
+      alignItems="center"
+      minH="touchTarget"
+      minW="touchTarget"
+      flexShrink={ 0 }
     >
       <Image
-        w="30px"
-        h="30px"
+        w={ 'var(--chakra-spacing-7\\.5)' }
+        h={ 'var(--chakra-spacing-7\\.5)' }
         src={ iconSrc }
         alt={ `${ config.chain.name } network icon` }
         fallback={ <IconFallback/> }

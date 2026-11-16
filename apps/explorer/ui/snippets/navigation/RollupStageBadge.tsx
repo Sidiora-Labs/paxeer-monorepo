@@ -21,7 +21,14 @@ const RollupStageBadge = ({ chainConfig = config, isLoading, ...props }: Props) 
   }
 
   if (isLoading) {
-    return <Skeleton w="42px" h="14px" { ...props } loading/>;
+    return (
+      <Skeleton
+        w="calc(var(--chakra-spacing-10) + var(--chakra-spacing-1) / 2)"
+        h={ 'var(--chakra-spacing-3\\.5)' }
+        { ...props }
+        loading
+      />
+    );
   }
 
   switch (feature.stageIndex) {
@@ -39,9 +46,11 @@ const RollupStageBadge = ({ chainConfig = config, isLoading, ...props }: Props) 
       return (
         <Tooltip content={ tooltipContent } interactive>
           <Image
+            alt={ `Rollup stage ${ feature.stageIndex }` }
+            tabIndex={ 0 }
             src={ feature.stageIndex === '1' ? '/explorer/static/labels/stage-1.svg' : '/explorer/static/labels/stage-2.svg' }
-            h="14px"
-            w="42px"
+            h={ 'var(--chakra-spacing-3\\.5)' }
+            w="calc(var(--chakra-spacing-10) + var(--chakra-spacing-1) / 2)"
             { ...props }
           />
         </Tooltip>

@@ -45,14 +45,14 @@ const UserWalletButton = ({ size, variant, isPending, isAutoConnectDisabled, add
       disableOnMobile
     >
       <span>
-        <Button
+        <Button minH="touchTarget" minW="touchTarget"
           ref={ ref }
           size={ size }
           variant={ variant }
           selected={ Boolean(address) }
           highlighted={ isAutoConnectDisabled }
           px={{ base: 2.5, lg: 3 }}
-          fontWeight={ address ? 700 : 600 }
+          fontWeight={ address ? 'bold' : 'semibold' }
           loading={ isPending }
           loadingText={ isMobile ? undefined : 'Connecting' }
           { ...rest }

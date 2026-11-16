@@ -1,0 +1,622 @@
+[manifest]
+task = "22.44.2"
+surface = "Paxscan explorer shell, navigation, search and page entry points"
+paths = ["apps/explorer/pages", "apps/explorer/ui/snippets"]
+
+[patterns]
+layout = "Headers wrap their controls; footer groups form an intrinsic grid."
+search = "Suggestion rows follow the search container; result sections scroll independently."
+navigation = "Desktop groups use popovers; mobile groups use exclusive disclosure elements."
+forms = "Email and confirmation code fields expose labels, autofill hints and validation feedback."
+settings = "Labeled buttons expose the selected theme and address icon."
+media = "Network images reserve their dimensions; decorative icons stay outside accessible names."
+motion = "Scrolling and shell transitions honor reduced motion."
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/pages", "apps/explorer/ui/snippets"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/pages", "apps/explorer/ui/snippets"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/snippets/auth", "apps/explorer/ui/snippets/searchBar"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/snippets"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/snippets"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/pages", "apps/explorer/ui/snippets"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/snippets"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/pages", "apps/explorer/ui/snippets"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/snippets"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/pages", "apps/explorer/ui/snippets/searchBar"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/snippets/header", "apps/explorer/ui/snippets/footer", "apps/explorer/ui/snippets/searchBar"]
+
+[guide.size_aware_styling]
+id = "size-aware-styling"
+directories = ["apps/explorer/ui/snippets/searchBar/SearchBarSuggest", "apps/explorer/ui/snippets/navigation"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/ui/snippets/searchBar", "apps/explorer/ui/snippets/user/wallet"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/ui/snippets/navigation", "apps/explorer/ui/snippets/topBar"]
+
+[guide.navbar]
+id = "navbar"
+directories = ["apps/explorer/ui/snippets/header", "apps/explorer/ui/snippets/navigation"]
+
+[guide.navigation_drawer]
+id = "navigation-drawer"
+directories = ["apps/explorer/ui/snippets/header", "apps/explorer/ui/snippets/navigation/mobile"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/ui/snippets/navigation/mobile"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/explorer/ui/snippets/searchBar/SearchBarSuggest"]
+
+[guide.validate_input_after_interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/explorer/ui/snippets/auth"]
+
+[guide.autofill_sign_in_form]
+id = "autofill-sign-in-form"
+directories = ["apps/explorer/ui/snippets/auth"]
+
+[guide.sms_otp_form]
+id = "sms-otp-form"
+directories = ["apps/explorer/ui/snippets/auth/fields"]
+
+[guide.scrollability_affordance_hints]
+id = "scrollability-affordance-hints"
+directories = ["apps/explorer/ui/snippets/searchBar", "apps/explorer/ui/snippets/topBar/settings"]
+
+[guide.dark_mode_toggle]
+id = "dark-mode-toggle"
+directories = ["apps/explorer/ui/snippets/topBar"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/snippets"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/pages", "apps/explorer/ui/snippets"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/explorer/pages"]
+
+[guide.interest_triggered_tooltips]
+id = "interest-triggered-tooltips"
+directories = ["apps/explorer/ui/snippets/topBar/settings", "apps/explorer/ui/snippets/footer"]
+
+[view.page_001]
+route = "/404"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+variation_widths = [360]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.page_002]
+route = "/account/api-key"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_003]
+route = "/account/custom-abi"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_004]
+route = "/account/merits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_005]
+route = "/account/tag-address"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_006]
+route = "/account/verified-addresses"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_007]
+route = "/account/watchlist"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_008]
+route = "/accounts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_009]
+route = "/accounts/label/[slug]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_010]
+route = "/address/[hash]/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_011]
+route = "/address/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+variation_widths = [360]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.page_012]
+route = "/advanced-filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_013]
+route = "/api-docs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_014]
+route = "/apps/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_015]
+route = "/apps"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_016]
+route = "/auth/profile"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_017]
+route = "/batches/[number]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_018]
+route = "/batches/celestia/[height]/[commitment]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_019]
+route = "/batches"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_020]
+route = "/blobs/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_021]
+route = "/block/[height_or_hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+variation_widths = [360]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.page_022]
+route = "/block/countdown/[height]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_023]
+route = "/block/countdown"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_024]
+route = "/blocks"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+variation_widths = [360]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.page_025]
+route = "/cc/tx/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_026]
+route = "/chain/[chain_slug]/accounts/label/[slug]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_027]
+route = "/chain/[chain_slug]/advanced-filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_028]
+route = "/chain/[chain_slug]/block/[height_or_hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_029]
+route = "/chain/[chain_slug]/block/countdown/[height]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_030]
+route = "/chain/[chain_slug]/block/countdown"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_031]
+route = "/chain/[chain_slug]/csv-export"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_032]
+route = "/chain/[chain_slug]/op/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_033]
+route = "/chain/[chain_slug]/token/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_034]
+route = "/chain/[chain_slug]/token/[hash]/instance/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_035]
+route = "/chain/[chain_slug]/tx/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_036]
+route = "/chain/[chain_slug]/visualize/sol2uml"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_037]
+route = "/chains/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_038]
+route = "/chains"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_039]
+route = "/chakra"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_040]
+route = "/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+variation_widths = [360]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.page_041]
+route = "/cross-chain-tx/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_042]
+route = "/csv-export"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_043]
+route = "/deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_044]
+route = "/dispute-games"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_045]
+route = "/ecosystems"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_046]
+route = "/epochs/[number]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_047]
+route = "/epochs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_048]
+route = "/essential-dapps/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_049]
+route = "/feed"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_050]
+route = "/feed/market/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_051]
+route = "/feed/update/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_052]
+route = "/gas-tracker"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_053]
+route = "/hot-contracts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_054]
+route = "/"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+variation_widths = [360]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.page_055]
+route = "/internal-txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_056]
+route = "/interop-messages"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_057]
+route = "/login"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_058]
+route = "/mud-worlds"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_059]
+route = "/name-services/clusters/[name]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_060]
+route = "/name-services/domains/[name]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_061]
+route = "/name-services"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_062]
+route = "/op/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_063]
+route = "/operation/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_064]
+route = "/operations"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_065]
+route = "/ops"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_066]
+route = "/output-roots"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_067]
+route = "/paxeer-x/account/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_068]
+route = "/paxeer-x/inference"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_069]
+route = "/pools/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_070]
+route = "/pools"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_071]
+route = "/public-tags/submit"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_072]
+route = "/search-results"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+variation_widths = [360]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.page_073]
+route = "/sprite"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_074]
+route = "/stats/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_075]
+route = "/stats"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_076]
+route = "/token-transfers"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_077]
+route = "/token/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_078]
+route = "/token/[hash]/instance/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_079]
+route = "/tokens"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_080]
+route = "/tx/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+variation_widths = [360]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.page_081]
+route = "/txn-withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_082]
+route = "/txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_083]
+route = "/txs/kettle/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_084]
+route = "/uptime"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_085]
+route = "/validators/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_086]
+route = "/validators"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_087]
+route = "/verified-contracts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_088]
+route = "/visualize/sol2uml"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.page_089]
+route = "/withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.shell_navigation]
+route = "/"
+state = "navigation"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.shell_recent_search]
+route = "/"
+state = "recent searches"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.shell_search]
+route = "/"
+state = "search suggestions"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.shell_settings]
+route = "/"
+state = "settings"
+widths = [1440]
+schemes = ["light", "dark"]

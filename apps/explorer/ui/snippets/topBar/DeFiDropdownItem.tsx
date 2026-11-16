@@ -24,11 +24,11 @@ const DeFiDropdownItem = ({ item }: Props) => {
       }
       external={ !item.dappId }
       w="100%"
-      h="34px"
+      minH="touchTarget"
       variant="menu"
       onClick={ item.onClick }
     >
-      { item.icon && <IconSvg name={ item.icon } boxSize={ 5 } mr={ 2 }/> }
+      { item.icon && <IconSvg aria-hidden={ true } name={ item.icon } boxSize={ 5 } mr={ 2 }/> }
       <Text as="span" fontSize="sm">{ item.text }</Text>
     </Link>
   );

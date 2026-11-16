@@ -15,7 +15,7 @@ interface Props {
 const SettingsColorTheme = ({ onSelect }: Props) => {
   const { activeThemeId, setTheme } = useColorTheme();
 
-  const handleSelect = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+  const handleSelect = React.useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
 
     const themeId = event.currentTarget.getAttribute('data-value') as ColorThemeId | null;
@@ -32,9 +32,9 @@ const SettingsColorTheme = ({ onSelect }: Props) => {
 
   return (
     <div>
-      <Box fontWeight={ 600 }>Color theme</Box>
+      <Box fontWeight="semibold">Color theme</Box>
       <Box color="text.secondary" mt={ 1 } mb={ 2 }>{ activeTheme?.label }</Box>
-      <Flex>
+      <Flex flexWrap="wrap" gap={ 1 }>
         { COLOR_THEMES.map((theme) => {
           return (
             <SettingsSample

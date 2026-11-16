@@ -59,7 +59,7 @@ const TopBarStats = ({ showGasInfo = true }: { showGasInfo?: boolean }) => {
   return (
     <Flex
       alignItems="center"
-      fontWeight={ 500 }
+      fontWeight="medium"
       flexWrap="wrap"
       columnGap={ 3 }
       rowGap={ 1 }
@@ -85,7 +85,11 @@ const TopBarStats = ({ showGasInfo = true }: { showGasInfo?: boolean }) => {
         <>
           <Skeleton loading={ isPlaceholderData } whiteSpace="pre-wrap">
             <chakra.span color="text.secondary">Gas: </chakra.span>
-            <GasInfoTooltip data={ data } dataUpdatedAt={ dataUpdatedAt } placement={ !data?.coin_price ? 'bottom-start' : undefined }>
+            <GasInfoTooltip
+              data={ data }
+              dataUpdatedAt={ dataUpdatedAt }
+              placement={ !data?.coin_price ? 'bottom-start' : undefined }
+            >
               <Link color="accent">
                 <GasPrice data={ data.gas_prices?.average ?? null }/>
               </Link>
