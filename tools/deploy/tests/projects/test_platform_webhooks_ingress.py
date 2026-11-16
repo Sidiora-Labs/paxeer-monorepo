@@ -347,3 +347,16 @@ def test_ingress_health_uses_port_and_preserves_mutual_tls():
     assert "serve_health(&listener" in main
     assert "WebPkiClientVerifier::builder" in main
     assert "tls_config(Some(&client_ca))" in main
+
+
+def test_webhooks_ingress_network_label_input() -> None:
+    sections = load_rows(DEFINITION)
+    input_name = "PLATFORM_WEBHOOKS_INGRESS_LAYERX_WEBHOOKS_NETWORK_ID"
+    assert sections["vars.webhooks-ingress"]["LAYERX_WEBHOOKS_NETWORK_ID"] == f"env:{input_name}"
+    assert sections["inputs.webhooks-ingress"][input_name] == "operator"
+    lines = DEFINITION.read_text().splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith(input_name + " ="))
+    assert lines[index - 1] == (
+        "# Network label used by the project gateway: "
+        "1-64 printable ASCII bytes without spaces."
+    )
