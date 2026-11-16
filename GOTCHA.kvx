@@ -22575,3 +22575,8 @@ fix = "Decision 3632. Task 22.39.675."
 title = "A block is applied in more than one form, and the state of a home differs from the state of a new genesis"
 symptom = "A node with sequencing on executes a transaction when it arrives and builds the block, and a node that follows applies the committed block. The settings of the fast execution path select a second executor beside the ordinary one. A case that starts from a new genesis reads the values that genesis sets, and a home that went through upgrades can hold a parameter without a value or an account in an earlier form. A transaction of a new kind is therefore compared in every form over the state of the home it is meant for."
 fix = "Decision 3633. Task 22.39.706."
+
+[gotcha.4551]
+title = "The receipt authority names a batch evidence origin, and the core service answers that contract as retired"
+symptom = "The receipt authority reads its settings for a loopback origin of batch evidence with an identity, a bearer and a range of batches, and its readiness asks that origin beside the node. The core service answers the route of batch evidence with the refusal of a retired contract, and its readiness names no such origin. A service and the services beside it name the same contracts, and a setting that only a retired contract can fill is not a required setting."
+fix = "Decision 3634. Task 22.39.707."

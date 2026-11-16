@@ -14914,6 +14914,12 @@ value = "The node tool gets the command applycheck. It opens a copy of a home, b
 basis = "Gotcha 4550. Decisions 3596 and 3606."
 affects = []
 
+[decision.3634]
+title = "The receipt authority serves from the node alone, and the batch evidence origin is an optional group of settings"
+value = "The settings of the batch evidence origin of the receipt authority form one optional group: the origin, its identity, its bearer and the range of batches are given together or not at all. Without the group the receipt authority starts, its readiness asks the node alone, and it answers a receipt of an activity from the node: the signature of the receipt against the pinned receipt keys with their ranges of heights, and the landing of the receipt in its committed block in the form of the committed evidence of the service. The relay of batch evidence then answers with the refusal of a retired contract in the form of the core service. With the group the service behaves as now. The answers keep each member a reader on the main line reads; a member that only the origin can give is absent without the group and its absence is stated in the page of the service."
+basis = "Gotcha 4551. Decision 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44574,6 +44580,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.707]
+title = "Let the receipt authority serve from the node alone, with the batch evidence origin as an optional group of settings"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/authority/src", "services/platform/hosted/authority/tests", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/README.md", "docs/wiki/HostedAuthority.md", "deploy/projects/platform/receipt-authority.kvx", "docker/platform-authority"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test merged_start --test chain_receipts --test documented_receipt_contract && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --lib --bins"
+do_1 = "do_1 Gotcha 4551, decision 3634. Read in services/platform/hosted/authority/src/main.rs the reading of the settings, the readiness, the relay of batch evidence, the route of the committed head and the routes of an activity, then services/platform/hosted/authority/src/trust.rs, services/platform/hosted/authority/src/committed.rs, services/platform/hosted/authority/src/chain_receipt.rs and services/platform/hosted/authority/src/committed_head_route.rs, the cases of services/platform/hosted/authority/tests/chain_receipts.rs and services/platform/hosted/authority/tests/documented_receipt_contract.rs, the sections on readiness and on retired contracts of docs/wiki/HostedCore.md with the landing check of a receipt in services/platform/hosted/core/src/main.rs, and docs/wiki/HostedAuthority.md."
+symbols = []
 
 [capability.22.39.706]
 title = "Give the node tool a command that applies given transactions on a copy of a home in every form and compares the results"
@@ -212695,6 +212710,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.707]
+title = "Let the receipt authority serve from the node alone, with the batch evidence origin as an optional group of settings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.707"]
+interfaces = []
+do_1 = "do_1 Gotcha 4551, decision 3634. Read in services/platform/hosted/authority/src/main.rs the reading of the settings, the readiness, the relay of batch evidence, the route of the committed head and the routes of an activity, then services/platform/hosted/authority/src/trust.rs, services/platform/hosted/authority/src/committed.rs, services/platform/hosted/authority/src/chain_receipt.rs and services/platform/hosted/authority/src/committed_head_route.rs, the cases of services/platform/hosted/authority/tests/chain_receipts.rs and services/platform/hosted/authority/tests/documented_receipt_contract.rs, the sections on readiness and on retired contracts of docs/wiki/HostedCore.md with the landing check of a receipt in services/platform/hosted/core/src/main.rs, and docs/wiki/HostedAuthority.md."
+do_2 = "do_2 In services/platform/hosted/authority/src the settings LAYERX_AUTHORITY_REPLICA_URL, LAYERX_AUTHORITY_REPLICA_ID, LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE, LAYERX_AUTHORITY_FIRST_BATCH and LAYERX_AUTHORITY_LAST_BATCH form one optional group. All five given: the service behaves as now. None given: the service starts in the form of the node alone. Some given: the start is refused with a message that names the group and the missing settings. The other settings are read as now."
+do_3 = "do_3 In the form of the node alone the readiness asks the node alone and keeps its members, with the header of the origin stating that no origin is set. The routes of an activity read the receipt from the node, check its signature against the pinned receipt keys and their ranges of heights, and check its landing in the committed block in the form of the committed evidence of the service: the position and hash of the transaction, the block, the status of the execution and the binding of the block to the commit the node gives. The answer keeps each member the answer with an origin holds that does not come from the document of the origin, and the waiting route keeps its deadline. The relay of batch evidence answers 410 with the code retired_http_contract. The route of the committed head answers from the committed state of the node where the service can state it without the origin, and otherwise with the same refusal."
+do_4 = "do_4 Add services/platform/hosted/authority/tests/merged_start.rs and name it in services/platform/hosted/authority/Cargo.toml in the form of the present cases: without the group the service starts against a node of the case and is ready; with a part of the group the start is refused; a receipt of an activity is answered with its members and a receipt with a wrong signature, a key outside its range of heights or a landing that does not match is refused; the relay answers 410; with the whole group the present behaviour holds. No present case is removed or weakened."
+do_5 = "do_5 In deploy/projects/platform/receipt-authority.kvx the inputs of the group are stated as optional in the form the file gives to an optional input, and docker/platform-authority stages the bearer of the origin only when it is given. Where a case outside the paths reads these files and no longer passes, change nothing there and name case, file and first message in the final message."
+do_6 = "do_6 State the optional group, the form of the node alone, the answers of each route in both forms and the members that are absent without the origin in services/platform/hosted/authority/README.md and docs/wiki/HostedAuthority.md. Give in the final message each reader on the main line that requires a member only the origin can give, with file and member, and change nothing in the readers."
+do_7 = "do_7 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/authority/src", "services/platform/hosted/authority/tests", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/README.md", "docs/wiki/HostedAuthority.md", "deploy/projects/platform/receipt-authority.kvx", "docker/platform-authority"]
+tests = []
+planned_paths = ["services/platform/hosted/authority/tests/merged_start.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test merged_start --test chain_receipts --test documented_receipt_contract && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --lib --bins"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
